@@ -9,6 +9,7 @@ import '../../features/groups/presentation/screens/groups_list_screen.dart';
 import '../../features/groups/presentation/providers/groups_provider.dart';
 import '../../features/events/presentation/screens/events_list_screen.dart';
 import '../../features/tags/presentation/screens/tags_list_screen.dart';
+import '../widgets/dashboard_charts.dart';
 
 /// Tela principal do app (Dashboard)
 class HomeScreen extends ConsumerStatefulWidget {
@@ -168,6 +169,26 @@ class _DashboardTab extends ConsumerWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 24),
+
+            // Gráfico de crescimento de membros
+            const MemberGrowthChart(),
+            const SizedBox(height: 16),
+
+            // Estatísticas de eventos
+            const EventsStatsCard(),
+            const SizedBox(height: 16),
+
+            // Grupos mais ativos
+            const TopActiveGroupsCard(),
+            const SizedBox(height: 16),
+
+            // Frequência nas reuniões
+            const AverageAttendanceCard(),
+            const SizedBox(height: 16),
+
+            // Tags mais usadas
+            const TopTagsCard(),
             const SizedBox(height: 32),
 
             // Aniversariantes do Mês
