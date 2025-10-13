@@ -7,6 +7,7 @@ import '../../features/members/presentation/screens/members_list_screen.dart';
 import '../../features/members/presentation/providers/members_provider.dart';
 import '../../features/groups/presentation/screens/groups_list_screen.dart';
 import '../../features/groups/presentation/providers/groups_provider.dart';
+import '../../features/events/presentation/screens/events_list_screen.dart';
 
 /// Tela principal do app (Dashboard)
 class HomeScreen extends ConsumerStatefulWidget {
@@ -23,7 +24,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     const _DashboardTab(),
     const MembersListScreen(),
     const GroupsListScreen(),
-    const _EventsTab(),
+    const EventsListScreen(),
   ];
 
   @override
@@ -386,19 +387,6 @@ class _StatCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Tab de Eventos (placeholder)
-class _EventsTab extends StatelessWidget {
-  const _EventsTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Eventos')),
-      body: const Center(child: Text('Em breve!')),
     );
   }
 }

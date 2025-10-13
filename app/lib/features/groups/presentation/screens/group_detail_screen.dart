@@ -591,6 +591,12 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
                       );
                     }
 
+                    // Garantir que o valor selecionado está na lista
+                    if (_selectedMemberId != null &&
+                        !availableMembers.any((m) => m.id == _selectedMemberId)) {
+                      _selectedMemberId = null;
+                    }
+
                     return DropdownButtonFormField<String>(
                       value: _selectedMemberId,
                       decoration: const InputDecoration(
