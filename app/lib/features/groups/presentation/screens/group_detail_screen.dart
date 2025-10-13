@@ -4,7 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../providers/groups_provider.dart';
+import '../providers/meetings_provider.dart';
 import '../../domain/models/group.dart';
+import '../../domain/models/group_meeting.dart' as meeting_models;
+import '../../data/group_meetings_repository.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 
 /// Tela de detalhes do grupo
@@ -137,7 +140,7 @@ class _GroupDetailContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Column(
         children: [
           // Header com informações do grupo
@@ -160,7 +163,7 @@ class _GroupDetailContent extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Nome
                 Text(
                   group.name,
@@ -170,7 +173,7 @@ class _GroupDetailContent extends ConsumerWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                
+
                 // Status
                 if (!group.isActive)
                   Chip(
@@ -180,9 +183,9 @@ class _GroupDetailContent extends ConsumerWidget {
                     ),
                     backgroundColor: Colors.grey,
                   ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Contagem de membros
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -220,6 +223,7 @@ class _GroupDetailContent extends ConsumerWidget {
             tabs: const [
               Tab(text: 'Informações', icon: Icon(Icons.info_outline)),
               Tab(text: 'Membros', icon: Icon(Icons.people_outline)),
+              Tab(text: 'Reuniões', icon: Icon(Icons.event_note)),
             ],
             labelColor: Theme.of(context).colorScheme.primary,
           ),
@@ -230,6 +234,7 @@ class _GroupDetailContent extends ConsumerWidget {
               children: [
                 _InfoTab(group: group),
                 _MembersTab(groupId: group.id),
+                _MeetingsTab(groupId: group.id),
               ],
             ),
           ),
@@ -684,5 +689,190 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
         setState(() => _isLoading = false);
       }
     }
+  }
+}
+
+/// Tab de Reuniões
+class _MeetingsTab extends ConsumerWidget {
+  final String groupId;
+
+  const _MeetingsTab({required this.groupId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final meetingsAsync = ref.watch(meetingsListProvider(groupId));
+
+    return meetingsAsync.when(
+      data: (meetings) {
+        if (meetings.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.event_note,
+                  size: 64,
+                  color: Colors.grey.shade400,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Nenhuma reunião registrada',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.grey,
+                      ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    context.push('/groups/$groupId/meetings/new');
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Registrar Primeira Reunião'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Stack(
+          children: [
+            ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: meetings.length,
+              itemBuilder: (context, index) {
+                final meeting = meetings[index];
+                return _MeetingCard(meeting: meeting);
+              },
+            ),
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: FloatingActionButton(
+                onPressed: () {
+                  context.push('/groups/$groupId/meetings/new');
+                },
+                child: const Icon(Icons.add),
+              ),
+            ),
+          ],
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text('Erro ao carregar reuniões: $error'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => ref.invalidate(meetingsListProvider(groupId)),
+              child: const Text('Tentar novamente'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Card de Reunião
+class _MeetingCard extends StatelessWidget {
+  final meeting_models.GroupMeeting meeting;
+
+  const _MeetingCard({required this.meeting});
+
+  @override
+  Widget build(BuildContext context) {
+    final dateFormat = DateFormat('dd/MM/yyyy');
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () {
+          context.push('/groups/${meeting.groupId}/meetings/${meeting.id}');
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Data e presença
+              Row(
+                children: [
+                  Icon(
+                    Icons.calendar_today,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    dateFormat.format(meeting.meetingDate),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.people,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${meeting.totalAttendance}',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              // Tópico
+              if (meeting.topic != null && meeting.topic!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  meeting.topic!,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+              ],
+
+              // Notas (preview)
+              if (meeting.notes != null && meeting.notes!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  meeting.notes!,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey.shade700,
+                      ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

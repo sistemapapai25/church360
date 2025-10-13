@@ -8,6 +8,8 @@ import '../../features/members/presentation/screens/member_form_screen.dart';
 import '../../features/groups/presentation/screens/groups_list_screen.dart';
 import '../../features/groups/presentation/screens/group_detail_screen.dart';
 import '../../features/groups/presentation/screens/group_form_screen.dart';
+import '../../features/groups/presentation/screens/meeting_form_screen.dart';
+import '../../features/groups/presentation/screens/meeting_detail_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
 
@@ -86,6 +88,30 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         return GroupDetailScreen(groupId: id);
+      },
+    ),
+    // Rotas de reuniões
+    GoRoute(
+      path: '/groups/:groupId/meetings/new',
+      builder: (context, state) {
+        final groupId = state.pathParameters['groupId']!;
+        return MeetingFormScreen(groupId: groupId);
+      },
+    ),
+    GoRoute(
+      path: '/groups/:groupId/meetings/:meetingId/edit',
+      builder: (context, state) {
+        final groupId = state.pathParameters['groupId']!;
+        final meetingId = state.pathParameters['meetingId']!;
+        return MeetingFormScreen(groupId: groupId, meetingId: meetingId);
+      },
+    ),
+    GoRoute(
+      path: '/groups/:groupId/meetings/:meetingId',
+      builder: (context, state) {
+        final groupId = state.pathParameters['groupId']!;
+        final meetingId = state.pathParameters['meetingId']!;
+        return MeetingDetailScreen(groupId: groupId, meetingId: meetingId);
       },
     ),
   ],
