@@ -83,6 +83,21 @@ class MembersRepository {
     }
   }
 
+  /// Criar novo membro a partir de JSON (sem ID)
+  Future<Member> createMemberFromJson(Map<String, dynamic> data) async {
+    try {
+      final response = await _supabase
+          .from('member')
+          .insert(data)
+          .select()
+          .single();
+
+      return Member.fromJson(response);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Atualizar membro
   Future<Member> updateMember(Member member) async {
     try {

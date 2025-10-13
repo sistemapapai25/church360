@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../providers/members_provider.dart';
@@ -168,12 +169,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Navegar para tela de criar membro
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Criar membro - Em breve!'),
-            ),
-          );
+          context.push('/members/new');
         },
         child: const Icon(Icons.add),
       ),
@@ -254,12 +250,7 @@ class _MemberListTile extends StatelessWidget {
         ),
         trailing: _StatusChip(status: member.status),
         onTap: () {
-          // TODO: Navegar para detalhes do membro
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Detalhes de ${member.fullName} - Em breve!'),
-            ),
-          );
+          context.push('/members/${member.id}');
         },
       ),
     );

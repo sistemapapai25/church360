@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/members/presentation/screens/member_detail_screen.dart';
+import '../../features/members/presentation/screens/member_form_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
 
@@ -46,6 +48,24 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/home',
       builder: (context, state) => const HomeScreen(),
+    ),
+    GoRoute(
+      path: '/members/new',
+      builder: (context, state) => const MemberFormScreen(),
+    ),
+    GoRoute(
+      path: '/members/:id/edit',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return MemberFormScreen(memberId: id);
+      },
+    ),
+    GoRoute(
+      path: '/members/:id',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return MemberDetailScreen(memberId: id);
+      },
     ),
   ],
 );
