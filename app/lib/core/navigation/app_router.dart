@@ -10,6 +10,9 @@ import '../../features/groups/presentation/screens/group_detail_screen.dart';
 import '../../features/groups/presentation/screens/group_form_screen.dart';
 import '../../features/groups/presentation/screens/meeting_form_screen.dart';
 import '../../features/groups/presentation/screens/meeting_detail_screen.dart';
+import '../../features/ministries/presentation/screens/ministries_list_screen.dart';
+import '../../features/ministries/presentation/screens/ministry_detail_screen.dart';
+import '../../features/ministries/presentation/screens/ministry_form_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
 
@@ -112,6 +115,25 @@ final appRouter = GoRouter(
         final groupId = state.pathParameters['groupId']!;
         final meetingId = state.pathParameters['meetingId']!;
         return MeetingDetailScreen(groupId: groupId, meetingId: meetingId);
+      },
+    ),
+    // Rotas de ministérios
+    GoRoute(
+      path: '/ministries/new',
+      builder: (context, state) => const MinistryFormScreen(),
+    ),
+    GoRoute(
+      path: '/ministries/:id/edit',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return MinistryFormScreen(ministryId: id);
+      },
+    ),
+    GoRoute(
+      path: '/ministries/:id',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return MinistryDetailScreen(ministryId: id);
       },
     ),
   ],
