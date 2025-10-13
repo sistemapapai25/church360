@@ -18,6 +18,7 @@ class MembersListScreen extends ConsumerStatefulWidget {
 class _MembersListScreenState extends ConsumerState<MembersListScreen> {
   String _searchQuery = '';
   String _selectedFilter = 'all'; // all, active, visitor
+  String? _selectedTagId; // null = sem filtro de tag
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +33,16 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
       appBar: AppBar(
         title: const Text('Membros'),
         actions: [
-          // Botão de filtro
+          // Botão de filtro por tag
+          IconButton(
+            icon: Icon(
+              Icons.label,
+              color: _selectedTagId != null ? Theme.of(context).colorScheme.primary : null,
+            ),
+            tooltip: 'Filtrar por tag',
+            onPressed: () => _showTagFilterDialog(context),
+          ),
+          // Botão de filtro por status
           PopupMenuButton<String>(
             icon: const Icon(Icons.filter_list),
             onSelected: (value) {
@@ -90,7 +100,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
             child: membersAsync.when(
               data: (members) {
                 // Filtrar por pesquisa
-                final filteredMembers = _searchQuery.isEmpty
+                var filteredMembers = _searchQuery.isEmpty
                     ? members
                     : members.where((member) {
                         final query = _searchQuery.toLowerCase();
@@ -98,35 +108,23 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                             (member.email?.toLowerCase().contains(query) ?? false);
                       }).toList();
 
-                if (filteredMembers.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.people_outline,
-                          size: 64,
-                          color: Colors.grey.shade400,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Nenhum membro encontrado',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                color: Colors.grey,
-                              ),
-                        ),
-                      ],
-                    ),
+                // Filtrar por tag (se selecionada)
+                if (_selectedTagId != null) {
+                  final tagMembersAsync = ref.watch(tagMembersProvider(_selectedTagId!));
+                  return tagMembersAsync.when(
+                    data: (tagMemberIds) {
+                      filteredMembers = filteredMembers
+                          .where((member) => tagMemberIds.contains(member.id))
+                          .toList();
+
+                      return _buildMembersList(context, filteredMembers);
+                    },
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (error, _) => Center(child: Text('Erro: $error')),
                   );
                 }
 
-                return ListView.builder(
-                  itemCount: filteredMembers.length,
-                  itemBuilder: (context, index) {
-                    final member = filteredMembers[index];
-                    return _MemberListTile(member: member);
-                  },
-                );
+                return _buildMembersList(context, filteredMembers);
               },
               loading: () => const Center(
                 child: CircularProgressIndicator(),
@@ -173,6 +171,52 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
           context.push('/members/new');
         },
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildMembersList(BuildContext context, List<Member> filteredMembers) {
+    if (filteredMembers.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.people_outline,
+              size: 64,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Nenhum membro encontrado',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.grey,
+                  ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: filteredMembers.length,
+      itemBuilder: (context, index) {
+        final member = filteredMembers[index];
+        return _MemberListTile(member: member);
+      },
+    );
+  }
+
+  void _showTagFilterDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _TagFilterDialog(
+        selectedTagId: _selectedTagId,
+        onTagSelected: (tagId) {
+          setState(() {
+            _selectedTagId = tagId;
+          });
+        },
       ),
     );
   }
@@ -351,3 +395,90 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
+/// Dialog para filtrar membros por tag
+class _TagFilterDialog extends ConsumerWidget {
+  final String? selectedTagId;
+  final Function(String?) onTagSelected;
+
+  const _TagFilterDialog({
+    required this.selectedTagId,
+    required this.onTagSelected,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final allTagsAsync = ref.watch(allTagsProvider);
+
+    return AlertDialog(
+      title: const Text('Filtrar por Tag'),
+      content: allTagsAsync.when(
+        data: (tags) {
+          if (tags.isEmpty) {
+            return const Text('Nenhuma tag disponível.');
+          }
+
+          return SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                // Opção "Todas" (sem filtro)
+                ListTile(
+                  leading: Icon(
+                    selectedTagId == null ? Icons.check_circle : Icons.circle_outlined,
+                    color: selectedTagId == null ? Theme.of(context).colorScheme.primary : null,
+                  ),
+                  title: const Text('Todas (sem filtro)'),
+                  onTap: () {
+                    onTagSelected(null);
+                    Navigator.pop(context);
+                  },
+                ),
+                const Divider(),
+                // Lista de tags
+                ...tags.map((tag) {
+                  final isSelected = selectedTagId == tag.id;
+                  return ListTile(
+                    leading: Icon(
+                      isSelected ? Icons.check_circle : Icons.circle_outlined,
+                      color: isSelected ? tag.colorValue : null,
+                    ),
+                    title: Row(
+                      children: [
+                        Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: tag.colorValue,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(tag.name),
+                      ],
+                    ),
+                    subtitle: tag.memberCount != null
+                        ? Text('${tag.memberCount} membros')
+                        : null,
+                    onTap: () {
+                      onTagSelected(tag.id);
+                      Navigator.pop(context);
+                    },
+                  );
+                }),
+              ],
+            ),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Text('Erro: $error'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Fechar'),
+        ),
+      ],
+    );
+  }
+}
