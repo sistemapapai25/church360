@@ -119,42 +119,38 @@ class Group {
 
 /// Modelo de Membro do Grupo
 class GroupMember {
-  final String id;
   final String groupId;
   final String memberId;
   final String? memberName; // Computed from join
   final String? role;
-  final DateTime joinedAt;
+  final DateTime joinedDate;
 
   GroupMember({
-    required this.id,
     required this.groupId,
     required this.memberId,
     this.memberName,
     this.role,
-    required this.joinedAt,
+    required this.joinedDate,
   });
 
   /// Criar a partir de JSON
   factory GroupMember.fromJson(Map<String, dynamic> json) {
     return GroupMember(
-      id: json['id'] as String,
       groupId: json['group_id'] as String,
       memberId: json['member_id'] as String,
       memberName: json['member_name'] as String?,
       role: json['role'] as String?,
-      joinedAt: DateTime.parse(json['joined_at'] as String),
+      joinedDate: DateTime.parse(json['joined_date'] as String),
     );
   }
 
   /// Converter para JSON
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
       'group_id': groupId,
       'member_id': memberId,
       'role': role,
-      'joined_at': joinedAt.toIso8601String(),
+      'joined_date': joinedDate.toIso8601String().split('T')[0],
     };
   }
 }

@@ -6,6 +6,7 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/members/presentation/screens/member_detail_screen.dart';
 import '../../features/members/presentation/screens/member_form_screen.dart';
 import '../../features/groups/presentation/screens/groups_list_screen.dart';
+import '../../features/groups/presentation/screens/group_detail_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
 
@@ -66,6 +67,13 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         return MemberDetailScreen(memberId: id);
+      },
+    ),
+    GoRoute(
+      path: '/groups/:id',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return GroupDetailScreen(groupId: id);
       },
     ),
   ],

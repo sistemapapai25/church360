@@ -185,16 +185,16 @@ class GroupsRepository {
             member(first_name, last_name)
           ''')
           .eq('group_id', groupId)
-          .order('joined_at');
+          .order('joined_date');
 
       return (response as List).map((json) {
         final data = Map<String, dynamic>.from(json);
-        
+
         if (data['member'] != null) {
           final member = data['member'];
           data['member_name'] = '${member['first_name']} ${member['last_name']}';
         }
-        
+
         return GroupMember.fromJson(data);
       }).toList();
     } catch (e) {
