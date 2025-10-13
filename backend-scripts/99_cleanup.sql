@@ -1,0 +1,62 @@
+-- ============================================
+-- CHURCH 360 - CLEANUP SCRIPT
+-- ============================================
+-- Use este script para limpar o banco e recomeçar
+-- ⚠️ ATENÇÃO: Isso vai DELETAR TODOS OS DADOS!
+-- ============================================
+
+-- Desabilitar RLS temporariamente
+ALTER TABLE IF EXISTS user_account DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS church_settings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS campus DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS household DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS member DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS tag DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS member_tag DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS step DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS member_step DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS "group" DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS group_member DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS group_meeting DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS group_attendance DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS event DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS event_registration DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS fund DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS donation DISABLE ROW LEVEL SECURITY;
+
+-- Dropar tabelas (ordem reversa devido a foreign keys)
+DROP TABLE IF EXISTS donation CASCADE;
+DROP TABLE IF EXISTS event_registration CASCADE;
+DROP TABLE IF EXISTS event CASCADE;
+DROP TABLE IF EXISTS group_attendance CASCADE;
+DROP TABLE IF EXISTS group_meeting CASCADE;
+DROP TABLE IF EXISTS group_member CASCADE;
+DROP TABLE IF EXISTS "group" CASCADE;
+DROP TABLE IF EXISTS member_step CASCADE;
+DROP TABLE IF EXISTS step CASCADE;
+DROP TABLE IF EXISTS member_tag CASCADE;
+DROP TABLE IF EXISTS tag CASCADE;
+DROP TABLE IF EXISTS member CASCADE;
+DROP TABLE IF EXISTS household CASCADE;
+DROP TABLE IF EXISTS campus CASCADE;
+DROP TABLE IF EXISTS church_settings CASCADE;
+DROP TABLE IF EXISTS user_account CASCADE;
+DROP TABLE IF EXISTS fund CASCADE;
+
+-- Dropar tipos (enums)
+DROP TYPE IF EXISTS donation_method CASCADE;
+DROP TYPE IF EXISTS registration_status CASCADE;
+DROP TYPE IF EXISTS event_status CASCADE;
+DROP TYPE IF EXISTS user_role CASCADE;
+DROP TYPE IF EXISTS marital_status CASCADE;
+DROP TYPE IF EXISTS member_gender CASCADE;
+DROP TYPE IF EXISTS member_status CASCADE;
+
+-- Dropar função de trigger
+DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+
+-- ============================================
+-- LIMPEZA COMPLETA!
+-- ============================================
+-- Agora você pode executar o 00_schema_base.sql novamente
+
