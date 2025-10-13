@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../providers/events_provider.dart';
+import 'event_detail_screen.dart';
 
 /// Tela de listagem de eventos
 class EventsListScreen extends ConsumerStatefulWidget {
@@ -100,9 +100,11 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                   margin: const EdgeInsets.only(bottom: 12),
                   child: InkWell(
                     onTap: () {
-                      // TODO: Navegar para detalhes do evento
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Ver detalhes: ${event.name}')),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EventDetailScreen(eventId: event.id),
+                        ),
                       );
                     },
                     borderRadius: BorderRadius.circular(12),

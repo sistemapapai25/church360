@@ -229,7 +229,7 @@ class EventsRepository {
     }
   }
 
-  /// Registrar membro em evento
+  /// Registrar membro em evento (alias para addRegistration)
   Future<EventRegistration> registerMemberInEvent({
     required String eventId,
     required String memberId,
@@ -248,6 +248,11 @@ class EventsRepository {
     } catch (e) {
       rethrow;
     }
+  }
+
+  /// Adicionar inscrição (mesmo que registerMemberInEvent)
+  Future<void> addRegistration(String eventId, String memberId) async {
+    await registerMemberInEvent(eventId: eventId, memberId: memberId);
   }
 
   /// Cancelar inscrição
@@ -286,6 +291,19 @@ class EventsRepository {
           .update({
             'checked_in_at': null,
           })
+          .eq('event_id', eventId)
+          .eq('member_id', memberId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Remover inscrição
+  Future<void> removeRegistration(String eventId, String memberId) async {
+    try {
+      await _supabase
+          .from('event_registration')
+          .delete()
           .eq('event_id', eventId)
           .eq('member_id', memberId);
     } catch (e) {
