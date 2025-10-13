@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../features/members/presentation/screens/members_list_screen.dart';
 import '../../features/members/presentation/providers/members_provider.dart';
 import '../../features/groups/presentation/screens/groups_list_screen.dart';
+import '../../features/groups/presentation/providers/groups_provider.dart';
 
 /// Tela principal do app (Dashboard)
 class HomeScreen extends ConsumerStatefulWidget {
@@ -73,6 +74,9 @@ class _DashboardTab extends ConsumerWidget {
     final totalMembersAsync = ref.watch(totalMembersCountProvider);
     final activeMembersAsync = ref.watch(activeMembersCountProvider);
     final visitorsAsync = ref.watch(visitorsCountProvider);
+    final totalGroupsAsync = ref.watch(totalGroupsCountProvider);
+    final activeGroupsAsync = ref.watch(activeGroupsCountProvider);
+    final allMembersAsync = ref.watch(allMembersProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -146,46 +150,191 @@ class _DashboardTab extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
-                  child: SizedBox(),
+                Expanded(
+                  child: _StatCard(
+                    title: 'Grupos',
+                    icon: Icons.group_work,
+                    color: Colors.purple,
+                    valueAsync: activeGroupsAsync,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
-            // Ações rápidas
+            // Aniversariantes do Mês
             Text(
-              'Ações Rápidas',
+              'Aniversariantes do Mês 🎂',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
             ),
             const SizedBox(height: 12),
-            _QuickActionCard(
-              icon: Icons.person_add,
-              title: 'Novo Membro',
-              subtitle: 'Cadastrar novo membro',
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Em breve!')),
+
+            allMembersAsync.when(
+              data: (members) {
+                final now = DateTime.now();
+                final birthdays = members.where((m) {
+                  if (m.birthdate == null) return false;
+                  return m.birthdate!.month == now.month;
+                }).toList();
+
+                birthdays.sort((a, b) => a.birthdate!.day.compareTo(b.birthdate!.day));
+
+                if (birthdays.isEmpty) {
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.cake_outlined,
+                              size: 48,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Nenhum aniversariante este mês',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                return Card(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: birthdays.length > 5 ? 5 : birthdays.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final member = birthdays[index];
+                      final day = member.birthdate!.day;
+                      final age = member.age;
+
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                          child: const Icon(Icons.cake),
+                        ),
+                        title: Text(member.fullName),
+                        subtitle: Text('$day de ${_getMonthName(now.month)}${age != null ? ' • $age anos' : ''}'),
+                        trailing: day == now.day
+                            ? const Chip(
+                                label: Text('HOJE! 🎉'),
+                                backgroundColor: Colors.orange,
+                              )
+                            : null,
+                      );
+                    },
+                  ),
                 );
               },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => const SizedBox.shrink(),
             ),
-            const SizedBox(height: 8),
-            _QuickActionCard(
-              icon: Icons.group_add,
-              title: 'Novo Grupo',
-              subtitle: 'Criar novo grupo ou célula',
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Em breve!')),
+
+            const SizedBox(height: 24),
+
+            // Novos Membros
+            Text(
+              'Novos Membros (30 dias) 🆕',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
+            const SizedBox(height: 12),
+
+            allMembersAsync.when(
+              data: (members) {
+                final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
+                final newMembers = members.where((m) {
+                  return m.membershipDate != null && m.membershipDate!.isAfter(thirtyDaysAgo);
+                }).toList();
+
+                newMembers.sort((a, b) => b.membershipDate!.compareTo(a.membershipDate!));
+
+                if (newMembers.isEmpty) {
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.person_add_outlined,
+                              size: 48,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Nenhum novo membro nos últimos 30 dias',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                return Card(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: newMembers.length > 5 ? 5 : newMembers.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final member = newMembers[index];
+                      final daysAgo = DateTime.now().difference(member.membershipDate!).inDays;
+
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                          child: Text(
+                            member.firstName.substring(0, 1).toUpperCase(),
+                          ),
+                        ),
+                        title: Text(member.fullName),
+                        subtitle: Text(
+                          daysAgo == 0
+                              ? 'Hoje!'
+                              : daysAgo == 1
+                                  ? 'Ontem'
+                                  : 'Há $daysAgo dias',
+                        ),
+                        trailing: member.isVisitor
+                            ? const Chip(
+                                label: Text('Visitante'),
+                                backgroundColor: Colors.orange,
+                              )
+                            : null,
+                      );
+                    },
+                  ),
                 );
               },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => const SizedBox.shrink(),
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    return months[month - 1];
   }
 }
 
@@ -236,37 +385,6 @@ class _StatCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Card de ação rápida
-class _QuickActionCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _QuickActionCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-          child: Icon(icon, color: Theme.of(context).colorScheme.primary),
-        ),
-        title: Text(title),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: onTap,
       ),
     );
   }
