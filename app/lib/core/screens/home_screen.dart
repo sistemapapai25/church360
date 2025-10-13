@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/members/presentation/screens/members_list_screen.dart';
 import '../../features/members/presentation/providers/members_provider.dart';
+import '../../features/groups/presentation/screens/groups_list_screen.dart';
 
 /// Tela principal do app (Dashboard)
 class HomeScreen extends ConsumerStatefulWidget {
@@ -20,7 +21,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final List<Widget> _screens = [
     const _DashboardTab(),
     const MembersListScreen(),
-    const _GroupsTab(),
+    const GroupsListScreen(),
     const _EventsTab(),
   ];
 
@@ -267,19 +268,6 @@ class _QuickActionCard extends StatelessWidget {
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: onTap,
       ),
-    );
-  }
-}
-
-/// Tab de Grupos (placeholder)
-class _GroupsTab extends StatelessWidget {
-  const _GroupsTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Grupos')),
-      body: const Center(child: Text('Em breve!')),
     );
   }
 }

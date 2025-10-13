@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/members/presentation/screens/member_detail_screen.dart';
 import '../../features/members/presentation/screens/member_form_screen.dart';
+import '../../features/groups/presentation/screens/groups_list_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
 
