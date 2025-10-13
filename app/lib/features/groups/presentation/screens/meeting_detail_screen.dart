@@ -7,6 +7,7 @@ import '../../data/group_meetings_repository.dart';
 import '../providers/meetings_provider.dart';
 import '../providers/groups_provider.dart';
 import '../../domain/models/group_meeting.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 
 /// Tela de detalhes da reunião
 class MeetingDetailScreen extends ConsumerWidget {
@@ -348,7 +349,15 @@ class _AttendanceList extends ConsumerWidget {
     List<String> groupMemberIds,
     List<String> attendedMemberIds,
   ) {
-    // TODO: Implementar dialog de adicionar presença
+    showDialog(
+      context: context,
+      builder: (context) => _AddAttendanceDialog(
+        groupId: groupId,
+        meetingId: meetingId,
+        groupMemberIds: groupMemberIds,
+        attendedMemberIds: attendedMemberIds,
+      ),
+    );
   }
 }
 
@@ -475,3 +484,191 @@ class _AttendanceCard extends ConsumerWidget {
   }
 }
 
+/// Dialog para adicionar presença
+class _AddAttendanceDialog extends ConsumerStatefulWidget {
+  final String groupId;
+  final String meetingId;
+  final List<String> groupMemberIds;
+  final List<String> attendedMemberIds;
+
+  const _AddAttendanceDialog({
+    required this.groupId,
+    required this.meetingId,
+    required this.groupMemberIds,
+    required this.attendedMemberIds,
+  });
+
+  @override
+  ConsumerState<_AddAttendanceDialog> createState() => _AddAttendanceDialogState();
+}
+
+class _AddAttendanceDialogState extends ConsumerState<_AddAttendanceDialog> {
+  final _notesController = TextEditingController();
+  String? _selectedMemberId;
+  bool _wasPresent = true;
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allMembersAsync = ref.watch(allMembersProvider);
+
+    return AlertDialog(
+      title: const Text('Adicionar Presença'),
+      content: allMembersAsync.when(
+        data: (allMembers) {
+          // Filtrar apenas membros do grupo que ainda não têm presença registrada
+          final availableMembers = allMembers.where((member) {
+            return widget.groupMemberIds.contains(member.id) &&
+                   !widget.attendedMemberIds.contains(member.id);
+          }).toList();
+
+          if (availableMembers.isEmpty) {
+            return const Text('Todos os membros do grupo já têm presença registrada.');
+          }
+
+          return SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Dropdown de membros
+                DropdownButtonFormField<String>(
+                  value: _selectedMemberId,
+                  decoration: const InputDecoration(
+                    labelText: 'Selecione um membro',
+                    prefixIcon: Icon(Icons.person),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: availableMembers.map((member) {
+                    return DropdownMenuItem(
+                      value: member.id,
+                      child: Text('${member.firstName} ${member.lastName}'),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedMemberId = value;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Switch de presença/falta
+                SwitchListTile(
+                  title: Text(_wasPresent ? 'Presente' : 'Ausente'),
+                  value: _wasPresent,
+                  onChanged: (value) {
+                    setState(() {
+                      _wasPresent = value;
+                    });
+                  },
+                  secondary: Icon(
+                    _wasPresent ? Icons.check_circle : Icons.cancel,
+                    color: _wasPresent ? Colors.green : Colors.red,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Notas
+                TextField(
+                  controller: _notesController,
+                  decoration: const InputDecoration(
+                    labelText: 'Notas (opcional)',
+                    hintText: 'Ex: Chegou atrasado',
+                    prefixIcon: Icon(Icons.notes),
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
+                  maxLength: 200,
+                ),
+              ],
+            ),
+          );
+        },
+        loading: () => const Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: CircularProgressIndicator(),
+          ),
+        ),
+        error: (error, _) => Text('Erro: $error'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _isLoading ? null : _addAttendance,
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Adicionar'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _addAttendance() async {
+    if (_selectedMemberId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione um membro'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final repository = ref.read(groupMeetingsRepositoryProvider);
+      final data = {
+        'meeting_id': widget.meetingId,
+        'member_id': _selectedMemberId!,
+        'was_present': _wasPresent,
+        if (_notesController.text.isNotEmpty) 'notes': _notesController.text.trim(),
+      };
+
+      await repository.recordAttendance(data);
+      await repository.updateMeetingAttendanceCount(widget.meetingId);
+
+      ref.invalidate(meetingAttendancesProvider(widget.meetingId));
+      ref.invalidate(meetingByIdProvider(widget.meetingId));
+      ref.invalidate(meetingsListProvider(widget.groupId));
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Presença registrada com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao registrar presença: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+}
