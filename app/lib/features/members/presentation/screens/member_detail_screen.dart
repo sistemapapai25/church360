@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 
 import '../providers/members_provider.dart';
 import '../../domain/models/member.dart';
+import '../../../tags/presentation/providers/tags_provider.dart';
+import '../../../tags/data/tags_repository.dart';
 
 /// Tela de detalhes do membro
 class MemberDetailScreen extends ConsumerWidget {
@@ -130,13 +132,13 @@ class MemberDetailScreen extends ConsumerWidget {
 }
 
 /// Conteúdo da tela de detalhes
-class _MemberDetailContent extends StatelessWidget {
+class _MemberDetailContent extends ConsumerWidget {
   final Member member;
 
   const _MemberDetailContent({required this.member});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -201,9 +203,14 @@ class _MemberDetailContent extends StatelessWidget {
                     label: 'Telefone',
                     value: member.phone!,
                   ),
-                
+
                 const SizedBox(height: 24),
-                
+
+                // Tags
+                _TagsSection(memberId: member.id),
+
+                const SizedBox(height: 24),
+
                 // Informações Pessoais
                 _SectionTitle(title: 'Informações Pessoais'),
                 const SizedBox(height: 12),
@@ -431,6 +438,206 @@ class _StatusChip extends StatelessWidget {
       ),
       backgroundColor: color,
     );
+  }
+}
+
+/// Seção de Tags do Membro
+class _TagsSection extends ConsumerWidget {
+  final String memberId;
+
+  const _TagsSection({required this.memberId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final memberTagsAsync = ref.watch(memberTagsProvider(memberId));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const _SectionTitle(title: 'Tags'),
+            TextButton.icon(
+              onPressed: () => _showAddTagDialog(context, ref),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Adicionar'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        memberTagsAsync.when(
+          data: (tags) {
+            if (tags.isEmpty) {
+              return const Text(
+                'Nenhuma tag atribuída',
+                style: TextStyle(color: Colors.grey),
+              );
+            }
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: tags.map((tag) {
+                return Chip(
+                  label: Text(tag.name),
+                  backgroundColor: tag.colorValue.withOpacity(0.2),
+                  labelStyle: TextStyle(
+                    color: tag.colorValue,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  deleteIcon: Icon(
+                    Icons.close,
+                    size: 18,
+                    color: tag.colorValue,
+                  ),
+                  onDeleted: () => _removeTag(context, ref, tag.id, tag.name),
+                );
+              }).toList(),
+            );
+          },
+          loading: () => const CircularProgressIndicator(),
+          error: (error, _) => Text('Erro: $error'),
+        ),
+      ],
+    );
+  }
+
+  void _showAddTagDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => _AddTagDialog(memberId: memberId),
+    );
+  }
+
+  Future<void> _removeTag(
+    BuildContext context,
+    WidgetRef ref,
+    String tagId,
+    String tagName,
+  ) async {
+    try {
+      await ref.read(tagsRepositoryProvider).removeTagFromMember(memberId, tagId);
+      ref.invalidate(memberTagsProvider(memberId));
+      ref.invalidate(allMembersProvider);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Tag "$tagName" removida com sucesso!')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao remover tag: $e')),
+        );
+      }
+    }
+  }
+}
+
+/// Dialog para adicionar tag ao membro
+class _AddTagDialog extends ConsumerStatefulWidget {
+  final String memberId;
+
+  const _AddTagDialog({required this.memberId});
+
+  @override
+  ConsumerState<_AddTagDialog> createState() => _AddTagDialogState();
+}
+
+class _AddTagDialogState extends ConsumerState<_AddTagDialog> {
+  String? _selectedTagId;
+
+  @override
+  Widget build(BuildContext context) {
+    final allTagsAsync = ref.watch(allTagsProvider);
+    final memberTagsAsync = ref.watch(memberTagsProvider(widget.memberId));
+
+    return AlertDialog(
+      title: const Text('Adicionar Tag'),
+      content: allTagsAsync.when(
+        data: (allTags) {
+          return memberTagsAsync.when(
+            data: (memberTags) {
+              // Filtrar tags que o membro já possui
+              final memberTagIds = memberTags.map((t) => t.id).toSet();
+              final availableTags = allTags.where((t) => !memberTagIds.contains(t.id)).toList();
+
+              if (availableTags.isEmpty) {
+                return const Text('Todas as tags já foram atribuídas a este membro.');
+              }
+
+              return DropdownButtonFormField<String>(
+                initialValue: _selectedTagId,
+                decoration: const InputDecoration(
+                  labelText: 'Selecione uma tag',
+                  border: OutlineInputBorder(),
+                ),
+                items: availableTags.map((tag) {
+                  return DropdownMenuItem(
+                    value: tag.id,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: tag.colorValue,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(tag.name),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() => _selectedTagId = value);
+                },
+              );
+            },
+            loading: () => const CircularProgressIndicator(),
+            error: (error, _) => Text('Erro: $error'),
+          );
+        },
+        loading: () => const CircularProgressIndicator(),
+        error: (error, _) => Text('Erro: $error'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _selectedTagId == null ? null : _addTag,
+          child: const Text('Adicionar'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _addTag() async {
+    if (_selectedTagId == null) return;
+
+    try {
+      await ref.read(tagsRepositoryProvider).addTagToMember(widget.memberId, _selectedTagId!);
+      ref.invalidate(memberTagsProvider(widget.memberId));
+      ref.invalidate(allMembersProvider);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tag adicionada com sucesso!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao adicionar tag: $e')),
+        );
+      }
+    }
   }
 }
 

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../providers/members_provider.dart';
 import '../../domain/models/member.dart';
+import '../../../tags/presentation/providers/tags_provider.dart';
 
 /// Tela de listagem de membros
 class MembersListScreen extends ConsumerStatefulWidget {
@@ -178,13 +179,15 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
 }
 
 /// Widget de item da lista de membros
-class _MemberListTile extends StatelessWidget {
+class _MemberListTile extends ConsumerWidget {
   final Member member;
 
   const _MemberListTile({required this.member});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final memberTagsAsync = ref.watch(memberTagsProvider(member.id));
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: ListTile(
@@ -246,6 +249,45 @@ class _MemberListTile extends StatelessWidget {
                 ],
               ),
             ],
+            // Tags do membro
+            memberTagsAsync.when(
+              data: (tags) {
+                if (tags.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: tags.map((tag) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: tag.colorValue.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: tag.colorValue,
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          tag.name,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: tag.colorValue,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
           ],
         ),
         trailing: _StatusChip(status: member.status),
