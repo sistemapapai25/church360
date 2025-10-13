@@ -226,9 +226,13 @@ class GroupsRepository {
   }
 
   /// Remover membro do grupo
-  Future<void> removeMemberFromGroup(String groupMemberId) async {
+  Future<void> removeMemberFromGroup(String groupId, String memberId) async {
     try {
-      await _supabase.from('group_member').delete().eq('id', groupMemberId);
+      await _supabase
+          .from('group_member')
+          .delete()
+          .eq('group_id', groupId)
+          .eq('member_id', memberId);
     } catch (e) {
       rethrow;
     }
