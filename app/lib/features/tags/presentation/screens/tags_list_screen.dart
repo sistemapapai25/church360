@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/tags_provider.dart';
 import '../../data/tags_repository.dart';
+import 'tag_form_screen.dart';
 
 /// Tela de listagem de tags
 class TagsListScreen extends ConsumerWidget {
@@ -37,11 +38,14 @@ class TagsListScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
                   FilledButton.icon(
-                    onPressed: () {
-                      // TODO: Navegar para criar tag
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Criar tag - Em breve!')),
+                    onPressed: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const TagFormScreen(),
+                        ),
                       );
+                      ref.invalidate(allTagsProvider);
                     },
                     icon: const Icon(Icons.add),
                     label: const Text('Criar Primeira Tag'),
@@ -84,11 +88,14 @@ class TagsListScreen extends ConsumerWidget {
                       children: [
                         IconButton(
                           icon: const Icon(Icons.edit),
-                          onPressed: () {
-                            // TODO: Navegar para editar tag
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Editar ${tag.name} - Em breve!')),
+                          onPressed: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => TagFormScreen(tagId: tag.id),
+                              ),
                             );
+                            ref.invalidate(allTagsProvider);
                           },
                         ),
                         IconButton(
@@ -123,11 +130,14 @@ class TagsListScreen extends ConsumerWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // TODO: Navegar para criar tag
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Criar tag - Em breve!')),
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const TagFormScreen(),
+            ),
           );
+          ref.invalidate(allTagsProvider);
         },
         icon: const Icon(Icons.add),
         label: const Text('Nova Tag'),
