@@ -148,13 +148,34 @@ class EventsRepository {
     }
   }
 
-  /// Atualizar evento
-  Future<Event> updateEvent(Event event) async {
+  /// Criar evento (alias para createEventFromJson)
+  Future<Event> createEvent(Map<String, dynamic> data) async {
+    return createEventFromJson(data);
+  }
+
+  /// Atualizar evento com objeto Event
+  Future<Event> updateEventObject(Event event) async {
     try {
       final response = await _supabase
           .from('event')
           .update(event.toJson())
           .eq('id', event.id)
+          .select()
+          .single();
+
+      return Event.fromJson(response);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Atualizar evento com ID e dados
+  Future<Event> updateEvent(String id, Map<String, dynamic> data) async {
+    try {
+      final response = await _supabase
+          .from('event')
+          .update(data)
+          .eq('id', id)
           .select()
           .single();
 

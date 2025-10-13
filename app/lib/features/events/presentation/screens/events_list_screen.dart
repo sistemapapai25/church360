@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../providers/events_provider.dart';
 import 'event_detail_screen.dart';
+import 'event_form_screen.dart';
 
 /// Tela de listagem de eventos
 class EventsListScreen extends ConsumerStatefulWidget {
@@ -72,9 +73,11 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                   const SizedBox(height: 24),
                   FilledButton.icon(
                     onPressed: () {
-                      // TODO: Navegar para criar evento
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Criar evento - Em breve!')),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const EventFormScreen(),
+                        ),
                       );
                     },
                     icon: const Icon(Icons.add),
@@ -242,9 +245,11 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          // TODO: Navegar para criar evento
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Criar evento - Em breve!')),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const EventFormScreen(),
+            ),
           );
         },
         icon: const Icon(Icons.add),

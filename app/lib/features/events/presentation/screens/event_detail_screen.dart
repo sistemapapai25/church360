@@ -6,6 +6,7 @@ import '../../domain/models/event.dart';
 import '../providers/events_provider.dart';
 import '../../data/events_repository.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import 'event_form_screen.dart';
 
 /// Tela de detalhes do evento
 class EventDetailScreen extends ConsumerStatefulWidget {
@@ -56,9 +57,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
               IconButton(
                 icon: const Icon(Icons.edit),
                 onPressed: () {
-                  // TODO: Navegar para editar evento
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Editar evento - Em breve!')),
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EventFormScreen(eventId: event.id),
+                    ),
                   );
                 },
               ),
