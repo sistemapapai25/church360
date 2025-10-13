@@ -27,10 +27,7 @@ class GroupDetailScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () {
-              // TODO: Navegar para tela de edição
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Editar - Em breve!')),
-              );
+              context.push('/groups/$groupId/edit');
             },
           ),
           // Botão de deletar
