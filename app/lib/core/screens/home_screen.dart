@@ -8,6 +8,7 @@ import '../../features/members/presentation/providers/members_provider.dart';
 import '../../features/groups/presentation/screens/groups_list_screen.dart';
 import '../../features/groups/presentation/providers/groups_provider.dart';
 import '../../features/events/presentation/screens/events_list_screen.dart';
+import '../../features/tags/presentation/screens/tags_list_screen.dart';
 
 /// Tela principal do app (Dashboard)
 class HomeScreen extends ConsumerStatefulWidget {
@@ -25,6 +26,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     const MembersListScreen(),
     const GroupsListScreen(),
     const EventsListScreen(),
+    const TagsListScreen(),
   ];
 
   @override
@@ -58,6 +60,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: Icon(Icons.event_outlined),
             selectedIcon: Icon(Icons.event),
             label: 'Eventos',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.label_outline),
+            selectedIcon: Icon(Icons.label),
+            label: 'Tags',
           ),
         ],
       ),
