@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 
 import '../../domain/models/contribution.dart';
 import '../providers/financial_provider.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 
 /// Enum para períodos de filtro
 enum ReportPeriod {
@@ -310,47 +311,401 @@ class _FinancialReportsScreenState
 
   /// Top Contribuintes
   Widget _buildTopContributors(DateTime startDate, DateTime endDate) {
-    return const Card(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Top Contribuintes',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+    return Consumer(
+      builder: (context, ref, child) {
+        final contributionsAsync = ref.watch(allContributionsProvider);
+        final membersAsync = ref.watch(allMembersProvider);
+
+        return contributionsAsync.when(
+          data: (contributions) {
+            return membersAsync.when(
+              data: (members) {
+                // Filtrar contribuições por período e com memberId não-nulo
+                final filteredContributions = contributions.where((c) {
+                  return c.memberId != null &&
+                      c.date.isAfter(startDate.subtract(const Duration(days: 1))) &&
+                      c.date.isBefore(endDate.add(const Duration(days: 1)));
+                }).toList();
+
+                // Agrupar por membro e somar
+                final Map<String, double> contributionsByMember = {};
+                for (final contribution in filteredContributions) {
+                  final memberId = contribution.memberId!; // Safe porque filtramos acima
+                  contributionsByMember[memberId] =
+                      (contributionsByMember[memberId] ?? 0) + contribution.amount;
+                }
+
+                // Calcular total
+                final totalContributions = contributionsByMember.values.fold<double>(0, (sum, amount) => sum + amount);
+
+                // Ordenar e pegar top 10
+                final sortedEntries = contributionsByMember.entries.toList()
+                  ..sort((a, b) => b.value.compareTo(a.value));
+                final topContributors = sortedEntries.take(10).toList();
+
+                if (topContributors.isEmpty) {
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Top Contribuintes',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Center(
+                            child: Text(
+                              'Nenhuma contribuição no período',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Top Contribuintes',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ...topContributors.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final contributorEntry = entry.value;
+                          final memberId = contributorEntry.key;
+                          final amount = contributorEntry.value;
+                          final percentage = (amount / totalContributions) * 100;
+
+                          // Buscar nome do membro
+                          final member = members.firstWhere(
+                            (m) => m.id == memberId,
+                            orElse: () => members.first, // Fallback
+                          );
+                          final memberName = '${member.firstName} ${member.lastName}';
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              children: [
+                                // Posição
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: index < 3 ? Colors.amber : Colors.grey[300],
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '${index + 1}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: index < 3 ? Colors.white : Colors.black87,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                // Nome
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        memberName,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      LinearProgressIndicator(
+                                        value: percentage / 100,
+                                        backgroundColor: Colors.grey[200],
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          index < 3 ? Colors.amber : Colors.blue,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                // Valor e porcentagem
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      formatter.format(amount),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${percentage.toStringAsFixed(1)}%',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              loading: () => const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
               ),
+              error: (error, _) => Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text('Erro ao carregar membros: $error'),
+                ),
+              ),
+            );
+          },
+          loading: () => const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
             ),
-            SizedBox(height: 16),
-            Text('Em desenvolvimento...'),
-          ],
-        ),
-      ),
+          ),
+          error: (error, _) => Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Erro ao carregar contribuições: $error'),
+            ),
+          ),
+        );
+      },
     );
   }
 
   /// Despesas por Categoria
   Widget _buildExpensesByCategory(DateTime startDate, DateTime endDate) {
-    return const Card(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Despesas por Categoria',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+    return Consumer(
+      builder: (context, ref, child) {
+        final expensesAsync = ref.watch(allExpensesProvider);
+
+        return expensesAsync.when(
+          data: (expenses) {
+            // Filtrar despesas por período
+            final filteredExpenses = expenses.where((e) {
+              return e.date.isAfter(startDate.subtract(const Duration(days: 1))) &&
+                  e.date.isBefore(endDate.add(const Duration(days: 1)));
+            }).toList();
+
+            // Agrupar por categoria e somar
+            final Map<String, double> expensesByCategory = {};
+            for (final expense in filteredExpenses) {
+              expensesByCategory[expense.category] =
+                  (expensesByCategory[expense.category] ?? 0) + expense.amount;
+            }
+
+            // Calcular total
+            final totalExpenses = expensesByCategory.values.fold<double>(0, (sum, amount) => sum + amount);
+
+            // Ordenar por valor
+            final sortedEntries = expensesByCategory.entries.toList()
+              ..sort((a, b) => b.value.compareTo(a.value));
+
+            if (sortedEntries.isEmpty) {
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Despesas por Categoria',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: Text(
+                          'Nenhuma despesa no período',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+
+            // Cores para as categorias
+            final categoryColors = [
+              Colors.red,
+              Colors.orange,
+              Colors.purple,
+              Colors.pink,
+              Colors.indigo,
+              Colors.teal,
+              Colors.brown,
+              Colors.blueGrey,
+            ];
+
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Despesas por Categoria',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Gráfico de pizza
+                    if (sortedEntries.isNotEmpty)
+                      SizedBox(
+                        height: 200,
+                        child: PieChart(
+                          PieChartData(
+                            sections: sortedEntries.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final categoryEntry = entry.value;
+                              final percentage = (categoryEntry.value / totalExpenses) * 100;
+                              final color = categoryColors[index % categoryColors.length];
+
+                              return PieChartSectionData(
+                                value: categoryEntry.value,
+                                title: '${percentage.toStringAsFixed(1)}%',
+                                color: color,
+                                radius: 80,
+                                titleStyle: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              );
+                            }).toList(),
+                            sectionsSpace: 2,
+                            centerSpaceRadius: 40,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 24),
+                    // Lista de categorias
+                    ...sortedEntries.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final categoryEntry = entry.value;
+                      final category = categoryEntry.key;
+                      final amount = categoryEntry.value;
+                      final percentage = (amount / totalExpenses) * 100;
+                      final color = categoryColors[index % categoryColors.length];
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          children: [
+                            // Indicador de cor
+                            Container(
+                              width: 16,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // Categoria
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    category,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  LinearProgressIndicator(
+                                    value: percentage / 100,
+                                    backgroundColor: Colors.grey[200],
+                                    valueColor: AlwaysStoppedAnimation<Color>(color),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // Valor e porcentagem
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  formatter.format(amount),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                Text(
+                                  '${percentage.toStringAsFixed(1)}%',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
               ),
+            );
+          },
+          loading: () => const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
             ),
-            SizedBox(height: 16),
-            Text('Em desenvolvimento...'),
-          ],
-        ),
-      ),
+          ),
+          error: (error, _) => Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Erro ao carregar despesas: $error'),
+            ),
+          ),
+        );
+      },
     );
   }
 
