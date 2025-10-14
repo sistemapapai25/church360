@@ -21,6 +21,9 @@ import '../../features/worship/presentation/screens/worship_services_screen.dart
 import '../../features/worship/presentation/screens/worship_attendance_screen.dart';
 import '../../features/worship/presentation/screens/worship_service_form_screen.dart';
 import '../../features/worship/presentation/screens/worship_statistics_screen.dart';
+import '../../features/visitors/presentation/screens/visitors_list_screen.dart';
+import '../../features/visitors/presentation/screens/visitor_form_screen.dart';
+import '../../features/visitors/presentation/screens/visitor_details_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
 
@@ -206,6 +209,28 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/worship-statistics',
       builder: (context, state) => const WorshipStatisticsScreen(),
+    ),
+    GoRoute(
+      path: '/visitors',
+      builder: (context, state) => const VisitorsListScreen(),
+    ),
+    GoRoute(
+      path: '/visitors/new',
+      builder: (context, state) => const VisitorFormScreen(),
+    ),
+    GoRoute(
+      path: '/visitors/:id',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return VisitorDetailsScreen(visitorId: id);
+      },
+    ),
+    GoRoute(
+      path: '/visitors/:id/edit',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return VisitorFormScreen(visitorId: id);
+      },
     ),
   ],
 );
