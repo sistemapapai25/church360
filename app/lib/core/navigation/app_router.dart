@@ -20,6 +20,7 @@ import '../../features/financial/presentation/screens/financial_reports_screen.d
 import '../../features/worship/presentation/screens/worship_services_screen.dart';
 import '../../features/worship/presentation/screens/worship_attendance_screen.dart';
 import '../../features/worship/presentation/screens/worship_service_form_screen.dart';
+import '../../features/worship/presentation/screens/worship_statistics_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
 
@@ -201,6 +202,10 @@ final appRouter = GoRouter(
         final id = state.pathParameters['id']!;
         return WorshipServiceFormScreen(worshipServiceId: id);
       },
+    ),
+    GoRoute(
+      path: '/worship-statistics',
+      builder: (context, state) => const WorshipStatisticsScreen(),
     ),
   ],
 );

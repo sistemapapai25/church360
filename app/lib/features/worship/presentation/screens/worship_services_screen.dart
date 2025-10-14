@@ -21,7 +21,7 @@ class WorshipServicesScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.bar_chart),
             onPressed: () {
-              // TODO: Navegar para estatísticas
+              context.push('/worship-statistics');
             },
             tooltip: 'Estatísticas',
           ),
