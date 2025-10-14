@@ -10,6 +10,7 @@ import '../../features/groups/presentation/providers/groups_provider.dart';
 import '../../features/events/presentation/screens/events_list_screen.dart';
 import '../../features/tags/presentation/screens/tags_list_screen.dart';
 import '../../features/ministries/presentation/screens/ministries_list_screen.dart';
+import '../../features/financial/presentation/screens/financial_screen.dart';
 import '../widgets/dashboard_charts.dart';
 
 /// Tela principal do app (Dashboard)
@@ -29,6 +30,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     const GroupsListScreen(),
     const EventsListScreen(),
     const MinistriesListScreen(),
+    const FinancialScreen(),
     const TagsListScreen(),
   ];
 
@@ -68,6 +70,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: Icon(Icons.church_outlined),
             selectedIcon: Icon(Icons.church),
             label: 'Ministérios',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.attach_money_outlined),
+            selectedIcon: Icon(Icons.attach_money),
+            label: 'Financeiro',
           ),
           NavigationDestination(
             icon: Icon(Icons.label_outline),
