@@ -38,6 +38,15 @@ class _FinancialScreenState extends ConsumerState<FinancialScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Financeiro'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bar_chart),
+            onPressed: () {
+              context.push('/financial-reports');
+            },
+            tooltip: 'Relatórios',
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [

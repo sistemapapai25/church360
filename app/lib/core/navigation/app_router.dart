@@ -16,6 +16,7 @@ import '../../features/ministries/presentation/screens/ministry_form_screen.dart
 import '../../features/financial/presentation/screens/contribution_form_screen.dart';
 import '../../features/financial/presentation/screens/expense_form_screen.dart';
 import '../../features/financial/presentation/screens/financial_goal_form_screen.dart';
+import '../../features/financial/presentation/screens/financial_reports_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
 
@@ -171,6 +172,10 @@ final appRouter = GoRouter(
         final id = state.pathParameters['id']!;
         return FinancialGoalFormScreen(goalId: id);
       },
+    ),
+    GoRoute(
+      path: '/financial-reports',
+      builder: (context, state) => const FinancialReportsScreen(),
     ),
   ],
 );
