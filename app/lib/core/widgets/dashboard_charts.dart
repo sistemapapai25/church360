@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../providers/dashboard_stats_provider.dart';
+import '../../features/financial/presentation/providers/financial_provider.dart';
+import '../../features/financial/domain/models/contribution.dart';
 
 /// Widget de gráfico de crescimento de membros
 class MemberGrowthChart extends ConsumerWidget {
@@ -503,6 +505,429 @@ class TopTagsCard extends ConsumerWidget {
               },
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => Text('Erro: $error'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Cards de resumo financeiro
+class FinancialSummaryCards extends ConsumerWidget {
+  const FinancialSummaryCards({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final totalContributionsAsync = ref.watch(totalContributionsProvider);
+    final totalExpensesAsync = ref.watch(totalExpensesProvider);
+    final balanceAsync = ref.watch(balanceProvider);
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            // Total Contribuições
+            Expanded(
+              child: totalContributionsAsync.when(
+                data: (total) => _buildFinancialCard(
+                  context,
+                  'Contribuições',
+                  total,
+                  Colors.green,
+                  Icons.trending_up,
+                ),
+                loading: () => const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+                error: (_, __) => const SizedBox(),
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Total Despesas
+            Expanded(
+              child: totalExpensesAsync.when(
+                data: (total) => _buildFinancialCard(
+                  context,
+                  'Despesas',
+                  total,
+                  Colors.red,
+                  Icons.trending_down,
+                ),
+                loading: () => const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+                error: (_, __) => const SizedBox(),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Saldo
+        balanceAsync.when(
+          data: (balance) => _buildFinancialCard(
+            context,
+            'Saldo',
+            balance,
+            balance >= 0 ? Colors.blue : Colors.orange,
+            balance >= 0 ? Icons.account_balance : Icons.warning,
+          ),
+          loading: () => const Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ),
+          error: (_, __) => const SizedBox(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFinancialCard(
+    BuildContext context,
+    String title,
+    double value,
+    Color color,
+    IconData icon,
+  ) {
+    final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 32),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    formatter.format(value),
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Gráfico de contribuições por tipo
+class ContributionsByTypeChart extends ConsumerWidget {
+  const ContributionsByTypeChart({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final contributionsAsync = ref.watch(allContributionsProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.pie_chart,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Contribuições por Tipo',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 250,
+              child: contributionsAsync.when(
+                data: (contributions) {
+                  if (contributions.isEmpty) {
+                    return const Center(
+                      child: Text('Sem dados para exibir'),
+                    );
+                  }
+
+                  // Agrupar contribuições por tipo
+                  final Map<ContributionType, double> totals = {};
+                  for (final contribution in contributions) {
+                    totals[contribution.type] =
+                        (totals[contribution.type] ?? 0) + contribution.amount;
+                  }
+
+                  // Criar seções do gráfico de pizza
+                  final sections = totals.entries.map((entry) {
+                    final color = _getTypeColor(entry.key);
+                    final percentage = (entry.value /
+                            contributions.fold<double>(
+                                0, (sum, c) => sum + c.amount)) *
+                        100;
+
+                    return PieChartSectionData(
+                      color: color,
+                      value: entry.value,
+                      title: '${percentage.toStringAsFixed(1)}%',
+                      radius: 100,
+                      titleStyle: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    );
+                  }).toList();
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: PieChart(
+                          PieChartData(
+                            sections: sections,
+                            sectionsSpace: 2,
+                            centerSpaceRadius: 40,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: totals.entries.map((entry) {
+                            final formatter = NumberFormat.currency(
+                              locale: 'pt_BR',
+                              symbol: 'R\$',
+                            );
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 16,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                      color: _getTypeColor(entry.key),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          entry.key.label,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          formatter.format(entry.value),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Center(child: Text('Erro: $error')),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getTypeColor(ContributionType type) {
+    switch (type) {
+      case ContributionType.tithe:
+        return Colors.green;
+      case ContributionType.offering:
+        return Colors.blue;
+      case ContributionType.missions:
+        return Colors.purple;
+      case ContributionType.building:
+        return Colors.orange;
+      case ContributionType.special:
+        return Colors.pink;
+      case ContributionType.other:
+        return Colors.grey;
+    }
+  }
+}
+
+/// Widget de metas financeiras ativas
+class FinancialGoalsWidget extends ConsumerWidget {
+  const FinancialGoalsWidget({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final goalsAsync = ref.watch(activeGoalsProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.flag,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Metas Financeiras Ativas',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            goalsAsync.when(
+              data: (goals) {
+                if (goals.isEmpty) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Text('Nenhuma meta ativa'),
+                    ),
+                  );
+                }
+
+                return Column(
+                  children: goals.map((goal) {
+                    final formatter = NumberFormat.currency(
+                      locale: 'pt_BR',
+                      symbol: 'R\$',
+                    );
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  goal.name,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '${goal.progressPercentage}%',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          LinearProgressIndicator(
+                            value: goal.progress,
+                            backgroundColor: Colors.grey[200],
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Colors.blue,
+                            ),
+                            minHeight: 8,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                formatter.format(goal.currentAmount),
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
+                                ),
+                              ),
+                              Text(
+                                'Meta: ${formatter.format(goal.targetAmount)}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(child: Text('Erro: $error')),
             ),
           ],
         ),

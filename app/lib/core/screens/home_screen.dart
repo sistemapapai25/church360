@@ -205,6 +205,29 @@ class _DashboardTab extends ConsumerWidget {
             const TopTagsCard(),
             const SizedBox(height: 32),
 
+            // Resumo Financeiro
+            Text(
+              'Resumo Financeiro 💰',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            const FinancialSummaryCards(),
+            const SizedBox(height: 16),
+
+            // Gráficos Financeiros
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Expanded(child: ContributionsByTypeChart()),
+                SizedBox(width: 16),
+                Expanded(child: FinancialGoalsWidget()),
+              ],
+            ),
+            const SizedBox(height: 32),
+
             // Aniversariantes do Mês
             Text(
               'Aniversariantes do Mês 🎂',
