@@ -17,6 +17,8 @@ import '../../features/financial/presentation/screens/contribution_form_screen.d
 import '../../features/financial/presentation/screens/expense_form_screen.dart';
 import '../../features/financial/presentation/screens/financial_goal_form_screen.dart';
 import '../../features/financial/presentation/screens/financial_reports_screen.dart';
+import '../../features/worship/presentation/screens/worship_services_screen.dart';
+import '../../features/worship/presentation/screens/worship_attendance_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
 
@@ -176,6 +178,17 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/financial-reports',
       builder: (context, state) => const FinancialReportsScreen(),
+    ),
+    GoRoute(
+      path: '/worship-services',
+      builder: (context, state) => const WorshipServicesScreen(),
+    ),
+    GoRoute(
+      path: '/worship-services/:id/attendance',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return WorshipAttendanceScreen(worshipServiceId: id);
+      },
     ),
   ],
 );
