@@ -82,6 +82,18 @@ class WorshipRepository {
     await _supabase.from('worship_service').delete().eq('id', id);
   }
 
+  /// Alias para deleteWorshipService
+  Future<void> deleteService(String id) => deleteWorshipService(id);
+
+  /// Alias para getWorshipServiceById
+  Future<WorshipService?> getServiceById(String id) => getWorshipServiceById(id);
+
+  /// Alias para createWorshipService
+  Future<WorshipService> createService(Map<String, dynamic> data) => createWorshipService(data);
+
+  /// Alias para updateWorshipService
+  Future<WorshipService> updateService(String id, Map<String, dynamic> data) => updateWorshipService(id, data);
+
   /// Contar total de cultos
   Future<int> countWorshipServices() async {
     final response = await _supabase

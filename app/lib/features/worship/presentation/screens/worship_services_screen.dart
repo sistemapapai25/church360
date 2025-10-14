@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/worship_provider.dart';
 import '../../domain/models/worship_service.dart';
+import '../../data/worship_repository.dart';
 
 /// Tela de listagem de cultos
 class WorshipServicesScreen extends ConsumerWidget {
@@ -97,7 +98,7 @@ class WorshipServicesScreen extends ConsumerWidget {
 }
 
 /// Card de culto
-class _WorshipServiceCard extends StatelessWidget {
+class _WorshipServiceCard extends ConsumerWidget {
   final WorshipService service;
 
   const _WorshipServiceCard({required this.service});
@@ -106,8 +107,54 @@ class _WorshipServiceCard extends StatelessWidget {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
+  Future<void> _deleteService(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excluir Culto'),
+        content: const Text('Tem certeza que deseja excluir este culto? Esta ação não pode ser desfeita.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        await ref.read(worshipRepositoryProvider).deleteService(service.id);
+        ref.invalidate(allWorshipServicesProvider);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Culto excluído com sucesso!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro ao excluir culto: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -127,7 +174,7 @@ class _WorshipServiceCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: _getTypeColor(service.serviceType).withOpacity(0.1),
+                      color: _getTypeColor(service.serviceType).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
@@ -168,7 +215,7 @@ class _WorshipServiceCard extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
+                        color: Colors.blue.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -186,6 +233,39 @@ class _WorshipServiceCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                  // Menu de opções
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        context.push('/worship-services/${service.id}/edit');
+                      } else if (value == 'delete') {
+                        _deleteService(context, ref);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 20),
+                            SizedBox(width: 8),
+                            Text('Editar'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, size: 20, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text('Excluir', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
               
