@@ -177,6 +177,21 @@ class _MinistryDetailContent extends ConsumerWidget {
 
           // Lista de membros
           _MembersList(ministryId: ministry.id),
+
+          const SizedBox(height: 24),
+
+          // Seção de escalas
+          const Text(
+            'Histórico de Escalas',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Lista de escalas
+          _SchedulesList(ministryId: ministry.id),
         ],
       ),
     );
@@ -675,3 +690,102 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
   }
 }
 
+/// Lista de escalas do ministério
+class _SchedulesList extends ConsumerWidget {
+  final String ministryId;
+
+  const _SchedulesList({required this.ministryId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final schedulesAsync = ref.watch(ministrySchedulesProvider(ministryId));
+
+    return schedulesAsync.when(
+      data: (schedules) {
+        if (schedules.isEmpty) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.calendar_today_outlined,
+                    size: 48,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Nenhuma escala registrada',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Este ministério ainda não foi escalado para nenhum evento',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[500],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // Agrupar escalas por evento
+        final Map<String, List<MinistrySchedule>> schedulesByEvent = {};
+        for (final schedule in schedules) {
+          if (!schedulesByEvent.containsKey(schedule.eventId)) {
+            schedulesByEvent[schedule.eventId] = [];
+          }
+          schedulesByEvent[schedule.eventId]!.add(schedule);
+        }
+
+        return Column(
+          children: schedulesByEvent.entries.map((entry) {
+            final eventSchedules = entry.value;
+            final eventName = eventSchedules.first.eventName;
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ExpansionTile(
+                leading: const Icon(Icons.event, color: Colors.blue),
+                title: Text(
+                  eventName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                subtitle: Text(
+                  '${eventSchedules.length} ${eventSchedules.length == 1 ? 'membro escalado' : 'membros escalados'}',
+                ),
+                children: eventSchedules.map((schedule) {
+                  return ListTile(
+                    leading: const CircleAvatar(
+                      child: Icon(Icons.person, size: 20),
+                    ),
+                    title: Text(schedule.memberName),
+                    subtitle: schedule.notes != null
+                        ? Text(schedule.notes!)
+                        : null,
+                  );
+                }).toList(),
+              ),
+            );
+          }).toList(),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text('Erro ao carregar escalas: $error'),
+        ),
+      ),
+    );
+  }
+}
