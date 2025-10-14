@@ -581,9 +581,14 @@ class _GoalCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      child: InkWell(
+        onTap: () {
+          context.push('/financial-goals/${goal.id}/edit');
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -679,6 +684,7 @@ class _GoalCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }
