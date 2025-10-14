@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers/visitors_provider.dart';
 import '../../domain/models/visitor.dart';
@@ -35,6 +36,82 @@ class VisitorDetailsScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _convertToMember(BuildContext context, WidgetRef ref, Visitor visitor) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Converter em Membro'),
+        content: Text(
+          'Deseja converter ${visitor.fullName} em membro da igreja?\n\n'
+          'Esta ação criará um novo membro com os dados do visitante.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Converter'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        // Criar membro com os dados do visitante
+        final memberData = {
+          'first_name': visitor.firstName,
+          'last_name': visitor.lastName,
+          'email': visitor.email,
+          'phone': visitor.phone,
+          'birth_date': visitor.birthDate?.toIso8601String().split('T')[0],
+          'address': visitor.address,
+          'city': visitor.city,
+          'state': visitor.state,
+          'zip_code': visitor.zipCode,
+          'membership_status': 'active',
+          'join_date': DateTime.now().toIso8601String().split('T')[0],
+        };
+
+        final supabase = Supabase.instance.client;
+        final memberResponse = await supabase
+            .from('member')
+            .insert(memberData)
+            .select()
+            .single();
+
+        final memberId = memberResponse['id'] as String;
+
+        // Atualizar visitante com status convertido
+        await ref.read(visitorsRepositoryProvider).convertToMember(visitorId, memberId);
+
+        ref.invalidate(visitorByIdProvider(visitorId));
+        ref.invalidate(allVisitorsProvider);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Visitante convertido em membro com sucesso!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          context.pop();
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro ao converter visitante: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final visitorAsync = ref.watch(visitorByIdProvider(visitorId));
@@ -51,6 +128,29 @@ class VisitorDetailsScreen extends ConsumerWidget {
               context.push('/visitors/$visitorId/edit');
             },
             tooltip: 'Editar',
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'convert') {
+                visitorAsync.whenData((visitor) {
+                  if (visitor != null) {
+                    _convertToMember(context, ref, visitor);
+                  }
+                });
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'convert',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_add),
+                    SizedBox(width: 8),
+                    Text('Converter em Membro'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -454,6 +554,28 @@ class VisitorDetailsScreen extends ConsumerWidget {
         error: (error, _) => Center(
           child: Text('Erro ao carregar visitante: $error'),
         ),
+      ),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton.extended(
+            onPressed: () {
+              context.push('/visitors/$visitorId/followup/new');
+            },
+            icon: const Icon(Icons.event),
+            label: const Text('Follow-up'),
+            heroTag: 'followup',
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            onPressed: () {
+              context.push('/visitors/$visitorId/visit/new');
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Registrar Visita'),
+            heroTag: 'visit',
+          ),
+        ],
       ),
     );
   }

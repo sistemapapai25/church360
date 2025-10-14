@@ -24,6 +24,9 @@ import '../../features/worship/presentation/screens/worship_statistics_screen.da
 import '../../features/visitors/presentation/screens/visitors_list_screen.dart';
 import '../../features/visitors/presentation/screens/visitor_form_screen.dart';
 import '../../features/visitors/presentation/screens/visitor_details_screen.dart';
+import '../../features/visitors/presentation/screens/visitor_visit_form_screen.dart';
+import '../../features/visitors/presentation/screens/visitor_followup_form_screen.dart';
+import '../../features/visitors/presentation/screens/visitors_statistics_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
 
@@ -215,6 +218,10 @@ final appRouter = GoRouter(
       builder: (context, state) => const VisitorsListScreen(),
     ),
     GoRoute(
+      path: '/visitors/statistics',
+      builder: (context, state) => const VisitorsStatisticsScreen(),
+    ),
+    GoRoute(
       path: '/visitors/new',
       builder: (context, state) => const VisitorFormScreen(),
     ),
@@ -230,6 +237,31 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         return VisitorFormScreen(visitorId: id);
+      },
+    ),
+    GoRoute(
+      path: '/visitors/:id/visit/new',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return VisitorVisitFormScreen(visitorId: id);
+      },
+    ),
+    GoRoute(
+      path: '/visitors/:id/followup/new',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return VisitorFollowupFormScreen(visitorId: id);
+      },
+    ),
+    GoRoute(
+      path: '/visitors/:id/followup/:followupId/edit',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        final followupId = state.pathParameters['followupId']!;
+        return VisitorFollowupFormScreen(
+          visitorId: id,
+          followupId: followupId,
+        );
       },
     ),
   ],

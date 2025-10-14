@@ -29,7 +29,7 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
           IconButton(
             icon: const Icon(Icons.bar_chart),
             onPressed: () {
-              // TODO: Navegar para estatísticas
+              context.push('/visitors/statistics');
             },
             tooltip: 'Estatísticas',
           ),
