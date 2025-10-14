@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../providers/financial_provider.dart';
@@ -21,6 +22,9 @@ class _FinancialScreenState extends ConsumerState<FinancialScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      setState(() {}); // Atualiza o FAB quando a tab muda
+    });
   }
 
   @override
@@ -50,6 +54,28 @@ class _FinancialScreenState extends ConsumerState<FinancialScreen>
           _ExpensesTab(),
           _GoalsTab(),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          if (_tabController.index == 0) {
+            // Criar contribuição
+            context.push('/contributions/new');
+          } else if (_tabController.index == 1) {
+            // Criar despesa
+            context.push('/expenses/new');
+          } else {
+            // Criar meta
+            context.push('/financial-goals/new');
+          }
+        },
+        icon: const Icon(Icons.add),
+        label: Text(
+          _tabController.index == 0
+              ? 'Nova Contribuição'
+              : _tabController.index == 1
+                  ? 'Nova Despesa'
+                  : 'Nova Meta',
+        ),
       ),
     );
   }
@@ -250,6 +276,9 @@ class _ContributionCard extends StatelessWidget {
           ],
         ),
         isThreeLine: true,
+        onTap: () {
+          context.push('/contributions/${contribution.id}/edit');
+        },
       ),
     );
   }
@@ -476,6 +505,9 @@ class _ExpenseCard extends StatelessWidget {
           ],
         ),
         isThreeLine: true,
+        onTap: () {
+          context.push('/expenses/${expense.id}/edit');
+        },
       ),
     );
   }

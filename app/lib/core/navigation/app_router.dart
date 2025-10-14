@@ -13,6 +13,8 @@ import '../../features/groups/presentation/screens/meeting_detail_screen.dart';
 import '../../features/ministries/presentation/screens/ministries_list_screen.dart';
 import '../../features/ministries/presentation/screens/ministry_detail_screen.dart';
 import '../../features/ministries/presentation/screens/ministry_form_screen.dart';
+import '../../features/financial/presentation/screens/contribution_form_screen.dart';
+import '../../features/financial/presentation/screens/expense_form_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
 
@@ -134,6 +136,28 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         return MinistryDetailScreen(ministryId: id);
+      },
+    ),
+    GoRoute(
+      path: '/contributions/new',
+      builder: (context, state) => const ContributionFormScreen(),
+    ),
+    GoRoute(
+      path: '/contributions/:id/edit',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return ContributionFormScreen(contributionId: id);
+      },
+    ),
+    GoRoute(
+      path: '/expenses/new',
+      builder: (context, state) => const ExpenseFormScreen(),
+    ),
+    GoRoute(
+      path: '/expenses/:id/edit',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return ExpenseFormScreen(expenseId: id);
       },
     ),
   ],
