@@ -287,7 +287,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   
                   // Status
                   DropdownButtonFormField<String>(
-                    value: _status,
+                    initialValue: _status,
                     decoration: const InputDecoration(
                       labelText: 'Status *',
                       prefixIcon: Icon(Icons.flag),
@@ -379,7 +379,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   
                   // Gênero
                   DropdownButtonFormField<String>(
-                    value: _gender,
+                    initialValue: _gender,
                     decoration: const InputDecoration(
                       labelText: 'Gênero',
                       prefixIcon: Icon(Icons.person),
@@ -396,7 +396,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   
                   // Estado Civil
                   DropdownButtonFormField<String>(
-                    value: _maritalStatus,
+                    initialValue: _maritalStatus,
                     decoration: const InputDecoration(
                       labelText: 'Estado Civil',
                       prefixIcon: Icon(Icons.favorite),

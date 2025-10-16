@@ -260,7 +260,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                   membersAsync.when(
                     data: (members) {
                       return DropdownButtonFormField<String>(
-                        value: _leaderId,
+                        initialValue: _leaderId,
                         decoration: const InputDecoration(
                           labelText: 'Líder',
                           prefixIcon: Icon(Icons.person),
@@ -275,7 +275,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                               value: member.id,
                               child: Text(member.fullName),
                             );
-                          }).toList(),
+                          }),
                         ],
                         onChanged: (value) {
                           setState(() => _leaderId = value);
@@ -300,7 +300,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                   
                   // Dia da semana
                   DropdownButtonFormField<int>(
-                    value: _meetingDayOfWeek,
+                    initialValue: _meetingDayOfWeek,
                     decoration: const InputDecoration(
                       labelText: 'Dia da Semana',
                       prefixIcon: Icon(Icons.calendar_today),

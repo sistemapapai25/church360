@@ -246,7 +246,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
             // Método de Pagamento
             DropdownButtonFormField<PaymentMethod>(
-              value: _selectedPaymentMethod,
+              initialValue: _selectedPaymentMethod,
               decoration: const InputDecoration(
                 labelText: 'Método de Pagamento',
                 border: OutlineInputBorder(),

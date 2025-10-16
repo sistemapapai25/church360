@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../providers/members_provider.dart';
 import '../../domain/models/member.dart';
 import '../../../tags/presentation/providers/tags_provider.dart';
+import '../../../../core/widgets/permission_widget.dart';
+import '../../../access_levels/domain/models/access_level.dart';
 
 /// Tela de listagem de membros
 class MembersListScreen extends ConsumerStatefulWidget {
@@ -166,11 +167,13 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          context.push('/members/new');
-        },
-        child: const Icon(Icons.add),
+      floatingActionButton: LeaderOnlyWidget(
+        child: FloatingActionButton(
+          onPressed: () {
+            context.push('/members/new');
+          },
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }

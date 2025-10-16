@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/visitors_provider.dart';
 import '../../domain/models/visitor.dart';
-import '../../data/visitors_repository.dart';
 
 /// Tela de listagem de visitantes
 class VisitorsListScreen extends ConsumerStatefulWidget {

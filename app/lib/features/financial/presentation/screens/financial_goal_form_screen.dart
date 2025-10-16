@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../domain/models/contribution.dart';
 import '../providers/financial_provider.dart';
 
 /// Tela de formulário de meta financeira

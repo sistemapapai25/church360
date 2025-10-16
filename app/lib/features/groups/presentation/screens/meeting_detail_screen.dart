@@ -539,7 +539,7 @@ class _AddAttendanceDialogState extends ConsumerState<_AddAttendanceDialog> {
               children: [
                 // Dropdown de membros
                 DropdownButtonFormField<String>(
-                  value: _selectedMemberId,
+                  initialValue: _selectedMemberId,
                   decoration: const InputDecoration(
                     labelText: 'Selecione um membro',
                     prefixIcon: Icon(Icons.person),

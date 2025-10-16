@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../providers/financial_provider.dart';
 import '../../domain/models/contribution.dart';
+import '../../../../core/widgets/permission_widget.dart';
 
 /// Tela principal do sistema financeiro
 class FinancialScreen extends ConsumerStatefulWidget {
@@ -64,26 +65,28 @@ class _FinancialScreenState extends ConsumerState<FinancialScreen>
           _GoalsTab(),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          if (_tabController.index == 0) {
-            // Criar contribuição
-            context.push('/contributions/new');
-          } else if (_tabController.index == 1) {
-            // Criar despesa
-            context.push('/expenses/new');
-          } else {
-            // Criar meta
-            context.push('/financial-goals/new');
-          }
-        },
-        icon: const Icon(Icons.add),
-        label: Text(
-          _tabController.index == 0
-              ? 'Nova Contribuição'
-              : _tabController.index == 1
-                  ? 'Nova Despesa'
-                  : 'Nova Meta',
+      floatingActionButton: CoordinatorOnlyWidget(
+        child: FloatingActionButton.extended(
+          onPressed: () {
+            if (_tabController.index == 0) {
+              // Criar contribuição
+              context.push('/contributions/new');
+            } else if (_tabController.index == 1) {
+              // Criar despesa
+              context.push('/expenses/new');
+            } else {
+              // Criar meta
+              context.push('/financial-goals/new');
+            }
+          },
+          icon: const Icon(Icons.add),
+          label: Text(
+            _tabController.index == 0
+                ? 'Nova Contribuição'
+                : _tabController.index == 1
+                    ? 'Nova Despesa'
+                    : 'Nova Meta',
+          ),
         ),
       ),
     );

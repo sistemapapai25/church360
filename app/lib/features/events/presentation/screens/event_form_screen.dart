@@ -287,7 +287,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
 
                     // Status
                     DropdownButtonFormField<String>(
-                      value: _status,
+                      initialValue: _status,
                       decoration: const InputDecoration(
                         labelText: 'Status',
                         prefixIcon: Icon(Icons.flag),

@@ -1,16 +1,13 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/members/presentation/screens/member_detail_screen.dart';
 import '../../features/members/presentation/screens/member_form_screen.dart';
-import '../../features/groups/presentation/screens/groups_list_screen.dart';
 import '../../features/groups/presentation/screens/group_detail_screen.dart';
 import '../../features/groups/presentation/screens/group_form_screen.dart';
 import '../../features/groups/presentation/screens/meeting_form_screen.dart';
 import '../../features/groups/presentation/screens/meeting_detail_screen.dart';
-import '../../features/ministries/presentation/screens/ministries_list_screen.dart';
 import '../../features/ministries/presentation/screens/ministry_detail_screen.dart';
 import '../../features/ministries/presentation/screens/ministry_form_screen.dart';
 import '../../features/financial/presentation/screens/contribution_form_screen.dart';
@@ -27,8 +24,25 @@ import '../../features/visitors/presentation/screens/visitor_details_screen.dart
 import '../../features/visitors/presentation/screens/visitor_visit_form_screen.dart';
 import '../../features/visitors/presentation/screens/visitor_followup_form_screen.dart';
 import '../../features/visitors/presentation/screens/visitors_statistics_screen.dart';
+import '../../features/access_levels/presentation/screens/access_levels_list_screen.dart';
+import '../../features/access_levels/presentation/screens/access_level_history_screen.dart';
+import '../../features/devotionals/presentation/screens/devotionals_list_screen.dart';
+import '../../features/devotionals/presentation/screens/devotional_detail_screen.dart';
+import '../../features/devotionals/presentation/screens/devotional_form_screen.dart';
+import '../../features/prayer_requests/presentation/screens/prayer_requests_list_screen.dart';
+import '../../features/prayer_requests/presentation/screens/prayer_request_detail_screen.dart';
+import '../../features/prayer_requests/presentation/screens/prayer_request_form_screen.dart';
+import '../../features/notifications/presentation/screens/notifications_list_screen.dart';
+import '../../features/notifications/presentation/screens/notification_preferences_screen.dart';
+import '../../features/study_groups/presentation/screens/study_groups_list_screen.dart';
+import '../../features/study_groups/presentation/screens/study_group_detail_screen.dart';
+import '../../features/study_groups/presentation/screens/study_group_form_screen.dart';
+import '../../features/study_groups/presentation/screens/lesson_detail_screen.dart';
+import '../../features/analytics/presentation/screens/analytics_dashboard_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
+import '../screens/dashboard_screen.dart';
+import 'route_guard.dart';
 
 /// Configuração de rotas do aplicativo
 final appRouter = GoRouter(
@@ -69,7 +83,11 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/home',
-      builder: (context, state) => const HomeScreen(),
+      builder: (context, state) => HomeScreen(),
+    ),
+    GoRoute(
+      path: '/dashboard',
+      builder: (context, state) => const DashboardScreen(),
     ),
     GoRoute(
       path: '/members/new',
@@ -150,42 +168,57 @@ final appRouter = GoRouter(
         return MinistryDetailScreen(ministryId: id);
       },
     ),
+    // Rotas Financeiras (Coordenador+)
     GoRoute(
       path: '/contributions/new',
-      builder: (context, state) => const ContributionFormScreen(),
+      builder: (context, state) => const CoordinatorOnlyRoute(
+        child: ContributionFormScreen(),
+      ),
     ),
     GoRoute(
       path: '/contributions/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return ContributionFormScreen(contributionId: id);
+        return CoordinatorOnlyRoute(
+          child: ContributionFormScreen(contributionId: id),
+        );
       },
     ),
     GoRoute(
       path: '/expenses/new',
-      builder: (context, state) => const ExpenseFormScreen(),
+      builder: (context, state) => const CoordinatorOnlyRoute(
+        child: ExpenseFormScreen(),
+      ),
     ),
     GoRoute(
       path: '/expenses/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return ExpenseFormScreen(expenseId: id);
+        return CoordinatorOnlyRoute(
+          child: ExpenseFormScreen(expenseId: id),
+        );
       },
     ),
     GoRoute(
       path: '/financial-goals/new',
-      builder: (context, state) => const FinancialGoalFormScreen(),
+      builder: (context, state) => const CoordinatorOnlyRoute(
+        child: FinancialGoalFormScreen(),
+      ),
     ),
     GoRoute(
       path: '/financial-goals/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return FinancialGoalFormScreen(goalId: id);
+        return CoordinatorOnlyRoute(
+          child: FinancialGoalFormScreen(goalId: id),
+        );
       },
     ),
     GoRoute(
       path: '/financial-reports',
-      builder: (context, state) => const FinancialReportsScreen(),
+      builder: (context, state) => const CoordinatorOnlyRoute(
+        child: FinancialReportsScreen(),
+      ),
     ),
     GoRoute(
       path: '/worship-services',
@@ -263,6 +296,151 @@ final appRouter = GoRouter(
           followupId: followupId,
         );
       },
+    ),
+
+    // =====================================================
+    // ROTAS: NÍVEIS DE ACESSO (Apenas Admin)
+    // =====================================================
+    GoRoute(
+      path: '/access-levels',
+      builder: (context, state) => const AdminOnlyRoute(
+        child: AccessLevelsListScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/access-levels/history',
+      builder: (context, state) => const AdminOnlyRoute(
+        child: AccessLevelHistoryScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/access-levels/history/:userId',
+      builder: (context, state) {
+        final userId = state.pathParameters['userId']!;
+        return AdminOnlyRoute(
+          child: AccessLevelHistoryScreen(userId: userId),
+        );
+      },
+    ),
+
+    // =====================================================
+    // ROTAS: DEVOCIONAIS
+    // =====================================================
+    GoRoute(
+      path: '/devotionals',
+      builder: (context, state) => const DevotionalsListScreen(),
+    ),
+    GoRoute(
+      path: '/devotionals/new',
+      builder: (context, state) => const CoordinatorOnlyRoute(
+        child: DevotionalFormScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/devotionals/:id',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return DevotionalDetailScreen(devotionalId: id);
+      },
+    ),
+    GoRoute(
+      path: '/devotionals/:id/edit',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return CoordinatorOnlyRoute(
+          child: DevotionalFormScreen(devotionalId: id),
+        );
+      },
+    ),
+
+    // =====================================================
+    // ROTAS: PEDIDOS DE ORAÇÃO
+    // =====================================================
+    GoRoute(
+      path: '/prayer-requests',
+      builder: (context, state) => const PrayerRequestsListScreen(),
+    ),
+    GoRoute(
+      path: '/prayer-requests/new',
+      builder: (context, state) => const PrayerRequestFormScreen(),
+    ),
+    GoRoute(
+      path: '/prayer-requests/:id',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return PrayerRequestDetailScreen(prayerRequestId: id);
+      },
+    ),
+    GoRoute(
+      path: '/prayer-requests/:id/edit',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return PrayerRequestFormScreen(prayerRequestId: id);
+      },
+    ),
+
+    // =====================================================
+    // NOTIFICATIONS ROUTES
+    // =====================================================
+
+    // Lista de notificações
+    GoRoute(
+      path: '/notifications',
+      builder: (context, state) => const NotificationsListScreen(),
+    ),
+
+    // Preferências de notificações
+    GoRoute(
+      path: '/notifications/preferences',
+      builder: (context, state) => const NotificationPreferencesScreen(),
+    ),
+
+    // ===== STUDY GROUPS =====
+
+    // Lista de grupos de estudo
+    GoRoute(
+      path: '/study-groups',
+      builder: (context, state) => const StudyGroupsListScreen(),
+    ),
+
+    // Novo grupo de estudo
+    GoRoute(
+      path: '/study-groups/new',
+      builder: (context, state) => const StudyGroupFormScreen(),
+    ),
+
+    // Detalhes do grupo de estudo
+    GoRoute(
+      path: '/study-groups/:id',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return StudyGroupDetailScreen(groupId: id);
+      },
+    ),
+
+    // Editar grupo de estudo
+    GoRoute(
+      path: '/study-groups/:id/edit',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return StudyGroupFormScreen(groupId: id);
+      },
+    ),
+
+    // Detalhes da lição
+    GoRoute(
+      path: '/study-groups/:groupId/lessons/:lessonId',
+      builder: (context, state) {
+        final groupId = state.pathParameters['groupId']!;
+        final lessonId = state.pathParameters['lessonId']!;
+        return LessonDetailScreen(groupId: groupId, lessonId: lessonId);
+      },
+    ),
+
+    // Analytics Dashboard
+    GoRoute(
+      path: '/analytics',
+      builder: (context, state) => const AnalyticsDashboardScreen(),
     ),
   ],
 );

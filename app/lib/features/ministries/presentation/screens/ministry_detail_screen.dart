@@ -559,7 +559,7 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
               children: [
                 // Seletor de membro
                 DropdownButtonFormField<String>(
-                  value: _selectedMemberId,
+                  initialValue: _selectedMemberId,
                   decoration: const InputDecoration(
                     labelText: 'Selecione o Membro',
                     border: OutlineInputBorder(),
@@ -580,7 +580,7 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
 
                 // Seletor de função
                 DropdownButtonFormField<MinistryRole>(
-                  value: _selectedRole,
+                  initialValue: _selectedRole,
                   decoration: const InputDecoration(
                     labelText: 'Função',
                     border: OutlineInputBorder(),

@@ -351,7 +351,7 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
 
             // Status
             DropdownButtonFormField<VisitorStatus>(
-              value: _status,
+              initialValue: _status,
               decoration: const InputDecoration(
                 labelText: 'Status *',
                 border: OutlineInputBorder(),
@@ -375,7 +375,7 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
 
             // Como conheceu a igreja
             DropdownButtonFormField<HowFoundChurch>(
-              value: _howFound,
+              initialValue: _howFound,
               decoration: const InputDecoration(
                 labelText: 'Como conheceu a igreja?',
                 border: OutlineInputBorder(),

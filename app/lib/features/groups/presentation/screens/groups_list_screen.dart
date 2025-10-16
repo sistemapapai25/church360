@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/widgets/permission_widget.dart';
 
 import '../providers/groups_provider.dart';
 import '../../domain/models/group.dart';
@@ -109,11 +110,13 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          context.push('/groups/new');
-        },
-        child: const Icon(Icons.add),
+      floatingActionButton: LeaderOnlyWidget(
+        child: FloatingActionButton(
+          onPressed: () {
+            context.push('/groups/new');
+          },
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }

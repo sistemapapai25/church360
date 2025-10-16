@@ -637,7 +637,7 @@ class _AddRegistrationDialogState extends ConsumerState<_AddRegistrationDialog> 
                 }
 
                 return DropdownButtonFormField<String>(
-                  value: _selectedMemberId,
+                  initialValue: _selectedMemberId,
                   decoration: const InputDecoration(
                     labelText: 'Selecione um membro',
                     prefixIcon: Icon(Icons.person),

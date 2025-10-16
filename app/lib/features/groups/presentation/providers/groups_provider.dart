@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/supabase_constants.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/groups_repository.dart';
 import '../../domain/models/group.dart';

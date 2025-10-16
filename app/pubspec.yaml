@@ -55,6 +55,7 @@ dependencies:
   # UI Components
   flutter_svg: ^2.0.10+1
   fl_chart: ^0.69.0
+  flutter_markdown: ^0.7.4+1
 
 dev_dependencies:
   flutter_test:

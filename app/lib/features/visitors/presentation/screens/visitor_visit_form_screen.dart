@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/visitors_provider.dart';
-import '../../data/visitors_repository.dart';
 
 /// Tela de formulário para registrar visita
 class VisitorVisitFormScreen extends ConsumerStatefulWidget {

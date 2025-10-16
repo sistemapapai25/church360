@@ -181,7 +181,7 @@ class _ContributionFormScreenState
                     .toList();
 
                 return DropdownButtonFormField<String>(
-                  value: _selectedMemberId,
+                  initialValue: _selectedMemberId,
                   decoration: const InputDecoration(
                     labelText: 'Membro (opcional)',
                     border: OutlineInputBorder(),
@@ -213,7 +213,7 @@ class _ContributionFormScreenState
 
             // Tipo
             DropdownButtonFormField<ContributionType>(
-              value: _selectedType,
+              initialValue: _selectedType,
               decoration: const InputDecoration(
                 labelText: 'Tipo',
                 border: OutlineInputBorder(),
@@ -263,7 +263,7 @@ class _ContributionFormScreenState
 
             // Método de Pagamento
             DropdownButtonFormField<PaymentMethod>(
-              value: _selectedPaymentMethod,
+              initialValue: _selectedPaymentMethod,
               decoration: const InputDecoration(
                 labelText: 'Método de Pagamento',
                 border: OutlineInputBorder(),

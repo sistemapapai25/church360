@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/worship_provider.dart';
 import '../../domain/models/worship_service.dart';
-import '../../data/worship_repository.dart';
 
 /// Tela de listagem de cultos
 class WorshipServicesScreen extends ConsumerWidget {

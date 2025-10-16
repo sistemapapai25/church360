@@ -1,4 +1,5 @@
 /// Enums e Models para o sistema de visitantes
+library;
 
 /// Status do visitante
 enum VisitorStatus {

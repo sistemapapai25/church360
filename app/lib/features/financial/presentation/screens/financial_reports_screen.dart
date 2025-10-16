@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 
-import '../../domain/models/contribution.dart';
 import '../providers/financial_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 

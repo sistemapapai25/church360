@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/widgets/permission_widget.dart';
 
 import '../providers/members_provider.dart';
 import '../../domain/models/member.dart';
@@ -25,17 +26,21 @@ class MemberDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Detalhes do Membro'),
         actions: [
-          // Botão de editar
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () {
-              context.push('/members/$memberId/edit');
-            },
+          // Botão de editar (apenas Líderes+)
+          LeaderOnlyWidget(
+            child: IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () {
+                context.push('/members/$memberId/edit');
+              },
+            ),
           ),
-          // Botão de deletar
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: () => _showDeleteDialog(context, ref),
+          // Botão de deletar (apenas Coordenadores+)
+          CoordinatorOnlyWidget(
+            child: IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: () => _showDeleteDialog(context, ref),
+            ),
           ),
         ],
       ),

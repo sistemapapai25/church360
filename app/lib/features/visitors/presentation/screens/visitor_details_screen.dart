@@ -5,7 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers/visitors_provider.dart';
 import '../../domain/models/visitor.dart';
-import '../../data/visitors_repository.dart';
 
 /// Tela de detalhes do visitante
 class VisitorDetailsScreen extends ConsumerWidget {
