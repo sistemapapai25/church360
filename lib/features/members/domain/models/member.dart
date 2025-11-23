@@ -1,0 +1,449 @@
+/// Modelo de Member (agora baseado em user_account unificado)
+/// Representa um usuário do sistema (visitante, membro, líder, etc.)
+class Member {
+  // Campos de autenticação (user_account)
+  final String id;
+  final String email;
+  final String? fullName; // Mantido para compatibilidade com auth
+  final String? avatarUrl;
+  final bool isActive;
+
+  // Dados pessoais (member)
+  final String? firstName;
+  final String? lastName;
+  final String? nickname;
+  final String? phone;
+  final String? cpf;
+  final DateTime? birthdate;
+  final String? gender;
+  final String? maritalStatus;
+  final DateTime? marriageDate;
+  final String? profession;
+
+  // Endereço (member)
+  final String? address;
+  final String? addressComplement;
+  final String? neighborhood;
+  final String? city;
+  final String? state;
+  final String? zipCode;
+
+  // Status e tipo (member)
+  final String status;
+  final String? memberType;
+  final String? photoUrl;
+
+  // Relacionamentos (member)
+  final String? householdId;
+  final String? campusId;
+  final String? createdBy;
+
+  // Datas espirituais (member)
+  final DateTime? conversionDate;
+  final DateTime? baptismDate;
+  final DateTime? membershipDate;
+
+  // Jornada do visitante (visitor)
+  final DateTime? firstVisitDate;
+  final DateTime? lastVisitDate;
+  final int? totalVisits;
+  final String? howFound;
+  final String? visitorSource;
+
+  // Acompanhamento espiritual (visitor)
+  final String? prayerRequest;
+  final String? interests;
+  final bool? isSalvation;
+  final DateTime? salvationDate;
+  final String? testimony;
+
+  // Discipulado e batismo (visitor)
+  final bool? wantsBaptism;
+  final String? baptismEventId;
+  final String? baptismCourseId;
+  final bool? wantsDiscipleship;
+  final String? discipleshipCourseId;
+
+  // Mentoria e acompanhamento (visitor)
+  final String? assignedMentorId;
+  final String? followUpStatus;
+  final DateTime? lastContactDate;
+  final bool? wantsContact;
+  final bool? wantsToReturn;
+
+  // Outros
+  final String? notes;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+
+  Member({
+    // Autenticação
+    required this.id,
+    required this.email,
+    this.fullName,
+    this.avatarUrl,
+    this.isActive = true,
+
+    // Dados pessoais
+    this.firstName,
+    this.lastName,
+    this.nickname,
+    this.phone,
+    this.cpf,
+    this.birthdate,
+    this.gender,
+    this.maritalStatus,
+    this.marriageDate,
+    this.profession,
+
+    // Endereço
+    this.address,
+    this.addressComplement,
+    this.neighborhood,
+    this.city,
+    this.state,
+    this.zipCode,
+
+    // Status e tipo
+    this.status = 'visitor',
+    this.memberType,
+    this.photoUrl,
+
+    // Relacionamentos
+    this.householdId,
+    this.campusId,
+    this.createdBy,
+
+    // Datas espirituais
+    this.conversionDate,
+    this.baptismDate,
+    this.membershipDate,
+
+    // Jornada do visitante
+    this.firstVisitDate,
+    this.lastVisitDate,
+    this.totalVisits,
+    this.howFound,
+    this.visitorSource,
+
+    // Acompanhamento espiritual
+    this.prayerRequest,
+    this.interests,
+    this.isSalvation,
+    this.salvationDate,
+    this.testimony,
+
+    // Discipulado e batismo
+    this.wantsBaptism,
+    this.baptismEventId,
+    this.baptismCourseId,
+    this.wantsDiscipleship,
+    this.discipleshipCourseId,
+
+    // Mentoria e acompanhamento
+    this.assignedMentorId,
+    this.followUpStatus,
+    this.lastContactDate,
+    this.wantsContact,
+    this.wantsToReturn,
+
+    // Outros
+    this.notes,
+    required this.createdAt,
+    this.updatedAt,
+  });
+
+  /// Nome completo computado
+  String get computedFullName => '${firstName ?? ''} ${lastName ?? ''}'.trim();
+
+  /// Nome para exibição (sempre retorna um valor)
+  String get displayName {
+    if (fullName != null && fullName!.isNotEmpty) return fullName!;
+    if (computedFullName.isNotEmpty) return computedFullName;
+    return email;
+  }
+
+  /// Iniciais para avatar
+  String get initials {
+    if (firstName != null && firstName!.isNotEmpty) {
+      return firstName![0].toUpperCase();
+    }
+    if (fullName != null && fullName!.isNotEmpty) {
+      return fullName![0].toUpperCase();
+    }
+    return email[0].toUpperCase();
+  }
+
+  /// Idade (se tiver data de nascimento)
+  int? get age {
+    if (birthdate == null) return null;
+    final now = DateTime.now();
+    int age = now.year - birthdate!.year;
+    if (now.month < birthdate!.month ||
+        (now.month == birthdate!.month && now.day < birthdate!.day)) {
+      age--;
+    }
+    return age;
+  }
+
+  /// Criar a partir do JSON do Supabase
+  factory Member.fromJson(Map<String, dynamic> json) {
+    return Member(
+      // Autenticação
+      id: json['id'] as String,
+      email: json['email'] as String,
+      fullName: json['full_name'] as String?,
+      avatarUrl: json['avatar_url'] as String?,
+      isActive: json['is_active'] as bool? ?? true,
+
+      // Dados pessoais
+      firstName: json['first_name'] as String?,
+      lastName: json['last_name'] as String?,
+      nickname: json['nickname'] as String?,
+      phone: json['phone'] as String?,
+      cpf: json['cpf'] as String?,
+      birthdate: json['birthdate'] != null
+          ? DateTime.parse(json['birthdate'] as String)
+          : null,
+      gender: json['gender'] as String?,
+      maritalStatus: json['marital_status'] as String?,
+      marriageDate: json['marriage_date'] != null
+          ? DateTime.parse(json['marriage_date'] as String)
+          : null,
+      profession: json['profession'] as String?,
+
+      // Endereço
+      address: json['address'] as String?,
+      addressComplement: json['address_complement'] as String?,
+      neighborhood: json['neighborhood'] as String?,
+      city: json['city'] as String?,
+      state: json['state'] as String?,
+      zipCode: json['zip_code'] as String?,
+
+      // Status e tipo
+      status: json['status'] as String? ?? 'visitor',
+      memberType: json['member_type'] as String?,
+      photoUrl: json['photo_url'] as String?,
+
+      // Relacionamentos
+      householdId: json['household_id'] as String?,
+      campusId: json['campus_id'] as String?,
+      createdBy: json['created_by'] as String?,
+
+      // Datas espirituais
+      conversionDate: json['conversion_date'] != null
+          ? DateTime.parse(json['conversion_date'] as String)
+          : null,
+      baptismDate: json['baptism_date'] != null
+          ? DateTime.parse(json['baptism_date'] as String)
+          : null,
+      membershipDate: json['membership_date'] != null
+          ? DateTime.parse(json['membership_date'] as String)
+          : null,
+
+      // Jornada do visitante
+      firstVisitDate: json['first_visit_date'] != null
+          ? DateTime.parse(json['first_visit_date'] as String)
+          : null,
+      lastVisitDate: json['last_visit_date'] != null
+          ? DateTime.parse(json['last_visit_date'] as String)
+          : null,
+      totalVisits: json['total_visits'] as int?,
+      howFound: json['how_found'] as String?,
+      visitorSource: json['visitor_source'] as String?,
+
+      // Acompanhamento espiritual
+      prayerRequest: json['prayer_request'] as String?,
+      interests: json['interests'] as String?,
+      isSalvation: json['is_salvation'] as bool?,
+      salvationDate: json['salvation_date'] != null
+          ? DateTime.parse(json['salvation_date'] as String)
+          : null,
+      testimony: json['testimony'] as String?,
+
+      // Discipulado e batismo
+      wantsBaptism: json['wants_baptism'] as bool?,
+      baptismEventId: json['baptism_event_id'] as String?,
+      baptismCourseId: json['baptism_course_id'] as String?,
+      wantsDiscipleship: json['wants_discipleship'] as bool?,
+      discipleshipCourseId: json['discipleship_course_id'] as String?,
+
+      // Mentoria e acompanhamento
+      assignedMentorId: json['assigned_mentor_id'] as String?,
+      followUpStatus: json['follow_up_status'] as String?,
+      lastContactDate: json['last_contact_date'] != null
+          ? DateTime.parse(json['last_contact_date'] as String)
+          : null,
+      wantsContact: json['wants_contact'] as bool?,
+      wantsToReturn: json['wants_to_return'] as bool?,
+
+      // Outros
+      notes: json['notes'] as String?,
+      createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : null,
+    );
+  }
+
+  /// Converter para JSON
+  Map<String, dynamic> toJson() {
+    return {
+      // Autenticação
+      'id': id,
+      'email': email,
+      'full_name': fullName,
+      'avatar_url': avatarUrl,
+      'is_active': isActive,
+
+      // Dados pessoais
+      'first_name': firstName,
+      'last_name': lastName,
+      'nickname': nickname,
+      'phone': phone,
+      'cpf': cpf,
+      'birthdate': birthdate?.toIso8601String(),
+      'gender': gender,
+      'marital_status': maritalStatus,
+      'marriage_date': marriageDate?.toIso8601String(),
+      'profession': profession,
+
+      // Endereço
+      'address': address,
+      'address_complement': addressComplement,
+      'neighborhood': neighborhood,
+      'city': city,
+      'state': state,
+      'zip_code': zipCode,
+
+      // Status e tipo
+      'status': status,
+      'member_type': memberType,
+      'photo_url': photoUrl,
+
+      // Relacionamentos
+      'household_id': householdId,
+      'campus_id': campusId,
+      'created_by': createdBy,
+
+      // Datas espirituais
+      'conversion_date': conversionDate?.toIso8601String(),
+      'baptism_date': baptismDate?.toIso8601String(),
+      'membership_date': membershipDate?.toIso8601String(),
+
+      // Jornada do visitante
+      'first_visit_date': firstVisitDate?.toIso8601String(),
+      'last_visit_date': lastVisitDate?.toIso8601String(),
+      'total_visits': totalVisits,
+      'how_found': howFound,
+      'visitor_source': visitorSource,
+
+      // Acompanhamento espiritual
+      'prayer_request': prayerRequest,
+      'interests': interests,
+      'is_salvation': isSalvation,
+      'salvation_date': salvationDate?.toIso8601String(),
+      'testimony': testimony,
+
+      // Discipulado e batismo
+      'wants_baptism': wantsBaptism,
+      'baptism_event_id': baptismEventId,
+      'baptism_course_id': baptismCourseId,
+      'wants_discipleship': wantsDiscipleship,
+      'discipleship_course_id': discipleshipCourseId,
+
+      // Mentoria e acompanhamento
+      'assigned_mentor_id': assignedMentorId,
+      'follow_up_status': followUpStatus,
+      'last_contact_date': lastContactDate?.toIso8601String(),
+      'wants_contact': wantsContact,
+      'wants_to_return': wantsToReturn,
+
+      // Outros
+      'notes': notes,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+
+  /// Copiar com modificações
+  Member copyWith({
+    String? id,
+    String? householdId,
+    String? campusId,
+    String? firstName,
+    String? lastName,
+    String? nickname,
+    String? email,
+    String? phone,
+    String? cpf,
+    DateTime? birthdate,
+    String? gender,
+    String? maritalStatus,
+    DateTime? marriageDate,
+    String? profession,
+    String? status,
+    String? memberType,
+    DateTime? membershipDate,
+    DateTime? conversionDate,
+    DateTime? baptismDate,
+    String? photoUrl,
+    String? address,
+    String? addressComplement,
+    String? neighborhood,
+    String? city,
+    String? state,
+    String? zipCode,
+    String? notes,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return Member(
+      id: id ?? this.id,
+      householdId: householdId ?? this.householdId,
+      campusId: campusId ?? this.campusId,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      nickname: nickname ?? this.nickname,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      cpf: cpf ?? this.cpf,
+      birthdate: birthdate ?? this.birthdate,
+      gender: gender ?? this.gender,
+      maritalStatus: maritalStatus ?? this.maritalStatus,
+      marriageDate: marriageDate ?? this.marriageDate,
+      profession: profession ?? this.profession,
+      status: status ?? this.status,
+      memberType: memberType ?? this.memberType,
+      membershipDate: membershipDate ?? this.membershipDate,
+      conversionDate: conversionDate ?? this.conversionDate,
+      baptismDate: baptismDate ?? this.baptismDate,
+      photoUrl: photoUrl ?? this.photoUrl,
+      address: address ?? this.address,
+      addressComplement: addressComplement ?? this.addressComplement,
+      neighborhood: neighborhood ?? this.neighborhood,
+      city: city ?? this.city,
+      state: state ?? this.state,
+      zipCode: zipCode ?? this.zipCode,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  /// Verificar se é membro ativo (status)
+  bool get isMemberActive => status == 'member_active';
+
+  /// Verificar se é visitante
+  bool get isVisitor => status == 'visitor';
+
+  /// Verificar se é novo convertido
+  bool get isNewConvert => status == 'new_convert';
+
+  /// Verificar se é membro inativo
+  bool get isInactive => status == 'member_inactive';
+
+  /// Verificar se foi transferido
+  bool get isTransferred => status == 'transferred';
+}
+
