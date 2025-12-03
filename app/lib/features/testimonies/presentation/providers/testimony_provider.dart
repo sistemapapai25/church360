@@ -16,6 +16,12 @@ final testimonyRepositoryProvider = Provider<TestimonyRepository>((ref) {
 // DATA PROVIDERS
 // =====================================================
 
+/// Provider: TODOS os testemunhos (admin)
+final allTestimoniesProvider = FutureProvider<List<Testimony>>((ref) async {
+  final repository = ref.watch(testimonyRepositoryProvider);
+  return repository.getAllTestimonies();
+});
+
 /// Provider: Todos os testemunhos públicos
 final publicTestimoniesProvider = FutureProvider<List<Testimony>>((ref) async {
   final repository = ref.watch(testimonyRepositoryProvider);

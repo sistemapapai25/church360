@@ -215,7 +215,7 @@ class AccessLevelHistoryScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _getLevelColor(level).withOpacity(0.2),
+        color: _getLevelColor(level).withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: _getLevelColor(level)),
       ),
@@ -296,4 +296,3 @@ class AccessLevelHistoryScreen extends ConsumerWidget {
     }
   }
 }
-

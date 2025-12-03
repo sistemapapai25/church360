@@ -1,0 +1,10 @@
+idusuario,idmembro,email,permissao,auth_uid,created_at
+5ae4e463,mem00016,gabriel.132002r@gmail.com,ADM,c71045d2-9f67-4d12-8d72-419ecb6a2ae5,2025-10-05 18:35:39.476493+00
+8b3b0a25,mem00008,pradeboraandriotti@gmail.com,ADM,060f7f44-2755-46a2-8c2b-7190a20bdc29,2025-10-05 18:35:39.476493+00
+ref4e,mem00040,prbergnterra@gmail.com,ADM,d7b1c535-bd40-499b-8bed-f45fc2de39ac,2025-10-05 18:35:39.476493+00
+USR000001,mem00030,ramon.naciff@gmail.com,MTR,25209cf7-f35f-45e2-85f4-071c928d1e08,2025-10-05 18:35:39.476493+00
+USR000002,mem00001,andrielle.alvess@gmail.com,ADM,befed8ef-d0cd-4f4a-957b-b4a51d5d464c,2025-10-05 18:35:39.476493+00
+USR000003,dca6fbb4,liliancrs03@gmail.com,ADM,1fbdb662-6401-4938-9d1b-1fa2a60bdae6,2025-10-05 18:35:39.476493+00
+USR000004,e6d55cd2,jheovanalyssa5@gmail.com,MTR,64c84e0f-47e4-4d31-a2fc-ed8bfba60496,2025-10-05 18:37:20.545128+00
+USR000005,dc3e0a6f,dossantossouzamonica4@gmail.com,MTR,f361d736-25f4-4886-b65c-6ac6a7f58747,2025-10-10 04:01:56.477174+00
+USR000006,mem00005,clarissa.naciff@gmail.com,MTR,a3dc567a-0647-4f19-b366-062b8fb51711,2025-10-17 14:08:25.592879+00

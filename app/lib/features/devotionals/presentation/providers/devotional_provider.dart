@@ -149,10 +149,14 @@ class DevotionalActions {
     String? scriptureReference,
     required DateTime devotionalDate,
     bool isPublished = false,
+    String? imageUrl,
+    String? category,
+    String? preacher,
+    String? youtubeUrl,
   }) async {
     final repository = ref.read(devotionalRepositoryProvider);
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    
+
     if (userId == null) {
       throw Exception('Usuário não autenticado');
     }
@@ -164,6 +168,10 @@ class DevotionalActions {
       devotionalDate: devotionalDate,
       authorId: userId,
       isPublished: isPublished,
+      imageUrl: imageUrl,
+      category: category,
+      preacher: preacher,
+      youtubeUrl: youtubeUrl,
     );
 
     // Invalidar providers
@@ -180,6 +188,10 @@ class DevotionalActions {
     String? scriptureReference,
     DateTime? devotionalDate,
     bool? isPublished,
+    String? imageUrl,
+    String? category,
+    String? preacher,
+    String? youtubeUrl,
   }) async {
     final repository = ref.read(devotionalRepositoryProvider);
 
@@ -190,6 +202,10 @@ class DevotionalActions {
       scriptureReference: scriptureReference,
       devotionalDate: devotionalDate,
       isPublished: isPublished,
+      imageUrl: imageUrl,
+      category: category,
+      preacher: preacher,
+      youtubeUrl: youtubeUrl,
     );
 
     // Invalidar providers

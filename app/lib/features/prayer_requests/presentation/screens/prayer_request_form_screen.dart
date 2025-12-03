@@ -139,26 +139,17 @@ class _PrayerRequestFormScreenState extends ConsumerState<PrayerRequestFormScree
             const SizedBox(height: 16),
 
             // Categoria
-            DropdownButtonFormField<PrayerCategory>(
-              value: _selectedCategory,
-              decoration: const InputDecoration(
-                labelText: 'Categoria *',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.category),
-              ),
-              items: PrayerCategory.values.map((category) {
-                return DropdownMenuItem(
-                  value: category,
-                  child: Row(
-                    children: [
-                      Text(category.icon),
-                      const SizedBox(width: 8),
-                      Text(category.displayName),
-                    ],
-                  ),
-                );
-              }).toList(),
-              onChanged: (value) {
+            DropdownMenu<PrayerCategory>(
+              initialSelection: _selectedCategory,
+              label: const Text('Categoria *'),
+              leadingIcon: const Icon(Icons.category),
+              dropdownMenuEntries: PrayerCategory.values
+                  .map((category) => DropdownMenuEntry<PrayerCategory>(
+                        value: category,
+                        label: '${category.icon} ${category.displayName}',
+                      ))
+                  .toList(),
+              onSelected: (value) {
                 if (value != null) {
                   setState(() {
                     _selectedCategory = value;
@@ -169,33 +160,17 @@ class _PrayerRequestFormScreenState extends ConsumerState<PrayerRequestFormScree
             const SizedBox(height: 16),
 
             // Privacidade
-            DropdownButtonFormField<PrayerPrivacy>(
-              value: _selectedPrivacy,
-              decoration: const InputDecoration(
-                labelText: 'Privacidade *',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.lock),
-              ),
-              items: PrayerPrivacy.values.map((privacy) {
-                return DropdownMenuItem(
-                  value: privacy,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(privacy.displayName),
-                      Text(
-                        privacy.description,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-              onChanged: (value) {
+            DropdownMenu<PrayerPrivacy>(
+              initialSelection: _selectedPrivacy,
+              label: const Text('Privacidade *'),
+              leadingIcon: const Icon(Icons.lock),
+              dropdownMenuEntries: PrayerPrivacy.values
+                  .map((privacy) => DropdownMenuEntry<PrayerPrivacy>(
+                        value: privacy,
+                        label: privacy.displayName,
+                      ))
+                  .toList(),
+              onSelected: (value) {
                 if (value != null) {
                   setState(() {
                     _selectedPrivacy = value;
@@ -249,4 +224,3 @@ class _PrayerRequestFormScreenState extends ConsumerState<PrayerRequestFormScree
     );
   }
 }
-

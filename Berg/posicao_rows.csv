@@ -1,0 +1,7 @@
+idposicao,nome,descricao,hierarquia,status,created_at,updated_at
+pos001,Pastor,Pastor principal,100,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+pos002,Supervisor,Supervisor de departamento,80,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+pos003,Coordenador,Coordenador de área,60,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+pos004,Professor,Professor/Instrutor,40,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+pos005,Auxiliar,Auxiliar geral,20,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+pos006,Voluntário,Voluntário,10,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00

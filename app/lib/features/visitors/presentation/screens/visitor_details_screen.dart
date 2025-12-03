@@ -16,9 +16,6 @@ class VisitorDetailsScreen extends ConsumerWidget {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
-  String _formatDateTime(DateTime dateTime) {
-    return '${_formatDate(dateTime)} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-  }
 
   Color _getStatusColor(VisitorStatus status) {
     switch (status) {
@@ -59,25 +56,17 @@ class VisitorDetailsScreen extends ConsumerWidget {
 
     if (confirmed == true && context.mounted) {
       try {
-        // Criar membro com os dados do visitante
+        // Atualizar status do visitante para membro ativo
         final memberData = {
-          'first_name': visitor.firstName,
-          'last_name': visitor.lastName,
-          'email': visitor.email,
-          'phone': visitor.phone,
-          'birth_date': visitor.birthDate?.toIso8601String().split('T')[0],
-          'address': visitor.address,
-          'city': visitor.city,
-          'state': visitor.state,
-          'zip_code': visitor.zipCode,
-          'membership_status': 'active',
-          'join_date': DateTime.now().toIso8601String().split('T')[0],
+          'status': 'member_active',
+          'membership_date': DateTime.now().toIso8601String().split('T')[0],
         };
 
         final supabase = Supabase.instance.client;
         final memberResponse = await supabase
-            .from('member')
-            .insert(memberData)
+            .from('user_account')
+            .update(memberData)
+            .eq('id', visitor.id)
             .select()
             .single();
 
@@ -268,11 +257,12 @@ class VisitorDetailsScreen extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _InfoRow(
-                        icon: Icons.calendar_today,
-                        label: 'Primeira Visita',
-                        value: _formatDate(visitor.firstVisitDate),
-                      ),
+                      if (visitor.firstVisitDate != null)
+                        _InfoRow(
+                          icon: Icons.calendar_today,
+                          label: 'Primeira Visita',
+                          value: _formatDate(visitor.firstVisitDate!),
+                        ),
                       if (visitor.lastVisitDate != null) ...[
                         const SizedBox(height: 8),
                         _InfoRow(
@@ -615,4 +605,3 @@ class _InfoRow extends StatelessWidget {
     );
   }
 }
-

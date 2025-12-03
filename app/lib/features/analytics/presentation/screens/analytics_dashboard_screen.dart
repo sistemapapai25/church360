@@ -3,6 +3,7 @@
 // =====================================================
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers/analytics_provider.dart';
@@ -218,7 +219,7 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
                   icon: Icons.people,
                   color: Colors.blue,
                   onTap: () {
-                    // TODO: Navigate to member reports
+                    context.push('/reports/members');
                   },
                 ),
                 const SizedBox(height: 12),
@@ -229,7 +230,7 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
                   icon: Icons.attach_money,
                   color: Colors.green,
                   onTap: () {
-                    // TODO: Navigate to financial reports
+                    context.push('/financial-reports');
                   },
                 ),
                 const SizedBox(height: 12),
@@ -240,7 +241,7 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
                   icon: Icons.church,
                   color: Colors.purple,
                   onTap: () {
-                    // TODO: Navigate to worship reports
+                    context.push('/reports/attendance');
                   },
                 ),
                 const SizedBox(height: 12),
@@ -251,7 +252,7 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
                   icon: Icons.groups,
                   color: Colors.orange,
                   onTap: () {
-                    // TODO: Navigate to group reports
+                    context.push('/reports/groups');
                   },
                 ),
               ],
@@ -355,7 +356,7 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
     return Card(
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: color.withOpacity(0.1),
+          backgroundColor: color.withValues(alpha: 0.1),
           child: Icon(icon, color: color),
         ),
         title: Text(
@@ -369,4 +370,3 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
     );
   }
 }
-

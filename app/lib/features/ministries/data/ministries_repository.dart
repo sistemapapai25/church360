@@ -24,11 +24,23 @@ class MinistriesRepository {
   Future<List<Ministry>> getActiveMinistries() async {
     final response = await _supabase
         .from('ministry')
-        .select()
+        .select('''
+          *,
+          ministry_member(count)
+        ''')
         .eq('is_active', true)
         .order('name', ascending: true);
 
-    return (response as List).map((json) => Ministry.fromJson(json)).toList();
+    return (response as List).map((json) {
+      final memberCount = json['ministry_member'] != null
+          ? (json['ministry_member'] as List).length
+          : 0;
+
+      return Ministry.fromJson({
+        ...json,
+        'member_count': memberCount,
+      });
+    }).toList();
   }
 
   /// Buscar ministério por ID
@@ -98,7 +110,7 @@ class MinistriesRepository {
         .from('ministry_member')
         .select('''
           *,
-          member:member_id (
+          user_account:user_id (
             first_name,
             last_name
           )
@@ -106,8 +118,8 @@ class MinistriesRepository {
         .eq('ministry_id', ministryId)
         .order('role', ascending: true);
 
-    return (response as List).map((json) {
-      final member = json['member'];
+    var members = (response as List).map((json) {
+      final member = json['user_account'];
       final memberName = member != null
           ? '${member['first_name']} ${member['last_name']}'
           : '';
@@ -117,26 +129,112 @@ class MinistriesRepository {
         'member_name': memberName,
       });
     }).toList();
+
+    // Fallback: preencher nomes para registros que não retornaram join
+    final missing = members.where((m) => (m.memberName).isEmpty).toList();
+    if (missing.isNotEmpty) {
+      final keys = missing.map((m) => m.memberId).toSet().toList();
+      try {
+        final details = await _supabase
+            .from('user_account')
+            .select('id,first_name,last_name')
+            .inFilter('id', keys);
+        final nameById = <String, String>{};
+        for (final row in (details as List)) {
+          final id = row['id'] as String?;
+          if (id != null) {
+            final fn = row['first_name'] ?? '';
+            final ln = row['last_name'] ?? '';
+            nameById[id] = '$fn $ln'.trim();
+          }
+        }
+        members = members
+            .map((m) => nameById.containsKey(m.memberId)
+                ? m.copyWith(memberName: nameById[m.memberId])
+                : m)
+            .toList();
+      } catch (_) {}
+    }
+
+    if (members.isEmpty) return members;
+
+    final memberIds = members.map((m) => m.memberId).toList();
+    final contexts = await _supabase
+        .from('role_contexts')
+        .select('id, role_id, metadata, is_active')
+        .contains('metadata', {'ministry_id': ministryId})
+        .eq('is_active', true);
+
+    final contextList = (contexts as List).map((e) => e as Map<String, dynamic>).toList();
+    if (contextList.isEmpty) return members;
+
+    final contextIds = contextList.map((c) => c['id'] as String).toList();
+    final cargoByUser = <String, String>{};
+
+    for (final uid in memberIds) {
+      try {
+        final resp = await _supabase.rpc(
+          'get_user_role_contexts',
+          params: {
+            'p_user_id': uid,
+            'p_role_id': null,
+          },
+        );
+        final items = (resp as List).map((e) => e as Map<String, dynamic>).toList();
+        final match = items.firstWhere(
+          (it) => contextIds.contains(it['context_id'] as String?),
+          orElse: () => {},
+        );
+        final name = match.isNotEmpty ? match['role_name'] as String? : null;
+        if (name != null) {
+          cargoByUser[uid] = name;
+        }
+      } catch (_) {}
+    }
+
+    return members
+        .map((m) => m.copyWith(cargoName: cargoByUser[m.memberId]))
+        .toList();
+  }
+
+  /// Verifica se já existe vínculo do membro com o ministério
+  Future<bool> membershipExists({
+    required String ministryId,
+    required String personId,
+  }) async {
+    final existingUser = await _supabase
+        .from('ministry_member')
+        .select('id')
+        .eq('ministry_id', ministryId)
+        .eq('user_id', personId)
+        .maybeSingle();
+    if (existingUser != null) return true;
+    return false;
   }
 
   /// Adicionar membro ao ministério
   Future<MinistryMember> addMinistryMember(Map<String, dynamic> data) async {
+    final payload = Map<String, dynamic>.from(data);
     final response = await _supabase
         .from('ministry_member')
-        .insert(data)
-        .select('''
-          *,
-          member:member_id (
-            first_name,
-            last_name
-          )
-        ''')
+        .insert(payload)
+        .select('*')
         .single();
 
-    final member = response['member'];
-    final memberName = member != null
-        ? '${member['first_name']} ${member['last_name']}'
-        : '';
+    final String? userKey = response['user_id'] as String?;
+    String memberName = '';
+    if (userKey != null) {
+      final ua = await _supabase
+          .from('user_account')
+          .select('first_name,last_name')
+          .eq('id', userKey)
+          .maybeSingle();
+      if (ua != null) {
+        final fn = ua['first_name'] ?? '';
+        final ln = ua['last_name'] ?? '';
+        memberName = '$fn $ln'.trim();
+      }
+    }
 
     return MinistryMember.fromJson({
       ...response,
@@ -155,14 +253,14 @@ class MinistriesRepository {
         .eq('id', id)
         .select('''
           *,
-          member:member_id (
+          user_account:user_id (
             first_name,
             last_name
           )
         ''')
         .single();
 
-    final member = response['member'];
+    final member = response['user_account'];
     final memberName = member != null
         ? '${member['first_name']} ${member['last_name']}'
         : '';
@@ -185,7 +283,7 @@ class MinistriesRepository {
         .select('''
           ministry:ministry_id (*)
         ''')
-        .eq('member_id', memberId);
+        .eq('user_id', memberId);
 
     return (response as List)
         .map((json) => Ministry.fromJson(json['ministry']))
@@ -202,7 +300,7 @@ class MinistriesRepository {
           *,
           event:event_id (name),
           ministry:ministry_id (name),
-          member:member_id (first_name, last_name)
+          user_account:user_id (first_name, last_name)
         ''')
         .eq('event_id', eventId)
         .order('ministry_id', ascending: true);
@@ -210,7 +308,7 @@ class MinistriesRepository {
     return (response as List).map((json) {
       final event = json['event'];
       final ministry = json['ministry'];
-      final member = json['member'];
+      final member = json['user_account'];
 
       return MinistrySchedule.fromJson({
         ...json,
@@ -229,9 +327,9 @@ class MinistriesRepository {
         .from('ministry_schedule')
         .select('''
           *,
-          event:event_id (name),
+          event:event_id (name,start_date),
           ministry:ministry_id (name),
-          member:member_id (first_name, last_name)
+          user_account:user_id (first_name, last_name)
         ''')
         .eq('ministry_id', ministryId)
         .order('created_at', ascending: false);
@@ -239,11 +337,12 @@ class MinistriesRepository {
     return (response as List).map((json) {
       final event = json['event'];
       final ministry = json['ministry'];
-      final member = json['member'];
+      final member = json['user_account'];
 
       return MinistrySchedule.fromJson({
         ...json,
         'event_name': event?['name'] ?? '',
+        'event_start_date': event?['start_date'],
         'ministry_name': ministry?['name'] ?? '',
         'member_name': member != null
             ? '${member['first_name']} ${member['last_name']}'
@@ -261,13 +360,13 @@ class MinistriesRepository {
           *,
           event:event_id (name),
           ministry:ministry_id (name),
-          member:member_id (first_name, last_name)
+          user_account:user_id (first_name, last_name)
         ''')
         .single();
 
     final event = response['event'];
     final ministry = response['ministry'];
-    final member = response['member'];
+    final member = response['user_account'];
 
     return MinistrySchedule.fromJson({
       ...response,
@@ -284,4 +383,3 @@ class MinistriesRepository {
     await _supabase.from('ministry_schedule').delete().eq('id', id);
   }
 }
-

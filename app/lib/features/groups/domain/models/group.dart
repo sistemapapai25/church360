@@ -5,6 +5,8 @@ class Group {
   final String? description;
   final String? leaderId;
   final String? leaderName; // Computed from join
+  final String? hostId; // Anfitrião da casa
+  final String? hostName; // Computed from join
   final String? campusId;
   final int? meetingDayOfWeek; // 0=Domingo, 6=Sábado
   final String? meetingTime;
@@ -20,6 +22,8 @@ class Group {
     this.description,
     this.leaderId,
     this.leaderName,
+    this.hostId,
+    this.hostName,
     this.campusId,
     this.meetingDayOfWeek,
     this.meetingTime,
@@ -53,6 +57,8 @@ class Group {
       description: json['description'] as String?,
       leaderId: json['leader_id'] as String?,
       leaderName: json['leader_name'] as String?,
+      hostId: json['host_id'] as String?,
+      hostName: json['host_name'] as String?,
       campusId: json['campus_id'] as String?,
       meetingDayOfWeek: json['meeting_day_of_week'] as int?,
       meetingTime: json['meeting_time'] as String?,
@@ -73,6 +79,7 @@ class Group {
       'name': name,
       'description': description,
       'leader_id': leaderId,
+      'host_id': hostId,
       'campus_id': campusId,
       'meeting_day_of_week': meetingDayOfWeek,
       'meeting_time': meetingTime,
@@ -90,6 +97,8 @@ class Group {
     String? description,
     String? leaderId,
     String? leaderName,
+    String? hostId,
+    String? hostName,
     String? campusId,
     int? meetingDayOfWeek,
     String? meetingTime,
@@ -105,6 +114,8 @@ class Group {
       description: description ?? this.description,
       leaderId: leaderId ?? this.leaderId,
       leaderName: leaderName ?? this.leaderName,
+      hostId: hostId ?? this.hostId,
+      hostName: hostName ?? this.hostName,
       campusId: campusId ?? this.campusId,
       meetingDayOfWeek: meetingDayOfWeek ?? this.meetingDayOfWeek,
       meetingTime: meetingTime ?? this.meetingTime,
@@ -137,7 +148,7 @@ class GroupMember {
   factory GroupMember.fromJson(Map<String, dynamic> json) {
     return GroupMember(
       groupId: json['group_id'] as String,
-      memberId: json['member_id'] as String,
+      memberId: json['user_id'] as String,
       memberName: json['member_name'] as String?,
       role: json['role'] as String?,
       joinedDate: DateTime.parse(json['joined_date'] as String),
@@ -148,7 +159,7 @@ class GroupMember {
   Map<String, dynamic> toJson() {
     return {
       'group_id': groupId,
-      'member_id': memberId,
+      'user_id': memberId,
       'role': role,
       'joined_date': joinedDate.toIso8601String().split('T')[0],
     };
@@ -200,4 +211,3 @@ class GroupMeeting {
     };
   }
 }
-

@@ -22,6 +22,28 @@ enum VisitorStatus {
   }
 }
 
+/// Origem do visitante (Tipo de Membro para visitantes)
+enum VisitorSource {
+  church('church', 'Veio da Igreja (Culto)'),
+  house('house', 'Veio da Casa (Grupo)'),
+  evangelism('evangelism', 'Evangelismo'),
+  event('event', 'Evento Especial'),
+  online('online', 'Online (Redes Sociais)'),
+  other('other', 'Outro');
+
+  final String value;
+  final String label;
+
+  const VisitorSource(this.value, this.label);
+
+  static VisitorSource fromValue(String value) {
+    return VisitorSource.values.firstWhere(
+      (source) => source.value == value,
+      orElse: () => VisitorSource.church,
+    );
+  }
+}
+
 /// Como conheceu a igreja
 enum HowFoundChurch {
   friendInvitation('friend_invitation', 'Convite de Amigo'),
@@ -59,7 +81,7 @@ class Visitor {
   final String? zipCode;
 
   // Informações da visita
-  final DateTime firstVisitDate;
+  final DateTime? firstVisitDate;
   final DateTime? lastVisitDate;
   final int totalVisits;
   final VisitorStatus status;
@@ -76,6 +98,39 @@ class Visitor {
 
   // Responsável
   final String? assignedTo;
+
+  // Origem do visitante (Tipo de Membro)
+  final VisitorSource visitorSource;
+
+  // Vinculação com reunião de grupo
+  final String? meetingId;
+
+  // Campos adicionais
+  final int? age;
+  final String? gender; // M, F
+  final String? howFoundUs; // Texto livre
+  final bool wantsContact;
+  final bool wantsToReturn;
+
+  // Campos de salvação
+  final bool isSalvation;
+  final DateTime? salvationDate;
+  final String? testimony;
+
+  // Campos de batismo
+  final bool wantsBaptism;
+  final String? baptismEventId;
+  final String? baptismCourseId;
+
+  // Campos de discipulado
+  final bool wantsDiscipleship;
+  final String? discipleshipCourseId;
+  final String? assignedMentorId;
+  final String? assignedMentorName; // Computed from join
+
+  // Campos de acompanhamento
+  final String followUpStatus; // pending, in_progress, completed
+  final DateTime? lastContactDate;
 
   // Timestamps
   final DateTime createdAt;
@@ -104,12 +159,52 @@ class Visitor {
     this.convertedToMemberId,
     this.convertedAt,
     this.assignedTo,
+    this.visitorSource = VisitorSource.church,
+    this.meetingId,
+    this.age,
+    this.gender,
+    this.howFoundUs,
+    this.wantsContact = true,
+    this.wantsToReturn = false,
+    this.isSalvation = false,
+    this.salvationDate,
+    this.testimony,
+    this.wantsBaptism = false,
+    this.baptismEventId,
+    this.baptismCourseId,
+    this.wantsDiscipleship = false,
+    this.discipleshipCourseId,
+    this.assignedMentorId,
+    this.assignedMentorName,
+    this.followUpStatus = 'pending',
+    this.lastContactDate,
     required this.createdAt,
     required this.updatedAt,
     this.createdBy,
   });
 
   String get fullName => '$firstName $lastName';
+
+  String get displayName => fullName;
+
+  String? get nickname => null; // Visitors don't have nicknames in the current schema
+
+  String get initials {
+    final first = firstName.isNotEmpty ? firstName[0].toUpperCase() : '';
+    final last = lastName.isNotEmpty ? lastName[0].toUpperCase() : '';
+    return '$first$last';
+  }
+
+  String? get photoUrl => null; // Visitors don't have photos in the current schema
+
+  String get followUpStatusLabel {
+    switch (followUpStatus) {
+      case 'pending': return 'Pendente';
+      case 'in_progress': return 'Em Andamento';
+      case 'completed': return 'Concluído';
+      default: return followUpStatus;
+    }
+  }
 
   factory Visitor.fromJson(Map<String, dynamic> json) {
     return Visitor(
@@ -118,14 +213,16 @@ class Visitor {
       lastName: json['last_name'] as String,
       email: json['email'] as String?,
       phone: json['phone'] as String?,
-      birthDate: json['birth_date'] != null
-          ? DateTime.parse(json['birth_date'] as String)
+      birthDate: json['birthdate'] != null
+          ? DateTime.parse(json['birthdate'] as String)
           : null,
       address: json['address'] as String?,
       city: json['city'] as String?,
       state: json['state'] as String?,
       zipCode: json['zip_code'] as String?,
-      firstVisitDate: DateTime.parse(json['first_visit_date'] as String),
+      firstVisitDate: json['first_visit_date'] != null
+          ? DateTime.parse(json['first_visit_date'] as String)
+          : null,
       lastVisitDate: json['last_visit_date'] != null
           ? DateTime.parse(json['last_visit_date'] as String)
           : null,
@@ -137,11 +234,36 @@ class Visitor {
       prayerRequest: json['prayer_request'] as String?,
       interests: json['interests'] as String?,
       notes: json['notes'] as String?,
-      convertedToMemberId: json['converted_to_member_id'] as String?,
+      convertedToMemberId: (json['converted_to_user_id'] ?? json['converted_to_member_id']) as String?,
       convertedAt: json['converted_at'] != null
           ? DateTime.parse(json['converted_at'] as String)
           : null,
       assignedTo: json['assigned_to'] as String?,
+      visitorSource: json['visitor_source'] != null
+          ? VisitorSource.fromValue(json['visitor_source'] as String)
+          : VisitorSource.church,
+      meetingId: json['meeting_id'] as String?,
+      age: json['age'] as int?,
+      gender: json['gender'] as String?,
+      howFoundUs: json['how_found_us'] as String?,
+      wantsContact: json['wants_contact'] as bool? ?? true,
+      wantsToReturn: json['wants_to_return'] as bool? ?? false,
+      isSalvation: json['is_salvation'] as bool? ?? false,
+      salvationDate: json['salvation_date'] != null
+          ? DateTime.parse(json['salvation_date'] as String)
+          : null,
+      testimony: json['testimony'] as String?,
+      wantsBaptism: json['wants_baptism'] as bool? ?? false,
+      baptismEventId: json['baptism_event_id'] as String?,
+      baptismCourseId: json['baptism_course_id'] as String?,
+      wantsDiscipleship: json['wants_discipleship'] as bool? ?? false,
+      discipleshipCourseId: json['discipleship_course_id'] as String?,
+      assignedMentorId: json['assigned_mentor_id'] as String?,
+      assignedMentorName: json['assigned_mentor_name'] as String?,
+      followUpStatus: json['follow_up_status'] as String? ?? 'pending',
+      lastContactDate: json['last_contact_date'] != null
+          ? DateTime.parse(json['last_contact_date'] as String)
+          : null,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       createdBy: json['created_by'] as String?,
@@ -160,7 +282,7 @@ class Visitor {
       'city': city,
       'state': state,
       'zip_code': zipCode,
-      'first_visit_date': firstVisitDate.toIso8601String().split('T')[0],
+      'first_visit_date': firstVisitDate?.toIso8601String().split('T')[0],
       'last_visit_date': lastVisitDate?.toIso8601String().split('T')[0],
       'total_visits': totalVisits,
       'status': status.value,
@@ -168,9 +290,27 @@ class Visitor {
       'prayer_request': prayerRequest,
       'interests': interests,
       'notes': notes,
-      'converted_to_member_id': convertedToMemberId,
+      'converted_to_user_id': convertedToMemberId,
       'converted_at': convertedAt?.toIso8601String(),
       'assigned_to': assignedTo,
+      'visitor_source': visitorSource.value,
+      'meeting_id': meetingId,
+      'age': age,
+      'gender': gender,
+      'how_found_us': howFoundUs,
+      'wants_contact': wantsContact,
+      'wants_to_return': wantsToReturn,
+      'is_salvation': isSalvation,
+      'salvation_date': salvationDate?.toIso8601String().split('T')[0],
+      'testimony': testimony,
+      'wants_baptism': wantsBaptism,
+      'baptism_event_id': baptismEventId,
+      'baptism_course_id': baptismCourseId,
+      'wants_discipleship': wantsDiscipleship,
+      'discipleship_course_id': discipleshipCourseId,
+      'assigned_mentor_id': assignedMentorId,
+      'follow_up_status': followUpStatus,
+      'last_contact_date': lastContactDate?.toIso8601String().split('T')[0],
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'created_by': createdBy,
@@ -299,4 +439,3 @@ class VisitorFollowup {
     };
   }
 }
-

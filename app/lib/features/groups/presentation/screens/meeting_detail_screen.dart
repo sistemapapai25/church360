@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../data/group_meetings_repository.dart';
 import '../providers/meetings_provider.dart';
-import '../providers/groups_provider.dart';
+import '../providers/groups_provider.dart' as groups_providers;
 import '../../domain/models/group_meeting.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 
@@ -131,7 +131,7 @@ class MeetingDetailScreen extends ConsumerWidget {
 }
 
 /// Conteúdo da tela de detalhes
-class _MeetingDetailContent extends ConsumerWidget {
+class _MeetingDetailContent extends ConsumerStatefulWidget {
   final String groupId;
   final GroupMeeting meeting;
 
@@ -141,7 +141,27 @@ class _MeetingDetailContent extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_MeetingDetailContent> createState() => _MeetingDetailContentState();
+}
+
+class _MeetingDetailContentState extends ConsumerState<_MeetingDetailContent>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this); // Apenas 2 tabs: Presença e Visitantes
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd/MM/yyyy');
 
     return Column(
@@ -162,15 +182,15 @@ class _MeetingDetailContent extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                dateFormat.format(meeting.meetingDate),
+                dateFormat.format(widget.meeting.meetingDate),
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
               ),
-              if (meeting.topic != null && meeting.topic!.isNotEmpty) ...[
+              if (widget.meeting.topic != null && widget.meeting.topic!.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
-                  meeting.topic!,
+                  widget.meeting.topic!,
                   style: Theme.of(context).textTheme.titleMedium,
                   textAlign: TextAlign.center,
                 ),
@@ -194,7 +214,7 @@ class _MeetingDetailContent extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '${meeting.totalAttendance} presentes',
+                      '${widget.meeting.totalAttendance} presentes',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.bold,
@@ -209,7 +229,7 @@ class _MeetingDetailContent extends ConsumerWidget {
         ),
 
         // Notas
-        if (meeting.notes != null && meeting.notes!.isNotEmpty) ...[
+        if (widget.meeting.notes != null && widget.meeting.notes!.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.all(16),
             child: Card(
@@ -234,7 +254,7 @@ class _MeetingDetailContent extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Text(meeting.notes!),
+                    Text(widget.meeting.notes!),
                   ],
                 ),
               ),
@@ -242,11 +262,31 @@ class _MeetingDetailContent extends ConsumerWidget {
           ),
         ],
 
-        // Lista de presença
+        // TabBar
+        TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(icon: Icon(Icons.people), text: 'Presença'),
+            Tab(icon: Icon(Icons.person_add), text: 'Visitantes'),
+          ],
+        ),
+
+        // TabBarView
         Expanded(
-          child: _AttendanceList(
-            groupId: groupId,
-            meetingId: meeting.id,
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              // Aba de Presença
+              _AttendanceList(
+                groupId: widget.groupId,
+                meetingId: widget.meeting.id,
+              ),
+              // Aba de Visitantes (inclui salvações)
+              _VisitorsList(
+                meetingId: widget.meeting.id,
+                groupId: widget.groupId,
+              ),
+            ],
           ),
         ),
       ],
@@ -267,7 +307,7 @@ class _AttendanceList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final attendancesAsync = ref.watch(meetingAttendancesProvider(meetingId));
-    final groupMembersAsync = ref.watch(groupMembersProvider(groupId));
+    final groupMembersAsync = ref.watch(groups_providers.groupMembersProvider(groupId));
 
     return attendancesAsync.when(
       data: (attendances) {
@@ -635,7 +675,7 @@ class _AddAttendanceDialogState extends ConsumerState<_AddAttendanceDialog> {
       final repository = ref.read(groupMeetingsRepositoryProvider);
       final data = {
         'meeting_id': widget.meetingId,
-        'member_id': _selectedMemberId!,
+        'user_id': _selectedMemberId!,
         'was_present': _wasPresent,
         if (_notesController.text.isNotEmpty) 'notes': _notesController.text.trim(),
       };
@@ -670,5 +710,109 @@ class _AddAttendanceDialogState extends ConsumerState<_AddAttendanceDialog> {
         setState(() => _isLoading = false);
       }
     }
+  }
+}
+/// Lista de Visitantes
+class _VisitorsList extends ConsumerWidget {
+  final String meetingId;
+  final String groupId;
+
+  const _VisitorsList({
+    required this.meetingId,
+    required this.groupId,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final visitorsAsync = ref.watch(groups_providers.visitorsProvider(meetingId));
+
+    return visitorsAsync.when(
+      data: (visitors) {
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // Título e botão
+            Row(
+              children: [
+                Text(
+                  'Visitantes',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const Spacer(),
+                FilledButton.icon(
+                  onPressed: () async {
+                    // Navegar para tela de cadastro de visitante
+                    // Passando meetingId e groupId como query parameters
+                    final result = await context.push(
+                      '/groups/$groupId/meetings/$meetingId/visitors/new',
+                    );
+
+                    // Se retornou sucesso, atualizar lista
+                    if (result == true && context.mounted) {
+                      ref.invalidate(groups_providers.visitorsProvider(meetingId));
+                    }
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Adicionar'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Lista
+            if (visitors.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.person_outline,
+                        size: 64,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Nenhum visitante registrado',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Colors.grey,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              ...visitors.map((visitor) {
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      child: Text(visitor.name[0].toUpperCase()),
+                    ),
+                    title: Text(visitor.name),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (visitor.phone != null) Text('📞 ${visitor.phone}'),
+                        if (visitor.wantsToReturn)
+                          const Text(
+                            '✅ Quer retornar',
+                            style: TextStyle(color: Colors.green),
+                          ),
+                      ],
+                    ),
+                    isThreeLine: true,
+                  ),
+                );
+              }),
+          ],
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => Center(child: Text('Erro: $error')),
+    );
   }
 }

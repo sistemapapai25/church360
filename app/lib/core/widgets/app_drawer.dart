@@ -48,7 +48,7 @@ class AppDrawer extends ConsumerWidget {
             accountEmail: Text(
               currentUser?.email ?? 'Não autenticado',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.8),
+                    color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.8),
                   ),
             ),
           ),
@@ -233,7 +233,7 @@ class AppDrawer extends ConsumerWidget {
               'Church 360 v1.0.0',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
             ),
           ),
@@ -288,7 +288,7 @@ class _DrawerItem extends StatelessWidget {
         icon,
         color: isSelected
             ? Theme.of(context).colorScheme.primary
-            : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
       ),
       title: Text(
         title,
@@ -300,14 +300,13 @@ class _DrawerItem extends StatelessWidget {
         ),
       ),
       selected: isSelected,
-      selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+      selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
       onTap: () {
-        context.go(route);
+        context.push(route);
       },
     );
   }
 }
-

@@ -12,6 +12,18 @@ class TestimonyRepository {
   // TESTIMONIES - CRUD
   // =====================================================
 
+  /// Buscar TODOS os testemunhos (admin)
+  Future<List<Testimony>> getAllTestimonies() async {
+    final response = await _supabase
+        .from('testimonies')
+        .select()
+        .order('created_at', ascending: false);
+
+    return (response as List)
+        .map((json) => Testimony.fromJson(json))
+        .toList();
+  }
+
   /// Buscar todos os testemunhos públicos
   Future<List<Testimony>> getAllPublicTestimonies() async {
     final response = await _supabase

@@ -255,20 +255,17 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
             
             // Status (apenas ao editar)
             if (widget.groupId != null) ...[
-              DropdownButtonFormField<StudyGroupStatus>(
-                value: _status,
-                decoration: const InputDecoration(
-                  labelText: 'Status',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.info),
-                ),
-                items: StudyGroupStatus.values.map((status) {
-                  return DropdownMenuItem(
-                    value: status,
-                    child: Text(status.displayName),
-                  );
-                }).toList(),
-                onChanged: (value) {
+              DropdownMenu<StudyGroupStatus>(
+                initialSelection: _status,
+                label: const Text('Status'),
+                leadingIcon: const Icon(Icons.info),
+                dropdownMenuEntries: StudyGroupStatus.values
+                    .map((status) => DropdownMenuEntry<StudyGroupStatus>(
+                          value: status,
+                          label: status.displayName,
+                        ))
+                    .toList(),
+                onSelected: (value) {
                   if (value != null) {
                     setState(() => _status = value);
                   }
@@ -296,4 +293,3 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
     );
   }
 }
-

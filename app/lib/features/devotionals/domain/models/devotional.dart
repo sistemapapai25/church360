@@ -7,6 +7,10 @@ class Devotional {
   final DateTime devotionalDate;
   final String authorId;
   final bool isPublished;
+  final String? imageUrl;
+  final String? category; // Domingo, Quarta, Especial
+  final String? preacher; // Pregador
+  final String? youtubeUrl; // Link do YouTube
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -18,6 +22,10 @@ class Devotional {
     required this.devotionalDate,
     required this.authorId,
     required this.isPublished,
+    this.imageUrl,
+    this.category,
+    this.preacher,
+    this.youtubeUrl,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -32,6 +40,10 @@ class Devotional {
       devotionalDate: DateTime.parse(json['devotional_date'] as String),
       authorId: json['author_id'] as String,
       isPublished: json['is_published'] as bool? ?? false,
+      imageUrl: json['image_url'] as String?,
+      category: json['category'] as String?,
+      preacher: json['preacher'] as String?,
+      youtubeUrl: json['youtube_url'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -47,6 +59,10 @@ class Devotional {
       'devotional_date': devotionalDate.toIso8601String().split('T')[0], // Apenas data
       'author_id': authorId,
       'is_published': isPublished,
+      'image_url': imageUrl,
+      'category': category,
+      'preacher': preacher,
+      'youtube_url': youtubeUrl,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -61,6 +77,10 @@ class Devotional {
     DateTime? devotionalDate,
     String? authorId,
     bool? isPublished,
+    String? imageUrl,
+    String? category,
+    String? preacher,
+    String? youtubeUrl,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -72,6 +92,10 @@ class Devotional {
       devotionalDate: devotionalDate ?? this.devotionalDate,
       authorId: authorId ?? this.authorId,
       isPublished: isPublished ?? this.isPublished,
+      imageUrl: imageUrl ?? this.imageUrl,
+      category: category ?? this.category,
+      preacher: preacher ?? this.preacher,
+      youtubeUrl: youtubeUrl ?? this.youtubeUrl,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -104,6 +128,24 @@ class Devotional {
       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
     ];
     return '${devotionalDate.day} de ${months[devotionalDate.month - 1]} de ${devotionalDate.year}';
+  }
+
+  /// Verificar se tem vídeo do YouTube
+  bool get hasYoutubeVideo => youtubeUrl != null && youtubeUrl!.isNotEmpty;
+
+  /// Texto da categoria
+  String get categoryText {
+    switch (category?.toLowerCase()) {
+      case 'domingo':
+        return 'Culto de Domingo';
+      case 'quarta':
+      case 'quarta-feira':
+        return 'Culto de Quarta-feira';
+      case 'especial':
+        return 'Culto Especial';
+      default:
+        return category ?? 'Devocional';
+    }
   }
 
   @override

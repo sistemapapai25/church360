@@ -1,4 +1,4 @@
-/// Enums e Models para Pedidos de Oração
+// Enums e Models para Pedidos de Oração
 
 /// Categoria do pedido de oração
 enum PrayerCategory {
@@ -302,4 +302,3 @@ class PrayerRequestStats {
     );
   }
 }
-

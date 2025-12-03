@@ -112,7 +112,7 @@ class WorshipRepository {
         .from('worship_attendance')
         .select('''
           *,
-          member:member_id (
+          user_account:user_id (
             first_name,
             last_name
           )
@@ -121,7 +121,7 @@ class WorshipRepository {
         .order('checked_in_at', ascending: true);
 
     return (response as List).map((json) {
-      final member = json['member'];
+      final member = json['user_account'];
       final memberName = member != null
           ? '${member['first_name']} ${member['last_name']}'
           : null;
@@ -137,7 +137,7 @@ class WorshipRepository {
   Future<WorshipAttendance> checkIn(String worshipServiceId, String memberId) async {
     final data = {
       'worship_service_id': worshipServiceId,
-      'member_id': memberId,
+      'user_id': memberId,
       'checked_in_at': DateTime.now().toIso8601String(),
     };
 
@@ -156,7 +156,7 @@ class WorshipRepository {
         .from('worship_attendance')
         .delete()
         .eq('worship_service_id', worshipServiceId)
-        .eq('member_id', memberId);
+        .eq('user_id', memberId);
   }
 
   /// Verificar se membro está presente
@@ -165,7 +165,7 @@ class WorshipRepository {
         .from('worship_attendance')
         .select()
         .eq('worship_service_id', worshipServiceId)
-        .eq('member_id', memberId)
+        .eq('user_id', memberId)
         .maybeSingle();
 
     return response != null;
@@ -183,7 +183,7 @@ class WorshipRepository {
             theme
           )
         ''')
-        .eq('member_id', memberId)
+        .eq('user_id', memberId)
         .order('checked_in_at', ascending: false);
 
     return (response as List)
@@ -197,7 +197,7 @@ class WorshipRepository {
     final totalResponse = await _supabase
         .from('worship_attendance')
         .select()
-        .eq('member_id', memberId)
+        .eq('user_id', memberId)
         .count();
 
     final totalAttendances = totalResponse.count;
@@ -216,7 +216,7 @@ class WorshipRepository {
     final recentAttendancesResponse = await _supabase
         .from('worship_attendance')
         .select('*, worship_service:worship_service_id(service_date)')
-        .eq('member_id', memberId);
+        .eq('user_id', memberId);
 
     final recentAttendances = (recentAttendancesResponse as List).where((json) {
       final serviceDate = DateTime.parse(json['worship_service']['service_date']);
@@ -252,7 +252,7 @@ class WorshipRepository {
 
     // Buscar todos os membros ativos
     final allMembers = await _supabase
-        .from('member')
+        .from('user_account')
         .select('id')
         .eq('status', 'member_active');
 
@@ -260,18 +260,17 @@ class WorshipRepository {
         .map((m) => m['id'] as String)
         .toSet();
 
-    // Buscar membros que compareceram
-    final attendances = await _supabase
-        .from('worship_attendance')
-        .select('member_id')
-        .inFilter('worship_service_id', serviceIds);
+  // Buscar membros que compareceram
+  final attendances = await _supabase
+      .from('worship_attendance')
+      .select('user_id')
+      .inFilter('worship_service_id', serviceIds);
 
-    final presentMemberIds = (attendances as List)
-        .map((a) => a['member_id'] as String)
-        .toSet();
+  final presentMemberIds = (attendances as List)
+      .map((a) => a['user_id'] as String)
+      .toSet();
 
     // Retornar membros ausentes
     return allMemberIds.difference(presentMemberIds).toList();
   }
 }
-

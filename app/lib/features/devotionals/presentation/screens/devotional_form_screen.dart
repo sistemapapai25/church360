@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/devotional_provider.dart';
+import '../../../../core/widgets/image_upload_widget.dart';
 
 /// Tela de formulário para criar/editar devocional
 class DevotionalFormScreen extends ConsumerStatefulWidget {
@@ -22,18 +23,60 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
   final _scriptureController = TextEditingController();
-  
+  final _preacherController = TextEditingController();
+  final _youtubeUrlController = TextEditingController();
+
   DateTime _selectedDate = DateTime.now();
   bool _isPublished = false;
   bool _isLoading = false;
+  String? _imageUrl;
+  String? _category;
 
   bool get _isEditing => widget.devotionalId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEditing) {
+      _loadDevotional();
+    }
+  }
+
+  Future<void> _loadDevotional() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final devotional = await ref.read(devotionalByIdProvider(widget.devotionalId!).future);
+
+      if (devotional != null) {
+        _titleController.text = devotional.title;
+        _contentController.text = devotional.content;
+        _scriptureController.text = devotional.scriptureReference ?? '';
+        _preacherController.text = devotional.preacher ?? '';
+        _youtubeUrlController.text = devotional.youtubeUrl ?? '';
+        _selectedDate = devotional.devotionalDate;
+        _isPublished = devotional.isPublished;
+        _imageUrl = devotional.imageUrl;
+        _category = devotional.category;
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao carregar devocional: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
     _scriptureController.dispose();
+    _preacherController.dispose();
+    _youtubeUrlController.dispose();
     super.dispose();
   }
 
@@ -72,6 +115,14 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
               : _scriptureController.text,
           devotionalDate: _selectedDate,
           isPublished: _isPublished,
+          imageUrl: _imageUrl,
+          category: _category,
+          preacher: _preacherController.text.isEmpty
+              ? null
+              : _preacherController.text,
+          youtubeUrl: _youtubeUrlController.text.isEmpty
+              ? null
+              : _youtubeUrlController.text,
         );
       } else {
         await actions.createDevotional(
@@ -82,6 +133,14 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
               : _scriptureController.text,
           devotionalDate: _selectedDate,
           isPublished: _isPublished,
+          imageUrl: _imageUrl,
+          category: _category,
+          preacher: _preacherController.text.isEmpty
+              ? null
+              : _preacherController.text,
+          youtubeUrl: _youtubeUrlController.text.isEmpty
+              ? null
+              : _youtubeUrlController.text,
         );
       }
 
@@ -190,6 +249,54 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
             ),
             const SizedBox(height: 16),
 
+            // Categoria
+            DropdownButtonFormField<String>(
+              decoration: const InputDecoration(
+                labelText: 'Categoria',
+                hintText: 'Selecione a categoria',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.category),
+              ),
+              items: const [
+                DropdownMenuItem(value: null, child: Text('Nenhuma')),
+                DropdownMenuItem(value: 'domingo', child: Text('Culto de Domingo')),
+                DropdownMenuItem(value: 'quarta', child: Text('Culto de Quarta-feira')),
+                DropdownMenuItem(value: 'especial', child: Text('Culto Especial')),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _category = value;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Pregador
+            TextFormField(
+              controller: _preacherController,
+              decoration: const InputDecoration(
+                labelText: 'Pregador',
+                hintText: 'Ex: Pastor João Silva',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.person),
+              ),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 16),
+
+            // Link do YouTube
+            TextFormField(
+              controller: _youtubeUrlController,
+              decoration: const InputDecoration(
+                labelText: 'Link do YouTube',
+                hintText: 'Ex: https://www.youtube.com/watch?v=...',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.video_library),
+              ),
+              keyboardType: TextInputType.url,
+            ),
+            const SizedBox(height: 16),
+
             // Conteúdo
             TextFormField(
               controller: _contentController,
@@ -207,6 +314,19 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
                 return null;
               },
               textCapitalization: TextCapitalization.sentences,
+            ),
+            const SizedBox(height: 16),
+
+            // Upload de Imagem
+            ImageUploadWidget(
+              initialImageUrl: _imageUrl,
+              onImageUrlChanged: (url) {
+                setState(() {
+                  _imageUrl = url;
+                });
+              },
+              storageBucket: 'devotional-images',
+              label: 'Imagem do Devocional',
             ),
             const SizedBox(height: 16),
 

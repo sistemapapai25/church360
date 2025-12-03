@@ -27,9 +27,9 @@ class Contribution {
   factory Contribution.fromJson(Map<String, dynamic> json) {
     return Contribution(
       id: json['id'] as String,
-      memberId: json['member_id'] as String?,
-      memberName: json['member'] != null
-          ? '${json['member']['first_name']} ${json['member']['last_name']}'
+      memberId: json['user_id'] as String?,
+      memberName: json['user_account'] != null
+          ? '${json['user_account']['first_name']} ${json['user_account']['last_name']}'
           : null,
       type: ContributionType.fromValue(json['type'] as String),
       amount: (json['amount'] as num).toDouble(),
@@ -44,7 +44,7 @@ class Contribution {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'member_id': memberId,
+      'user_id': memberId,
       'type': type.value,
       'amount': amount,
       'payment_method': paymentMethod.value,
@@ -236,4 +236,3 @@ class Expense {
     };
   }
 }
-

@@ -1,0 +1,7 @@
+id,visitante_id,responsavel_id,tipo,resultado,observacoes,proximo_passo,data_limite,created_at,created_by
+275c03fc-3d09-4bd4-aac7-5468bde64c1c,96785c77-5136-495a-a7ad-142f14eb8d6d,9c720f31,WhatsApp,Atribuído,liguei dando as boas vindas,,2025-08-18,2025-08-18 10:44:13.743408+00,
+afd2095e-1b60-4960-b718-6863025b06ec,96785c77-5136-495a-a7ad-142f14eb8d6d,9c720f31,Encaminhamento,Atribuído,,,,2025-08-18 10:43:09.467762+00,
+c3c6cb7e-d54f-4801-a29e-3ab1a31975f8,cf2c65eb-d838-4b03-8e9a-bd6b35ffdb26,6385f28b,Encaminhamento,Atribuído,de [nenhum] para 6385f28b,,,2025-08-26 23:56:34.768137+00,
+d5a9ac30-c0eb-4f8b-a6d0-849d0c729b1e,cf2c65eb-d838-4b03-8e9a-bd6b35ffdb26,6385f28b,Encaminhamento,Atribuído,,,,2025-08-26 23:56:35.060897+00,
+e8dd285f-47ad-4ba6-a3d4-117d85e7690e,cf2c65eb-d838-4b03-8e9a-bd6b35ffdb26,6385f28b,WhatsApp,Sem resposta,,,2025-08-29,2025-08-26 23:57:30.184594+00,
+f50340d2-f1ce-45f1-b4c5-d281a54a5f9e,96785c77-5136-495a-a7ad-142f14eb8d6d,9c720f31,Encaminhamento,Atribuído,de [nenhum] para 9c720f31,,,2025-08-18 10:43:09.297434+00,

@@ -127,7 +127,7 @@ class WorshipAttendance {
     return WorshipAttendance(
       id: json['id'] as String,
       worshipServiceId: json['worship_service_id'] as String,
-      memberId: json['member_id'] as String,
+      memberId: json['user_id'] as String,
       memberName: json['member_name'] as String?,
       checkedInAt: DateTime.parse(json['checked_in_at'] as String),
       notes: json['notes'] as String?,
@@ -139,11 +139,10 @@ class WorshipAttendance {
     return {
       'id': id,
       'worship_service_id': worshipServiceId,
-      'member_id': memberId,
+      'user_id': memberId,
       'checked_in_at': checkedInAt.toIso8601String(),
       'notes': notes,
       'created_at': createdAt.toIso8601String(),
     };
   }
 }
-

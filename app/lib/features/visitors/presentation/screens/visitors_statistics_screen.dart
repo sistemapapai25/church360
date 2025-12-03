@@ -19,7 +19,6 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
   @override
   Widget build(BuildContext context) {
     final visitorsAsync = ref.watch(allVisitorsProvider);
-    final recentVisitorsAsync = ref.watch(recentVisitorsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -34,7 +33,7 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
               : visitors.where((v) {
                   final days = int.parse(_selectedPeriod);
                   final cutoffDate = now.subtract(Duration(days: days));
-                  return v.firstVisitDate.isAfter(cutoffDate);
+                  return v.firstVisitDate?.isAfter(cutoffDate) ?? false;
                 }).toList();
 
           // Calcular estatísticas
@@ -62,7 +61,7 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
           // Visitantes recentes (últimos 30 dias)
           final recentCount = visitors.where((v) {
             final cutoffDate = now.subtract(const Duration(days: 30));
-            return v.firstVisitDate.isAfter(cutoffDate);
+            return v.firstVisitDate?.isAfter(cutoffDate) ?? false;
           }).length;
 
           // Visitantes inativos (sem visita há mais de 60 dias)
@@ -446,4 +445,3 @@ class _StatCard extends StatelessWidget {
     );
   }
 }
-

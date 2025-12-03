@@ -1,5 +1,4 @@
 /// Model para Testemunhos
-
 class Testimony {
   final String id;
   final String title;
@@ -72,4 +71,3 @@ class Testimony {
     );
   }
 }
-

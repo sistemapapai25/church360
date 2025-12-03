@@ -7,6 +7,120 @@ class EventsRepository {
 
   EventsRepository(this._supabase);
 
+  /// Buscar lista distinta de tipos de eventos
+  Future<List<String>> getDistinctEventTypes() async {
+    try {
+      final response = await _supabase
+          .from('event')
+          .select('event_type')
+          .order('event_type');
+
+      final list = (response as List)
+          .map((json) => (json['event_type'] ?? '').toString())
+          .where((v) => v.isNotEmpty)
+          .toSet()
+          .toList();
+      list.sort();
+      return list;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, String>>> getEventTypesCatalog() async {
+    try {
+      final response = await _supabase
+          .from('event_type')
+          .select()
+          .order('label');
+
+      return (response as List)
+          .map((json) => {
+                'code': (json['code'] ?? '').toString(),
+                'label': (json['label'] ?? '').toString(),
+              })
+          .where((e) => e['code']!.isNotEmpty)
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> upsertEventType(String code, String label) async {
+    try {
+      await _supabase
+          .from('event_type')
+          .upsert({'code': code, 'label': label});
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> syncEventTypesFromExistingEvents() async {
+    try {
+      final distinct = await _supabase
+          .from('event')
+          .select('event_type')
+          .order('event_type');
+      final codes = (distinct as List)
+          .map((j) => (j['event_type'] ?? '').toString())
+          .where((s) => s.isNotEmpty)
+          .toSet()
+          .toList();
+      for (final code in codes) {
+        final label = _guessLabel(code);
+        await _supabase.from('event_type').upsert({'code': code, 'label': label});
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  String _guessLabel(String code) {
+    switch (code) {
+      case 'culto_normal':
+        return 'Culto Normal / Ceia';
+      case 'ensaio':
+        return 'Ensaio';
+      case 'reuniao_ministerio':
+        return 'Reunião do Ministério (interna)';
+      case 'reuniao_externa':
+        return 'Reunião Externa / Célula';
+      case 'evento_conjunto':
+        return 'Evento Conjunto (vários ministérios)';
+      case 'lideranca_geral':
+        return 'Reunião de Liderança Geral';
+      case 'vigilia':
+        return 'Vigília ou Culto Especial';
+      case 'mutirao':
+        return 'Limpeza / Mutirão / Manutenção';
+      default:
+        final cleaned = code.replaceAll('_', ' ');
+        return cleaned[0].toUpperCase() + cleaned.substring(1);
+    }
+  }
+
+  Future<int> getEventsCountByType(String code) async {
+    try {
+      final response = await _supabase
+          .from('event')
+          .select()
+          .eq('event_type', code)
+          .count();
+      return response.count;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> deleteEventType(String code) async {
+    try {
+      await _supabase.from('event_type').delete().eq('code', code);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Buscar todos os eventos
   Future<List<Event>> getAllEvents() async {
     try {
@@ -144,6 +258,16 @@ class EventsRepository {
 
       return Event.fromJson(response);
     } catch (e) {
+      final msg = e.toString();
+      if (msg.contains("is_mandatory") && data.containsKey('is_mandatory')) {
+        final fallback = Map<String, dynamic>.from(data)..remove('is_mandatory');
+        final response = await _supabase
+            .from('event')
+            .insert(fallback)
+            .select()
+            .single();
+        return Event.fromJson(response);
+      }
       rethrow;
     }
   }
@@ -181,6 +305,17 @@ class EventsRepository {
 
       return Event.fromJson(response);
     } catch (e) {
+      final msg = e.toString();
+      if (msg.contains("is_mandatory") && data.containsKey('is_mandatory')) {
+        final fallback = Map<String, dynamic>.from(data)..remove('is_mandatory');
+        final response = await _supabase
+            .from('event')
+            .update(fallback)
+            .eq('id', id)
+            .select()
+            .single();
+        return Event.fromJson(response);
+      }
       rethrow;
     }
   }
@@ -230,7 +365,7 @@ class EventsRepository {
           .from('event_registration')
           .select('''
             *,
-            member(first_name, last_name)
+            user_account:user_id (first_name, last_name)
           ''')
           .eq('event_id', eventId)
           .order('registered_at');
@@ -238,8 +373,8 @@ class EventsRepository {
       return (response as List).map((json) {
         final data = Map<String, dynamic>.from(json);
         
-        if (data['member'] != null) {
-          final member = data['member'];
+        if (data['user_account'] != null) {
+          final member = data['user_account'];
           data['member_name'] = '${member['first_name']} ${member['last_name']}';
         }
         
@@ -256,11 +391,13 @@ class EventsRepository {
     required String memberId,
   }) async {
     try {
+      // Usar upsert para evitar problemas com constraints
       final response = await _supabase
           .from('event_registration')
-          .insert({
+          .upsert({
             'event_id': eventId,
-            'member_id': memberId,
+            'user_id': memberId,
+            'registered_at': DateTime.now().toIso8601String(),
           })
           .select()
           .single();
@@ -283,7 +420,7 @@ class EventsRepository {
           .from('event_registration')
           .delete()
           .eq('event_id', eventId)
-          .eq('member_id', memberId);
+          .eq('user_id', memberId);
     } catch (e) {
       rethrow;
     }
@@ -298,7 +435,7 @@ class EventsRepository {
             'checked_in_at': DateTime.now().toIso8601String(),
           })
           .eq('event_id', eventId)
-          .eq('member_id', memberId);
+          .eq('user_id', memberId);
     } catch (e) {
       rethrow;
     }
@@ -313,7 +450,7 @@ class EventsRepository {
             'checked_in_at': null,
           })
           .eq('event_id', eventId)
-          .eq('member_id', memberId);
+          .eq('user_id', memberId);
     } catch (e) {
       rethrow;
     }
@@ -326,10 +463,9 @@ class EventsRepository {
           .from('event_registration')
           .delete()
           .eq('event_id', eventId)
-          .eq('member_id', memberId);
+          .eq('user_id', memberId);
     } catch (e) {
       rethrow;
     }
   }
 }
-

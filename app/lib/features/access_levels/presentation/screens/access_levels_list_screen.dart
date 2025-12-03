@@ -67,31 +67,22 @@ class _AccessLevelsListScreenState
                 const SizedBox(height: 16),
 
                 // Filtro por nível
-                DropdownButtonFormField<AccessLevelType?>(
-                  value: _filterLevel,
-                  decoration: const InputDecoration(
-                    labelText: 'Filtrar por nível',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem(
+                DropdownMenu<AccessLevelType?>(
+                  initialSelection: _filterLevel,
+                  label: const Text('Filtrar por nível'),
+                  dropdownMenuEntries: <DropdownMenuEntry<AccessLevelType?>>[
+                    const DropdownMenuEntry<AccessLevelType?>(
                       value: null,
-                      child: Text('Todos os níveis'),
+                      label: 'Todos os níveis',
                     ),
                     ...AccessLevelType.values.map((level) {
-                      return DropdownMenuItem(
+                      return DropdownMenuEntry<AccessLevelType?>(
                         value: level,
-                        child: Row(
-                          children: [
-                            Text(level.icon),
-                            const SizedBox(width: 8),
-                            Text(level.displayName),
-                          ],
-                        ),
+                        label: '${level.icon} ${level.displayName}',
                       );
                     }),
                   ],
-                  onChanged: (value) {
+                  onSelected: (value) {
                     setState(() {
                       _filterLevel = value;
                     });
@@ -280,25 +271,16 @@ class _AccessLevelsListScreenState
               Text('Usuário: ${currentLevel.userId.substring(0, 8)}...'),
               Text('Nível atual: ${currentLevel.accessLevel.displayName}'),
               const SizedBox(height: 16),
-              DropdownButtonFormField<AccessLevelType>(
-                value: newLevel,
-                decoration: const InputDecoration(
-                  labelText: 'Novo nível',
-                  border: OutlineInputBorder(),
-                ),
-                items: AccessLevelType.values.map((level) {
-                  return DropdownMenuItem(
+              DropdownMenu<AccessLevelType>(
+                initialSelection: newLevel,
+                label: const Text('Novo nível'),
+                dropdownMenuEntries: AccessLevelType.values.map((level) {
+                  return DropdownMenuEntry<AccessLevelType>(
                     value: level,
-                    child: Row(
-                      children: [
-                        Text(level.icon),
-                        const SizedBox(width: 8),
-                        Text(level.displayName),
-                      ],
-                    ),
+                    label: '${level.icon} ${level.displayName}',
                   );
                 }).toList(),
-                onChanged: (value) {
+                onSelected: (value) {
                   setState(() {
                     newLevel = value;
                   });
@@ -334,7 +316,7 @@ class _AccessLevelsListScreenState
                     reason: reason,
                   );
 
-                  if (mounted) {
+                  if (context.mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -343,7 +325,7 @@ class _AccessLevelsListScreenState
                     );
                   }
                 } catch (e) {
-                  if (mounted) {
+                  if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Erro: $e')),
                     );
@@ -360,4 +342,3 @@ class _AccessLevelsListScreenState
     );
   }
 }
-

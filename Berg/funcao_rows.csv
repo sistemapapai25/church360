@@ -1,0 +1,22 @@
+idfuncao,nome,descricao,requer_habilidade,status,created_at,updated_at
+aux_prof,Auxiliar de Professor,Auxiliar que acompanha o professor na aula,false,Ativo,2025-09-12 02:04:45.244907+00,2025-09-12 02:04:45.244907+00
+coord_tur,Coordenador de Turma,Coordenador responsável pela turma,true,Ativo,2025-09-12 02:04:45.244907+00,2025-09-12 02:04:45.244907+00
+fun001,Vocal Principal,Cantor principal,true,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+fun002,Backing Vocal,Vocal de apoio,true,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+fun003,Tecladista,Teclado/Piano,true,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+fun004,Guitarrista,Guitarra,true,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+fun005,Baixista,Contrabaixo,true,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+fun006,Baterista,Bateria,true,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+fun007,Técnico de Som,Operação de mesa de som,true,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+fun008,Professor Principal,Professor da turma,false,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+fun009,Auxiliar de Turma,Auxiliar do professor,false,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+fun010,Recepcionista,Recepção das crianças,false,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+fun011,Coordenador de Atividades,Coordena brincadeiras,false,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+fun012,Limpeza Geral,Limpeza do ambiente,false,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+fun013,Organização de Cadeiras,Disposição das cadeiras,false,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+fun014,Recepção,Recepção dos membros,false,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+fun015,Segurança,Segurança do ambiente,false,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+fun016,Portaria,Controle de acesso,false,Ativo,2025-09-08 15:02:20.572819+00,2025-09-08 15:02:20.572819+00
+prof_tit,Professor Titular,Professor responsável pela ministração da aula,true,Ativo,2025-09-12 02:04:45.244907+00,2025-09-12 02:04:45.244907+00
+rec_cri,Recepção de Crianças,Responsável pela recepção e organização,false,Ativo,2025-09-12 02:04:45.244907+00,2025-09-12 02:04:45.244907+00
+seg_cri,Segurança de Crianças,Responsável pela segurança durante as atividades,false,Ativo,2025-09-12 02:04:45.244907+00,2025-09-12 02:04:45.244907+00

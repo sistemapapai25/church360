@@ -175,8 +175,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           )
                         : const Text('Entrar'),
                   ),
-                  const SizedBox(height: 48),
-                  
+                  const SizedBox(height: 16),
+
+                  // Link para Cadastro
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('Não tem uma conta? '),
+                      TextButton(
+                        onPressed: () => context.push('/signup'),
+                        child: const Text('Criar Conta'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+
                   // Informações de teste
                   Container(
                     padding: const EdgeInsets.all(16),

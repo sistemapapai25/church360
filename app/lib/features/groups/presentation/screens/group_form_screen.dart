@@ -29,6 +29,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
 
   // Valores selecionados
   String? _leaderId;
+  String? _hostId; // Anfitrião
   int? _meetingDayOfWeek;
   TimeOfDay? _meetingTime;
   bool _isActive = true;
@@ -58,6 +59,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
           _meetingAddressController.text = group.meetingAddress ?? '';
           
           _leaderId = group.leaderId;
+          _hostId = group.hostId;
           _meetingDayOfWeek = group.meetingDayOfWeek;
           _isActive = group.isActive;
           
@@ -120,6 +122,9 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
         if (_leaderId != null) {
           groupData['leader_id'] = _leaderId;
         }
+        if (_hostId != null) {
+          groupData['host_id'] = _hostId;
+        }
         if (_meetingDayOfWeek != null) {
           groupData['meeting_day_of_week'] = _meetingDayOfWeek;
         }
@@ -138,6 +143,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
           name: _nameController.text.trim(),
           description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
           leaderId: _leaderId,
+          hostId: _hostId,
           meetingDayOfWeek: _meetingDayOfWeek,
           meetingTime: _meetingTime != null
               ? '${_meetingTime!.hour.toString().padLeft(2, '0')}:${_meetingTime!.minute.toString().padLeft(2, '0')}:00'
@@ -264,6 +270,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Líder',
                           prefixIcon: Icon(Icons.person),
+                          helperText: 'Pessoa responsável por liderar o grupo',
                         ),
                         items: [
                           const DropdownMenuItem(
@@ -273,7 +280,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                           ...members.map((member) {
                             return DropdownMenuItem(
                               value: member.id,
-                              child: Text(member.fullName),
+                              child: Text(member.displayName),
                             );
                           }),
                         ],
@@ -285,7 +292,40 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                     loading: () => const LinearProgressIndicator(),
                     error: (_, __) => const Text('Erro ao carregar membros'),
                   ),
-                  
+
+                  const SizedBox(height: 16),
+
+                  // Anfitrião
+                  membersAsync.when(
+                    data: (members) {
+                      return DropdownButtonFormField<String>(
+                        initialValue: _hostId,
+                        decoration: const InputDecoration(
+                          labelText: 'Anfitrião',
+                          prefixIcon: Icon(Icons.home),
+                          helperText: 'Pessoa que abriu a casa para o grupo (pode ser o mesmo que o líder)',
+                        ),
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('Nenhum'),
+                          ),
+                          ...members.map((member) {
+                            return DropdownMenuItem(
+                              value: member.id,
+                              child: Text(member.displayName),
+                            );
+                          }),
+                        ],
+                        onChanged: (value) {
+                          setState(() => _hostId = value);
+                        },
+                      );
+                    },
+                    loading: () => const LinearProgressIndicator(),
+                    error: (_, __) => const Text('Erro ao carregar membros'),
+                  ),
+
                   const SizedBox(height: 24),
                   
                   // Informações de Reunião

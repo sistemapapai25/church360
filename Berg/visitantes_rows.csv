@@ -1,0 +1,169 @@
+id,created_at,nome,nascimento,email,telefone,contato,direcionado,id_short,responsavel_id,raizes_status,raizes_proximo_passo,raizes_data_limite,direcionado_flag
+0181c096-1f92-443a-91fd-54d6591a307c,2025-03-16 03:00:00+00,Daniel Rodrigues Souza,16021996,eubigodiinho@gmail.com,5562993110310,,Não,,,,,,false
+0317ee56-dcef-4776-9097-bdefab4bfd9a,2024-08-24 03:00:00+00,Lucia Maria,0,Não tenho,556291633622,,Não,,,,,,false
+036e95eb-2e06-4e97-8373-6cdfa0643744,2024-10-06 03:00:00+00,Ester Barbosa,29/06/2000,Não tenho,5562992826647,,Não,,,,,,false
+03cdb9c3-a332-469b-a83a-6f5d31d073d7,2024-08-24 03:00:00+00,Lucas Henrique,22/08/2018,Não tenho,5512345678901,,Não,,,,,,false
+05d77522-2ecc-457e-abad-711f3f2a096f,2024-08-18 03:00:00+00,Mateus alves,28/10/2003,Não tenho,556291829554,,Não,,,,,,false
+061dd5a9-b7e6-4dd9-896c-54b9dc598e6e,2024-08-18 03:00:00+00,Meire Aparecida Gonçalves dos Santos,25/07/1973,meireeeaparecida45@gmril.com,5562996622711,,Não,,,,,,false
+0779bd1d-6a14-45b3-8d25-0733d14be3ba,2024-08-24 03:00:00+00,"Noemia Lopes (Luany, Isadora)",13/04/1992,Não tenho,5562991208077,,Não,,,,,,false
+083507a6-7f67-49b0-98d5-55efb670888c,2024-08-24 03:00:00+00,José Wilson,12/02/2001,Não tenho,5562994904312,,Não,,,,,,false
+0ba2bfa5-e25d-44c6-ab7c-e5c2e4d69e98,2024-08-24 03:00:00+00,Gilce Nunes,0,Não tenho,556291149051,,Não,,,,,,false
+11802ce8-7fdb-45cb-b124-b14abb610181,2024-10-13 03:00:00+00,Eny Rodrigues Lacerda,01/01/1975,eny-lacerda@hotmail.com,5562981572769,,Não,,,,,,false
+12d46801-ec25-42f0-b509-f4f425190b4d,2024-09-08 03:00:00+00,Arthur Gabriel,11/07/2005,Não tenho,5562982790643,,Não,,,,,,false
+13787623-1ec5-4d9b-9cc1-9bea743085a4,2024-09-08 03:00:00+00,Maria Eduarda,31/08/2006,Não tenho,5562981061106,,Não,,,,,,false
+139a5a75-65ab-4f27-b1ed-3bf50a5624e2,2024-08-24 03:00:00+00,"Rosalina Vieira (Helena, heloiza, Carlos, Ana Vitória, Erick, Safira)",12/05/1970,Não tenho,5512345678901,,Não,,,,,,false
+14315676-0abe-48fd-a887-cd0c78c3edd4,2024-08-24 03:00:00+00,Rasaria Vieira,0,Não tenho,5562993655078,,Não,,,,,,false
+172766e0-e8fa-4b61-8131-4932dd3700e5,2025-03-01 03:00:00+00,"Silvania ",24/04/1988,"Não tenho ",5561991735197,,Não,,,,,,false
+175b3b51-ffdc-499c-94b3-e09951f5b593,2025-02-02 03:00:00+00,"Welter Castro ",01/05/2005,"Não tenho ",5562985983379,,Não,,,,,,false
+184f21f7-832f-4c89-878b-5e47d0655193,2024-08-24 03:00:00+00,"Sérgio Luiz (Danilo, Rayssa, Victor)",14/10/1989,Não tenho,5562995270554,,Não,,,,,,false
+19e1da96-282e-4226-a26b-96a93c2c6b15,2024-08-24 03:00:00+00,Maria Nazaré,0,Não tenho,5562994609405,,Não,,,,,,false
+1b7e1c3d-5aec-4e78-8f4a-cabde3d683e9,2024-12-22 03:00:00+00,"Alice de Souza ",05/08/1967,"Não tenho ",5513997151172,,Não,,,,,,false
+1f87a2a2-c86c-41dc-95ac-16c1bc7cc5e0,2025-03-01 03:00:00+00,"Ananias Nunes ",05/07/1975,"Não tenho ",5562996428488,,Sim,,,,,,true
+22d6a6b6-f534-4200-a254-8d602625fe39,2024-08-24 03:00:00+00,Leandro de Jesus,09/07/2001,Não tenho,5562996560229,,Não,,,,,,false
+2606ac1c-1d13-4a00-b8dc-b8ccbf1d8be6,2025-03-30 03:00:00+00,"Marco Aurélio ",01/09/1988,"Não tenho ",5562991386969,,Não,,,,,,false
+2647c259-dd83-44b2-bb17-63d0693109ec,2024-08-24 03:00:00+00,Juraci Marques,0,Não tenho,5562984987276,,Não,,,,,,false
+278f7d2b-d72b-4428-81eb-57995b110ae0,2024-08-25 03:00:00+00,elisnedjoa Genu Bastos,17/09/1981,Não tenho,5562992048281,,Não,,,,,,false
+28e11bc6-ff3f-487e-8ea3-46410e0a7ce4,2024-08-24 03:00:00+00,Patrícia Corrêa,28/01/1986,Não tenho,5562992198120,,Não,,,,,,false
+2a43b3e2-88c1-4e4b-b8c0-7bab111d5f7a,2024-09-29 03:00:00+00,Luís Felipe,21/12/2006,Não tenho,5562981953889,,Não,,,,,,false
+2a4ca095-f716-4e6c-9e8b-168df1f4e907,2024-08-24 03:00:00+00,Bianca,15/11/2009,Não tenho,5562991479734,,Não,,,,,,false
+2ab66915-8c3a-4e4c-9b86-686eaf9ea2d4,2024-08-24 03:00:00+00,"Vanda de paula(Ana Luiza, Ana Beatriz, Luana, layane, Estéfani)",08/04/1983,Não tenho,5562981867273,,Não,,,,,,false
+3205f50c-a81f-412c-bac7-4a2aa8d4d06a,2025-03-16 03:00:00+00,Grazielly batista Feitosa rodrigues,11/02/1994,Grazziellybfeitosa07@gmail.com,5562994792306,,Não,,,,,,false
+33a846d6-88c2-409e-9a04-27fa54a733f3,2024-08-18 03:00:00+00,Patricia Rafael de LIMA,23/03/1978,Soltocom@hotmal.com,5562993212545,,Não,,,,,,false
+341c6566-99c0-45ef-b28c-528a60e39c94,2024-08-24 03:00:00+00,Yuri Oliveira,07/02/2011,Não tenho,5562995191601,,Não,,,,,,false
+369f7af5-c31e-463a-99e9-40fed374390b,2025-01-12 03:00:00+00,"Mônica Cristiana da Silva catulé ",03/06/1981,monikacrisilva@gmsil.com,5562981629557,,Não,,,,,,false
+381404b3-28fc-4e7d-8584-2dae0c1c927b,2024-08-25 03:00:00+00,Hiago Santos,04/04/1992,Não tenho,5562986006111,,Não,,,,,,false
+3840c999-e52a-4c6f-9842-1522d19a1dc1,2024-08-24 03:00:00+00,Daniely Rodrigues,04/10/1995,Não tenho,5562994921876,,Não,,,,,,false
+38edb734-82a6-440a-981a-6b2a2f86b70e,2024-08-24 03:00:00+00,Vitor felipe,16/11/2018,Não tenho,5512345678901,,Não,,,,,,false
+3ba6ebf8-d84e-41a7-afc0-e481bd9474c2,2024-08-24 03:00:00+00,Thamyres Pereira,30/08/2007,Não tenho,5562982268721,,Não,,,,,,false
+3c2f6fb1-39eb-488f-b521-e419c09268ed,2024-08-24 03:00:00+00,Jesana,08/04/1994,Não tenho,5562991569117,,Não,,,,,,false
+40875d70-78ee-4835-a681-f9777968f7af,2024-08-24 03:00:00+00,Tatiane,0,Não tenho,5562991385534,,Não,,,,,,false
+4256f2c3-14ef-44d5-9ddf-cf8c1252ed7a,2024-08-24 03:00:00+00,Uedson da Silva,22/04/1975,Não tenho,5562991637471,,Não,,,,,,false
+432b9a20-3f88-4a3d-8570-bf5afb5cfd11,2025-03-01 03:00:00+00,"Gabrielly monteiro ",18/08/2008,Gabriellymonteirodesouza@gmail.com,5566996151173,,Não,,,,,,false
+441cbc3b-1a38-4068-95b6-2144fe7f5d9d,2024-08-25 03:00:00+00,Rosilene Alves de Jesus,04/04/1987,Rosigilvan@gmail.com,5562998073349,,Não,,,,,,false
+44d25ed7-36ad-43ad-9aea-56948b3916a1,2024-08-24 03:00:00+00,Gustavo Daniel,25/10/2000,Não tenho,5562994489949,,Não,,,,,,false
+46e6cda0-0a04-416e-83af-eb94296c3fdf,2025-03-09 03:00:00+00,Elton dias caixeta,21/06/1984,eltondiascaixetadiascaixeta@gmail.com,5562984355305,,Não,,,,,,false
+48b7d3f2-d7d8-4ac5-b7d4-466c2a8f8728,2024-08-24 03:00:00+00,Luciano Lourenço,13/03/1977,Não tenho,5562984711708,,Não,,,,,,false
+4a2197bc-3e97-4167-8682-5fddfa6324f3,2025-01-26 03:00:00+00,"Carlos Alberto ",13/02/1978,"Não tenho ",5585996593176,,Não,,,,,,false
+4bed30e1-4308-4625-8096-669896d7626a,2024-12-15 03:00:00+00,"Geovanna Gonçalves Da Silva ",24/07/2003,goncalvesgeovanna@hotmail.com,5513996946332,,Não,,,,,,false
+4d6e5030-c285-4059-9204-993d7419bf5e,2025-02-16 03:00:00+00,"Fernanda ",10/08/1973,"Não tenho ",5562992514662,,Não,,,,,,false
+511b3c9f-976d-4d03-9e2a-da642f88ef6e,2024-08-24 03:00:00+00,Jania Rodrigues,29/07/1982,Não tenho,5562993745783,,Não,,,,,,false
+57b2d837-272d-4e64-819f-d058767d2e3e,2024-08-24 03:00:00+00,Lizandra Kalita,27/11/2002,Não tenho,556291960560,,Não,,,,,,false
+58f9615a-7050-4093-a83e-2ccc4c3053a1,2024-08-24 03:00:00+00,Elizabete Nunes,06/07/1997,Não tenho,5534991034783,,Não,,,,,,false
+5987e7ab-b630-4965-aa24-d35c7efedda8,2024-08-24 03:00:00+00,Maria Eduarda,09/02/2010,Não tenho,5512345678901,,Não,,,,,,false
+5a12946b-c267-4d27-9a0d-bb8e28a691f6,2024-08-24 03:00:00+00,"Viviane Marcelino (Ana Júlia, Maria Vitória, Ana Beatriz)",06/02/1989,Não tenho,5562995781104,,Não,,,,,,false
+5a6bd5ce-d31a-4f1e-8994-0e8ac041d8a5,2025-01-12 03:00:00+00,"Sara Rodrigues Miranda ",24/06/2002,Não tenho,559294267720,,Não,,,,,,false
+5a7e020e-0be2-43b0-a30a-8834fdf11f30,2024-12-15 03:00:00+00,"Marcos Paulo Macedo Gonçalves ",25/09/2005,marcosmacedo966@gmail.com,5513996610425,,Não,,,,,,false
+5dde086c-5259-46ed-acfd-6b0e8dd2af84,2024-08-24 03:00:00+00,Wenis Sousa,10/01/1997,Não tenho,5512345678901,,Não,,,,,,false
+60273a79-f989-40d3-93ac-b7d72424633e,2024-08-04 03:00:00+00,Pedro wilker,15/04/2000,Pedro405@gmail.com,5562996155325,,Não,,,,,,false
+60c92149-27fa-4b1c-b5e8-e8801e28095b,2024-08-24 03:00:00+00,Larissa Martins,21/05/1983,Não tenho,5562994884014,,Não,,,,,,false
+61e33fef-a829-448e-8722-2fa747a28168,2024-08-24 03:00:00+00,Tiago Braga,nan,,,,Não,,,,,,false
+62798948-8fa4-43fb-9fff-20183135be8d,2024-08-24 03:00:00+00,Ana Paula (Ayla),03/10/2006,Não tenho,5562992934604,,Não,,,,,,false
+62fd6221-2cc0-497d-bd17-8de3de436a21,2025-03-16 03:00:00+00,Ester Sampaio Souza,20/10/1911,estersampaiosouza7@gmail.com,5562982047983,,Não,,,,,,false
+6305e561-834f-4f45-8c76-f39c4efd56da,2024-08-24 03:00:00+00,Jonas Santiago (Luana ),11/12/2013,Não tenho,5512345678910,,Não,,,,,,false
+6446f30c-4043-43e1-b683-c1ef1356a421,2024-08-24 03:00:00+00,Sônia Maria,02/02/1971,Não tenho,5562982323469,,Não,,,,,,false
+64befe99-9272-44fc-ae7b-bd2798ef5410,2024-12-22 03:00:00+00,Isabela Chagas Silva Cruz,06/02/2002,isabelachagas181@gmail.com,5511954699550,,Não,,,,,,false
+6618d35d-ed13-469f-a4ca-753a603154e8,2024-08-24 03:00:00+00,Kamile stefany,24/11/2002,Não tenho,5562991856798,,Não,,,,,,false
+6692c96d-98e6-4541-9508-0268db8c0894,2025-02-09 03:00:00+00,"Arthur Nunes ",23/02/1996,"Não tenho ",5562991011568,,Não,,,,,,false
+66ecfec5-d02c-492f-8f59-2caa2db03118,2024-08-24 03:00:00+00,Antônio Conceição,02/07/1980,Não tenho,5562992455143,,Não,,,,,,false
+68bfe346-905b-45b0-883c-680a0b7c0579,2024-08-24 03:00:00+00,Ana Claudia,24/10/1976,Não tenho,5562995510639,,Não,,,,,,false
+6906acf9-c79a-454b-b700-270d5df0e9a3,2024-08-24 03:00:00+00,Edmundo da Silva,03/09/1948,Não tenho,5562992590756,,Não,,,,,,false
+69e3f4ea-b8e0-4342-b216-5f1adacf42e6,2024-08-24 03:00:00+00,Sebastiana,31/10/1955,Não tenho,556232809226,,Não,,,,,,false
+6a5e0fb4-0654-4c0b-82b2-7f4dfa6b5852,2024-09-22 03:00:00+00,Sandro,nan,Não tenho,,,Não,,,,,,false
+6a74961b-0772-4307-85fa-cd6f607126d1,2024-08-24 03:00:00+00,Lidia gicelly,25/12/2004,Não tenho,5562992649498,,Não,,,,,,false
+6be816b4-23e1-471e-9955-09fdd10dbc09,2024-08-24 03:00:00+00,Elaine Jesus,16/04/2009,Não tenho,556299217482,,Não,,,,,,false
+6d05b2f4-bbd6-471e-93e6-72ceaa456453,2024-10-13 03:00:00+00,Kathleen Victoria de lima,15/09/2005,Kathleenvictoria011@gmail.com,5547999667784,,Não,,,,,,false
+6e35c6af-efda-4203-9514-c79805f2142c,2024-08-25 03:00:00+00,Morgana Barbosa,01/03/1994,Não tenho,5562993152549,,Não,,,,,,false
+6f89ebcd-bf9f-401c-9c30-e9f4bba57c29,2024-08-04 03:00:00+00,Daniel Azevedo,21/05/2000,dan.sousazevedo@gmail.com,5562992571795,,Não,,,,,,false
+7029040a-0e07-4be2-9510-cdc97ec5ec06,2024-09-08 03:00:00+00,Mayara Rocha,04/08/1982,Não tenho,5562991169399,,Não,,,,,,false
+705f8e9e-df91-4d77-9428-b550a689f12a,2024-08-24 03:00:00+00,Izateury Santos,01/08/2015,Não tenho,5512345678901,,Não,,,,,,false
+70d804ee-3c58-476f-a8eb-fef77c57afcb,2024-09-08 03:00:00+00,Diogo Magalhães,22/08/1986,Não tenho,5562981607538,,Não,,,,,,false
+71487e6b-373f-4085-bf28-9f51d60d7da9,2025-02-16 03:00:00+00,"Sanilla ",26/06/1997,"Não tenho ",5562992774052,,Não,,,,,,false
+72149436-58b8-4ba0-8d0a-d3a97d50eea1,2025-03-01 03:00:00+00,Erlenes santiago,09/07/1981,"Não tenho ",5562996366291,,Não,,,,,,false
+74aef4b5-3080-4fff-b45a-284fbed3a2d1,2024-08-24 03:00:00+00,Lucas Barbosa,16/10/2005,Não tenho,5562994067898,,Não,,,,,,false
+74ffa8ec-6fd9-4935-8cad-5d26db7e842f,2024-08-24 03:00:00+00,Rosa Alves,03/09/1948,Não tenho,5562992590756,,Não,,,,,,false
+77eaaaaa-d00a-4604-96af-c929b3e1893e,2024-08-24 03:00:00+00,Lucyana da Rocha,15/12/2005,Não tenho,5562994322248,,Não,,,,,,false
+7c73b521-01d4-4bc0-90cb-fa2cbe7b4c4f,2025-02-12 03:00:00+00,"Marciano Santos Lopes ",16/01/1998,"Não tenho ",5562993504564,,Não,,,,,,false
+7f0adadd-3fa3-4cb9-992b-d845e2bfa877,2025-02-23 03:00:00+00,"Ozimar Júnior ",31/01/1998,"Não tenho ",5562991932558,,Não,,,,,,false
+8085b6ab-9a6b-45b2-8ae0-09678ae36222,2025-03-01 03:00:00+00,"Marcelo da Costa ",14/02/1981,"Não tenho ",5562995193641,,Não,,,,,,false
+8557d246-e639-4085-9e1b-d4bd4f59e0ea,2024-08-24 03:00:00+00,Tamires medeiros,17/09/1992,62984325182,5562984325182,,Não,,,,,,false
+869475c4-dc9a-4f43-82d7-dde6a17815ac,2024-08-24 03:00:00+00,Amanda Novaes,30/08/2010,Não tenho,5512345678901,,Não,,,,,,false
+8a2d2e57-a778-4824-9b60-d4aa4c1557da,2024-08-24 03:00:00+00,Raniel Pereira,16/10/2004,Não tenho,5562983147130,,Não,,,,,,false
+8be57b31-1f9d-4d01-9d03-4d81a36ae099,2025-03-09 03:00:00+00,"Isabella Escobar dos Santos ",17/06/2010,@escobarisabellasantos@gmail.com,5562994609453,,Não,,,,,,false
+8d3ec2e2-6bed-4c99-be0e-2de6f8a3eb9e,2024-08-24 03:00:00+00,Keila Cristina,22/01/1979,Não tenho,5562993882730,,Não,,,,,,false
+8fdc1227-7f5e-411e-9590-783fbcd35288,2025-03-01 03:00:00+00,"Marco Aurélio ",11/06/1993,"Não tenho ",5562993464255,,Não,,,,,,false
+9128a54c-1a60-4a52-b052-7b8c5a15041f,2024-08-24 03:00:00+00,Elivelto Silva,13/11/1996,Não tenho,5562996607376,,Não,,,,,,false
+9175cce7-ae23-4147-a293-456329062edf,2024-08-24 03:00:00+00,Irene Francisca (Abraão),14/09/1978,Não tenho,5562992471125,,Não,,,,,,false
+92e3f4b7-ee0e-4e9d-97bb-46cad875ba67,2024-10-06 03:00:00+00,Leila Mendes,08/05/1979,Não tenho,5562993145012,,Não,,,,,,false
+96785c77-5136-495a-a7ad-142f14eb8d6d,2025-08-16 16:28:49.902909+00,Wandenberg,31/08/1968,dsdsds@fkfkf.com,5562981485757,eduardo,Não,,9c720f31,,,,false
+981bb942-8159-4688-9b91-b7e82db31b25,2024-12-21 03:00:00+00,Guilherme Voze,24/10/2000,guivoze@gmail.com,5511989516611,,Não,,,,,,false
+9c3a8aa6-62e8-47cc-9380-c3737f8d94a5,2025-03-01 03:00:00+00,"Daniela ",06/12/1987,"Não tenho ",5562991800863,,Não,,,,,,false
+9d891ead-a99c-4302-9097-5bd33c4332e8,2024-08-24 03:00:00+00,Rosme Alves Nogueira,22/09/1987,Não tenho,5562981413506,,Não,,,,,,false
+9db0811d-029a-4900-86a1-5b30fb12b5ef,2024-08-18 03:00:00+00,Samuel de Sá Sousa,30/07/1986,Não tenho,5562982604743,,Não,,,,,,false
+9f7c871a-ae0f-42b6-8bcd-757b9e53aa8c,2024-08-24 03:00:00+00,Herminia Ribeiro,21/03/1961,Não tenho,5562992576408,,Não,,,,,,false
+a0a2af98-a65e-4125-b3e0-c3ce96341291,2025-02-02 03:00:00+00,"Vinicius Rodrigues ",22/11/2004,"Não tenho ",5562999996021,,Não,,,,,,false
+a1f3bf07-7437-44e5-9961-ebbc0f24e635,2024-08-24 03:00:00+00,Morgana Barbosa Arruda,01/03/1994,não tenho.,5562993152549,,Não,,,,,,false
+a230de00-808d-425e-9714-a7337faa7f4d,2024-08-24 03:00:00+00,Veronica Magalhães,05/10/2001,Não tenho,5562984356156,,Não,,,,,,false
+a2be364d-97d9-4eaa-890c-5d6e09d8ffb5,2024-09-29 03:00:00+00,Geovana,nan,Não tenho,5562981953887,,Não,,,,,,false
+a3ae6982-5f00-4474-a528-d9b820233f44,2024-08-24 03:00:00+00,Jeniffer,18/10/2008,Não tenho,5562993669955,,Não,,,,,,false
+a3fef166-cf65-4cf7-b9e9-962e398bf8cd,2024-08-24 03:00:00+00,Gildas Marques (Giovani Gomes),0,Não tenho,556291479734,,Não,,,,,,false
+a4e2e57b-6dae-4277-8556-72921eac5f9b,2024-09-29 03:00:00+00,André Phelipe,24/03/1999,Não tenho,5562993002304,,Não,,,,,,false
+a54c812c-b765-4e84-8500-fed461095332,2024-08-24 03:00:00+00,Ana Paula,28/08/1986,Não tenho,556295519727,,Não,,,,,,false
+a5ba416b-ac82-480f-b92f-00dc99935344,2024-08-25 03:00:00+00,Hemilly Sousa Alves,21/10/2005,Hemillyalves988@gmail.com,5562993585647,,Não,,,,,,false
+a71d2991-3635-4a6c-ac57-d24b4f008881,2024-11-10 03:00:00+00,Nelcicleia Souza Barros,14/01/1995,neyasouza123@icloud.com,5562994405355,,Não,,,,,,false
+a729983c-1194-4a0b-ac00-480b21ed92e2,2024-08-24 03:00:00+00,Divina Maria,05/05/1960,Não tenho,5562991768520,,Não,,,,,,false
+a7a49715-d520-4b16-84ae-3e688ea5aa94,2025-02-23 03:00:00+00,"Luana de Moura Lima ",12/03/1999,Mouraluana2018@gmail.com,5562995486232,,Não,,,,,,false
+a8988ae4-a3be-4fab-848e-8465e3c43ae3,2025-03-01 03:00:00+00,"Débora Ferreira ",29/05/1992,Debbie.d.Debora@gmail.com,5562981343643,,Não,,,,,,false
+ab070fca-e672-49dc-817e-6067ff68eb1d,2024-08-24 03:00:00+00,Francinalva Alves (Miguel),10/04/1987,Não tenho,5562994196751,,Não,,,,,,false
+ad6fddf5-4605-4aa6-bf64-83d79468c713,2025-02-09 03:00:00+00,"Ely Cristina ",26/09/1974,elycristinavoeira@gmail.com,5562991962081,,Não,,,,,,false
+b02fe264-d56e-4362-824b-3f77a6609a56,2024-12-22 03:00:00+00,"Gislene ",25/07/1983,gi.oliveiramq@gmail.com,5513996386933,,Não,,,,,,false
+b193b6b6-30c7-45d4-b90d-2f828385522b,2024-10-13 03:00:00+00,Neidi Rodrigues Pereira,nan,Não,,,Não,,,,,,false
+b1e65792-bc59-46c6-ab90-888ad079e720,2024-08-24 03:00:00+00,Kaua,21/05/2012,Não tenho,5512345678901,,Não,,,,,,false
+b3176eca-c848-4f04-b9d3-c48330a070b6,2024-08-04 03:00:00+00,Amanda Teixeira e Silva,17/07/2005,amandates78@gmail.com,5562985411527,,Não,,,,,,false
+b6f682d7-845e-4029-8845-dd3c138c7d6e,2024-12-22 03:00:00+00,"Luis Henrique ",25/09/2010,"não tenho ",5513996610425,,Não,,,,,,false
+b78be240-e00d-426c-96d5-3186f3c12b5f,2024-08-24 03:00:00+00,"Maria Nadir (Hechelen,Kemilly)",23/10/1964,Não tenho,5562992126764,,Não,,,,,,false
+b95cb2e3-4f38-4901-a1c1-69573e315b5f,2025-02-20 03:00:00+00,Ana Carolina de oliveira,25/03/1988,OliveiraAna.9962@gmail.com,5513974263706,,Não,,,,,,false
+ba0cf093-c8bc-4a4d-afcb-bc3fb7ca6653,2024-08-24 03:00:00+00,Luciana Silva (Anthony),17/01/1994,Não tenho,5562992529733,,Não,,,,,,false
+baa83ed3-6c2a-4620-b097-7e35af42995b,2024-08-24 03:00:00+00,Osmael da Silva,0,Não tenho,5562984483307,,Não,,,,,,false
+bb00d9dd-7f29-4e90-bfdf-29ca81426de1,2024-08-24 03:00:00+00,Marilene Jesus,26/04/1979,Não tenho,556292235973,,Não,,,,,,false
+c0083cb5-1a0e-4bae-9455-06c8c138148f,2024-08-24 03:00:00+00,Edson Sousa,11/08/1984,Não tenho,556294025653,,Não,,,,,,false
+c0db4fc0-1d54-489d-b5cd-a98b386f7380,2024-12-15 03:00:00+00,"Joaquin Dias de Andrade ",26/02/1946,não tenho,5513997338691,,Não,,,,,,false
+c21d5d11-1541-44d9-b526-6664cd1e09b2,2024-08-18 03:00:00+00,Edileuza Rodrigues da Cruz,16/08/1976,Dilarodriguesdias@gmail.cok,5562991062710,,Não,,,,,,false
+c2b91739-cc77-4fc7-b54e-64a2579b03c6,2024-09-22 03:00:00+00,Roni,14/11/1987,Não tenho,5562982850705,,Não,,,,,,false
+c417984a-a515-4fa3-8889-b1123615fc94,2024-09-29 03:00:00+00,Rodrigo,12/04/1990,Não tenho,5562981236633,,Não,,,,,,false
+c6a90aba-d6d9-432e-b6bd-3ff2956a0a5c,2024-12-15 03:00:00+00,"Maria Eduarda calazaes Rocha Rosa ",11/09/2008,mariaeduardacalazaesrocharosa@gmail.com,5513996607198,,Não,,,,,,false
+c7a6dc6d-f830-4655-86c8-f3420510825b,2025-02-16 03:00:00+00,"Suzane da Silva ",01/03/1988,"Não tenho ",5562993972269,,Não,,,,,,false
+c8668de5-36f3-4b49-9106-59777ac451ce,2025-02-12 03:00:00+00,"Jailson Gonçalves Cabral ",16/03/1973,Jailsonflexo@gmail.com,5562981078559,,Não,,,,,,false
+cbc56bc1-725d-425b-85a5-5d9f66bf8e0b,2025-03-01 03:00:00+00,"Gesivalda Sales de Oliveira ",13/04/1963,"Não tenho ",5562992988393,,Não,,,,,,false
+cf2c65eb-d838-4b03-8e9a-bd6b35ffdb26,2025-05-04 03:00:00+00,Miquéias ruben,07/05/2001,Nao,5562991289268,,Sim,,6385f28b,,,,true
+d025862f-6e28-4b49-bb8d-2adc7d7b8989,2025-03-01 03:00:00+00,Jenei,12/01/1956,Bbb,5562984759373,,Não,,,,,,false
+d7c53258-250c-4234-873e-9c2b31333efa,2024-08-24 03:00:00+00,Halita Cristina,09/04/2013,Não tenho,5562982003590,,Não,,,,,,false
+d877b264-936d-44ef-8f89-ce70236f8695,2024-09-15 03:00:00+00,José Augusto,18/08/1991,Não tenho,5561996809939,,Não,,,,,,false
+d9469833-610d-47b5-8d06-110b1ee84d83,2024-08-04 03:00:00+00,Isabella Conceição Melo,11/10/2003,Isatinakind@gmail.com,5562992324688,,Não,,,,,,false
+d9587c7b-3062-4b9b-bd25-a223fec50057,2024-08-24 03:00:00+00,"Luciene Ribeiro (Renan, Manuela Vitória)",25/11/1983,Não tenho,556294066025,,Não,,,,,,false
+dcd836e6-c4f4-4355-a4f8-ad4143355bf4,2024-08-24 03:00:00+00,Helton Alves,15/09/2010,Não tenho,5562994245363,,Não,,,,,,false
+ddab9f64-7e48-4742-ba4c-d8d8fcc80874,2024-08-24 03:00:00+00,Daniela de Brito,17/07/1994,Não tenho,556293359282,,Não,,,,,,false
+dddd8fad-d5ee-4643-b5a5-e7dddae28d20,2024-08-24 03:00:00+00,Cristiane de Lourdes (kaua e Maria Eduarda,11/05/1974,Não tenho,5562981947960,,Não,,,,,,false
+de38bd13-260c-4983-bbe6-5eb9ae28718b,2024-08-24 03:00:00+00,Luana Jessica,23/08/1988,Não tenho,5562992593122,,Não,,,,,,false
+df927cfd-22aa-4a6b-8085-b919a483f069,2024-11-24 03:00:00+00,Edmilson Vieira,21/04/1991,Não tenho,5562991866404,,Não,,,,,,false
+e077c313-7b75-424e-9552-6658f31fbe8d,2024-08-24 03:00:00+00,Tiago Braga,17/02/2002,Não tenho,556492093913,,Não,,,,,,false
+e0aaf3c1-9e85-4970-8e40-52e0d5bd6f5b,2024-09-29 03:00:00+00,Fernanda,07/08/1988,Não tenho,5562981747880,,Não,,,,,,false
+e2c80882-e7f1-4d65-91ce-c98edf43b513,2024-08-24 03:00:00+00,Gabriely Batista,28/08/2000,Não tenho,5562996296310,,Não,,,,,,false
+e2f4ddc0-a681-45ad-9f8a-37cb511d3da7,2025-04-08 03:00:00+00,"Michael adrian ",30/01/1997,"Não tenho ",5561999626908,,Não,,,,,,false
+e404822b-78ba-4ae4-96b5-f2e7d7228135,2025-02-02 03:00:00+00,"Alessandra ",15/06/1986,"Não tenho ",5562992582780,,Não,,,,,,false
+e68acc3a-44ba-4dd6-8125-ae149e3cc16b,2025-01-20 03:00:00+00,wandenberg,31/08/1968,nao tenho,5562981485757,,Não,,,,,,false
+e785fca9-99bd-4d09-b97f-7ef2bd85f0a2,2024-08-24 03:00:00+00,Renilda da Costa,17/05/1985,Não tenho,5562994245362,,Não,,,,,,false
+eae78abd-f06d-498a-95d8-57046ac6e872,2024-08-24 03:00:00+00,Mariana Cristina,0,Não tenho,5562992715122,,Não,,,,,,false
+eb058f3e-3c69-4f64-a87c-0a2a0d65bfd5,2024-08-24 03:00:00+00,Viviane Vieira,0,Não tenho,5562991696809,,Não,,,,,,false
+ed183830-4d41-401f-9d56-8e3eddfdc620,2024-08-24 03:00:00+00,Naeeilli,31/05/2007,Não tenho,5562993059495,,Não,,,,,,false
+eee0a2a1-e440-42c0-ab8d-c8d5fd082315,2024-08-24 03:00:00+00,Yuri Ryan,01/08/2012,Não tenho,5512345678901,,Não,,,,,,false
+f171060a-9381-40a8-9091-e024d046f92e,2024-09-27 03:00:00+00,Gabrielee Franco Lemes Siqueira,19/07/2002,Ctdgabrielee2023@gmail.com,5562996989312,,Não,,,,,,false
+f3f1eaaf-e7a2-4f51-b986-286b05422266,2024-12-22 03:00:00+00,Josineide do Nascimento Costa Canuto,24/08/1984,josineidedonascimentocosta@gmail.com,5583988948994,,Não,,,,,,false
+f554c916-df03-49a0-ad7a-70ebe05430b1,2024-08-24 03:00:00+00,Alessandra Novaes (Amanda),10/10/1975,Não tenho,5562995459439,,Não,,,,,,false
+f607c3c4-1e4d-4ab4-9eee-43c2c16b795e,2025-03-01 03:00:00+00,"Gilda Sales ",07/09/1954,"Não tenho ",5562999999999,,Não,,,,,,false
+f917da1c-140f-49ae-9bc9-2724df385317,2024-08-24 03:00:00+00,Ana Cecília,28/07/2020,Não tenho,5512345678901,,Não,,,,,,false
+f93635da-9a54-4221-b8c3-1d8e69b9b7a6,2024-08-24 03:00:00+00,Micaele Guimarães,16/11/2004,Não tenho,5562992736219,,Não,,,,,,false
+f99ea2e9-e398-46a2-9443-91be24b48a51,2025-03-01 03:00:00+00,"Lorrayne ",12/11/2001,Lorrannyvitoria319@gmail.com,5562994616454,,Não,,,,,,false
+fc062370-55d7-4126-ae9b-353578e6909f,2024-08-24 03:00:00+00,Trom Vieira,01/08/2014,Não tenho,5512345678901,,Não,,,,,,false
+fc1e01bd-5b9c-40d3-965e-420669f903c9,2024-08-24 03:00:00+00,Gleiciane Cabral,24/03/1993,Não tenho,5561991785906,,Não,,,,,,false
+fd639fa7-7175-480f-a881-63f2e07b69e2,2025-01-12 03:00:00+00,"Fabiane Gomes faustino ",31/05/1975,fabienegfaustino@hotmail.com,5562985311665,,Não,,,,,,false
+ffcc888f-fc32-451b-ac77-bae5241124cb,2024-09-15 03:00:00+00,Izabela gualberto dos santos,25/04/2005,izabelagualberto@gmail.com,5562994311078,,Não,,,,,,false

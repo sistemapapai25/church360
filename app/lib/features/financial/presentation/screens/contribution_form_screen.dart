@@ -96,7 +96,7 @@ class _ContributionFormScreenState
       final amount = double.parse(_amountController.text.replaceAll(',', '.'));
 
       final data = {
-        'member_id': _selectedMemberId,
+        'user_id': _selectedMemberId,
         'type': _selectedType.value,
         'amount': amount,
         'payment_method': _selectedPaymentMethod.value,
@@ -195,7 +195,7 @@ class _ContributionFormScreenState
                     ...activeMembers.map((member) {
                       return DropdownMenuItem(
                         value: member.id,
-                        child: Text(member.fullName),
+                        child: Text(member.displayName),
                       );
                     }),
                   ],
@@ -403,4 +403,3 @@ class _ContributionFormScreenState
     }
   }
 }
-

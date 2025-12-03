@@ -1,0 +1,220 @@
+idprofissao,profissao
+prof000001,Administração
+prof000002,Administração Pública
+prof000003,Agrimensura
+prof000004,Agroecologia
+prof000005,Agronegócios e Agropecuária
+prof000006,Agronomia
+prof000007,Alimentos
+prof000008,Animação
+prof000009,Aquicultura
+prof000010,Arqueologia
+prof000011,Arquitetura e Urbanismo
+prof000012,Arquivologia
+prof000013,Artes Visuais
+prof000014,Astronomia
+prof000015,Automação Industrial
+prof000016,Banco de Dados
+prof000017,Biblioteconomia
+prof000018,Biocombustíveis
+prof000019,Biomedicina
+prof000020,Biotecnologia
+prof000021,Biotecnologia e Bioquímica
+prof000022,Ciência da Computação
+prof000023,Ciência e Tecnologia
+prof000024,Ciência e Tecnologia de Alimentos
+prof000025,Ciências Aeronáuticas
+prof000026,Ciências Agrárias
+prof000027,Ciências Atuariais
+prof000028,Ciências Biológicas
+prof000029,Ciências Contábeis
+prof000030,Ciências do Consumo
+prof000031,Ciências Econômicas
+prof000032,Ciências Humanas
+prof000033,Ciências Naturais e Exatas
+prof000034,Ciências Sociais
+prof000035,Cinema e Audiovisual
+prof000036,Comércio Exterior
+prof000037,Computação
+prof000038,Comunicação das Artes do Corpo
+prof000039,Comunicação em Mídias Digitais
+prof000040,Comunicação Institucional
+prof000041,Comunicação Organizacional
+prof000042,Conservação e Restauro
+prof000043,Construção Civil
+prof000044,Construção Naval
+prof000045,Cooperativismo
+prof000046,Dança
+prof000047,Defesa e Gestão Estratégica Internacional
+prof000048,Design
+prof000049,Design de Games
+prof000050,Design de Interiores
+prof000051,Design de Moda
+prof000052,Direito
+prof000053,Ecologia
+prof000054,Educação Física
+prof000055,Educomunicação
+prof000056,Eletrônica Industrial
+prof000057,Eletrotécnica Industrial
+prof000058,Energias Renováveis
+prof000059,Enfermagem
+prof000060,Engenharia Acústica
+prof000061,Engenharia Aeronáutica
+prof000062,Engenharia Agrícola
+prof000063,Engenharia Ambiental e Sanitária
+prof000064,Engenharia Biomédica
+prof000065,"Engenharia Bioquímica, de Bioprocessos e Biotecnologia"
+prof000066,Engenharia Cartográfica e de Agrimensura
+prof000067,Engenharia Civil
+prof000068,Engenharia da Computação
+prof000069,Engenharia de Alimentos
+prof000070,Engenharia de Biossistemas
+prof000071,Engenharia de Controle e Automação
+prof000072,Engenharia de Energia
+prof000073,Engenharia de Inovação
+prof000074,Engenharia de Materiais
+prof000075,Engenharia de Minas
+prof000076,Engenharia de Pesca
+prof000077,Engenharia de Petróleo
+prof000078,Engenharia de Produção
+prof000079,Engenharia de Segurança no Trabalho
+prof000080,Engenharia de Sistemas
+prof000081,Engenharia de Software
+prof000082,Engenharia de Telecomunicações
+prof000083,Engenharia de Transporte e da Mobilidade
+prof000084,Engenharia Elétrica
+prof000085,Engenharia Eletrônica
+prof000086,Engenharia Física
+prof000087,Engenharia Florestal
+prof000088,Engenharia Hídrica
+prof000089,Engenharia Industrial Madeireira
+prof000090,Engenharia Mecânica
+prof000091,Engenharia Mecatrônica
+prof000092,Engenharia Metalúrgica
+prof000093,Engenharia Naval
+prof000094,Engenharia Nuclear
+prof000095,Engenharia Química
+prof000096,Engenharia Têxtil
+prof000097,Escrita Criativa
+prof000098,Esporte
+prof000099,Estatística
+prof000100,Estética e Cosmética
+prof000101,Estudos de Gênero e Diversidade
+prof000102,Estudos de Mídia
+prof000103,Eventos
+prof000104,Fabricação Mecânica
+prof000105,Farmácia
+prof000106,Filosofia
+prof000107,Física
+prof000108,Fisioterapia
+prof000109,Fonoaudiologia
+prof000110,Fotografia
+prof000111,Gastronomia
+prof000112,Geofísica
+prof000113,Geografia
+prof000114,Geologia
+prof000115,Geoprocessamento
+prof000116,Gerontologia
+prof000117,Gestão Ambiental
+prof000118,Gestão Comercial
+prof000119,Gestão da Informação
+prof000120,Gestão da Produção Industrial
+prof000121,Gestão da Qualidade
+prof000122,Gestão da Tecnologia da Informação
+prof000123,Gestão de Cooperativas
+prof000124,Gestão de Recursos Humanos
+prof000125,Gestão de Segurança Privada
+prof000126,Gestão de Seguros
+prof000127,Gestão de Turismo
+prof000128,Gestão Desportiva e de Lazer
+prof000129,Gestão em Saúde
+prof000130,Gestão Financeira
+prof000131,Gestão Hospitalar
+prof000132,Gestão Pública
+prof000133,História
+prof000134,História da Arte
+prof000135,Hotelaria
+prof000136,Informática
+prof000137,Informática Biomédica
+prof000138,Irrigação e Drenagem
+prof000139,Jogos Digitais
+prof000140,Jornalismo
+prof000141,Letras
+prof000142,Libras
+prof000143,Linguística
+prof000144,Logística
+prof000145,Luteria
+prof000146,Manutenção de aeronaves
+prof000147,Manutenção Industrial
+prof000148,Marketing
+prof000149,Matemática
+prof000150,Materiais
+prof000151,Mecatrônica Industrial
+prof000152,Medicina
+prof000153,Medicina Veterinária
+prof000154,Meteorologia
+prof000155,Mineração
+prof000156,Museologia
+prof000157,Música
+prof000158,Musicoterapia
+prof000159,Nanotecnologia
+prof000160,Naturologia
+prof000161,Negócios Imobiliários
+prof000162,Nutrição
+prof000163,Obstetrícia
+prof000164,Oceanografia
+prof000165,Odontologia
+prof000166,Oftálmica
+prof000167,Optometria
+prof000168,Papel e Celulose
+prof000169,Pedagogia
+prof000170,Petróleo e Gás
+prof000171,Pilotagem profissional de aeronaves
+prof000172,Processos Gerenciais
+prof000173,Processos Metalúrgicos
+prof000174,Processos Químicos
+prof000175,Produção Audiovisual
+prof000176,Produção Cênica
+prof000177,Produção Cultural
+prof000178,Produção de Bebidas
+prof000179,Produção Editorial
+prof000180,Produção Fonográfica
+prof000181,Produção Multimídia
+prof000182,Produção Publicitária
+prof000183,Produção Sucroalcooleira
+prof000184,Produção Têxtil
+prof000185,Psicologia
+prof000186,Psicopedagogia
+prof000187,Publicidade e Propaganda
+prof000188,Química
+prof000189,Quiropraxia
+prof000190,"Rádio, TV e Internet"
+prof000191,Radiologia
+prof000192,Redes de Computadores
+prof000193,Relações Internacionais
+prof000194,Relações Públicas
+prof000195,Rochas Ornamentais
+prof000196,Saneamento Ambiental
+prof000197,Saúde Coletiva
+prof000198,Secretariado
+prof000199,Secretariado Executivo
+prof000200,Segurança da Informação
+prof000201,Segurança no Trabalho
+prof000202,Segurança Pública
+prof000203,Serviço Social
+prof000204,Serviços Judiciários e Notariais
+prof000205,Silvicultura
+prof000206,Sistemas Biomédicos
+prof000207,Sistemas de Informação
+prof000208,Sistemas de Telecomunicações
+prof000209,Sistemas Elétricos
+prof000210,Sistemas Embarcados
+prof000211,Sistemas para Internet
+prof000212,Teatro
+prof000213,Teologia
+prof000214,Terapia Ocupacional
+prof000215,Tradutor e Intérprete
+prof000216,Transporte
+prof000217,Turismo
+prof000218,Zootecnia
+prof000219,Pastor

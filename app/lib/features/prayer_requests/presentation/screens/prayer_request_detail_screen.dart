@@ -170,15 +170,13 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
                   } else if (value == 'mark_answered') {
                     final actions = ref.read(prayerRequestActionsProvider);
                     await actions.markAsAnswered(widget.prayerRequestId);
-                    
-                    if (mounted) {
+                    if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Glória a Deus! Oração respondida! 🙏'),
                           backgroundColor: Colors.green,
                         ),
                       );
-                    }
                   } else if (value == 'delete') {
                     _deletePrayerRequest();
                   }
@@ -444,4 +442,3 @@ class _StatItem extends StatelessWidget {
     );
   }
 }
-

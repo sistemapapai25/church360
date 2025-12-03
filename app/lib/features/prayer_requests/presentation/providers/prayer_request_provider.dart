@@ -122,9 +122,10 @@ final prayerRequestsByCategoryCountProvider = FutureProvider<Map<PrayerCategory,
 
 /// Classe de ações para pedidos de oração
 class PrayerRequestActions {
-  final Ref ref;
+  final dynamic baseRef;
 
-  PrayerRequestActions(this.ref);
+  PrayerRequestActions(this.baseRef);
+  PrayerRequestActions.fromWidgetRef(WidgetRef ref) : baseRef = ref;
 
   /// Criar pedido de oração
   Future<void> createPrayerRequest({
@@ -132,23 +133,27 @@ class PrayerRequestActions {
     required String description,
     required PrayerCategory category,
     required PrayerPrivacy privacy,
+    bool isPublic = false,
+    bool allowWhatsappContact = true,
   }) async {
-    final repository = ref.read(prayerRequestRepositoryProvider);
+    final repository = baseRef.read(prayerRequestRepositoryProvider);
     
     await repository.createPrayerRequest(
       title: title,
       description: description,
       category: category,
       privacy: privacy,
+      isPublic: isPublic,
+      allowWhatsappContact: allowWhatsappContact,
     );
 
     // Invalidar providers
-    ref.invalidate(allPrayerRequestsProvider);
-    ref.invalidate(myPrayerRequestsProvider);
-    ref.invalidate(prayerRequestsByStatusProvider);
-    ref.invalidate(prayerRequestsByCategoryProvider);
-    ref.invalidate(prayerRequestsByStatusCountProvider);
-    ref.invalidate(prayerRequestsByCategoryCountProvider);
+    baseRef.invalidate(allPrayerRequestsProvider);
+    baseRef.invalidate(myPrayerRequestsProvider);
+    baseRef.invalidate(prayerRequestsByStatusProvider);
+    baseRef.invalidate(prayerRequestsByCategoryProvider);
+    baseRef.invalidate(prayerRequestsByStatusCountProvider);
+    baseRef.invalidate(prayerRequestsByCategoryCountProvider);
   }
 
   /// Atualizar pedido de oração
@@ -159,8 +164,10 @@ class PrayerRequestActions {
     PrayerCategory? category,
     PrayerStatus? status,
     PrayerPrivacy? privacy,
+    bool? isPublic,
+    bool? allowWhatsappContact,
   }) async {
-    final repository = ref.read(prayerRequestRepositoryProvider);
+    final repository = baseRef.read(prayerRequestRepositoryProvider);
     
     await repository.updatePrayerRequest(
       id: id,
@@ -169,31 +176,33 @@ class PrayerRequestActions {
       category: category,
       status: status,
       privacy: privacy,
+      isPublic: isPublic,
+      allowWhatsappContact: allowWhatsappContact,
     );
 
     // Invalidar providers
-    ref.invalidate(allPrayerRequestsProvider);
-    ref.invalidate(myPrayerRequestsProvider);
-    ref.invalidate(prayerRequestByIdProvider(id));
-    ref.invalidate(prayerRequestsByStatusProvider);
-    ref.invalidate(prayerRequestsByCategoryProvider);
-    ref.invalidate(prayerRequestsByStatusCountProvider);
-    ref.invalidate(prayerRequestsByCategoryCountProvider);
+    baseRef.invalidate(allPrayerRequestsProvider);
+    baseRef.invalidate(myPrayerRequestsProvider);
+    baseRef.invalidate(prayerRequestByIdProvider(id));
+    baseRef.invalidate(prayerRequestsByStatusProvider);
+    baseRef.invalidate(prayerRequestsByCategoryProvider);
+    baseRef.invalidate(prayerRequestsByStatusCountProvider);
+    baseRef.invalidate(prayerRequestsByCategoryCountProvider);
   }
 
   /// Deletar pedido de oração
   Future<void> deletePrayerRequest(String id) async {
-    final repository = ref.read(prayerRequestRepositoryProvider);
+    final repository = baseRef.read(prayerRequestRepositoryProvider);
     
     await repository.deletePrayerRequest(id);
 
     // Invalidar providers
-    ref.invalidate(allPrayerRequestsProvider);
-    ref.invalidate(myPrayerRequestsProvider);
-    ref.invalidate(prayerRequestsByStatusProvider);
-    ref.invalidate(prayerRequestsByCategoryProvider);
-    ref.invalidate(prayerRequestsByStatusCountProvider);
-    ref.invalidate(prayerRequestsByCategoryCountProvider);
+    baseRef.invalidate(allPrayerRequestsProvider);
+    baseRef.invalidate(myPrayerRequestsProvider);
+    baseRef.invalidate(prayerRequestsByStatusProvider);
+    baseRef.invalidate(prayerRequestsByCategoryProvider);
+    baseRef.invalidate(prayerRequestsByStatusCountProvider);
+    baseRef.invalidate(prayerRequestsByCategoryCountProvider);
   }
 
   /// Marcar como respondido
@@ -211,7 +220,7 @@ class PrayerRequestActions {
     required String prayerRequestId,
     String? note,
   }) async {
-    final repository = ref.read(prayerRequestRepositoryProvider);
+    final repository = baseRef.read(prayerRequestRepositoryProvider);
     
     await repository.markAsPrayed(
       prayerRequestId: prayerRequestId,
@@ -219,10 +228,10 @@ class PrayerRequestActions {
     );
 
     // Invalidar providers
-    ref.invalidate(prayerRequestPrayersProvider(prayerRequestId));
-    ref.invalidate(hasUserPrayedProvider(prayerRequestId));
-    ref.invalidate(prayerCountProvider(prayerRequestId));
-    ref.invalidate(prayerRequestStatsProvider(prayerRequestId));
+    baseRef.invalidate(prayerRequestPrayersProvider(prayerRequestId));
+    baseRef.invalidate(hasUserPrayedProvider(prayerRequestId));
+    baseRef.invalidate(prayerCountProvider(prayerRequestId));
+    baseRef.invalidate(prayerRequestStatsProvider(prayerRequestId));
   }
 
   /// Criar testemunho
@@ -230,7 +239,7 @@ class PrayerRequestActions {
     required String prayerRequestId,
     required String testimony,
   }) async {
-    final repository = ref.read(prayerRequestRepositoryProvider);
+    final repository = baseRef.read(prayerRequestRepositoryProvider);
     
     await repository.createTestimony(
       prayerRequestId: prayerRequestId,
@@ -238,8 +247,8 @@ class PrayerRequestActions {
     );
 
     // Invalidar providers
-    ref.invalidate(prayerRequestTestimonyProvider(prayerRequestId));
-    ref.invalidate(prayerRequestStatsProvider(prayerRequestId));
+    baseRef.invalidate(prayerRequestTestimonyProvider(prayerRequestId));
+    baseRef.invalidate(prayerRequestStatsProvider(prayerRequestId));
   }
 
   /// Atualizar testemunho
@@ -247,7 +256,7 @@ class PrayerRequestActions {
     required String prayerRequestId,
     required String testimony,
   }) async {
-    final repository = ref.read(prayerRequestRepositoryProvider);
+    final repository = baseRef.read(prayerRequestRepositoryProvider);
     
     await repository.updateTestimony(
       prayerRequestId: prayerRequestId,
@@ -255,23 +264,22 @@ class PrayerRequestActions {
     );
 
     // Invalidar providers
-    ref.invalidate(prayerRequestTestimonyProvider(prayerRequestId));
+    baseRef.invalidate(prayerRequestTestimonyProvider(prayerRequestId));
   }
 
   /// Deletar testemunho
   Future<void> deleteTestimony(String prayerRequestId) async {
-    final repository = ref.read(prayerRequestRepositoryProvider);
+    final repository = baseRef.read(prayerRequestRepositoryProvider);
     
     await repository.deleteTestimony(prayerRequestId);
 
     // Invalidar providers
-    ref.invalidate(prayerRequestTestimonyProvider(prayerRequestId));
-    ref.invalidate(prayerRequestStatsProvider(prayerRequestId));
-  }
+    baseRef.invalidate(prayerRequestTestimonyProvider(prayerRequestId));
+    baseRef.invalidate(prayerRequestStatsProvider(prayerRequestId));
+}
 }
 
 /// Provider de ações
 final prayerRequestActionsProvider = Provider<PrayerRequestActions>((ref) {
   return PrayerRequestActions(ref);
 });
-

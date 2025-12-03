@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/study_group_provider.dart';
 
 class LessonDetailScreen extends ConsumerWidget {
@@ -212,14 +213,17 @@ class LessonDetailScreen extends ConsumerWidget {
         leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
         title: Text(title),
         trailing: const Icon(Icons.open_in_new),
-        onTap: () {
-          // TODO: Abrir URL
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Abrindo: $url')),
-          );
+        onTap: () async {
+          final uri = Uri.parse(url);
+          final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+          if (!ok) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Não foi possível abrir: $url')),
+            );
+          }
         },
       ),
     );
   }
 }
-

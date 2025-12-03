@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/visitors_provider.dart';
 import '../../domain/models/visitor.dart';
+import '../../../../core/widgets/permission_widget.dart';
 
 /// Tela de listagem de visitantes
 class VisitorsListScreen extends ConsumerStatefulWidget {
@@ -15,162 +17,120 @@ class VisitorsListScreen extends ConsumerStatefulWidget {
 
 class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
   String _searchQuery = '';
-  VisitorStatus? _filterStatus;
 
   @override
   Widget build(BuildContext context) {
+    // Buscar todos os visitantes
     final visitorsAsync = ref.watch(allVisitorsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Visitantes'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.bar_chart),
-            onPressed: () {
-              context.push('/visitors/statistics');
-            },
-            tooltip: 'Estatísticas',
-          ),
-        ],
-      ),
+      backgroundColor: Colors.grey[50],
       body: Column(
         children: [
-          // Search and Filter
-          Padding(
-            padding: const EdgeInsets.all(16),
+          // Header com título
+          Container(
+            padding: const EdgeInsets.fromLTRB(24, 60, 24, 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Search bar
+                Row(
+                  children: [
+                    const Icon(Icons.person_add, size: 28),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Gestão de Visitantes',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Campo de busca
                 TextField(
                   decoration: InputDecoration(
-                    hintText: 'Buscar visitante...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    hintText: 'Buscar por nome ou apelido...',
+                    prefixIcon: const Icon(Icons.search, size: 20),
                     filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
                   onChanged: (value) {
                     setState(() {
-                      _searchQuery = value.toLowerCase();
+                      _searchQuery = value;
                     });
                   },
-                ),
-                const SizedBox(height: 12),
-                // Status filter
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      FilterChip(
-                        label: const Text('Todos'),
-                        selected: _filterStatus == null,
-                        onSelected: (selected) {
-                          setState(() {
-                            _filterStatus = null;
-                          });
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      ...VisitorStatus.values.map((status) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            label: Text(status.label),
-                            selected: _filterStatus == status,
-                            onSelected: (selected) {
-                              setState(() {
-                                _filterStatus = selected ? status : null;
-                              });
-                            },
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
                 ),
               ],
             ),
           ),
 
-          // Visitors list
+          // Lista de visitantes
           Expanded(
             child: visitorsAsync.when(
               data: (visitors) {
-                // Apply filters
+                // Filtrar por pesquisa
                 var filteredVisitors = visitors;
-
                 if (_searchQuery.isNotEmpty) {
-                  filteredVisitors = filteredVisitors.where((visitor) {
-                    return visitor.fullName.toLowerCase().contains(_searchQuery) ||
-                        (visitor.email?.toLowerCase().contains(_searchQuery) ?? false) ||
-                        (visitor.phone?.contains(_searchQuery) ?? false);
+                  final query = _searchQuery.toLowerCase();
+                  filteredVisitors = visitors.where((visitor) {
+                    return visitor.displayName.toLowerCase().contains(query) ||
+                        (visitor.nickname?.toLowerCase().contains(query) ?? false);
                   }).toList();
                 }
 
-                if (_filterStatus != null) {
-                  filteredVisitors = filteredVisitors
-                      .where((visitor) => visitor.status == _filterStatus)
-                      .toList();
-                }
-
-                if (filteredVisitors.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.people_outline,
-                          size: 64,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _searchQuery.isNotEmpty || _filterStatus != null
-                              ? 'Nenhum visitante encontrado'
-                              : 'Nenhum visitante cadastrado',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        if (_searchQuery.isEmpty && _filterStatus == null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Clique no botão + para adicionar',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[500],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: filteredVisitors.length,
-                  itemBuilder: (context, index) {
-                    final visitor = filteredVisitors[index];
-                    return _VisitorCard(visitor: visitor);
-                  },
-                );
+                return _buildVisitorsList(context, filteredVisitors);
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(
+              loading: () => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              error: (error, stack) => Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                    const Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: Colors.red,
+                    ),
                     const SizedBox(height: 16),
-                    Text('Erro ao carregar visitantes: $error'),
+                    Text(
+                      'Erro ao carregar visitantes',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      error.toString(),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey,
+                          ),
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => ref.refresh(allVisitorsProvider),
-                      child: const Text('Tentar novamente'),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        ref.invalidate(allVisitorsProvider);
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Tentar novamente'),
                     ),
                   ],
                 ),
@@ -179,262 +139,531 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          context.push('/visitors/new');
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Novo Visitante'),
+      floatingActionButton: LeaderOnlyWidget(
+        child: FloatingActionButton.extended(
+          onPressed: () => context.push('/visitors/new'),
+          icon: const Icon(Icons.add),
+          label: const Text('Novo Visitante'),
+        ),
       ),
     );
   }
+
+  Widget _buildVisitorsList(BuildContext context, List<Visitor> filteredVisitors) {
+    if (filteredVisitors.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.person_add_outlined,
+              size: 64,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Nenhum visitante encontrado',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.grey,
+                  ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: filteredVisitors.length,
+      itemBuilder: (context, index) {
+        final visitor = filteredVisitors[index];
+        return _VisitorCard(visitor: visitor);
+      },
+    );
+  }
+
 }
 
-/// Card de visitante
+/// Widget de card de visitante com design rico
 class _VisitorCard extends ConsumerWidget {
   final Visitor visitor;
 
   const _VisitorCard({required this.visitor});
 
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-  }
-
-  Future<void> _deleteVisitor(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Excluir Visitante'),
-        content: Text(
-          'Tem certeza que deseja excluir ${visitor.fullName}? Esta ação não pode ser desfeita.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Excluir'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && context.mounted) {
-      try {
-        await ref.read(visitorsRepositoryProvider).deleteVisitor(visitor.id);
-        ref.invalidate(allVisitorsProvider);
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Visitante excluído com sucesso!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erro ao excluir visitante: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () {
-          context.push('/visitors/${visitor.id}');
-        },
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: _getStatusColor(visitor.status).withValues(alpha: 0.2),
-                    child: Icon(
-                      Icons.person,
-                      color: _getStatusColor(visitor.status),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          visitor.fullName,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header: Foto, Nome, Apelido e Status
+            Row(
+              children: [
+                // Foto do visitante
+                CircleAvatar(
+                  radius: 30,
+                  backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                  backgroundImage: visitor.photoUrl != null
+                      ? NetworkImage(visitor.photoUrl!)
+                      : null,
+                  child: visitor.photoUrl == null
+                      ? Text(
+                          visitor.initials,
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
+                            color: Colors.blue,
                           ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 16),
+                // Nome e apelido
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        visitor.displayName,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(height: 2),
+                      ),
+                      if (visitor.nickname != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Text(
+                              '"${visitor.nickname}"',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.blue,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'Visitante',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ] else ...[
+                        const SizedBox(height: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: _getStatusColor(visitor.status).withValues(alpha: 0.1),
+                            color: Colors.blue,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text(
-                            visitor.status.label,
+                          child: const Text(
+                            'Visitante',
                             style: TextStyle(
+                              color: Colors.white,
                               fontSize: 11,
-                              color: _getStatusColor(visitor.status),
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert),
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        context.push('/visitors/${visitor.id}/edit');
-                      } else if (value == 'delete') {
-                        _deleteVisitor(context, ref);
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit, size: 20),
-                            SizedBox(width: 8),
-                            Text('Editar'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete, size: 20, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Excluir', style: TextStyle(color: Colors.red)),
-                          ],
-                        ),
-                      ),
                     ],
                   ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-
-              // Contact info
-              if (visitor.phone != null) ...[
-                Row(
-                  children: [
-                    Icon(Icons.phone, size: 14, color: Colors.grey[600]),
-                    const SizedBox(width: 4),
-                    Text(
-                      visitor.phone!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
                 ),
-                const SizedBox(height: 4),
               ],
-
-              if (visitor.email != null) ...[
-                Row(
-                  children: [
-                    Icon(Icons.email, size: 14, color: Colors.grey[600]),
-                    const SizedBox(width: 4),
-                    Text(
-                      visitor.email!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-              ],
-
-              const SizedBox(height: 8),
-              const Divider(height: 1),
-              const SizedBox(height: 8),
-
-              // Footer
-              Row(
-                children: [
-                  Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Primeira visita: ${_formatDate(visitor.firstVisitDate)}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${visitor.totalVisits} visita${visitor.totalVisits != 1 ? 's' : ''}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.blue,
-                        fontWeight: FontWeight.w500,
+            ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            // Informações do visitante
+            _buildInfoRow(Icons.phone, visitor.phone ?? 'Sem telefone'),
+            const SizedBox(height: 8),
+            _buildInfoRow(
+              Icons.person,
+              visitor.gender == 'male'
+                  ? 'Masculino'
+                  : visitor.gender == 'female'
+                      ? 'Feminino'
+                      : 'Não informado',
+            ),
+            const SizedBox(height: 8),
+            _buildInfoRow(
+              Icons.cake,
+              visitor.age != null ? '${visitor.age} anos' : 'Idade não informada',
+            ),
+            const SizedBox(height: 8),
+            _buildInfoRow(
+              Icons.location_on,
+              visitor.state ?? 'GO',
+            ),
+            const SizedBox(height: 16),
+            // Botões de ação
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      _showVisitorDialog(context, ref, visitor);
+                    },
+                    icon: const Icon(Icons.person, size: 18),
+                    label: const Text('Ver Perfil'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                   ),
-                ],
-              ),
-            ],
-          ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      context.push('/visitors/${visitor.id}/edit');
+                    },
+                    icon: const Icon(Icons.edit, size: 18),
+                    label: const Text('Editar'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.grey[700],
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: BorderSide(color: Colors.grey[300]!),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Color _getStatusColor(VisitorStatus status) {
-    switch (status) {
-      case VisitorStatus.firstVisit:
-        return Colors.blue;
-      case VisitorStatus.returning:
-        return Colors.orange;
-      case VisitorStatus.regular:
-        return Colors.green;
-      case VisitorStatus.converted:
-        return Colors.purple;
-      case VisitorStatus.inactive:
-        return Colors.grey;
-    }
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey[700],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showVisitorDialog(BuildContext context, WidgetRef ref, Visitor visitor) {
+    showDialog(
+      context: context,
+      builder: (context) => _VisitorDetailDialog(visitor: visitor),
+    );
   }
 }
+
+/// Dialog de detalhes do visitante
+class _VisitorDetailDialog extends ConsumerWidget {
+  final Visitor visitor;
+
+  const _VisitorDetailDialog({required this.visitor});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        width: 500,
+        constraints: const BoxConstraints(maxHeight: 700),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header com foto, nome e status
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.1),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+              ),
+              child: Column(
+                children: [
+                  // Foto
+                  CircleAvatar(
+                    radius: 50,
+                    backgroundColor: Colors.white,
+                    backgroundImage: visitor.photoUrl != null
+                        ? NetworkImage(visitor.photoUrl!)
+                        : null,
+                    child: visitor.photoUrl == null
+                        ? Text(
+                            visitor.initials,
+                            style: const TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  // Nome
+                  Text(
+                    visitor.displayName,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  // Apelido
+                  if (visitor.nickname != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '"${visitor.nickname}"',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey[600],
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  // Status
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'Visitante',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Conteúdo
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Informações Pessoais
+                    _buildSectionTitle('Informações Pessoais'),
+                    const SizedBox(height: 12),
+                    _buildInfoItem(
+                      Icons.phone,
+                      'Telefone',
+                      visitor.phone ?? 'Não informado',
+                    ),
+                    _buildInfoItem(
+                      Icons.cake,
+                      'Data de Nascimento',
+                      visitor.birthDate != null
+                          ? '${visitor.birthDate!.day.toString().padLeft(2, '0')}/${visitor.birthDate!.month.toString().padLeft(2, '0')}/${visitor.birthDate!.year}${visitor.age != null ? ' (${visitor.age} anos)' : ''}'
+                          : 'Não informado',
+                    ),
+                    _buildInfoItem(
+                      Icons.person,
+                      'Gênero',
+                      visitor.gender == 'male'
+                          ? 'Masculino'
+                          : visitor.gender == 'female'
+                              ? 'Feminino'
+                              : 'Não informado',
+                    ),
+                    const SizedBox(height: 24),
+                    // Endereço
+                    _buildSectionTitle('Endereço'),
+                    const SizedBox(height: 12),
+                    _buildInfoItem(
+                      Icons.pin_drop,
+                      'CEP',
+                      visitor.zipCode ?? 'Não informado',
+                    ),
+                    _buildInfoItem(
+                      Icons.location_on,
+                      'Endereço',
+                      visitor.address ?? 'Não informado',
+                    ),
+                    _buildInfoItem(
+                      Icons.location_city,
+                      'Cidade/UF',
+                      visitor.city != null && visitor.state != null
+                          ? '${visitor.city} - ${visitor.state}'
+                          : visitor.state ?? 'Não informado',
+                    ),
+                    // Link Google Maps
+                    if (visitor.address != null) ...[
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () async {
+                          final address = Uri.encodeComponent(
+                            '${visitor.address}, ${visitor.city ?? ''}, ${visitor.state ?? ''}',
+                          );
+                          final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$address');
+                          if (await canLaunchUrl(url)) {
+                            await launchUrl(url, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 32),
+                            Icon(Icons.map, size: 16, color: Colors.blue[700]),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Ver no Google Maps',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.blue[700],
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            // Botões de ação
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        context.push('/members/${visitor.id}/profile');
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Perfil',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey[300],
+                        foregroundColor: Colors.grey[800],
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Fechar',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: Colors.grey[600]),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 

@@ -7,8 +7,10 @@ import '../providers/groups_provider.dart';
 import '../providers/meetings_provider.dart';
 import '../../domain/models/group.dart';
 import '../../domain/models/group_meeting.dart' as meeting_models;
-import '../../data/group_meetings_repository.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import '../../../support_materials/presentation/providers/support_materials_provider.dart';
+import '../../../support_materials/domain/models/support_material.dart';
+import '../../../support_materials/domain/models/support_material_link.dart';
 
 /// Tela de detalhes do grupo
 class GroupDetailScreen extends ConsumerWidget {
@@ -140,7 +142,7 @@ class _GroupDetailContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Column(
         children: [
           // Header com informações do grupo
@@ -224,6 +226,7 @@ class _GroupDetailContent extends ConsumerWidget {
               Tab(text: 'Informações', icon: Icon(Icons.info_outline)),
               Tab(text: 'Membros', icon: Icon(Icons.people_outline)),
               Tab(text: 'Reuniões', icon: Icon(Icons.event_note)),
+              Tab(text: 'Materiais', icon: Icon(Icons.library_books)),
             ],
             labelColor: Theme.of(context).colorScheme.primary,
           ),
@@ -235,6 +238,7 @@ class _GroupDetailContent extends ConsumerWidget {
                 _InfoTab(group: group),
                 _MembersTab(groupId: group.id),
                 _MeetingsTab(groupId: group.id),
+                _MaterialsTab(groupId: group.id, groupName: group.name),
               ],
             ),
           ),
@@ -611,7 +615,7 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
                       items: availableMembers.map((member) {
                         return DropdownMenuItem(
                           value: member.id,
-                          child: Text(member.fullName),
+                          child: Text(member.displayName),
                         );
                       }).toList(),
                       onChanged: (value) {
@@ -869,6 +873,230 @@ class _MeetingCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Tab de Materiais de Apoio
+class _MaterialsTab extends ConsumerWidget {
+  final String groupId;
+  final String groupName;
+
+  const _MaterialsTab({
+    required this.groupId,
+    required this.groupName,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Buscar materiais vinculados a este grupo
+    final materialsAsync = ref.watch(
+      materialsByEntityProvider((
+        linkType: MaterialLinkType.communionGroup,
+        entityId: groupId,
+      )),
+    );
+
+    return materialsAsync.when(
+      data: (materials) {
+        if (materials.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.library_books_outlined,
+                  size: 80,
+                  color: Colors.grey.shade400,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Nenhum material vinculado',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Materiais de apoio vinculados a "$groupName"\naparecerão aqui',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: materials.length,
+          itemBuilder: (context, index) {
+            final material = materials[index];
+            return _MaterialCard(material: material);
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            Text('Erro ao carregar materiais: $error'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                ref.invalidate(materialsByEntityProvider);
+              },
+              child: const Text('Tentar Novamente'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Card de Material
+class _MaterialCard extends StatelessWidget {
+  final SupportMaterial material;
+
+  const _MaterialCard({required this.material});
+
+  IconData _getIconForType(SupportMaterialType type) {
+    switch (type) {
+      case SupportMaterialType.pdf:
+        return Icons.picture_as_pdf;
+      case SupportMaterialType.powerpoint:
+        return Icons.slideshow;
+      case SupportMaterialType.video:
+        return Icons.video_library;
+      case SupportMaterialType.text:
+        return Icons.article;
+      case SupportMaterialType.audio:
+        return Icons.audiotrack;
+      case SupportMaterialType.link:
+        return Icons.link;
+      case SupportMaterialType.other:
+        return Icons.insert_drive_file;
+    }
+  }
+
+  Color _getColorForType(SupportMaterialType type) {
+    switch (type) {
+      case SupportMaterialType.pdf:
+        return Colors.red;
+      case SupportMaterialType.powerpoint:
+        return Colors.orange;
+      case SupportMaterialType.video:
+        return Colors.blue;
+      case SupportMaterialType.text:
+        return Colors.green;
+      case SupportMaterialType.audio:
+        return Colors.purple;
+      case SupportMaterialType.link:
+        return Colors.teal;
+      case SupportMaterialType.other:
+        return Colors.grey;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () {
+          context.push('/support-materials/${material.id}');
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Ícone do tipo
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _getColorForType(material.materialType).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _getIconForType(material.materialType),
+                  color: _getColorForType(material.materialType),
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Título e descrição
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      material.title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getColorForType(material.materialType),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            material.materialType.label,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        if (material.author != null) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            'Por ${material.author}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (material.description != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        material.description!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right),
             ],
           ),
         ),

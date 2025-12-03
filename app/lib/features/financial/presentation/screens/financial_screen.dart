@@ -162,7 +162,7 @@ class _ContributionsTab extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 32),
@@ -244,7 +244,7 @@ class _ContributionCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: _getTypeColor(contribution.type).withOpacity(0.2),
+          backgroundColor: _getTypeColor(contribution.type).withValues(alpha: 0.2),
           child: Icon(
             _getTypeIcon(contribution.type),
             color: _getTypeColor(contribution.type),
@@ -399,7 +399,7 @@ class _ExpensesTab extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 32),
@@ -481,7 +481,7 @@ class _ExpenseCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: Colors.red.withOpacity(0.2),
+          backgroundColor: Colors.red.withValues(alpha: 0.2),
           child: const Icon(Icons.money_off, color: Colors.red),
         ),
         title: Text(
@@ -620,7 +620,7 @@ class _GoalCard extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
+                    color: Colors.blue.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -701,4 +701,3 @@ class _GoalCard extends StatelessWidget {
     );
   }
 }
-

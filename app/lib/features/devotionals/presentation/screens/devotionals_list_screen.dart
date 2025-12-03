@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../providers/devotional_provider.dart';
 import '../../domain/models/devotional.dart';
@@ -220,7 +221,38 @@ class _DevotionalCard extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              
+
+              // Thumbnail do YouTube (se não tiver imagem própria)
+              if (devotional.imageUrl == null && devotional.hasYoutubeVideo) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: () {
+                    final videoId = YoutubePlayer.convertUrlToId(devotional.youtubeUrl!);
+                    if (videoId != null) {
+                      return Image.network(
+                        'https://img.youtube.com/vi/$videoId/hqdefault.jpg',
+                        width: double.infinity,
+                        height: 120,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: double.infinity,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.video_library, size: 32),
+                          );
+                        },
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  }(),
+                ),
+                const SizedBox(height: 12),
+              ],
+
               // Título
               Text(
                 devotional.title,
@@ -250,7 +282,73 @@ class _DevotionalCard extends ConsumerWidget {
                   ],
                 ),
               ],
-              
+
+              // Categoria, Pregador e YouTube
+              if (devotional.category != null || devotional.preacher != null || devotional.hasYoutubeVideo) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    if (devotional.category != null)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.category,
+                            size: 14,
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            devotional.categoryText,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    if (devotional.preacher != null)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.person,
+                            size: 14,
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            devotional.preacher!,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    if (devotional.hasYoutubeVideo)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.video_library,
+                            size: 14,
+                            color: Colors.red,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Vídeo',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.red,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ],
+
               const SizedBox(height: 12),
               
               // Preview do conteúdo

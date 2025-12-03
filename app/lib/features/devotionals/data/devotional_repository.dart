@@ -86,6 +86,10 @@ class DevotionalRepository {
     required DateTime devotionalDate,
     required String authorId,
     bool isPublished = false,
+    String? imageUrl,
+    String? category,
+    String? preacher,
+    String? youtubeUrl,
   }) async {
     final data = {
       'title': title,
@@ -94,6 +98,10 @@ class DevotionalRepository {
       'devotional_date': devotionalDate.toIso8601String().split('T')[0],
       'author_id': authorId,
       'is_published': isPublished,
+      'image_url': imageUrl,
+      'category': category,
+      'preacher': preacher,
+      'youtube_url': youtubeUrl,
     };
 
     final response = await _supabase
@@ -113,9 +121,13 @@ class DevotionalRepository {
     String? scriptureReference,
     DateTime? devotionalDate,
     bool? isPublished,
+    String? imageUrl,
+    String? category,
+    String? preacher,
+    String? youtubeUrl,
   }) async {
     final data = <String, dynamic>{};
-    
+
     if (title != null) data['title'] = title;
     if (content != null) data['content'] = content;
     if (scriptureReference != null) data['scripture_reference'] = scriptureReference;
@@ -123,6 +135,10 @@ class DevotionalRepository {
       data['devotional_date'] = devotionalDate.toIso8601String().split('T')[0];
     }
     if (isPublished != null) data['is_published'] = isPublished;
+    if (imageUrl != null) data['image_url'] = imageUrl;
+    if (category != null) data['category'] = category;
+    if (preacher != null) data['preacher'] = preacher;
+    if (youtubeUrl != null) data['youtube_url'] = youtubeUrl;
 
     final response = await _supabase
         .from('devotionals')

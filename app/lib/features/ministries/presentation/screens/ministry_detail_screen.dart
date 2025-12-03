@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/ministries_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import '../../../access_levels/presentation/providers/access_level_provider.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 import '../../domain/models/ministry.dart';
 
 /// Tela de detalhes do ministério
@@ -25,7 +27,57 @@ class MinistryDetailScreen extends ConsumerWidget {
           );
         }
 
-        return _MinistryDetailContent(ministry: ministry);
+        final isAdminAsync = ref.watch(isAdminProvider);
+        final currentUserId = ref.watch(currentUserIdProvider);
+        final membershipAsync = currentUserId == null
+            ? const AsyncValue<List<Ministry>>.data([])
+            : ref.watch(memberMinistriesProvider(currentUserId));
+
+        return isAdminAsync.when(
+          data: (isAdmin) {
+            if (isAdmin) {
+              return _MinistryDetailContent(ministry: ministry);
+            }
+
+            return membershipAsync.when(
+              data: (ministries) {
+                final canView = ministries.any((m) => m.id == ministry.id);
+                if (!canView) {
+                  return Scaffold(
+                    appBar: AppBar(title: const Text('Ministério')),
+                    body: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.lock_outline, size: 48, color: Colors.red),
+                          SizedBox(height: 12),
+                          Text('Acesso restrito ao seu ministério'),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                return _MinistryDetailContent(ministry: ministry);
+              },
+              loading: () => Scaffold(
+                appBar: AppBar(title: const Text('Ministério')),
+                body: const Center(child: CircularProgressIndicator()),
+              ),
+              error: (error, _) => Scaffold(
+                appBar: AppBar(title: const Text('Ministério')),
+                body: Center(child: Text('Erro: $error')),
+              ),
+            );
+          },
+          loading: () => Scaffold(
+            appBar: AppBar(title: const Text('Ministério')),
+            body: const Center(child: CircularProgressIndicator()),
+          ),
+          error: (error, _) => Scaffold(
+            appBar: AppBar(title: const Text('Ministério')),
+            body: Center(child: Text('Erro: $error')),
+          ),
+        );
       },
       loading: () => Scaffold(
         appBar: AppBar(title: const Text('Ministério')),
@@ -81,7 +133,7 @@ class _MinistryDetailContent extends ConsumerWidget {
                     width: 80,
                     height: 80,
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.1),
+                      color: color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Icon(
@@ -121,8 +173,8 @@ class _MinistryDetailContent extends ConsumerWidget {
                         ),
                         decoration: BoxDecoration(
                           color: ministry.isActive
-                              ? Colors.green.withOpacity(0.1)
-                              : Colors.grey.withOpacity(0.1),
+                              ? Colors.green.withValues(alpha: 0.1)
+                              : Colors.grey.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: ministry.isActive ? Colors.green : Colors.grey,
@@ -181,12 +233,32 @@ class _MinistryDetailContent extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // Seção de escalas
-          const Text(
-            'Histórico de Escalas',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Histórico de Escalas',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => context.push('/ministries/${ministry.id}/scale-history'),
+                    icon: const Icon(Icons.history),
+                    label: const Text('Abrir Histórico'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: () => context.push('/ministries/${ministry.id}/auto-scheduler'),
+                    icon: const Icon(Icons.auto_awesome),
+                    label: const Text('Gerar Escala'),
+                  ),
+                ],
+              ),
+            ],
           ),
           const SizedBox(height: 12),
 
@@ -328,44 +400,51 @@ class _MemberCard extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: _getRoleColor(member.role).withOpacity(0.2),
+          backgroundColor: _getRoleColor(member.role).withValues(alpha: 0.2),
           child: Icon(
             _getRoleIcon(member.role),
             color: _getRoleColor(member.role),
           ),
         ),
         title: Text(member.memberName),
-        subtitle: Text(_getRoleLabel(member.role)),
+        subtitle: Text(
+          member.cargoName == null || member.cargoName!.isEmpty
+              ? _getRoleLabel(member.role)
+              : '${_getRoleLabel(member.role)} • Cargo: ${member.cargoName}',
+        ),
         trailing: PopupMenuButton(
           itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'edit',
-              child: Row(
+            PopupMenuItem(
+              child: const Row(
                 children: [
                   Icon(Icons.edit),
                   SizedBox(width: 8),
                   Text('Editar Função'),
                 ],
               ),
+              onTap: () {
+                Future.microtask(() {
+                  if (!context.mounted) return;
+                  _showEditRoleDialog(context, ref);
+                });
+              },
             ),
-            const PopupMenuItem(
-              value: 'remove',
-              child: Row(
+            PopupMenuItem(
+              child: const Row(
                 children: [
                   Icon(Icons.delete, color: Colors.red),
                   SizedBox(width: 8),
                   Text('Remover', style: TextStyle(color: Colors.red)),
                 ],
               ),
+              onTap: () {
+                Future.microtask(() {
+                  if (!context.mounted) return;
+                  _confirmRemove(context, ref);
+                });
+              },
             ),
           ],
-          onSelected: (value) {
-            if (value == 'edit') {
-              _showEditRoleDialog(context, ref);
-            } else if (value == 'remove') {
-              _confirmRemove(context, ref);
-            }
-          },
         ),
       ),
     );
@@ -398,27 +477,196 @@ class _MemberCard extends ConsumerWidget {
   }
 
   Future<void> _showEditRoleDialog(BuildContext context, WidgetRef ref) async {
-    MinistryRole? selectedRole = member.role;
+    String? selectedRoleId;
+    final Set<String> selectedFunctions = {};
+    List<String> availableFunctions = [];
+    Map<String, String> functionCategory = {};
+    // carrega restrições apenas para validação ao salvar
 
     final confirmed = await showDialog<bool>(
       context: context,
+      useRootNavigator: true,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: const Text('Editar Função'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: MinistryRole.values.map((role) {
-              return RadioListTile<MinistryRole>(
-                title: Text(role.label),
-                value: role,
-                groupValue: selectedRole,
-                onChanged: (value) {
-                  setState(() {
-                    selectedRole = value;
+          contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+          content: SizedBox(
+            width: 520,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+              child: Consumer(builder: (context, ref, _) {
+                final rolesAsync = ref.watch(allRolesProvider);
+                return rolesAsync.when(
+                  data: (roles) {
+                final items = roles;
+                if (selectedRoleId == null) {
+                  String? preferredId;
+                  if (member.cargoName != null && member.cargoName!.isNotEmpty) {
+                    final cn = member.cargoName!.toLowerCase();
+                    for (final r in items) {
+                      if (r.name.toLowerCase() == cn) {
+                        preferredId = r.id;
+                        break;
+                      }
+                    }
+                  }
+                  if (preferredId == null) {
+                    for (final r in items) {
+                      final name = r.name.toLowerCase();
+                      if (member.role == MinistryRole.leader && (name.contains('líder') || name.contains('leader'))) {
+                        preferredId = r.id;
+                        break;
+                      }
+                      if (member.role == MinistryRole.coordinator && (name.contains('coordenador') || name.contains('coordinator'))) {
+                        preferredId = r.id;
+                        break;
+                      }
+                      if (member.role == MinistryRole.member && (name.contains('membro') || name.contains('member'))) {
+                        preferredId = r.id;
+                        break;
+                      }
+                    }
+                  }
+                  selectedRoleId = preferredId ?? (items.isNotEmpty ? items.first.id : null);
+                }
+                if (selectedRoleId != null && availableFunctions.isEmpty) {
+                  Future.microtask(() async {
+                    final contexts = await ref.read(roleContextsRepositoryProvider).getContextsByMinistry(ministryId);
+                    final filtered = contexts.where((c) => c.roleId == selectedRoleId).toList();
+                    if (filtered.isNotEmpty) {
+                      final meta = filtered.first.metadata ?? {};
+                      final List<dynamic> funcs = List<dynamic>.from(meta['functions'] ?? []);
+                      final catMap = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
+                      final assigned = Map<String, dynamic>.from(meta['assigned_functions'] ?? {});
+                      final currentAssigned = List<dynamic>.from(assigned[member.memberId] ?? const []);
+                      setState(() {
+                        availableFunctions = funcs.map((e) => e.toString()).toList();
+                        functionCategory = catMap.map((k, v) => MapEntry(k, v.toString()));
+                        selectedFunctions.addAll(currentAssigned.map((e) => e.toString()));
+                      });
+                    } else {
+                      final byRole = await ref.read(roleContextsRepositoryProvider).getContextsByRole(selectedRoleId!);
+                      final Set<String> funcs = {};
+                      final Map<String, String> catMap = {};
+                      for (final c in byRole) {
+                        final meta = c.metadata ?? {};
+                        for (final f in List<dynamic>.from(meta['functions'] ?? const [])) {
+                          funcs.add(f.toString());
+                        }
+                        final m = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
+                        m.forEach((k, v) {
+                          catMap[k] = v.toString();
+                        });
+                      }
+                      setState(() {
+                        availableFunctions = funcs.toList();
+                        functionCategory = catMap;
+                      });
+                    }
                   });
-                },
-              );
-            }).toList(),
+                }
+                return SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedRoleId,
+                      decoration: const InputDecoration(
+                        labelText: 'Função (Cargo)',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: items
+                          .map((r) => DropdownMenuItem(
+                                value: r.id,
+                                child: Text(r.name),
+                              ))
+                          .toList(),
+                      onChanged: (value) async {
+                        setState(() {
+                          selectedRoleId = value;
+                          availableFunctions = [];
+                          selectedFunctions.clear();
+                          functionCategory.clear();
+                        });
+                        if (value != null) {
+                          final contexts = await ref.read(roleContextsRepositoryProvider).getContextsByMinistry(ministryId);
+                          final filtered = contexts.where((c) => c.roleId == value).toList();
+                          if (filtered.isNotEmpty) {
+                            final meta = filtered.first.metadata ?? {};
+                            final List<dynamic> funcs = List<dynamic>.from(meta['functions'] ?? []);
+                            final catMap = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
+                            final assigned = Map<String, dynamic>.from(meta['assigned_functions'] ?? {});
+                            final currentAssigned = List<dynamic>.from(assigned[member.memberId] ?? const []);
+                            setState(() {
+                              availableFunctions = funcs.map((e) => e.toString()).toList();
+                              functionCategory = catMap.map((k, v) => MapEntry(k, v.toString()));
+                              selectedFunctions.addAll(currentAssigned.map((e) => e.toString()));
+                            });
+                          } else {
+                            final byRole = await ref.read(roleContextsRepositoryProvider).getContextsByRole(value);
+                            final Set<String> funcs = {};
+                            final Map<String, String> catMap = {};
+                            for (final c in byRole) {
+                              final meta = c.metadata ?? {};
+                              for (final f in List<dynamic>.from(meta['functions'] ?? const [])) {
+                                funcs.add(f.toString());
+                              }
+                              final m = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
+                              m.forEach((k, v) {
+                                catMap[k] = v.toString();
+                              });
+                            }
+                            setState(() {
+                              availableFunctions = funcs.toList();
+                              functionCategory = catMap;
+                            });
+                          }
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Funções no ministério',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (availableFunctions.isEmpty)
+                      Text('Nenhuma função cadastrada para este cargo neste ministério', style: Theme.of(context).textTheme.bodySmall)
+                    else
+                      Column(
+                        children: availableFunctions.map((f) {
+                          final checked = selectedFunctions.contains(f);
+                          final cat = functionCategory[f] ?? 'other';
+                          return CheckboxListTile(
+                            value: checked,
+                            title: Text(f),
+                            subtitle: Text(cat == 'instrument' ? 'Instrumento' : cat == 'voice_role' ? 'Voz' : 'Outra'),
+                            onChanged: (sel) {
+                              setState(() {
+                                if (sel == true) {
+                                  selectedFunctions.add(f);
+                                } else {
+                                  selectedFunctions.remove(f);
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    const SizedBox(height: 8),
+                    const SizedBox.shrink(),
+                    ],
+                  ),
+                );
+              },
+              loading: () => const SizedBox(height: 48, child: Center(child: CircularProgressIndicator())),
+              error: (e, _) => Text('Erro ao carregar cargos: $e'),
+            );
+              }),
+            ),
           ),
           actions: [
             TextButton(
@@ -434,13 +682,95 @@ class _MemberCard extends ConsumerWidget {
       ),
     );
 
-    if (confirmed == true && selectedRole != null && context.mounted) {
+    if (confirmed == true && selectedRoleId != null && context.mounted) {
       try {
         final repository = ref.read(ministriesRepositoryProvider);
-        await repository.updateMinistryMember(
-          member.id,
-          {'role': selectedRole!.value},
-        );
+        final rolesRepo = ref.read(rolesRepositoryProvider);
+        final chosenRole = (await rolesRepo.getRoles()).firstWhere((r) => r.id == selectedRoleId);
+        final chosenName = chosenRole.name.toLowerCase();
+        final roleValue = chosenName.contains('líder') || chosenName.contains('leader')
+            ? 'leader'
+            : (chosenName.contains('coordenador') || chosenName.contains('coordinator'))
+                ? 'coordinator'
+                : 'member';
+        await repository.updateMinistryMember(member.id, {'role': roleValue});
+
+        // Sincronizar cargo (permissions) com a função escolhida
+        try {
+          final matchedRole = chosenRole;
+
+          final ministry = await ref.read(ministriesRepositoryProvider).getMinistryById(ministryId);
+          final contextsRepo = ref.read(roleContextsRepositoryProvider);
+          final contextsForMinistry = await contextsRepo.getContextsByMinistry(ministryId);
+
+          // Remove atribuições antigas do contexto deste ministério
+          for (final ctx in contextsForMinistry) {
+            await ref.read(userRolesRepositoryProvider).removeUserRoleByContext(
+              userId: member.memberId,
+              contextId: ctx.id,
+            );
+          }
+
+          // Seleciona ou cria contexto para o cargo escolhido
+          final filtered = contextsForMinistry.where((c) => c.roleId == matchedRole.id).toList();
+          String contextId;
+          if (filtered.isEmpty) {
+            final created = await contextsRepo.createContext(
+              roleId: matchedRole.id,
+              contextName: '${matchedRole.name} – ${ministry?.name ?? 'Ministério'}',
+              metadata: {'ministry_id': ministryId},
+            );
+            contextId = created.id;
+          } else {
+            contextId = filtered.first.id;
+          }
+
+          // Carregar categorização e restrições
+          final ctx = filtered.isEmpty
+              ? await contextsRepo.getContextById(contextId)
+              : filtered.first;
+          final meta = Map<String, dynamic>.from(ctx?.metadata ?? {});
+          final catMap = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
+          final restrictions = Map<String, dynamic>.from(meta['category_restrictions'] ?? {});
+          final validate = () {
+            final byCat = <String, List<String>>{};
+            for (final f in selectedFunctions) {
+              final cat = catMap[f]?.toString() ?? 'other';
+              byCat.putIfAbsent(cat, () => []).add(f);
+            }
+            for (final entry in restrictions.entries) {
+              final cat = entry.key;
+              final isExclusive = (entry.value is Map) ? ((entry.value['exclusive'] as bool?) ?? false) : false;
+              if (isExclusive && (byCat[cat]?.length ?? 0) > 1) {
+                return false;
+              }
+            }
+            return true;
+          }();
+          if (!validate) {
+            throw Exception('Seleção de funções conflitante com as restrições definidas');
+          }
+
+          await ref.read(userRolesRepositoryProvider).assignRoleToUser(
+            userId: member.memberId,
+            roleId: matchedRole.id,
+            contextId: contextId,
+            notes: 'Atualizado via ministério',
+          );
+
+          // Persistir funções atribuídas por usuário no metadata
+          final updatedCtx = await contextsRepo.getContextById(contextId);
+          final updatedMeta = Map<String, dynamic>.from(updatedCtx?.metadata ?? {});
+          final assigned = Map<String, dynamic>.from(updatedMeta['assigned_functions'] ?? {});
+          assigned[member.memberId] = selectedFunctions.toList();
+          updatedMeta['assigned_functions'] = assigned;
+          await contextsRepo.updateContext(
+            contextId: contextId,
+            metadata: updatedMeta,
+          );
+        } catch (e) {
+          debugPrint('Falha ao sincronizar cargo com função: $e');
+        }
 
         ref.invalidate(ministryMembersProvider(ministryId));
 
@@ -494,6 +824,19 @@ class _MemberCard extends ConsumerWidget {
         final repository = ref.read(ministriesRepositoryProvider);
         await repository.removeMinistryMember(member.id);
 
+        // Remover cargos vinculados ao contexto deste ministério
+        try {
+          final contexts = await ref.read(roleContextsRepositoryProvider).getContextsByMinistry(ministryId);
+          for (final ctx in contexts) {
+            await ref.read(userRolesRepositoryProvider).removeUserRoleByContext(
+              userId: member.memberId,
+              contextId: ctx.id,
+            );
+          }
+        } catch (e) {
+          debugPrint('Falha ao remover cargos do contexto: $e');
+        }
+
         ref.invalidate(ministryMembersProvider(ministryId));
 
         if (context.mounted) {
@@ -530,76 +873,261 @@ class _AddMemberDialog extends ConsumerStatefulWidget {
 
 class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
   String? _selectedMemberId;
-  MinistryRole _selectedRole = MinistryRole.member;
+  String? _selectedRoleId;
+  List<String> _availableFunctions = [];
+  final Set<String> _selectedFunctions = {};
+  final Map<String, String> _functionCategory = {};
+  final Set<String> _exclusiveCategories = {};
+  final _newFunctionController = TextEditingController();
   final _notesController = TextEditingController();
   bool _isLoading = false;
+  String _memberSearchQuery = '';
+  // Fluxo simplificado: sempre atribui cargo de ministério automaticamente
 
   @override
   void dispose() {
+    _newFunctionController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final allMembersAsync = ref.watch(allMembersProvider);
+    final membersAsync = ref.watch(allMembersProvider);
+    final allRolesAsync = ref.watch(allRolesProvider);
 
     return AlertDialog(
       title: const Text('Adicionar Membro'),
       content: SizedBox(
         width: double.maxFinite,
-        child: allMembersAsync.when(
-          data: (allMembers) {
-            if (allMembers.isEmpty) {
-              return const Text('Nenhum membro disponível');
-            }
-
-            return Column(
+        child: membersAsync.when(
+          data: (members) {
+            return SingleChildScrollView(
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Seletor de membro
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedMemberId,
+                // Campo de busca de membro
+                TextField(
                   decoration: const InputDecoration(
-                    labelText: 'Selecione o Membro',
+                    labelText: 'Buscar membro...',
+                    prefixIcon: Icon(Icons.search),
                     border: OutlineInputBorder(),
                   ),
-                  items: allMembers.map((member) {
-                    return DropdownMenuItem(
-                      value: member.id,
-                      child: Text('${member.firstName} ${member.lastName}'),
-                    );
-                  }).toList(),
                   onChanged: (value) {
-                    setState(() {
-                      _selectedMemberId = value;
-                    });
+                    setState(() => _memberSearchQuery = value);
                   },
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 240,
+                  child: membersAsync.when(
+                    data: (members) {
+                      var filtered = members;
+                      if (_memberSearchQuery.isNotEmpty) {
+                        final q = _memberSearchQuery.toLowerCase();
+                        filtered = filtered.where((m) {
+                          return m.displayName.toLowerCase().contains(q) ||
+                              ((m.nickname?.toLowerCase().contains(q)) ?? false);
+                        }).toList();
+                      }
+
+                      if (filtered.isEmpty) {
+                        return Center(
+                          child: Text(
+                            _memberSearchQuery.isEmpty
+                                ? 'Nenhum membro encontrado'
+                                : 'Nenhum resultado para "$_memberSearchQuery"',
+                            style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                          ),
+                        );
+                      }
+
+                      return ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final m = filtered[index];
+                          final isSelected = _selectedMemberId == m.id;
+                          return ListTile(
+                            leading: CircleAvatar(child: Text(m.initials)),
+                            title: Text(m.displayName),
+                            subtitle: Text(m.email),
+                            trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.green) : null,
+                            onTap: () {
+                              setState(() {
+                                _selectedMemberId = m.id;
+                              });
+                            },
+                          );
+                        },
+                      );
+                    },
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (error, _) => Center(child: Text('Erro: $error')),
+                  ),
                 ),
                 const SizedBox(height: 16),
 
-                // Seletor de função
-                DropdownButtonFormField<MinistryRole>(
-                  initialValue: _selectedRole,
-                  decoration: const InputDecoration(
-                    labelText: 'Função',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: MinistryRole.values.map((role) {
-                    return DropdownMenuItem(
-                      value: role,
-                      child: Text(role.label),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        _selectedRole = value;
-                      });
+                // Seletor de cargo (função)
+                allRolesAsync.when(
+                  data: (roles) {
+                    if (roles.isEmpty) {
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Theme.of(context).colorScheme.secondary),
+                            const SizedBox(width: 8),
+                            const Expanded(child: Text('Nenhum cargo cadastrado')),
+                          ],
+                        ),
+                      );
                     }
+                    _selectedRoleId ??= roles.first.id;
+                    return DropdownButtonFormField<String>(
+                      initialValue: _selectedRoleId,
+                      decoration: const InputDecoration(
+                        labelText: 'Função (Cargo)',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: roles.map((r) => DropdownMenuItem(
+                            value: r.id,
+                            child: Text(r.name),
+                          ))
+                          .toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedRoleId = value;
+                        });
+                        _loadFunctionsForSelectedRole();
+                      },
+                    );
                   },
+                  loading: () => const LinearProgressIndicator(),
+                  error: (e, _) => Text('Erro ao carregar cargos: $e'),
                 ),
                 const SizedBox(height: 16),
+
+                if (_selectedRoleId != null) ...[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Funções no ministério',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_availableFunctions.isEmpty)
+                    Text(
+                      'Nenhuma função cadastrada para este cargo neste ministério',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    )
+                  else
+                    Column(
+                      children: _availableFunctions.map((f) {
+                        final checked = _selectedFunctions.contains(f);
+                        final cat = _functionCategory[f] ?? 'other';
+                        return CheckboxListTile(
+                          value: checked,
+                          title: Text(f),
+                          subtitle: Text(
+                            cat == 'instrument'
+                                ? 'Instrumento'
+                                : cat == 'voice_role'
+                                    ? 'Voz'
+                                    : 'Outra',
+                          ),
+                          onChanged: (sel) {
+                            setState(() {
+                              if (sel == true) {
+                                _selectedFunctions.add(f);
+                              } else {
+                                _selectedFunctions.remove(f);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  const SizedBox(height: 8),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final narrow = constraints.maxWidth < 420;
+                      if (narrow) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            TextField(
+                              controller: _newFunctionController,
+                              decoration: const InputDecoration(
+                                labelText: 'Nova função',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: FilledButton.icon(
+                                onPressed: () {
+                                  final name = _newFunctionController.text.trim();
+                                  if (name.isEmpty) return;
+                                setState(() {
+                                  if (!_availableFunctions.contains(name)) {
+                                    _availableFunctions.add(name);
+                                    _functionCategory.putIfAbsent(name, () => 'other');
+                                  }
+                                  _selectedFunctions.add(name);
+                                  _newFunctionController.clear();
+                                });
+                                },
+                                icon: const Icon(Icons.add),
+                                label: const Text('Adicionar'),
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _newFunctionController,
+                              decoration: const InputDecoration(
+                                labelText: 'Nova função',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton.icon(
+                            onPressed: () {
+                              final name = _newFunctionController.text.trim();
+                              if (name.isEmpty) return;
+                              setState(() {
+                                if (!_availableFunctions.contains(name)) {
+                                  _availableFunctions.add(name);
+                                  _functionCategory.putIfAbsent(name, () => 'other');
+                                }
+                                _selectedFunctions.add(name);
+                                _newFunctionController.clear();
+                              });
+                            },
+                            icon: const Icon(Icons.add),
+                            label: const Text('Adicionar'),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                ],
+
+                // Atribuir cargo de ministério
+                // UI simplificada: sem seleção de contexto; será criado/selecionado automaticamente
 
                 // Notas
                 TextFormField(
@@ -611,6 +1139,7 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
                   maxLines: 2,
                 ),
               ],
+              ),
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -653,15 +1182,138 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
     setState(() => _isLoading = true);
 
     try {
+      // Verificar existência do usuário em user_account antes do insert
+      final userExists = await ref.read(membersRepositoryProvider).getMemberById(_selectedMemberId!);
+      if (userExists == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Usuário não encontrado no cadastro. Verifique o registro em Usuários.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Evitar erro de duplicidade: checa se já está no ministério
+      final alreadyMember = await ref
+          .read(ministriesRepositoryProvider)
+          .membershipExists(ministryId: widget.ministryId, personId: _selectedMemberId!);
+      if (alreadyMember) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Este membro já está neste ministério'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
       final repository = ref.read(ministriesRepositoryProvider);
+      String roleValue = 'member';
+      if (_selectedRoleId != null) {
+        try {
+          final rolesRepo = ref.read(rolesRepositoryProvider);
+          final chosenRole = (await rolesRepo.getRoles()).firstWhere((r) => r.id == _selectedRoleId);
+          final name = chosenRole.name.toLowerCase();
+          roleValue = name.contains('líder') || name.contains('leader')
+              ? 'leader'
+              : (name.contains('coordenador') || name.contains('coordinator'))
+                  ? 'coordinator'
+                  : 'member';
+        } catch (_) {}
+      }
+
       await repository.addMinistryMember({
         'ministry_id': widget.ministryId,
-        'member_id': _selectedMemberId,
-        'role': _selectedRole.value,
+        'user_id': _selectedMemberId,
+        'role': roleValue,
         'joined_at': DateTime.now().toIso8601String().split('T')[0],
         if (_notesController.text.isNotEmpty) 'notes': _notesController.text.trim(),
       });
+      
+      // Atribuição automática de cargo de ministério: cria contexto se não existir
+      if (_selectedRoleId != null) {
+        try {
+          final rolesRepo = ref.read(rolesRepositoryProvider);
+          final role = (await rolesRepo.getRoles()).firstWhere((r) => r.id == _selectedRoleId);
+          final ministry = await ref.read(ministriesRepositoryProvider).getMinistryById(widget.ministryId);
 
+          final contexts = await ref.read(roleContextsRepositoryProvider).getContextsByMinistry(widget.ministryId);
+          final filtered = contexts.where((c) => c.roleId == _selectedRoleId).toList();
+          String contextId;
+          if (filtered.isEmpty) {
+            final created = await ref.read(roleContextsRepositoryProvider).createContext(
+              roleId: _selectedRoleId!,
+              contextName: '${role.name} – ${ministry?.name ?? 'Ministério'}',
+              metadata: {
+                'ministry_id': widget.ministryId,
+                if (_availableFunctions.isNotEmpty) 'functions': _availableFunctions,
+              },
+            );
+            contextId = created.id;
+          } else {
+            contextId = filtered.first.id;
+            final meta = Map<String, dynamic>.from(filtered.first.metadata ?? {});
+            final List<dynamic> funcs = List<dynamic>.from(meta['functions'] ?? []);
+            for (final f in _availableFunctions) {
+              if (!funcs.contains(f)) funcs.add(f);
+            }
+            meta['functions'] = funcs;
+            await ref.read(roleContextsRepositoryProvider).updateContext(
+              contextId: contextId,
+              metadata: meta,
+            );
+          }
+
+          // Carregar categorização e restrições do contexto
+          final ctx = filtered.isEmpty
+              ? await ref.read(roleContextsRepositoryProvider).getContextById(contextId)
+              : filtered.first;
+          final meta = Map<String, dynamic>.from(ctx?.metadata ?? {});
+          final catMap = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
+          _functionCategory
+            ..clear()
+            ..addAll(catMap.map((k, v) => MapEntry(k, v.toString())));
+          final restrictions = Map<String, dynamic>.from(meta['category_restrictions'] ?? {});
+          _exclusiveCategories
+            ..clear()
+            ..addAll(restrictions.entries.where((e) {
+              final v = e.value;
+              return v is Map && (v['exclusive'] as bool?) == true;
+            }).map((e) => e.key));
+
+          // Validação de seleção de funções conforme categorias
+          if (!_validateFunctionSelection()) {
+            throw Exception('Seleção de funções conflitante com as restrições definidas');
+          }
+
+          await ref.read(userRolesRepositoryProvider).assignRoleToUser(
+            userId: _selectedMemberId!,
+            roleId: _selectedRoleId!,
+            contextId: contextId,
+            notes: 'Auto-atribuído via ministério',
+          );
+
+          // Persistir funções atribuídas por usuário no metadata do contexto
+          final updatedCtx = await ref.read(roleContextsRepositoryProvider).getContextById(contextId);
+          final updatedMeta = Map<String, dynamic>.from(updatedCtx?.metadata ?? {});
+          final assigned = Map<String, dynamic>.from(updatedMeta['assigned_functions'] ?? {});
+          assigned[_selectedMemberId!] = _selectedFunctions.toList();
+          updatedMeta['assigned_functions'] = assigned;
+          await ref.read(roleContextsRepositoryProvider).updateContext(
+            contextId: contextId,
+            metadata: updatedMeta,
+          );
+        } catch (e) {
+          debugPrint('Falha ao atribuir cargo de ministério: $e');
+        }
+      }
+
+      // Atualizar lista após atribuir cargo para refletir imediatamente o "Cargo" no card
       ref.invalidate(ministryMembersProvider(widget.ministryId));
 
       if (mounted) {
@@ -687,6 +1339,57 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _loadFunctionsForSelectedRole() async {
+    if (_selectedRoleId == null) return;
+    try {
+      final contexts = await ref.read(roleContextsRepositoryProvider).getContextsByMinistry(widget.ministryId);
+      final filtered = contexts.where((c) => c.roleId == _selectedRoleId).toList();
+      if (filtered.isNotEmpty) {
+        final meta = filtered.first.metadata ?? {};
+        final List<dynamic> funcs = List<dynamic>.from(meta['functions'] ?? []);
+        final catMap = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
+        final restrictions = Map<String, dynamic>.from(meta['category_restrictions'] ?? {});
+        setState(() {
+          _availableFunctions = funcs.map((e) => e.toString()).toList();
+          _functionCategory
+            ..clear()
+            ..addAll(catMap.map((k, v) => MapEntry(k, v.toString())));
+          _exclusiveCategories
+            ..clear()
+            ..addAll(restrictions.entries.where((e) {
+              final v = e.value;
+              return v is Map && (v['exclusive'] as bool?) == true;
+            }).map((e) => e.key));
+          _selectedFunctions.clear();
+        });
+      } else {
+        setState(() {
+          _availableFunctions = [];
+          _selectedFunctions.clear();
+          _functionCategory.clear();
+        });
+      }
+    } catch (_) {
+      setState(() {
+        _availableFunctions = [];
+        _selectedFunctions.clear();
+        _functionCategory.clear();
+      });
+    }
+  }
+
+  bool _validateFunctionSelection() {
+    final byCat = <String, List<String>>{};
+    for (final f in _selectedFunctions) {
+      final cat = _functionCategory[f] ?? 'other';
+      byCat.putIfAbsent(cat, () => []).add(f);
+    }
+    for (final cat in _exclusiveCategories) {
+      if ((byCat[cat]?.length ?? 0) > 1) return false;
+    }
+    return true;
   }
 }
 

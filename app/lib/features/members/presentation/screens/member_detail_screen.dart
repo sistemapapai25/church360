@@ -161,7 +161,7 @@ class _MemberDetailContent extends ConsumerWidget {
                   radius: 50,
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   child: Text(
-                    member.firstName[0].toUpperCase(),
+                    member.initials,
                     style: const TextStyle(
                       fontSize: 40,
                       color: Colors.white,
@@ -170,10 +170,10 @@ class _MemberDetailContent extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Nome
                 Text(
-                  member.fullName,
+                  member.displayName,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -196,11 +196,11 @@ class _MemberDetailContent extends ConsumerWidget {
                 // Informações de Contato
                 _SectionTitle(title: 'Contato'),
                 const SizedBox(height: 12),
-                if (member.email != null)
+                if (member.email.isNotEmpty)
                   _InfoTile(
                     icon: Icons.email,
                     label: 'Email',
-                    value: member.email!,
+                    value: member.email,
                   ),
                 if (member.phone != null)
                   _InfoTile(
@@ -485,7 +485,7 @@ class _TagsSection extends ConsumerWidget {
               children: tags.map((tag) {
                 return Chip(
                   label: Text(tag.name),
-                  backgroundColor: tag.colorValue.withOpacity(0.2),
+                  backgroundColor: tag.colorValue.withValues(alpha: 0.2),
                   labelStyle: TextStyle(
                     color: tag.colorValue,
                     fontWeight: FontWeight.bold,
@@ -645,4 +645,3 @@ class _AddTagDialogState extends ConsumerState<_AddTagDialog> {
     }
   }
 }
-

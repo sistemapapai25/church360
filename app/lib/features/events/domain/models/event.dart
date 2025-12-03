@@ -9,7 +9,11 @@ class Event {
   final String? location;
   final int? maxCapacity;
   final bool requiresRegistration;
+  final double? price; // Preço do evento (null = gratuito)
+  final bool isFree; // Se é gratuito
+  final bool isMandatory; // Presença obrigatória
   final String status; // 'draft', 'published', 'cancelled', 'completed'
+  final String? imageUrl;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -26,7 +30,11 @@ class Event {
     this.location,
     this.maxCapacity,
     this.requiresRegistration = false,
+    this.price,
+    this.isFree = true,
+    this.isMandatory = false,
     this.status = 'draft',
+    this.imageUrl,
     required this.createdAt,
     this.updatedAt,
     this.registrationCount,
@@ -46,7 +54,11 @@ class Event {
       location: json['location'] as String?,
       maxCapacity: json['max_capacity'] as int?,
       requiresRegistration: json['requires_registration'] as bool? ?? false,
+      price: json['price'] != null ? (json['price'] as num).toDouble() : null,
+      isFree: json['is_free'] as bool? ?? true,
+      isMandatory: json['is_mandatory'] as bool? ?? false,
       status: json['status'] as String? ?? 'draft',
+      imageUrl: json['image_url'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
@@ -67,7 +79,11 @@ class Event {
       'location': location,
       'max_capacity': maxCapacity,
       'requires_registration': requiresRegistration,
+      'price': price,
+      'is_free': isFree,
+      'is_mandatory': isMandatory,
       'status': status,
+      'image_url': imageUrl,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
@@ -121,6 +137,7 @@ class EventRegistration {
   final String? memberName; // Computed from join
   final DateTime registeredAt;
   final DateTime? checkedInAt;
+  final String? ticketId; // ID do ingresso gerado
 
   EventRegistration({
     required this.eventId,
@@ -128,6 +145,7 @@ class EventRegistration {
     this.memberName,
     required this.registeredAt,
     this.checkedInAt,
+    this.ticketId,
   });
 
   bool get isCheckedIn => checkedInAt != null;
@@ -136,12 +154,13 @@ class EventRegistration {
   factory EventRegistration.fromJson(Map<String, dynamic> json) {
     return EventRegistration(
       eventId: json['event_id'] as String,
-      memberId: json['member_id'] as String,
+      memberId: json['user_id'] as String,
       memberName: json['member_name'] as String?,
       registeredAt: DateTime.parse(json['registered_at'] as String),
       checkedInAt: json['checked_in_at'] != null
           ? DateTime.parse(json['checked_in_at'] as String)
           : null,
+      ticketId: json['ticket_id'] as String?,
     );
   }
 
@@ -149,10 +168,83 @@ class EventRegistration {
   Map<String, dynamic> toJson() {
     return {
       'event_id': eventId,
-      'member_id': memberId,
+      'user_id': memberId,
       'registered_at': registeredAt.toIso8601String(),
       'checked_in_at': checkedInAt?.toIso8601String(),
+      'ticket_id': ticketId,
     };
   }
 }
 
+/// Modelo de Ingresso (Ticket) de Evento
+class EventTicket {
+  final String id;
+  final String eventId;
+  final String memberId;
+  final String qrCode; // Código único para QR Code
+  final String status; // 'pending_payment', 'paid', 'used', 'cancelled'
+  final double? paidAmount; // Valor pago
+  final DateTime createdAt;
+  final DateTime? paidAt;
+  final DateTime? usedAt; // Quando foi usado no check-in
+
+  // Campos computados do join
+  final String? eventName;
+  final String? memberName;
+
+  EventTicket({
+    required this.id,
+    required this.eventId,
+    required this.memberId,
+    required this.qrCode,
+    this.status = 'paid', // Default para eventos gratuitos
+    this.paidAmount,
+    required this.createdAt,
+    this.paidAt,
+    this.usedAt,
+    this.eventName,
+    this.memberName,
+  });
+
+  bool get isUsed => usedAt != null;
+  bool get isPaid => status == 'paid';
+  bool get isValid => (status == 'paid') && !isUsed;
+
+  /// Criar a partir de JSON
+  factory EventTicket.fromJson(Map<String, dynamic> json) {
+    return EventTicket(
+      id: json['id'] as String,
+      eventId: json['event_id'] as String,
+      memberId: json['user_id'] as String,
+      qrCode: json['qr_code'] as String,
+      status: json['status'] as String? ?? 'paid',
+      paidAmount: json['paid_amount'] != null
+          ? (json['paid_amount'] as num).toDouble()
+          : null,
+      createdAt: DateTime.parse(json['created_at'] as String),
+      paidAt: json['paid_at'] != null
+          ? DateTime.parse(json['paid_at'] as String)
+          : null,
+      usedAt: json['used_at'] != null
+          ? DateTime.parse(json['used_at'] as String)
+          : null,
+      eventName: json['event_name'] as String?,
+      memberName: json['member_name'] as String?,
+    );
+  }
+
+  /// Converter para JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'event_id': eventId,
+      'user_id': memberId,
+      'qr_code': qrCode,
+      'status': status,
+      'paid_amount': paidAmount,
+      'created_at': createdAt.toIso8601String(),
+      'paid_at': paidAt?.toIso8601String(),
+      'used_at': usedAt?.toIso8601String(),
+    };
+  }
+}

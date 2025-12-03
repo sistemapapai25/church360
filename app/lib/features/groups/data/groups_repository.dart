@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/models/group.dart';
+import '../domain/models/group_visitor.dart';
 
 /// Repository para gerenciar grupos
 class GroupsRepository {
@@ -15,24 +16,30 @@ class GroupsRepository {
           .from('group')
           .select('''
             *,
-            leader:member!leader_id(first_name, last_name),
+            leader:user_account!leader_id(first_name, last_name),
+            host:user_account!host_id(first_name, last_name),
             group_member(count)
           ''')
           .order('name');
 
       return (response as List).map((json) {
-        // Adiciona o nome do líder e contagem de membros
+        // Adiciona o nome do líder, anfitrião e contagem de membros
         final data = Map<String, dynamic>.from(json);
-        
+
         if (data['leader'] != null) {
           final leader = data['leader'];
           data['leader_name'] = '${leader['first_name']} ${leader['last_name']}';
         }
-        
+
+        if (data['host'] != null) {
+          final host = data['host'];
+          data['host_name'] = '${host['first_name']} ${host['last_name']}';
+        }
+
         if (data['group_member'] != null) {
           data['member_count'] = (data['group_member'] as List).length;
         }
-        
+
         return Group.fromJson(data);
       }).toList();
     } catch (e) {
@@ -47,7 +54,8 @@ class GroupsRepository {
           .from('group')
           .select('''
             *,
-            leader:member!leader_id(first_name, last_name),
+            leader:user_account!leader_id(first_name, last_name),
+            host:user_account!host_id(first_name, last_name),
             group_member(count)
           ''')
           .eq('is_active', true)
@@ -55,16 +63,21 @@ class GroupsRepository {
 
       return (response as List).map((json) {
         final data = Map<String, dynamic>.from(json);
-        
+
         if (data['leader'] != null) {
           final leader = data['leader'];
           data['leader_name'] = '${leader['first_name']} ${leader['last_name']}';
         }
-        
+
+        if (data['host'] != null) {
+          final host = data['host'];
+          data['host_name'] = '${host['first_name']} ${host['last_name']}';
+        }
+
         if (data['group_member'] != null) {
           data['member_count'] = (data['group_member'] as List).length;
         }
-        
+
         return Group.fromJson(data);
       }).toList();
     } catch (e) {
@@ -79,7 +92,8 @@ class GroupsRepository {
           .from('group')
           .select('''
             *,
-            leader:member!leader_id(first_name, last_name),
+            leader:user_account!leader_id(first_name, last_name),
+            host:user_account!host_id(first_name, last_name),
             group_member(count)
           ''')
           .eq('id', id)
@@ -88,12 +102,17 @@ class GroupsRepository {
       if (response == null) return null;
 
       final data = Map<String, dynamic>.from(response);
-      
+
       if (data['leader'] != null) {
         final leader = data['leader'];
         data['leader_name'] = '${leader['first_name']} ${leader['last_name']}';
       }
-      
+
+      if (data['host'] != null) {
+        final host = data['host'];
+        data['host_name'] = '${host['first_name']} ${host['last_name']}';
+      }
+
       if (data['group_member'] != null) {
         data['member_count'] = (data['group_member'] as List).length;
       }
@@ -182,7 +201,7 @@ class GroupsRepository {
           .from('group_member')
           .select('''
             *,
-            member(first_name, last_name)
+            user_account:user_id (first_name, last_name)
           ''')
           .eq('group_id', groupId)
           .order('joined_date');
@@ -190,8 +209,8 @@ class GroupsRepository {
       return (response as List).map((json) {
         final data = Map<String, dynamic>.from(json);
 
-        if (data['member'] != null) {
-          final member = data['member'];
+        if (data['user_account'] != null) {
+          final member = data['user_account'];
           data['member_name'] = '${member['first_name']} ${member['last_name']}';
         }
 
@@ -213,7 +232,7 @@ class GroupsRepository {
           .from('group_member')
           .insert({
             'group_id': groupId,
-            'member_id': memberId,
+            'user_id': memberId,
             'role': role,
           })
           .select()
@@ -232,7 +251,7 @@ class GroupsRepository {
           .from('group_member')
           .delete()
           .eq('group_id', groupId)
-          .eq('member_id', memberId);
+          .eq('user_id', memberId);
     } catch (e) {
       rethrow;
     }
@@ -289,5 +308,144 @@ class GroupsRepository {
       rethrow;
     }
   }
-}
 
+  // =====================================================
+  // VISITANTES
+  // =====================================================
+
+  /// Buscar visitantes de uma reunião
+  Future<List<GroupVisitor>> getVisitorsByMeeting(String meetingId) async {
+    try {
+      final response = await _supabase
+          .from('visitor')
+          .select('''
+            *,
+            mentor:user_account!assigned_mentor_id(first_name, last_name)
+          ''')
+          .eq('meeting_id', meetingId)
+          .order('created_at', ascending: false);
+
+      return (response as List)
+          .map((json) => GroupVisitor.fromJson(json))
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Buscar visitantes que são salvações (para relatórios)
+  Future<List<GroupVisitor>> getSalvationsByMeeting(String meetingId) async {
+    try {
+      final response = await _supabase
+          .from('visitor')
+          .select('''
+            *,
+            mentor:user_account!assigned_mentor_id(first_name, last_name)
+          ''')
+          .eq('meeting_id', meetingId)
+          .eq('is_salvation', true)
+          .order('salvation_date', ascending: false);
+
+      return (response as List)
+          .map((json) => GroupVisitor.fromJson(json))
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Buscar todas as salvações (para relatórios gerais)
+  Future<List<GroupVisitor>> getAllSalvations() async {
+    try {
+      final response = await _supabase
+          .from('visitor')
+          .select('''
+            *,
+            mentor:user_account!assigned_mentor_id(first_name, last_name)
+          ''')
+          .eq('is_salvation', true)
+          .order('salvation_date', ascending: false);
+
+      return (response as List)
+          .map((json) => GroupVisitor.fromJson(json))
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Contar salvações
+  Future<int> countSalvations() async {
+    try {
+      final response = await _supabase
+          .from('visitor')
+          .select()
+          .eq('is_salvation', true)
+          .count();
+
+      return response.count;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Criar visitante
+  Future<GroupVisitor> createVisitor(Map<String, dynamic> data) async {
+    try {
+      final response = await _supabase
+          .from('visitor')
+          .insert(data)
+          .select()
+          .single();
+
+      return GroupVisitor.fromJson(response);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Atualizar visitante
+  Future<GroupVisitor> updateVisitor(String id, Map<String, dynamic> data) async {
+    try {
+      final response = await _supabase
+          .from('visitor')
+          .update(data)
+          .eq('id', id)
+          .select()
+          .single();
+
+      return GroupVisitor.fromJson(response);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Deletar visitante
+  Future<void> deleteVisitor(String id) async {
+    try {
+      await _supabase.from('visitor').delete().eq('id', id);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Contar salvações por período (usando group_visitor)
+  Future<int> countSalvationsByPeriod({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    try {
+      final response = await _supabase
+          .from('group_visitor')
+          .select()
+          .eq('is_salvation', true)
+          .gte('salvation_date', startDate.toIso8601String().split('T')[0])
+          .lte('salvation_date', endDate.toIso8601String().split('T')[0])
+          .count();
+
+      return response.count;
+    } catch (e) {
+      rethrow;
+    }
+  }
+}

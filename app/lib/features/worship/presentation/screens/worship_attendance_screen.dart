@@ -60,7 +60,7 @@ class _WorshipAttendanceScreenState
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                   border: Border(
                     bottom: BorderSide(color: Colors.grey[300]!),
                   ),
@@ -152,8 +152,7 @@ class _WorshipAttendanceScreenState
                     // Filtrar membros
                     var filteredMembers = members.where((member) {
                       final matchesSearch = _searchQuery.isEmpty ||
-                          member.firstName.toLowerCase().contains(_searchQuery) ||
-                          member.lastName.toLowerCase().contains(_searchQuery);
+                          member.displayName.toLowerCase().contains(_searchQuery);
 
                       final matchesFilter = !_showOnlyPresent ||
                           presentMemberIds.contains(member.id);
@@ -168,8 +167,8 @@ class _WorshipAttendanceScreenState
                       
                       if (aPresent && !bPresent) return -1;
                       if (!aPresent && bPresent) return 1;
-                      
-                      return a.firstName.compareTo(b.firstName);
+
+                      return a.displayName.compareTo(b.displayName);
                     });
 
                     if (filteredMembers.isEmpty) {
@@ -250,7 +249,7 @@ class _MemberCheckInTileState extends ConsumerState<_MemberCheckInTile> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${widget.member.firstName} removido da presença'),
+              content: Text('${widget.member.displayName} removido da presença'),
               backgroundColor: Colors.orange,
             ),
           );
@@ -260,7 +259,7 @@ class _MemberCheckInTileState extends ConsumerState<_MemberCheckInTile> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${widget.member.firstName} marcado como presente!'),
+              content: Text('${widget.member.displayName} marcado como presente!'),
               backgroundColor: Colors.green,
             ),
           );
@@ -291,19 +290,19 @@ class _MemberCheckInTileState extends ConsumerState<_MemberCheckInTile> {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: widget.isPresent ? 2 : 0,
-      color: widget.isPresent ? Colors.green.withOpacity(0.05) : null,
+      color: widget.isPresent ? Colors.green.withValues(alpha: 0.05) : null,
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: widget.isPresent ? Colors.green : Colors.grey[300],
           child: widget.isPresent
               ? const Icon(Icons.check, color: Colors.white)
               : Text(
-                  widget.member.firstName[0].toUpperCase(),
+                  widget.member.initials,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
         ),
         title: Text(
-          '${widget.member.firstName} ${widget.member.lastName}',
+          widget.member.displayName,
           style: TextStyle(
             fontWeight: widget.isPresent ? FontWeight.w600 : FontWeight.normal,
           ),
@@ -332,4 +331,3 @@ class _MemberCheckInTileState extends ConsumerState<_MemberCheckInTile> {
     );
   }
 }
-

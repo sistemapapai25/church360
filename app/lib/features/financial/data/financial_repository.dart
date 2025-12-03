@@ -18,7 +18,7 @@ class FinancialRepository {
         .from('contribution')
         .select('''
           *,
-          member:member_id (
+          user_account:user_id (
             first_name,
             last_name
           )
@@ -36,12 +36,12 @@ class FinancialRepository {
         .from('contribution')
         .select('''
           *,
-          member:member_id (
+          user_account:user_id (
             first_name,
             last_name
           )
         ''')
-        .eq('member_id', memberId)
+        .eq('user_id', memberId)
         .order('date', ascending: false);
 
     return (response as List)
@@ -55,7 +55,7 @@ class FinancialRepository {
         .from('contribution')
         .select('''
           *,
-          member:member_id (
+          user_account:user_id (
             first_name,
             last_name
           )
@@ -77,7 +77,7 @@ class FinancialRepository {
         .from('contribution')
         .select('''
           *,
-          member:member_id (
+          user_account:user_id (
             first_name,
             last_name
           )
@@ -97,7 +97,7 @@ class FinancialRepository {
         .from('contribution')
         .select('''
           *,
-          member:member_id (
+          user_account:user_id (
             first_name,
             last_name
           )
@@ -116,7 +116,7 @@ class FinancialRepository {
         .insert(data)
         .select('''
           *,
-          member:member_id (
+          user_account:user_id (
             first_name,
             last_name
           )
@@ -137,7 +137,7 @@ class FinancialRepository {
         .eq('id', id)
         .select('''
           *,
-          member:member_id (
+          user_account:user_id (
             first_name,
             last_name
           )

@@ -3,21 +3,33 @@ class Ministry {
   final String id;
   final String name;
   final String? description;
+  final String? icon; // Nome do ícone Font Awesome
   final String color;
+  final String? leaderId;
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final String? createdBy;
+
+  // Dados do líder (quando incluído na query)
+  final String? leaderName;
+  final String? leaderPhoto;
+
+  // Contagem de membros (quando incluído na query)
+  final int? memberCount;
 
   Ministry({
     required this.id,
     required this.name,
     this.description,
+    this.icon,
     required this.color,
+    this.leaderId,
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
-    this.createdBy,
+    this.leaderName,
+    this.leaderPhoto,
+    this.memberCount,
   });
 
   factory Ministry.fromJson(Map<String, dynamic> json) {
@@ -25,11 +37,15 @@ class Ministry {
       id: json['id'] as String,
       name: json['name'] as String,
       description: json['description'] as String?,
-      color: json['color'] as String? ?? '0xFF2196F3',
+      icon: json['icon'] as String?,
+      color: json['color'] as String? ?? '#2196F3',
+      leaderId: json['leader_id'] as String?,
       isActive: json['is_active'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
-      createdBy: json['created_by'] as String?,
+      leaderName: json['leader_name'] as String?,
+      leaderPhoto: json['leader_photo'] as String?,
+      memberCount: json['member_count'] as int?,
     );
   }
 
@@ -38,11 +54,12 @@ class Ministry {
       'id': id,
       'name': name,
       'description': description,
+      'icon': icon,
       'color': color,
+      'leader_id': leaderId,
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
-      'created_by': createdBy,
     };
   }
 
@@ -50,23 +67,45 @@ class Ministry {
     String? id,
     String? name,
     String? description,
+    String? icon,
     String? color,
+    String? leaderId,
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
-    String? createdBy,
+    String? leaderName,
+    String? leaderPhoto,
+    int? memberCount,
   }) {
     return Ministry(
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
+      icon: icon ?? this.icon,
       color: color ?? this.color,
+      leaderId: leaderId ?? this.leaderId,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      createdBy: createdBy ?? this.createdBy,
+      leaderName: leaderName ?? this.leaderName,
+      leaderPhoto: leaderPhoto ?? this.leaderPhoto,
+      memberCount: memberCount ?? this.memberCount,
     );
   }
+
+  @override
+  String toString() {
+    return 'Ministry(id: $id, name: $name, isActive: $isActive, memberCount: $memberCount)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is Ministry && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 /// Enum para função no ministério
@@ -98,6 +137,7 @@ class MinistryMember {
   final DateTime joinedAt;
   final String? notes;
   final DateTime createdAt;
+  final String? cargoName;
 
   MinistryMember({
     required this.id,
@@ -108,18 +148,20 @@ class MinistryMember {
     required this.joinedAt,
     this.notes,
     required this.createdAt,
+    this.cargoName,
   });
 
   factory MinistryMember.fromJson(Map<String, dynamic> json) {
     return MinistryMember(
       id: json['id'] as String,
       ministryId: json['ministry_id'] as String,
-      memberId: json['member_id'] as String,
+      memberId: json['user_id'] as String,
       memberName: json['member_name'] as String? ?? '',
       role: MinistryRole.fromString(json['role'] as String? ?? 'member'),
-      joinedAt: DateTime.parse(json['joined_at'] as String),
+      joinedAt: DateTime.parse((json['joined_at'] ?? json['created_at']) as String),
       notes: json['notes'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
+      cargoName: json['cargo_name'] as String?,
     );
   }
 
@@ -127,7 +169,7 @@ class MinistryMember {
     return {
       'id': id,
       'ministry_id': ministryId,
-      'member_id': memberId,
+      'user_id': memberId,
       'member_name': memberName,
       'role': role.value,
       'joined_at': joinedAt.toIso8601String().split('T')[0],
@@ -145,6 +187,7 @@ class MinistryMember {
     DateTime? joinedAt,
     String? notes,
     DateTime? createdAt,
+    String? cargoName,
   }) {
     return MinistryMember(
       id: id ?? this.id,
@@ -155,6 +198,7 @@ class MinistryMember {
       joinedAt: joinedAt ?? this.joinedAt,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
+      cargoName: cargoName ?? this.cargoName,
     );
   }
 }
@@ -164,6 +208,7 @@ class MinistrySchedule {
   final String id;
   final String eventId;
   final String eventName;
+  final DateTime? eventStartDate;
   final String ministryId;
   final String ministryName;
   final String memberId;
@@ -176,6 +221,7 @@ class MinistrySchedule {
     required this.id,
     required this.eventId,
     required this.eventName,
+    this.eventStartDate,
     required this.ministryId,
     required this.ministryName,
     required this.memberId,
@@ -190,9 +236,10 @@ class MinistrySchedule {
       id: json['id'] as String,
       eventId: json['event_id'] as String,
       eventName: json['event_name'] as String? ?? '',
+      eventStartDate: json['event_start_date'] != null ? DateTime.parse(json['event_start_date'] as String) : null,
       ministryId: json['ministry_id'] as String,
       ministryName: json['ministry_name'] as String? ?? '',
-      memberId: json['member_id'] as String,
+      memberId: json['user_id'] as String,
       memberName: json['member_name'] as String? ?? '',
       notes: json['notes'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -205,9 +252,10 @@ class MinistrySchedule {
       'id': id,
       'event_id': eventId,
       'event_name': eventName,
+      'event_start_date': eventStartDate?.toIso8601String(),
       'ministry_id': ministryId,
       'ministry_name': ministryName,
-      'member_id': memberId,
+      'user_id': memberId,
       'member_name': memberName,
       'notes': notes,
       'created_at': createdAt.toIso8601String(),
@@ -219,6 +267,7 @@ class MinistrySchedule {
     String? id,
     String? eventId,
     String? eventName,
+    DateTime? eventStartDate,
     String? ministryId,
     String? ministryName,
     String? memberId,
@@ -231,6 +280,7 @@ class MinistrySchedule {
       id: id ?? this.id,
       eventId: eventId ?? this.eventId,
       eventName: eventName ?? this.eventName,
+      eventStartDate: eventStartDate ?? this.eventStartDate,
       ministryId: ministryId ?? this.ministryId,
       ministryName: ministryName ?? this.ministryName,
       memberId: memberId ?? this.memberId,
@@ -241,4 +291,3 @@ class MinistrySchedule {
     );
   }
 }
-

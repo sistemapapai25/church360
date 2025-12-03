@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../providers/devotional_provider.dart';
-import '../../domain/models/devotional.dart';
 import '../../../../core/widgets/permission_widget.dart';
 
 /// Tela de detalhes do devocional (leitura)
@@ -151,6 +151,80 @@ class _DevotionalDetailScreenState extends ConsumerState<DevotionalDetailScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Imagem do devocional ou thumbnail do YouTube
+                if (devotional.imageUrl != null || devotional.hasYoutubeVideo) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: devotional.imageUrl != null
+                        ? Image.network(
+                            devotional.imageUrl!,
+                            width: double.infinity,
+                            height: 200,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              // Se a imagem falhar e tiver YouTube, mostra thumbnail do YouTube
+                              if (devotional.hasYoutubeVideo) {
+                                final videoId = YoutubePlayer.convertUrlToId(devotional.youtubeUrl!);
+                                if (videoId != null) {
+                                  return Image.network(
+                                    'https://img.youtube.com/vi/$videoId/maxresdefault.jpg',
+                                    width: double.infinity,
+                                    height: 200,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        width: double.infinity,
+                                        height: 200,
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                        child: const Icon(Icons.broken_image, size: 48),
+                                      );
+                                    },
+                                  );
+                                }
+                              }
+                              return Container(
+                                width: double.infinity,
+                                height: 200,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: const Icon(Icons.broken_image, size: 48),
+                              );
+                            },
+                          )
+                        : devotional.hasYoutubeVideo
+                            ? () {
+                                final videoId = YoutubePlayer.convertUrlToId(devotional.youtubeUrl!);
+                                if (videoId != null) {
+                                  return Image.network(
+                                    'https://img.youtube.com/vi/$videoId/maxresdefault.jpg',
+                                    width: double.infinity,
+                                    height: 200,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        width: double.infinity,
+                                        height: 200,
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                        child: const Icon(Icons.video_library, size: 48),
+                                      );
+                                    },
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              }()
+                            : const SizedBox.shrink(),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
                 // Header com data
                 Row(
                   children: [
@@ -232,6 +306,51 @@ class _DevotionalDetailScreenState extends ConsumerState<DevotionalDetailScreen>
                       ],
                     ),
                   ),
+                  const SizedBox(height: 24),
+                ],
+
+                // Categoria e Pregador
+                if (devotional.category != null || devotional.preacher != null) ...[
+                  Row(
+                    children: [
+                      if (devotional.category != null) ...[
+                        Icon(
+                          Icons.category,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          devotional.categoryText,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                      if (devotional.category != null && devotional.preacher != null)
+                        const SizedBox(width: 16),
+                      if (devotional.preacher != null) ...[
+                        Icon(
+                          Icons.person,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          devotional.preacher!,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                // Player do YouTube
+                if (devotional.hasYoutubeVideo) ...[
+                  _YoutubePlayerWidget(youtubeUrl: devotional.youtubeUrl!),
                   const SizedBox(height: 24),
                 ],
 
@@ -425,6 +544,130 @@ class _StatCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Widget do YouTube Player
+class _YoutubePlayerWidget extends StatefulWidget {
+  final String youtubeUrl;
+
+  const _YoutubePlayerWidget({required this.youtubeUrl});
+
+  @override
+  State<_YoutubePlayerWidget> createState() => _YoutubePlayerWidgetState();
+}
+
+class _YoutubePlayerWidgetState extends State<_YoutubePlayerWidget> {
+  late YoutubePlayerController _controller;
+  bool _isPlayerReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializePlayer();
+  }
+
+  void _initializePlayer() {
+    final videoId = YoutubePlayer.convertUrlToId(widget.youtubeUrl);
+    if (videoId != null) {
+      _controller = YoutubePlayerController(
+        initialVideoId: videoId,
+        flags: const YoutubePlayerFlags(
+          autoPlay: false,
+          mute: false,
+          enableCaption: true,
+          controlsVisibleAtStart: true,
+          hideControls: false,
+        ),
+      )..addListener(() {
+          if (_isPlayerReady && mounted) {
+            setState(() {});
+          }
+        });
+      _isPlayerReady = true;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final videoId = YoutubePlayer.convertUrlToId(widget.youtubeUrl);
+
+    if (videoId == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.errorContainer,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.error_outline,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Link do YouTube inválido',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.video_library,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Vídeo',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: YoutubePlayerBuilder(
+            player: YoutubePlayer(
+              controller: _controller,
+              showVideoProgressIndicator: true,
+              progressIndicatorColor: Colors.red,
+              progressColors: const ProgressBarColors(
+                playedColor: Colors.red,
+                handleColor: Colors.redAccent,
+              ),
+              onReady: () {
+                setState(() {
+                  _isPlayerReady = true;
+                });
+              },
+            ),
+            builder: (context, player) {
+              return player;
+            },
+          ),
+        ),
+      ],
     );
   }
 }

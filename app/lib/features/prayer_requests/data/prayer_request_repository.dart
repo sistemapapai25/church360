@@ -84,6 +84,8 @@ class PrayerRequestRepository {
     required String description,
     required PrayerCategory category,
     required PrayerPrivacy privacy,
+    bool isPublic = false,
+    bool allowWhatsappContact = true,
   }) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('Usuário não autenticado');
@@ -95,6 +97,8 @@ class PrayerRequestRepository {
           'description': description,
           'category': category.value,
           'privacy': privacy.value,
+          'is_public': isPublic,
+          'allow_whatsapp_contact': allowWhatsappContact,
           'author_id': userId,
           'status': PrayerStatus.pending.value,
         })
@@ -112,6 +116,8 @@ class PrayerRequestRepository {
     PrayerCategory? category,
     PrayerStatus? status,
     PrayerPrivacy? privacy,
+    bool? isPublic,
+    bool? allowWhatsappContact,
   }) async {
     final data = <String, dynamic>{};
     
@@ -120,6 +126,8 @@ class PrayerRequestRepository {
     if (category != null) data['category'] = category.value;
     if (status != null) data['status'] = status.value;
     if (privacy != null) data['privacy'] = privacy.value;
+    if (isPublic != null) data['is_public'] = isPublic;
+    if (allowWhatsappContact != null) data['allow_whatsapp_contact'] = allowWhatsappContact;
 
     final response = await _supabase
         .from('prayer_requests')
@@ -315,4 +323,3 @@ class PrayerRequestRepository {
     return result;
   }
 }
-

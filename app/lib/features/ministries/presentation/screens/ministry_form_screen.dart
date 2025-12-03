@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/ministries_provider.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 
 /// Tela de formulário de ministério (criar/editar)
 class MinistryFormScreen extends ConsumerStatefulWidget {
@@ -22,6 +23,9 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
   bool _isActive = true;
   String _selectedColor = '0xFF2196F3'; // Azul padrão
   bool _isLoading = false;
+  final _newFunctionController = TextEditingController();
+  Map<String, int> _functionRequirements = {};
+  bool _isLoadingFunctions = false;
 
   // Cores disponíveis
   final List<Map<String, dynamic>> _colors = [
@@ -42,6 +46,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
     super.initState();
     if (widget.ministryId != null) {
       _loadMinistry();
+      _loadFunctionRequirements();
     }
   }
 
@@ -61,6 +66,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _newFunctionController.dispose();
     super.dispose();
   }
 
@@ -159,6 +165,80 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
             ),
             const SizedBox(height: 24),
 
+            if (widget.ministryId != null) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Funções e Quantidades',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 12),
+                      if (_isLoadingFunctions)
+                        const LinearProgressIndicator()
+                      else ...[
+                        ..._functionRequirements.entries.map((e) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  Expanded(child: Text(e.key)),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 80,
+                                    child: TextFormField(
+                                      initialValue: e.value.toString(),
+                                      decoration: const InputDecoration(
+                                        labelText: 'Qtd',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      keyboardType: TextInputType.number,
+                                      onChanged: (v) {
+                                        final n = int.tryParse(v);
+                                        setState(() => _functionRequirements[e.key] = (n ?? e.value).clamp(0, 99));
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _newFunctionController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Nova função',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            FilledButton.icon(
+                              onPressed: () {
+                                final name = _newFunctionController.text.trim();
+                                if (name.isEmpty) return;
+                                setState(() {
+                                  _functionRequirements.putIfAbsent(name, () => 1);
+                                  _newFunctionController.clear();
+                                });
+                              },
+                              icon: const Icon(Icons.add),
+                              label: const Text('Adicionar Função'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
             // Status ativo/inativo
             SwitchListTile(
               title: const Text('Ministério Ativo'),
@@ -198,7 +278,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            color: Color(int.parse(_selectedColor)).withOpacity(0.1),
+                            color: Color(int.parse(_selectedColor)).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
@@ -282,6 +362,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
       if (widget.ministryId != null) {
         // Editar
         await repository.updateMinistry(widget.ministryId!, data);
+        await _saveFunctionRequirements();
       } else {
         // Criar
         await repository.createMinistry(data);
@@ -318,5 +399,52 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
       }
     }
   }
-}
 
+  Future<void> _loadFunctionRequirements() async {
+    setState(() => _isLoadingFunctions = true);
+    try {
+      final contexts = await ref.read(roleContextsRepositoryProvider).getContextsByMinistry(widget.ministryId!);
+      final Map<String, int> merged = {};
+      for (final c in contexts) {
+        final meta = c.metadata ?? {};
+        final req = meta['function_requirements'];
+        if (req is Map) {
+          req.forEach((k, v) {
+            final n = v is int ? v : int.tryParse(v.toString()) ?? 0;
+            if (n > 0) merged[k.toString()] = n;
+          });
+        }
+        final funcs = meta['functions'];
+        if (funcs is List) {
+          for (final f in funcs) {
+            merged.putIfAbsent(f.toString(), () => 1);
+          }
+        }
+      }
+      setState(() => _functionRequirements = merged);
+    } catch (_) {
+      setState(() => _functionRequirements = {});
+    } finally {
+      setState(() => _isLoadingFunctions = false);
+    }
+  }
+
+  Future<void> _saveFunctionRequirements() async {
+    try {
+      final contexts = await ref.read(roleContextsRepositoryProvider).getContextsByMinistry(widget.ministryId!);
+      for (final c in contexts) {
+        final meta = Map<String, dynamic>.from(c.metadata ?? {});
+        final funcs = Set<String>.from((meta['functions'] as List?)?.map((e) => e.toString()) ?? const []);
+        funcs.addAll(_functionRequirements.keys);
+        meta['functions'] = funcs.toList();
+        meta['function_requirements'] = _functionRequirements;
+        await ref.read(roleContextsRepositoryProvider).updateContext(
+          contextId: c.id,
+          metadata: meta,
+        );
+      }
+    } catch (e) {
+      debugPrint('Falha ao salvar requisitos de função: $e');
+    }
+  }
+}

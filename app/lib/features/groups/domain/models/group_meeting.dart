@@ -5,6 +5,8 @@ class GroupMeeting {
   final DateTime meetingDate;
   final String? topic;
   final String? notes;
+  final String? materialUrl; // URL do material ministrado
+  final String? materialTitle; // Título do material
   final int totalAttendance;
   final DateTime createdAt;
   final String? createdBy;
@@ -15,6 +17,8 @@ class GroupMeeting {
     required this.meetingDate,
     this.topic,
     this.notes,
+    this.materialUrl,
+    this.materialTitle,
     required this.totalAttendance,
     required this.createdAt,
     this.createdBy,
@@ -28,6 +32,8 @@ class GroupMeeting {
       meetingDate: DateTime.parse(json['meeting_date'] as String),
       topic: json['topic'] as String?,
       notes: json['notes'] as String?,
+      materialUrl: json['material_url'] as String?,
+      materialTitle: json['material_title'] as String?,
       totalAttendance: json['total_attendance'] as int? ?? 0,
       createdAt: DateTime.parse(json['created_at'] as String),
       createdBy: json['created_by'] as String?,
@@ -42,6 +48,8 @@ class GroupMeeting {
       'meeting_date': meetingDate.toIso8601String().split('T')[0], // Apenas data
       'topic': topic,
       'notes': notes,
+      'material_url': materialUrl,
+      'material_title': materialTitle,
       'total_attendance': totalAttendance,
       'created_at': createdAt.toIso8601String(),
       'created_by': createdBy,
@@ -55,6 +63,8 @@ class GroupMeeting {
     DateTime? meetingDate,
     String? topic,
     String? notes,
+    String? materialUrl,
+    String? materialTitle,
     int? totalAttendance,
     DateTime? createdAt,
     String? createdBy,
@@ -65,6 +75,8 @@ class GroupMeeting {
       meetingDate: meetingDate ?? this.meetingDate,
       topic: topic ?? this.topic,
       notes: notes ?? this.notes,
+      materialUrl: materialUrl ?? this.materialUrl,
+      materialTitle: materialTitle ?? this.materialTitle,
       totalAttendance: totalAttendance ?? this.totalAttendance,
       createdAt: createdAt ?? this.createdAt,
       createdBy: createdBy ?? this.createdBy,
@@ -97,7 +109,7 @@ class GroupAttendance {
     return GroupAttendance(
       id: json['id'] as String,
       meetingId: json['meeting_id'] as String,
-      memberId: json['member_id'] as String,
+      memberId: json['user_id'] as String,
       memberName: json['member_name'] as String?,
       wasPresent: json['was_present'] as bool? ?? true,
       notes: json['notes'] as String?,
@@ -110,7 +122,7 @@ class GroupAttendance {
     return {
       'id': id,
       'meeting_id': meetingId,
-      'member_id': memberId,
+      'user_id': memberId,
       'was_present': wasPresent,
       'notes': notes,
       'created_at': createdAt.toIso8601String(),
@@ -138,4 +150,3 @@ class GroupAttendance {
     );
   }
 }
-

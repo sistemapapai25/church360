@@ -75,9 +75,9 @@ enum AccessLevelType {
       case AccessLevelType.visitor:
         return 'Visitante';
       case AccessLevelType.attendee:
-        return 'Frequentador';
-      case AccessLevelType.member:
         return 'Membro';
+      case AccessLevelType.member:
+        return 'Voluntário';
       case AccessLevelType.leader:
         return 'Líder';
       case AccessLevelType.coordinator:
@@ -91,17 +91,17 @@ enum AccessLevelType {
   String get description {
     switch (this) {
       case AccessLevelType.visitor:
-        return 'Acesso público - Agenda, cultos, devocionais';
+        return 'Acesso público; participa de grupos/estudos; sem Dashboard';
       case AccessLevelType.attendee:
-        return 'Frequentador - Inscrição em eventos, grupos de interesse';
+        return 'Membro - Participa de grupos/estudos; sem Dashboard';
       case AccessLevelType.member:
-        return 'Membro - Acesso completo, contribuições, grupos';
+        return 'Voluntário - Escalas e áreas com restrições; com Dashboard';
       case AccessLevelType.leader:
-        return 'Líder - Gerenciar grupo/ministério, escalas';
+        return 'Líder - Tudo do voluntário, com mais responsabilidades';
       case AccessLevelType.coordinator:
-        return 'Coordenador - Gerenciar múltiplos grupos, relatórios';
+        return 'Coordenador - Responsável pelo ministério; líder de líderes';
       case AccessLevelType.admin:
-        return 'Administrativo - Acesso total, configurações';
+        return 'Administrativo/Owner - Acesso amplo; controlado por permissões';
     }
   }
 
@@ -111,9 +111,9 @@ enum AccessLevelType {
       case AccessLevelType.visitor:
         return '👤';
       case AccessLevelType.attendee:
-        return '🌱';
+        return '🧑‍🤝‍🧑';
       case AccessLevelType.member:
-        return '⭐';
+        return '🤝';
       case AccessLevelType.leader:
         return '👨‍🏫';
       case AccessLevelType.coordinator:
@@ -306,4 +306,3 @@ class AccessLevelHistory {
     }
   }
 }
-

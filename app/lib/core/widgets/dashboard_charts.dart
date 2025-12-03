@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 
 import '../providers/dashboard_stats_provider.dart';
 import '../../features/financial/presentation/providers/financial_provider.dart';
@@ -16,26 +17,38 @@ class MemberGrowthChart extends ConsumerWidget {
     final statsAsync = ref.watch(memberGrowthStatsProvider);
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.trending_up,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Crescimento de Membros',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
-            ),
+      child: InkWell(
+        onTap: () {
+          context.push('/member-growth-report');
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.trending_up,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Crescimento de Membros',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey[400],
+                  ),
+                ],
+              ),
             const SizedBox(height: 16),
             SizedBox(
               height: 200,
@@ -126,7 +139,7 @@ class MemberGrowthChart extends ConsumerWidget {
                           dotData: const FlDotData(show: true),
                           belowBarData: BarAreaData(
                             show: true,
-                            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                           ),
                         ),
                       ],
@@ -137,7 +150,8 @@ class MemberGrowthChart extends ConsumerWidget {
                 error: (error, _) => Center(child: Text('Erro: $error')),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -153,26 +167,38 @@ class EventsStatsCard extends ConsumerWidget {
     final statsAsync = ref.watch(eventsStatsProvider);
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.event,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Eventos',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
-            ),
+      child: InkWell(
+        onTap: () {
+          context.push('/events-analysis-report');
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.event,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Eventos',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey[400],
+                  ),
+                ],
+              ),
             const SizedBox(height: 16),
             statsAsync.when(
               data: (stats) {
@@ -203,7 +229,8 @@ class EventsStatsCard extends ConsumerWidget {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => Text('Erro: $error'),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -256,26 +283,38 @@ class TopActiveGroupsCard extends ConsumerWidget {
     final groupsAsync = ref.watch(topActiveGroupsProvider);
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.groups,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Grupos Mais Ativos',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
-            ),
+      child: InkWell(
+        onTap: () {
+          context.push('/active-groups-report');
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.groups,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Grupos Mais Ativos',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey[400],
+                  ),
+                ],
+              ),
             const SizedBox(height: 16),
             groupsAsync.when(
               data: (groups) {
@@ -322,7 +361,8 @@ class TopActiveGroupsCard extends ConsumerWidget {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => Text('Erro: $error'),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -497,7 +537,7 @@ class TopTagsCard extends ConsumerWidget {
                         ),
                       ),
                       label: Text(tag['name'] as String),
-                      backgroundColor: color.withOpacity(0.1),
+                      backgroundColor: color.withValues(alpha: 0.1),
                       side: BorderSide(color: color),
                     );
                   }).toList(),
@@ -607,7 +647,7 @@ class FinancialSummaryCards extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 32),
@@ -876,7 +916,7 @@ class FinancialGoalsWidget extends ConsumerWidget {
                                   vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.1),
+                                  color: Colors.blue.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
@@ -933,5 +973,606 @@ class FinancialGoalsWidget extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+/// Widget de aniversariantes do mês
+class BirthdaysThisMonthCard extends ConsumerWidget {
+  const BirthdaysThisMonthCard({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final birthdaysAsync = ref.watch(birthdaysThisMonthProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.cake,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Aniversariantes do Mês',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            birthdaysAsync.when(
+              data: (birthdays) {
+                if (birthdays.isEmpty) {
+                  return const Text('Nenhum aniversariante este mês');
+                }
+
+                final displayBirthdays = birthdays.take(5).toList();
+
+                return Column(
+                  children: [
+                    ...displayBirthdays.map((birthday) {
+                      final birthdate = birthday['birthdate'] as DateTime;
+                      final firstName = (birthday['first_name'] as String?) ?? '';
+                      final lastName = (birthday['last_name'] as String?) ?? '';
+                      final photoUrl = birthday['photo_url'] as String?;
+                      final type = birthday['type'] as String? ?? 'Membro';
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 20,
+                              backgroundImage: photoUrl != null
+                                  ? NetworkImage(photoUrl)
+                                  : null,
+                              child: photoUrl == null
+                                  ? Text(firstName[0] + lastName[0])
+                                  : null,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '$firstName $lastName',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '${birthdate.day}/${birthdate.month}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: type == 'Visitante' ? Colors.blue[100] : Colors.green[100],
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          type,
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                            color: type == 'Visitante' ? Colors.blue[700] : Colors.green[700],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.celebration,
+                              color: Colors.orange[300],
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                    if (birthdays.length > 5)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          '+${birthdays.length - 5} aniversariantes',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Text('Erro: $error'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Widget de próximas despesas/contas a pagar
+class UpcomingExpensesCard extends ConsumerWidget {
+  const UpcomingExpensesCard({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final expensesAsync = ref.watch(upcomingExpensesProvider);
+    final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+
+    return Card(
+      child: InkWell(
+        onTap: () {
+          context.push('/upcoming-expenses-report');
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.receipt_long,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Próximas Contas a Pagar',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey[400],
+                  ),
+                ],
+              ),
+            const SizedBox(height: 16),
+            expensesAsync.when(
+              data: (expenses) {
+                if (expenses.isEmpty) {
+                  return const Text('Nenhuma despesa agendada');
+                }
+
+                final displayExpenses = expenses.take(5).toList();
+                final totalAmount = expenses.fold<double>(
+                  0,
+                  (sum, expense) => sum + (expense['amount'] as double),
+                );
+
+                return Column(
+                  children: [
+                    ...displayExpenses.map((expense) {
+                      final date = expense['date'] as DateTime;
+                      final amount = expense['amount'] as double;
+                      final category = expense['category'] as String;
+                      final description = expense['description'] as String;
+                      final isOverdue = expense['is_overdue'] as bool;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: isOverdue
+                                    ? Colors.red[100]
+                                    : Colors.blue[100],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.attach_money,
+                                color: isOverdue ? Colors.red : Colors.blue,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    category,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    description,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    '${date.day}/${date.month}/${date.year}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isOverdue ? Colors.red : Colors.grey[500],
+                                      fontWeight: isOverdue ? FontWeight.bold : FontWeight.normal,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              formatter.format(amount),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: isOverdue ? Colors.red : Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                    if (expenses.length > 5)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          '+${expenses.length - 5} despesas',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ),
+                    const Divider(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Total:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          formatter.format(totalAmount),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Text('Erro: $error'),
+            ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Widget de novos membros (últimos 30 dias)
+class RecentMembersCard extends ConsumerWidget {
+  const RecentMembersCard({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final membersAsync = ref.watch(recentMembersProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.person_add,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Novos Membros (30 dias)',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            membersAsync.when(
+              data: (members) {
+                if (members.isEmpty) {
+                  return const Text('Nenhum novo membro nos últimos 30 dias');
+                }
+
+                final displayMembers = members.take(3).toList();
+
+                return Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.green[50],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.trending_up,
+                            color: Colors.green[700],
+                            size: 32,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '${members.length} ${members.length == 1 ? 'novo membro' : 'novos membros'}',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ...displayMembers.map((member) {
+                      final firstName = member['first_name'] as String;
+                      final lastName = member['last_name'] as String;
+                      final photoUrl = member['photo_url'] as String?;
+                      final createdAt = member['created_at'] as DateTime;
+                      final daysAgo = DateTime.now().difference(createdAt).inDays;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 20,
+                              backgroundImage: photoUrl != null
+                                  ? NetworkImage(photoUrl)
+                                  : null,
+                              child: photoUrl == null
+                                  ? Text(firstName[0] + lastName[0])
+                                  : null,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '$firstName $lastName',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    daysAgo == 0
+                                        ? 'Hoje'
+                                        : daysAgo == 1
+                                            ? 'Ontem'
+                                            : 'Há $daysAgo dias',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green[100],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'NOVO',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green[700],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Text('Erro: $error'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Widget de próximos eventos (próximos 7 dias)
+class UpcomingEventsCard extends ConsumerWidget {
+  const UpcomingEventsCard({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final eventsAsync = ref.watch(upcomingEventsProvider);
+
+    return Card(
+      child: InkWell(
+        onTap: () {
+          context.push('/upcoming-events-report');
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.event,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Próximos Eventos (7 dias)',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey[400],
+                  ),
+                ],
+              ),
+            const SizedBox(height: 16),
+            eventsAsync.when(
+              data: (events) {
+                if (events.isEmpty) {
+                  return const Text('Nenhum evento nos próximos 7 dias');
+                }
+
+                final displayEvents = events.take(3).toList();
+
+                return Column(
+                  children: displayEvents.map((event) {
+                    final title = event['title'] as String;
+                    final startDate = event['start_date'] as DateTime;
+                    final location = event['location'] as String?;
+                    final daysUntil = startDate.difference(DateTime.now()).inDays;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[100],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  '${startDate.day}',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue[700],
+                                  ),
+                                ),
+                                Text(
+                                  _getMonthAbbr(startDate.month),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.blue[700],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (location != null)
+                                  Text(
+                                    location,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                Text(
+                                  daysUntil == 0
+                                      ? 'Hoje'
+                                      : daysUntil == 1
+                                          ? 'Amanhã'
+                                          : 'Em $daysUntil dias',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.blue[700],
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Text('Erro: $error'),
+            ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getMonthAbbr(int month) {
+    const months = [
+      'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+      'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+    ];
+    return months[month - 1];
   }
 }

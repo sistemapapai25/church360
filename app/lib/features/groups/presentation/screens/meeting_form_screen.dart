@@ -205,7 +205,7 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
           );
 
           // Navegar para tela de registrar presença
-          context.go('/groups/${widget.groupId}/meetings/${meeting.id}');
+          context.push('/groups/${widget.groupId}/meetings/${meeting.id}');
           return;
         }
       }

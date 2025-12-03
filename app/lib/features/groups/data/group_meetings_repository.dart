@@ -92,7 +92,7 @@ class GroupMeetingsRepository {
           .from('group_attendance')
           .select('''
             *,
-            member:member_id (
+            user_account:user_id (
               first_name,
               last_name
             )
@@ -102,13 +102,13 @@ class GroupMeetingsRepository {
 
       return (response as List).map((data) {
         final attendanceData = Map<String, dynamic>.from(data);
-        
+
         // Adicionar nome do membro
-        if (attendanceData['member'] != null) {
-          final member = attendanceData['member'];
+        if (attendanceData['user_account'] != null) {
+          final member = attendanceData['user_account'];
           attendanceData['member_name'] = '${member['first_name']} ${member['last_name']}';
         }
-        
+
         return GroupAttendance.fromJson(attendanceData);
       }).toList();
     } catch (e) {
@@ -195,7 +195,7 @@ class GroupMeetingsRepository {
       final response = await _supabase
           .from('group_attendance')
           .select('was_present, meeting_id')
-          .eq('member_id', memberId)
+          .eq('user_id', memberId)
           .inFilter('meeting_id', meetings.map((m) => m.id).toList());
 
       final attendances = response as List;
@@ -215,4 +215,3 @@ class GroupMeetingsRepository {
     }
   }
 }
-

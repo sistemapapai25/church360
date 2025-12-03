@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 import '../domain/models/visitor.dart';
 
@@ -13,9 +14,10 @@ class VisitorsRepository {
   /// Buscar todos os visitantes
   Future<List<Visitor>> getAllVisitors() async {
     final response = await _supabase
-        .from('visitor')
-        .select()
-        .order('first_visit_date', ascending: false);
+        .from('user_account')
+        .select('*')
+        .eq('status', 'visitor')
+        .order('created_at', ascending: false);
 
     return (response as List)
         .map((json) => Visitor.fromJson(json))
@@ -25,9 +27,12 @@ class VisitorsRepository {
   /// Buscar visitantes por status
   Future<List<Visitor>> getVisitorsByStatus(VisitorStatus status) async {
     final response = await _supabase
-        .from('visitor')
-        .select()
-        .eq('status', status.value)
+        .from('user_account')
+        .select('''
+          *,
+          mentor:user_account!assigned_mentor_id(first_name, last_name)
+        ''')
+        .eq('status', 'visitor')
         .order('first_visit_date', ascending: false);
 
     return (response as List)
@@ -38,8 +43,11 @@ class VisitorsRepository {
   /// Buscar visitante por ID
   Future<Visitor?> getVisitorById(String id) async {
     final response = await _supabase
-        .from('visitor')
-        .select()
+        .from('user_account')
+        .select('''
+          *,
+          mentor:user_account!assigned_mentor_id(first_name, last_name)
+        ''')
         .eq('id', id)
         .maybeSingle();
 
@@ -49,9 +57,41 @@ class VisitorsRepository {
 
   /// Criar visitante
   Future<Visitor> createVisitor(Map<String, dynamic> data) async {
+    // Gerar UUID para o visitante (não tem conta Auth)
+    const uuid = Uuid();
+    final visitorId = uuid.v4();
+
+    // Mapear campos para user_account
+    final userData = {
+      'id': visitorId, // Gerar UUID manualmente
+      'first_name': data['first_name'],
+      'last_name': data['last_name'],
+      'email': data['email'],
+      'phone': data['phone'],
+      'birthdate': data['birth_date'], // birth_date → birthdate
+      'address': data['address'],
+      'city': data['city'],
+      'state': data['state'],
+      'zip_code': data['zip_code'],
+      'gender': data['gender'],
+      'status': 'visitor', // SEMPRE 'visitor' para user_account (member_status ENUM)
+      'is_active': true,
+      'first_visit_date': data['first_visit_date'],
+      'last_visit_date': data['last_visit_date'],
+      'assigned_mentor_id': data['assigned_mentor_id'],
+      'follow_up_status': data['follow_up_status'],
+      'last_contact_date': data['last_contact_date'],
+      'wants_contact': data['wants_contact'],
+      'wants_to_return': data['wants_to_return'],
+      'notes': data['notes'],
+    };
+
+    // Remover campos null
+    userData.removeWhere((key, value) => value == null);
+
     final response = await _supabase
-        .from('visitor')
-        .insert(data)
+        .from('user_account')
+        .insert(userData)
         .select()
         .single();
 
@@ -60,9 +100,35 @@ class VisitorsRepository {
 
   /// Atualizar visitante
   Future<Visitor> updateVisitor(String id, Map<String, dynamic> data) async {
+    // Mapear campos para user_account
+    final userData = {
+      'first_name': data['first_name'],
+      'last_name': data['last_name'],
+      'email': data['email'],
+      'phone': data['phone'],
+      'birthdate': data['birth_date'], // birth_date → birthdate
+      'address': data['address'],
+      'city': data['city'],
+      'state': data['state'],
+      'zip_code': data['zip_code'],
+      'gender': data['gender'],
+      'first_visit_date': data['first_visit_date'],
+      'last_visit_date': data['last_visit_date'],
+      'assigned_mentor_id': data['assigned_mentor_id'],
+      'follow_up_status': data['follow_up_status'],
+      'last_contact_date': data['last_contact_date'],
+      'wants_contact': data['wants_contact'],
+      'wants_to_return': data['wants_to_return'],
+      'notes': data['notes'],
+      // NÃO atualizar 'status' - deve permanecer 'visitor' em user_account
+    };
+
+    // Remover campos null
+    userData.removeWhere((key, value) => value == null);
+
     final response = await _supabase
-        .from('visitor')
-        .update(data)
+        .from('user_account')
+        .update(userData)
         .eq('id', id)
         .select()
         .single();
@@ -72,17 +138,15 @@ class VisitorsRepository {
 
   /// Deletar visitante
   Future<void> deleteVisitor(String id) async {
-    await _supabase.from('visitor').delete().eq('id', id);
+    await _supabase.from('user_account').delete().eq('id', id);
   }
 
   /// Converter visitante em membro
   Future<Visitor> convertToMember(String visitorId, String memberId) async {
     final response = await _supabase
-        .from('visitor')
+        .from('user_account')
         .update({
-          'status': 'converted',
-          'converted_to_member_id': memberId,
-          'converted_at': DateTime.now().toIso8601String(),
+          'status': 'member_active',
         })
         .eq('id', visitorId)
         .select()
@@ -280,7 +344,7 @@ class VisitorsRepository {
   /// Buscar follow-ups do dia
   Future<List<VisitorFollowup>> getTodayFollowups() async {
     final today = DateTime.now().toIso8601String().split('T')[0];
-    
+
     final response = await _supabase
         .from('visitor_followup')
         .select()
@@ -292,5 +356,60 @@ class VisitorsRepository {
         .map((json) => VisitorFollowup.fromJson(json))
         .toList();
   }
-}
 
+  // ==================== VISITANTES DE REUNIÕES ====================
+
+  /// Buscar visitantes de uma reunião específica
+  Future<List<Visitor>> getVisitorsByMeeting(String meetingId) async {
+    final response = await _supabase
+        .from('visitor')
+        .select('''
+          *,
+          mentor:user_account!assigned_mentor_id(first_name, last_name)
+        ''')
+        .eq('meeting_id', meetingId)
+        .order('created_at', ascending: false);
+
+    return (response as List)
+        .map((json) => Visitor.fromJson(json))
+        .toList();
+  }
+
+  /// Buscar todas as salvações
+  Future<List<Visitor>> getAllSalvations() async {
+    final response = await _supabase
+        .from('visitor')
+        .select('''
+          *,
+          mentor:user_account!assigned_mentor_id(first_name, last_name)
+        ''')
+        .eq('is_salvation', true)
+        .order('salvation_date', ascending: false);
+
+    return (response as List)
+        .map((json) => Visitor.fromJson(json))
+        .toList();
+  }
+
+  /// Contar total de salvações
+  Future<int> countSalvations() async {
+    final response = await _supabase
+        .from('visitor')
+        .select()
+        .eq('is_salvation', true);
+
+    return (response as List).length;
+  }
+
+  /// Contar salvações por período
+  Future<int> countSalvationsByPeriod(DateTime startDate, DateTime endDate) async {
+    final response = await _supabase
+        .from('visitor')
+        .select()
+        .eq('is_salvation', true)
+        .gte('salvation_date', startDate.toIso8601String().split('T')[0])
+        .lte('salvation_date', endDate.toIso8601String().split('T')[0]);
+
+    return (response as List).length;
+  }
+}

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../domain/models/event.dart';
 import '../providers/events_provider.dart';
-import '../../data/events_repository.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../ministries/domain/models/ministry.dart';
@@ -163,6 +163,31 @@ class _InfoTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Imagem do evento
+          if (event.imageUrl != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(
+                event.imageUrl!,
+                width: double.infinity,
+                height: 200,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    width: double.infinity,
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(Icons.broken_image, size: 48),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+
           // Status
           _StatusChip(event: event),
           const SizedBox(height: 24),
@@ -251,6 +276,40 @@ class _InfoTab extends StatelessWidget {
                   ),
                 ),
               ),
+          ],
+
+          // Botão de inscrição
+          if (event.requiresRegistration && !event.isPast) ...[
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton.icon(
+                onPressed: event.isFull
+                    ? null
+                    : () => context.push('/events/${event.id}/register'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: event.isFree ? Colors.green : Colors.blue,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: Icon(event.isFree ? Icons.card_giftcard : Icons.confirmation_number),
+                label: Text(
+                  event.isFull
+                      ? 'EVENTO LOTADO'
+                      : event.isFree
+                          ? 'INSCREVER-SE GRATUITAMENTE'
+                          : 'COMPRAR INGRESSO',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
           ],
         ],
       ),
@@ -606,6 +665,7 @@ class _AddRegistrationDialog extends ConsumerStatefulWidget {
 
 class _AddRegistrationDialogState extends ConsumerState<_AddRegistrationDialog> {
   String? _selectedMemberId;
+  String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
@@ -636,21 +696,61 @@ class _AddRegistrationDialogState extends ConsumerState<_AddRegistrationDialog> 
                   _selectedMemberId = null;
                 }
 
-                return DropdownButtonFormField<String>(
-                  initialValue: _selectedMemberId,
-                  decoration: const InputDecoration(
-                    labelText: 'Selecione um membro',
-                    prefixIcon: Icon(Icons.person),
-                  ),
-                  items: availableMembers.map((member) {
-                    return DropdownMenuItem(
-                      value: member.id,
-                      child: Text(member.fullName),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() => _selectedMemberId = value);
-                  },
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Buscar membro...',
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                      onChanged: (value) {
+                        setState(() => _searchQuery = value);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 240,
+                      child: Builder(builder: (context) {
+                        var filtered = availableMembers;
+                        if (_searchQuery.isNotEmpty) {
+                          final q = _searchQuery.toLowerCase();
+                          filtered = filtered.where((m) {
+                            return m.displayName.toLowerCase().contains(q) ||
+                                ((m.nickname?.toLowerCase().contains(q)) ?? false);
+                          }).toList();
+                        }
+
+                        if (filtered.isEmpty) {
+                          return Center(
+                            child: Text(
+                              _searchQuery.isEmpty
+                                  ? 'Nenhum membro disponível'
+                                  : 'Nenhum resultado para "$_searchQuery"',
+                              style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                            ),
+                          );
+                        }
+
+                        return ListView.builder(
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) {
+                            final m = filtered[index];
+                            final isSelected = _selectedMemberId == m.id;
+                            return ListTile(
+                              leading: CircleAvatar(child: Text(m.initials)),
+                              title: Text(m.displayName),
+                              subtitle: Text(m.email),
+                              trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.green) : null,
+                              onTap: () {
+                                setState(() => _selectedMemberId = m.id);
+                              },
+                            );
+                          },
+                        );
+                      }),
+                    ),
+                  ],
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -786,7 +886,7 @@ class _SchedulesTab extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
+                          color: Colors.blue.withValues(alpha: 0.1),
                           borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(12),
                             topRight: Radius.circular(12),
@@ -936,6 +1036,7 @@ class _AddScheduleDialogState extends ConsumerState<_AddScheduleDialog> {
   String? _selectedMemberId;
   final _notesController = TextEditingController();
   bool _isLoading = false;
+  String _memberSearchQuery = '';
 
   @override
   void dispose() {
@@ -1038,24 +1139,58 @@ class _AddScheduleDialogState extends ConsumerState<_AddScheduleDialog> {
           return const Text('Nenhum membro neste ministério');
         }
 
-        return DropdownButtonFormField<String>(
-          initialValue: _selectedMemberId,
-          decoration: const InputDecoration(
-            labelText: 'Selecione o Membro',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.person),
-          ),
-          items: members.map((member) {
-            return DropdownMenuItem(
-              value: member.memberId,
-              child: Text(member.memberName),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() {
-              _selectedMemberId = value;
-            });
-          },
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              decoration: const InputDecoration(
+                labelText: 'Buscar membro...',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.search),
+              ),
+              onChanged: (value) {
+                setState(() => _memberSearchQuery = value);
+              },
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 240,
+              child: Builder(builder: (context) {
+                var filtered = members;
+                if (_memberSearchQuery.isNotEmpty) {
+                  final q = _memberSearchQuery.toLowerCase();
+                  filtered = filtered.where((m) => m.memberName.toLowerCase().contains(q)).toList();
+                }
+
+                if (filtered.isEmpty) {
+                  return Center(
+                    child: Text(
+                      _memberSearchQuery.isEmpty
+                          ? 'Nenhum membro disponível'
+                          : 'Nenhum resultado para "$_memberSearchQuery"',
+                      style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final m = filtered[index];
+                    final isSelected = _selectedMemberId == m.memberId;
+                    return ListTile(
+                      leading: const CircleAvatar(child: Icon(Icons.person, size: 20)),
+                      title: Text(m.memberName),
+                      trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.green) : null,
+                      onTap: () {
+                        setState(() => _selectedMemberId = m.memberId);
+                      },
+                    );
+                  },
+                );
+              }),
+            ),
+          ],
         );
       },
       loading: () => const CircularProgressIndicator(),
@@ -1091,7 +1226,7 @@ class _AddScheduleDialogState extends ConsumerState<_AddScheduleDialog> {
       await repository.addSchedule({
         'event_id': widget.eventId,
         'ministry_id': _selectedMinistryId,
-        'member_id': _selectedMemberId,
+        'user_id': _selectedMemberId,
         if (_notesController.text.isNotEmpty) 'notes': _notesController.text.trim(),
       });
 
@@ -1122,4 +1257,3 @@ class _AddScheduleDialogState extends ConsumerState<_AddScheduleDialog> {
     }
   }
 }
-
