@@ -213,6 +213,8 @@ class MinistrySchedule {
   final String ministryName;
   final String memberId;
   final String memberName;
+  final String? functionId;
+  final String? functionName;
   final String? notes;
   final DateTime createdAt;
   final String? createdBy;
@@ -226,6 +228,8 @@ class MinistrySchedule {
     required this.ministryName,
     required this.memberId,
     required this.memberName,
+    this.functionId,
+    this.functionName,
     this.notes,
     required this.createdAt,
     this.createdBy,
@@ -241,6 +245,8 @@ class MinistrySchedule {
       ministryName: json['ministry_name'] as String? ?? '',
       memberId: json['user_id'] as String,
       memberName: json['member_name'] as String? ?? '',
+      functionId: json['function_id'] as String?,
+      functionName: json['function_name'] as String?,
       notes: json['notes'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       createdBy: json['created_by'] as String?,
@@ -257,6 +263,8 @@ class MinistrySchedule {
       'ministry_name': ministryName,
       'user_id': memberId,
       'member_name': memberName,
+      'function_id': functionId,
+      'function_name': functionName,
       'notes': notes,
       'created_at': createdAt.toIso8601String(),
       'created_by': createdBy,
@@ -272,6 +280,8 @@ class MinistrySchedule {
     String? ministryName,
     String? memberId,
     String? memberName,
+    String? functionId,
+    String? functionName,
     String? notes,
     DateTime? createdAt,
     String? createdBy,
@@ -285,6 +295,8 @@ class MinistrySchedule {
       ministryName: ministryName ?? this.ministryName,
       memberId: memberId ?? this.memberId,
       memberName: memberName ?? this.memberName,
+      functionId: functionId ?? this.functionId,
+      functionName: functionName ?? this.functionName,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       createdBy: createdBy ?? this.createdBy,

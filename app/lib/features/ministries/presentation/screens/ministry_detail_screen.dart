@@ -532,35 +532,40 @@ class _MemberCard extends ConsumerWidget {
                 if (selectedRoleId != null && availableFunctions.isEmpty) {
                   Future.microtask(() async {
                     final contexts = await ref.read(roleContextsRepositoryProvider).getContextsByMinistry(ministryId);
-                    final filtered = contexts.where((c) => c.roleId == selectedRoleId).toList();
-                    if (filtered.isNotEmpty) {
-                      final meta = filtered.first.metadata ?? {};
-                      final List<dynamic> funcs = List<dynamic>.from(meta['functions'] ?? []);
-                      final catMap = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
-                      final assigned = Map<String, dynamic>.from(meta['assigned_functions'] ?? {});
-                      final currentAssigned = List<dynamic>.from(assigned[member.memberId] ?? const []);
-                      setState(() {
-                        availableFunctions = funcs.map((e) => e.toString()).toList();
-                        functionCategory = catMap.map((k, v) => MapEntry(k, v.toString()));
-                        selectedFunctions.addAll(currentAssigned.map((e) => e.toString()));
-                      });
-                    } else {
-                      final byRole = await ref.read(roleContextsRepositoryProvider).getContextsByRole(selectedRoleId!);
-                      final Set<String> funcs = {};
-                      final Map<String, String> catMap = {};
-                      for (final c in byRole) {
-                        final meta = c.metadata ?? {};
-                        for (final f in List<dynamic>.from(meta['functions'] ?? const [])) {
-                          funcs.add(f.toString());
-                        }
-                        final m = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
-                        m.forEach((k, v) {
-                          catMap[k] = v.toString();
-                        });
+                    final Set<String> funcs = {};
+                    final Map<String, String> catMap = {};
+                    final Map<String, List<String>> assignedByUser = {};
+                    for (final c in contexts) {
+                      final meta = c.metadata ?? {};
+                      for (final f in List<dynamic>.from(meta['functions'] ?? const [])) {
+                        funcs.add(f.toString());
                       }
+                      final m = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
+                      m.forEach((k, v) { catMap[k] = v.toString(); });
+                      final assigned = Map<String, dynamic>.from(meta['assigned_functions'] ?? {});
+                      assigned.forEach((uid, list) {
+                        final arr = List<dynamic>.from(list ?? const []);
+                        assignedByUser.putIfAbsent(uid.toString(), () => []);
+                        for (final f in arr) {
+                          if (!assignedByUser[uid.toString()]!.contains(f.toString())) {
+                            assignedByUser[uid.toString()]!.add(f.toString());
+                          }
+                        }
+                      });
+                    }
+                    try {
+                      final mf = await ref.read(ministriesRepositoryProvider).getMemberFunctionsByMinistry(ministryId);
+                      final union = <String>{...assignedByUser[member.memberId] ?? const [] , ...mf[member.memberId] ?? const []};
                       setState(() {
                         availableFunctions = funcs.toList();
                         functionCategory = catMap;
+                        selectedFunctions.addAll(union);
+                      });
+                    } catch (_) {
+                      setState(() {
+                        availableFunctions = funcs.toList();
+                        functionCategory = catMap;
+                        selectedFunctions.addAll(assignedByUser[member.memberId] ?? const []);
                       });
                     }
                   });
@@ -590,35 +595,40 @@ class _MemberCard extends ConsumerWidget {
                         });
                         if (value != null) {
                           final contexts = await ref.read(roleContextsRepositoryProvider).getContextsByMinistry(ministryId);
-                          final filtered = contexts.where((c) => c.roleId == value).toList();
-                          if (filtered.isNotEmpty) {
-                            final meta = filtered.first.metadata ?? {};
-                            final List<dynamic> funcs = List<dynamic>.from(meta['functions'] ?? []);
-                            final catMap = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
-                            final assigned = Map<String, dynamic>.from(meta['assigned_functions'] ?? {});
-                            final currentAssigned = List<dynamic>.from(assigned[member.memberId] ?? const []);
-                            setState(() {
-                              availableFunctions = funcs.map((e) => e.toString()).toList();
-                              functionCategory = catMap.map((k, v) => MapEntry(k, v.toString()));
-                              selectedFunctions.addAll(currentAssigned.map((e) => e.toString()));
-                            });
-                          } else {
-                            final byRole = await ref.read(roleContextsRepositoryProvider).getContextsByRole(value);
-                            final Set<String> funcs = {};
-                            final Map<String, String> catMap = {};
-                            for (final c in byRole) {
-                              final meta = c.metadata ?? {};
-                              for (final f in List<dynamic>.from(meta['functions'] ?? const [])) {
-                                funcs.add(f.toString());
-                              }
-                              final m = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
-                              m.forEach((k, v) {
-                                catMap[k] = v.toString();
-                              });
+                          final Set<String> funcs = {};
+                          final Map<String, String> catMap = {};
+                          final Map<String, List<String>> assignedByUser = {};
+                          for (final c in contexts) {
+                            final meta = c.metadata ?? {};
+                            for (final f in List<dynamic>.from(meta['functions'] ?? const [])) {
+                              funcs.add(f.toString());
                             }
+                            final m = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
+                            m.forEach((k, v) { catMap[k] = v.toString(); });
+                            final assigned = Map<String, dynamic>.from(meta['assigned_functions'] ?? {});
+                            assigned.forEach((uid, list) {
+                              final arr = List<dynamic>.from(list ?? const []);
+                              assignedByUser.putIfAbsent(uid.toString(), () => []);
+                              for (final f in arr) {
+                                if (!assignedByUser[uid.toString()]!.contains(f.toString())) {
+                                  assignedByUser[uid.toString()]!.add(f.toString());
+                                }
+                              }
+                            });
+                          }
+                          try {
+                            final mf = await ref.read(ministriesRepositoryProvider).getMemberFunctionsByMinistry(ministryId);
+                            final union = <String>{...assignedByUser[member.memberId] ?? const [] , ...mf[member.memberId] ?? const []};
                             setState(() {
                               availableFunctions = funcs.toList();
                               functionCategory = catMap;
+                              selectedFunctions.addAll(union);
+                            });
+                          } catch (_) {
+                            setState(() {
+                              availableFunctions = funcs.toList();
+                              functionCategory = catMap;
+                              selectedFunctions.addAll(assignedByUser[member.memberId] ?? const []);
                             });
                           }
                         }
@@ -643,7 +653,13 @@ class _MemberCard extends ConsumerWidget {
                           return CheckboxListTile(
                             value: checked,
                             title: Text(f),
-                            subtitle: Text(cat == 'instrument' ? 'Instrumento' : cat == 'voice_role' ? 'Voz' : 'Outra'),
+                            subtitle: Text(
+                              cat == 'instrument'
+                                  ? 'Instrumento'
+                                  : cat == 'voice_role'
+                                      ? 'Back'
+                                      : cat,
+                            ),
                             onChanged: (sel) {
                               setState(() {
                                 if (sel == true) {
@@ -696,6 +712,7 @@ class _MemberCard extends ConsumerWidget {
         await repository.updateMinistryMember(member.id, {'role': roleValue});
 
         // Sincronizar cargo (permissions) com a função escolhida
+        bool persistedOk = true;
         try {
           final matchedRole = chosenRole;
 
@@ -725,31 +742,7 @@ class _MemberCard extends ConsumerWidget {
             contextId = filtered.first.id;
           }
 
-          // Carregar categorização e restrições
-          final ctx = filtered.isEmpty
-              ? await contextsRepo.getContextById(contextId)
-              : filtered.first;
-          final meta = Map<String, dynamic>.from(ctx?.metadata ?? {});
-          final catMap = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
-          final restrictions = Map<String, dynamic>.from(meta['category_restrictions'] ?? {});
-          final validate = () {
-            final byCat = <String, List<String>>{};
-            for (final f in selectedFunctions) {
-              final cat = catMap[f]?.toString() ?? 'other';
-              byCat.putIfAbsent(cat, () => []).add(f);
-            }
-            for (final entry in restrictions.entries) {
-              final cat = entry.key;
-              final isExclusive = (entry.value is Map) ? ((entry.value['exclusive'] as bool?) ?? false) : false;
-              if (isExclusive && (byCat[cat]?.length ?? 0) > 1) {
-                return false;
-              }
-            }
-            return true;
-          }();
-          if (!validate) {
-            throw Exception('Seleção de funções conflitante com as restrições definidas');
-          }
+          await contextsRepo.getContextById(contextId);
 
           await ref.read(userRolesRepositoryProvider).assignRoleToUser(
             userId: member.memberId,
@@ -768,13 +761,41 @@ class _MemberCard extends ConsumerWidget {
             contextId: contextId,
             metadata: updatedMeta,
           );
+
+          // Persistir também em member_function (fonte para regras/geração de escala)
+          try {
+            final currentMapByUser = await repository.getMemberFunctionsByMinistry(ministryId);
+            final byFunc = <String, List<String>>{};
+            currentMapByUser.forEach((uid, fnList) {
+              for (final f in fnList) {
+                byFunc.putIfAbsent(f, () => []);
+                if (!byFunc[f]!.contains(uid)) byFunc[f]!.add(uid);
+              }
+            });
+            // Aplicar seleção atual deste membro
+            for (final f in availableFunctions) {
+              final list = byFunc.putIfAbsent(f, () => []);
+              final has = list.contains(member.memberId);
+              final sel = selectedFunctions.contains(f);
+              if (sel && !has) {
+                list.add(member.memberId);
+              } else if (!sel && has) {
+                list.remove(member.memberId);
+              }
+            }
+            await repository.setMemberFunctionsByMinistry(ministryId, byFunc);
+          } catch (e) {
+            persistedOk = false;
+            debugPrint('Falha ao persistir member_function: $e');
+            rethrow;
+          }
         } catch (e) {
+          persistedOk = false;
           debugPrint('Falha ao sincronizar cargo com função: $e');
+          rethrow;
         }
-
         ref.invalidate(ministryMembersProvider(ministryId));
-
-        if (context.mounted) {
+        if (context.mounted && persistedOk) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Função atualizada com sucesso!'),
@@ -785,10 +806,7 @@ class _MemberCard extends ConsumerWidget {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erro ao atualizar função: $e'),
-              backgroundColor: Colors.red,
-            ),
+            SnackBar(content: Text('Erro ao atualizar função: $e'), backgroundColor: Colors.red),
           );
         }
       }
@@ -877,7 +895,6 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
   List<String> _availableFunctions = [];
   final Set<String> _selectedFunctions = {};
   final Map<String, String> _functionCategory = {};
-  final Set<String> _exclusiveCategories = {};
   final _newFunctionController = TextEditingController();
   final _notesController = TextEditingController();
   bool _isLoading = false;
@@ -1269,28 +1286,6 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
             );
           }
 
-          // Carregar categorização e restrições do contexto
-          final ctx = filtered.isEmpty
-              ? await ref.read(roleContextsRepositoryProvider).getContextById(contextId)
-              : filtered.first;
-          final meta = Map<String, dynamic>.from(ctx?.metadata ?? {});
-          final catMap = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
-          _functionCategory
-            ..clear()
-            ..addAll(catMap.map((k, v) => MapEntry(k, v.toString())));
-          final restrictions = Map<String, dynamic>.from(meta['category_restrictions'] ?? {});
-          _exclusiveCategories
-            ..clear()
-            ..addAll(restrictions.entries.where((e) {
-              final v = e.value;
-              return v is Map && (v['exclusive'] as bool?) == true;
-            }).map((e) => e.key));
-
-          // Validação de seleção de funções conforme categorias
-          if (!_validateFunctionSelection()) {
-            throw Exception('Seleção de funções conflitante com as restrições definidas');
-          }
-
           await ref.read(userRolesRepositoryProvider).assignRoleToUser(
             userId: _selectedMemberId!,
             roleId: _selectedRoleId!,
@@ -1350,18 +1345,11 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
         final meta = filtered.first.metadata ?? {};
         final List<dynamic> funcs = List<dynamic>.from(meta['functions'] ?? []);
         final catMap = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
-        final restrictions = Map<String, dynamic>.from(meta['category_restrictions'] ?? {});
         setState(() {
           _availableFunctions = funcs.map((e) => e.toString()).toList();
           _functionCategory
             ..clear()
             ..addAll(catMap.map((k, v) => MapEntry(k, v.toString())));
-          _exclusiveCategories
-            ..clear()
-            ..addAll(restrictions.entries.where((e) {
-              final v = e.value;
-              return v is Map && (v['exclusive'] as bool?) == true;
-            }).map((e) => e.key));
           _selectedFunctions.clear();
         });
       } else {
@@ -1380,17 +1368,7 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
     }
   }
 
-  bool _validateFunctionSelection() {
-    final byCat = <String, List<String>>{};
-    for (final f in _selectedFunctions) {
-      final cat = _functionCategory[f] ?? 'other';
-      byCat.putIfAbsent(cat, () => []).add(f);
-    }
-    for (final cat in _exclusiveCategories) {
-      if ((byCat[cat]?.length ?? 0) > 1) return false;
-    }
-    return true;
-  }
+  
 }
 
 /// Lista de escalas do ministério

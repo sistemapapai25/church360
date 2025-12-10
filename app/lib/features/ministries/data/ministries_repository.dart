@@ -298,9 +298,10 @@ class MinistriesRepository {
         .from('ministry_schedule')
         .select('''
           *,
-          event:event_id (name),
-          ministry:ministry_id (name),
-          user_account:user_id (first_name, last_name)
+          event!fk_ministry_schedule_event (name),
+          ministry!fk_ministry_schedule_ministry (name),
+          user_account!fk_ministry_schedule_user (first_name, last_name),
+          ministry_function:function_id (id,name,code)
         ''')
         .eq('event_id', eventId)
         .order('ministry_id', ascending: true);
@@ -309,6 +310,7 @@ class MinistriesRepository {
       final event = json['event'];
       final ministry = json['ministry'];
       final member = json['user_account'];
+      final func = json['ministry_function'];
 
       return MinistrySchedule.fromJson({
         ...json,
@@ -317,6 +319,7 @@ class MinistriesRepository {
         'member_name': member != null
             ? '${member['first_name']} ${member['last_name']}'
             : '',
+        'function_name': func != null ? (func['name'] ?? func['code'] ?? '') : null,
       });
     }).toList();
   }
@@ -327,9 +330,10 @@ class MinistriesRepository {
         .from('ministry_schedule')
         .select('''
           *,
-          event:event_id (name,start_date),
-          ministry:ministry_id (name),
-          user_account:user_id (first_name, last_name)
+          event!fk_ministry_schedule_event (name,start_date),
+          ministry!fk_ministry_schedule_ministry (name),
+          user_account!fk_ministry_schedule_user (first_name, last_name),
+          ministry_function:function_id (id,name,code)
         ''')
         .eq('ministry_id', ministryId)
         .order('created_at', ascending: false);
@@ -338,6 +342,7 @@ class MinistriesRepository {
       final event = json['event'];
       final ministry = json['ministry'];
       final member = json['user_account'];
+      final func = json['ministry_function'];
 
       return MinistrySchedule.fromJson({
         ...json,
@@ -347,26 +352,35 @@ class MinistriesRepository {
         'member_name': member != null
             ? '${member['first_name']} ${member['last_name']}'
             : '',
+        'function_name': func != null ? (func['name'] ?? func['code'] ?? '') : null,
       });
     }).toList();
   }
 
   /// Adicionar escala
   Future<MinistrySchedule> addSchedule(Map<String, dynamic> data) async {
+    // Guardar: normalizar chave de membro para a coluna correta
+    final payload = Map<String, dynamic>.from(data);
+    if (payload.containsKey('member_id') && !payload.containsKey('user_id')) {
+      payload['user_id'] = payload['member_id'];
+      payload.remove('member_id');
+    }
     final response = await _supabase
         .from('ministry_schedule')
-        .insert(data)
+        .insert(payload)
         .select('''
           *,
-          event:event_id (name),
-          ministry:ministry_id (name),
-          user_account:user_id (first_name, last_name)
+          event!fk_ministry_schedule_event (name),
+          ministry!fk_ministry_schedule_ministry (name),
+          user_account!fk_ministry_schedule_user (first_name, last_name),
+          ministry_function:function_id (id,name,code)
         ''')
         .single();
 
     final event = response['event'];
     final ministry = response['ministry'];
     final member = response['user_account'];
+    final func = response['ministry_function'];
 
     return MinistrySchedule.fromJson({
       ...response,
@@ -375,11 +389,122 @@ class MinistriesRepository {
       'member_name': member != null
           ? '${member['first_name']} ${member['last_name']}'
           : '',
+      'function_name': func != null ? (func['name'] ?? func['code'] ?? '') : null,
     });
   }
 
   /// Remover escala
   Future<void> removeSchedule(String id) async {
     await _supabase.from('ministry_schedule').delete().eq('id', id);
+  }
+
+  Future<void> clearSchedulesForEventMinistry(String eventId, String ministryId) async {
+    await _supabase.from('ministry_schedule').delete().eq('event_id', eventId).eq('ministry_id', ministryId);
+  }
+
+  
+  Future<List<Map<String, String>>> getFunctionsCatalog() async {
+    try {
+      final response = await _supabase
+          .from('ministry_function')
+          .select('id,name,code,is_active')
+          .eq('is_active', true);
+      return (response as List).map((row) {
+        final id = row['id']?.toString() ?? '';
+        final name = (row['name']?.toString() ?? '').trim();
+        final code = (row['code']?.toString() ?? '').trim();
+        return {
+          'id': id,
+          'name': name.isNotEmpty ? name : code,
+        };
+      }).where((e) => (e['id'] ?? '').isNotEmpty && (e['name'] ?? '').isNotEmpty).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<Map<String, List<String>>> getMemberFunctionsByMinistry(String ministryId) async {
+    try {
+      final response = await _supabase
+          .from('member_function')
+          .select('user_id,function_id,ministry_id,ministry_function:function_id(id,name,code)')
+          .eq('ministry_id', ministryId);
+      final out = <String, List<String>>{};
+      for (final row in (response as List)) {
+        final uid = row['user_id']?.toString() ?? row['member_id']?.toString() ?? '';
+        final fn = row['ministry_function'] as Map<String, dynamic>?;
+        final name = (fn?['name']?.toString() ?? fn?['code']?.toString() ?? '').trim();
+        if (uid.isEmpty || name.isEmpty) continue;
+        out.putIfAbsent(uid, () => []);
+        if (!out[uid]!.contains(name)) out[uid]!.add(name);
+      }
+      return out;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<Map<String, String>> getUserNamesByIds(List<String> ids) async {
+    try {
+      if (ids.isEmpty) return {};
+      final response = await _supabase
+          .from('user_account')
+          .select('id,first_name,last_name')
+          .inFilter('id', ids);
+      final out = <String, String>{};
+      for (final row in (response as List)) {
+        final id = row['id']?.toString();
+        if (id == null) continue;
+        final fn = row['first_name']?.toString() ?? '';
+        final ln = row['last_name']?.toString() ?? '';
+        out[id] = ('$fn $ln').trim();
+      }
+      return out;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> setMemberFunctionsByMinistry(String ministryId, Map<String, List<String>> byFunc) async {
+    try {
+      final catalog = await getFunctionsCatalog();
+      String norm(String s) {
+        final t = s.trim().toLowerCase();
+        const repl = {
+          'á':'a','à':'a','â':'a','ã':'a','ä':'a',
+          'é':'e','ê':'e','ë':'e',
+          'í':'i','ï':'i',
+          'ó':'o','ô':'o','õ':'o','ö':'o',
+          'ú':'u','ü':'u',
+          'ç':'c'
+        };
+        final buf = StringBuffer();
+        for (final ch in t.runes) {
+          final c = String.fromCharCode(ch);
+          buf.write(repl[c] ?? c);
+        }
+        return buf.toString();
+      }
+      final nameToId = {
+        for (final e in catalog) (e['name'] ?? '').toString().trim(): (e['id'] ?? '').toString().trim()
+      };
+      final normNameToId = {
+        for (final e in catalog) norm((e['name'] ?? '').toString()): (e['id'] ?? '').toString().trim()
+      };
+      await _supabase.from('member_function').delete().eq('ministry_id', ministryId);
+      final rows = <Map<String, dynamic>>[];
+      byFunc.forEach((funcName, userIds) {
+        final nameKey = funcName.trim();
+        String? fid = nameToId[nameKey];
+        fid ??= normNameToId[norm(nameKey)];
+        if (fid == null || fid.isEmpty) return;
+        for (final uid in userIds.where((e) => (e).toString().isNotEmpty)) {
+          rows.add({'ministry_id': ministryId, 'user_id': uid, 'function_id': fid});
+        }
+      });
+      if (rows.isNotEmpty) {
+        await _supabase.from('member_function').insert(rows);
+      }
+    } catch (_) {}
   }
 }

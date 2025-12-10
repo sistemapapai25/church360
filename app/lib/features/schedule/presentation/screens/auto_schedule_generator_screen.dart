@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
+import 'dart:math' as math;
 import 'package:printing/printing.dart';
 
 import '../providers/schedule_provider.dart';
@@ -60,25 +62,20 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
   }
 
   Future<void> _pickRange() async {
-    final start = await showDatePicker(
+    final range = await showDateRangePicker(
       context: context,
-      initialDate: _start,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
+      initialDateRange: DateTimeRange(start: _start, end: _end.isBefore(_start) ? _start : _end),
+      helpText: 'Selecione o período',
+      cancelText: 'Cancelar',
+      saveText: 'OK',
     );
-    if (start == null) return;
-    if (!mounted) return;
-    final end = await showDatePicker(
-      context: context,
-      initialDate: _end.isBefore(start) ? start : _end,
-      firstDate: start,
-      lastDate: DateTime(2030),
-    );
-    if (end == null) return;
+    if (range == null) return;
     if (!mounted) return;
     setState(() {
-      _start = start;
-      _end = end;
+      _start = range.start;
+      _end = range.end;
     });
   }
 
@@ -97,6 +94,7 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
             event: event,
             ministryIds: _selectedMinistryIds.toList(),
             byFunction: _jointByFunction,
+            overwriteExisting: _jointByFunction,
           );
         } else if (type == 'reuniao_ministerio' || type == 'reuniao_externa' || type == 'lideranca_geral' || type == 'mutirao') {
           await service.generateForEvent(
@@ -111,6 +109,7 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
             event: event,
             ministryIds: [widget.ministryId],
             byFunction: true,
+            overwriteExisting: true,
           );
         }
       }
@@ -125,6 +124,7 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Escala gerada com sucesso')),
         );
+        _openScalePreview(events);
       }
     } catch (e) {
       if (mounted) {
@@ -739,10 +739,14 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
                       ],
                     );
                   }
-                  final grouped = <String, List<String>>{};
+                  final groupedUsers = <String, List<Map<String, String>>>{};
+                  final Set<String> uniqueUserIds = {};
                   for (final s in schedules) {
                     final f = s.notes ?? 'Presença';
-                    grouped.putIfAbsent(f, () => []).add(s.memberName);
+                    final uid = s.memberId;
+                    final name = s.memberName;
+                    groupedUsers.putIfAbsent(f, () => []).add({'id': uid, 'name': name});
+                    uniqueUserIds.add(uid);
                   }
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -751,8 +755,12 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
                         spacing: 12,
                         runSpacing: 8,
                         children: [
-                          for (final entry in grouped.entries)
-                            Chip(label: Text('${entry.key}: ${entry.value.join(', ')}')),
+                          for (final entry in groupedUsers.entries)
+                            Chip(
+                              label: Text(
+                                '${entry.key}: ${entry.value.map((m) => m['name'] ?? '').where((s) => s.isNotEmpty).join(', ')}',
+                              ),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -764,29 +772,195 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
                               doc.addPage(
                                 pw.Page(
                                   build: (context) {
+                                    // Paleta de cores e mapeamento por usuário (consistente por userId, ajusta conflitos locais)
+                                    final palette = <PdfColor>[
+                                      PdfColors.red,
+                                      PdfColors.blue,
+                                      PdfColors.green,
+                                      PdfColors.orange,
+                                      PdfColors.purple,
+                                      PdfColors.cyan,
+                                      PdfColors.lime,
+                                      PdfColors.pink,
+                                      PdfColors.teal,
+                                      PdfColors.amber,
+                                      PdfColors.indigo,
+                                      PdfColors.brown,
+                                      PdfColors.deepOrange,
+                                      PdfColors.lightBlue,
+                                      PdfColors.deepPurple,
+                                      PdfColors.lightGreen,
+                                    ];
+                                    int idxFor(String s) {
+                                      int h = 0;
+                                      for (final c in s.codeUnits) { h = (h * 31 + c) & 0x7fffffff; }
+                                      return h % palette.length;
+                                    }
+                                    final used = <int>{};
+                                    final colorForUser = <String, PdfColor>{};
+                                    for (final uid in uniqueUserIds) {
+                                      int i = idxFor(uid);
+                                      int loops = 0;
+                                      while (used.contains(i) && loops < palette.length) { i = (i + 1) % palette.length; loops++; }
+                                      used.add(i);
+                                      colorForUser[uid] = palette[i];
+                                    }
+
+                                    final funcs = groupedUsers.keys.toList();
+                                    funcs.sort();
+
+                                    String dowAbbrevPt(DateTime d) {
+                                      const map = {
+                                        DateTime.monday: 'Seg',
+                                        DateTime.tuesday: 'Ter',
+                                        DateTime.wednesday: 'Qua',
+                                        DateTime.thursday: 'Qui',
+                                        DateTime.friday: 'Sex',
+                                        DateTime.saturday: 'Sáb',
+                                        DateTime.sunday: 'Dom',
+                                      };
+                                      return map[d.weekday] ?? '';
+                                    }
+
+                                    String labelForFunc(String f) {
+                                      final lc = f.toLowerCase();
+                                      if (lc == 'ministrante') return 'Ministrante';
+                                      if (lc == 'tecnico de som' || lc == 'técnico de som') return 'Tecnico\nde som';
+                                      return f.toUpperCase();
+                                    }
+
+                                    double fontFor(String text, double width, {int maxLines = 1}) {
+                                      final lines = text.split('\n');
+                                      double best = 12.0;
+                                      for (final line in lines) {
+                                        final len = line.trim().isEmpty ? 1 : line.trim().length;
+                                        final fs = width / (len * 0.6);
+                                        best = math.min(best, fs);
+                                      }
+                                      if (best < 8.0) return 8.0;
+                                      if (best > 12.0) return 12.0;
+                                      return best;
+                                    }
+
+                                    final pageW = context.page.pageFormat.width;
+                                    final dataInnerW = 60.0 - 8.0;
+                                    final diaInnerW = 50.0 - 8.0;
+                                    final remainingW = pageW - 60.0 - 50.0;
+                                    final funcWidth = remainingW / (funcs.isEmpty ? 1 : funcs.length);
+                                    final funcInnerW = funcWidth - 8.0;
+                                    double headerFontSize = 12.0;
+                                    headerFontSize = math.min(headerFontSize, fontFor('DATA', dataInnerW));
+                                    headerFontSize = math.min(headerFontSize, fontFor('DIA', diaInnerW));
+                                    for (final f in funcs) {
+                                      headerFontSize = math.min(headerFontSize, fontFor(labelForFunc(f), funcInnerW, maxLines: 2));
+                                    }
+
+                                    pw.Widget chip(String uid, String name) {
+                                      final col = colorForUser[uid] ?? PdfColors.grey;
+                                      return pw.Container(
+                                        margin: const pw.EdgeInsets.all(2),
+                                        padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                        decoration: pw.BoxDecoration(
+                                          color: col,
+                                          borderRadius: pw.BorderRadius.circular(3),
+                                        ),
+                                        child: pw.Text(name, style: pw.TextStyle(color: PdfColors.white, fontSize: 9)),
+                                      );
+                                    }
+
                                     return pw.Column(
                                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                                       children: [
-                                        pw.Text(e.name, style: pw.TextStyle(fontSize: 18)),
-                                        pw.SizedBox(height: 8),
-                                        pw.Text(dateText),
+                                        pw.Row(
+                                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            pw.Text(e.name, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                                            pw.Text(DateFormat('yyyy').format(e.startDate), style: pw.TextStyle(fontSize: 12)),
+                                          ],
+                                        ),
+                                        pw.SizedBox(height: 6),
+                                        pw.Text(
+                                          '${dowAbbrevPt(e.startDate)}, ${DateFormat('dd/MM').format(e.startDate)} - ${DateFormat('HH:mm').format(e.startDate)}',
+                                        ),
                                         pw.SizedBox(height: 12),
                                         pw.Table(
                                           border: pw.TableBorder.all(),
+                                          columnWidths: {
+                                            0: const pw.FixedColumnWidth(60),
+                                            1: const pw.FixedColumnWidth(50),
+                                            for (int i = 0; i < funcs.length; i++) 2 + i: pw.FixedColumnWidth(funcWidth),
+                                          },
                                           children: [
+                                            // Cabeçalho
                                             pw.TableRow(
+                                              decoration: pw.BoxDecoration(color: PdfColors.black),
                                               children: [
-                                                pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Função')),
-                                                pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text('Membros')),
+                                                pw.Padding(
+                                                  padding: const pw.EdgeInsets.all(4),
+                                                  child: pw.Align(
+                                                    alignment: pw.Alignment.center,
+                                                    child: pw.Text('DATA', style: pw.TextStyle(color: PdfColors.white, fontSize: headerFontSize), maxLines: 1, textAlign: pw.TextAlign.center),
+                                                  ),
+                                                ),
+                                                pw.Padding(
+                                                  padding: const pw.EdgeInsets.all(4),
+                                                  child: pw.Align(
+                                                    alignment: pw.Alignment.center,
+                                                    child: pw.Text('DIA', style: pw.TextStyle(color: PdfColors.white, fontSize: headerFontSize), maxLines: 1, textAlign: pw.TextAlign.center),
+                                                  ),
+                                                ),
+                                                for (final f in funcs)
+                                                  pw.Padding(
+                                                    padding: const pw.EdgeInsets.all(4),
+                                                    child: pw.Align(
+                                                      alignment: pw.Alignment.center,
+                                                      child: pw.Text(
+                                                        labelForFunc(f),
+                                                        style: pw.TextStyle(color: PdfColors.white, fontSize: headerFontSize),
+                                                        maxLines: 2,
+                                                        textAlign: pw.TextAlign.center,
+                                                      ),
+                                                    ),
+                                                  ),
                                               ],
                                             ),
-                                            for (final entry in grouped.entries)
-                                              pw.TableRow(
-                                                children: [
-                                                  pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(entry.key)),
-                                                  pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Text(entry.value.join(', '))),
-                                                ],
-                                              ),
+                                            // Linha do evento
+                                            pw.TableRow(
+                                              children: [
+                                                pw.Padding(
+                                                  padding: const pw.EdgeInsets.all(4),
+                                                  child: pw.Align(
+                                                    alignment: pw.Alignment.center,
+                                                    child: pw.FittedBox(
+                                                      fit: pw.BoxFit.scaleDown,
+                                                      child: pw.Text(DateFormat('dd/MM').format(e.startDate), maxLines: 1, textAlign: pw.TextAlign.center),
+                                                    ),
+                                                  ),
+                                                ),
+                                                pw.Padding(
+                                                  padding: const pw.EdgeInsets.all(4),
+                                                  child: pw.Align(
+                                                    alignment: pw.Alignment.center,
+                                                    child: pw.FittedBox(
+                                                      fit: pw.BoxFit.scaleDown,
+                                                      child: pw.Text(dowAbbrevPt(e.startDate), maxLines: 1, textAlign: pw.TextAlign.center),
+                                                    ),
+                                                  ),
+                                                ),
+                                                for (final f in funcs)
+                                                  pw.Padding(
+                                                    padding: const pw.EdgeInsets.all(4),
+                                                    child: pw.Wrap(
+                                                      spacing: 2,
+                                                      runSpacing: 2,
+                                                      children: [
+                                                        for (final u in groupedUsers[f] ?? const <Map<String, String>>[])
+                                                          chip(u['id'] ?? '', u['name'] ?? ''),
+                                                      ],
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
                                           ],
                                         ),
                                       ],

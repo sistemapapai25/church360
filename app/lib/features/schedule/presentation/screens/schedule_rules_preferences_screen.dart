@@ -28,10 +28,11 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
   final Map<String, String> _functionCategory = {};
   final Map<String, List<String>> _membersByFunction = {};
   List<String> _availableCategories = [];
-  final Map<String, bool> _exclusiveByGroup = {'instrument': true, 'voice_role': true};
-  final Map<String, bool> _enabledGroups = {'instrument': true, 'voice_role': true, 'other': true};
+  final Map<String, bool> _exclusiveByGroup = {'instrument': false, 'voice_role': false};
+  final Map<String, bool> _enabledGroups = {'instrument': false, 'voice_role': false, 'other': false};
   final Map<String, bool> _exclusiveByCategory = {};
   final Map<String, bool> _aloneByCategory = {};
+  List<String> _categoryOrder = ['other'];
   final TextEditingController _newFunctionController = TextEditingController();
   final TextEditingController _newCategoryController = TextEditingController();
 
@@ -52,8 +53,14 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
     setState(() => _loading = true);
     try {
       final repo = ref.read(ministriesRepositoryProvider);
+      
       _members = await repo.getMinistryMembers(widget.ministryId);
       _memberNames = {for (final m in _members) m.memberId as String: m.memberName as String};
+      // Vínculos de funções dos membros (member_function)
+      Map<String, List<String>> memberFuncMap = {};
+      try {
+        memberFuncMap = await repo.getMemberFunctionsByMinistry(widget.ministryId);
+      } catch (_) {}
       // Puxar tipos de eventos do catálogo
       try {
         final eventsRepo = ref.read(eventsRepositoryProvider);
@@ -176,6 +183,20 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
         _enabledGroups['voice_role'] = _enabledGroups['voice_role'] ?? true;
         _enabledGroups['other'] = _enabledGroups['other'] ?? true;
         _rules = Map<String, dynamic>.from(metaUnion['schedule_rules'] ?? {});
+        final orderRaw = List<dynamic>.from(metaUnion['category_order'] ?? const []);
+        final seenOrder = <String>{};
+        final parsed = <String>[];
+        for (final o in orderRaw.map((e)=>e.toString())) {
+          final k = _canonReserved(o).isNotEmpty ? _canonReserved(o) : o;
+          if (k.isEmpty) continue;
+          if (seenOrder.add(k)) parsed.add(k);
+        }
+        if (parsed.isNotEmpty) {
+          _categoryOrder = parsed;
+        } else {
+          final base = [if (_enabledGroups['voice_role'] == true) 'voice_role', if (_enabledGroups['instrument'] == true) 'instrument'];
+          _categoryOrder = [...base, ..._uniqueCategories(), 'other'];
+        }
       } else {
         _exclusiveByGroup['instrument'] = true;
         _exclusiveByGroup['voice_role'] = true;
@@ -185,15 +206,30 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
         _rules = {};
       }
       _membersByFunction.clear();
-      for (final m in _members) {
-        final fn = m.cargoName?.toString();
-        if (fn != null && fn.isNotEmpty) {
-          _membersByFunction.putIfAbsent(fn, () => []);
-          if (!_membersByFunction[fn]!.contains(m.memberId)) {
-            _membersByFunction[fn]!.add(m.memberId as String);
+      // Vínculos do banco (member_function)
+      memberFuncMap.forEach((uid, funcs) {
+        for (final f in funcs) {
+          _membersByFunction.putIfAbsent(f, () => []);
+          if (!_membersByFunction[f]!.contains(uid)) {
+            _membersByFunction[f]!.add(uid);
           }
         }
+      });
+      // Merge: complementar com assigned_functions dos contexts para funções faltantes
+      for (final ctx in contexts) {
+        final meta = Map<String, dynamic>.from(ctx.metadata ?? {});
+        final assigned = Map<String, dynamic>.from(meta['assigned_functions'] ?? {});
+        assigned.forEach((uid, fnList) {
+          final funcs = List<dynamic>.from(fnList ?? const []);
+          for (final f in funcs.map((e) => e.toString())) {
+            _membersByFunction.putIfAbsent(f, () => []);
+            if (!_membersByFunction[f]!.contains(uid.toString())) {
+              _membersByFunction[f]!.add(uid.toString());
+            }
+          }
+        });
       }
+      // Sem fallback por cargoName
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -412,6 +448,10 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
           }
           meta['function_category_by_function'] = outMap;
           meta['available_categories'] = uniqueCats;
+          meta['category_order'] = _categoryOrder.map((c){
+            final k = _canonReserved(c);
+            return k.isNotEmpty ? k : c;
+          }).toList();
           final Map<String, dynamic> restrOut = {
             'instrument': {
               'exclusive': _exclusiveByGroup['instrument'] ?? true,
@@ -440,6 +480,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
           await ref.read(roleContextsRepositoryProvider).updateContext(contextId: c.id, metadata: meta);
         }
       }
+      // Vínculos de função são gerenciados na tela de Ministério; não sobrescrever aqui
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Regras salvas')));
       }
@@ -488,7 +529,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
 
   List<Map<String, dynamic>> get _blocks => List<dynamic>.from(_rules['blocks'] ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
 
-  bool _canAddCombo(String a, String af, String b, String bf) {
+  bool _canAddPreferredCombo(String a, String af, String b, String bf) {
     if (a != b) return true;
     final rawA = _functionCategory[af] ?? 'other';
     final rawB = _functionCategory[bf] ?? 'other';
@@ -505,6 +546,10 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
     return true;
   }
 
+  bool _canAddProhibitedCombo(String a, String af, String b, String bf) {
+    return a.isNotEmpty && af.isNotEmpty && b.isNotEmpty && bf.isNotEmpty;
+  }
+
   void _addProhibitedCombo() async {
     String? a;
     String? b;
@@ -518,10 +563,11 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Builder(builder: (context) { final aSelected = (a ?? '').isNotEmpty; return Column(children: [
               DropdownButtonFormField<String>(
                 initialValue: a,
                 isExpanded: true,
-                items: _memberDropdownItems(),
+                items: _memberDropdownItems(function: af ?? '', includeSelected: a, strict: true),
                 onChanged: (v) => setLocal(() => a = v),
                 decoration: const InputDecoration(labelText: 'Membro A', border: OutlineInputBorder()),
               ),
@@ -529,18 +575,17 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
               DropdownButtonFormField<String>(
                 initialValue: af,
                 isExpanded: true,
-                items: [
-                  const DropdownMenuItem<String>(value: '*', child: Text('*')),
-                  ..._functions.map((f) => DropdownMenuItem<String>(value: f, child: Text(f)))
-                ],
-                onChanged: (v) => setLocal(() => af = v),
+                items: _functionDropdownItemsForUser(a),
+                onChanged: aSelected ? (v) => setLocal(() => af = v) : null,
                 decoration: const InputDecoration(labelText: 'Função do Membro A', border: OutlineInputBorder()),
               ),
+              ]);} ),
               const SizedBox(height: 12),
+              Builder(builder: (context) { final bSelected = (b ?? '').isNotEmpty; return Column(children: [
               DropdownButtonFormField<String>(
                 initialValue: b,
                 isExpanded: true,
-                items: _memberDropdownItems(),
+                items: _memberDropdownItems(function: bf ?? '', includeSelected: b, strict: true),
                 onChanged: (v) => setLocal(() => b = v),
                 decoration: const InputDecoration(labelText: 'Membro B', border: OutlineInputBorder()),
               ),
@@ -548,19 +593,17 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
               DropdownButtonFormField<String>(
                 initialValue: bf,
                 isExpanded: true,
-                items: [
-                  const DropdownMenuItem<String>(value: '*', child: Text('*')),
-                  ..._functions.map((f) => DropdownMenuItem<String>(value: f, child: Text(f)))
-                ],
-                onChanged: (v) => setLocal(() => bf = v),
+                items: _functionDropdownItemsForUser(b),
+                onChanged: bSelected ? (v) => setLocal(() => bf = v) : null,
                 decoration: const InputDecoration(labelText: 'Função do Membro B', border: OutlineInputBorder()),
               ),
+              ]);} ),
             ],
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
             FilledButton(
-              onPressed: (a != null && b != null && af != null && bf != null && _canAddCombo(a!, af!, b!, bf!))
+              onPressed: (a != null && b != null && af != null && bf != null && _canAddProhibitedCombo(a!, af!, b!, bf!))
                   ? () {
                       final list = List<dynamic>.from(_rules['prohibited_combinations'] ?? const []);
                       list.add({'a': a, 'a_func': af, 'b': b, 'b_func': bf});
@@ -592,7 +635,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
               DropdownButtonFormField<String>(
                 initialValue: a,
                 isExpanded: true,
-                items: _memberDropdownItems(),
+                items: _memberDropdownItems(function: af ?? '', includeSelected: a, strict: false),
                 onChanged: (v) => setLocal(() => a = v),
                 decoration: const InputDecoration(labelText: 'Membro A', border: OutlineInputBorder()),
               ),
@@ -600,10 +643,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
               DropdownButtonFormField<String>(
                 initialValue: af,
                 isExpanded: true,
-                items: [
-                  const DropdownMenuItem<String>(value: '*', child: Text('*')),
-                  ..._functions.map((f) => DropdownMenuItem<String>(value: f, child: Text(f)))
-                ],
+                items: _functionDropdownItemsForUser(a),
                 onChanged: (v) => setLocal(() => af = v),
                 decoration: const InputDecoration(labelText: 'Função do Membro A', border: OutlineInputBorder()),
               ),
@@ -611,7 +651,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
               DropdownButtonFormField<String>(
                 initialValue: b,
                 isExpanded: true,
-                items: _memberDropdownItems(),
+                items: _memberDropdownItems(function: bf ?? '', includeSelected: b, strict: false),
                 onChanged: (v) => setLocal(() => b = v),
                 decoration: const InputDecoration(labelText: 'Membro B', border: OutlineInputBorder()),
               ),
@@ -619,10 +659,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
               DropdownButtonFormField<String>(
                 initialValue: bf,
                 isExpanded: true,
-                items: [
-                  const DropdownMenuItem<String>(value: '*', child: Text('*')),
-                  ..._functions.map((f) => DropdownMenuItem<String>(value: f, child: Text(f)))
-                ],
+                items: _functionDropdownItemsForUser(b),
                 onChanged: (v) => setLocal(() => bf = v),
                 decoration: const InputDecoration(labelText: 'Função do Membro B', border: OutlineInputBorder()),
               ),
@@ -631,7 +668,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
             FilledButton(
-              onPressed: (a != null && b != null && af != null && bf != null && _canAddCombo(a!, af!, b!, bf!))
+              onPressed: (a != null && b != null && af != null && bf != null && _canAddPreferredCombo(a!, af!, b!, bf!))
                   ? () {
                   
                       final list = List<dynamic>.from(_rules['preferred_combinations'] ?? const []);
@@ -763,6 +800,8 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
             child: Column(children: [
               _buildGeneralRulesCard(),
               const SizedBox(height: spacing),
+              _buildCategoryPriorityCard(),
+              const SizedBox(height: spacing),
               _buildCategoriesCard(),
               const SizedBox(height: spacing),
               _buildFunctionCategoryCard(),
@@ -781,6 +820,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
       _buildPrioritiesCard(),
       _buildLeadersCard(),
       _buildGeneralRulesCard(),
+      _buildCategoryPriorityCard(),
       _buildCategoriesCard(),
       _buildFunctionCategoryCard(),
       _buildBlocksCard(),
@@ -1018,10 +1058,10 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
           final cfg = Map<String, dynamic>.from(_leadersByFunction[f] ?? {});
           String? leader = cfg['leader']?.toString();
           List<String> subs = List<dynamic>.from(cfg['subs'] ?? const []).map((e) => e.toString()).toList();
-          final ids = _members.map((m) => m.memberId as String).toSet();
-          final leaderInit = (leader != null && ids.contains(leader)) ? leader : null;
-          final sub1Init = (subs.isNotEmpty && ids.contains(subs[0])) ? subs[0] : null;
-          final sub2Init = (subs.length > 1 && ids.contains(subs[1])) ? subs[1] : null;
+          final allowed = _allowedIdsForFunction(f).toSet();
+          final leaderInit = (leader != null && allowed.contains(leader)) ? leader : null;
+          final sub1Init = (subs.isNotEmpty && allowed.contains(subs[0])) ? subs[0] : null;
+          final sub2Init = (subs.length > 1 && allowed.contains(subs[1])) ? subs[1] : null;
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Column(
@@ -1033,16 +1073,16 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                   builder: (context, constraints) {
                     final maxW = constraints.maxWidth;
                     final itemWidth = maxW >= 760 ? 240.0 : (maxW - 12) / 2;
-                    return Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
                         SizedBox(
                           width: itemWidth,
-                          child: DropdownButtonFormField<String>(
+                        child: DropdownButtonFormField<String>(
                             initialValue: leaderInit,
                             isExpanded: true,
-                            items: _memberDropdownItems(),
+                            items: _memberDropdownItems(function: f, includeSelected: leaderInit, strict: true),
                             onChanged: (v) {
                               final map = Map<String, dynamic>.from(_rules['leaders_by_function'] ?? {});
                               final row = Map<String, dynamic>.from(map[f] ?? {});
@@ -1058,7 +1098,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                           child: DropdownButtonFormField<String>(
                             initialValue: sub1Init,
                             isExpanded: true,
-                            items: _memberDropdownItems(),
+                            items: _memberDropdownItems(function: f, includeSelected: sub1Init, strict: true),
                             onChanged: (v) {
                               final map = Map<String, dynamic>.from(_rules['leaders_by_function'] ?? {});
                               final row = Map<String, dynamic>.from(map[f] ?? {});
@@ -1077,7 +1117,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                           child: DropdownButtonFormField<String>(
                             initialValue: sub2Init,
                             isExpanded: true,
-                            items: _memberDropdownItems(),
+                            items: _memberDropdownItems(function: f, includeSelected: sub2Init, strict: true),
                             onChanged: (v) {
                               final map = Map<String, dynamic>.from(_rules['leaders_by_function'] ?? {});
                               final row = Map<String, dynamic>.from(map[f] ?? {});
@@ -1169,10 +1209,6 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                     value: userId.isEmpty ? null : userId,
                     isExpanded: true,
                     items: _memberDropdownItems(),
-                    selectedItemBuilder: (context) {
-                      final list = _filteredMembers();
-                      return list.map((m) => Text(m.memberName as String)).toList();
-                    },
                     onChanged: (v) {
                       final list = List<Map<String, dynamic>>.from(_rules['blocks'] ?? const []);
                       if (i >= 0 && i < list.length) {
@@ -1367,47 +1403,57 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
     );
   }
 
+  
 
-  List<dynamic> _filteredMembers() {
-    final filter = Map<String, dynamic>.from(_rules['filters'] ?? {});
-    final fn = filter['function']?.toString();
-    final cat = filter['category']?.toString();
-    var base = List<dynamic>.from(_members);
-    if (fn != null && fn.isNotEmpty) {
-      final assignedSet = (_membersByFunction[fn] ?? const []).toSet();
-      base = base.where((m) {
-        final matchCargo = (m.cargoName?.toString().toLowerCase() == fn.toLowerCase());
-        final matchAssigned = assignedSet.contains(m.memberId);
-        return matchCargo || matchAssigned;
-      }).toList();
+  List<DropdownMenuItem<String>> _memberDropdownItems({String? function, String? includeSelected, bool strict = true}) {
+    List<dynamic> base = [];
+    if (function != null && function.isNotEmpty && function.trim() != '*') {
+      final ids = Set<String>.from(_membersByFunction[function] ?? const []);
+      if (!strict && includeSelected != null && includeSelected.isNotEmpty && !ids.contains(includeSelected)) {
+        ids.add(includeSelected);
+      }
+      base = List<dynamic>.from(_members).where((m) => ids.contains(m.memberId as String)).toList();
+    } else {
+      final linked = _membersByFunction.values.expand((e) => e).toSet();
+      base = List<dynamic>.from(_members).where((m) => linked.contains(m.memberId as String)).toList();
     }
-    if (cat != null && cat.isNotEmpty) {
-      base = base.where((m) {
-        final key = m.cargoName?.toString();
-        final mapped = key != null ? _functionCategory[key] : null;
-        return mapped == cat;
-      }).toList();
+    if (!strict && base.isEmpty) {
+      base = List<dynamic>.from(_members);
     }
-    return base;
-  }
-
-  List<DropdownMenuItem<String>> _memberDropdownItems() {
-    final list = _filteredMembers();
-    return list
+    base.sort((a, b) => (a.memberName as String).compareTo(b.memberName as String));
+    return base
         .map((m) => DropdownMenuItem<String>(value: m.memberId as String, child: Text(m.memberName as String)))
         .toList();
   }
 
+  List<String> _allowedIdsForFunction(String f) {
+    return List<String>.from(_membersByFunction[f] ?? const []);
+  }
+
+  List<DropdownMenuItem<String>> _functionDropdownItemsForUser(String? userId) {
+    final out = <String>{};
+    if (userId != null && userId.isNotEmpty) {
+      _membersByFunction.forEach((fname, uids) {
+        if (uids.contains(userId)) out.add(fname);
+      });
+    }
+    final items = _functions.where((f) => out.contains(f)).toList();
+    return items.map((f) => DropdownMenuItem<String>(value: f, child: Text(f))).toList();
+  }
+
+  
+
   bool _isReservedCategory(String? c) {
     if (c == null) return false;
     final s = c.trim().toLowerCase();
-    return s == 'instrument' || s == 'voice_role' || s == 'other' || s == 'instrumento' || s == 'voz' || s == 'back' || s == 'outra' || s == 'outro';
+    return s == 'instrument' || s == 'voice_role' || s == 'technical' || s == 'other' || s == 'instrumento' || s == 'voz' || s == 'back' || s.startsWith('tec') || s == 'outra' || s == 'outro';
   }
 
   String _canonReserved(String name) {
     final s = name.trim().toLowerCase();
     if (s.startsWith('inst')) return 'instrument';
     if (s == 'voice_role' || s.startsWith('voz') || s.startsWith('back')) return 'voice_role';
+    if (s == 'technical' || s.startsWith('tec')) return 'technical';
     if (s == 'other' || s.startsWith('outr')) return 'other';
     return '';
   }
@@ -1426,7 +1472,9 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
       case 'instrument':
         return 'Instrumento';
       case 'voice_role':
-        return 'Back';
+        return 'Canto';
+      case 'technical':
+        return 'Técnico';
       case 'other':
       default:
         return 'Outra';
@@ -1447,6 +1495,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                 final t = s.trim().toLowerCase();
                 if (t.startsWith('inst')) return 'instrument';
                 if (t == 'voice_role' || t.startsWith('voz') || t.startsWith('back')) return 'voice_role';
+                if (t == 'technical' || t.startsWith('tec')) return 'technical';
                 if (t == 'other' || t.startsWith('outr')) return 'other';
                 return s;
               }
@@ -1532,6 +1581,8 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
       ]),
     );
   }
+
+  
 
   Widget _buildCategoriesCard() {
     final chipColor = _purple().withValues(alpha: 0.08);
@@ -1690,6 +1741,40 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
             label: const Text('Adicionar'),
           ),
         ]),
+      ]),
+    );
+  }
+  Widget _buildCategoryPriorityCard() {
+    final items = _categoryOrder;
+    return _buildCard(
+      color: _purple(),
+      title: 'Ordem de Prioridade de Categorias',
+      child: Column(children: [
+        SizedBox(
+          height: 220,
+          child: ReorderableListView(
+            buildDefaultDragHandles: false,
+            shrinkWrap: true,
+            onReorder: (oldIndex, newIndex) {
+              setState(() {
+                if (newIndex > oldIndex) newIndex -= 1;
+                final item = _categoryOrder.removeAt(oldIndex);
+                _categoryOrder.insert(newIndex, item);
+              });
+            },
+            children: [
+              for (int i = 0; i < items.length; i++)
+                ListTile(
+                  key: ValueKey('cat-${items[i]}'),
+                  leading: ReorderableDragStartListener(
+                    index: i,
+                    child: const Icon(Icons.drag_indicator),
+                  ),
+                  title: Text(_isReservedCategory(items[i]) ? _reservedLabel(items[i]) : items[i]),
+                ),
+            ],
+          ),
+        ),
       ]),
     );
   }

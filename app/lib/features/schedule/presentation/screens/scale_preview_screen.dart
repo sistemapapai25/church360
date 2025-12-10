@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 
 import '../../domain/auto_scheduler_service.dart';
 import '../../../events/domain/models/event.dart';
@@ -32,35 +35,17 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
   final List<String> _functions = [];
   final Map<String, int> _requiredByFunction = {};
   final Map<String, String> _funcCategory = {};
-  bool _exclusiveInstrument = true;
-  bool _exclusiveVoiceRole = true;
+  final Map<String, String> _funcDisplay = {};
+  bool _exclusiveInstrument = false;
+  bool _exclusiveVoiceRole = false;
   final Map<String, List<String>> _missingByEvent = {};
-  final Map<String, List<String>> _allowedByFunction = {}; // func -> userIds
+  
+  final Map<String, List<String>> _allowedByFunction = {}; // func -> userIds from assigned_functions
+  final Map<String, List<String>> _linkedByFunction = {}; // func -> userIds from member_function
+  final Map<String, List<String>> _leadersByFunctionCandidates = {}; // func -> userIds from leaders_by_function
   final Set<String> _exclusiveWithinCats = {};
   final Set<String> _exclusiveAloneCats = {};
-  final Map<String, List<String>> _synonyms = const {
-    'BACK': ['back', 'back vocal', 'back-vocal', 'backing', 'bv'],
-    'GUITARRA': ['guitarra', 'guitar', 'gtr'],
-    'VIOLAO': ['violao', 'violão'],
-    'BAIXO': ['baixo', 'bass'],
-    'BATERIA': ['bateria', 'drums', 'baterista'],
-    'TECLADO': ['teclado', 'keyboard', 'keys', 'piano'],
-    'SAX': ['sax', 'saxofone', 'saxophone'],
-    'TECNICO DE SOM': ['tecnico de som', 'técnico de som', 'audio', 'som', 'mesa'],
-    'MINISTRANTE': [
-      'ministrante',
-      'worship leader',
-      'leader',
-      'ministro',
-      'ministra',
-      'líder',
-      'lider',
-      'líder de louvor',
-      'lider de louvor',
-      'wl',
-      'dirigente'
-    ],
-  };
+  
 
   @override
   void initState() {
@@ -82,6 +67,23 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       allMembers.addAll(members);
     }
     // Coletar funções a partir dos contextos do cargo no ministério (união)
+    String norm(String s) {
+      final t = s.trim().toLowerCase();
+      const repl = {
+        'á':'a','à':'a','â':'a','ã':'a','ä':'a',
+        'é':'e','ê':'e','ë':'e',
+        'í':'i','ï':'i',
+        'ó':'o','ô':'o','õ':'o','ö':'o',
+        'ú':'u','ü':'u',
+        'ç':'c'
+      };
+      final buf = StringBuffer();
+      for (final ch in t.runes) {
+        final c = String.fromCharCode(ch);
+        buf.write(repl[c] ?? c);
+      }
+      return buf.toString();
+    }
     final Set<String> funcs = {};
     final Map<String, int> required = {};
     final Map<String, String> cat = {};
@@ -90,14 +92,22 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     final Map<String, List<String>> allowed = {};
     for (final mid in ids) {
       final contexts = await ref.read(roleContextsRepositoryProvider).getContextsByMinistry(mid);
+      debugPrint('ScalePreview: contexts for $mid: ${contexts.length}');
       for (final c in contexts) {
         final meta = c.metadata ?? {};
         final catMap = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
-        funcs.addAll(catMap.keys.map((e) => e.toString()));
-        for (final f in List<dynamic>.from(meta['functions'] ?? const [])) {
-          funcs.add(f.toString());
+        for (final k in catMap.keys.map((e) => e.toString())) {
+          final canon = norm(k);
+          funcs.add(canon);
+          _funcDisplay.putIfAbsent(canon, () => k);
+          cat[canon] = catMap[k].toString();
         }
-        catMap.forEach((k, v) => cat[k] = v.toString());
+        for (final f in List<dynamic>.from(meta['functions'] ?? const [])) {
+          final name = f.toString();
+          final canon = norm(name);
+          funcs.add(canon);
+          _funcDisplay.putIfAbsent(canon, () => name);
+        }
         final restrictions = Map<String, dynamic>.from(meta['category_restrictions'] ?? {});
         exclInst = (restrictions['instrument']?['exclusive'] as bool?) ?? exclInst;
         exclVoice = (restrictions['voice_role']?['exclusive'] as bool?) ?? exclVoice;
@@ -112,7 +122,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
           final Map<String, dynamic> reqForType = Map<String, dynamic>.from(eventReq[(widget.events.isNotEmpty ? widget.events.first.eventType : null)] ?? {});
           reqForType.forEach((k, v) {
             final n = v is int ? v : int.tryParse(v.toString()) ?? 0;
-            if (n > 0) required[k.toString()] = n;
+            if (n > 0) required[norm(k.toString())] = n;
           });
         }
         if (required.isEmpty) {
@@ -120,39 +130,115 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
           if (req is Map) {
             req.forEach((k, v) {
               final n = v is int ? v : int.tryParse(v.toString()) ?? 0;
-              if (n > 0) required[k.toString()] = n;
+              if (n > 0) required[norm(k.toString())] = n;
             });
           }
         }
-        final assigned = Map<String, dynamic>.from(meta['assigned_functions'] ?? {});
-        assigned.forEach((userId, funcsList) {
-          for (final f in List<dynamic>.from(funcsList ?? const [])) {
-            final name = f.toString();
-            allowed.putIfAbsent(name, () => []).add(userId.toString());
+      final assigned = Map<String, dynamic>.from(meta['assigned_functions'] ?? {});
+      assigned.forEach((userId, funcsList) {
+        for (final f in List<dynamic>.from(funcsList ?? const [])) {
+          final name = f.toString();
+          final canon = norm(name);
+          _funcDisplay.putIfAbsent(canon, () => name);
+          allowed.putIfAbsent(canon, () => []).add(userId.toString());
+          _allowedByFunction.putIfAbsent(canon, () => []);
+          if (!_allowedByFunction[canon]!.contains(userId.toString())) {
+            _allowedByFunction[canon]!.add(userId.toString());
           }
-        });
-      }
-    }
-    // Fallback: se não há funções configuradas nos contextos, derive de cargos dos membros
-    if (funcs.isEmpty) {
-      final Set<String> fromCargo = {};
-      for (final m in allMembers) {
-        final String? cargo = (m.cargoName as String?);
-        if (cargo != null && cargo.trim().isNotEmpty) {
-          fromCargo.add(cargo.trim());
         }
+      });
+
+      final rules = Map<String, dynamic>.from(meta['schedule_rules'] ?? {});
+      final lf = Map<String, dynamic>.from(rules['leaders_by_function'] ?? {});
+      lf.forEach((funcName, cfg) {
+        final canon = norm(funcName.toString());
+        final leaderId = (cfg is Map) ? cfg['leader']?.toString() : null;
+        final subs = (cfg is Map) ? List<dynamic>.from(cfg['subs'] ?? const []) : const [];
+        debugPrint('ScalePreview: leaders_by_function func=$canon leader=${leaderId ?? ''} subs=${subs.length}');
+        if (leaderId != null && leaderId.isNotEmpty) {
+          allowed.putIfAbsent(canon, () => []);
+          if (!allowed[canon]!.contains(leaderId)) allowed[canon]!.add(leaderId);
+          _funcDisplay.putIfAbsent(canon, () => funcName.toString());
+          _leadersByFunctionCandidates.putIfAbsent(canon, () => []);
+          if (!_leadersByFunctionCandidates[canon]!.contains(leaderId)) {
+            _leadersByFunctionCandidates[canon]!.add(leaderId);
+          }
+        }
+        for (final s in subs.map((e)=>e.toString()).where((e)=>e.isNotEmpty)) {
+          allowed.putIfAbsent(canon, () => []);
+          if (!allowed[canon]!.contains(s)) allowed[canon]!.add(s);
+          _funcDisplay.putIfAbsent(canon, () => funcName.toString());
+          _leadersByFunctionCandidates.putIfAbsent(canon, () => []);
+          if (!_leadersByFunctionCandidates[canon]!.contains(s)) {
+            _leadersByFunctionCandidates[canon]!.add(s);
+          }
+        }
+      });
       }
-      if (fromCargo.isNotEmpty) {
-        funcs.addAll(fromCargo);
-      }
-      // Se ainda não houver, usar conjunto padrão de funções do louvor
-      if (funcs.isEmpty) {
-        funcs.addAll(['BACK', 'BAIXO', 'BATERIA', 'GUITARRA', 'TECLADO', 'SAX', 'MINISTRANTE']);
-      }
+      // Completar funções e permitidos com vínculos do banco (member_function)
+      try {
+        final mfMap = await repo.getMemberFunctionsByMinistry(mid);
+        for (final entry in mfMap.entries) {
+          final uid = entry.key;
+          for (final f in entry.value) {
+            final canon = norm(f);
+            funcs.add(canon);
+            _funcDisplay.putIfAbsent(canon, () => f);
+            allowed.putIfAbsent(canon, () => []);
+            if (!allowed[canon]!.contains(uid)) allowed[canon]!.add(uid);
+            _linkedByFunction.putIfAbsent(canon, () => []);
+            if (!_linkedByFunction[canon]!.contains(uid)) {
+              _linkedByFunction[canon]!.add(uid);
+            }
+          }
+        }
+      } catch (_) {}
     }
+    final Set<String> candidateIds = {
+      for (final entry in _leadersByFunctionCandidates.entries) ...entry.value,
+    };
+    debugPrint('ScalePreview: leaders candidates keys=${_leadersByFunctionCandidates.keys.toList()}');
+    debugPrint('ScalePreview: leaders candidateIds count=${candidateIds.length}');
+    final missingIds = candidateIds.where((uid) => !_memberNames.containsKey(uid)).toSet().toList();
+    if (missingIds.isNotEmpty) {
+      try {
+        final names = await repo.getUserNamesByIds(missingIds);
+        _memberNames.addAll(names);
+      } catch (_) {}
+    }
+    // Ordenação por categorias
+    List<String> catOrder = ['other'];
+    try {
+      final contexts = await ref.read(roleContextsRepositoryProvider).getContextsByMinistry(widget.ministryId);
+      final orderRaw = contexts
+          .map((c) => List<dynamic>.from((c.metadata ?? {})['category_order'] ?? const []))
+          .firstWhere((l) => l.isNotEmpty, orElse: () => const []);
+      final seen = <String>{};
+      final parsed = <String>[];
+      for (final o in orderRaw.map((e)=>e.toString())) {
+        final s = o.trim().toLowerCase();
+        final k = (s.startsWith('inst')) ? 'instrument' : (s == 'voice_role' || s.startsWith('voz') || s.startsWith('back')) ? 'voice_role' : (s == 'other' || s.startsWith('outr')) ? 'other' : o;
+        if (seen.add(k)) parsed.add(k);
+      }
+      if (parsed.isNotEmpty) catOrder = parsed;
+    } catch (_) {}
+    int rank(String f){
+      final c = cat[f] ?? 'other';
+      final idx = catOrder.indexOf(c);
+      return idx >= 0 ? idx : catOrder.length;
+    }
+    final orderedFuncs = funcs.toList()
+      ..sort((a,b){
+        final ra = rank(a);
+        final rb = rank(b);
+        if (ra != rb) return ra.compareTo(rb);
+        return a.compareTo(b);
+      });
     _functions
       ..clear()
-      ..addAll(funcs.toList()..sort());
+      ..addAll(orderedFuncs);
+    debugPrint('ScalePreview: functions loaded count=${_functions.length} values=$_functions');
+    
     _requiredByFunction
       ..clear()
       ..addAll({ for (final f in _functions) f : (required[f] ?? 1) });
@@ -161,55 +247,27 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       ..addAll(cat);
     _exclusiveInstrument = exclInst;
     _exclusiveVoiceRole = exclVoice;
-    // Completar permitidos por função com fallback por cargo
+    // Permitidos estritamente por atribuições e vínculos
     _allowedByFunction
       ..clear()
       ..addAll({ for (final entry in allowed.entries) entry.key : entry.value.toSet().toList() });
-    String norm(String? s) {
-      var x = (s ?? '').trim().toLowerCase();
-      x = x
-          .replaceAll(RegExp(r'[áàãâä]'), 'a')
-          .replaceAll(RegExp(r'[éêèë]'), 'e')
-          .replaceAll(RegExp(r'[íîìï]'), 'i')
-          .replaceAll(RegExp(r'[óôõòö]'), 'o')
-          .replaceAll(RegExp(r'[úûùü]'), 'u')
-          .replaceAll(RegExp(r'[ç]'), 'c')
-          .replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
-          .replaceAll(RegExp(r'\s+'), ' ');
-      return x;
-    }
-    for (final f in _functions) {
-      if ((_allowedByFunction[f] ?? const []).isEmpty) {
-        final key = norm(f);
-        final aliases = <String>{ key, ...(_synonyms[f.toUpperCase()] ?? const []).map(norm) };
-        final byCargo = allMembers
-            .where((m) {
-              final cn = norm(m.cargoName);
-              if (cn.isEmpty) return false;
-              // casa se cargo contém algum alias ou alias contém cargo
-              return aliases.any((a) => cn.contains(a) || a.contains(cn));
-            })
-            .map<String>((m) => m.memberId as String)
-            .toList();
-        if (byCargo.isNotEmpty) {
-          _allowedByFunction[f] = byCargo;
-        }
-      }
-    }
+    
     for (final e in widget.events) {
       // Prefill com escala salva, se houver
       final existing = await repo.getEventSchedules(e.id);
       if (existing.isNotEmpty) {
         final List<Map<String, String>> assigns = [];
         for (final s in existing.where((it) => (it.memberId).isNotEmpty)) {
+          final canon = norm(s.notes ?? '');
+          if (canon.isNotEmpty) _funcDisplay.putIfAbsent(canon, () => s.notes!);
           assigns.add({
             'event_id': s.eventId,
             'ministry_id': s.ministryId,
             'user_id': s.memberId,
-            'notes': s.notes ?? '',
+            'notes': canon.isNotEmpty ? canon : '',
           });
-          if (s.notes != null && s.notes!.isNotEmpty && !_functions.contains(s.notes)) {
-            _functions.add(s.notes!);
+          if (canon.isNotEmpty && !_functions.contains(canon)) {
+            _functions.add(canon);
           }
         }
         _assignmentsByEvent[e.id] = assigns;
@@ -230,6 +288,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       for (final f in _functions) {
         final need = _requiredByFunction[f] ?? 1;
         final candidates = List<Map<String, String>>.from(byFunc[f] ?? const []);
+        final allowedIds = List<String>.from(_leadersByFunctionCandidates[f] ?? const <String>[]);
         int i = 0;
         while (i < need) {
           Map<String, String> entry;
@@ -242,6 +301,10 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
               'user_id': '',
               'notes': f,
             };
+            if (allowedIds.isNotEmpty) {
+              final pick = allowedIds[i % allowedIds.length];
+              entry['user_id'] = pick;
+            }
           }
           assigns.add(entry);
           i++;
@@ -249,21 +312,10 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       }
       _assignmentsByEvent[e.id] = assigns;
     }
-    // União de funções vindas de escala salva e propostas
-    final Set<String> unionFuncs = {..._functions};
-    for (final entries in _assignmentsByEvent.values) {
-      for (final a in entries) {
-        final f = a['notes'] ?? '';
-        if (f.isNotEmpty) unionFuncs.add(f);
-      }
-    }
-    _functions
-      ..clear()
-      ..addAll(unionFuncs.toList()..sort());
+    // Manter funções requeridas na ordem de categoria sem incluir extras
     _requiredByFunction.addAll({ for (final f in _functions) f : (_requiredByFunction[f] ?? 1) });
 
     _recomputeMissing();
-    _autoCompleteMissing();
     if (mounted) setState(() {});
   }
 
@@ -289,57 +341,62 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     }
   }
 
-  void _autoCompleteMissing() {
-    for (final e in widget.events) {
-      final assigns = _assignmentsByEvent[e.id] ?? [];
-      for (final f in _functions) {
-        final need = _requiredByFunction[f] ?? 1;
-        final current = assigns.where((a) => (a['notes'] ?? '') == f).toList();
-        int have = current.where((a) => (a['user_id'] ?? '').isNotEmpty).length;
-        final allowed = _allowedForEventFunction(e, f);
-        int idx = 0;
-        int pickIndex = 0;
-        while (have < need && idx < current.length) {
-          if ((current[idx]['user_id'] ?? '').isEmpty && allowed.isNotEmpty) {
-            final uid = allowed[pickIndex % allowed.length];
-            current[idx]['user_id'] = uid;
-            have++;
-            pickIndex++;
-          }
-          idx++;
-        }
-        final indices = <int>[];
-        for (int i = 0; i < assigns.length; i++) {
-          if ((assigns[i]['notes'] ?? '') == f) indices.add(i);
-        }
-        for (int j = 0; j < current.length && j < indices.length; j++) {
-          assigns[indices[j]] = current[j];
-        }
-      }
-      _assignmentsByEvent[e.id] = assigns;
-    }
-    _recomputeMissing();
-    setState(() {});
-  }
+  
 
   Future<void> _saveAll() async {
     setState(() => _isSaving = true);
     try {
       final repo = ref.read(ministriesRepositoryProvider);
+      final catalog = await repo.getFunctionsCatalog();
+      String norm(String s) {
+        final t = s.trim().toLowerCase();
+        const repl = {
+          'á':'a','à':'a','â':'a','ã':'a','ä':'a',
+          'é':'e','ê':'e','ë':'e',
+          'í':'i','ï':'i',
+          'ó':'o','ô':'o','õ':'o','ö':'o',
+          'ú':'u','ü':'u',
+          'ç':'c'
+        };
+        final buf = StringBuffer();
+        for (final ch in t.runes) {
+          final c = String.fromCharCode(ch);
+          buf.write(repl[c] ?? c);
+        }
+        return buf.toString();
+      }
+      final Map<String, String> nameToId = {
+        for (final e in catalog) (e['name'] ?? '').toString().trim(): (e['id'] ?? '').toString().trim()
+      };
+      final Map<String, String> normNameToId = {
+        for (final e in catalog) norm((e['name'] ?? '').toString()): (e['id'] ?? '').toString().trim()
+      };
+      String? fidForFunc(String funcName) {
+        final key = funcName.trim();
+        return nameToId[key] ?? normNameToId[norm(key)];
+      }
       for (final e in widget.events) {
         final existing = await repo.getEventSchedules(e.id);
         for (final s in existing) {
           await repo.removeSchedule(s.id);
         }
       }
+      final Set<String> seen = {};
       for (final entry in _assignmentsByEvent.entries) {
         for (final a in entry.value.where((it) => ((it['user_id'] ?? '').isNotEmpty))) {
-          await repo.addSchedule({
-            'event_id': a['event_id'],
-            'ministry_id': a['ministry_id'],
-            'member_id': a['user_id'],
-            if ((a['notes'] ?? '').isNotEmpty) 'notes': a['notes'],
-          });
+          final notes = (a['notes'] ?? '').toString();
+          final fid = notes.isNotEmpty ? fidForFunc(notes) : null;
+          final k = '${a['event_id']}|${a['ministry_id']}|${a['user_id']}|${fid ?? ''}';
+          if (seen.add(k)) {
+            final data = {
+              'event_id': a['event_id'],
+              'ministry_id': a['ministry_id'],
+              'user_id': a['user_id'],
+              if (fid != null && fid.isNotEmpty) 'function_id': fid,
+              if (notes.isNotEmpty) 'notes': notes,
+            };
+            await repo.addSchedule(data);
+          }
         }
       }
       for (final e in widget.events) {
@@ -360,6 +417,11 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       appBar: AppBar(
         title: const Text('Pré-visualização da Escala'),
         actions: [
+          OutlinedButton.icon(
+            onPressed: _exportPeriodPdf,
+            icon: const Icon(Icons.picture_as_pdf),
+            label: const Text('Exportar PDF (período)'),
+          ),
           FilledButton.icon(
             onPressed: _isSaving ? null : _saveAll,
             icon: _isSaving
@@ -383,14 +445,9 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Existem funções com pessoas faltando. Use Auto-completar ou ajuste manual.',
+                      'Existem funções com pessoas faltando. Ajuste manual.',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _autoCompleteMissing,
-                    icon: const Icon(Icons.auto_fix_high),
-                    label: const Text('Auto-completar'),
                   ),
                 ],
               ),
@@ -417,40 +474,201 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     );
   }
 
-  List<String> _allowedForEventFunction(Event e, String func) {
-    final raw = (_allowedByFunction[func] ?? const <String>[]);
-    final base = raw.isNotEmpty ? raw : _memberNames.keys.toList();
-    String canon(String name) {
-      final s = (name).trim().toLowerCase();
-      if (s.startsWith('inst')) return 'instrument';
-      if (s == 'voice_role' || s.startsWith('voz') || s.startsWith('back')) return 'voice_role';
-      if (s == 'other' || s.startsWith('outr')) return 'other';
-      return name;
+  Future<void> _exportPeriodPdf() async {
+    if (widget.events.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sem eventos no período')));
+      return;
     }
-    final cat = canon(_funcCategory[func] ?? 'other');
-    String catOf(String? f) => canon(_funcCategory[f ?? ''] ?? 'other');
-    Set<String> catsFor(String uid) {
-      final assigns = _assignmentsByEvent[e.id] ?? const [];
-      final cats = <String>{};
-      for (final a in assigns) {
-        if ((a['user_id'] ?? '') == uid) cats.add(catOf(a['notes']));
+    final doc = pw.Document();
+    // Coletar todos os usuários do período para cores consistentes
+    final Set<String> periodUserIds = {
+      for (final e in widget.events)
+        ...[for (final a in (_assignmentsByEvent[e.id] ?? const [])) if ((a['user_id'] ?? '').isNotEmpty) a['user_id']!]
+    };
+    // Paleta de cores e mapeamento
+    final palette = <PdfColor>[
+      PdfColors.red,
+      PdfColors.blue,
+      PdfColors.green,
+      PdfColors.orange,
+      PdfColors.purple,
+      PdfColors.cyan,
+      PdfColors.lime,
+      PdfColors.pink,
+      PdfColors.teal,
+      PdfColors.amber,
+      PdfColors.indigo,
+      PdfColors.brown,
+      PdfColors.deepOrange,
+      PdfColors.lightBlue,
+      PdfColors.deepPurple,
+      PdfColors.lightGreen,
+    ];
+    int idxFor(String s) {
+      int h = 0;
+      for (final c in s.codeUnits) { h = (h * 31 + c) & 0x7fffffff; }
+      return h % palette.length;
+    }
+    final used = <int>{};
+    final colorForUser = <String, PdfColor>{};
+    for (final uid in periodUserIds) {
+      int i = idxFor(uid);
+      int loops = 0;
+      while (used.contains(i) && loops < palette.length) { i = (i + 1) % palette.length; loops++; }
+      used.add(i);
+      colorForUser[uid] = palette[i];
+    }
+
+    String dowAbbrevPt(DateTime d) {
+      const map = {
+        DateTime.monday: 'Seg',
+        DateTime.tuesday: 'Ter',
+        DateTime.wednesday: 'Qua',
+        DateTime.thursday: 'Qui',
+        DateTime.friday: 'Sex',
+        DateTime.saturday: 'Sáb',
+        DateTime.sunday: 'Dom',
+      };
+      return map[d.weekday] ?? '';
+    }
+
+    String labelForFunc(String canon) {
+      final disp = _funcDisplay[canon] ?? canon;
+      final lc = disp.toLowerCase();
+      if (lc == 'ministrante') return 'Ministrante';
+      if (lc == 'tecnico de som' || lc == 'técnico de som') return 'Tecnico\nde som';
+      return disp.toUpperCase();
+    }
+
+    // Consolidar em uma única página com uma tabela completa do período
+    final funcs = _functions.toList();
+    funcs.sort();
+
+    pw.Widget chip(String uid, String name) {
+      final col = colorForUser[uid] ?? PdfColors.grey;
+      return pw.Container(
+        margin: const pw.EdgeInsets.all(2),
+        padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: pw.BoxDecoration(color: col, borderRadius: pw.BorderRadius.circular(3)),
+        child: pw.Text(name, style: pw.TextStyle(color: PdfColors.white, fontSize: 9)),
+      );
+    }
+
+    doc.addPage(
+      pw.MultiPage(
+        build: (context) {
+          final dataColW = 60.0;
+          final diaColW = 50.0;
+          final dataInnerW = dataColW - 8.0;
+          final diaInnerW = diaColW - 8.0;
+
+          double headerFontSize = 10.0;
+          double fontFor(String text, double width, {int maxLines = 1}) {
+            final lines = text.split('\n');
+            double best = 12.0;
+            for (final line in lines) {
+              final len = line.trim().isEmpty ? 1 : line.trim().length;
+              final fs = width / (len * 0.6);
+              if (fs < best) best = fs;
+            }
+            if (best < 8.0) return 8.0;
+            if (best > 12.0) return 12.0;
+            return best;
+          }
+          headerFontSize = fontFor('DATA', dataInnerW);
+          headerFontSize = headerFontSize < fontFor('DIA', diaInnerW) ? headerFontSize : fontFor('DIA', diaInnerW);
+
+          final rows = <pw.TableRow>[];
+          rows.add(
+            pw.TableRow(
+              decoration: pw.BoxDecoration(color: PdfColors.black),
+              children: [
+                pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Align(alignment: pw.Alignment.center, child: pw.Text('DATA', style: pw.TextStyle(color: PdfColors.white, fontSize: headerFontSize)))),
+                pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Align(alignment: pw.Alignment.center, child: pw.Text('DIA', style: pw.TextStyle(color: PdfColors.white, fontSize: headerFontSize)))),
+                for (final f in funcs)
+                  pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Align(alignment: pw.Alignment.center, child: pw.Text(labelForFunc(f), style: pw.TextStyle(color: PdfColors.white, fontSize: headerFontSize), maxLines: 2, textAlign: pw.TextAlign.center))),
+              ],
+            ),
+          );
+          for (final e in widget.events) {
+            final assigns = List<Map<String, String>>.from(_assignmentsByEvent[e.id] ?? const []);
+            final byFunc = {for (final f in funcs) f: <Map<String, String>>[]};
+            for (final a in assigns) {
+              final uid = a['user_id'] ?? '';
+              final f = a['notes'] ?? '';
+              if (uid.isEmpty || f.isEmpty || !byFunc.containsKey(f)) continue;
+              byFunc[f]!.add({'id': uid, 'name': _memberNames[uid] ?? uid});
+            }
+            rows.add(
+              pw.TableRow(
+                children: [
+                  pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Align(alignment: pw.Alignment.center, child: pw.Text(DateFormat('dd/MM').format(e.startDate), maxLines: 1, textAlign: pw.TextAlign.center))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Align(alignment: pw.Alignment.center, child: pw.Text(dowAbbrevPt(e.startDate), maxLines: 1, textAlign: pw.TextAlign.center))),
+                  for (final f in funcs)
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(4),
+                      child: pw.Wrap(
+                        spacing: 2,
+                        runSpacing: 2,
+                        children: [
+                          for (final u in byFunc[f] ?? const <Map<String, String>>[])
+                            chip(u['id'] ?? '', u['name'] ?? ''),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            );
+          }
+
+          return [
+            pw.Table(
+              border: pw.TableBorder.all(),
+              columnWidths: {
+                0: pw.FixedColumnWidth(dataColW),
+                1: pw.FixedColumnWidth(diaColW),
+                for (int i = 0; i < funcs.length; i++) 2 + i: const pw.FlexColumnWidth(1),
+              },
+              children: rows,
+            ),
+          ];
+        },
+      ),
+    );
+    try {
+      final bytes = await doc.save();
+      await Printing.sharePdf(bytes: bytes, filename: 'escala_periodo.pdf');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF do período gerado')));
       }
-      return cats;
+    } catch (_) {
+      try {
+        final bytes = await doc.save();
+        await Printing.layoutPdf(onLayout: (format) async => bytes);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mostrar visualização do PDF')));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao gerar PDF: $e')));
+        }
+      }
     }
-    return base.where((uid) {
-      final cats = catsFor(uid);
-      if (_exclusiveWithinCats.contains(cat) && cats.contains(cat)) return false;
-      if (_exclusiveAloneCats.contains(cat) && cats.any((c) => c != cat)) return false;
-      if (cats.any((c) => _exclusiveAloneCats.contains(c) && c != cat)) return false;
-      return true;
-    }).where((uid) => _memberNames.containsKey(uid)).toSet().toList();
+  }
+
+  List<String> _allowedForEventFunction(Event e, String func) {
+    final a = (_leadersByFunctionCandidates[func] ?? const <String>[]);
+    final b = (_allowedByFunction[func] ?? const <String>[]);
+    final c = (_linkedByFunction[func] ?? const <String>[]);
+    final set = <String>{...a, ...b, ...c};
+    return set.toList();
   }
 
   Widget _buildGrid(BuildContext context) {
     final header = [
       const DataColumn(label: Text('DATA')),
       const DataColumn(label: Text('DIA')),
-      ..._functions.map((f) => DataColumn(label: Text(f.toUpperCase()))),
+      ..._functions.map((f) => DataColumn(label: Text((_funcDisplay[f] ?? f).toUpperCase()))),
     ];
     final rows = widget.events.map((e) {
       final assigns = _assignmentsByEvent[e.id] ?? const [];
@@ -467,30 +685,24 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
           for (int j = 0; j < need; j++) {
             final idx = j < indices.length ? indices[j] : -1;
             final current = idx >= 0 ? assigns[idx] : null;
-            var allowedLocal = _allowedForEventFunction(e, f).toSet().toList();
-            if (allowedLocal.isEmpty) {
-              allowedLocal = _memberNames.keys.toList();
-            }
-            final selectedUid = (current?['user_id'] ?? '').toString();
-            if (selectedUid.isNotEmpty && !allowedLocal.contains(selectedUid)) {
-              allowedLocal = [selectedUid, ...allowedLocal];
-            }
+            final allowedLocal = _allowedForEventFunction(e, f).toSet().toList();
+            final allowedKey = allowedLocal.isEmpty ? 'empty' : allowedLocal.join('|').hashCode.toString();
             widgets.add(Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: SizedBox(
                 width: 200,
                 child: DropdownButtonFormField<String>(
-                  key: ValueKey('${e.id}-$f-$j-${allowedLocal.length}'),
+                  key: ValueKey('${e.id}-$f-$j-$allowedKey'),
                   initialValue: (() {
                     final uid = current?['user_id'];
                     return (uid != null && allowedLocal.contains(uid)) ? uid : null;
                   })(),
                   items: allowedLocal
                       .toSet()
-                      .map((uid) => DropdownMenuItem(value: uid, child: Text(_memberNames[uid]!)))
+                      .map((uid) => DropdownMenuItem(value: uid, child: Text(_memberNames[uid] ?? uid)))
                       .toList(),
                   isExpanded: true,
-                  onChanged: (uid) {
+                  onChanged: allowedLocal.isEmpty ? null : (uid) {
                     setState(() {
                       if (idx >= 0) {
                         assigns[idx]['user_id'] = uid ?? '';
@@ -501,7 +713,11 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
                       _recomputeMissing();
                     });
                   },
-                  decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+                  decoration: InputDecoration(
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                    hintText: allowedLocal.isEmpty ? 'Sem candidatos' : null,
+                  ),
                 ),
               ),
             ));
