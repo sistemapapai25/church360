@@ -57,11 +57,13 @@ CREATE INDEX IF NOT EXISTS idx_dashboard_widget_category ON dashboard_widget(cat
 -- Habilitar RLS
 ALTER TABLE dashboard_widget ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "dashboard_widget_select_all" ON dashboard_widget;
 -- Policy: Todos podem visualizar widgets
 CREATE POLICY "dashboard_widget_select_all" ON dashboard_widget
   FOR SELECT
   USING (true);
 
+DROP POLICY IF EXISTS "dashboard_widget_insert_admin" ON dashboard_widget;
 -- Policy: Apenas admins podem inserir
 CREATE POLICY "dashboard_widget_insert_admin" ON dashboard_widget
   FOR INSERT
@@ -73,6 +75,7 @@ CREATE POLICY "dashboard_widget_insert_admin" ON dashboard_widget
     )
   );
 
+DROP POLICY IF EXISTS "dashboard_widget_update_admin" ON dashboard_widget;
 -- Policy: Apenas admins podem atualizar
 CREATE POLICY "dashboard_widget_update_admin" ON dashboard_widget
   FOR UPDATE
@@ -84,6 +87,7 @@ CREATE POLICY "dashboard_widget_update_admin" ON dashboard_widget
     )
   );
 
+DROP POLICY IF EXISTS "dashboard_widget_delete_admin" ON dashboard_widget;
 -- Policy: Apenas admins podem deletar widgets não-padrão
 CREATE POLICY "dashboard_widget_delete_admin" ON dashboard_widget
   FOR DELETE
@@ -108,6 +112,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_dashboard_widget_updated_at ON dashboard_widget;
 CREATE TRIGGER trigger_dashboard_widget_updated_at
   BEFORE UPDATE ON dashboard_widget
   FOR EACH ROW
@@ -172,4 +177,3 @@ $$ LANGUAGE plpgsql;
 -- =====================================================
 -- FIM DO SCRIPT
 -- =====================================================
-

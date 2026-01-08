@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/design/community_design.dart';
 import '../providers/worship_provider.dart';
 import '../../domain/models/worship_service.dart';
 
@@ -14,8 +15,13 @@ class WorshipServicesScreen extends ConsumerWidget {
     final servicesAsync = ref.watch(allWorshipServicesProvider);
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('Cultos'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text(
+          'Cultos',
+          style: CommunityDesign.titleStyle(context),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.bar_chart),
@@ -174,13 +180,13 @@ class _WorshipServiceCard extends ConsumerWidget {
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: _getTypeColor(service.serviceType).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      _getTypeIcon(service.serviceType),
-                      color: _getTypeColor(service.serviceType),
-                      size: 24,
-                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    _getTypeIcon(service.serviceType),
+                    color: _getTypeColor(service.serviceType),
+                    size: 24,
+                  ),
                   ),
                   const SizedBox(width: 12),
                   // Data e tipo
@@ -214,9 +220,9 @@ class _WorshipServiceCard extends ConsumerWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      color: Colors.blue.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                       child: Row(
                         children: [
                           const Icon(Icons.access_time, size: 14, color: Colors.blue),

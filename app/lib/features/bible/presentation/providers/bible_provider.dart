@@ -53,6 +53,12 @@ final bibleVerseByIdProvider = FutureProvider.family<BibleVerse?, int>((ref, id)
   return repo.getVerseById(id);
 });
 
+/// Provider de contagem de versículos por capítulo
+final verseCountsByBookProvider = FutureProvider.family<Map<int, int>, int>((ref, bookId) async {
+  final repo = ref.watch(bibleRepositoryProvider);
+  return repo.getVerseCountsByChapter(bookId);
+});
+
 /// Provider de busca de versículos
 final bibleSearchProvider = FutureProvider.family<List<BibleVerse>, ({String query, int? bookId, String? testament})>((ref, params) async {
   final repo = ref.watch(bibleRepositoryProvider);
@@ -70,4 +76,3 @@ final isVerseBookmarkedProvider = FutureProvider.family<bool, ({String memberId,
   final repo = ref.watch(bibleRepositoryProvider);
   return repo.isBookmarked(params.memberId, params.verseId);
 });
-

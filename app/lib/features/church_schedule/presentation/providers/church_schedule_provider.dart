@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 
 import '../../domain/models/church_schedule.dart';
 
@@ -92,7 +93,11 @@ final churchScheduleByIdProvider = FutureProvider.autoDispose.family<ChurchSched
 final createChurchScheduleProvider = Provider((ref) {
   return (ChurchSchedule schedule) async {
     final supabase = Supabase.instance.client;
-    final userId = supabase.auth.currentUser?.id;
+    final member = await ref.read(currentMemberProvider.future);
+    final userId = member?.id;
+    if (userId == null) {
+      throw Exception('Usuário não autenticado');
+    }
 
     await supabase.from('church_schedule').insert({
       'title': schedule.title,
@@ -169,4 +174,3 @@ final toggleChurchScheduleActiveProvider = Provider((ref) {
     ref.invalidate(churchScheduleByIdProvider(id));
   };
 });
-

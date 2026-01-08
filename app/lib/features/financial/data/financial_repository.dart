@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 
 import '../domain/models/contribution.dart';
 
@@ -23,6 +24,7 @@ class FinancialRepository {
             last_name
           )
         ''')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('date', ascending: false);
 
     return (response as List)
@@ -42,6 +44,7 @@ class FinancialRepository {
           )
         ''')
         .eq('user_id', memberId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('date', ascending: false);
 
     return (response as List)
@@ -61,6 +64,7 @@ class FinancialRepository {
           )
         ''')
         .eq('type', type)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('date', ascending: false);
 
     return (response as List)
@@ -84,6 +88,7 @@ class FinancialRepository {
         ''')
         .gte('date', startDate.toIso8601String().split('T')[0])
         .lte('date', endDate.toIso8601String().split('T')[0])
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('date', ascending: false);
 
     return (response as List)
@@ -103,6 +108,7 @@ class FinancialRepository {
           )
         ''')
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
     if (response == null) return null;
@@ -111,9 +117,11 @@ class FinancialRepository {
 
   /// Criar contribuição
   Future<Contribution> createContribution(Map<String, dynamic> data) async {
+    final payload = Map<String, dynamic>.from(data);
+    payload['tenant_id'] = payload['tenant_id'] ?? SupabaseConstants.currentTenantId;
     final response = await _supabase
         .from('contribution')
-        .insert(data)
+        .insert(payload)
         .select('''
           *,
           user_account:user_id (
@@ -135,6 +143,7 @@ class FinancialRepository {
         .from('contribution')
         .update(data)
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select('''
           *,
           user_account:user_id (
@@ -149,14 +158,19 @@ class FinancialRepository {
 
   /// Deletar contribuição
   Future<void> deleteContribution(String id) async {
-    await _supabase.from('contribution').delete().eq('id', id);
+    await _supabase
+        .from('contribution')
+        .delete()
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   /// Calcular total de contribuições
   Future<double> getTotalContributions() async {
     final response = await _supabase
         .from('contribution')
-        .select('amount');
+        .select('amount')
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
 
     double total = 0;
     for (final item in response as List) {
@@ -188,7 +202,8 @@ class FinancialRepository {
         .from('contribution')
         .select('amount')
         .gte('date', startDate.toIso8601String().split('T')[0])
-        .lte('date', endDate.toIso8601String().split('T')[0]);
+        .lte('date', endDate.toIso8601String().split('T')[0])
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
 
     double total = 0;
     for (final item in response as List) {
@@ -206,6 +221,7 @@ class FinancialRepository {
     final response = await _supabase
         .from('financial_goal')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
     return (response as List)
@@ -218,6 +234,7 @@ class FinancialRepository {
     final response = await _supabase
         .from('financial_goal')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('is_active', true)
         .order('created_at', ascending: false);
 
@@ -232,6 +249,7 @@ class FinancialRepository {
         .from('financial_goal')
         .select()
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
     if (response == null) return null;
@@ -240,9 +258,11 @@ class FinancialRepository {
 
   /// Criar meta
   Future<FinancialGoal> createGoal(Map<String, dynamic> data) async {
+    final payload = Map<String, dynamic>.from(data);
+    payload['tenant_id'] = payload['tenant_id'] ?? SupabaseConstants.currentTenantId;
     final response = await _supabase
         .from('financial_goal')
-        .insert(data)
+        .insert(payload)
         .select()
         .single();
 
@@ -258,6 +278,7 @@ class FinancialRepository {
         .from('financial_goal')
         .update(data)
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -266,7 +287,11 @@ class FinancialRepository {
 
   /// Deletar meta
   Future<void> deleteGoal(String id) async {
-    await _supabase.from('financial_goal').delete().eq('id', id);
+    await _supabase
+        .from('financial_goal')
+        .delete()
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   // =====================================================
@@ -278,6 +303,7 @@ class FinancialRepository {
     final response = await _supabase
         .from('expense')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('date', ascending: false);
 
     return (response as List)
@@ -291,6 +317,7 @@ class FinancialRepository {
         .from('expense')
         .select()
         .eq('category', category)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('date', ascending: false);
 
     return (response as List)
@@ -308,6 +335,7 @@ class FinancialRepository {
         .select()
         .gte('date', startDate.toIso8601String().split('T')[0])
         .lte('date', endDate.toIso8601String().split('T')[0])
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('date', ascending: false);
 
     return (response as List)
@@ -317,9 +345,11 @@ class FinancialRepository {
 
   /// Criar despesa
   Future<Expense> createExpense(Map<String, dynamic> data) async {
+    final payload = Map<String, dynamic>.from(data);
+    payload['tenant_id'] = payload['tenant_id'] ?? SupabaseConstants.currentTenantId;
     final response = await _supabase
         .from('expense')
-        .insert(data)
+        .insert(payload)
         .select()
         .single();
 
@@ -335,6 +365,7 @@ class FinancialRepository {
         .from('expense')
         .update(data)
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -343,14 +374,19 @@ class FinancialRepository {
 
   /// Deletar despesa
   Future<void> deleteExpense(String id) async {
-    await _supabase.from('expense').delete().eq('id', id);
+    await _supabase
+        .from('expense')
+        .delete()
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   /// Calcular total de despesas
   Future<double> getTotalExpenses() async {
     final response = await _supabase
         .from('expense')
-        .select('amount');
+        .select('amount')
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
 
     double total = 0;
     for (final item in response as List) {
@@ -368,7 +404,8 @@ class FinancialRepository {
         .from('expense')
         .select('amount')
         .gte('date', startDate.toIso8601String().split('T')[0])
-        .lte('date', endDate.toIso8601String().split('T')[0]);
+        .lte('date', endDate.toIso8601String().split('T')[0])
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
 
     double total = 0;
     for (final item in response as List) {
@@ -377,4 +414,3 @@ class FinancialRepository {
     return total;
   }
 }
-

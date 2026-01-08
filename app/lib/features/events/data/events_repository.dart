@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/event.dart';
 
 /// Repository para gerenciar eventos
@@ -13,6 +14,7 @@ class EventsRepository {
       final response = await _supabase
           .from('event')
           .select('event_type')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('event_type');
 
       final list = (response as List)
@@ -61,6 +63,7 @@ class EventsRepository {
       final distinct = await _supabase
           .from('event')
           .select('event_type')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('event_type');
       final codes = (distinct as List)
           .map((j) => (j['event_type'] ?? '').toString())
@@ -106,6 +109,7 @@ class EventsRepository {
           .from('event')
           .select()
           .eq('event_type', code)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .count();
       return response.count;
     } catch (e) {
@@ -130,6 +134,7 @@ class EventsRepository {
             *,
             event_registration(count)
           ''')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('start_date', ascending: false);
 
       return (response as List).map((json) {
@@ -162,6 +167,7 @@ class EventsRepository {
             event_registration(count)
           ''')
           .neq('status', 'cancelled')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('start_date', ascending: false);
 
       return (response as List).map((json) {
@@ -195,6 +201,7 @@ class EventsRepository {
           ''')
           .neq('status', 'cancelled')
           .gte('start_date', now)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('start_date', ascending: true);
 
       return (response as List).map((json) {
@@ -226,6 +233,7 @@ class EventsRepository {
             event_registration(count)
           ''')
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .maybeSingle();
 
       if (response == null) return null;
@@ -250,9 +258,11 @@ class EventsRepository {
   /// Criar evento a partir de JSON
   Future<Event> createEventFromJson(Map<String, dynamic> data) async {
     try {
+      final payload = Map<String, dynamic>.from(data);
+      payload['tenant_id'] = payload['tenant_id'] ?? SupabaseConstants.currentTenantId;
       final response = await _supabase
           .from('event')
-          .insert(data)
+          .insert(payload)
           .select()
           .single();
 
@@ -284,6 +294,7 @@ class EventsRepository {
           .from('event')
           .update(event.toJson())
           .eq('id', event.id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
@@ -300,6 +311,7 @@ class EventsRepository {
           .from('event')
           .update(data)
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
@@ -312,6 +324,7 @@ class EventsRepository {
             .from('event')
             .update(fallback)
             .eq('id', id)
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
             .select()
             .single();
         return Event.fromJson(response);
@@ -323,7 +336,11 @@ class EventsRepository {
   /// Deletar evento
   Future<void> deleteEvent(String id) async {
     try {
-      await _supabase.from('event').delete().eq('id', id);
+      await _supabase
+          .from('event')
+          .delete()
+          .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -335,6 +352,7 @@ class EventsRepository {
       final response = await _supabase
           .from('event')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .count();
 
       return response.count;
@@ -350,6 +368,7 @@ class EventsRepository {
           .from('event')
           .select()
           .neq('status', 'cancelled')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .count();
 
       return response.count;
@@ -368,6 +387,7 @@ class EventsRepository {
             user_account:user_id (first_name, last_name)
           ''')
           .eq('event_id', eventId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('registered_at');
 
       return (response as List).map((json) {
@@ -398,6 +418,7 @@ class EventsRepository {
             'event_id': eventId,
             'user_id': memberId,
             'registered_at': DateTime.now().toIso8601String(),
+            'tenant_id': SupabaseConstants.currentTenantId,
           })
           .select()
           .single();
@@ -420,7 +441,8 @@ class EventsRepository {
           .from('event_registration')
           .delete()
           .eq('event_id', eventId)
-          .eq('user_id', memberId);
+          .eq('user_id', memberId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -435,7 +457,8 @@ class EventsRepository {
             'checked_in_at': DateTime.now().toIso8601String(),
           })
           .eq('event_id', eventId)
-          .eq('user_id', memberId);
+          .eq('user_id', memberId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -450,7 +473,8 @@ class EventsRepository {
             'checked_in_at': null,
           })
           .eq('event_id', eventId)
-          .eq('user_id', memberId);
+          .eq('user_id', memberId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -463,7 +487,8 @@ class EventsRepository {
           .from('event_registration')
           .delete()
           .eq('event_id', eventId)
-          .eq('user_id', memberId);
+          .eq('user_id', memberId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }

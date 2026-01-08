@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 
 import '../domain/models/prayer_request.dart';
 
@@ -7,6 +8,23 @@ class PrayerRequestRepository {
   final SupabaseClient _supabase;
 
   PrayerRequestRepository(this._supabase);
+
+  Future<String?> _effectiveUserId() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+    final email = user.email;
+    if (email != null && email.trim().isNotEmpty) {
+      try {
+        final nickname = email.trim().split('@').first;
+        await _supabase.rpc('ensure_my_account', params: {
+          '_tenant_id': SupabaseConstants.currentTenantId,
+          '_email': email,
+          '_nickname': nickname,
+        });
+      } catch (_) {}
+    }
+    return user.id;
+  }
 
   // =====================================================
   // PRAYER REQUESTS - CRUD
@@ -17,6 +35,7 @@ class PrayerRequestRepository {
     final response = await _supabase
         .from('prayer_requests')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
     return (response as List)
@@ -30,6 +49,7 @@ class PrayerRequestRepository {
         .from('prayer_requests')
         .select()
         .eq('status', status.value)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
     return (response as List)
@@ -43,6 +63,7 @@ class PrayerRequestRepository {
         .from('prayer_requests')
         .select()
         .eq('category', category.value)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
     return (response as List)
@@ -52,13 +73,14 @@ class PrayerRequestRepository {
 
   /// Buscar pedidos do usuário atual
   Future<List<PrayerRequest>> getMyPrayerRequests() async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) return [];
 
     final response = await _supabase
         .from('prayer_requests')
         .select()
         .eq('author_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
     return (response as List)
@@ -72,6 +94,7 @@ class PrayerRequestRepository {
         .from('prayer_requests')
         .select()
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
     if (response == null) return null;
@@ -87,7 +110,7 @@ class PrayerRequestRepository {
     bool isPublic = false,
     bool allowWhatsappContact = true,
   }) async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
 
     final response = await _supabase
@@ -101,6 +124,7 @@ class PrayerRequestRepository {
           'allow_whatsapp_contact': allowWhatsappContact,
           'author_id': userId,
           'status': PrayerStatus.pending.value,
+          'tenant_id': SupabaseConstants.currentTenantId,
         })
         .select()
         .single();
@@ -133,6 +157,7 @@ class PrayerRequestRepository {
         .from('prayer_requests')
         .update(data)
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -144,7 +169,8 @@ class PrayerRequestRepository {
     await _supabase
         .from('prayer_requests')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   /// Marcar pedido como respondido
@@ -173,6 +199,7 @@ class PrayerRequestRepository {
         .from('prayer_request_prayers')
         .select()
         .eq('prayer_request_id', prayerRequestId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('prayed_at', ascending: false);
 
     return (response as List)
@@ -182,7 +209,7 @@ class PrayerRequestRepository {
 
   /// Verificar se usuário atual já orou
   Future<bool> hasUserPrayed(String prayerRequestId) async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) return false;
 
     final response = await _supabase
@@ -190,6 +217,7 @@ class PrayerRequestRepository {
         .select()
         .eq('prayer_request_id', prayerRequestId)
         .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
     return response != null;
@@ -200,7 +228,7 @@ class PrayerRequestRepository {
     required String prayerRequestId,
     String? note,
   }) async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
 
     final response = await _supabase
@@ -209,6 +237,7 @@ class PrayerRequestRepository {
           'prayer_request_id': prayerRequestId,
           'user_id': userId,
           'note': note,
+          'tenant_id': SupabaseConstants.currentTenantId,
         })
         .select()
         .single();
@@ -221,7 +250,8 @@ class PrayerRequestRepository {
     final response = await _supabase
         .from('prayer_request_prayers')
         .select()
-        .eq('prayer_request_id', prayerRequestId);
+        .eq('prayer_request_id', prayerRequestId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
 
     return (response as List).length;
   }
@@ -236,6 +266,7 @@ class PrayerRequestRepository {
         .from('prayer_request_testimonies')
         .select()
         .eq('prayer_request_id', prayerRequestId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
     if (response == null) return null;
@@ -252,6 +283,7 @@ class PrayerRequestRepository {
         .insert({
           'prayer_request_id': prayerRequestId,
           'testimony': testimony,
+          'tenant_id': SupabaseConstants.currentTenantId,
         })
         .select()
         .single();
@@ -268,6 +300,7 @@ class PrayerRequestRepository {
         .from('prayer_request_testimonies')
         .update({'testimony': testimony})
         .eq('prayer_request_id', prayerRequestId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -279,7 +312,8 @@ class PrayerRequestRepository {
     await _supabase
         .from('prayer_request_testimonies')
         .delete()
-        .eq('prayer_request_id', prayerRequestId);
+        .eq('prayer_request_id', prayerRequestId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   // =====================================================

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/design/community_design.dart';
 import '../providers/financial_provider.dart';
 
 /// Tela de formulário de meta financeira
@@ -172,9 +173,12 @@ class _FinancialGoalFormScreenState
     final dateFormatter = DateFormat('dd/MM/yyyy');
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
+        backgroundColor: CommunityDesign.headerColor(context),
         title: Text(
           widget.goalId == null ? 'Nova Meta Financeira' : 'Editar Meta',
+          style: CommunityDesign.titleStyle(context),
         ),
         actions: [
           if (widget.goalId != null)

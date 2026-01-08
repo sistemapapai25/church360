@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 
+import '../../../../core/design/community_design.dart';
 import '../providers/quick_news_provider.dart';
 
 /// Tela de formulário para criar/editar avisos rápidos
@@ -203,8 +204,13 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
     }
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: Text(widget.newsId == null ? 'Novo Aviso' : 'Editar Aviso'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text(
+          widget.newsId == null ? 'Novo Aviso' : 'Editar Aviso',
+          style: CommunityDesign.titleStyle(context),
+        ),
         centerTitle: true,
         actions: [
           if (_isLoading || _isUploading)
@@ -344,7 +350,8 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
   }
 
   Widget _buildImageSection() {
-    return Card(
+    return Container(
+      decoration: CommunityDesign.overlayDecoration(Theme.of(context).colorScheme),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -352,12 +359,14 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.image),
+                Icon(
+                  Icons.image,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'Imagem (opcional)',
-                  style: TextStyle(
-                    fontSize: 16,
+                  style: CommunityDesign.contentStyle(context).copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),

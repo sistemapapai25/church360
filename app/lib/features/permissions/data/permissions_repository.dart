@@ -1,4 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
+import '../../support_chat/data/support_agents_data.dart';
 import '../domain/models/permission.dart';
 import '../domain/models/user_effective_permission.dart';
 
@@ -6,15 +8,96 @@ import '../domain/models/user_effective_permission.dart';
 /// Gerencia operações de permissões
 class PermissionsRepository {
   final SupabaseClient _supabase;
+  bool _agentPermissionsEnsured = false;
 
   PermissionsRepository(this._supabase);
+
+  Future<String?> _effectiveUserId() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+    final email = user.email;
+    if (email != null && email.trim().isNotEmpty) {
+      try {
+        final nickname = email.trim().split('@').first;
+        await _supabase.rpc('ensure_my_account', params: {
+          '_tenant_id': SupabaseConstants.currentTenantId,
+          '_email': email,
+          '_nickname': nickname,
+        });
+      } catch (_) {}
+    }
+    return user.id;
+  }
 
   // =====================================================
   // CATÁLOGO DE PERMISSÕES
   // =====================================================
 
+  Future<void> _ensureAgentPermissions() async {
+    if (_agentPermissionsEnsured) return;
+
+    try {
+      final runtimeConfigs = await _supabase
+          .from('agent_config')
+          .select('key, display_name')
+          .order('key');
+
+      final runtimeNameByKey = <String, String>{};
+      final runtimeKeys = <String>{};
+      for (final item in (runtimeConfigs as List)) {
+        final key = (item['key'] ?? '').toString().trim();
+        if (key.isEmpty) continue;
+        runtimeKeys.add(key.toLowerCase());
+        final name = (item['display_name'] ?? '').toString().trim();
+        if (name.isNotEmpty) {
+          runtimeNameByKey[key.toLowerCase()] = name;
+        }
+      }
+
+      final expected = <String, String>{};
+      for (final base in kSupportAgents.values) {
+        expected[base.key.toLowerCase()] = base.name;
+      }
+      for (final key in runtimeKeys) {
+        expected.putIfAbsent(key, () => runtimeNameByKey[key] ?? key);
+      }
+
+      if (expected.isEmpty) {
+        _agentPermissionsEnsured = true;
+        return;
+      }
+
+      final rows = <Map<String, dynamic>>[];
+      for (final key in expected.keys) {
+        final code = 'agents.access.$key';
+        final agentName = runtimeNameByKey[key] ?? expected[key] ?? key;
+        rows.add({
+          'code': code,
+          'name': 'Acessar agente: $agentName',
+          'description': 'Permite acessar o agente IA "$agentName".',
+          'category': 'agents', // Padronizado para lowercase
+          'subcategory': 'access',
+          'is_active': true,
+          'requires_context': false,
+        });
+      }
+
+      if (rows.isNotEmpty) {
+        await _supabase.from('permissions').upsert(
+          rows,
+          onConflict: 'code',
+        );
+      }
+
+      _agentPermissionsEnsured = true;
+    } catch (_) {
+      _agentPermissionsEnsured = true;
+    }
+  }
+
   /// Buscar todas as permissões
   Future<List<Permission>> getPermissions() async {
+    await _ensureAgentPermissions();
     final response = await _supabase
         .from('permissions')
         .select()
@@ -29,6 +112,7 @@ class PermissionsRepository {
 
   /// Buscar permissões por categoria
   Future<List<Permission>> getPermissionsByCategory(String category) async {
+    await _ensureAgentPermissions();
     final response = await _supabase
         .from('permissions')
         .select()
@@ -92,13 +176,14 @@ class PermissionsRepository {
     required String permissionId,
     bool isGranted = true,
   }) async {
+    final actorId = await _effectiveUserId();
     await _supabase
         .from('role_permissions')
         .upsert({
           'role_id': roleId,
           'permission_id': permissionId,
           'is_granted': isGranted,
-          'created_by': _supabase.auth.currentUser?.id,
+          'created_by': actorId,
         });
   }
 
@@ -127,11 +212,12 @@ class PermissionsRepository {
 
     // Adiciona as novas permissões
     if (permissionIds.isNotEmpty) {
+      final actorId = await _effectiveUserId();
       final inserts = permissionIds.map((permId) => {
         'role_id': roleId,
         'permission_id': permId,
         'is_granted': true,
-        'created_by': _supabase.auth.currentUser?.id,
+        'created_by': actorId,
       }).toList();
 
       await _supabase.from('role_permissions').insert(inserts);
@@ -199,6 +285,7 @@ class PermissionsRepository {
     DateTime? expiresAt,
     String? reason,
   }) async {
+    final actorId = await _effectiveUserId();
     await _supabase
         .from('user_custom_permissions')
         .upsert({
@@ -207,7 +294,7 @@ class PermissionsRepository {
           'is_granted': isGranted,
           'expires_at': expiresAt?.toIso8601String(),
           'reason': reason,
-          'granted_by': _supabase.auth.currentUser?.id,
+          'granted_by': actorId,
         });
   }
 

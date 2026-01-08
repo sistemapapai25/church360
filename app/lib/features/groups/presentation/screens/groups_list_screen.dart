@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/permission_widget.dart';
 
+import '../../../../core/design/community_design.dart';
 import '../providers/groups_provider.dart';
 import '../../domain/models/group.dart';
 
@@ -24,8 +25,13 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
         : ref.watch(allGroupsProvider);
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('Grupos'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text('Grupos', style: CommunityDesign.titleStyle(context)),
+        iconTheme: IconThemeData(
+          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+        ),
         actions: [
           // Filtro
           PopupMenuButton<String>(

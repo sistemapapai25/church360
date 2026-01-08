@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 
 import '../domain/models/ministry.dart';
 
@@ -15,6 +16,7 @@ class MinistriesRepository {
     final response = await _supabase
         .from('ministry')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('name', ascending: true);
 
     return (response as List).map((json) => Ministry.fromJson(json)).toList();
@@ -28,6 +30,7 @@ class MinistriesRepository {
           *,
           ministry_member(count)
         ''')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('is_active', true)
         .order('name', ascending: true);
 
@@ -49,6 +52,7 @@ class MinistriesRepository {
         .from('ministry')
         .select()
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
     if (response == null) return null;
@@ -59,7 +63,10 @@ class MinistriesRepository {
   Future<Ministry> createMinistry(Map<String, dynamic> data) async {
     final response = await _supabase
         .from('ministry')
-        .insert(data)
+        .insert({
+          ...data,
+          'tenant_id': SupabaseConstants.currentTenantId,
+        })
         .select()
         .single();
 
@@ -72,6 +79,7 @@ class MinistriesRepository {
         .from('ministry')
         .update(data)
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -80,14 +88,19 @@ class MinistriesRepository {
 
   /// Deletar ministério
   Future<void> deleteMinistry(String id) async {
-    await _supabase.from('ministry').delete().eq('id', id);
+    await _supabase
+        .from('ministry')
+        .delete()
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   /// Contar ministérios
   Future<int> countMinistries() async {
     final response = await _supabase
         .from('ministry')
-        .select('id');
+        .select('id')
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
 
     return (response as List).length;
   }
@@ -97,6 +110,7 @@ class MinistriesRepository {
     final response = await _supabase
         .from('ministry')
         .select('id')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('is_active', true);
 
     return (response as List).length;
@@ -112,17 +126,27 @@ class MinistriesRepository {
           *,
           user_account:user_id (
             first_name,
-            last_name
+            last_name,
+            nickname
           )
         ''')
         .eq('ministry_id', ministryId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('role', ascending: true);
 
     var members = (response as List).map((json) {
       final member = json['user_account'];
-      final memberName = member != null
-          ? '${member['first_name']} ${member['last_name']}'
-          : '';
+      String memberName = '';
+      if (member != null) {
+        final nick = (member['nickname'] ?? member['apelido'] ?? '').toString().trim();
+        if (nick.isNotEmpty) {
+          memberName = nick;
+        } else {
+          final fn = (member['first_name'] ?? '').toString();
+          final ln = (member['last_name'] ?? '').toString();
+          memberName = ('$fn $ln').trim();
+        }
+      }
 
       return MinistryMember.fromJson({
         ...json,
@@ -137,15 +161,21 @@ class MinistriesRepository {
       try {
         final details = await _supabase
             .from('user_account')
-            .select('id,first_name,last_name')
-            .inFilter('id', keys);
+            .select('id,first_name,last_name,nickname')
+            .inFilter('id', keys)
+            .eq('tenant_id', SupabaseConstants.currentTenantId);
         final nameById = <String, String>{};
         for (final row in (details as List)) {
           final id = row['id'] as String?;
           if (id != null) {
-            final fn = row['first_name'] ?? '';
-            final ln = row['last_name'] ?? '';
-            nameById[id] = '$fn $ln'.trim();
+            final nick = (row['nickname'] ?? row['apelido'] ?? '').toString().trim();
+            if (nick.isNotEmpty) {
+              nameById[id] = nick;
+            } else {
+              final fn = (row['first_name'] ?? '').toString();
+              final ln = (row['last_name'] ?? '').toString();
+              nameById[id] = ('$fn $ln').trim();
+            }
           }
         }
         members = members
@@ -163,6 +193,7 @@ class MinistriesRepository {
         .from('role_contexts')
         .select('id, role_id, metadata, is_active')
         .contains('metadata', {'ministry_id': ministryId})
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('is_active', true);
 
     final contextList = (contexts as List).map((e) => e as Map<String, dynamic>).toList();
@@ -207,6 +238,7 @@ class MinistriesRepository {
         .select('id')
         .eq('ministry_id', ministryId)
         .eq('user_id', personId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
     if (existingUser != null) return true;
     return false;
@@ -217,7 +249,10 @@ class MinistriesRepository {
     final payload = Map<String, dynamic>.from(data);
     final response = await _supabase
         .from('ministry_member')
-        .insert(payload)
+        .insert({
+          ...payload,
+          'tenant_id': SupabaseConstants.currentTenantId,
+        })
         .select('*')
         .single();
 
@@ -226,13 +261,19 @@ class MinistriesRepository {
     if (userKey != null) {
       final ua = await _supabase
           .from('user_account')
-          .select('first_name,last_name')
+          .select('first_name,last_name,nickname')
           .eq('id', userKey)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .maybeSingle();
       if (ua != null) {
-        final fn = ua['first_name'] ?? '';
-        final ln = ua['last_name'] ?? '';
-        memberName = '$fn $ln'.trim();
+        final nick = (ua['nickname'] ?? ua['apelido'] ?? '').toString().trim();
+        if (nick.isNotEmpty) {
+          memberName = nick;
+        } else {
+          final fn = (ua['first_name'] ?? '').toString();
+          final ln = (ua['last_name'] ?? '').toString();
+          memberName = ('$fn $ln').trim();
+        }
       }
     }
 
@@ -251,19 +292,29 @@ class MinistriesRepository {
         .from('ministry_member')
         .update(data)
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select('''
           *,
           user_account:user_id (
             first_name,
-            last_name
+            last_name,
+            nickname
           )
         ''')
         .single();
 
     final member = response['user_account'];
-    final memberName = member != null
-        ? '${member['first_name']} ${member['last_name']}'
-        : '';
+    String memberName = '';
+    if (member != null) {
+      final nick = (member['nickname'] ?? member['apelido'] ?? '').toString().trim();
+      if (nick.isNotEmpty) {
+        memberName = nick;
+      } else {
+        final fn = (member['first_name'] ?? '').toString();
+        final ln = (member['last_name'] ?? '').toString();
+        memberName = ('$fn $ln').trim();
+      }
+    }
 
     return MinistryMember.fromJson({
       ...response,
@@ -273,7 +324,11 @@ class MinistriesRepository {
 
   /// Remover membro do ministério
   Future<void> removeMinistryMember(String id) async {
-    await _supabase.from('ministry_member').delete().eq('id', id);
+    await _supabase
+        .from('ministry_member')
+        .delete()
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   /// Buscar ministérios de um membro
@@ -283,7 +338,8 @@ class MinistriesRepository {
         .select('''
           ministry:ministry_id (*)
         ''')
-        .eq('user_id', memberId);
+        .eq('user_id', memberId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
 
     return (response as List)
         .map((json) => Ministry.fromJson(json['ministry']))
@@ -300,10 +356,11 @@ class MinistriesRepository {
           *,
           event!fk_ministry_schedule_event (name),
           ministry!fk_ministry_schedule_ministry (name),
-          user_account!fk_ministry_schedule_user (first_name, last_name),
+          user_account!fk_ministry_schedule_user (first_name, last_name, nickname),
           ministry_function:function_id (id,name,code)
         ''')
         .eq('event_id', eventId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('ministry_id', ascending: true);
 
     return (response as List).map((json) {
@@ -316,9 +373,14 @@ class MinistriesRepository {
         ...json,
         'event_name': event?['name'] ?? '',
         'ministry_name': ministry?['name'] ?? '',
-        'member_name': member != null
-            ? '${member['first_name']} ${member['last_name']}'
-            : '',
+        'member_name': (() {
+          if (member == null) return '';
+          final nick = (member['nickname'] ?? member['apelido'] ?? '').toString().trim();
+          if (nick.isNotEmpty) return nick;
+          final fn = (member['first_name'] ?? '').toString();
+          final ln = (member['last_name'] ?? '').toString();
+          return ('$fn $ln').trim();
+        })(),
         'function_name': func != null ? (func['name'] ?? func['code'] ?? '') : null,
       });
     }).toList();
@@ -332,10 +394,11 @@ class MinistriesRepository {
           *,
           event!fk_ministry_schedule_event (name,start_date),
           ministry!fk_ministry_schedule_ministry (name),
-          user_account!fk_ministry_schedule_user (first_name, last_name),
+          user_account!fk_ministry_schedule_user (first_name, last_name, nickname),
           ministry_function:function_id (id,name,code)
         ''')
         .eq('ministry_id', ministryId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
     return (response as List).map((json) {
@@ -349,9 +412,14 @@ class MinistriesRepository {
         'event_name': event?['name'] ?? '',
         'event_start_date': event?['start_date'],
         'ministry_name': ministry?['name'] ?? '',
-        'member_name': member != null
-            ? '${member['first_name']} ${member['last_name']}'
-            : '',
+        'member_name': (() {
+          if (member == null) return '';
+          final nick = (member['nickname'] ?? member['apelido'] ?? '').toString().trim();
+          if (nick.isNotEmpty) return nick;
+          final fn = (member['first_name'] ?? '').toString();
+          final ln = (member['last_name'] ?? '').toString();
+          return ('$fn $ln').trim();
+        })(),
         'function_name': func != null ? (func['name'] ?? func['code'] ?? '') : null,
       });
     }).toList();
@@ -367,7 +435,10 @@ class MinistriesRepository {
     }
     final response = await _supabase
         .from('ministry_schedule')
-        .insert(payload)
+        .insert({
+          ...payload,
+          'tenant_id': SupabaseConstants.currentTenantId,
+        })
         .select('''
           *,
           event!fk_ministry_schedule_event (name),
@@ -395,11 +466,20 @@ class MinistriesRepository {
 
   /// Remover escala
   Future<void> removeSchedule(String id) async {
-    await _supabase.from('ministry_schedule').delete().eq('id', id);
+    await _supabase
+        .from('ministry_schedule')
+        .delete()
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   Future<void> clearSchedulesForEventMinistry(String eventId, String ministryId) async {
-    await _supabase.from('ministry_schedule').delete().eq('event_id', eventId).eq('ministry_id', ministryId);
+    await _supabase
+        .from('ministry_schedule')
+        .delete()
+        .eq('event_id', eventId)
+        .eq('ministry_id', ministryId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   
@@ -408,6 +488,7 @@ class MinistriesRepository {
       final response = await _supabase
           .from('ministry_function')
           .select('id,name,code,is_active')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('is_active', true);
       return (response as List).map((row) {
         final id = row['id']?.toString() ?? '';
@@ -428,7 +509,8 @@ class MinistriesRepository {
       final response = await _supabase
           .from('member_function')
           .select('user_id,function_id,ministry_id,ministry_function:function_id(id,name,code)')
-          .eq('ministry_id', ministryId);
+          .eq('ministry_id', ministryId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
       final out = <String, List<String>>{};
       for (final row in (response as List)) {
         final uid = row['user_id']?.toString() ?? row['member_id']?.toString() ?? '';
@@ -449,15 +531,21 @@ class MinistriesRepository {
       if (ids.isEmpty) return {};
       final response = await _supabase
           .from('user_account')
-          .select('id,first_name,last_name')
-          .inFilter('id', ids);
+          .select('id,first_name,last_name,nickname')
+          .inFilter('id', ids)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
       final out = <String, String>{};
       for (final row in (response as List)) {
         final id = row['id']?.toString();
         if (id == null) continue;
-        final fn = row['first_name']?.toString() ?? '';
-        final ln = row['last_name']?.toString() ?? '';
-        out[id] = ('$fn $ln').trim();
+        final nick = (row['nickname'] ?? row['apelido'] ?? '').toString().trim();
+        if (nick.isNotEmpty) {
+          out[id] = nick;
+        } else {
+          final fn = row['first_name']?.toString() ?? '';
+          final ln = row['last_name']?.toString() ?? '';
+          out[id] = ('$fn $ln').trim();
+        }
       }
       return out;
     } catch (_) {
@@ -491,7 +579,11 @@ class MinistriesRepository {
       final normNameToId = {
         for (final e in catalog) norm((e['name'] ?? '').toString()): (e['id'] ?? '').toString().trim()
       };
-      await _supabase.from('member_function').delete().eq('ministry_id', ministryId);
+      await _supabase
+          .from('member_function')
+          .delete()
+          .eq('ministry_id', ministryId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
       final rows = <Map<String, dynamic>>[];
       byFunc.forEach((funcName, userIds) {
         final nameKey = funcName.trim();
@@ -499,7 +591,12 @@ class MinistriesRepository {
         fid ??= normNameToId[norm(nameKey)];
         if (fid == null || fid.isEmpty) return;
         for (final uid in userIds.where((e) => (e).toString().isNotEmpty)) {
-          rows.add({'ministry_id': ministryId, 'user_id': uid, 'function_id': fid});
+          rows.add({
+            'ministry_id': ministryId,
+            'user_id': uid,
+            'function_id': fid,
+            'tenant_id': SupabaseConstants.currentTenantId,
+          });
         }
       });
       if (rows.isNotEmpty) {

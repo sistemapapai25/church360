@@ -437,11 +437,20 @@ BEGIN
     COUNT(prp.id)::BIGINT as total_prayers,
     COUNT(DISTINCT prp.user_id)::BIGINT as unique_prayers,
     EXISTS (
-      SELECT 1 FROM prayer_request_testimonies prt
+      SELECT 1 
+      FROM prayer_request_testimonies prt
       WHERE prt.prayer_request_id = request_uuid
+        AND prt.tenant_id = public.current_tenant_id()
     ) as has_testimony
   FROM prayer_request_prayers prp
-  WHERE prp.prayer_request_id = request_uuid;
+  WHERE prp.prayer_request_id = request_uuid
+    AND prp.tenant_id = public.current_tenant_id()
+    AND EXISTS (
+      SELECT 1 
+      FROM prayer_requests pr
+      WHERE pr.id = request_uuid
+        AND pr.tenant_id = public.current_tenant_id()
+    );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -457,6 +466,7 @@ BEGIN
     pr.category,
     COUNT(*)::BIGINT as total_count
   FROM prayer_requests pr
+  WHERE pr.tenant_id = public.current_tenant_id()
   GROUP BY pr.category
   ORDER BY total_count DESC;
 END;
@@ -474,6 +484,7 @@ BEGIN
     pr.status,
     COUNT(*)::BIGINT as total_count
   FROM prayer_requests pr
+  WHERE pr.tenant_id = public.current_tenant_id()
   GROUP BY pr.status
   ORDER BY total_count DESC;
 END;
@@ -527,5 +538,4 @@ BEGIN
     );
   END IF;
 END $$;
-
 

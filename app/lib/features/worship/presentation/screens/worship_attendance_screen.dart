@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/design/community_design.dart';
 import '../providers/worship_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../members/domain/models/member.dart';
@@ -31,8 +32,13 @@ class _WorshipAttendanceScreenState
     final membersAsync = ref.watch(activeMembersProvider);
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('Check-in'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text(
+          'Check-in',
+          style: CommunityDesign.titleStyle(context),
+        ),
         actions: [
           IconButton(
             icon: Icon(_showOnlyPresent ? Icons.filter_alt : Icons.filter_alt_outlined),
@@ -62,7 +68,7 @@ class _WorshipAttendanceScreenState
                 decoration: BoxDecoration(
                   color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                   border: Border(
-                    bottom: BorderSide(color: Colors.grey[300]!),
+                    bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
                   ),
                 ),
                 child: Column(
@@ -128,7 +134,7 @@ class _WorshipAttendanceScreenState
                   borderRadius: BorderRadius.circular(12),
                 ),
                 filled: true,
-                fillColor: Colors.grey[100],
+                fillColor: Theme.of(context).cardColor,
               ),
               onChanged: (value) {
                 setState(() {

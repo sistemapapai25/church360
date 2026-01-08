@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/dashboard_widget.dart';
 import '../providers/dashboard_widget_provider.dart';
+ 
 
 /// Tela de configuração da Dashboard
 class DashboardSettingsScreen extends ConsumerStatefulWidget {
@@ -84,6 +85,8 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
                   },
                 ),
               ),
+
+              const Divider(height: 1),
 
               // Botão de Salvar (aparece quando há mudanças)
               if (_isReordering)
@@ -203,6 +206,7 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
       'account_balance': Icons.account_balance,
       'pie_chart': Icons.pie_chart,
       'flag': Icons.flag,
+      'schedule': Icons.schedule,
     };
 
     return iconMap[iconName] ?? Icons.widgets;

@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 
 import '../../events/domain/models/event.dart';
 
@@ -19,6 +20,7 @@ class ScheduleRepository {
       final response = await _supabase
           .from('event')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .gte('start_date', startStr)
           .lte('start_date', endStr)
           .order('start_date', ascending: true);
@@ -47,4 +49,3 @@ class ScheduleRepository {
     return getEventsByDateRange(start, end);
   }
 }
-

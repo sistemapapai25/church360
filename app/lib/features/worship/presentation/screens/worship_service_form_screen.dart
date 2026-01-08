@@ -288,6 +288,7 @@ class _WorshipServiceFormScreenState
                               Text(type.label),
                             ],
                           ),
+                          showCheckmark: false,
                           onSelected: (selected) {
                             if (selected) {
                               setState(() {
@@ -296,7 +297,6 @@ class _WorshipServiceFormScreenState
                             }
                           },
                           selectedColor: _getTypeColor(type),
-                          checkmarkColor: Colors.white,
                           labelStyle: TextStyle(
                             color: isSelected ? Colors.white : null,
                           ),

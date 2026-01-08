@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/design/community_design.dart';
 import '../providers/contribution_provider.dart';
 import '../../domain/models/contribution_info.dart';
 
@@ -125,8 +126,18 @@ class _ManageContributionScreenState extends ConsumerState<ManageContributionScr
     final contributionInfoAsync = ref.watch(activeContributionInfoProvider);
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('Gerenciar Contribuição'),
+        title: Text(
+          'Gerenciar Contribuição',
+          style: CommunityDesign.titleStyle(context).copyWith(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: CommunityDesign.headerColor(context),
+        elevation: 0,
+        centerTitle: false,
         actions: [
           if (_isLoading)
             const Center(
@@ -179,9 +190,12 @@ class _ManageContributionScreenState extends ConsumerState<ManageContributionScr
                 const SizedBox(height: 24),
 
                 // Seção PIX
-                const Text(
+                Text(
                   'Informações PIX',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: CommunityDesign.titleStyle(context).copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const Divider(),
                 const SizedBox(height: 16),
@@ -214,9 +228,12 @@ class _ManageContributionScreenState extends ConsumerState<ManageContributionScr
                 const SizedBox(height: 24),
 
                 // Seção Dados Bancários
-                const Text(
+                Text(
                   'Dados Bancários (TED/DOC)',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: CommunityDesign.titleStyle(context).copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const Divider(),
                 const SizedBox(height: 16),
@@ -326,15 +343,19 @@ class _ManageContributionScreenState extends ConsumerState<ManageContributionScr
                 ElevatedButton.icon(
                   onPressed: _isLoading ? null : _saveContributionInfo,
                   icon: _isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Theme.of(context).colorScheme.onPrimary,
+                          ),
                         )
                       : const Icon(Icons.save),
                   label: Text(_isLoading ? 'Salvando...' : 'Salvar Informações'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.all(16),
+                  style: CommunityDesign.pillButtonStyle(
+                    context,
+                    Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ],

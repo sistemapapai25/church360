@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 
 import '../domain/models/tag.dart';
 
@@ -23,6 +24,7 @@ class TagsRepository {
             *,
             member_tag(count)
           ''')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('name', ascending: true);
 
       return (response as List).map((data) {

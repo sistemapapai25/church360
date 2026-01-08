@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/user_role.dart';
 
 /// Repository: UserRoles
@@ -7,6 +8,23 @@ class UserRolesRepository {
   final SupabaseClient _supabase;
 
   UserRolesRepository(this._supabase);
+
+  Future<String?> _effectiveUserId() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+    final email = user.email;
+    if (email != null && email.trim().isNotEmpty) {
+      try {
+        final nickname = email.trim().split('@').first;
+        await _supabase.rpc('ensure_my_account', params: {
+          '_tenant_id': SupabaseConstants.currentTenantId,
+          '_email': email,
+          '_nickname': nickname,
+        });
+      } catch (_) {}
+    }
+    return user.id;
+  }
 
   // =====================================================
   // ATRIBUIÇÕES DE CARGOS
@@ -111,13 +129,14 @@ class UserRolesRepository {
     DateTime? expiresAt,
     String? notes,
   }) async {
+    final actorId = await _effectiveUserId();
     final response = await _supabase.rpc(
       'assign_role_to_user',
       params: {
         'p_user_id': userId,
         'p_role_id': roleId,
         'p_context_id': contextId,
-        'p_assigned_by': _supabase.auth.currentUser?.id,
+        'p_assigned_by': actorId,
         'p_expires_at': expiresAt?.toIso8601String(),
         'p_notes': notes,
       },
@@ -143,11 +162,12 @@ class UserRolesRepository {
 
   /// Remover cargo de usuário
   Future<bool> removeUserRole(String userRoleId) async {
+    final actorId = await _effectiveUserId();
     final response = await _supabase.rpc(
       'remove_user_role',
       params: {
         'p_user_role_id': userRoleId,
-        'p_removed_by': _supabase.auth.currentUser?.id,
+        'p_removed_by': actorId,
       },
     );
 

@@ -1,0 +1,178 @@
+{
+  "handoff_title": "Church360 — Handoff Global de Projeto",
+  "generated_at": "2025-12-26T00:00:00-03:00",
+  "environment": {
+    "os": "windows",
+    "project_root": "c:\\Users\\prber\\projetos\\Church360",
+    "app_dir": "c:\\Users\\prber\\projetos\\Church360\\app"
+  },
+  "vision_docs": [
+    {
+      "title": "Product Vision",
+      "file": "c:\\Users\\prber\\projetos\\Church360\\docs\\church360_product_vision.md",
+      "refs": ["L229-L296"]
+    },
+    {
+      "title": "Dev Roadmap",
+      "file": "c:\\Users\\prber\\projetos\\Church360\\docs\\church360_dev_roadmap.md",
+      "refs": ["L451-L518"]
+    }
+  ],
+  "architecture": {
+    "style": "Clean Architecture (data, domain, presentation)",
+    "core": {
+      "router": {
+        "file": "c:\\Users\\prber\\projetos\\Church360\\app\\lib\\core\\navigation\\app_router.dart",
+        "refs": ["L502-L1045"]
+      },
+      "theme": "c:\\Users\\prber\\projetos\\Church360\\app\\lib\\core\\theme\\app_theme.dart",
+      "home": "c:\\Users\\prber\\projetos\\Church360\\app\\lib\\core\\screens\\home_screen.dart",
+      "splash": "c:\\Users\\prber\\projetos\\Church360\\app\\lib\\core\\screens\\splash_screen.dart"
+    },
+    "entrypoint": {
+      "main": {
+        "file": "c:\\Users\\prber\\projetos\\Church360\\app\\lib\\main.dart",
+        "refs": ["L1-L56"]
+      },
+      "supabase_constants": "c:\\Users\\prber\\projetos\\Church360\\app\\lib\\core\\constants\\supabase_constants.dart"
+    },
+    "state_management": "Flutter Riverpod (providers por módulo, FutureProvider/StreamProvider)"
+  },
+  "backend": {
+    "platform": "Supabase",
+    "initialization": {
+      "file": "c:\\Users\\prber\\projetos\\Church360\\app\\lib\\main.dart",
+      "refs": ["L15-L22"]
+    },
+    "client_provider": {
+      "file": "c:\\Users\\prber\\projetos\\Church360\\app\\lib\\features\\permissions\\providers\\permissions_providers.dart",
+      "refs": ["L16-L20"]
+    },
+    "examples": [
+      {
+        "module": "Analytics",
+        "file": "c:\\Users\\prber\\projetos\\Church360\\app\\lib\\features\\analytics\\data\\analytics_repository.dart",
+        "refs": ["L14-L21"]
+      },
+      {
+        "module": "Members",
+        "file": "c:\\Users\\prber\\projetos\\Church360\\app\\lib\\features\\members\\data\\members_repository.dart",
+        "refs": ["L14-L26"]
+      },
+      {
+        "module": "Developer Settings",
+        "file": "c:\\Users\\prber\\projetos\\Church360\\app\\lib\\core\\screens\\developer_settings_screen.dart",
+        "refs": ["L56-L83", "L477-L575", "L1172-L1201"]
+      }
+    ]
+  },
+  "modules": [
+    { "name": "Devotionals", "path": "app/lib/features/devotionals", "key_screens": ["devotionals_list_screen.dart", "devotional_detail_screen.dart", "devotional_form_screen.dart"] },
+    { "name": "Events", "path": "app/lib/features/events", "key_screens": ["events_list_screen.dart", "event_detail_screen.dart", "event_form_screen.dart", "event_registration_screen.dart"] },
+    { "name": "Members", "path": "app/lib/features/members", "key_screens": ["members_list_screen.dart", "member_profile_screen.dart", "member_form_screen.dart"] },
+    { "name": "Permissions", "path": "app/lib/features/permissions", "key_screens": ["permissions_screen.dart", "roles_list_screen.dart", "user_roles_list_screen.dart"] },
+    { "name": "Community", "path": "app/lib/features/community", "key_screens": ["community_screen.dart", "admin/community_admin_screen.dart"] },
+    { "name": "Courses", "path": "app/lib/features/courses", "key_screens": ["courses_list_screen.dart", "course_viewer_screen.dart"] },
+    { "name": "Study Groups", "path": "app/lib/features/study_groups", "key_screens": ["study_groups_list_screen.dart", "study_group_detail_screen.dart", "lesson_detail_screen.dart"] },
+    { "name": "Reading Plans", "path": "app/lib/features/reading_plans", "key_screens": ["reading_plans_list_screen.dart", "reading_plan_detail_screen.dart"] },
+    { "name": "Bible", "path": "app/lib/features/bible", "key_screens": ["bible_books_screen.dart", "bible_chapters_screen.dart", "bible_reader_screen.dart"] },
+    { "name": "Schedule", "path": "app/lib/features/schedule", "key_screens": ["schedule_screen.dart", "auto_schedule_generator_screen.dart", "scale_history_screen.dart"] },
+    { "name": "Notifications", "path": "app/lib/features/notifications", "key_screens": ["notifications_list_screen.dart", "notification_preferences_screen.dart"] },
+    { "name": "Quick News", "path": "app/lib/features/quick_news", "key_screens": ["quick_news_list_screen.dart", "quick_news_form_screen.dart"] },
+    { "name": "Home Content", "path": "app/lib/features/home_content", "key_screens": ["banners_list_screen.dart", "banner_form_screen.dart"] },
+    { "name": "Contribution", "path": "app/lib/features/contribution", "key_screens": ["contribution_info_screen.dart", "manage_contribution_screen.dart"] },
+    { "name": "Financial", "path": "app/lib/features/financial", "key_screens": ["financial_screen.dart", "financial_reports_screen.dart"] },
+    { "name": "Access Levels", "path": "app/lib/features/access_levels", "key_screens": ["access_levels_list_screen.dart", "access_level_history_screen.dart"] },
+    { "name": "Prayer Requests", "path": "app/lib/features/prayer_requests", "key_screens": ["prayer_requests_list_screen.dart", "prayer_request_detail_screen.dart", "prayer_request_form_screen.dart"] },
+    { "name": "Support Materials", "path": "app/lib/features/support_materials", "key_screens": ["support_materials_screen.dart", "material_viewer_screen.dart", "material_modules_screen.dart"] }
+  ],
+  "navigation_summary": {
+    "file": "c:\\Users\\prber\\projetos\\Church360\\app\\lib\\core\\navigation\\app_router.dart",
+    "highlights": [
+      { "group": "Devotionals", "refs": ["L528-L566"] },
+      { "group": "Prayer Requests", "refs": ["L566-L606"] },
+      { "group": "Study Groups", "refs": ["L598-L705"] },
+      { "group": "Church Schedule", "refs": ["L705-L753"] },
+      { "group": "Events", "refs": ["L753-L812"] },
+      { "group": "Reading Plans", "refs": ["L912-L932"] },
+      { "group": "Banners / Quick News / Testimonies", "refs": ["L932-L1010"] },
+      { "group": "Bible", "refs": ["L1010-L1037"] }
+    ]
+  },
+  "dependencies": {
+    "source": "c:\\Users\\prber\\projetos\\Church360\\app\\pubspec.yaml",
+    "core": [
+      "flutter_riverpod ^2.6.1",
+      "riverpod_annotation ^2.6.1",
+      "go_router ^14.6.2",
+      "supabase_flutter ^2.9.1",
+      "shared_preferences ^2.3.3",
+      "intl ^0.20.1",
+      "uuid ^4.5.1",
+      "http ^1.5.0"
+    ],
+    "ui": [
+      "flutter_svg ^2.0.10+1",
+      "fl_chart ^0.69.0",
+      "flutter_markdown ^0.7.4+1",
+      "image_picker ^1.2.0",
+      "table_calendar ^3.2.0"
+    ],
+    "media": [
+      "youtube_player_flutter ^9.1.3",
+      "youtube_player_iframe ^5.2.2",
+      "qr_flutter ^4.1.0",
+      "mobile_scanner ^7.1.2",
+      "file_picker ^10.3.3"
+    ],
+    "other": [
+      "share_plus ^10.1.4",
+      "pdf ^3.11.0",
+      "printing ^5.13.4",
+      "url_launcher ^6.3.2",
+      "freezed_annotation ^3.1.0",
+      "json_annotation ^4.9.0"
+    ]
+  },
+  "feature_deep_dives": [
+    {
+      "feature": "Devotionals",
+      "summary": "Tela de detalhes aprimorada com reprodução inline do YouTube no hero (Web via iframe; Mobile via flutter), cartões de estatísticas premium com animações e skeletons, selo HOJE/LIDO com animação, botão para copiar referência bíblica e botão de leitura concluída que permanece verde quando desabilitado.",
+      "key_changes": [
+        {
+          "file": "c:\\Users\\prber\\projetos\\Church360\\app\\lib\\features\\devotionals\\presentation\\screens\\devotional_detail_screen.dart",
+          "refs": ["L1-L12","L24-L37","L167-L192","L300-L360","L422-L453","L575-L585","L660-L735","L767-L850","L991-L1056","L1025-L1027","L1075-L1129"]
+        }
+      ],
+      "providers": [
+        {
+          "file": "c:\\Users\\prber\\projetos\\Church360\\app\\lib\\features\\devotionals\\presentation\\providers\\devotional_provider.dart",
+          "refs": ["L31-L35","L85-L93","L99-L103","L105-L113"]
+        }
+      ]
+    }
+  ],
+  "validation": {
+    "flutter_analyze": "pass",
+    "web_preview_last_used": "http://127.0.0.1:5173/",
+    "notes": "Projeto compila; reprodução inline validada; sem erros em flutter analyze."
+  },
+  "guidelines": [
+    "Seguir Clean Architecture e organização por módulo",
+    "Usar Riverpod para estado e providers por domínio",
+    "Rotas gerenciadas pelo GoRouter centralizado",
+    "Evitar expor segredos; usar apenas chaves públicas quando necessário",
+    "Manter consistência visual via AppTheme e CommunityDesign"
+  ],
+  "expectations": [
+    "Devocionais com player inline e UI premium",
+    "Rotas e permissões funcionando via Supabase/Auth",
+    "Relatórios e dashboards consumindo RPCs do Supabase"
+  ],
+  "open_questions": [],
+  "next_suggestions": [
+    "Adicionar testes de widget para hero/video e estados de leitura",
+    "Criar smoke tests de navegação para rotas críticas",
+    "Documentar padrões de providers e repositórios por módulo"
+  ]
+}

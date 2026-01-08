@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/events/domain/models/event.dart';
+import '../../constants/supabase_constants.dart';
 
 /// Enum para períodos de filtro
 enum EventPeriod {
@@ -32,6 +33,7 @@ final upcomingEventsByPeriodProvider = FutureProvider.family<List<Event>, (DateT
           event_registration(count)
         ''')
         .eq('status', 'published')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .gte('start_date', startDate.toIso8601String())
         .lte('start_date', endDate.toIso8601String())
         .order('start_date', ascending: true);

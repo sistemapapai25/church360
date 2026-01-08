@@ -12,40 +12,50 @@ CREATE TABLE IF NOT EXISTS public.reading_plan (
   status TEXT DEFAULT 'active', -- 'active', 'inactive'
   category TEXT, -- 'complete_bible', 'new_testament', 'old_testament', 'devotional'
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ
+  updated_at TIMESTAMPTZ,
+  tenant_id UUID REFERENCES public.tenant(id) ON DELETE CASCADE
 );
+
+-- Garantir coluna tenant_id em tabelas já existentes e realizar backfill
+ALTER TABLE public.reading_plan ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES public.tenant(id) ON DELETE CASCADE;
+ALTER TABLE public.reading_plan ALTER COLUMN tenant_id SET DEFAULT public.current_tenant_id();
+UPDATE public.reading_plan rp
+  SET tenant_id = (SELECT id FROM public.tenant LIMIT 1)
+WHERE rp.tenant_id IS NULL;
 
 -- Habilitar RLS
 ALTER TABLE public.reading_plan ENABLE ROW LEVEL SECURITY;
 
 -- Criar políticas
-DROP POLICY IF EXISTS "Todos podem visualizar planos de leitura" ON public.reading_plan;
-CREATE POLICY "Todos podem visualizar planos de leitura"
+DROP POLICY IF EXISTS tenant_select_reading_plan ON public.reading_plan;
+CREATE POLICY tenant_select_reading_plan
   ON public.reading_plan
   FOR SELECT
-  USING (true);
+  USING (tenant_id = public.current_tenant_id());
 
-DROP POLICY IF EXISTS "Autenticados podem criar planos" ON public.reading_plan;
-CREATE POLICY "Autenticados podem criar planos"
+DROP POLICY IF EXISTS tenant_insert_reading_plan ON public.reading_plan;
+CREATE POLICY tenant_insert_reading_plan
   ON public.reading_plan
   FOR INSERT
-  WITH CHECK (auth.role() = 'authenticated');
+  WITH CHECK (tenant_id = public.current_tenant_id());
 
-DROP POLICY IF EXISTS "Autenticados podem atualizar planos" ON public.reading_plan;
-CREATE POLICY "Autenticados podem atualizar planos"
+DROP POLICY IF EXISTS tenant_update_reading_plan ON public.reading_plan;
+CREATE POLICY tenant_update_reading_plan
   ON public.reading_plan
   FOR UPDATE
-  USING (auth.role() = 'authenticated');
+  USING (tenant_id = public.current_tenant_id())
+  WITH CHECK (tenant_id = public.current_tenant_id());
 
-DROP POLICY IF EXISTS "Autenticados podem deletar planos" ON public.reading_plan;
-CREATE POLICY "Autenticados podem deletar planos"
+DROP POLICY IF EXISTS tenant_delete_reading_plan ON public.reading_plan;
+CREATE POLICY tenant_delete_reading_plan
   ON public.reading_plan
   FOR DELETE
-  USING (auth.role() = 'authenticated');
+  USING (tenant_id = public.current_tenant_id());
 
 -- Criar índices
 CREATE INDEX IF NOT EXISTS idx_reading_plan_status ON public.reading_plan(status);
 CREATE INDEX IF NOT EXISTS idx_reading_plan_category ON public.reading_plan(category);
+CREATE INDEX IF NOT EXISTS idx_reading_plan_tenant_id ON public.reading_plan(tenant_id);
 
 -- =====================================================
 -- TABELA: PROGRESSO DO USUÁRIO NOS PLANOS
@@ -54,45 +64,56 @@ CREATE INDEX IF NOT EXISTS idx_reading_plan_category ON public.reading_plan(cate
 -- Criar tabela de progresso do usuário
 CREATE TABLE IF NOT EXISTS public.reading_plan_progress (
   plan_id UUID NOT NULL REFERENCES public.reading_plan(id) ON DELETE CASCADE,
-  member_id UUID NOT NULL REFERENCES public.member(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.user_account(id) ON DELETE CASCADE,
   started_at TIMESTAMPTZ DEFAULT NOW(),
   current_day INTEGER DEFAULT 1,
   completed_at TIMESTAMPTZ,
   last_read_at TIMESTAMPTZ,
-  PRIMARY KEY (plan_id, member_id)
+  tenant_id UUID REFERENCES public.tenant(id) ON DELETE CASCADE,
+  PRIMARY KEY (plan_id, user_id)
 );
+
+-- Garantir coluna tenant_id e backfill a partir do plano
+ALTER TABLE public.reading_plan_progress ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES public.tenant(id) ON DELETE CASCADE;
+ALTER TABLE public.reading_plan_progress ALTER COLUMN tenant_id SET DEFAULT public.current_tenant_id();
+UPDATE public.reading_plan_progress rpp
+  SET tenant_id = rp.tenant_id
+FROM public.reading_plan rp
+WHERE rpp.plan_id = rp.id AND rpp.tenant_id IS NULL;
 
 -- Habilitar RLS
 ALTER TABLE public.reading_plan_progress ENABLE ROW LEVEL SECURITY;
 
 -- Criar políticas
-DROP POLICY IF EXISTS "Usuários podem ver seu próprio progresso" ON public.reading_plan_progress;
-CREATE POLICY "Usuários podem ver seu próprio progresso"
+DROP POLICY IF EXISTS tenant_select_reading_plan_progress ON public.reading_plan_progress;
+CREATE POLICY tenant_select_reading_plan_progress
   ON public.reading_plan_progress
   FOR SELECT
-  USING (auth.uid() = member_id);
+  USING (auth.uid() = user_id AND tenant_id = public.current_tenant_id());
 
-DROP POLICY IF EXISTS "Usuários podem criar seu próprio progresso" ON public.reading_plan_progress;
-CREATE POLICY "Usuários podem criar seu próprio progresso"
+DROP POLICY IF EXISTS tenant_insert_reading_plan_progress ON public.reading_plan_progress;
+CREATE POLICY tenant_insert_reading_plan_progress
   ON public.reading_plan_progress
   FOR INSERT
-  WITH CHECK (auth.uid() = member_id);
+  WITH CHECK (auth.uid() = user_id AND tenant_id = public.current_tenant_id());
 
-DROP POLICY IF EXISTS "Usuários podem atualizar seu próprio progresso" ON public.reading_plan_progress;
-CREATE POLICY "Usuários podem atualizar seu próprio progresso"
+DROP POLICY IF EXISTS tenant_update_reading_plan_progress ON public.reading_plan_progress;
+CREATE POLICY tenant_update_reading_plan_progress
   ON public.reading_plan_progress
   FOR UPDATE
-  USING (auth.uid() = member_id);
+  USING (auth.uid() = user_id AND tenant_id = public.current_tenant_id())
+  WITH CHECK (tenant_id = public.current_tenant_id());
 
-DROP POLICY IF EXISTS "Usuários podem deletar seu próprio progresso" ON public.reading_plan_progress;
-CREATE POLICY "Usuários podem deletar seu próprio progresso"
+DROP POLICY IF EXISTS tenant_delete_reading_plan_progress ON public.reading_plan_progress;
+CREATE POLICY tenant_delete_reading_plan_progress
   ON public.reading_plan_progress
   FOR DELETE
-  USING (auth.uid() = member_id);
+  USING (auth.uid() = user_id AND tenant_id = public.current_tenant_id());
 
 -- Criar índices
-CREATE INDEX IF NOT EXISTS idx_reading_plan_progress_member ON public.reading_plan_progress(member_id);
+CREATE INDEX IF NOT EXISTS idx_reading_plan_progress_user ON public.reading_plan_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_reading_plan_progress_completed ON public.reading_plan_progress(completed_at);
+CREATE INDEX IF NOT EXISTS idx_reading_plan_progress_tenant_id ON public.reading_plan_progress(tenant_id);
 
 -- =====================================================
 -- DADOS DE EXEMPLO
@@ -151,4 +172,3 @@ VALUES
     'active'
   )
 ON CONFLICT DO NOTHING;
-

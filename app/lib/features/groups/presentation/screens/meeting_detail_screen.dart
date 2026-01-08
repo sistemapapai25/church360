@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/design/community_design.dart';
 
 import '../../data/group_meetings_repository.dart';
 import '../providers/meetings_provider.dart';
@@ -25,8 +26,10 @@ class MeetingDetailScreen extends ConsumerWidget {
     final meetingAsync = ref.watch(meetingByIdProvider(meetingId));
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('Detalhes da Reunião'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text('Detalhes da Reunião', style: CommunityDesign.titleStyle(context)),
         actions: [
           // Botão de editar
           IconButton(

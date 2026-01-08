@@ -1,0 +1,8 @@
+Analyzing member_profile_screen.dart...                         
+
+   info - Statements in an if should be enclosed in a block - app\lib\features\members\presentation\screens\member_profile_screen.dart:526:7 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - app\lib\features\members\presentation\screens\member_profile_screen.dart:536:7 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - app\lib\features\members\presentation\screens\member_profile_screen.dart:540:7 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - app\lib\features\members\presentation\screens\member_profile_screen.dart:542:7 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - app\lib\features\members\presentation\screens\member_profile_screen.dart:553:7 - curly_braces_in_flow_control_structures
+

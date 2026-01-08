@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../widgets/dashboard_charts.dart';
+import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../../core/constants/supabase_constants.dart';
 import '../providers/dashboard_widget_provider.dart';
 import '../../features/notifications/presentation/widgets/notification_badge.dart';
 import '../../features/custom_reports/presentation/providers/custom_report_providers.dart';
+import '../../features/members/presentation/providers/members_provider.dart';
 
 /// Tela de Dashboard com estatísticas e gráficos
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -44,6 +47,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             tooltip: 'Menu de Gestão',
           ),
           actions: [
+            // Botão voltar para Menu Mais
+            IconButton(
+              icon: const Icon(Icons.exit_to_app_outlined), // Ícone indicando saída/retorno
+              onPressed: () {
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                } else {
+                  context.go('/home?tab=more');
+                }
+              },
+              tooltip: 'Voltar para Menu',
+            ),
             // Botão de configurar Dashboard
             IconButton(
               icon: const Icon(Icons.settings),
@@ -170,10 +185,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         onTap: () => context.push('/reports/attendance'),
         child: const AverageAttendanceCard(),
       ),
-      'top_tags': InkWell(
-        onTap: () => context.push('/reports/members?tab=tags'),
-        child: const TopTagsCard(),
-      ),
+      // 'top_tags': InkWell(
+      //   onTap: () => context.push('/reports/members?tab=tags'),
+      //   child: const TopTagsCard(),
+      // ),
       'financial_summary': InkWell(
         onTap: () => context.push('/financial-reports'),
         child: const FinancialSummaryCards(),
@@ -185,6 +200,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       'financial_goals': InkWell(
         onTap: () => context.push('/financial-reports'),
         child: const FinancialGoalsWidget(),
+      ),
+      'dispatch_auto_scheduler': InkWell(
+        onTap: () => context.push('/dispatch-config'),
+        child: const AutoSchedulerSummaryCard(),
       ),
     };
 
@@ -392,23 +411,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   title: 'Banners',
                   route: '/home/banners',
                 ),
-                // Testemunhos
+                // Comunidade (Testemunhos, Pedidos, Classificados)
                 _DrawerMenuItem(
-                  icon: Icons.record_voice_over,
-                  title: 'Testemunhos',
-                  route: '/home/testimonies',
-                ),
-                // Pedidos de Oração
-                _DrawerMenuItem(
-                  icon: Icons.favorite,
-                  title: 'Pedidos de Oração',
-                  route: '/home/prayer-requests',
+                  icon: Icons.people_outline,
+                  title: 'Comunidade',
+                  route: '/community/admin',
                 ),
                 // Devocionais
                 _DrawerMenuItem(
                   icon: Icons.book,
                   title: 'Devocionais',
-                  route: '/devotionals',
+                  route: '/devotionals/admin',
                 ),
                 // Contribuição
                 _DrawerMenuItem(
@@ -430,6 +443,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               icon: Icons.apps,
               title: 'MÓDULOS',
               children: [
+                _DrawerMenuItem(
+                  icon: Icons.smart_toy,
+                  title: 'Agentes IA',
+                  route: '/agents-center',
+                ),
                 _DrawerMenuItem(
                   icon: Icons.school,
                   title: 'Cursos',
@@ -468,6 +486,40 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   title: 'Leitor de QR Code',
                   route: '/qr-scanner',
                 ),
+                _DrawerMenuItem(
+                  icon: Icons.send,
+                  title: 'Configuração de Disparos',
+                  route: '/dispatch-config',
+                ),
+                Consumer(builder: (context, ref, _) {
+                  final supabase = ref.watch(supabaseClientProvider);
+                  final memberAsync = ref.watch(currentMemberProvider);
+                  return memberAsync.when(
+                    data: (member) {
+                      if (member == null) return const SizedBox.shrink();
+                      return FutureBuilder<Map<String, dynamic>?>(
+                        future: supabase
+                            .from('user_account')
+                            .select('role_global')
+                            .eq('id', member.id)
+                            .eq('tenant_id', SupabaseConstants.currentTenantId)
+                            .maybeSingle(),
+                        builder: (context, snapshot) {
+                          final role = (snapshot.data?['role_global']?.toString() ?? '').trim().toLowerCase();
+                          final isOwner = role == 'owner';
+                          if (!isOwner) return const SizedBox.shrink();
+                          return _DrawerMenuItem(
+                            icon: Icons.developer_mode,
+                            title: 'Configurações de Desenvolvedor',
+                            route: '/developer-settings',
+                          );
+                        },
+                      );
+                    },
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  );
+                }),
                 _DrawerMenuItem(
                   icon: Icons.analytics,
                   title: 'Analytics & Relatórios',

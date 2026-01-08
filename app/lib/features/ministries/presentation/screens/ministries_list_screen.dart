@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../access_levels/presentation/providers/access_level_provider.dart';
-import '../../../permissions/providers/permissions_providers.dart';
+import '../../../../core/design/community_design.dart';
 
 import '../providers/ministries_provider.dart';
 import '../../domain/models/ministry.dart';
@@ -13,7 +13,8 @@ class MinistriesListScreen extends ConsumerStatefulWidget {
   const MinistriesListScreen({super.key});
 
   @override
-  ConsumerState<MinistriesListScreen> createState() => _MinistriesListScreenState();
+  ConsumerState<MinistriesListScreen> createState() =>
+      _MinistriesListScreenState();
 }
 
 class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
@@ -22,155 +23,293 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
   @override
   Widget build(BuildContext context) {
     final isAdminAsync = ref.watch(isAdminProvider);
-    final currentUserId = ref.watch(currentUserIdProvider);
 
     final ministriesAsync = isAdminAsync.when(
       data: (isAdmin) {
         if (isAdmin) return ref.watch(allMinistriesProvider);
-        if (currentUserId == null) return const AsyncValue<List<Ministry>>.data([]);
-        return ref.watch(memberMinistriesProvider(currentUserId));
+        return ref.watch(currentMemberMinistriesProvider);
       },
       loading: () => const AsyncValue<List<Ministry>>.loading(),
       error: (_, __) => const AsyncValue<List<Ministry>>.data([]),
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Ministérios'),
-        actions: [
-          isAdminAsync.maybeWhen(
-            data: (isAdmin) => isAdmin
-                ? IconButton(
-                    icon: const Icon(Icons.add),
-                    onPressed: () {
-                      context.push('/ministries/new');
-                    },
-                    tooltip: 'Novo Ministério',
-                  )
-                : const SizedBox.shrink(),
-            orElse: () => const SizedBox.shrink(),
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
+      body: Column(
+        children: [
+          // Header com título e botão de novo ministério
+          Container(
+            padding: const EdgeInsets.fromLTRB(24, 60, 24, 16),
+            decoration: BoxDecoration(
+              color: CommunityDesign.headerColor(context),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      tooltip: 'Voltar',
+                      onPressed: () => context.pop(),
+                    ),
+                    const SizedBox(width: 4),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.church,
+                        size: 24,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Ministérios',
+                            style: CommunityDesign.titleStyle(context).copyWith(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            'Gerencie os ministérios da comunidade',
+                            style: CommunityDesign.metaStyle(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                    isAdminAsync.maybeWhen(
+                      data: (isAdmin) => isAdmin
+                          ? ElevatedButton.icon(
+                              onPressed: () => context.push('/ministries/new'),
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Novo'),
+                              style: CommunityDesign.pillButtonStyle(
+                                context,
+                                Theme.of(context).colorScheme.primary,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                      orElse: () => const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Expanded(
+            child: ministriesAsync.when(
+              data: (ministries) {
+                final filtered = ministries.where((m) {
+                  if (_searchQuery.isEmpty) return true;
+                  final q = _searchQuery.toLowerCase();
+                  final name = m.name.toLowerCase();
+                  final desc = (m.description ?? '').toLowerCase();
+                  return name.contains(q) || desc.contains(q);
+                }).toList()..sort((a, b) => a.name.compareTo(b.name));
+
+                if (ministries.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.church_outlined,
+                          size: 64,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.2),
+                        ),
+                        const SizedBox(height: 16),
+                        isAdminAsync.maybeWhen(
+                          data: (isAdmin) => Text(
+                            isAdmin
+                                ? 'Nenhum ministério cadastrado'
+                                : 'Você não possui ministérios vinculados',
+                            style: CommunityDesign.titleStyle(context),
+                          ),
+                          orElse: () => Text(
+                            'Carregando...',
+                            style: CommunityDesign.metaStyle(context),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        isAdminAsync.maybeWhen(
+                          data: (isAdmin) => isAdmin
+                              ? ElevatedButton.icon(
+                                  onPressed: () {
+                                    context.push('/ministries/new');
+                                  },
+                                  icon: const Icon(Icons.add, size: 18),
+                                  label: const Text(
+                                    'Criar Primeiro Ministério',
+                                  ),
+                                  style: CommunityDesign.pillButtonStyle(
+                                    context,
+                                    Theme.of(context).colorScheme.primary,
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                          orElse: () => const SizedBox.shrink(),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Container(
+                        decoration: CommunityDesign.overlayDecoration(
+                          Theme.of(context).colorScheme,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.search, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Buscar Ministérios',
+                                    style: CommunityDesign.titleStyle(context)
+                                        .copyWith(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              TextField(
+                                onChanged: (value) =>
+                                    setState(() => _searchQuery = value.trim()),
+                                decoration: InputDecoration(
+                                  hintText: 'Digite o nome ou descrição...',
+                                  hintStyle: CommunityDesign.metaStyle(context),
+                                  prefixIcon: const Icon(
+                                    Icons.search,
+                                    size: 20,
+                                  ),
+                                  filled: true,
+                                  fillColor: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest
+                                      .withValues(alpha: 0.3),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .outline
+                                          .withValues(alpha: 0.1),
+                                    ),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Expanded(
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 0,
+                        ),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 16),
+                        itemBuilder: (context, index) {
+                          final ministry = filtered[index];
+                          return _MinistryCard(ministry: ministry);
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+              error: (error, stack) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: Colors.red,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Erro ao carregar ministérios',
+                        style: CommunityDesign.titleStyle(context),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        error.toString(),
+                        style: CommunityDesign.metaStyle(context),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          ref.invalidate(allMinistriesProvider);
+                        },
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const Text('Tentar Novamente'),
+                        style: CommunityDesign.pillButtonStyle(
+                          context,
+                          Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
-      ),
-      body: ministriesAsync.when(
-        data: (ministries) {
-          final filtered = ministries.where((m) {
-            if (_searchQuery.isEmpty) return true;
-            final q = _searchQuery.toLowerCase();
-            final name = m.name.toLowerCase();
-            final desc = (m.description ?? '').toLowerCase();
-            return name.contains(q) || desc.contains(q);
-          }).toList()
-            ..sort((a, b) => a.name.compareTo(b.name));
-
-          if (ministries.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.church_outlined,
-                    size: 64,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 16),
-                  isAdminAsync.maybeWhen(
-                    data: (isAdmin) => Text(
-                      isAdmin ? 'Nenhum ministério cadastrado' : 'Você não possui ministérios vinculados',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    orElse: () => Text(
-                      'Carregando...',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  isAdminAsync.maybeWhen(
-                    data: (isAdmin) => isAdmin
-                        ? FilledButton.icon(
-                            onPressed: () {
-                              context.push('/ministries/new');
-                            },
-                            icon: const Icon(Icons.add),
-                            label: const Text('Criar Primeiro Ministério'),
-                          )
-                        : const SizedBox.shrink(),
-                    orElse: () => const SizedBox.shrink(),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Buscar ministério...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    filled: true,
-                  ),
-                  onChanged: (value) => setState(() => _searchQuery = value.trim()),
-                ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, index) {
-                    final ministry = filtered[index];
-                    return _MinistryCard(ministry: ministry);
-                  },
-                ),
-              ),
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 16),
-              Text('Erro ao carregar ministérios: $error'),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () {
-                  ref.invalidate(allMinistriesProvider);
-                },
-                child: const Text('Tentar Novamente'),
-              ),
-            ],
-          ),
-        ),
-      ),
-      floatingActionButton: isAdminAsync.maybeWhen(
-        data: (isAdmin) => isAdmin
-            ? ministriesAsync.maybeWhen(
-                data: (ministries) => ministries.isNotEmpty
-                    ? FloatingActionButton(
-                        onPressed: () {
-                          context.push('/ministries/new');
-                        },
-                        child: const Icon(Icons.add),
-                      )
-                    : null,
-                orElse: () => null,
-              )
-            : null,
-        orElse: () => null,
       ),
     );
   }
@@ -193,15 +332,17 @@ class _MinistryCard extends ConsumerWidget {
     // Mapear ícone Font Awesome
     final icon = _getIconData(ministry.icon);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+    return Container(
+      decoration: CommunityDesign.overlayDecoration(
+        Theme.of(context).colorScheme,
+      ),
       child: InkWell(
         onTap: () {
           context.push('/ministries/${ministry.id}');
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(CommunityDesign.radius),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: CommunityDesign.overlayPadding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -215,11 +356,7 @@ class _MinistryCard extends ConsumerWidget {
                       color: color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(
-                      icon,
-                      color: color,
-                      size: 24,
-                    ),
+                    child: Icon(icon, color: color, size: 24),
                   ),
                   const SizedBox(width: 16),
 
@@ -233,29 +370,18 @@ class _MinistryCard extends ConsumerWidget {
                             Expanded(
                               child: Text(
                                 ministry.name,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: CommunityDesign.titleStyle(context)
+                                    .copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
                               ),
                             ),
                             if (!ministry.isActive)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[300],
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Text(
-                                  'Inativo',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                              CommunityDesign.badge(
+                                context,
+                                'Inativo',
+                                Colors.grey,
                               ),
                           ],
                         ),
@@ -263,10 +389,7 @@ class _MinistryCard extends ConsumerWidget {
                           const SizedBox(height: 4),
                           Text(
                             ministry.description!,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                            ),
+                            style: CommunityDesign.metaStyle(context),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -287,14 +410,13 @@ class _MinistryCard extends ConsumerWidget {
                   if (members.isEmpty) {
                     return Text(
                       'Nenhum membro',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
+                      style: CommunityDesign.metaStyle(context),
                     );
                   }
 
-                  final leaders = members.where((m) => m.role == MinistryRole.leader).length;
+                  final leaders = members
+                      .where((m) => m.role == MinistryRole.leader)
+                      .length;
 
                   return Row(
                     children: [
@@ -302,20 +424,15 @@ class _MinistryCard extends ConsumerWidget {
                       const SizedBox(width: 4),
                       Text(
                         '${members.length} ${members.length == 1 ? 'membro' : 'membros'}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: CommunityDesign.metaStyle(
+                          context,
+                        ).copyWith(fontWeight: FontWeight.w500),
                       ),
                       if (leaders > 0) ...[
                         const SizedBox(width: 12),
                         Text(
                           '$leaders ${leaders == 1 ? 'líder' : 'líderes'}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
+                          style: CommunityDesign.metaStyle(context),
                         ),
                       ],
                     ],

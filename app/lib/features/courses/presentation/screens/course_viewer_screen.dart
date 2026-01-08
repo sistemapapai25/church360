@@ -7,6 +7,7 @@ import '../../domain/models/course.dart';
 import '../../domain/models/course_lesson.dart';
 import '../providers/courses_provider.dart';
 import '../../../access_levels/presentation/providers/access_level_provider.dart';
+import '../../../../core/design/community_design.dart';
 
 /// Tela de visualização de curso (para alunos)
 class CourseViewerScreen extends ConsumerStatefulWidget {
@@ -28,6 +29,7 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
     final lessonsAsync = ref.watch(courseLessonsProvider(widget.courseId));
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       body: courseAsync.when(
         data: (course) {
           if (course == null) {
@@ -101,6 +103,13 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
     final isCoordinatorAsync = ref.watch(isCoordinatorOrAboveProvider);
 
     return SliverAppBar(
+      backgroundColor: CommunityDesign.headerColor(context),
+      elevation: 0,
+      scrolledUnderElevation: 2,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+      ),
       expandedHeight: 250,
       pinned: true,
       actions: [
@@ -287,25 +296,25 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
           // Descrição
           if (course.description != null && course.description!.isNotEmpty) ...[
             const SizedBox(height: 8),
-            const Text(
-              'Sobre o curso',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
             Text(
-              course.description!,
-              style: const TextStyle(fontSize: 16, height: 1.5),
-            ),
+              'Sobre o curso',
+              style: CommunityDesign.titleStyle(context).copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  course.description!,
+                  style: CommunityDesign.contentStyle(context).copyWith(fontSize: 16, height: 1.5),
+                ),
           ],
 
           // Informações de Pagamento
           if (course.isPaid) ...[
             const SizedBox(height: 16),
-            Card(
-              color: Colors.orange.shade50,
+            Container(
+              decoration: CommunityDesign.overlayDecoration(Theme.of(context).colorScheme),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -368,9 +377,9 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
         children: [
           Row(
             children: [
-              const Text(
+              Text(
                 'Aulas',
-                style: TextStyle(
+                style: CommunityDesign.titleStyle(context).copyWith(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -384,7 +393,7 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
                 ),
                 child: Text(
                   '${lessons.length}',
-                  style: const TextStyle(
+                  style: CommunityDesign.metaStyle(context).copyWith(
                     color: Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -413,18 +422,20 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
 
   /// Item da lista de aulas
   Widget _buildLessonListItem(CourseLesson lesson, int lessonNumber) {
-    return Card(
-      elevation: 2,
-      child: InkWell(
-        onTap: () {
-          context.push(
-            '/courses/${widget.courseId}/lessons/${lesson.id}/view',
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
+    return Container(
+      decoration: CommunityDesign.overlayDecoration(Theme.of(context).colorScheme),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            context.push(
+              '/courses/${widget.courseId}/lessons/${lesson.id}/view',
+            );
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
             children: [
               // Capa da aula ou placeholder
               _buildLessonThumbnail(lesson),
@@ -470,6 +481,7 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -536,8 +548,8 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
   Widget _buildCourseTypeInfo(Course course) {
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Card(
-        color: Colors.blue.shade50,
+      child: Container(
+        decoration: CommunityDesign.overlayDecoration(Theme.of(context).colorScheme),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -555,7 +567,7 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
                       course.courseType == CourseType.presencial
                           ? 'Curso Presencial'
                           : 'Curso Online ao Vivo',
-                      style: const TextStyle(
+                      style: CommunityDesign.titleStyle(context).copyWith(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Colors.blue,
@@ -569,9 +581,9 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
               // Online ao Vivo - Link da sala
               if (course.courseType == CourseType.onlineLive &&
                   course.meetingLink != null) ...[
-                const Text(
+                Text(
                   'Link da sala:',
-                  style: TextStyle(
+                  style: CommunityDesign.titleStyle(context).copyWith(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
@@ -590,9 +602,9 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
 
               // Presencial - Endereço
               if (course.courseType == CourseType.presencial) ...[
-                const Text(
+                Text(
                   'Este curso será realizado presencialmente.',
-                  style: TextStyle(fontSize: 14),
+                  style: CommunityDesign.contentStyle(context).copyWith(fontSize: 14),
                 ),
                 if (course.address != null && course.address!.isNotEmpty) ...[
                   const SizedBox(height: 12),
@@ -604,7 +616,7 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
                       Expanded(
                         child: Text(
                           course.address!,
-                          style: const TextStyle(fontSize: 14),
+                          style: CommunityDesign.contentStyle(context).copyWith(fontSize: 14),
                         ),
                       ),
                     ],

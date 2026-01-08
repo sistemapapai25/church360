@@ -1,10 +1,11 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:fl_chart/fl_chart.dart';
 
-import '../providers/financial_provider.dart';
+import '../../../../core/design/community_design.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import '../providers/financial_provider.dart';
 
 /// Enum para períodos de filtro
 enum ReportPeriod {
@@ -40,8 +41,10 @@ class _FinancialReportsScreenState
     final (startDate, endDate) = _getDateRange();
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('Relatórios Financeiros'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text('Relatórios Financeiros', style: CommunityDesign.titleStyle(context)),
         actions: [
           IconButton(
             icon: const Icon(Icons.download),

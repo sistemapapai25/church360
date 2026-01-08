@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/course.dart';
 import '../domain/models/course_lesson.dart';
 
@@ -17,6 +18,7 @@ class CoursesRepository {
             *,
             course_enrollment(count)
           ''')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('created_at', ascending: false);
 
       return (response as List).map((json) {
@@ -48,6 +50,7 @@ class CoursesRepository {
             *,
             course_enrollment(count)
           ''')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('status', 'active')
           .order('created_at', ascending: false);
 
@@ -79,6 +82,7 @@ class CoursesRepository {
             *,
             course_enrollment(count)
           ''')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('status', 'upcoming')
           .order('start_date', ascending: true);
 
@@ -110,6 +114,7 @@ class CoursesRepository {
             *,
             course_enrollment(count)
           ''')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('category', category)
           .order('created_at', ascending: false);
 
@@ -142,6 +147,7 @@ class CoursesRepository {
             course_enrollment(count)
           ''')
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .maybeSingle();
 
       if (response == null) return null;
@@ -166,6 +172,7 @@ class CoursesRepository {
   /// Criar curso
   Future<Course> createCourse(Map<String, dynamic> data) async {
     try {
+      data['tenant_id'] = SupabaseConstants.currentTenantId;
       final response = await _supabase
           .from('course')
           .insert(data)
@@ -185,6 +192,7 @@ class CoursesRepository {
           .from('course')
           .update(data)
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
@@ -200,7 +208,8 @@ class CoursesRepository {
       await _supabase
           .from('course')
           .delete()
-          .eq('id', id);
+          .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -219,6 +228,7 @@ class CoursesRepository {
             )
           ''')
           .eq('course_id', courseId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('enrolled_at', ascending: false);
 
       return (response as List).map((json) {
@@ -247,6 +257,7 @@ class CoursesRepository {
             'user_id': memberId,
             'enrolled_at': DateTime.now().toIso8601String(),
             'status': 'active',
+            'tenant_id': SupabaseConstants.currentTenantId,
           })
           .select()
           .single();
@@ -264,7 +275,8 @@ class CoursesRepository {
           .from('course_enrollment')
           .delete()
           .eq('course_id', courseId)
-          .eq('user_id', memberId);
+          .eq('user_id', memberId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -276,6 +288,7 @@ class CoursesRepository {
       final response = await _supabase
           .from('course')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .count(CountOption.exact);
 
       return response.count;
@@ -290,6 +303,7 @@ class CoursesRepository {
       final response = await _supabase
           .from('course')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('status', 'active')
           .count(CountOption.exact);
 
@@ -307,6 +321,7 @@ class CoursesRepository {
       final response = await _supabase
           .from('course_lesson')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('course_id', courseId)
           .order('order_index', ascending: true);
 
@@ -324,6 +339,7 @@ class CoursesRepository {
       final response = await _supabase
           .from('course_lesson')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('id', id)
           .maybeSingle();
 
@@ -339,7 +355,10 @@ class CoursesRepository {
     try {
       final response = await _supabase
           .from('course_lesson')
-          .insert(data)
+          .insert({
+            ...data,
+            'tenant_id': SupabaseConstants.currentTenantId,
+          })
           .select()
           .single();
 
@@ -356,6 +375,7 @@ class CoursesRepository {
           .from('course_lesson')
           .update(data)
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
@@ -371,7 +391,8 @@ class CoursesRepository {
       await _supabase
           .from('course_lesson')
           .delete()
-          .eq('id', id);
+          .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -385,7 +406,8 @@ class CoursesRepository {
             .from('course_lesson')
             .update({'order_index': i})
             .eq('id', lessonIds[i])
-            .eq('course_id', courseId);
+            .eq('course_id', courseId)
+            .eq('tenant_id', SupabaseConstants.currentTenantId);
       }
     } catch (e) {
       rethrow;
@@ -398,6 +420,7 @@ class CoursesRepository {
       final response = await _supabase
           .from('course_lesson')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('course_id', courseId)
           .count(CountOption.exact);
 

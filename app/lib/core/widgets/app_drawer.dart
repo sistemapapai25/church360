@@ -171,12 +171,12 @@ class AppDrawer extends ConsumerWidget {
 
           // CONFIGURAÇÕES
           _DrawerSection(title: 'CONFIGURAÇÕES'),
-          _DrawerItem(
-            icon: Icons.label,
-            title: 'Tags',
-            route: '/tags',
-            currentRoute: GoRouterState.of(context).uri.toString(),
-          ),
+          // _DrawerItem(
+          //   icon: Icons.label,
+          //   title: 'Tags',
+          //   route: '/tags',
+          //   currentRoute: GoRouterState.of(context).uri.toString(),
+          // ),
           _DrawerItem(
             icon: Icons.notifications,
             title: 'Notificações',

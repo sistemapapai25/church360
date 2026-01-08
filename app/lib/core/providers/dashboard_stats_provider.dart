@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../constants/supabase_constants.dart';
 
 /// Provider para estatísticas de crescimento de membros (últimos 6 meses)
 final memberGrowthStatsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
@@ -12,6 +13,7 @@ final memberGrowthStatsProvider = FutureProvider<List<Map<String, dynamic>>>((re
   final response = await supabase
       .from('user_account')
       .select('created_at, status')
+      .eq('tenant_id', SupabaseConstants.currentTenantId)
       .gte('created_at', sixMonthsAgo.toIso8601String())
       .inFilter('status', ['member_active', 'member_inactive']) // Apenas membros
       .order('created_at', ascending: true);
@@ -58,13 +60,15 @@ final eventsStatsProvider = FutureProvider<Map<String, int>>((ref) async {
       .from('event')
       .select('id')
       .gte('start_date', now.toIso8601String())
-      .eq('status', 'published');
+      .eq('status', 'published')
+      .eq('tenant_id', SupabaseConstants.currentTenantId);
 
   // Eventos ativos (em andamento)
   final activeResponse = await supabase
       .from('event')
       .select('id')
-      .eq('status', 'ongoing');
+      .eq('status', 'ongoing')
+      .eq('tenant_id', SupabaseConstants.currentTenantId);
 
   // Eventos finalizados (últimos 30 dias)
   final thirtyDaysAgo = now.subtract(const Duration(days: 30));
@@ -72,7 +76,8 @@ final eventsStatsProvider = FutureProvider<Map<String, int>>((ref) async {
       .from('event')
       .select('id')
       .eq('status', 'completed')
-      .gte('end_date', thirtyDaysAgo.toIso8601String());
+      .gte('end_date', thirtyDaysAgo.toIso8601String())
+      .eq('tenant_id', SupabaseConstants.currentTenantId);
 
   return {
     'upcoming': (upcomingResponse as List).length,
@@ -89,7 +94,8 @@ final topActiveGroupsProvider = FutureProvider<List<Map<String, dynamic>>>((ref)
   final groupsResponse = await supabase
       .from('group')
       .select('id, name')
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .eq('tenant_id', SupabaseConstants.currentTenantId);
 
   final groups = groupsResponse as List;
   final groupStats = <Map<String, dynamic>>[];
@@ -103,7 +109,8 @@ final topActiveGroupsProvider = FutureProvider<List<Map<String, dynamic>>>((ref)
     final meetingsResponse = await supabase
         .from('group_meeting')
         .select('id')
-        .eq('group_id', group['id']);
+        .eq('group_id', group['id'])
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
 
     final meetingCount = (meetingsResponse as List).length;
 
@@ -138,7 +145,8 @@ final averageAttendanceProvider = FutureProvider<Map<String, dynamic>>((ref) asy
   final meetingsResponse = await supabase
       .from('group_meeting')
       .select('id, total_attendance')
-      .gte('meeting_date', threeMonthsAgo.toIso8601String().split('T')[0]);
+      .gte('meeting_date', threeMonthsAgo.toIso8601String().split('T')[0])
+      .eq('tenant_id', SupabaseConstants.currentTenantId);
   
   final meetings = meetingsResponse as List;
   
@@ -174,7 +182,8 @@ final topTagsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
         name,
         color,
         member_tag(count)
-      ''');
+      ''')
+      .eq('tenant_id', SupabaseConstants.currentTenantId);
 
   final tags = (response as List).map((tag) {
     final memberTagData = tag['member_tag'];
@@ -203,7 +212,8 @@ final birthdaysThisMonthProvider = FutureProvider<List<Map<String, dynamic>>>((r
   // Buscar TODOS os usuários com data de nascimento
   final response = await supabase
       .from('user_account')
-      .select('id, first_name, last_name, birthdate, photo_url, status')
+      .select('id, first_name, last_name, photo_url, status')
+      .eq('tenant_id', SupabaseConstants.currentTenantId)
       .not('birthdate', 'is', null)
       .order('birthdate', ascending: true);
 
@@ -258,6 +268,7 @@ final upcomingExpensesProvider = FutureProvider<List<Map<String, dynamic>>>((ref
   final response = await supabase
       .from('expense')
       .select('id, category, amount, date, description')
+      .eq('tenant_id', SupabaseConstants.currentTenantId)
       .gte('date', now.toIso8601String().split('T')[0])
       .lte('date', thirtyDaysFromNow.toIso8601String().split('T')[0])
       .order('date', ascending: true);
@@ -289,6 +300,7 @@ final recentMembersProvider = FutureProvider<List<Map<String, dynamic>>>((ref) a
   final response = await supabase
       .from('user_account')
       .select('id, first_name, last_name, photo_url, created_at')
+      .eq('tenant_id', SupabaseConstants.currentTenantId)
       .gte('created_at', thirtyDaysAgo.toIso8601String())
       .order('created_at', ascending: false);
 
@@ -319,6 +331,7 @@ final upcomingEventsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) 
       .eq('status', 'published')
       .gte('start_date', now.toIso8601String())
       .lte('start_date', sevenDaysFromNow.toIso8601String())
+      .eq('tenant_id', SupabaseConstants.currentTenantId)
       .order('start_date', ascending: true);
 
   final events = (response as List).map((event) {
@@ -386,33 +399,38 @@ final memberStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final activeResponse = await supabase
       .from('user_account')
       .select('id')
-      .eq('status', 'member_active');
+      .eq('status', 'member_active')
+      .eq('tenant_id', SupabaseConstants.currentTenantId);
 
   // Total de membros inativos
   final inactiveResponse = await supabase
       .from('user_account')
       .select('id')
-      .eq('status', 'member_inactive');
+      .eq('status', 'member_inactive')
+      .eq('tenant_id', SupabaseConstants.currentTenantId);
 
   // Novos membros (últimos 30 dias)
   final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
   final recentResponse = await supabase
       .from('user_account')
       .select('id')
-      .gte('created_at', thirtyDaysAgo.toIso8601String());
+      .gte('created_at', thirtyDaysAgo.toIso8601String())
+      .eq('tenant_id', SupabaseConstants.currentTenantId);
 
   // Membros por gênero
   final maleResponse = await supabase
       .from('user_account')
       .select('id')
       .inFilter('status', ['member_active', 'member_inactive']) // Apenas membros
-      .eq('gender', 'male');
+      .eq('gender', 'male')
+      .eq('tenant_id', SupabaseConstants.currentTenantId);
 
   final femaleResponse = await supabase
       .from('user_account')
       .select('id')
       .inFilter('status', ['member_active', 'member_inactive']) // Apenas membros
-      .eq('gender', 'female');
+      .eq('gender', 'female')
+      .eq('tenant_id', SupabaseConstants.currentTenantId);
 
   return {
     'total_active': (activeResponse as List).length,
@@ -438,7 +456,8 @@ final attendanceByGroupProvider = FutureProvider<List<Map<String, dynamic>>>((re
         communion_group(id, name),
         study_group(id, name)
       ''')
-      .gte('meeting_date', threeMonthsAgo.toIso8601String().split('T')[0]);
+      .gte('meeting_date', threeMonthsAgo.toIso8601String().split('T')[0])
+      .eq('tenant_id', SupabaseConstants.currentTenantId);
 
   final meetings = meetingsResponse as List;
 

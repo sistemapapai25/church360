@@ -7,6 +7,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/members_repository.dart';
 import '../../data/family_relationships_repository.dart';
 import '../../domain/models/member.dart';
+import '../../../../core/constants/supabase_constants.dart';
 
 /// Provider do MembersRepository
 final membersRepositoryProvider = Provider<MembersRepository>((ref) {
@@ -67,21 +68,73 @@ final searchMembersProvider = FutureProvider.family<List<Member>, String>((ref, 
 
 /// Provider para buscar o membro do usuário atual
 final currentMemberProvider = FutureProvider<Member?>((ref) async {
+  ref.watch(authStateProvider);
   final currentUser = ref.watch(currentUserProvider);
-
-  debugPrint('🔍 [currentMemberProvider] Usuário atual: ${currentUser?.email}');
-
-  if (currentUser == null || currentUser.email == null) {
+  if (currentUser == null) {
     debugPrint('❌ [currentMemberProvider] Usuário não autenticado');
     return null;
   }
-
-  debugPrint('📡 [currentMemberProvider] Buscando dados do usuário: ${currentUser.email}');
+  debugPrint('📡 [currentMemberProvider] Buscando dados do usuário (id auth): ${currentUser.id}');
   final repo = ref.watch(membersRepositoryProvider);
-  final member = await repo.getMemberByEmail(currentUser.email!);
+  final supabase = ref.watch(supabaseClientProvider);
+  final authRepo = ref.watch(authRepositoryProvider);
+  final preferredFullName = (currentUser.userMetadata?['full_name']?.toString() ?? '').trim();
+  final preferredNickname = (currentUser.userMetadata?['nickname']?.toString() ?? '').trim();
+  final fallbackNickname = (currentUser.email ?? '').trim().isNotEmpty
+      ? (currentUser.email ?? '').trim().split('@').first
+      : currentUser.id;
+  final safeNickname = preferredNickname.isNotEmpty ? preferredNickname : fallbackNickname;
+
+  try {
+    await SupabaseConstants.syncTenantFromServer(supabase, syncJwt: false);
+  } catch (e) {
+    debugPrint('❌ [currentMemberProvider] syncTenantFromServer falhou: $e');
+  }
+
+  try {
+    await supabase.rpc('ensure_my_account', params: {
+      '_tenant_id': SupabaseConstants.currentTenantId,
+      '_email': currentUser.email ?? '',
+      '_full_name': preferredFullName,
+      '_nickname': safeNickname,
+    });
+  } catch (e) {
+    debugPrint('❌ [currentMemberProvider] ensure_my_account falhou: $e');
+  }
+
+  String? ensuredId;
+  try {
+    ensuredId = await authRepo.ensureUserAccountForSession(preferredFullName: preferredFullName);
+  } catch (e) {
+    debugPrint('❌ [currentMemberProvider] ensureUserAccountForSession falhou: $e');
+  }
+
+  Member? member;
+  if (ensuredId != null) {
+    member = await repo.getMemberById(ensuredId);
+  }
+  member ??= await repo.getMemberByAuthUserId(currentUser.id);
+  if (member == null && (currentUser.email ?? '').isNotEmpty) {
+    member = await repo.getMemberByEmail(currentUser.email!);
+  }
 
   if (member == null) {
-    debugPrint('❌ [currentMemberProvider] Nenhum dado encontrado para: ${currentUser.email}');
+    try {
+      final response = await supabase
+          .from('user_account')
+          .select()
+          .eq('id', currentUser.id)
+          .maybeSingle();
+      if (response != null) {
+        member = Member.fromJson(response);
+      }
+    } catch (e) {
+      debugPrint('❌ [currentMemberProvider] Fallback select por id falhou: $e');
+    }
+  }
+
+  if (member == null) {
+    debugPrint('❌ [currentMemberProvider] Nenhum dado encontrado para id/email: ${currentUser.id} / ${currentUser.email}');
   } else {
     debugPrint('✅ [currentMemberProvider] Dados encontrados: ${member.firstName} ${member.lastName}');
   }
@@ -158,4 +211,10 @@ final familyRelationshipsStreamProvider = StreamProvider.family<List<FamilyRelat
 final professionLabelProvider = FutureProvider.family<String?, String>((ref, professionId) async {
   final repo = ref.watch(membersRepositoryProvider);
   return repo.getProfessionLabelById(professionId);
+});
+
+/// Provider para buscar aniversariantes do mês
+final birthdaysProvider = FutureProvider<List<Member>>((ref) async {
+  final repo = ref.watch(membersRepositoryProvider);
+  return repo.getBirthdaysOfMonth();
 });

@@ -35,6 +35,21 @@ CREATE TABLE IF NOT EXISTS devotionals (
 CREATE INDEX IF NOT EXISTS idx_devotionals_date ON devotionals(devotional_date DESC);
 CREATE INDEX IF NOT EXISTS idx_devotionals_author ON devotionals(author_id);
 CREATE INDEX IF NOT EXISTS idx_devotionals_published ON devotionals(is_published);
+DO $$
+DECLARE
+  v_dup INT;
+BEGIN
+  SELECT COUNT(*) INTO v_dup
+  FROM (
+    SELECT devotional_date
+    FROM devotionals
+    GROUP BY devotional_date
+    HAVING COUNT(*) > 1
+  ) t;
+  IF v_dup = 0 THEN
+    EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS idx_devotionals_date_unique ON devotionals(devotional_date)';
+  END IF;
+END $$;
 
 -- =====================================================
 -- 2. TABELA: devotional_readings
@@ -313,22 +328,25 @@ BEGIN
   
   -- Se encontrou admin, criar devocional de exemplo
   IF admin_user_id IS NOT NULL THEN
-    INSERT INTO devotionals (
-      title,
-      content,
-      scripture_reference,
-      devotional_date,
-      author_id,
-      is_published
-    ) VALUES (
-      'Bem-vindo ao Church 360!',
-      E'Hoje é um dia especial! Estamos inaugurando o sistema de devocionais diários.\n\nQue este espaço seja um lugar de crescimento espiritual e comunhão com Deus.\n\n"Lâmpada para os meus pés é a tua palavra e luz, para o meu caminho." - Salmos 119:105\n\nQue a Palavra de Deus ilumine seus caminhos todos os dias!',
-      'Salmos 119:105',
-      CURRENT_DATE,
-      admin_user_id,
-      true
-    )
-    ON CONFLICT (devotional_date) DO NOTHING;
+    IF NOT EXISTS (
+      SELECT 1 FROM devotionals d
+      WHERE d.devotional_date = CURRENT_DATE
+    ) THEN
+      INSERT INTO devotionals (
+        title,
+        content,
+        scripture_reference,
+        devotional_date,
+        author_id,
+        is_published
+      ) VALUES (
+        'Bem-vindo ao Church 360!',
+        E'Hoje é um dia especial! Estamos inaugurando o sistema de devocionais diários.\n\nQue este espaço seja um lugar de crescimento espiritual e comunhão com Deus.\n\n"Lâmpada para os meus pés é a tua palavra e luz, para o meu caminho." - Salmos 119:105\n\nQue a Palavra de Deus ilumine seus caminhos todos os dias!',
+        'Salmos 119:105',
+        CURRENT_DATE,
+        admin_user_id,
+        true
+      );
+    END IF;
   END IF;
 END $$;
-

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/design/community_design.dart';
 import '../providers/auth_provider.dart';
 
 /// Tela de Cadastro
@@ -19,6 +20,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
+  final _nicknameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -33,12 +35,13 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
   @override
   void dispose() {
-    _debounceTimer?.cancel();
     _firstNameController.dispose();
     _lastNameController.dispose();
+    _nicknameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -91,6 +94,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         setState(() {
           _firstNameController.text = visitorData['first_name'] ?? '';
           _lastNameController.text = visitorData['last_name'] ?? '';
+          _nicknameController.text = (visitorData['nickname'] ?? visitorData['apelido'] ?? '') ?? '';
           _foundVisitorData = true;
         });
 
@@ -138,6 +142,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         password: _passwordController.text,
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
+        nickname: _nicknameController.text.trim(),
       );
 
       if (mounted) {
@@ -188,13 +193,18 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Criar Conta'),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400),
+            padding: const EdgeInsets.all(32.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(CommunityDesign.radius),
+              boxShadow: [CommunityDesign.overlayBaseShadow()],
+            ),
             child: Form(
               key: _formKey,
               child: Column(
@@ -202,10 +212,20 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Logo/Ícone
-                  Icon(
-                    Icons.person_add,
-                    size: 80,
-                    color: Theme.of(context).colorScheme.primary,
+                  Center(
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Icon(
+                        Icons.person_add,
+                        size: 40,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 24),
                   
@@ -213,9 +233,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   Text(
                     'Criar Conta',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                   ),
                   const SizedBox(height: 8),
@@ -224,21 +244,36 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   Text(
                     'Comece digitando seu email',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.grey,
-                        ),
+                    style: CommunityDesign.metaStyle(context),
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 32),
 
                   // Campo de Email (PRIMEIRO)
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     autofocus: true,
+                    autofillHints: const [AutofillHints.email],
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: InputDecoration(
                       labelText: 'Email *',
                       hintText: 'seu@email.com',
-                      prefixIcon: const Icon(Icons.email),
+                      prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+                      ),
                       suffixIcon: _isCheckingEmail
                           ? const Padding(
                               padding: EdgeInsets.all(12.0),
@@ -267,17 +302,34 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
                   // Campo de Nome
                   TextFormField(
                     controller: _firstNameController,
                     keyboardType: TextInputType.name,
                     textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
+                    autofillHints: const [AutofillHints.givenName],
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                    decoration: InputDecoration(
                       labelText: 'Nome *',
                       hintText: 'Seu primeiro nome',
-                      prefixIcon: Icon(Icons.person),
+                      prefixIcon: const Icon(Icons.person_outline, size: 20),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+                      ),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -286,17 +338,34 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
                   // Campo de Sobrenome
                   TextFormField(
                     controller: _lastNameController,
                     keyboardType: TextInputType.name,
                     textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
+                    autofillHints: const [AutofillHints.familyName],
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                    decoration: InputDecoration(
                       labelText: 'Sobrenome *',
                       hintText: 'Seu sobrenome',
-                      prefixIcon: Icon(Icons.person_outline),
+                      prefixIcon: const Icon(Icons.person_outline, size: 20),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+                      ),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -305,27 +374,80 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
+
+                  // Campo de Apelido
+                  TextFormField(
+                    controller: _nicknameController,
+                    keyboardType: TextInputType.name,
+                    textCapitalization: TextCapitalization.words,
+                    autofillHints: const [AutofillHints.nickname],
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                    decoration: InputDecoration(
+                      labelText: 'Apelido *',
+                      hintText: 'Como você é conhecido(a)',
+                      prefixIcon: const Icon(Icons.badge_outlined, size: 20),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, insira seu apelido';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 20),
                   
                   // Campo de Senha
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
+                    autofillHints: const [AutofillHints.newPassword],
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: InputDecoration(
                       labelText: 'Senha',
                       hintText: 'Mínimo 6 caracteres',
-                      prefixIcon: const Icon(Icons.lock),
+                      prefixIcon: const Icon(Icons.lock_outline, size: 20),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword
-                              ? Icons.visibility
-                              : Icons.visibility_off,
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
                         ),
                         onPressed: () {
                           setState(() {
                             _obscurePassword = !_obscurePassword;
                           });
                         },
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
                       ),
                     ),
                     validator: (value) {
@@ -338,27 +460,44 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   
                   // Campo de Confirmar Senha
                   TextFormField(
                     controller: _confirmPasswordController,
                     obscureText: _obscureConfirmPassword,
+                    autofillHints: const [AutofillHints.newPassword],
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: InputDecoration(
                       labelText: 'Confirmar Senha',
                       hintText: 'Digite a senha novamente',
-                      prefixIcon: const Icon(Icons.lock_outline),
+                      prefixIcon: const Icon(Icons.lock_outline, size: 20),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscureConfirmPassword
-                              ? Icons.visibility
-                              : Icons.visibility_off,
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
                         ),
                         onPressed: () {
                           setState(() {
                             _obscureConfirmPassword = !_obscureConfirmPassword;
                           });
                         },
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
                       ),
                     ),
                     validator: (value) {
@@ -371,30 +510,56 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 32),
                   
                   // Botão de Cadastro
                   ElevatedButton(
                     onPressed: _isLoading ? null : _handleSignUp,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0B5FA5),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
                     child: _isLoading
                         ? const SizedBox(
-                            height: 20,
-                            width: 20,
+                            height: 24,
+                            width: 24,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
-                        : const Text('Criar Conta'),
+                        : const Text(
+                            'Criar Conta',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   
                   // Link para Login
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('Já tem uma conta? '),
+                      Text(
+                        'Já tem uma conta? ',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                       TextButton(
                         onPressed: () => context.pop(),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF0B5FA5),
+                          textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
                         child: const Text('Fazer Login'),
                       ),
                     ],

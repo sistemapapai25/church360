@@ -7,6 +7,8 @@ class Member {
   final String? fullName; // Mantido para compatibilidade com auth
   final String? avatarUrl;
   final bool isActive;
+  final bool showBirthday;
+  final bool showContact;
 
   // Dados pessoais (member)
   final String? firstName;
@@ -87,6 +89,8 @@ class Member {
     this.fullName,
     this.avatarUrl,
     this.isActive = true,
+    this.showBirthday = false,
+    this.showContact = false,
 
     // Dados pessoais
     this.firstName,
@@ -207,11 +211,15 @@ class Member {
       fullName: json['full_name'] is String ? json['full_name'] as String : null,
       avatarUrl: json['avatar_url'] is String ? json['avatar_url'] as String : null,
       isActive: json['is_active'] as bool? ?? true,
+      showBirthday: json['show_birthday'] as bool? ?? false,
+      showContact: json['show_contact'] as bool? ?? false,
 
       // Dados pessoais
       firstName: json['first_name'] is String ? json['first_name'] as String : null,
       lastName: json['last_name'] is String ? json['last_name'] as String : null,
-      nickname: json['nickname'] is String ? json['nickname'] as String : null,
+      nickname: json['nickname'] is String
+          ? json['nickname'] as String
+          : (json['apelido'] is String ? json['apelido'] as String : null),
       phone: json['phone'] is String ? json['phone'] as String : null,
       cpf: json['cpf'] is String ? json['cpf'] as String : null,
       birthdate: json['birthdate'] != null
@@ -356,6 +364,8 @@ class Member {
       'full_name': fullName,
       'avatar_url': avatarUrl,
       'is_active': isActive,
+      'show_birthday': showBirthday,
+      'show_contact': showContact,
 
       // Dados pessoais
       'first_name': firstName,
@@ -436,6 +446,11 @@ class Member {
     String? id,
     String? householdId,
     String? campusId,
+    String? fullName,
+    String? avatarUrl,
+    bool? isActive,
+    bool? showBirthday,
+    bool? showContact,
     String? firstName,
     String? lastName,
     String? nickname,
@@ -471,6 +486,11 @@ class Member {
       id: id ?? this.id,
       householdId: householdId ?? this.householdId,
       campusId: campusId ?? this.campusId,
+      fullName: fullName ?? this.fullName,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      isActive: isActive ?? this.isActive,
+      showBirthday: showBirthday ?? this.showBirthday,
+      showContact: showContact ?? this.showContact,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       nickname: nickname ?? this.nickname,

@@ -4,6 +4,9 @@ import 'package:intl/intl.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
+import 'package:flutter/foundation.dart';
+import '../../../../core/utils/file_download.dart';
+import 'dart:math' as math;
 
 import '../../domain/auto_scheduler_service.dart';
 import '../../../events/domain/models/event.dart';
@@ -536,7 +539,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       final disp = _funcDisplay[canon] ?? canon;
       final lc = disp.toLowerCase();
       if (lc == 'ministrante') return 'Ministrante';
-      if (lc == 'tecnico de som' || lc == 'técnico de som') return 'Tecnico\nde som';
+      if (lc == 'tecnico de som' || lc == 'técnico de som') return 'Técnico de som';
       return disp.toUpperCase();
     }
 
@@ -550,7 +553,15 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
         margin: const pw.EdgeInsets.all(2),
         padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: pw.BoxDecoration(color: col, borderRadius: pw.BorderRadius.circular(3)),
-        child: pw.Text(name, style: pw.TextStyle(color: PdfColors.white, fontSize: 9)),
+        child: pw.FittedBox(
+          fit: pw.BoxFit.scaleDown,
+          child: pw.Text(
+            name,
+            style: pw.TextStyle(color: PdfColors.white, fontSize: 9),
+            maxLines: 1,
+            overflow: pw.TextOverflow.clip,
+          ),
+        ),
       );
     }
 
@@ -575,8 +586,15 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
             if (best > 12.0) return 12.0;
             return best;
           }
+
+          // Fonte base calculada pelos campos fixos
           headerFontSize = fontFor('DATA', dataInnerW);
-          headerFontSize = headerFontSize < fontFor('DIA', diaInnerW) ? headerFontSize : fontFor('DIA', diaInnerW);
+          headerFontSize = math.min(headerFontSize, fontFor('DIA', diaInnerW));
+          // Ajuste conservador para funções (largura estimada)
+          const funcInnerW = 100.0;
+          for (final f in funcs) {
+            headerFontSize = math.min(headerFontSize, fontFor(labelForFunc(f), funcInnerW, maxLines: 1));
+          }
 
           final rows = <pw.TableRow>[];
           rows.add(
@@ -586,7 +604,21 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
                 pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Align(alignment: pw.Alignment.center, child: pw.Text('DATA', style: pw.TextStyle(color: PdfColors.white, fontSize: headerFontSize)))),
                 pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Align(alignment: pw.Alignment.center, child: pw.Text('DIA', style: pw.TextStyle(color: PdfColors.white, fontSize: headerFontSize)))),
                 for (final f in funcs)
-                  pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Align(alignment: pw.Alignment.center, child: pw.Text(labelForFunc(f), style: pw.TextStyle(color: PdfColors.white, fontSize: headerFontSize), maxLines: 2, textAlign: pw.TextAlign.center))),
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.all(4),
+                    child: pw.Align(
+                      alignment: pw.Alignment.center,
+                      child: pw.FittedBox(
+                        fit: pw.BoxFit.scaleDown,
+                        child: pw.Text(
+                          labelForFunc(f),
+                          style: pw.TextStyle(color: PdfColors.white, fontSize: headerFontSize),
+                          maxLines: 1,
+                          textAlign: pw.TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           );
@@ -637,16 +669,26 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     );
     try {
       final bytes = await doc.save();
-      await Printing.sharePdf(bytes: bytes, filename: 'escala_periodo.pdf');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF do período gerado')));
+      if (kIsWeb) {
+        downloadFile('escala_periodo.pdf', bytes);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF baixado')));
+        }
+      } else {
+        await Printing.sharePdf(bytes: bytes, filename: 'escala_periodo.pdf').catchError((_) async {
+          await Printing.layoutPdf(onLayout: (format) async => bytes);
+          return true;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF do período gerado')));
+        }
       }
-    } catch (_) {
+    } catch (err) {
       try {
         final bytes = await doc.save();
         await Printing.layoutPdf(onLayout: (format) async => bytes);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mostrar visualização do PDF')));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Visualização/Impressão do PDF aberta')));
         }
       } catch (e) {
         if (mounted) {

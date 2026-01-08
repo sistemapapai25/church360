@@ -28,5 +28,7 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Precisamos do microfone para enviar mensagens de áudio no chat.</string>
 </dict>
 </plist>

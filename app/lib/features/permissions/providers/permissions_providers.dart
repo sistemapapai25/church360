@@ -1,6 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../members/presentation/providers/members_provider.dart';
 import '../data/roles_repository.dart';
 import '../data/permissions_repository.dart';
 import '../data/user_roles_repository.dart';
@@ -182,75 +182,43 @@ final currentUserIdProvider = Provider<String?>((ref) {
   return supabase.auth.currentUser?.id;
 });
 
+/// Provider: ID canônico (cadastro) do usuário atual
+final currentMemberIdProvider = FutureProvider<String?>((ref) async {
+  final member = await ref.watch(currentMemberProvider.future);
+  return member?.id;
+});
+
 /// Provider: Cargos do usuário atual
 final currentUserRolesProvider = FutureProvider<List<UserRole>>((ref) async {
-  final userId = ref.watch(currentUserIdProvider);
-  if (userId == null) return [];
-  
+  final memberId = await ref.watch(currentMemberIdProvider.future);
+  if (memberId == null) return [];
   final repository = ref.watch(userRolesRepositoryProvider);
-  return repository.getUserRoles(userId);
+  return repository.getUserRoles(memberId);
 });
 
 /// Provider: Permissões efetivas do usuário atual
 final currentUserPermissionsProvider = FutureProvider<List<UserEffectivePermission>>((ref) async {
-  final userId = ref.watch(currentUserIdProvider);
-  if (userId == null) return [];
-  
+  final memberId = await ref.watch(currentMemberIdProvider.future);
+  if (memberId == null) return [];
   final repository = ref.watch(permissionsRepositoryProvider);
-  return repository.getUserEffectivePermissions(userId);
+  return repository.getUserEffectivePermissions(memberId);
 });
 
 /// Provider: Verificar se usuário atual pode acessar Dashboard
 final currentUserCanAccessDashboardProvider = FutureProvider<bool>((ref) async {
-  final userId = ref.watch(currentUserIdProvider);
-  debugPrint('🔍 [currentUserCanAccessDashboardProvider] userId: $userId');
-
-  if (userId == null) {
-    debugPrint('❌ [currentUserCanAccessDashboardProvider] userId é null - retornando false');
-    return false;
-  }
-
+  final memberId = await ref.watch(currentMemberIdProvider.future);
+  if (memberId == null) return false;
   final repository = ref.watch(permissionsRepositoryProvider);
-  final canAccess = await repository.canAccessDashboard(userId);
-  debugPrint('📦 [currentUserCanAccessDashboardProvider] canAccess: $canAccess');
-
-  if (canAccess) return true;
-
-  // Fallback: se a sessão estiver com um user_id antigo (após realinhamento),
-  // tenta resolver pelo e-mail atual e usar o id de user_account.
-  final supabase = ref.watch(supabaseClientProvider);
-  final currentEmail = supabase.auth.currentUser?.email;
-  if (currentEmail != null && currentEmail.isNotEmpty) {
-    try {
-      final mapped = await supabase
-          .from('user_account')
-          .select('id')
-          .eq('email', currentEmail)
-          .maybeSingle();
-
-      final mappedId = mapped != null ? mapped['id'] as String : null;
-      debugPrint('🔁 [currentUserCanAccessDashboardProvider] mappedId via email: $mappedId');
-      if (mappedId != null && mappedId != userId) {
-        final canAccessMapped = await repository.canAccessDashboard(mappedId);
-        debugPrint('📦 [currentUserCanAccessDashboardProvider] canAccess(mappedId): $canAccessMapped');
-        return canAccessMapped;
-      }
-    } catch (e) {
-      debugPrint('❌ [currentUserCanAccessDashboardProvider] fallback erro: $e');
-    }
-  }
-
-  return false;
+  return repository.canAccessDashboard(memberId);
 });
 
 /// Provider: Verificar se usuário atual tem permissão específica
 final currentUserHasPermissionProvider = FutureProvider.family<bool, String>((ref, permissionCode) async {
-  final userId = ref.watch(currentUserIdProvider);
-  if (userId == null) return false;
-  
+  final memberId = await ref.watch(currentMemberIdProvider.future);
+  if (memberId == null) return false;
   final repository = ref.watch(permissionsRepositoryProvider);
   return repository.checkUserPermission(
-    userId: userId,
+    userId: memberId,
     permissionCode: permissionCode,
   );
 });

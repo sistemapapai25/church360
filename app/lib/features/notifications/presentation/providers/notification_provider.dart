@@ -231,10 +231,9 @@ class NotificationRealtimeNotifier extends StateNotifier<AsyncValue<AppNotificat
     _subscribe();
   }
 
-  void _subscribe() {
+  Future<void> _subscribe() async {
     final repository = _ref.read(notificationRepositoryProvider);
-    
-    _channel = repository.subscribeToNotifications((notification) {
+    _channel = await repository.subscribeToNotifications((notification) {
       state = AsyncValue.data(notification);
       
       // Invalidar providers para atualizar a lista
@@ -250,4 +249,3 @@ class NotificationRealtimeNotifier extends StateNotifier<AsyncValue<AppNotificat
     super.dispose();
   }
 }
-

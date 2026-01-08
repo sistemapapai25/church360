@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 
 import '../domain/models/bible_book.dart';
 import '../domain/models/bible_verse.dart';
@@ -118,6 +119,21 @@ class BibleRepository {
     });
   }
 
+  /// Contagem de versículos por capítulo de um livro
+  Future<Map<int, int>> getVerseCountsByChapter(int bookId) async {
+    final response = await _supabase
+        .from('bible_verse')
+        .select('chapter, verse')
+        .eq('book_id', bookId);
+
+    final counts = <int, int>{};
+    for (final row in response as List) {
+      final chapter = row['chapter'] as int;
+      counts[chapter] = (counts[chapter] ?? 0) + 1;
+    }
+    return counts;
+  }
+
   /// Buscar versículos por texto (busca)
   Future<List<BibleVerse>> searchVerses(String query, {int? bookId, String? testament}) async {
     var queryBuilder = _supabase
@@ -170,6 +186,7 @@ class BibleRepository {
             bible_book!inner(name, abbrev)
           )
         ''')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('user_id', memberId)
         .order('created_at', ascending: false);
 
@@ -191,6 +208,7 @@ class BibleRepository {
     final response = await _supabase
         .from('bible_bookmark')
         .select('id')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('user_id', memberId)
         .eq('verse_id', verseId)
         .maybeSingle();
@@ -205,6 +223,7 @@ class BibleRepository {
         .insert({
           'user_id': memberId,
           'verse_id': verseId,
+          'tenant_id': SupabaseConstants.currentTenantId,
           if (note != null) 'note': note,
         })
         .select()
@@ -218,6 +237,7 @@ class BibleRepository {
     await _supabase
         .from('bible_bookmark')
         .delete()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('user_id', memberId)
         .eq('verse_id', verseId);
   }
@@ -228,6 +248,7 @@ class BibleRepository {
         .from('bible_bookmark')
         .update({'note': note})
         .eq('id', bookmarkId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -239,6 +260,7 @@ class BibleRepository {
     await _supabase
         .from('bible_bookmark')
         .delete()
-        .eq('id', bookmarkId);
+        .eq('id', bookmarkId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 }

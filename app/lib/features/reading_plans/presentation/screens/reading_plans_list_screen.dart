@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/widgets/church_image.dart';
 import '../providers/reading_plans_provider.dart';
 import '../../domain/models/reading_plan.dart';
+import '../../../../core/design/community_design.dart';
 
 /// Tela de Listagem de Planos de Leitura
 class ReadingPlansListScreen extends ConsumerWidget {
@@ -20,9 +22,62 @@ class ReadingPlansListScreen extends ConsumerWidget {
         Navigator.of(context).pop();
       },
       child: Scaffold(
+        backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
         appBar: AppBar(
-          title: const Text('Planos de Leitura'),
-          centerTitle: true,
+          backgroundColor: CommunityDesign.headerColor(context),
+          elevation: 0,
+          scrolledUnderElevation: 2,
+          shadowColor: Colors.black.withValues(alpha: 0.1),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+          ),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.18),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.menu_book_rounded,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Planos de Leitura',
+                    style: CommunityDesign.titleStyle(context),
+                  ),
+                  Text(
+                    'Bíblia e Devocionais',
+                    style: CommunityDesign.metaStyle(context),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          centerTitle: false,
+          toolbarHeight: 64,
         ),
         body: plansAsync.when(
           data: (plans) {
@@ -34,21 +89,28 @@ class ReadingPlansListScreen extends ConsumerWidget {
                     Icon(
                       Icons.menu_book_outlined,
                       size: 80,
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.5),
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'Nenhum plano disponível',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                          ),
+                      style: CommunityDesign.titleStyle(context).copyWith(
+                        fontSize: 22,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Os planos de leitura aparecerão aqui',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                          ),
+                      style: CommunityDesign.contentStyle(context).copyWith(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.5),
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -61,7 +123,7 @@ class ReadingPlansListScreen extends ConsumerWidget {
                 ref.invalidate(activeReadingPlansProvider);
               },
               child: ListView.builder(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 itemCount: plans.length,
                 itemBuilder: (context, index) {
                   final plan = plans[index];
@@ -102,8 +164,11 @@ class _ReadingPlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: CommunityDesign.overlayDecoration(
+        Theme.of(context).colorScheme,
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
@@ -115,38 +180,9 @@ class _ReadingPlanCard extends StatelessWidget {
           children: [
             // Imagem
             if (plan.imageUrl != null && plan.imageUrl!.isNotEmpty)
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Image.network(
-                  plan.imageUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: Center(
-                        child: Icon(
-                          Icons.menu_book,
-                          size: 64,
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
-                        ),
-                      ),
-                    );
-                  },
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                                  loadingProgress.expectedTotalBytes!
-                              : null,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              ChurchImage(
+                imageUrl: plan.imageUrl!,
+                type: ChurchImageType.card,
               )
             else
               AspectRatio(
@@ -157,7 +193,9 @@ class _ReadingPlanCard extends StatelessWidget {
                     child: Icon(
                       Icons.menu_book,
                       size: 64,
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.5),
                     ),
                   ),
                 ),
@@ -165,16 +203,16 @@ class _ReadingPlanCard extends StatelessWidget {
 
             // Conteúdo
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Título
                   Text(
                     plan.title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: CommunityDesign.titleStyle(context).copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -191,15 +229,20 @@ class _ReadingPlanCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primaryContainer,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primaryContainer,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             plan.categoryText,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            style: CommunityDesign.metaStyle(context).copyWith(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                            ),
                           ),
                         ),
                       const SizedBox(width: 8),
@@ -208,14 +251,18 @@ class _ReadingPlanCard extends StatelessWidget {
                       Icon(
                         Icons.schedule,
                         size: 16,
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                       const SizedBox(width: 4),
                       Text(
                         plan.durationText,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                            ),
+                        style: CommunityDesign.contentStyle(context).copyWith(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
                       ),
                     ],
                   ),
@@ -225,7 +272,7 @@ class _ReadingPlanCard extends StatelessWidget {
                   if (plan.description != null && plan.description!.isNotEmpty)
                     Text(
                       plan.description!,
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      style: CommunityDesign.contentStyle(context),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                     ),

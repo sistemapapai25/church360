@@ -25,16 +25,17 @@ class _MembersReportScreenState extends ConsumerState<MembersReportScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     
     // Definir tab inicial baseado no parâmetro
     if (widget.initialTab == 'birthdays') {
       _tabController.index = 1;
     } else if (widget.initialTab == 'recent') {
       _tabController.index = 2;
-    } else if (widget.initialTab == 'tags') {
-      _tabController.index = 3;
     }
+    // else if (widget.initialTab == 'tags') {
+    //   _tabController.index = 3;
+    // }
   }
 
   @override
@@ -55,7 +56,7 @@ class _MembersReportScreenState extends ConsumerState<MembersReportScreen>
             Tab(text: 'Crescimento', icon: Icon(Icons.trending_up)),
             Tab(text: 'Aniversariantes', icon: Icon(Icons.cake)),
             Tab(text: 'Novos Membros', icon: Icon(Icons.person_add)),
-            Tab(text: 'Por Tags', icon: Icon(Icons.label)),
+            // Tab(text: 'Por Tags', icon: Icon(Icons.label)),
           ],
         ),
       ),
@@ -65,7 +66,7 @@ class _MembersReportScreenState extends ConsumerState<MembersReportScreen>
           _GrowthTab(),
           _BirthdaysTab(),
           _RecentMembersTab(),
-          _TagsTab(),
+          // _TagsTab(),
         ],
       ),
     );
@@ -409,73 +410,73 @@ class _RecentMembersTab extends ConsumerWidget {
 }
 
 /// Tab de Tags
-class _TagsTab extends ConsumerWidget {
-  const _TagsTab();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tagsAsync = ref.watch(topTagsProvider);
-
-    return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(topTagsProvider);
-      },
-      child: tagsAsync.when(
-        data: (tags) {
-          if (tags.isEmpty) {
-            return const Center(
-              child: Text('Nenhuma tag cadastrada'),
-            );
-          }
-
-          final totalMembers = tags.fold<int>(0, (sum, tag) => sum + (tag['member_count'] as int));
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: tags.length,
-            itemBuilder: (context, index) {
-              final tag = tags[index];
-              final name = tag['name'] as String;
-              final memberCount = tag['member_count'] as int;
-              final colorHex = tag['color'] as String?;
-              final percentage = totalMembers > 0 ? (memberCount / totalMembers * 100).toStringAsFixed(1) : '0.0';
-
-              Color tagColor = Colors.blue;
-              if (colorHex != null && colorHex.isNotEmpty) {
-                try {
-                  tagColor = Color(int.parse(colorHex.replaceFirst('#', '0xFF')));
-                } catch (_) {}
-              }
-
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: tagColor,
-                    child: const Icon(Icons.label, color: Colors.white),
-                  ),
-                  title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: LinearProgressIndicator(
-                    value: memberCount / totalMembers,
-                    backgroundColor: Colors.grey[200],
-                    valueColor: AlwaysStoppedAnimation<Color>(tagColor),
-                  ),
-                  trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text('$memberCount', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      Text('$percentage%', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Erro: $error')),
-      ),
-    );
-  }
-}
+// class _TagsTab extends ConsumerWidget {
+//   const _TagsTab();
+//
+//   @override
+//   Widget build(BuildContext context, WidgetRef ref) {
+//     final tagsAsync = ref.watch(topTagsProvider);
+//
+//     return RefreshIndicator(
+//       onRefresh: () async {
+//         ref.invalidate(topTagsProvider);
+//       },
+//       child: tagsAsync.when(
+//         data: (tags) {
+//           if (tags.isEmpty) {
+//             return const Center(
+//               child: Text('Nenhuma tag cadastrada'),
+//             );
+//           }
+//
+//           final totalMembers = tags.fold<int>(0, (sum, tag) => sum + (tag['member_count'] as int));
+//
+//           return ListView.builder(
+//             padding: const EdgeInsets.all(16),
+//             itemCount: tags.length,
+//             itemBuilder: (context, index) {
+//               final tag = tags[index];
+//               final name = tag['name'] as String;
+//               final memberCount = tag['member_count'] as int;
+//               final colorHex = tag['color'] as String?;
+//               final percentage = totalMembers > 0 ? (memberCount / totalMembers * 100).toStringAsFixed(1) : '0.0';
+//
+//               Color tagColor = Colors.blue;
+//               if (colorHex != null && colorHex.isNotEmpty) {
+//                 try {
+//                   tagColor = Color(int.parse(colorHex.replaceFirst('#', '0xFF')));
+//                 } catch (_) {}
+//               }
+//
+//               return Card(
+//                 margin: const EdgeInsets.only(bottom: 12),
+//                 child: ListTile(
+//                   leading: CircleAvatar(
+//                     backgroundColor: tagColor,
+//                     child: const Icon(Icons.label, color: Colors.white),
+//                   ),
+//                   title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+//                   subtitle: LinearProgressIndicator(
+//                     value: memberCount / totalMembers,
+//                     backgroundColor: Colors.grey[200],
+//                     valueColor: AlwaysStoppedAnimation<Color>(tagColor),
+//                   ),
+//                   trailing: Column(
+//                     mainAxisAlignment: MainAxisAlignment.center,
+//                     crossAxisAlignment: CrossAxisAlignment.end,
+//                     children: [
+//                       Text('$memberCount', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+//                       Text('$percentage%', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+//                     ],
+//                   ),
+//                 ),
+//               );
+//             },
+//           );
+//         },
+//         loading: () => const Center(child: CircularProgressIndicator()),
+//         error: (error, _) => Center(child: Text('Erro: $error')),
+//       ),
+//     );
+//   }
+// }

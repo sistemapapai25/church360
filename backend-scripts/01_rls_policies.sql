@@ -31,6 +31,7 @@ ALTER TABLE event ENABLE ROW LEVEL SECURITY;
 ALTER TABLE event_registration ENABLE ROW LEVEL SECURITY;
 ALTER TABLE fund ENABLE ROW LEVEL SECURITY;
 ALTER TABLE donation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
 -- POLÍTICAS BÁSICAS (PERMISSIVAS)
@@ -47,6 +48,19 @@ CREATE POLICY "Users can update their own profile"
   ON user_account FOR UPDATE
   USING (auth.uid() = id);
 
+CREATE POLICY "Users can view tenants"
+  ON tenant FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Admins can manage tenants"
+  ON tenant FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM user_account
+      WHERE id = auth.uid()
+      AND role_global IN ('owner', 'admin')
+    )
+  );
 -- church_settings
 CREATE POLICY "Users can view church settings"
   ON church_settings FOR SELECT
@@ -224,4 +238,3 @@ CREATE POLICY "Users can manage donations"
 -- ============================================
 -- FIM DAS POLÍTICAS RLS
 -- ============================================
-

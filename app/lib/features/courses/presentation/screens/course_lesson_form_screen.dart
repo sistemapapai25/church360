@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 
 import '../providers/courses_provider.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
@@ -94,8 +94,8 @@ class _CourseLessonFormScreenState extends ConsumerState<CourseLessonFormScreen>
     setState(() => _isLoading = true);
 
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) throw Exception('Usuário não autenticado');
+      final member = await ref.read(currentMemberProvider.future);
+      if (member == null) throw Exception('Usuário não autenticado');
 
       final actions = ref.read(courseLessonsActionsProvider);
 
@@ -117,8 +117,8 @@ class _CourseLessonFormScreenState extends ConsumerState<CourseLessonFormScreen>
         'file_name': _fileName,
         'cover_image_url': _coverImageUrl,
         if (!_isEditMode) 'order_index': orderIndex,
-        if (!_isEditMode) 'created_by': userId,
-        'updated_by': userId,
+        if (!_isEditMode) 'created_by': member.id,
+        'updated_by': member.id,
       };
 
       if (_isEditMode) {
@@ -292,4 +292,3 @@ class _CourseLessonFormScreenState extends ConsumerState<CourseLessonFormScreen>
     );
   }
 }
-

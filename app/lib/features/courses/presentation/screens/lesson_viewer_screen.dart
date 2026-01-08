@@ -6,6 +6,7 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../../domain/models/course_lesson.dart';
 import '../providers/courses_provider.dart';
+import '../../../../core/design/community_design.dart';
 
 /// Tela de visualização de aula individual
 class LessonViewerScreen extends ConsumerStatefulWidget {
@@ -63,6 +64,7 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
         }
 
         return Scaffold(
+          backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
           body: CustomScrollView(
             slivers: [
               // App Bar com capa
@@ -129,6 +131,13 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
     int totalLessons,
   ) {
     return SliverAppBar(
+      backgroundColor: CommunityDesign.headerColor(context),
+      elevation: 0,
+      scrolledUnderElevation: 2,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+      ),
       expandedHeight: 200,
       pinned: true,
       flexibleSpace: FlexibleSpaceBar(
@@ -242,7 +251,7 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
           // Título
           Text(
             lesson.title,
-            style: const TextStyle(
+            style: CommunityDesign.titleStyle(context).copyWith(
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -254,9 +263,8 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
           if (lesson.description != null && lesson.description!.isNotEmpty) ...[
             Text(
               lesson.description!,
-              style: TextStyle(
+              style: CommunityDesign.contentStyle(context).copyWith(
                 fontSize: 16,
-                color: Colors.grey.shade700,
                 height: 1.5,
               ),
             ),
@@ -271,7 +279,7 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
                 const SizedBox(width: 8),
                 Text(
                   'Duração: ${lesson.durationText}',
-                  style: const TextStyle(fontSize: 14),
+                  style: CommunityDesign.contentStyle(context).copyWith(fontSize: 14),
                 ),
               ],
             ),
@@ -288,9 +296,9 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Conteúdo da Aula',
-            style: TextStyle(
+            style: CommunityDesign.titleStyle(context).copyWith(
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
@@ -299,13 +307,10 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
-            ),
+            decoration: CommunityDesign.overlayDecoration(Theme.of(context).colorScheme),
             child: Text(
               content,
-              style: const TextStyle(
+              style: CommunityDesign.contentStyle(context).copyWith(
                 fontSize: 16,
                 height: 1.6,
               ),
@@ -331,7 +336,8 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          Card(
+          Container(
+            decoration: CommunityDesign.overlayDecoration(Theme.of(context).colorScheme),
             child: ListTile(
               leading: const Icon(Icons.attach_file, color: Colors.green),
               title: Text(lesson.fileName ?? 'Arquivo Anexo'),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 import '../providers/study_group_provider.dart';
 import '../../domain/models/study_group.dart';
 
@@ -18,7 +18,7 @@ class StudyGroupDetailScreen extends ConsumerWidget {
     final groupAsync = ref.watch(studyGroupByIdProvider(groupId));
     final lessonsAsync = ref.watch(publishedLessonsProvider(groupId));
     final participantsAsync = ref.watch(groupParticipantsProvider(groupId));
-    final currentUser = Supabase.instance.client.auth.currentUser;
+    final currentMemberId = ref.watch(currentMemberProvider).value?.id;
 
     return groupAsync.when(
       data: (group) {
@@ -39,7 +39,7 @@ class StudyGroupDetailScreen extends ConsumerWidget {
                 FutureBuilder<bool>(
                   future: ref.read(studyGroupRepositoryProvider).isUserLeader(
                     groupId,
-                    currentUser?.id ?? '',
+                    currentMemberId ?? '',
                   ),
                   builder: (context, snapshot) {
                     if (snapshot.hasData && snapshot.data == true) {
@@ -70,7 +70,7 @@ class StudyGroupDetailScreen extends ConsumerWidget {
                 
                 // Tab 2: Lições
                 lessonsAsync.when(
-                  data: (lessons) => _buildLessonsTab(context, ref, group, lessons, currentUser?.id ?? ''),
+                  data: (lessons) => _buildLessonsTab(context, ref, group, lessons, currentMemberId ?? ''),
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (error, stack) => Center(child: Text('Erro: $error')),
                 ),
@@ -334,4 +334,3 @@ class StudyGroupDetailScreen extends ConsumerWidget {
     );
   }
 }
-

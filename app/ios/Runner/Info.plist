@@ -45,5 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Precisamos do microfone para enviar mensagens de áudio no chat.</string>
 </dict>
 </plist>

@@ -16,6 +16,7 @@ class Ministry {
 
   // Contagem de membros (quando incluído na query)
   final int? memberCount;
+  final String? whatsappGroupNumber;
 
   Ministry({
     required this.id,
@@ -30,6 +31,7 @@ class Ministry {
     this.leaderName,
     this.leaderPhoto,
     this.memberCount,
+    this.whatsappGroupNumber,
   });
 
   factory Ministry.fromJson(Map<String, dynamic> json) {
@@ -46,6 +48,7 @@ class Ministry {
       leaderName: json['leader_name'] as String?,
       leaderPhoto: json['leader_photo'] as String?,
       memberCount: json['member_count'] as int?,
+      whatsappGroupNumber: json['whatsapp_group_number'] as String?,
     );
   }
 
@@ -60,6 +63,7 @@ class Ministry {
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'whatsapp_group_number': whatsappGroupNumber,
     };
   }
 
@@ -76,6 +80,7 @@ class Ministry {
     String? leaderName,
     String? leaderPhoto,
     int? memberCount,
+    String? whatsappGroupNumber,
   }) {
     return Ministry(
       id: id ?? this.id,
@@ -90,6 +95,7 @@ class Ministry {
       leaderName: leaderName ?? this.leaderName,
       leaderPhoto: leaderPhoto ?? this.leaderPhoto,
       memberCount: memberCount ?? this.memberCount,
+      whatsappGroupNumber: whatsappGroupNumber ?? this.whatsappGroupNumber,
     );
   }
 

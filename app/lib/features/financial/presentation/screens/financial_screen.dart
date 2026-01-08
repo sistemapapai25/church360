@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../providers/financial_provider.dart';
-import '../../domain/models/contribution.dart';
+import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/permission_widget.dart';
+import '../../domain/models/contribution.dart';
+import '../providers/financial_provider.dart';
 
 /// Tela principal do sistema financeiro
 class FinancialScreen extends ConsumerStatefulWidget {
@@ -37,8 +38,10 @@ class _FinancialScreenState extends ConsumerState<FinancialScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('Financeiro'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text('Financeiro', style: CommunityDesign.titleStyle(context)),
         actions: [
           IconButton(
             icon: const Icon(Icons.bar_chart),

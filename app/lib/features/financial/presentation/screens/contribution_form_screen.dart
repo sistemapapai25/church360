@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../domain/models/contribution.dart';
 import '../providers/financial_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import '../../../../core/design/community_design.dart';
 
 /// Tela de formulário de contribuição
 class ContributionFormScreen extends ConsumerStatefulWidget {
@@ -154,12 +155,22 @@ class _ContributionFormScreenState
     final membersAsync = ref.watch(allMembersProvider);
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
+        backgroundColor: CommunityDesign.headerColor(context),
+        elevation: 0,
+        scrolledUnderElevation: 2,
+        shadowColor: Colors.black.withValues(alpha: 0.1),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+        ),
         title: Text(
           widget.contributionId == null
               ? 'Nova Contribuição'
               : 'Editar Contribuição',
+          style: CommunityDesign.titleStyle(context),
         ),
+        centerTitle: true,
         actions: [
           if (widget.contributionId != null)
             IconButton(

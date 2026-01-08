@@ -5,6 +5,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
 import 'dart:math' as math;
 import 'package:printing/printing.dart';
+import 'package:flutter/foundation.dart';
+import '../../../../core/utils/file_download.dart';
 
 import '../providers/schedule_provider.dart';
 import '../../../events/domain/models/event.dart';
@@ -825,7 +827,7 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
                                     String labelForFunc(String f) {
                                       final lc = f.toLowerCase();
                                       if (lc == 'ministrante') return 'Ministrante';
-                                      if (lc == 'tecnico de som' || lc == 'técnico de som') return 'Tecnico\nde som';
+                                      if (lc == 'tecnico de som' || lc == 'técnico de som') return 'Técnico de som';
                                       return f.toUpperCase();
                                     }
 
@@ -852,7 +854,7 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
                                     headerFontSize = math.min(headerFontSize, fontFor('DATA', dataInnerW));
                                     headerFontSize = math.min(headerFontSize, fontFor('DIA', diaInnerW));
                                     for (final f in funcs) {
-                                      headerFontSize = math.min(headerFontSize, fontFor(labelForFunc(f), funcInnerW, maxLines: 2));
+                                      headerFontSize = math.min(headerFontSize, fontFor(labelForFunc(f), funcInnerW, maxLines: 1));
                                     }
 
                                     pw.Widget chip(String uid, String name) {
@@ -864,7 +866,15 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
                                           color: col,
                                           borderRadius: pw.BorderRadius.circular(3),
                                         ),
-                                        child: pw.Text(name, style: pw.TextStyle(color: PdfColors.white, fontSize: 9)),
+                                        child: pw.FittedBox(
+                                          fit: pw.BoxFit.scaleDown,
+                                          child: pw.Text(
+                                            name,
+                                            style: pw.TextStyle(color: PdfColors.white, fontSize: 9),
+                                            maxLines: 1,
+                                            overflow: pw.TextOverflow.clip,
+                                          ),
+                                        ),
                                       );
                                     }
 
@@ -917,7 +927,7 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
                                                       child: pw.Text(
                                                         labelForFunc(f),
                                                         style: pw.TextStyle(color: PdfColors.white, fontSize: headerFontSize),
-                                                        maxLines: 2,
+                                                        maxLines: 1,
                                                         textAlign: pw.TextAlign.center,
                                                       ),
                                                     ),
@@ -968,7 +978,15 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
                                   },
                                 ),
                               );
-                              await Printing.sharePdf(bytes: await doc.save(), filename: 'escala_${e.id}.pdf');
+                              final bytes = await doc.save();
+                              if (kIsWeb) {
+                                downloadFile('escala_${e.id}.pdf', bytes);
+                              } else {
+                                await Printing.sharePdf(bytes: bytes, filename: 'escala_${e.id}.pdf').catchError((_) async {
+                                  await Printing.layoutPdf(onLayout: (format) async => bytes);
+                                  return true;
+                                });
+                              }
                             },
                             icon: const Icon(Icons.picture_as_pdf),
                             label: const Text('Exportar PDF'),

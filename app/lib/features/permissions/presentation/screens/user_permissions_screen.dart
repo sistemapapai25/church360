@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../providers/permissions_providers.dart';
 import '../../domain/models/permission.dart';
+import '../../domain/models/user_effective_permission.dart';
 
 class UserPermissionsScreen extends ConsumerStatefulWidget {
   final String userId;
@@ -108,6 +109,7 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
                     DropdownMenuEntry<String?>(value: 'news', label: 'Notícias'),
                     DropdownMenuEntry<String?>(value: 'banners', label: 'Banners'),
                     DropdownMenuEntry<String?>(value: 'church_info', label: 'Igreja'),
+                    DropdownMenuEntry<String?>(value: 'agents', label: 'Agentes IA'),
                   ],
                   onSelected: (v) => setState(() => _selectedCategory = v),
                 ),
@@ -118,8 +120,13 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
           Expanded(
             child: effectiveAsync.when(
               data: (effective) {
-                final customCodes = effective.where((e) => e.source == 'custom' && e.isGranted).map((e) => e.permissionCode).toSet();
-                final grantedCodes = effective.where((e) => e.isGranted).map((e) => e.permissionCode).toSet();
+                // Mapear permissões por código para facilitar acesso
+                final effectiveMap = <String, List<UserEffectivePermission>>{};
+                for (final e in effective) {
+                  effectiveMap.putIfAbsent(e.permissionCode, () => []);
+                  effectiveMap[e.permissionCode]!.add(e);
+                }
+
                 return permissionsAsync.when(
                   data: (perms) {
                     final filtered = perms.where((p) {
@@ -165,41 +172,107 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
                         final cat = categories[i];
                         final catPerms = byCategory[cat]!;
                         catPerms.sort((a, b) => a.name.compareTo(b.name));
-                        final grantedCount = catPerms.where((p) => grantedCodes.contains(p.code)).length;
+                        
+                        // Contar quantos estão habilitados
+                        int grantedCount = 0;
+                        for (final p in catPerms) {
+                          final entries = effectiveMap[p.code] ?? [];
+                          final custom = entries.where((e) => e.source == 'custom').firstOrNull;
+                          final role = entries.where((e) => e.source == 'role').firstOrNull;
+                          final isGranted = custom?.isGranted ?? role?.isGranted ?? false;
+                          if (isGranted) grantedCount++;
+                        }
+
                         return Card(
                           margin: const EdgeInsets.only(bottom: 16),
                           child: Column(
                             children: [
                               ListTile(
-                                leading: Icon(Icons.security),
+                                leading: const Icon(Icons.security),
                                 title: Text(cat),
                                 subtitle: Text('$grantedCount/${catPerms.length} selecionadas'),
                               ),
                               const Divider(height: 1),
                               ...catPerms.map((p) {
-                                final isGranted = grantedCodes.contains(p.code);
-                                final isCustom = customCodes.contains(p.code);
+                                final entries = effectiveMap[p.code] ?? [];
+                                final custom = entries.where((e) => e.source == 'custom').firstOrNull;
+                                final role = entries.where((e) => e.source == 'role').firstOrNull;
+                                
+                                final roleGranted = role?.isGranted ?? false;
+                                final customGranted = custom?.isGranted; // pode ser null, true ou false
+                                
+                                // O valor final é o custom (se existir) ou o role
+                                final isGranted = customGranted ?? roleGranted;
+                                
+                                // Indicadores visuais
+                                final isOverridden = customGranted != null;
+                                
                                 return ListTile(
-                                  leading: Icon(isGranted ? Icons.check_circle : Icons.cancel, color: isGranted ? Colors.green : Colors.red),
+                                  leading: Icon(
+                                    isGranted ? Icons.check_circle : Icons.cancel, 
+                                    color: isGranted ? Colors.green : (isOverridden && !isGranted ? Colors.red : Colors.grey)
+                                  ),
                                   title: Text(p.name),
-                                  subtitle: Text(p.code),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(p.code, style: const TextStyle(fontSize: 12)),
+                                      if (isOverridden)
+                                        Text(
+                                          isGranted ? 'Habilitado manualmente' : 'Desabilitado manualmente',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: isGranted ? Colors.green : Colors.red,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        )
+                                      else if (roleGranted)
+                                        const Text(
+                                          'Habilitado pelo cargo',
+                                          style: TextStyle(fontSize: 11, color: Colors.blue),
+                                        ),
+                                    ],
+                                  ),
                                   trailing: Switch(
-                                    value: isCustom ? true : isGranted,
+                                    value: isGranted,
                                     onChanged: (v) async {
                                       if (_isSaving) return;
                                       setState(() => _isSaving = true);
                                       try {
+                                        final repo = ref.read(permissionsRepositoryProvider);
+                                        
                                         if (v) {
-                                          await ref.read(permissionsRepositoryProvider).assignCustomPermission(
-                                            userId: widget.userId,
-                                            permissionId: p.id,
-                                            isGranted: true,
-                                          );
+                                          // Quer habilitar
+                                          if (roleGranted) {
+                                            // Se o cargo já habilita, removemos qualquer bloqueio manual
+                                            await repo.removeCustomPermission(
+                                              userId: widget.userId,
+                                              permissionId: p.id,
+                                            );
+                                          } else {
+                                            // Se o cargo não habilita, forçamos true
+                                            await repo.assignCustomPermission(
+                                              userId: widget.userId,
+                                              permissionId: p.id,
+                                              isGranted: true,
+                                            );
+                                          }
                                         } else {
-                                          await ref.read(permissionsRepositoryProvider).removeCustomPermission(
-                                            userId: widget.userId,
-                                            permissionId: p.id,
-                                          );
+                                          // Quer desabilitar
+                                          if (roleGranted) {
+                                            // Se o cargo habilita, precisamos bloquear manualmente
+                                            await repo.assignCustomPermission(
+                                              userId: widget.userId,
+                                              permissionId: p.id,
+                                              isGranted: false,
+                                            );
+                                          } else {
+                                            // Se o cargo já não habilita, removemos qualquer override (volta ao padrão false)
+                                            await repo.removeCustomPermission(
+                                              userId: widget.userId,
+                                              permissionId: p.id,
+                                            );
+                                          }
                                         }
                                         ref.invalidate(userEffectivePermissionsProvider(widget.userId));
                                       } finally {
@@ -207,7 +280,7 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
                                       }
                                     },
                                   ),
-                                  contentPadding: const EdgeInsets.only(left: 56, right: 16),
+                                  contentPadding: const EdgeInsets.only(left: 16, right: 16),
                                 );
                               }),
                             ],

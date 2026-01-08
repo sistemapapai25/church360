@@ -16,8 +16,8 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 
 /// Provider do usuário atual
 final currentUserProvider = Provider<User?>((ref) {
-  final authRepo = ref.watch(authRepositoryProvider);
-  return authRepo.currentUser;
+  final supabase = ref.watch(supabaseClientProvider);
+  return supabase.auth.currentUser ?? supabase.auth.currentSession?.user;
 });
 
 /// Provider de stream de mudanças de autenticação
@@ -31,4 +31,3 @@ final isAuthenticatedProvider = Provider<bool>((ref) {
   final authRepo = ref.watch(authRepositoryProvider);
   return authRepo.isAuthenticated;
 });
-

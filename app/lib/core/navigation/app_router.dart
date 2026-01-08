@@ -4,11 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/signup_screen.dart';
 import '../../features/members/presentation/screens/members_list_screen.dart';
-import '../../features/members/presentation/screens/member_detail_screen.dart';
 import '../../features/members/presentation/screens/member_form_screen.dart';
 import '../../features/members/presentation/screens/member_profile_screen.dart';
 import '../../features/members/domain/models/member.dart';
-import '../../features/members/presentation/screens/edit_profile_screen.dart';
 import '../../features/members/presentation/screens/profile_screen.dart';
 import '../../features/qr_scanner/presentation/screens/qr_scanner_screen.dart';
 import '../../features/groups/presentation/screens/groups_list_screen.dart';
@@ -30,7 +28,6 @@ import '../../features/worship/presentation/screens/worship_attendance_screen.da
 import '../../features/worship/presentation/screens/worship_service_form_screen.dart';
 import '../../features/worship/presentation/screens/worship_statistics_screen.dart';
 import '../../features/visitors/presentation/screens/visitors_list_screen.dart';
-import '../../features/visitors/presentation/screens/visitor_form_screen.dart';
 import '../../features/visitors/presentation/screens/visitor_visit_form_screen.dart';
 import '../../features/visitors/presentation/screens/visitor_followup_form_screen.dart';
 import '../../features/visitors/presentation/screens/visitors_statistics_screen.dart';
@@ -51,6 +48,7 @@ import '../../features/study_groups/presentation/screens/lesson_detail_screen.da
 import '../../features/analytics/presentation/screens/analytics_dashboard_screen.dart';
 import '../../features/schedule/presentation/screens/schedule_screen.dart';
 import '../../features/schedule/presentation/screens/auto_schedule_generator_screen.dart';
+import '../../features/dispatch/presentation/screens/dispatch_config_screen.dart';
 import '../../features/schedule/presentation/screens/scale_history_screen.dart';
 import '../../features/schedule/presentation/screens/schedule_rules_preferences_screen.dart';
 import '../../features/events/presentation/screens/events_list_screen.dart';
@@ -87,6 +85,8 @@ import '../../features/support_materials/presentation/screens/support_material_f
 import '../../features/support_materials/presentation/screens/material_modules_screen.dart';
 import '../../features/support_materials/presentation/screens/material_viewer_screen.dart';
 import '../../features/support_materials/presentation/screens/module_viewer_screen.dart';
+import '../../features/community/presentation/screens/community_screen.dart';
+import '../../features/community/presentation/screens/admin/community_admin_screen.dart';
 import '../screens/reports/members_report.dart';
 import '../screens/reports/events_report_screen.dart';
 import '../screens/reports/groups_report_screen.dart';
@@ -97,6 +97,7 @@ import '../screens/reports/member_growth_report.dart';
 import '../screens/reports/events_analysis_report.dart';
 import '../screens/reports/active_groups_report.dart';
 import '../screens/dashboard_settings_screen.dart';
+import '../screens/developer_settings_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/dashboard_screen.dart';
@@ -113,14 +114,23 @@ import '../../features/permissions/presentation/screens/assign_role_screen.dart'
 import '../../features/permissions/presentation/screens/audit_log_screen.dart';
 import '../../features/permissions/presentation/screens/permissions_catalog_screen.dart';
 import '../../features/permissions/presentation/screens/user_permissions_screen.dart';
+import '../../features/kids/presentation/screens/kids_registration_screen.dart';
+import '../../features/kids/presentation/screens/kids_admin_dashboard_screen.dart';
+import '../../features/kids/presentation/screens/kids_select_child_screen.dart';
+import '../../features/support_chat/presentation/screens/agents_center_screen.dart';
 
 /// Configuração de rotas do aplicativo
 final appRouter = GoRouter(
   initialLocation: '/splash',
   redirect: (context, state) {
-    final supabase = Supabase.instance.client;
-    final session = supabase.auth.currentSession;
-    final isAuthenticated = session != null;
+    bool isAuthenticated = false;
+    try {
+      final supabase = Supabase.instance.client;
+      final session = supabase.auth.currentSession;
+      isAuthenticated = session != null;
+    } catch (_) {
+      isAuthenticated = false;
+    }
 
     final isSplash = state.matchedLocation == '/splash';
     final isLogin = state.matchedLocation == '/login';
@@ -161,9 +171,25 @@ final appRouter = GoRouter(
       builder: (context, state) => HomeScreen(),
     ),
     GoRoute(
+      path: '/community',
+      builder: (context, state) => const CommunityScreen(),
+    ),
+    GoRoute(
+      path: '/community/admin',
+      builder: (context, state) => const DashboardAccessGate(
+        child: CommunityAdminScreen(),
+      ),
+    ),
+    GoRoute(
       path: '/dashboard',
       builder: (context, state) => const DashboardAccessGate(
         child: DashboardScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/agents-center',
+      builder: (context, state) => const DashboardAccessGate(
+        child: AgentsCenterScreen(),
       ),
     ),
     GoRoute(
@@ -175,7 +201,13 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>?;
         final userEmail = extra?['userEmail'] as String?;
-        return MemberFormScreen(initialEmail: userEmail);
+        final type = state.uri.queryParameters['type'];
+        final status = state.uri.queryParameters['status'];
+        return MemberFormScreen(
+          initialEmail: userEmail, 
+          initialMemberType: type,
+          initialStatus: status,
+        );
       },
     ),
     GoRoute(
@@ -196,7 +228,8 @@ final appRouter = GoRouter(
       path: '/members/:id',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return MemberDetailScreen(memberId: id);
+        // Padronizando para usar o MemberProfileScreen que é mais completo
+        return MemberProfileScreen(memberId: id);
       },
     ),
     // Rota de perfil do usuário
@@ -209,7 +242,8 @@ final appRouter = GoRouter(
       path: '/profile/edit',
       builder: (context, state) {
         final member = state.extra as Member;
-        return EditProfileScreen(member: member);
+        // Padronizando para usar o MemberFormScreen que é mais completo
+        return MemberFormScreen(memberId: member.id);
       },
     ),
     // Lista de grupos de comunhão
@@ -263,8 +297,9 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/groups/:groupId/meetings/:meetingId/visitors/new',
       builder: (context, state) {
-        final meetingId = state.pathParameters['meetingId']!;
-        return VisitorFormScreen(meetingId: meetingId);
+        return MemberFormScreen(
+          initialStatus: 'visitor',
+        );
       },
     ),
     // Rotas de ministérios
@@ -414,13 +449,13 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/visitors/new',
-      builder: (context, state) => const VisitorFormScreen(),
+      builder: (context, state) => const MemberFormScreen(initialStatus: 'visitor'),
     ),
     GoRoute(
       path: '/visitors/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return VisitorFormScreen(visitorId: id);
+        return MemberFormScreen(memberId: id, initialStatus: 'visitor');
       },
     ),
     GoRoute(
@@ -483,7 +518,18 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/devotionals',
-      builder: (context, state) => const DevotionalsListScreen(),
+      builder: (context, state) {
+        final from = state.uri.queryParameters['from'];
+        final fromDashboard = from == 'dashboard';
+        return DevotionalsListScreen(fromDashboard: fromDashboard);
+      },
+    ),
+    // Gestão (colocar ANTES de '/devotionals/:id' para evitar colisão)
+    GoRoute(
+      path: '/devotionals/admin',
+      builder: (context, state) => CoordinatorOnlyRoute(
+        child: const DevotionalsListScreen(fromDashboard: true),
+      ),
     ),
     GoRoute(
       path: '/devotionals/new',
@@ -974,6 +1020,21 @@ final appRouter = GoRouter(
       ),
     ),
 
+    GoRoute(
+      path: '/developer-settings',
+      builder: (context, state) => const OwnerOnlyRoute(
+        child: DeveloperSettingsScreen(),
+      ),
+    ),
+
+    // Configuração de Disparos (WhatsApp/Uazapi)
+    GoRoute(
+      path: '/dispatch-config',
+      builder: (context, state) => const CoordinatorOnlyRoute(
+        child: DispatchConfigScreen(),
+      ),
+    ),
+
     // =====================================================
     // ROTAS: SISTEMA DE PERMISSÕES
     // =====================================================
@@ -1074,6 +1135,29 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/active-groups-report',
       builder: (context, state) => const ActiveGroupsReportScreen(),
+    ),
+
+    // =====================================================
+    // ROTAS: MÓDULO KIDS
+    // =====================================================
+    GoRoute(
+      path: '/kids-registration',
+      builder: (context, state) => const KidsSelectChildScreen(),
+    ),
+    GoRoute(
+      path: '/kids',
+      builder: (context, state) => const KidsAdminDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/kids/:childId/registration',
+      builder: (context, state) {
+        final childId = state.pathParameters['childId']!;
+        final childName = state.uri.queryParameters['name'] ?? 'Criança';
+        return KidsRegistrationScreen(
+          childId: childId,
+          childName: childName,
+        );
+      },
     ),
 
     // =====================================================

@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 
 import '../domain/models/reading_plan.dart';
 
@@ -14,6 +15,7 @@ class ReadingPlansRepository {
       final response = await _supabase
           .from('reading_plan')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('created_at', ascending: false);
 
       return (response as List)
@@ -31,6 +33,7 @@ class ReadingPlansRepository {
           .from('reading_plan')
           .select()
           .eq('status', 'active')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('created_at', ascending: false);
 
       return (response as List)
@@ -48,6 +51,7 @@ class ReadingPlansRepository {
           .from('reading_plan')
           .select()
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .maybeSingle();
 
       if (response == null) return null;
@@ -63,7 +67,10 @@ class ReadingPlansRepository {
     try {
       final response = await _supabase
           .from('reading_plan')
-          .insert(data)
+          .insert({
+            ...data,
+            'tenant_id': SupabaseConstants.currentTenantId,
+          })
           .select()
           .single();
 
@@ -80,6 +87,7 @@ class ReadingPlansRepository {
           .from('reading_plan')
           .update(data)
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
@@ -92,7 +100,11 @@ class ReadingPlansRepository {
   /// Deletar plano
   Future<void> deletePlan(String id) async {
     try {
-      await _supabase.from('reading_plan').delete().eq('id', id);
+      await _supabase
+          .from('reading_plan')
+          .delete()
+          .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -106,6 +118,7 @@ class ReadingPlansRepository {
           .select()
           .eq('plan_id', planId)
           .eq('user_id', memberId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .maybeSingle();
 
       if (response == null) return null;
@@ -124,6 +137,7 @@ class ReadingPlansRepository {
         'user_id': memberId,
         'started_at': DateTime.now().toIso8601String(),
         'current_day': 1,
+        'tenant_id': SupabaseConstants.currentTenantId,
       };
 
       final response = await _supabase
@@ -155,6 +169,7 @@ class ReadingPlansRepository {
           .update(data)
           .eq('plan_id', planId)
           .eq('user_id', memberId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
@@ -176,6 +191,7 @@ class ReadingPlansRepository {
           .update(data)
           .eq('plan_id', planId)
           .eq('user_id', memberId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
@@ -192,6 +208,7 @@ class ReadingPlansRepository {
           .from('reading_plan_progress')
           .select()
           .eq('user_id', memberId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .isFilter('completed_at', null)
           .order('started_at', ascending: false);
 

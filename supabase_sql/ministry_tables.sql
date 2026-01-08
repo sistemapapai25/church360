@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS public.ministry (
   leader_id UUID REFERENCES public.member(id) ON DELETE SET NULL,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  whatsapp_group_number VARCHAR(20)
 );
 
 -- Tabela de Membros dos Ministérios
@@ -189,4 +190,3 @@ COMMENT ON TABLE public.ministry_member IS 'Tabela de membros dos ministérios';
 COMMENT ON COLUMN public.ministry.icon IS 'Nome do ícone Font Awesome (sem prefixo fa-)';
 COMMENT ON COLUMN public.ministry.color IS 'Cor em hexadecimal para identificação visual';
 COMMENT ON COLUMN public.ministry_member.role IS 'Função do membro no ministério (Líder, Vice-líder, Coordenador, Membro)';
-

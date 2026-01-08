@@ -1,32 +1,31 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import '../widgets/church_image.dart';
 import '../../features/permissions/presentation/widgets/dashboard_access_gate.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../features/events/presentation/screens/event_detail_screen.dart';
-import '../../features/prayer_requests/presentation/providers/prayer_request_provider.dart';
-import '../../features/prayer_requests/domain/models/prayer_request.dart';
 import '../../features/contribution/presentation/screens/contribution_info_screen.dart';
 import '../../features/devotionals/presentation/screens/devotionals_list_screen.dart';
 import '../screens/agenda_tab_screen.dart';
 import '../../features/notifications/presentation/widgets/notification_badge.dart';
-import '../../features/testimonies/presentation/providers/testimony_provider.dart';
 import '../../features/events/presentation/providers/events_provider.dart';
-import '../../features/events/domain/models/event.dart';
 import '../../features/devotionals/presentation/providers/devotional_provider.dart';
-import '../../features/devotionals/domain/models/devotional.dart';
 import '../../features/members/presentation/providers/members_provider.dart';
 import '../../features/home_content/presentation/providers/banners_provider.dart';
 import '../../features/home_content/domain/models/banner.dart';
 import '../../features/reading_plans/presentation/screens/reading_plan_detail_screen.dart';
 import '../../features/church_info/presentation/providers/church_info_provider.dart';
+import '../design/community_design.dart';
+import '../widgets/navigation/custom_bottom_nav_bar.dart';
+import '../../features/home/presentation/widgets/home_content_card.dart';
+import '../../features/home/presentation/widgets/home_section_widget.dart';
 
 /// Tela principal do app com navegação por abas fixas
 class HomeScreen extends ConsumerStatefulWidget {
@@ -39,12 +38,60 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _selectedIndex = 2; // Inicia no Home (Dashboard)
   bool _initializedFromQuery = false;
+  bool _syncedDefaultTabToUrl = false;
+
+  String _tabParamForIndex(int index) {
+    switch (index) {
+      case 0:
+        return 'devotionals';
+      case 1:
+        return 'agenda';
+      case 2:
+        return 'home';
+      case 3:
+        return 'contribution';
+      case 4:
+        return 'more';
+      default:
+        return 'home';
+    }
+  }
+
+  int _indexForTabParam(String? tab) {
+    switch (tab) {
+      case 'devotionals':
+        return 0;
+      case 'agenda':
+        return 1;
+      case 'home':
+        return 2;
+      case 'contribution':
+        return 3;
+      case 'more':
+        return 4;
+      default:
+        return 2;
+    }
+  }
+
+  void _syncUrlToSelectedIndex() {
+    final uri = GoRouterState.of(context).uri;
+    final tab = uri.queryParameters['tab'];
+    final desiredTab = _tabParamForIndex(_selectedIndex);
+    if (uri.path == '/home' && tab != desiredTab) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.go('/home?tab=$desiredTab');
+      });
+    }
+  }
 
   // Método para navegar para uma aba específica
   void _navigateToTab(int index) {
     setState(() {
       _selectedIndex = index;
     });
+    _syncUrlToSelectedIndex();
   }
 
   // Abas fixas do app
@@ -60,26 +107,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     if (!_initializedFromQuery) {
       final tab = GoRouterState.of(context).uri.queryParameters['tab'];
-      if (tab != null) {
-        switch (tab) {
-          case 'devotionals':
-            _selectedIndex = 0;
-            break;
-          case 'agenda':
-            _selectedIndex = 1;
-            break;
-          case 'home':
-            _selectedIndex = 2;
-            break;
-          case 'contribution':
-            _selectedIndex = 3;
-            break;
-          case 'more':
-            _selectedIndex = 4;
-            break;
-        }
-      }
+      _selectedIndex = _indexForTabParam(tab);
       _initializedFromQuery = true;
+    }
+    final tabParam = GoRouterState.of(context).uri.queryParameters['tab'];
+    if (tabParam == null && !_syncedDefaultTabToUrl) {
+      _syncedDefaultTabToUrl = true;
+      _syncUrlToSelectedIndex();
     }
     return PopScope(
       canPop: true,
@@ -89,6 +123,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           setState(() {
             _selectedIndex = 2;
           });
+          _syncUrlToSelectedIndex();
           return;
         }
         showDialog<bool>(
@@ -113,43 +148,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           }
         });
       },
-      child: Scaffold(
-        body: _screens[_selectedIndex],
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: (index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-          },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.book_outlined),
-              selectedIcon: Icon(Icons.book),
-              label: 'Devocionais',
+      child: Stack(
+        children: [
+          Scaffold(
+            body: _screens[_selectedIndex],
+            bottomNavigationBar: PremiumBottomNavBar(
+              currentIndex: _selectedIndex,
+              onTap: (index) {
+                setState(() {
+                  _selectedIndex = index;
+                });
+                _syncUrlToSelectedIndex();
+              },
             ),
-            NavigationDestination(
-              icon: Icon(Icons.calendar_month_outlined),
-              selectedIcon: Icon(Icons.calendar_month),
-              label: 'Agenda',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.volunteer_activism_outlined),
-              selectedIcon: Icon(Icons.volunteer_activism),
-              label: 'Contribua',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.menu),
-              selectedIcon: Icon(Icons.menu_open),
-              label: 'Mais',
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -163,425 +176,178 @@ class _DashboardTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentMemberAsync = ref.watch(currentMemberProvider);
-
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            // Nome do APP/Igreja (discreto e centralizado)
-            SliverToBoxAdapter(
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Center(
-                  child: Text(
-                    'Church 360',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.5,
-                        ),
-                  ),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 100), // Espaço para Navigation Bar (aumentado)
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header Novo (Olá, Nome...)
+                const _HomeHeader(),
+
+                // Card: Feed Espiritual (Como está se sentindo hoje?)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: const _SpiritualFeedCard(),
                 ),
-              ),
+
+                const SizedBox(height: 8),
+
+                // Círculos de atalhos
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: const _ShortcutCircles(),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Banner rotativo da home
+                const _HomeBanners(),
+
+                const SizedBox(height: 0),
+
+                // Card: Para sua edificação
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _EdificationCard(onNavigateToTab: onNavigateToTab),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Card: Fique por dentro
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _StayInformedCard(onNavigateToTab: onNavigateToTab),
+                ),
+
+                const SizedBox(height: 20),
+              ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-            // Header com foto, saudação e nome
-            SliverToBoxAdapter(
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
-                      width: 1,
+// =====================================================
+// WIDGET: Header da Home (Olá, Nome)
+// =====================================================
+
+class _HomeHeader extends ConsumerWidget {
+  const _HomeHeader();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentMemberAsync = ref.watch(currentMemberProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+      child: SafeArea(
+        bottom: false,
+        child: currentMemberAsync.when(
+          data: (member) {
+            final user = Supabase.instance.client.auth.currentUser;
+            final displayName =
+                member?.nickname ??
+                member?.firstName ??
+                user?.email?.split('@').first ??
+                'Usuário';
+            final photoUrl = member?.photoUrl ?? user?.userMetadata?['avatar_url'];
+
+            return Row(
+              children: [
+                // Avatar com borda branca suave
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 2.5,
                     ),
-                  ),
-                ),
-                child: currentMemberAsync.when(
-                  data: (member) {
-                    final user = Supabase.instance.client.auth.currentUser;
-                    // Usa apelido se existir, senão usa primeiro nome
-                    final displayName = member?.nickname ?? member?.firstName ?? user?.email?.split('@').first ?? 'Usuário';
-                    final photoUrl = member?.photoUrl ?? user?.userMetadata?['avatar_url'];
-
-                    return Row(
-                      children: [
-                        // Foto do usuário em círculo
-                        Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Theme.of(context).colorScheme.primaryContainer,
-                            border: Border.all(
-                              color: Theme.of(context).colorScheme.primary,
-                              width: 2,
-                            ),
-                          ),
-                          child: ClipOval(
-                            child: photoUrl != null && photoUrl.isNotEmpty
-                                ? Image.network(
-                                    photoUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Icon(
-                                        Icons.person,
-                                        size: 32,
-                                        color: Theme.of(context).colorScheme.primary,
-                                      );
-                                    },
-                                  )
-                                : Icon(
-                                    Icons.person,
-                                    size: 32,
-                                    color: Theme.of(context).colorScheme.primary,
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Saudação e nome
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Olá,',
-                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                                    ),
-                              ),
-                              Text(
-                                displayName,
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: Theme.of(context).colorScheme.onSurface,
-                                    ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Ícone de notificação
-                        const NotificationBadge(),
-                      ],
-                    );
-                  },
-                  loading: () => Row(
-                    children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Theme.of(context).colorScheme.primaryContainer,
-                        ),
-                        child: const Center(
-                          child: CircularProgressIndicator(),
-                        ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Olá,',
-                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                                  ),
-                            ),
-                            Text(
-                              'Carregando...',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(context).colorScheme.onSurface,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const NotificationBadge(),
                     ],
                   ),
-                  error: (_, __) {
-                    final user = Supabase.instance.client.auth.currentUser;
-                    final userName = user?.email?.split('@').first ?? 'Usuário';
-
-                    return Row(
-                      children: [
-                        Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Theme.of(context).colorScheme.primaryContainer,
-                            border: Border.all(
-                              color: Theme.of(context).colorScheme.primary,
-                              width: 2,
+                  child: ClipOval(
+                    child: photoUrl != null
+                        ? Image.network(
+                            photoUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              child: Icon(
+                                Icons.person,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          )
+                        : Container(
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            child: Icon(
+                              Icons.person,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                           ),
-                          child: Icon(
-                            Icons.person,
-                            size: 32,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Olá,',
-                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                                    ),
-                              ),
-                              Text(
-                                userName,
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: Theme.of(context).colorScheme.onSurface,
-                                    ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const NotificationBadge(),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
-
-            // Card: Como está se sentindo hoje?
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: _FeelingCard(),
-              ),
-            ),
-
-            // Círculos de atalhos
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _ShortcutCircles(),
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-            // Banner rotativo da home
-            SliverToBoxAdapter(
-              child: _HomeBanners(),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-            // Card: Para sua edificação
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _EdificationCard(onNavigateToTab: onNavigateToTab),
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-            // Card: Fique por dentro
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _StayInformedCard(onNavigateToTab: onNavigateToTab),
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 100)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// =====================================================
-// WIDGET: Card "Como está se sentindo hoje?"
-// =====================================================
-
-class _FeelingCard extends StatelessWidget {
-  const _FeelingCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: () => _showFeelingDialog(context),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              // Emoji
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Text(
-                    '😊',
-                    style: TextStyle(fontSize: 20),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              // Texto
-              Expanded(
-                child: Text(
-                  'Como está se sentindo hoje?',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w500,
+                const SizedBox(width: 16),
+                // Saudação
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Olá,',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          height: 1.0,
+                        ),
                       ),
-                ),
-              ),
-              // Ícone de seta
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 14,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showFeelingDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => const _FeelingDialog(),
-    );
-  }
-}
-
-// =====================================================
-// DIALOG: Escolher entre Testemunho ou Pedido de Oração
-// =====================================================
-
-class _FeelingDialog extends StatelessWidget {
-  const _FeelingDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Como você está se sentindo?'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Opção 1: Testemunhar
-          _FeelingOption(
-            emoji: '😇',
-            title: 'Gostaria de Testemunhar',
-            onTap: () {
-              Navigator.of(context).pop();
-              _showTestimonyForm(context);
-            },
-          ),
-          const SizedBox(height: 12),
-          // Opção 2: Pedir Oração
-          _FeelingOption(
-            emoji: '😢',
-            title: 'Gostaria de Pedir Oração',
-            onTap: () {
-              Navigator.of(context).pop();
-              _showPrayerRequestForm(context);
-            },
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-      ],
-    );
-  }
-
-  void _showTestimonyForm(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => const _TestimonyFormDialog(),
-    );
-  }
-
-  void _showPrayerRequestForm(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => const _PrayerRequestFormDialog(),
-    );
-  }
-}
-
-// =====================================================
-// WIDGET: Opção do Dialog
-// =====================================================
-
-class _FeelingOption extends StatelessWidget {
-  final String emoji;
-  final String title;
-  final VoidCallback onTap;
-
-  const _FeelingOption({
-    required this.emoji,
-    required this.title,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Text(
-                emoji,
-                style: const TextStyle(fontSize: 32),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(height: 4),
+                      Text(
+                        displayName,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w600, // Destaque leve
+                          color: Theme.of(context).colorScheme.onSurface,
+                          height: 1.1,
+                          letterSpacing: -0.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+                // Notificação
+                const NotificationBadge(),
+              ],
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, __) => const SizedBox.shrink(),
         ),
       ),
     );
@@ -589,289 +355,86 @@ class _FeelingOption extends StatelessWidget {
 }
 
 // =====================================================
-// DIALOG: Formulário de Testemunho
+// WIDGET: Card "Feed Espiritual" (Antigo FeelingCard)
 // =====================================================
 
-class _TestimonyFormDialog extends ConsumerStatefulWidget {
-  const _TestimonyFormDialog();
-
-  @override
-  ConsumerState<_TestimonyFormDialog> createState() => _TestimonyFormDialogState();
-}
-
-class _TestimonyFormDialogState extends ConsumerState<_TestimonyFormDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _descriptionController = TextEditingController();
-  bool _isPublic = false; // Desativado por padrão
-  bool _allowWhatsappContact = true; // Ativado por padrão
-  bool _isLoading = false;
-
-  @override
-  void dispose() {
-    _descriptionController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      final actions = ref.read(testimonyActionsProvider);
-      await actions.createTestimony(
-        title: 'Testemunho',
-        description: _descriptionController.text.trim(),
-        isPublic: _isPublic,
-        allowWhatsappContact: _allowWhatsappContact,
-      );
-
-      if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Testemunho compartilhado com sucesso! 🙏'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao compartilhar testemunho: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
+class _SpiritualFeedCard extends StatelessWidget {
+  const _SpiritualFeedCard();
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
-        children: [
-          const Text('😇', style: TextStyle(fontSize: 24)),
-          const SizedBox(width: 12),
-          const Expanded(child: Text('Gostaria de testemunhar?')),
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(20), // Bordas mais arredondadas
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04), // Sombra muito suave
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
         ],
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.2),
+          width: 1,
+        ),
       ),
-      content: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Mensagem
-              Text(
-                'Obrigado por compartilhar! Vamos celebrar juntos! Se desejar, compartilhe seu testemunho e inspire a fé de outros irmãos em Cristo.',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 16),
-              // Campo de texto
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Conta aqui...',
-                  hintText: 'Compartilhe seu testemunho',
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => context.push('/community'),
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16), // Padding vertical reduzido
+            child: Row(
+              children: [
+                // Ícone ilustrativo
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08), // Fundo suave
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '🙏',
+                    style: const TextStyle(fontSize: 28), // Ícone maior
+                  ),
                 ),
-                maxLines: 5,
-                textAlignVertical: TextAlignVertical.top,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Por favor, compartilhe seu testemunho';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              // Checkbox: Permitir contato via WhatsApp
-              CheckboxListTile(
-                value: _allowWhatsappContact,
-                onChanged: (value) => setState(() => _allowWhatsappContact = value ?? true),
-                title: const Text('Permitir contato via WhatsApp'),
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-              ),
-              // Checkbox: Permitir que seja público
-              CheckboxListTile(
-                value: _isPublic,
-                onChanged: (value) => setState(() => _isPublic = value ?? false),
-                title: const Text('Permitir que meu testemunho seja Público'),
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-          child: const Text('Não, obrigado'),
-        ),
-        FilledButton(
-          onPressed: _isLoading ? null : _submit,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Enviar'),
-        ),
-      ],
-    );
-  }
-}
-
-// =====================================================
-// DIALOG: Formulário de Pedido de Oração
-// =====================================================
-
-class _PrayerRequestFormDialog extends ConsumerStatefulWidget {
-  const _PrayerRequestFormDialog();
-
-  @override
-  ConsumerState<_PrayerRequestFormDialog> createState() => _PrayerRequestFormDialogState();
-}
-
-class _PrayerRequestFormDialogState extends ConsumerState<_PrayerRequestFormDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _descriptionController = TextEditingController();
-  bool _isPublic = false; // Desativado por padrão
-  bool _allowWhatsappContact = true; // Ativado por padrão
-  bool _isLoading = false;
-
-  @override
-  void dispose() {
-    _descriptionController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      final actions = PrayerRequestActions.fromWidgetRef(ref);
-      await actions.createPrayerRequest(
-        title: 'Pedido de Oração',
-        description: _descriptionController.text.trim(),
-        category: PrayerCategory.personal,
-        privacy: _isPublic ? PrayerPrivacy.public : PrayerPrivacy.private,
-        isPublic: _isPublic,
-        allowWhatsappContact: _allowWhatsappContact,
-      );
-
-      if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pedido de oração enviado! Vamos orar por você! 🙏'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao enviar pedido: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
-        children: [
-          const Text('😢', style: TextStyle(fontSize: 24)),
-          const SizedBox(width: 12),
-          const Expanded(child: Text('Pedido de oração')),
-        ],
-      ),
-      content: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Mensagem
-              Text(
-                'Obrigado por compartilhar! Vamos orar juntos! Se desejar, compartilhe seu pedido de oração para que possamos interceder por você como família e corpo de Cristo.',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 16),
-              // Campo de texto
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Conta aqui...',
-                  hintText: 'Compartilhe seu pedido de oração',
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true,
+                const SizedBox(width: 20), // Mais espaço
+                // Textos
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Como está se sentindo?',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700, // Fonte mais forte
+                          fontSize: 17,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Compartilhe ou peça oração',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey[600], // Subtítulo cinza premium
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                maxLines: 5,
-                textAlignVertical: TextAlignVertical.top,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Por favor, compartilhe seu pedido';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              // Checkbox: Permitir contato via WhatsApp
-              CheckboxListTile(
-                value: _allowWhatsappContact,
-                onChanged: (value) => setState(() => _allowWhatsappContact = value ?? true),
-                title: const Text('Permitir contato via WhatsApp'),
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-              ),
-              // Checkbox: Permitir que seja público
-              CheckboxListTile(
-                value: _isPublic,
-                onChanged: (value) => setState(() => _isPublic = value ?? false),
-                title: const Text('Permitir que meu pedido de oração seja Público'),
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-              ),
-            ],
+                // Seta
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-          child: const Text('Não, obrigado'),
-        ),
-        FilledButton(
-          onPressed: _isLoading ? null : _submit,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Enviar'),
-        ),
-      ],
     );
   }
 }
@@ -888,293 +451,374 @@ class _MoreTab extends ConsumerWidget {
     final currentMemberAsync = ref.watch(currentMemberProvider);
 
     return Scaffold(
+      backgroundColor: CommunityDesign.backgroundColor,
       appBar: AppBar(
-        title: const Text('Menu mais'),
-        actions: const [
-          NotificationBadge(),
-          SizedBox(width: 8),
-        ],
-      ),
-      body: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          // Header com foto e nome do usuário (igual ao da aba Home)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              border: Border(
-                bottom: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: currentMemberAsync.when(
-              data: (member) {
-                final user = Supabase.instance.client.auth.currentUser;
-                final userName = member?.fullName ?? user?.email?.split('@').first ?? 'Usuário';
-                final photoUrl = member?.photoUrl ?? user?.userMetadata?['avatar_url'];
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 2,
+        shadowColor: Colors.black.withValues(alpha: 0.1),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+        ),
+        toolbarHeight: 72, // Aumentado para acomodar o perfil
+        titleSpacing: 0, // Alinhamento estrito
+        title: Padding(
+          padding: const EdgeInsets.only(left: 20), // Pequeno ajuste visual
+          child: currentMemberAsync.when(
+            data: (member) {
+              final user = Supabase.instance.client.auth.currentUser;
+              final fullName =
+                  member?.fullName ??
+                  user?.email?.split('@').first ??
+                  'Usuário';
+              // Tenta pegar o primeiro nome ou apelido
+              final displayName =
+                  (member?.nickname != null && member!.nickname!.isNotEmpty)
+                  ? member.nickname!
+                  : fullName.split(' ').first;
 
-                return Row(
-                  children: [
-                    // Foto do perfil (igual ao da aba Home)
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.primary,
-                          width: 2,
-                        ),
-                      ),
-                      child: ClipOval(
-                        child: photoUrl != null
-                            ? Image.network(
-                                photoUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Icon(
-                                    Icons.person,
-                                    size: 32,
-                                    color: Theme.of(context).colorScheme.primary,
-                                  );
-                                },
-                              )
-                            : Icon(
-                                Icons.person,
-                                size: 32,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Nome do usuário (sem saudação)
-                    Expanded(
-                      child: Text(
-                        userName,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                );
-              },
-              loading: () => Row(
+              final photoUrl =
+                  member?.photoUrl ?? user?.userMetadata?['avatar_url'];
+
+              return Row(
                 children: [
+                  // Avatar com borda
                   Container(
-                    width: 56,
-                    height: 56,
+                    width: 42,
+                    height: 42,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Theme.of(context).colorScheme.primaryContainer,
+                      border: Border.all(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.2),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    child: const Center(
-                      child: CircularProgressIndicator(),
+                    child: ClipOval(
+                      child: photoUrl != null
+                          ? Image.network(
+                              photoUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Icon(
+                                Icons.person,
+                                size: 24,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            )
+                          : Icon(
+                              Icons.person,
+                              size: 24,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Carregando...',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                    ),
-                  ),
-                ],
-              ),
-              error: (_, __) {
-                final user = Supabase.instance.client.auth.currentUser;
-                final userName = user?.email?.split('@').first ?? 'Usuário';
-
-                return Row(
-                  children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.primary,
-                          width: 2,
-                        ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        displayName, // Apelido ou Primeiro Nome em destaque
+                        style: CommunityDesign.titleStyle(
+                          context,
+                        ).copyWith(fontSize: 18, height: 1.1),
                       ),
-                      child: Icon(
-                        Icons.person,
-                        size: 32,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        userName,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
+                      Text(
+                        fullName, // Nome completo menor
+                        style: CommunityDesign.metaStyle(
+                          context,
+                        ).copyWith(fontSize: 12),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Ver meu perfil (separado)
-          ListTile(
-            leading: const Icon(Icons.person),
-            title: const Text('Ver meu perfil'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              context.push('/profile');
+                    ],
+                  ),
+                ],
+              );
             },
-          ),
-
-          const Divider(),
-
-          // VISÃO GERAL - Itens principais do app
-          _buildMobileSection(context, 'VISÃO GERAL'),
-          _buildMobileMenuItem(context, Icons.school, 'Cursos', '/courses'),
-          _buildMobileMenuItem(context, Icons.church, 'A Igreja', '/church-info'),
-          _buildMobileMenuItem(context, Icons.child_care, 'Inscrição Kids', '/kids-registration'),
-          _buildMobileMenuItem(context, Icons.article, 'Notícias', '/news'),
-          _buildMobileMenuItem(context, Icons.groups, 'Comunidade', '/community'),
-          _buildMobileMenuItem(context, Icons.book, 'Planos de Leituras', '/reading-plans'),
-          _buildMobileMenuItem(context, Icons.menu_book, 'Bíblia', '/bible'),
-          _buildMobileMenuItem(context, Icons.share, 'Compartilhar', '/share'),
-          _buildMobileMenuItem(context, Icons.contact_support, 'Contato', '/contact'),
-
-          const Divider(),
-
-          // ADMINISTRATIVO
-          // No Web, sempre exibir o item de Dashboard no menu "Mais"
-          // Em outras plataformas, manter o comportamento condicional por permissão
-          if (kIsWeb) ...[
-            _buildMobileSection(context, 'ADMINISTRATIVO'),
-            _buildMobileMenuItem(context, Icons.dashboard, 'Dashboard', '/dashboard'),
-            const Divider(),
-          ] else
-            ConditionalDashboardAccess(
-              builder: (context, canAccess) {
-                if (!canAccess) return const SizedBox.shrink();
-
-                return Column(
+            loading: () => Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                  ),
+                  child: const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildMobileSection(context, 'ADMINISTRATIVO'),
-                    DashboardMenuItem(
-                      icon: Icons.dashboard,
-                      title: 'Dashboard',
-                      onTap: () => context.push('/dashboard'),
-                      trailing: const Icon(Icons.chevron_right),
-                    ),
-                    const Divider(),
-                  ],
-                );
-              },
-            ),
-          _buildMobileSection(context, 'CONFIGURAÇÕES'),
-          _buildMobileMenuItem(context, Icons.label, 'Tags', '/tags'),
-          _buildMobileMenuItem(context, Icons.notifications, 'Notificações', '/notifications'),
-
-          const Divider(height: 32),
-
-          // Logout
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text(
-              'Sair',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-            ),
-            onTap: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Confirmar Saída'),
-                  content: const Text('Deseja realmente sair do aplicativo?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancelar'),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.red,
-                      ),
-                      child: const Text('Sair'),
+                    Text(
+                      'Carregando...',
+                      style: CommunityDesign.titleStyle(context),
                     ),
                   ],
                 ),
-              );
+              ],
+            ),
+            error: (_, __) =>
+                Text('Menu', style: CommunityDesign.titleStyle(context)),
+          ),
+        ),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: NotificationBadge(),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        children: [
+          // VISÃO GERAL
+          _buildSectionTitle(context, 'VISÃO GERAL'),
+          const SizedBox(height: 12),
+          _buildMenuCard(
+            context,
+            Icons.person_outline,
+            'Ver meu perfil',
+            '/profile',
+            color: Colors.blue,
+          ),
+          const SizedBox(height: 12),
+          _buildMenuCard(
+            context,
+            Icons.school_outlined,
+            'Cursos',
+            '/courses',
+            color: Colors.orange,
+          ),
+          const SizedBox(height: 12),
+          _buildMenuCard(
+            context,
+            Icons.church_outlined,
+            'A Igreja',
+            '/church-info',
+            color: Colors.purple,
+          ),
+          const SizedBox(height: 12),
+          _buildMenuCard(
+            context,
+            Icons.child_care_outlined,
+            'Inscrição Kids',
+            '/kids-registration',
+            color: Colors.pink,
+          ),
+          const SizedBox(height: 12),
+          _buildMenuCard(
+            context,
+            Icons.article_outlined,
+            'Notícias',
+            '/news',
+            color: Colors.teal,
+          ),
+          const SizedBox(height: 12),
+          _buildMenuCard(
+            context,
+            Icons.groups_outlined,
+            'Comunidade',
+            '/community',
+            color: Colors.deepOrange,
+          ),
+          const SizedBox(height: 12),
+          _buildMenuCard(
+            context,
+            Icons.book_outlined,
+            'Planos de Leituras',
+            '/reading-plans',
+            color: Colors.brown,
+          ),
+          const SizedBox(height: 12),
+          _buildMenuCard(
+            context,
+            Icons.menu_book_outlined,
+            'Bíblia',
+            '/bible',
+            color: Colors.indigo,
+          ),
 
-              if (confirm == true && context.mounted) {
-                await Supabase.instance.client.auth.signOut();
-                if (context.mounted) {
-                  context.go('/login');
-                }
-              }
+          const SizedBox(height: 32),
+
+          // ADMINISTRATIVO
+          ConditionalDashboardAccess(
+            builder: (context, canAccess) {
+              if (!canAccess) return const SizedBox.shrink();
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildSectionTitle(context, 'ADMINISTRATIVO'),
+                  const SizedBox(height: 12),
+                  _buildMenuCard(
+                    context,
+                    Icons.dashboard_outlined,
+                    'Dashboard',
+                    '/dashboard',
+                    color: Colors.redAccent,
+                  ),
+                  const SizedBox(height: 32),
+                ],
+              );
             },
           ),
 
-          const SizedBox(height: 16),
-
-          // Versão
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              'Church 360 v1.0.0',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+          // Logout Button
+          Container(
+            decoration: CommunityDesign.overlayDecoration(
+              Theme.of(context).colorScheme,
+            ),
+            child: ListTile(
+              onTap: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Confirmar Saída'),
+                    content: const Text('Deseja realmente sair do aplicativo?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancelar'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.red,
+                        ),
+                        child: const Text('Sair'),
+                      ),
+                    ],
                   ),
+                );
+
+                if (confirm == true && context.mounted) {
+                  await Supabase.instance.client.auth.signOut();
+                  if (context.mounted) {
+                    context.go('/login');
+                  }
+                }
+              },
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.logout, color: Colors.red, size: 20),
+              ),
+              title: const Text(
+                'Sair do aplicativo',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.red,
+                ),
+              ),
+              trailing: const Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: Colors.red,
+              ),
             ),
           ),
+
+          const SizedBox(height: 24),
+
+          // Version
+          Text(
+            'Church 360 v1.0.0',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
+          ),
+          const SizedBox(height: 48), // Bottom padding
         ],
       ),
     );
   }
 
-  Widget _buildMobileSection(BuildContext context, String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
+  Widget _buildSectionTitle(BuildContext context, String title) {
+    return Text(
+      title,
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        color: Theme.of(context).colorScheme.primary,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 1.2,
       ),
     );
   }
 
-  Widget _buildMobileMenuItem(
+  Widget _buildMenuCard(
     BuildContext context,
     IconData icon,
     String title,
-    String route,
-  ) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () {
-        context.push(route);
-      },
+    String route, {
+    Color? color,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final itemColor = color ?? cs.primary;
+
+    return Container(
+      decoration: CommunityDesign.overlayDecoration(cs),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(CommunityDesign.radius),
+          onTap: () => context.push(route),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ), // Espaçamento interno confortável
+            child: Row(
+              children: [
+                // Ícone Colorido
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: itemColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: itemColor, size: 22),
+                ),
+                const SizedBox(width: 16),
+                // Título
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                ),
+                // Seta
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16,
+                  color: cs.onSurface.withValues(alpha: 0.3),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1192,6 +836,8 @@ class _ShortcutCircles extends ConsumerWidget {
     WidgetRef ref,
     String platform,
   ) async {
+    // ... (lógica mantida, simplificada para brevidade neste exemplo se fosse reescrever tudo, 
+    // mas vou manter a lógica original e mudar apenas o layout no build)
     final churchInfoAsync = ref.read(churchInfoProvider);
 
     await churchInfoAsync.when(
@@ -1215,10 +861,10 @@ class _ShortcutCircles extends ConsumerWidget {
           case 'whatsapp':
             final phone = churchInfo.socialMedia!['whatsapp'];
             if (phone != null && phone.isNotEmpty) {
-              // Remover caracteres não numéricos
               final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
-              // Mensagem inicial personalizada
-              final message = Uri.encodeComponent('Olá! Vim através do app Church 360 🙏');
+              final message = Uri.encodeComponent(
+                'Olá! Vim através do app Church 360 🙏',
+              );
               url = 'https://wa.me/$cleanPhone?text=$message';
             }
             break;
@@ -1245,7 +891,6 @@ class _ShortcutCircles extends ConsumerWidget {
           return;
         }
 
-        // Tentar abrir a URL
         final uri = Uri.parse(url);
         if (await canLaunchUrl(uri)) {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -1285,50 +930,54 @@ class _ShortcutCircles extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _ShortcutCircle(
-          icon: FontAwesomeIcons.whatsapp,
-          gradient: const LinearGradient(
-            colors: [Color(0xFF25D366), Color(0xFF128C7E)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ShortcutCircle(
+            icon: FontAwesomeIcons.whatsapp,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF25D366), Color(0xFF128C7E)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            label: 'WhatsApp',
+            onTap: () => _launchSocialMedia(context, ref, 'whatsapp'),
           ),
-          label: 'WhatsApp',
-          onTap: () => _launchSocialMedia(context, ref, 'whatsapp'),
-        ),
-        _ShortcutCircle(
-          icon: FontAwesomeIcons.youtube,
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+          _ShortcutCircle(
+            icon: FontAwesomeIcons.youtube,
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFF0000), Color(0xFFCC0000)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            label: 'YouTube',
+            onTap: () => _launchSocialMedia(context, ref, 'youtube'),
           ),
-          label: 'YouTube',
-          onTap: () => _launchSocialMedia(context, ref, 'youtube'),
-        ),
-        _ShortcutCircle(
-          icon: FontAwesomeIcons.instagram,
-          gradient: const LinearGradient(
-            colors: [Color(0xFFF58529), Color(0xFFDD2A7B), Color(0xFF8134AF)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+          _ShortcutCircle(
+            icon: FontAwesomeIcons.instagram,
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF58529), Color(0xFFDD2A7B), Color(0xFF8134AF)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            label: 'Instagram',
+            onTap: () => _launchSocialMedia(context, ref, 'instagram'),
           ),
-          label: 'Instagram',
-          onTap: () => _launchSocialMedia(context, ref, 'instagram'),
-        ),
-        _ShortcutCircle(
-          icon: FontAwesomeIcons.facebook,
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1877F2), Color(0xFF0C63D4)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+          _ShortcutCircle(
+            icon: FontAwesomeIcons.facebook,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1877F2), Color(0xFF0C63D4)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            label: 'Facebook',
+            onTap: () => _launchSocialMedia(context, ref, 'facebook'),
           ),
-          label: 'Facebook',
-          onTap: () => _launchSocialMedia(context, ref, 'facebook'),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1350,36 +999,43 @@ class _ShortcutCircle extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(40),
+      borderRadius: BorderRadius.circular(20),
+      splashColor: (gradient?.colors.first ?? Colors.black).withValues(alpha: 0.1),
+      highlightColor: (gradient?.colors.first ?? Colors.black).withValues(alpha: 0.05),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 64,
-            height: 64,
+            width: 52, // Reduzido para 52 (levemente menor e mais elegante)
+            height: 52,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: gradient,
+              boxShadow: [
+                BoxShadow(
+                  color: (gradient?.colors.first ?? Colors.black).withValues(alpha: 0.25),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: icon != null
-                ? Center(
-                    child: FaIcon(
-                      icon,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                  )
+                ? Center(child: FaIcon(icon, color: Colors.white, size: 24)) // Ícone ajustado
                 : null,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10), // Respiro visual um pouco maior
           SizedBox(
-            width: 80,
+            width: 72,
             child: Text(
               label,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    fontSize: 11,
-                    height: 1.2,
-                  ),
+                fontWeight: FontWeight.w500,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8), // Texto suavizado
+                letterSpacing: 0.2,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -1414,7 +1070,9 @@ class _HomeBannersState extends ConsumerState<_HomeBanners> {
 
   void _startAutoPlay() {
     _autoPlayTimer?.cancel();
-    if (_totalBanners <= 1) return; // Não faz auto-play se houver apenas 1 banner
+    if (_totalBanners <= 1) {
+      return; // Não faz auto-play se houver apenas 1 banner
+    }
 
     _autoPlayTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (!mounted) {
@@ -1449,11 +1107,11 @@ class _HomeBannersState extends ConsumerState<_HomeBanners> {
           });
         }
 
-        return Column(
-          children: [
-            SizedBox(
-              height: 200,
-              child: PageView.builder(
+        return SizedBox(
+          height: 240, // Altura aumentada para estilo Hero
+          child: Stack(
+            children: [
+              PageView.builder(
                 controller: _pageController,
                 onPageChanged: (index) {
                   setState(() {
@@ -1466,27 +1124,32 @@ class _HomeBannersState extends ConsumerState<_HomeBanners> {
                   return _HomeBannerCard(banner: banner);
                 },
               ),
-            ),
-            const SizedBox(height: 12),
-            // Indicadores de página
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                banners.length,
-                (index) => Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _currentPage == index
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.outlineVariant,
+              // Indicadores de página (dentro do banner)
+              Positioned(
+                bottom: 20,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    banners.length,
+                    (index) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: _currentPage == index ? 24 : 8, // Largura dinâmica
+                      height: 8,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4),
+                        color: _currentPage == index
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.4),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
       loading: () => const SizedBox(
@@ -1510,7 +1173,8 @@ class _HomeBannerCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => EventDetailScreen(eventId: banner.linkedId!),
+              builder: (context) =>
+                  EventDetailScreen(eventId: banner.linkedId!),
             ),
           );
         }
@@ -1520,7 +1184,8 @@ class _HomeBannerCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => ReadingPlanDetailScreen(planId: banner.linkedId!),
+              builder: (context) =>
+                  ReadingPlanDetailScreen(planId: banner.linkedId!),
             ),
           );
         }
@@ -1534,9 +1199,9 @@ class _HomeBannerCard extends StatelessWidget {
       case 'external':
         if (banner.linkUrl != null && banner.linkUrl!.isNotEmpty) {
           // Abrir URL externa (você pode usar url_launcher aqui)
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Abrindo: ${banner.linkUrl}')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Abrindo: ${banner.linkUrl}')));
         }
         break;
     }
@@ -1544,24 +1209,21 @@ class _HomeBannerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: InkWell(
-        onTap: () => _handleBannerTap(context),
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            image: DecorationImage(
-              image: NetworkImage(banner.imageUrl),
-              fit: BoxFit.cover,
-              colorFilter: ColorFilter.mode(
-                Colors.black.withValues(alpha: 0.3),
-                BlendMode.darken,
+    return ChurchImage(
+      imageUrl: banner.imageUrl,
+      type: ChurchImageType.hero,
+      enableOverlay: true,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _handleBannerTap(context),
               ),
             ),
           ),
-          child: Padding(
+          Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1569,20 +1231,35 @@ class _HomeBannerCard extends StatelessWidget {
               children: [
                 Text(
                   banner.title,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                  style: CommunityDesign.titleStyle(context).copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
                       ),
+                    ],
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (banner.description != null && banner.description!.isNotEmpty) ...[
+                if (banner.description != null &&
+                    banner.description!.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
                     banner.description!,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.9),
+                    style: CommunityDesign.contentStyle(context).copyWith(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
                         ),
+                      ],
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1590,7 +1267,7 @@ class _HomeBannerCard extends StatelessWidget {
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -1616,126 +1293,80 @@ class _EdificationCardState extends ConsumerState<_EdificationCard> {
   Widget build(BuildContext context) {
     final devotionalsAsync = ref.watch(allDevotionalsProvider);
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: Theme.of(context).colorScheme.outlineVariant,
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          InkWell(
+    return devotionalsAsync.when(
+      data: (devotionals) {
+        if (devotionals.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        // Pegar até 4 devocionais mais recentes
+        final recentDevotionals = devotionals.take(4).toList();
+
+        final items = recentDevotionals.map((devotional) {
+          // Determinar qual imagem usar (imageUrl ou thumbnail do YouTube)
+          String? imageUrl = devotional.imageUrl;
+          if (imageUrl == null && devotional.hasYoutubeVideo) {
+            final videoId = YoutubePlayer.convertUrlToId(devotional.youtubeUrl!);
+            if (videoId != null) {
+              imageUrl = 'https://img.youtube.com/vi/$videoId/hqdefault.jpg';
+            }
+          }
+
+          return HomeContentCard(
+            thumbnail: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (imageUrl != null)
+                  ChurchImage(
+                    imageUrl: imageUrl,
+                    type: ChurchImageType.card,
+                  )
+                else
+                  Container(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    child: Icon(
+                      Icons.book,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 32,
+                    ),
+                  ),
+                if (devotional.hasYoutubeVideo)
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.play_arrow, color: Colors.white, size: 24),
+                    ),
+                  ),
+              ],
+            ),
+            title: devotional.title,
             onTap: () {
-              setState(() {
-                _isExpanded = !_isExpanded;
-              });
+              context.go('/devotionals/${devotional.id}');
             },
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Para sua edificação',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  Row(
-                    children: [
-                      Text(
-                        _isExpanded ? 'OCULTAR' : 'EXPANDIR',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (_isExpanded)
-            devotionalsAsync.when(
-              data: (devotionals) {
-                if (devotionals.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: Text(
-                      'Nenhum devocional disponível no momento.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                          ),
-                    ),
-                  );
-                }
+          );
+        }).toList();
 
-                // Pegar até 4 devocionais mais recentes
-                final recentDevotionals = devotionals.take(4).toList();
-
-                return Column(
-                  children: [
-                    // Grid 2x2 de devocionais
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                      child: GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                          childAspectRatio: 1.2,
-                        ),
-                        itemCount: recentDevotionals.length,
-                        itemBuilder: (context, index) {
-                          return _DevotionalGridCard(devotional: recentDevotionals[index]);
-                        },
-                      ),
-                    ),
-                    // Botão "VER TODOS"
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: () {
-                            // Navegar para a aba Palavras (índice 0)
-                            widget.onNavigateToTab(0);
-                          },
-                          child: const Text('VER TODOS'),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-              loading: () => const Padding(
-                padding: EdgeInsets.all(16),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (error, stack) => Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Text(
-                  'Erro ao carregar devocionais.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.red,
-                      ),
-                ),
-              ),
-            ),
-        ],
-      ),
+        return HomeSectionWidget(
+          title: 'Para sua edificação',
+          isExpanded: _isExpanded,
+          onToggle: () {
+            setState(() {
+              _isExpanded = !_isExpanded;
+            });
+          },
+          items: items,
+          onSeeAll: () {
+            // Navegar para a aba Devocionais (índice 0)
+            widget.onNavigateToTab(0);
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }
@@ -1760,274 +1391,84 @@ class _StayInformedCardState extends ConsumerState<_StayInformedCard> {
   Widget build(BuildContext context) {
     final eventsAsync = ref.watch(upcomingEventsProvider);
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: Theme.of(context).colorScheme.outlineVariant,
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: () {
-              setState(() {
-                _isExpanded = !_isExpanded;
-              });
-            },
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Fique por dentro',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+    return eventsAsync.when(
+      data: (events) {
+        if (events.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        // Pegar apenas os primeiros 4 eventos
+        final displayEvents = events.take(4).toList();
+
+        final items = displayEvents.map((event) {
+          return HomeContentCard(
+            thumbnail: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (event.imageUrl != null)
+                  ChurchImage(
+                    imageUrl: event.imageUrl!,
+                    type: ChurchImageType.hero,
+                  )
+                else
+                  Container(
+                    color: Theme.of(context).colorScheme.tertiaryContainer,
+                    child: Icon(
+                      Icons.event,
+                      color: Theme.of(context).colorScheme.tertiary,
+                      size: 32,
+                    ),
                   ),
-                  Row(
-                    children: [
-                      Text(
-                        _isExpanded ? 'OCULTAR' : 'EXPANDIR',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (_isExpanded)
-            eventsAsync.when(
-              data: (events) {
-                if (events.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                // Badge de data
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: Text(
-                      'Nenhum evento disponível no momento.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                          ),
-                    ),
-                  );
-                }
-
-                // Pegar apenas os primeiros 4 eventos
-                final displayEvents = events.take(4).toList();
-
-                return Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      child: GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 1.0,
-                        ),
-                        itemCount: displayEvents.length,
-                        itemBuilder: (context, index) {
-                          final event = displayEvents[index];
-                          return _EventGridCard(event: event);
-                        },
+                      '${event.startDate.day}/${event.startDate.month}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: () {
-                            // Navegar para a aba Eventos (índice 1)
-                            widget.onNavigateToTab(1);
-                          },
-                          child: const Text('VER TODOS'),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-              loading: () => const Padding(
-                padding: EdgeInsets.all(16),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (error, stack) => Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Text(
-                  'Erro ao carregar eventos.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// =====================================================
-// WIDGET: Card de Devocional no Grid
-// =====================================================
-
-class _DevotionalGridCard extends StatelessWidget {
-  final Devotional devotional;
-
-  const _DevotionalGridCard({required this.devotional});
-
-  @override
-  Widget build(BuildContext context) {
-    // Determinar qual imagem usar (imageUrl ou thumbnail do YouTube)
-    String? imageUrl = devotional.imageUrl;
-    final bool hasImage = imageUrl != null || devotional.hasYoutubeVideo;
-
-    // Se não tiver imageUrl mas tiver YouTube, usar thumbnail
-    if (imageUrl == null && devotional.hasYoutubeVideo) {
-      final videoId = YoutubePlayer.convertUrlToId(devotional.youtubeUrl!);
-      if (videoId != null) {
-        imageUrl = 'https://img.youtube.com/vi/$videoId/hqdefault.jpg';
-      }
-    }
-
-    return InkWell(
-      onTap: () {
-        context.push('/devotionals/${devotional.id}');
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: LinearGradient(
-            colors: [
-              Theme.of(context).colorScheme.primaryContainer,
-              Theme.of(context).colorScheme.tertiaryContainer,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          image: imageUrl != null
-              ? DecorationImage(
-                  image: NetworkImage(imageUrl),
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                  colorFilter: ColorFilter.mode(
-                    Colors.black.withValues(alpha: 0.3),
-                    BlendMode.darken,
                   ),
-                )
-              : null,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Ícone de livro ou vídeo
-              Icon(
-                devotional.hasYoutubeVideo ? Icons.video_library : Icons.book,
-                color: hasImage
-                    ? Colors.white
-                    : Theme.of(context).colorScheme.primary,
-                size: 24,
-              ),
-              // Título do devocional
-              Text(
-                devotional.title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: hasImage ? Colors.white : null,
-                      fontWeight: FontWeight.bold,
-                    ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+                ),
+              ],
+            ),
+            title: event.name,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EventDetailScreen(eventId: event.id),
+                ),
+              );
+            },
+          );
+        }).toList();
 
-// =====================================================
-// WIDGET: Card de Evento no Grid
-// =====================================================
-
-class _EventGridCard extends StatelessWidget {
-  final Event event;
-
-  const _EventGridCard({required this.event});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => EventDetailScreen(eventId: event.id),
-          ),
+        return HomeSectionWidget(
+          title: 'Fique por dentro',
+          isExpanded: _isExpanded,
+          onToggle: () {
+            setState(() {
+              _isExpanded = !_isExpanded;
+            });
+          },
+          items: items,
+          onSeeAll: () {
+            widget.onNavigateToTab(1);
+          },
         );
       },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: LinearGradient(
-            colors: [
-              Theme.of(context).colorScheme.primaryContainer,
-              Theme.of(context).colorScheme.secondaryContainer,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          image: event.imageUrl != null
-              ? DecorationImage(
-                  image: NetworkImage(event.imageUrl!),
-                  fit: BoxFit.cover,
-                  colorFilter: ColorFilter.mode(
-                    Colors.black.withValues(alpha: 0.3),
-                    BlendMode.darken,
-                  ),
-                )
-              : null,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                event.name,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: event.imageUrl != null ? Colors.white : null,
-                      fontWeight: FontWeight.bold,
-                    ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }

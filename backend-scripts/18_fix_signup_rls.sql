@@ -119,9 +119,7 @@ CREATE POLICY "Users can create access levels"
 
 -- Permitir que o trigger insira registros de histórico
 -- (o trigger é executado no contexto do usuário que está fazendo a operação)
-CREATE POLICY "Allow trigger to insert access level history"
-  ON access_level_history FOR INSERT
-  WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow trigger to insert access level history" ON access_level_history;
 
 -- =====================================================
 -- VERIFICAÇÃO
@@ -154,4 +152,3 @@ SELECT
 FROM pg_policies
 WHERE tablename = 'user_access_level'
 ORDER BY policyname;
-

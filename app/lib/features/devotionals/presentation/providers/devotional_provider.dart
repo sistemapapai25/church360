@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/devotional_repository.dart';
 import '../../domain/models/devotional.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 
 // =====================================================
 // REPOSITORY PROVIDER
@@ -18,30 +20,35 @@ final devotionalRepositoryProvider = Provider<DevotionalRepository>((ref) {
 
 /// Provider para todos os devocionais publicados
 final allDevotionalsProvider = FutureProvider<List<Devotional>>((ref) async {
+  ref.watch(authStateProvider);
   final repository = ref.watch(devotionalRepositoryProvider);
   return repository.getAllDevotionals();
 });
 
 /// Provider para todos os devocionais (incluindo rascunhos)
 final allDevotionalsIncludingDraftsProvider = FutureProvider<List<Devotional>>((ref) async {
+  ref.watch(authStateProvider);
   final repository = ref.watch(devotionalRepositoryProvider);
   return repository.getAllDevotionalsIncludingDrafts();
 });
 
 /// Provider para devocional por ID
 final devotionalByIdProvider = FutureProvider.family<Devotional?, String>((ref, id) async {
+  ref.watch(authStateProvider);
   final repository = ref.watch(devotionalRepositoryProvider);
   return repository.getDevotionalById(id);
 });
 
 /// Provider para devocional do dia
 final todayDevotionalProvider = FutureProvider<Devotional?>((ref) async {
+  ref.watch(authStateProvider);
   final repository = ref.watch(devotionalRepositoryProvider);
   return repository.getTodayDevotional();
 });
 
 /// Provider para devocional por data
 final devotionalByDateProvider = FutureProvider.family<Devotional?, DateTime>((ref, date) async {
+  ref.watch(authStateProvider);
   final repository = ref.watch(devotionalRepositoryProvider);
   return repository.getDevotionalByDate(date);
 });
@@ -52,44 +59,42 @@ final devotionalByDateProvider = FutureProvider.family<Devotional?, DateTime>((r
 
 /// Provider para leituras de um devocional
 final devotionalReadingsProvider = FutureProvider.family<List<DevotionalReading>, String>((ref, devotionalId) async {
+  ref.watch(authStateProvider);
   final repository = ref.watch(devotionalRepositoryProvider);
   return repository.getDevotionalReadings(devotionalId);
 });
 
 /// Provider para leituras do usuário atual
 final currentUserReadingsProvider = FutureProvider<List<DevotionalReading>>((ref) async {
+  ref.watch(authStateProvider);
   final repository = ref.watch(devotionalRepositoryProvider);
-  final userId = Supabase.instance.client.auth.currentUser?.id;
-  
-  if (userId == null) return [];
-  
-  return repository.getUserReadings(userId);
+  final member = await ref.watch(currentMemberProvider.future);
+  if (member == null) return [];
+  return repository.getUserReadings(member.id);
 });
 
 /// Provider para leituras de um usuário específico
 final userReadingsProvider = FutureProvider.family<List<DevotionalReading>, String>((ref, userId) async {
+  ref.watch(authStateProvider);
   final repository = ref.watch(devotionalRepositoryProvider);
   return repository.getUserReadings(userId);
 });
 
 /// Provider para verificar se usuário leu um devocional
 final hasUserReadDevotionalProvider = FutureProvider.family<bool, String>((ref, devotionalId) async {
+  ref.watch(authStateProvider);
   final repository = ref.watch(devotionalRepositoryProvider);
-  final userId = Supabase.instance.client.auth.currentUser?.id;
-  
-  if (userId == null) return false;
-  
-  return repository.hasUserReadDevotional(userId, devotionalId);
+  final member = await ref.watch(currentMemberProvider.future);
+  if (member == null) return false;
+  return repository.hasUserReadDevotional(member.id, devotionalId);
 });
 
 /// Provider para leitura específica do usuário
 final userDevotionalReadingProvider = FutureProvider.family<DevotionalReading?, String>((ref, devotionalId) async {
   final repository = ref.watch(devotionalRepositoryProvider);
-  final userId = Supabase.instance.client.auth.currentUser?.id;
-  
-  if (userId == null) return null;
-  
-  return repository.getUserDevotionalReading(userId, devotionalId);
+  final member = await ref.watch(currentMemberProvider.future);
+  if (member == null) return null;
+  return repository.getUserDevotionalReading(member.id, devotionalId);
 });
 
 // =====================================================
@@ -105,27 +110,42 @@ final devotionalStatsProvider = FutureProvider.family<DevotionalStats, String>((
 /// Provider para streak de leituras do usuário atual
 final currentUserReadingStreakProvider = FutureProvider<int>((ref) async {
   final repository = ref.watch(devotionalRepositoryProvider);
-  final userId = Supabase.instance.client.auth.currentUser?.id;
-  
-  if (userId == null) return 0;
-  
-  return repository.getUserReadingStreak(userId);
+  final member = await ref.watch(currentMemberProvider.future);
+  if (member == null) return 0;
+  return repository.getUserReadingStreak(member.id);
 });
 
 /// Provider para total de leituras do usuário atual
 final currentUserTotalReadingsProvider = FutureProvider<int>((ref) async {
   final repository = ref.watch(devotionalRepositoryProvider);
-  final userId = Supabase.instance.client.auth.currentUser?.id;
-  
-  if (userId == null) return 0;
-  
-  return repository.getUserTotalReadings(userId);
+  final member = await ref.watch(currentMemberProvider.future);
+  if (member == null) return 0;
+  return repository.getUserTotalReadings(member.id);
 });
 
 /// Provider para devocionais mais lidos
 final mostReadDevotionalsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final repository = ref.watch(devotionalRepositoryProvider);
   return repository.getMostReadDevotionals(limit: 10);
+});
+
+final weeklyReadingsCountProvider = FutureProvider<int>((ref) async {
+  final repository = ref.watch(devotionalRepositoryProvider);
+  final since = DateTime.now().subtract(const Duration(days: 7));
+  return repository.getReadingsCountSince(since);
+});
+
+final todayReadingsCountProvider = FutureProvider<int>((ref) async {
+  final repository = ref.watch(devotionalRepositoryProvider);
+  final now = DateTime.now();
+  final startOfDay = DateTime(now.year, now.month, now.day);
+  return repository.getReadingsCountSince(startOfDay);
+});
+
+final weeklyUniqueReadersCountProvider = FutureProvider<int>((ref) async {
+  final repository = ref.watch(devotionalRepositoryProvider);
+  final since = DateTime.now().subtract(const Duration(days: 7));
+  return repository.getUniqueReadersCountSince(since);
 });
 
 // =====================================================
@@ -155,9 +175,8 @@ class DevotionalActions {
     String? youtubeUrl,
   }) async {
     final repository = ref.read(devotionalRepositoryProvider);
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-
-    if (userId == null) {
+    final member = await ref.read(currentMemberProvider.future);
+    if (member == null) {
       throw Exception('Usuário não autenticado');
     }
 
@@ -166,7 +185,7 @@ class DevotionalActions {
       content: content,
       scriptureReference: scriptureReference,
       devotionalDate: devotionalDate,
-      authorId: userId,
+      authorId: member.id,
       isPublished: isPublished,
       imageUrl: imageUrl,
       category: category,
@@ -264,15 +283,14 @@ class DevotionalActions {
     String? notes,
   }) async {
     final repository = ref.read(devotionalRepositoryProvider);
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    
-    if (userId == null) {
+    final member = await ref.read(currentMemberProvider.future);
+    if (member == null) {
       throw Exception('Usuário não autenticado');
     }
 
     await repository.markAsRead(
       devotionalId: devotionalId,
-      userId: userId,
+      userId: member.id,
       notes: notes,
     );
 
@@ -319,4 +337,3 @@ class DevotionalActions {
 final devotionalActionsProvider = Provider<DevotionalActions>((ref) {
   return DevotionalActions(ref);
 });
-

@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/role.dart';
 import '../domain/models/role_context.dart';
 
@@ -8,6 +9,23 @@ class RolesRepository {
   final SupabaseClient _supabase;
 
   RolesRepository(this._supabase);
+
+  Future<String?> _effectiveUserId() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+    final email = user.email;
+    if (email != null && email.trim().isNotEmpty) {
+      try {
+        final nickname = email.trim().split('@').first;
+        await _supabase.rpc('ensure_my_account', params: {
+          '_tenant_id': SupabaseConstants.currentTenantId,
+          '_email': email,
+          '_nickname': nickname,
+        });
+      } catch (_) {}
+    }
+    return user.id;
+  }
 
   // =====================================================
   // CRUD DE CARGOS
@@ -40,6 +58,7 @@ class RolesRepository {
 
   /// Criar novo cargo (com objeto Role)
   Future<Role> createRoleFromObject(Role role) async {
+    final actorId = await _effectiveUserId();
     final response = await _supabase
         .from('roles')
         .insert({
@@ -49,7 +68,7 @@ class RolesRepository {
           'hierarchy_level': role.hierarchyLevel,
           'allows_context': role.allowsContext,
           'is_active': role.isActive,
-          'created_by': _supabase.auth.currentUser?.id,
+          'created_by': actorId,
         })
         .select()
         .single();
@@ -65,6 +84,7 @@ class RolesRepository {
     int hierarchyLevel = 0,
     bool allowsContext = false,
   }) async {
+    final actorId = await _effectiveUserId();
     final response = await _supabase
         .from('roles')
         .insert({
@@ -74,7 +94,7 @@ class RolesRepository {
           'hierarchy_level': hierarchyLevel,
           'allows_context': allowsContext,
           'is_active': true,
-          'created_by': _supabase.auth.currentUser?.id,
+          'created_by': actorId,
         })
         .select()
         .single();
@@ -184,6 +204,7 @@ class RolesRepository {
 
   /// Criar novo contexto
   Future<RoleContext> createRoleContext(RoleContext context) async {
+    final actorId = await _effectiveUserId();
     final response = await _supabase
         .from('role_contexts')
         .insert({
@@ -192,7 +213,7 @@ class RolesRepository {
           'description': context.description,
           'metadata': context.metadata,
           'is_active': context.isActive,
-          'created_by': _supabase.auth.currentUser?.id,
+          'created_by': actorId,
         })
         .select()
         .single();

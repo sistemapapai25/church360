@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/constants/supabase_constants.dart';
 
 /// Widget reutilizável para upload de arquivos (PDF, PowerPoint, etc.)
 class FileUploadWidget extends StatefulWidget {
@@ -36,6 +37,23 @@ class _FileUploadWidgetState extends State<FileUploadWidget> {
   File? _file;
   Uint8List? _webFile;
   bool _isUploading = false;
+  Future<String?> _effectiveUserId() async {
+    final supabase = Supabase.instance.client;
+    final user = supabase.auth.currentUser;
+    if (user == null) return null;
+    final email = user.email;
+    if (email != null && email.trim().isNotEmpty) {
+      try {
+        final nickname = email.trim().split('@').first;
+        await supabase.rpc('ensure_my_account', params: {
+          '_tenant_id': SupabaseConstants.currentTenantId,
+          '_email': email,
+          '_nickname': nickname,
+        });
+      } catch (_) {}
+    }
+    return user.id;
+  }
 
   @override
   void initState() {
@@ -91,7 +109,7 @@ class _FileUploadWidgetState extends State<FileUploadWidget> {
 
     try {
       final supabase = Supabase.instance.client;
-      final userId = supabase.auth.currentUser?.id;
+      final userId = await _effectiveUserId();
       if (userId == null) throw Exception('Usuário não autenticado');
 
       // Gerar nome único para o arquivo
@@ -250,4 +268,3 @@ class _FileUploadWidgetState extends State<FileUploadWidget> {
     );
   }
 }
-

@@ -148,6 +148,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_sync_access_level_number ON user_access_level;
 CREATE TRIGGER trigger_sync_access_level_number
   BEFORE INSERT OR UPDATE OF access_level ON user_access_level
   FOR EACH ROW
@@ -204,6 +205,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_log_access_level_change ON user_access_level;
 CREATE TRIGGER trigger_log_access_level_change
   AFTER INSERT OR UPDATE OF access_level ON user_access_level
   FOR EACH ROW
@@ -213,6 +215,7 @@ CREATE TRIGGER trigger_log_access_level_change
 -- 8. TRIGGER: Atualizar updated_at
 -- =====================================================
 
+DROP TRIGGER IF EXISTS trigger_user_access_level_updated_at ON user_access_level;
 CREATE TRIGGER trigger_user_access_level_updated_at
   BEFORE UPDATE ON user_access_level
   FOR EACH ROW
@@ -227,11 +230,13 @@ ALTER TABLE user_access_level ENABLE ROW LEVEL SECURITY;
 ALTER TABLE access_level_history ENABLE ROW LEVEL SECURITY;
 
 -- Policy: SELECT - Todos podem ver todos os níveis
+DROP POLICY IF EXISTS "Users can view all access levels" ON user_access_level;
 CREATE POLICY "Users can view all access levels"
   ON user_access_level FOR SELECT
   USING (true);
 
 -- Policy: INSERT - Apenas admins podem criar níveis
+DROP POLICY IF EXISTS "Only admins can create access levels" ON user_access_level;
 CREATE POLICY "Only admins can create access levels"
   ON user_access_level FOR INSERT
   WITH CHECK (
@@ -243,6 +248,7 @@ CREATE POLICY "Only admins can create access levels"
   );
 
 -- Policy: UPDATE - Apenas admins podem atualizar níveis
+DROP POLICY IF EXISTS "Only admins can update access levels" ON user_access_level;
 CREATE POLICY "Only admins can update access levels"
   ON user_access_level FOR UPDATE
   USING (
@@ -254,6 +260,7 @@ CREATE POLICY "Only admins can update access levels"
   );
 
 -- Policy: DELETE - Apenas admins podem deletar níveis
+DROP POLICY IF EXISTS "Only admins can delete access levels" ON user_access_level;
 CREATE POLICY "Only admins can delete access levels"
   ON user_access_level FOR DELETE
   USING (
@@ -265,6 +272,7 @@ CREATE POLICY "Only admins can delete access levels"
   );
 
 -- Policy: SELECT histórico - Todos podem ver histórico
+DROP POLICY IF EXISTS "Users can view all access level history" ON access_level_history;
 CREATE POLICY "Users can view all access level history"
   ON access_level_history FOR SELECT
   USING (true);
@@ -288,4 +296,3 @@ ON CONFLICT (user_id) DO NOTHING;
 -- =====================================================
 -- FIM DO SCRIPT
 -- =====================================================
-

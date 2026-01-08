@@ -8,6 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/access_levels/domain/models/access_level.dart';
 import '../../features/access_levels/presentation/providers/access_level_provider.dart';
+import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../../core/constants/supabase_constants.dart';
+import '../../features/members/presentation/providers/members_provider.dart';
 
 /// Tela de acesso negado
 class AccessDeniedScreen extends StatelessWidget {
@@ -204,6 +207,57 @@ class CoordinatorOnlyRoute extends ConsumerWidget {
   }
 }
 
+class OwnerOnlyRoute extends ConsumerWidget {
+  final Widget child;
+
+  const OwnerOnlyRoute({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final memberAsync = ref.watch(currentMemberProvider);
+    final supabase = ref.watch(supabaseClientProvider);
+    return memberAsync.when(
+      data: (member) {
+        if (member == null) {
+          return const AccessDeniedScreen(requiredLevel: AccessLevelType.admin);
+        }
+        return FutureBuilder<Map<String, dynamic>?>(
+          future: supabase
+              .from('user_account')
+              .select('role_global')
+              .eq('id', member.id)
+              .eq('tenant_id', SupabaseConstants.currentTenantId)
+              .maybeSingle(),
+          builder: (context, snapshot) {
+            final role = (snapshot.data?['role_global']?.toString() ?? '').trim().toLowerCase();
+            if (role == 'owner') {
+              return child;
+            }
+            return const AccessDeniedScreen(requiredLevel: AccessLevelType.admin);
+          },
+        );
+      },
+      loading: () => const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      ),
+      error: (error, _) => Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text('Erro ao verificar permissões: $error'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Widget que protege uma rota apenas para líderes ou superior
 class LeaderOnlyRoute extends ConsumerWidget {
   final Widget child;
@@ -289,4 +343,3 @@ class MemberOnlyRoute extends ConsumerWidget {
     );
   }
 }
-

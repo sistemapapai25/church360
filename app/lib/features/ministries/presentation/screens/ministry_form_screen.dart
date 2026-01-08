@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/ministries_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
+import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/permission_widget.dart';
 
 /// Tela de formulário de ministério (criar/editar)
 class MinistryFormScreen extends ConsumerStatefulWidget {
@@ -19,7 +21,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
-  
+
   bool _isActive = true;
   String _selectedColor = '0xFF2196F3'; // Azul padrão
   bool _isLoading = false;
@@ -51,7 +53,9 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
   }
 
   Future<void> _loadMinistry() async {
-    final ministry = await ref.read(ministryByIdProvider(widget.ministryId!).future);
+    final ministry = await ref.read(
+      ministryByIdProvider(widget.ministryId!).future,
+    );
     if (ministry != null && mounted) {
       setState(() {
         _nameController.text = ministry.name;
@@ -75,271 +79,371 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
     final isEditing = widget.ministryId != null;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isEditing ? 'Editar Ministério' : 'Novo Ministério'),
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            // Nome
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Nome do Ministério *',
-                hintText: 'Ex: Louvor, Infantil, Jovens',
-                prefixIcon: Icon(Icons.church),
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Nome é obrigatório';
-                }
-                return null;
-              },
-              textCapitalization: TextCapitalization.words,
-            ),
-            const SizedBox(height: 16),
-
-            // Descrição
-            TextFormField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Descrição (opcional)',
-                hintText: 'Descreva o propósito do ministério',
-                prefixIcon: Icon(Icons.description),
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-              maxLength: 500,
-              textCapitalization: TextCapitalization.sentences,
-            ),
-            const SizedBox(height: 16),
-
-            // Seletor de cor
-            const Text(
-              'Cor do Ministério',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: _colors.map((colorData) {
-                final colorValue = int.parse(colorData['value'] as String);
-                final color = Color(colorValue);
-                final isSelected = _selectedColor == colorData['value'];
-
-                return InkWell(
-                  onTap: () {
-                    setState(() {
-                      _selectedColor = colorData['value'] as String;
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected ? Colors.black : Colors.transparent,
-                        width: 3,
-                      ),
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          _buildHeader(context, isEditing),
+          Padding(
+            padding: CommunityDesign.overlayPadding,
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  // Dados Básicos
+                  Container(
+                    decoration: CommunityDesign.overlayDecoration(
+                      Theme.of(context).colorScheme,
                     ),
-                    child: isSelected
-                        ? const Icon(
-                            Icons.check,
-                            color: Colors.white,
-                            size: 32,
-                          )
-                        : null,
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Dados Básicos',
+                          style: CommunityDesign.titleStyle(
+                            context,
+                          ).copyWith(fontSize: 18),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _nameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Nome do Ministério *',
+                            hintText: 'Ex: Louvor, Infantil, Jovens',
+                            prefixIcon: Icon(Icons.church),
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Nome é obrigatório';
+                            }
+                            return null;
+                          },
+                          textCapitalization: TextCapitalization.words,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _descriptionController,
+                          decoration: const InputDecoration(
+                            labelText: 'Descrição (opcional)',
+                            hintText: 'Descreva o propósito do ministério',
+                            prefixIcon: Icon(Icons.description),
+                            border: OutlineInputBorder(),
+                          ),
+                          maxLines: 3,
+                          maxLength: 500,
+                          textCapitalization: TextCapitalization.sentences,
+                        ),
+                      ],
+                    ),
                   ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 24),
+                  const SizedBox(height: 16),
 
-            if (widget.ministryId != null) ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Funções e Quantidades',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 12),
-                      if (_isLoadingFunctions)
-                        const LinearProgressIndicator()
-                      else ...[
-                        ..._functionRequirements.entries.map((e) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Row(
-                                children: [
-                                  Expanded(child: Text(e.key)),
-                                  const SizedBox(width: 8),
-                                  SizedBox(
-                                    width: 80,
-                                    child: TextFormField(
-                                      initialValue: e.value.toString(),
-                                      decoration: const InputDecoration(
-                                        labelText: 'Qtd',
-                                        border: OutlineInputBorder(),
-                                      ),
-                                      keyboardType: TextInputType.number,
-                                      onChanged: (v) {
-                                        final n = int.tryParse(v);
-                                        setState(() => _functionRequirements[e.key] = (n ?? e.value).clamp(0, 99));
-                                      },
-                                    ),
+                  // Cor
+                  Container(
+                    decoration: CommunityDesign.overlayDecoration(
+                      Theme.of(context).colorScheme,
+                    ),
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Cor do Ministério',
+                          style: CommunityDesign.titleStyle(
+                            context,
+                          ).copyWith(fontSize: 18),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: _colors.map((colorData) {
+                            final colorValue = int.parse(
+                              colorData['value'] as String,
+                            );
+                            final color = Color(colorValue);
+                            final isSelected =
+                                _selectedColor == colorData['value'];
+
+                            return InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _selectedColor = colorData['value'] as String;
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? Colors.black
+                                        : Colors.transparent,
+                                    width: 3,
                                   ),
-                                ],
+                                ),
+                                child: isSelected
+                                    ? const Icon(
+                                        Icons.check,
+                                        color: Colors.white,
+                                        size: 32,
+                                      )
+                                    : null,
                               ),
-                            )),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _newFunctionController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Nova função',
-                                  border: OutlineInputBorder(),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  if (widget.ministryId != null) ...[
+                    Container(
+                      decoration: CommunityDesign.overlayDecoration(
+                        Theme.of(context).colorScheme,
+                      ),
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Funções e Quantidades',
+                            style: CommunityDesign.titleStyle(
+                              context,
+                            ).copyWith(fontSize: 18),
+                          ),
+                          const SizedBox(height: 12),
+                          if (_isLoadingFunctions)
+                            const LinearProgressIndicator()
+                          else ...[
+                            ..._functionRequirements.entries.map(
+                              (e) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Row(
+                                  children: [
+                                    Expanded(child: Text(e.key)),
+                                    const SizedBox(width: 8),
+                                    SizedBox(
+                                      width: 80,
+                                      child: TextFormField(
+                                        initialValue: e.value.toString(),
+                                        decoration: const InputDecoration(
+                                          labelText: 'Qtd',
+                                          border: OutlineInputBorder(),
+                                        ),
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (v) {
+                                          final n = int.tryParse(v);
+                                          setState(
+                                            () => _functionRequirements[e.key] =
+                                                (n ?? e.value).clamp(0, 99),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            FilledButton.icon(
-                              onPressed: () {
-                                final name = _newFunctionController.text.trim();
-                                if (name.isEmpty) return;
-                                setState(() {
-                                  _functionRequirements.putIfAbsent(name, () => 1);
-                                  _newFunctionController.clear();
-                                });
-                              },
-                              icon: const Icon(Icons.add),
-                              label: const Text('Adicionar Função'),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _newFunctionController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Nova função',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                FilledButton.icon(
+                                  onPressed: () {
+                                    final name = _newFunctionController.text
+                                        .trim();
+                                    if (name.isEmpty) return;
+                                    setState(() {
+                                      _functionRequirements.putIfAbsent(
+                                        name,
+                                        () => 1,
+                                      );
+                                      _newFunctionController.clear();
+                                    });
+                                  },
+                                  icon: const Icon(Icons.add),
+                                  label: const Text('Adicionar'),
+                                  style: CommunityDesign.pillButtonStyle(
+                                    context,
+                                    Theme.of(context).colorScheme.primary,
+                                    compact: true,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Status ativo/inativo
+                  Container(
+                    decoration: CommunityDesign.overlayDecoration(
+                      Theme.of(context).colorScheme,
+                    ),
+                    child: SwitchListTile(
+                      title: Text(
+                        'Ministério Ativo',
+                        style: CommunityDesign.titleStyle(
+                          context,
+                        ).copyWith(fontSize: 16),
+                      ),
+                      subtitle: Text(
+                        _isActive
+                            ? 'Ministério está ativo e visível'
+                            : 'Ministério está inativo',
+                        style: CommunityDesign.metaStyle(context),
+                      ),
+                      value: _isActive,
+                      onChanged: (value) {
+                        setState(() {
+                          _isActive = value;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Preview
+                  Container(
+                    decoration: CommunityDesign.overlayDecoration(
+                      Theme.of(context).colorScheme,
+                    ),
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Preview',
+                          style: CommunityDesign.metaStyle(
+                            context,
+                          ).copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Color(
+                                  int.parse(_selectedColor),
+                                ).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.church,
+                                color: Color(int.parse(_selectedColor)),
+                                size: 28,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _nameController.text.isEmpty
+                                        ? 'Nome do Ministério'
+                                        : _nameController.text,
+                                    style: CommunityDesign.titleStyle(
+                                      context,
+                                    ).copyWith(fontSize: 18),
+                                  ),
+                                  if (_descriptionController
+                                      .text
+                                      .isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _descriptionController.text,
+                                      style: CommunityDesign.metaStyle(context),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ],
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 32),
+                ],
               ),
-              const SizedBox(height: 24),
-            ],
-
-            // Status ativo/inativo
-            SwitchListTile(
-              title: const Text('Ministério Ativo'),
-              subtitle: Text(
-                _isActive
-                    ? 'Ministério está ativo e visível'
-                    : 'Ministério está inativo',
-              ),
-              value: _isActive,
-              onChanged: (value) {
-                setState(() {
-                  _isActive = value;
-                });
-              },
             ),
-            const SizedBox(height: 24),
+          ),
+        ],
+      ),
+    );
+  }
 
-            // Preview
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Preview',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: Color(int.parse(_selectedColor)).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.church,
-                            color: Color(int.parse(_selectedColor)),
-                            size: 28,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _nameController.text.isEmpty
-                                    ? 'Nome do Ministério'
-                                    : _nameController.text,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              if (_descriptionController.text.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  _descriptionController.text,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+  Widget _buildHeader(BuildContext context, bool isEditing) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 60, 16, 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.pop(),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            isEditing ? 'Editar Ministério' : 'Novo Ministério',
+            style: CommunityDesign.titleStyle(
+              context,
+            ).copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const Spacer(),
+          if (_isLoading)
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            CoordinatorOnlyWidget(
+              child: ElevatedButton.icon(
+                onPressed: _saveMinistry,
+                icon: const Icon(Icons.check, size: 18),
+                label: const Text('Salvar'),
+                style: CommunityDesign.pillButtonStyle(
+                  context,
+                  Colors.green,
+                  compact: true,
                 ),
               ),
             ),
-            const SizedBox(height: 32),
-
-            // Botão de salvar
-            FilledButton(
-              onPressed: _isLoading ? null : _saveMinistry,
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Text(isEditing ? 'Salvar Alterações' : 'Criar Ministério'),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -403,7 +507,9 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
   Future<void> _loadFunctionRequirements() async {
     setState(() => _isLoadingFunctions = true);
     try {
-      final contexts = await ref.read(roleContextsRepositoryProvider).getContextsByMinistry(widget.ministryId!);
+      final contexts = await ref
+          .read(roleContextsRepositoryProvider)
+          .getContextsByMinistry(widget.ministryId!);
       final Map<String, int> merged = {};
       for (final c in contexts) {
         final meta = c.metadata ?? {};
@@ -431,17 +537,20 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
 
   Future<void> _saveFunctionRequirements() async {
     try {
-      final contexts = await ref.read(roleContextsRepositoryProvider).getContextsByMinistry(widget.ministryId!);
+      final contexts = await ref
+          .read(roleContextsRepositoryProvider)
+          .getContextsByMinistry(widget.ministryId!);
       for (final c in contexts) {
         final meta = Map<String, dynamic>.from(c.metadata ?? {});
-        final funcs = Set<String>.from((meta['functions'] as List?)?.map((e) => e.toString()) ?? const []);
+        final funcs = Set<String>.from(
+          (meta['functions'] as List?)?.map((e) => e.toString()) ?? const [],
+        );
         funcs.addAll(_functionRequirements.keys);
         meta['functions'] = funcs.toList();
         meta['function_requirements'] = _functionRequirements;
-        await ref.read(roleContextsRepositoryProvider).updateContext(
-          contextId: c.id,
-          metadata: meta,
-        );
+        await ref
+            .read(roleContextsRepositoryProvider)
+            .updateContext(contextId: c.id, metadata: meta);
       }
     } catch (e) {
       debugPrint('Falha ao salvar requisitos de função: $e');

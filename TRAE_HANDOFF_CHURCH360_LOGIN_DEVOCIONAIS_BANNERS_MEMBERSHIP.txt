@@ -1,0 +1,123 @@
+Handoff (Trae) — Church360 (este repositório)
+Data: 2026-01-06
+
+Contexto
+- O trabalho abaixo foi feito no projeto em: C:\Users\prber\projetos\Church360
+- O objetivo era garantir que, ao logar, o usuário exista na tabela de “membership” (aqui, a tabela é public.user_account) e que isso destrave o acesso/uso de Devocionais, Banners e Progresso de Planos de Leitura (tabelas que usam user_id).
+- Commits que concentram essas mudanças (branch main):
+  - cc877db (Atualizações feitas no Trae)
+  - 90e00fb (Atualizações feitas no Trae) + backend-scripts/37_reconcile_user_account_with_auth_users.sql
+
+Resumo do que foi implementado
+
+1) Login/Signup: garantir “membership” (user_account) + tenant
+- Arquivo: app/lib/features/auth/data/auth_repository.dart
+  - Após login (signInWithPassword):
+    - Faz login no Supabase Auth.
+    - Sincroniza tenant (para setar x-tenant-id nos headers do client e alinhar tenant no JWT):
+      - SupabaseConstants.syncTenantFromServer(...)
+    - Chama a RPC ensure_my_account (quando disponível) para garantir consistência do perfil:
+      - _supabase.rpc('ensure_my_account', params: { _tenant_id, _email })
+    - Garante que exista um registro em public.user_account para o auth.uid() atual:
+      - ensureUserAccountForSession(...)
+      - Se não existir, faz INSERT em user_account com id = auth.user.id, email, full_name, status='visitor', is_active=true e tenant_id (se existir a coluna).
+      - Se existir, faz UPDATE “conservador” (preenche email/full_name/tenant_id se estiverem vazios, seta is_active=true e tenta manter auth_user_id).
+    - Garante também um registro em public.user_access_level (visitor/0) para o user_id atual, incluindo tenant_id quando disponível.
+
+  - No cadastro (signUp):
+    - Passa tenant_id e full_name no metadata do usuário (Supabase Auth).
+    - Sincroniza tenant (mesma rotina acima).
+    - Chama ensure_my_account.
+    - Chama ensureUserAccountForSession e depois atualiza nickname/is_active em user_account.
+
+- Arquivo: app/lib/features/auth/presentation/screens/login_screen.dart
+  - O botão “Entrar” chama authRepo.signInWithPassword(...), e após sucesso navega para /home.
+
+- Arquivo: app/lib/core/constants/supabase_constants.dart
+  - Resolve e aplica tenant ativo:
+    - resolveBestTenantId(...) tenta achar um tenant válido via:
+      - user_tenant_membership (se existir)
+      - user_access_level
+      - user_account (auth_user_id ou id)
+      - JWT metadata
+    - syncTenantFromServer(...) aplica header x-tenant-id e opcionalmente atualiza o JWT (updateUser + refreshSession).
+
+Por que isso era necessário (efeito prático)
+- Várias tabelas do app (ex.: devotional_readings, reading_plan_progress, etc.) usam user_id e RLS com auth.uid().
+- Se o usuário existe em auth.users mas não existe em public.user_account, inserts/updates em tabelas que referenciam user_account(id) podem falhar por FK e/ou por RLS.
+- A rotina ensureUserAccountForSession cria/alinha o “perfil” (user_account) no momento do login/cadastro, evitando esse bloqueio.
+
+2) Devocionais: queries tenant-aware + leituras usando user_id
+- Arquivo: app/lib/features/devotionals/data/devotional_repository.dart
+  - Todas as queries filtram por tenant_id (SupabaseConstants.currentTenantId).
+  - Leitura de devocional (marcar como lido) usa upsert em devotional_readings com:
+    - devotional_id
+    - user_id (normalmente = auth.uid())
+    - tenant_id
+  - Impacto: ao logar, o user_account precisa existir para não quebrar FKs/consistência de usuário ao registrar leituras e estatísticas.
+
+Arquivos do módulo (para portabilidade)
+- app/lib/features/devotionals/data/devotional_repository.dart
+- app/lib/features/devotionals/domain/models/devotional.dart
+- app/lib/features/devotionals/presentation/providers/devotional_provider.dart
+- app/lib/features/devotionals/presentation/screens/devotional_detail_screen.dart
+- app/lib/features/devotionals/presentation/screens/devotional_form_screen.dart
+- app/lib/features/devotionals/presentation/screens/devotionals_list_screen.dart
+
+3) Banners: queries tenant-aware + realtime filtrado por tenant
+- Arquivo: app/lib/features/home_content/data/banners_repository.dart
+  - getAllBanners/getActiveBanners filtram por tenant_id.
+  - watchActiveBanners() usa stream realtime e filtra client-side por:
+    - json['tenant_id'] == tenantId atual
+    - is_active == true
+  - CRUD (create/update/delete/toggle/order) mantém tenant_id como filtro/atributo.
+
+Arquivos do módulo (para portabilidade)
+- app/lib/features/home_content/data/banners_repository.dart
+- app/lib/features/home_content/domain/models/banner.dart
+- app/lib/features/home_content/presentation/providers/banners_provider.dart
+- app/lib/features/home_content/presentation/screens/banner_form_screen.dart
+- app/lib/features/home_content/presentation/screens/banners_list_screen.dart
+
+4) Progresso de Planos de Leitura: trocar referência para user_account + RLS por tenant/auth.uid
+- Arquivo SQL: supabase_sql/reading_plan_tables.sql
+  - reading_plan: tenant_id + DEFAULT current_tenant_id() + RLS policies por tenant.
+  - reading_plan_progress:
+    - user_id referencia public.user_account(id) (em vez de member_id).
+    - tenant_id adicionado com DEFAULT current_tenant_id() e backfill a partir de reading_plan.tenant_id.
+    - RLS:
+      - SELECT/INSERT/UPDATE/DELETE: auth.uid() = user_id AND tenant_id = current_tenant_id()
+
+Arquivos do módulo (para portabilidade)
+- app/lib/features/reading_plans/data/reading_plans_repository.dart
+- app/lib/features/reading_plans/domain/models/reading_plan.dart
+- app/lib/features/reading_plans/presentation/providers/reading_plans_provider.dart
+- app/lib/features/reading_plans/presentation/screens/reading_plan_detail_screen.dart
+- app/lib/features/reading_plans/presentation/screens/reading_plans_list_screen.dart
+- supabase_sql/reading_plan_tables.sql
+
+5) Script de reconciliação (quando já existem usuários “fora do padrão”)
+- Arquivo SQL: backend-scripts/37_reconcile_user_account_with_auth_users.sql
+  - Caso exista o mesmo email em auth.users e user_account, mas com UUIDs diferentes:
+    - Atualiza FKs em tabelas que apontam para user_account.id (ex.: ministry_member, member, ministry_schedule, member_function).
+    - Remove o user_account antigo (old_id).
+    - Insere user_account ausente para cada auth.users.id.
+  - Objetivo: alinhar o padrão “id do user_account = auth.users.id” para evitar inconsistências.
+
+Como portar para “Church 360 - projeto B” (o essencial)
+- Copiar as mudanças de:
+  - app/lib/features/auth/data/auth_repository.dart
+  - app/lib/core/constants/supabase_constants.dart
+  - app/lib/features/devotionals/** (repo + models + providers + telas, se o módulo existir lá)
+  - app/lib/features/home_content/** (banners)
+  - supabase_sql/reading_plan_tables.sql (se o schema for o mesmo)
+  - backend-scripts/37_reconcile_user_account_with_auth_users.sql (usar com cautela; roda em transação)
+- Verificar no projeto B:
+  - Se a tabela principal do “perfil do usuário” é user_account (ou outro nome) e se a FK de devotional_readings/reading_plan_progress aponta para ela.
+  - Se RLS exige tenant_id: garantir que o app setou x-tenant-id (syncTenantFromServer) antes de consultar devocionais/banners.
+  - Se existe a RPC ensure_my_account. Se não existir, a rotina ainda tenta inserir user_account diretamente.
+
+Pontos de atenção
+- A “membership table” citada no contexto corresponde à public.user_account neste repositório.
+- O fluxo foi construído para funcionar mesmo quando algumas colunas não existirem (ex.: auth_user_id/tenant_id), removendo campos do payload e tentando de novo.
+

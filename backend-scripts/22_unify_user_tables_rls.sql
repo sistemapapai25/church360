@@ -156,22 +156,31 @@ CREATE POLICY "Users can update their own profile"
     );
 
 -- Admins podem editar qualquer perfil
-CREATE POLICY "Admins can update any profile"
+DROP POLICY IF EXISTS "Admins can update any profile" ON user_account;
+CREATE POLICY "Leaders and above can update any profile"
     ON user_account FOR UPDATE
     USING (
-        -- Usuário é admin (access_level >= 5)
         EXISTS (
             SELECT 1 FROM user_access_level ual
             WHERE ual.user_id = auth.uid()
-            AND ual.access_level_number >= 5
+            AND ual.access_level_number >= 3 -- leader (3), coordinator (4), admin (5)
+        )
+        OR EXISTS (
+            SELECT 1 FROM user_account ua
+            WHERE ua.id = auth.uid()
+            AND ua.role_global IN ('owner','admin','leader')
         )
     )
     WITH CHECK (
-        -- Usuário é admin (access_level >= 5)
         EXISTS (
             SELECT 1 FROM user_access_level ual
             WHERE ual.user_id = auth.uid()
-            AND ual.access_level_number >= 5
+            AND ual.access_level_number >= 3
+        )
+        OR EXISTS (
+            SELECT 1 FROM user_account ua
+            WHERE ua.id = auth.uid()
+            AND ua.role_global IN ('owner','admin','leader')
         )
     );
 
@@ -294,4 +303,3 @@ RAISE NOTICE '';
 RAISE NOTICE '==============================================';
 
 COMMIT;
-

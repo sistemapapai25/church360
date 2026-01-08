@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/visitors_provider.dart';
+import '../../../../core/design/community_design.dart';
 
 /// Tela de formulário para registrar visita
 class VisitorVisitFormScreen extends ConsumerStatefulWidget {
@@ -100,8 +101,13 @@ class _VisitorVisitFormScreenState extends ConsumerState<VisitorVisitFormScreen>
     final visitorAsync = ref.watch(visitorByIdProvider(widget.visitorId));
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('Registrar Visita'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text(
+          'Registrar Visita',
+          style: CommunityDesign.titleStyle(context),
+        ),
       ),
       body: visitorAsync.when(
         data: (visitor) {
