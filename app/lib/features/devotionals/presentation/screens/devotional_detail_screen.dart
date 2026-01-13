@@ -8,8 +8,9 @@ import 'package:youtube_player_iframe/youtube_player_iframe.dart' as yi;
 import 'package:flutter/services.dart';
 
 import '../providers/devotional_provider.dart';
-import '../../../../core/widgets/permission_widget.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../bible/presentation/providers/bible_provider.dart';
 
 /// Tela de detalhes do devocional (leitura)
 class DevotionalDetailScreen extends ConsumerStatefulWidget {
@@ -26,6 +27,7 @@ class _DevotionalDetailScreenState
     extends ConsumerState<DevotionalDetailScreen> {
   final TextEditingController _notesController = TextEditingController();
   bool _isEditingNotes = false;
+  bool _isCopyingScripture = false;
 
   void _handleBack() {
     if (Navigator.of(context).canPop()) {
@@ -44,6 +46,149 @@ class _DevotionalDetailScreenState
   yi.YoutubePlayerController? _ytIframeController;
   bool _badgeIn = false;
   bool _isSaving = false;
+
+  String _normalizeBibleKey(String value) {
+    final lower = value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll('.', '')
+        .replaceAll('-', ' ');
+    return lower
+        .replaceAll('á', 'a')
+        .replaceAll('à', 'a')
+        .replaceAll('ã', 'a')
+        .replaceAll('â', 'a')
+        .replaceAll('ä', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('è', 'e')
+        .replaceAll('ê', 'e')
+        .replaceAll('ë', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ì', 'i')
+        .replaceAll('î', 'i')
+        .replaceAll('ï', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ò', 'o')
+        .replaceAll('õ', 'o')
+        .replaceAll('ô', 'o')
+        .replaceAll('ö', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ù', 'u')
+        .replaceAll('û', 'u')
+        .replaceAll('ü', 'u')
+        .replaceAll('ç', 'c')
+        .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  Future<void> _copyFullScripture(BuildContext context, String reference) async {
+    if (_isCopyingScripture) return;
+    setState(() => _isCopyingScripture = true);
+    final cs = Theme.of(context).colorScheme;
+
+    try {
+      final match = RegExp(r'^(.+?)\s+(\d+):(\d+)(?:\s*-\s*(\d+))?$')
+          .firstMatch(reference.trim());
+      if (match == null) {
+        await Clipboard.setData(ClipboardData(text: reference));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: const Text('Referência copiada!'), backgroundColor: cs.primary),
+          );
+        }
+        return;
+      }
+
+      final rawBook = match.group(1) ?? '';
+      final chapter = int.tryParse(match.group(2) ?? '');
+      final verseStart = int.tryParse(match.group(3) ?? '');
+      final verseEnd = int.tryParse(match.group(4) ?? '') ?? verseStart;
+
+      if (chapter == null || verseStart == null || verseEnd == null) {
+        await Clipboard.setData(ClipboardData(text: reference));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: const Text('Referência copiada!'), backgroundColor: cs.primary),
+          );
+        }
+        return;
+      }
+
+      final books = await ref.read(allBibleBooksProvider.future);
+      final normalizedTarget = _normalizeBibleKey(rawBook);
+      final candidates = books.where((b) {
+        final nameKey = _normalizeBibleKey(b.name);
+        final abbrKey = _normalizeBibleKey(b.abbrev);
+        return nameKey == normalizedTarget ||
+            abbrKey == normalizedTarget ||
+            nameKey.contains(normalizedTarget) ||
+            normalizedTarget.contains(nameKey) ||
+            abbrKey.contains(normalizedTarget) ||
+            normalizedTarget.contains(abbrKey);
+      }).toList();
+
+      candidates.sort((a, b) {
+        final aName = _normalizeBibleKey(a.name);
+        final bName = _normalizeBibleKey(b.name);
+        final aExact = aName == normalizedTarget ? 0 : 1;
+        final bExact = bName == normalizedTarget ? 0 : 1;
+        if (aExact != bExact) return aExact - bExact;
+        return aName.length.compareTo(bName.length);
+      });
+
+      final book = candidates.isEmpty ? null : candidates.first;
+      if (book == null) {
+        await Clipboard.setData(ClipboardData(text: reference));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: const Text('Referência copiada!'), backgroundColor: cs.primary),
+          );
+        }
+        return;
+      }
+
+      final verses = await ref
+          .read(bibleRepositoryProvider)
+          .getVersesByChapter(book.id, chapter);
+
+      final start = verseStart < verseEnd ? verseStart : verseEnd;
+      final end = verseStart < verseEnd ? verseEnd : verseStart;
+      final selected = verses
+          .where((v) => v.verse >= start && v.verse <= end)
+          .toList();
+
+      if (selected.isEmpty) {
+        await Clipboard.setData(ClipboardData(text: reference));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: const Text('Referência copiada!'), backgroundColor: cs.primary),
+          );
+        }
+        return;
+      }
+
+      final passage = selected
+          .map((v) => '${v.verse}. ${v.text.trim()}')
+          .join('\n');
+      final copyText = '$reference\n\n$passage';
+
+      await Clipboard.setData(ClipboardData(text: copyText));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: const Text('Versículo copiado!'), backgroundColor: cs.primary),
+        );
+      }
+    } catch (e) {
+      await Clipboard.setData(ClipboardData(text: reference));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Falha ao copiar versículo: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCopyingScripture = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -103,6 +248,10 @@ class _DevotionalDetailScreenState
           _isEditingNotes = false;
         });
       }
+
+      if (mounted) {
+        await _promptAfterReadSavedDecision();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -118,6 +267,122 @@ class _DevotionalDetailScreenState
           _isSaving = false;
         });
       }
+    }
+  }
+
+  Future<void> _promptAfterReadSavedDecision() async {
+    final isSaved = await ref.read(
+      isDevotionalSavedProvider(widget.devotionalId).future,
+    );
+    if (!mounted || !isSaved) return;
+
+    final cs = Theme.of(context).colorScheme;
+    final shouldRemove = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final bottom = MediaQuery.of(context).padding.bottom;
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottom),
+            child: Container(
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: cs.outline.withValues(alpha: 0.10),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.16),
+                    blurRadius: 22,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Devocional salvo',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Você quer manter este devocional em “Devocionais Salvos” ou remover agora?',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: cs.error,
+                              side: BorderSide(
+                                color: cs.error.withValues(alpha: 0.45),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Remover'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Manter salvo'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted || shouldRemove != true) return;
+
+    try {
+      await ref.read(devotionalActionsProvider).toggleSaveDevotional(
+            widget.devotionalId,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Removido dos salvos')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro: $e')),
+      );
     }
   }
 
@@ -558,22 +823,19 @@ class _DevotionalDetailScreenState
                         ),
                         const SizedBox(width: 8),
                         OutlinedButton.icon(
-                          onPressed: () async {
-                            await Clipboard.setData(
-                              ClipboardData(
-                                text: devotional.scriptureReference!,
-                              ),
-                            );
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text('Referência copiada!'),
-                                  backgroundColor: cs.primary,
-                                ),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.copy, size: 16),
+                          onPressed: _isCopyingScripture
+                              ? null
+                              : () => _copyFullScripture(
+                                    context,
+                                    devotional.scriptureReference!,
+                                  ),
+                          icon: _isCopyingScripture
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.copy, size: 16),
                           label: const Text('Copiar'),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
@@ -612,7 +874,9 @@ class _DevotionalDetailScreenState
                 Divider(height: 60, color: cs.onSurface.withValues(alpha: 0.1)),
 
                 // 6. ESTATÍSTICAS EMOCIONAIS
-                CoordinatorOnlyWidget(
+                PermissionGate(
+                  permission: 'devotionals.create',
+                  showLoading: false,
                   child: statsAsync.when(
                     data: (stats) => AnimatedOpacity(
                       opacity: _animateIn ? 1 : 0,

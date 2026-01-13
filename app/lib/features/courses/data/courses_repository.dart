@@ -247,6 +247,35 @@ class CoursesRepository {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getUserEnrollmentsWithCourse(String userId) async {
+    try {
+      final response = await _supabase
+          .from('course_enrollment')
+          .select('''
+            course_id,
+            user_id,
+            enrolled_at,
+            status,
+            progress,
+            course:course_id (
+              id,
+              title,
+              status,
+              start_date,
+              end_date,
+              image_url
+            )
+          ''')
+          .eq('user_id', userId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .order('enrolled_at', ascending: false);
+
+      return (response as List).cast<Map<String, dynamic>>();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Inscrever membro em curso
   Future<CourseEnrollment> enrollMember(String courseId, String memberId) async {
     try {

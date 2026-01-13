@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/ministries_provider.dart';
-import '../../../permissions/providers/permissions_providers.dart';
 import '../../../../core/design/community_design.dart';
-import '../../../../core/widgets/permission_widget.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de formulário de ministério (criar/editar)
 class MinistryFormScreen extends ConsumerStatefulWidget {
@@ -80,16 +80,60 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        title: Text(
+          isEditing ? 'Editar Ministério' : 'Novo Ministério',
+          style: CommunityDesign.titleStyle(context).copyWith(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
+        actions: [
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else
+            PermissionGate(
+              permission: isEditing ? 'ministries.edit' : 'ministries.create',
+              showLoading: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Center(
+                  child: ElevatedButton.icon(
+                    onPressed: _saveMinistry,
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('Salvar'),
+                    style: CommunityDesign.pillButtonStyle(
+                      context,
+                      Colors.green,
+                      compact: true,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
       body: ListView(
-        padding: EdgeInsets.zero,
+        padding: CommunityDesign.overlayPadding,
         children: [
-          _buildHeader(context, isEditing),
-          Padding(
-            padding: CommunityDesign.overlayPadding,
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
+          Form(
+            key: _formKey,
+            child: Column(
+              children: [
                   // Dados Básicos
                   Container(
                     decoration: CommunityDesign.overlayDecoration(
@@ -388,61 +432,9 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                ],
-              ),
+              ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, bool isEditing) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 60, 16, 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            isEditing ? 'Editar Ministério' : 'Novo Ministério',
-            style: CommunityDesign.titleStyle(
-              context,
-            ).copyWith(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const Spacer(),
-          if (_isLoading)
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            CoordinatorOnlyWidget(
-              child: ElevatedButton.icon(
-                onPressed: _saveMinistry,
-                icon: const Icon(Icons.check, size: 18),
-                label: const Text('Salvar'),
-                style: CommunityDesign.pillButtonStyle(
-                  context,
-                  Colors.green,
-                  compact: true,
-                ),
-              ),
-            ),
         ],
       ),
     );

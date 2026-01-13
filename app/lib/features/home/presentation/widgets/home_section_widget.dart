@@ -71,11 +71,16 @@ class HomeSectionWidget extends StatelessWidget {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   padding: EdgeInsets.zero, // Padding removido pois o container já tem
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     crossAxisSpacing: 8, // Espaçamento reduzido
                     mainAxisSpacing: 8,
-                    childAspectRatio: 1.1,
+                    childAspectRatio: () {
+                      final w = MediaQuery.sizeOf(context).width;
+                      if (w <= 360) return 0.95;
+                      if (w <= 420) return 1.02;
+                      return 1.1;
+                    }(),
                   ),
                   itemCount: items.length,
                   itemBuilder: (_, i) => items[i],

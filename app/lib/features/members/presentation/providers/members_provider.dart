@@ -69,6 +69,7 @@ final searchMembersProvider = FutureProvider.family<List<Member>, String>((ref, 
 /// Provider para buscar o membro do usuário atual
 final currentMemberProvider = FutureProvider<Member?>((ref) async {
   ref.watch(authStateProvider);
+
   final currentUser = ref.watch(currentUserProvider);
   if (currentUser == null) {
     debugPrint('❌ [currentMemberProvider] Usuário não autenticado');
@@ -78,12 +79,27 @@ final currentMemberProvider = FutureProvider<Member?>((ref) async {
   final repo = ref.watch(membersRepositoryProvider);
   final supabase = ref.watch(supabaseClientProvider);
   final authRepo = ref.watch(authRepositoryProvider);
+  var email = (currentUser.email ?? '').trim();
+  if (email.isEmpty) {
+    try {
+      await supabase.auth.refreshSession();
+    } catch (_) {}
+    try {
+      final response = await supabase.auth.getUser();
+      final serverUser = response.user;
+      final serverEmail = (serverUser?.email ?? serverUser?.userMetadata?['email']?.toString() ?? '').trim();
+      if (serverEmail.isNotEmpty) email = serverEmail;
+    } catch (_) {}
+  }
+  final String? provisioningEmail = email.isNotEmpty ? email : null;
   final preferredFullName = (currentUser.userMetadata?['full_name']?.toString() ?? '').trim();
+  final safeFullName = preferredFullName.isNotEmpty
+      ? preferredFullName
+      : (email.isNotEmpty ? email.split('@').first : currentUser.id);
   final preferredNickname = (currentUser.userMetadata?['nickname']?.toString() ?? '').trim();
-  final fallbackNickname = (currentUser.email ?? '').trim().isNotEmpty
-      ? (currentUser.email ?? '').trim().split('@').first
-      : currentUser.id;
-  final safeNickname = preferredNickname.isNotEmpty ? preferredNickname : fallbackNickname;
+  final safeNickname = preferredNickname.isNotEmpty
+      ? preferredNickname
+      : (email.isNotEmpty ? email.split('@').first : currentUser.id);
 
   try {
     await SupabaseConstants.syncTenantFromServer(supabase, syncJwt: false);
@@ -94,8 +110,8 @@ final currentMemberProvider = FutureProvider<Member?>((ref) async {
   try {
     await supabase.rpc('ensure_my_account', params: {
       '_tenant_id': SupabaseConstants.currentTenantId,
-      '_email': currentUser.email ?? '',
-      '_full_name': preferredFullName,
+      '_email': provisioningEmail,
+      '_full_name': safeFullName,
       '_nickname': safeNickname,
     });
   } catch (e) {
@@ -104,7 +120,7 @@ final currentMemberProvider = FutureProvider<Member?>((ref) async {
 
   String? ensuredId;
   try {
-    ensuredId = await authRepo.ensureUserAccountForSession(preferredFullName: preferredFullName);
+    ensuredId = await authRepo.ensureUserAccountForSession(preferredFullName: safeFullName);
   } catch (e) {
     debugPrint('❌ [currentMemberProvider] ensureUserAccountForSession falhou: $e');
   }

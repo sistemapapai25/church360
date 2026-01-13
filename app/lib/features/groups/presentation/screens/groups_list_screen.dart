@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/widgets/permission_widget.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../providers/groups_provider.dart';
 import '../../domain/models/group.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de grupos
 class GroupsListScreen extends ConsumerStatefulWidget {
@@ -116,7 +116,9 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
           ),
         ),
       ),
-      floatingActionButton: LeaderOnlyWidget(
+      floatingActionButton: PermissionGate(
+        permission: 'groups.manage_all',
+        showLoading: false,
         child: FloatingActionButton(
           onPressed: () {
             context.push('/groups/new');
@@ -321,4 +323,3 @@ class _GroupCard extends StatelessWidget {
     );
   }
 }
-

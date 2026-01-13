@@ -9,6 +9,41 @@ class AuthRepository {
 
   AuthRepository(this._supabase);
 
+  String? _resolveUserEmail(User user) {
+    final direct = user.email?.trim();
+    if (direct != null && direct.isNotEmpty) return direct;
+
+    final meta = user.userMetadata?['email']?.toString().trim();
+    if (meta != null && meta.isNotEmpty) return meta;
+
+    try {
+      final ids = user.identities;
+      if (ids != null) {
+        for (final identity in ids) {
+          final data = identity.identityData;
+          final v = data?['email']?.toString().trim();
+          if (v != null && v.isNotEmpty) return v;
+        }
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  Future<String?> _resolveUserEmailFromServer() async {
+    try {
+      await _supabase.auth.refreshSession();
+    } catch (_) {}
+    try {
+      final response = await _supabase.auth.getUser();
+      final user = response.user;
+      if (user == null) return null;
+      return _resolveUserEmail(user);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Map<String, dynamic>? _pickBestUserAccountRow(List<dynamic> rows) {
     if (rows.isEmpty) return null;
 
@@ -51,7 +86,16 @@ class AuthRepository {
     if (user == null) return null;
 
     final tenantId = SupabaseConstants.currentTenantId;
-    final email = (user.email ?? '').trim();
+    var email = (_resolveUserEmail(user) ?? '').trim();
+    if (email.isEmpty) {
+      final serverEmail = (await _resolveUserEmailFromServer() ?? '').trim();
+      if (serverEmail.isNotEmpty) email = serverEmail;
+    }
+    final String? provisioningEmail = email.isNotEmpty ? email : null;
+    bool isPlaceholderEmail(String value) {
+      final t = value.trim();
+      return t.startsWith('no-email+') && t.endsWith('@church360.local');
+    }
     final metadataName = user.userMetadata?['full_name']?.toString();
     final safeFullName = (preferredFullName ?? metadataName ?? '').trim().isNotEmpty
         ? (preferredFullName ?? metadataName ?? '').trim()
@@ -63,16 +107,14 @@ class AuthRepository {
             ? email.split('@').first
             : (safeFullName.trim().isNotEmpty ? safeFullName.trim().split(' ').first : user.id));
 
-    if (email.isNotEmpty) {
-      try {
-        await _supabase.rpc('ensure_my_account', params: {
-          '_tenant_id': tenantId,
-          '_email': email,
-          '_full_name': safeFullName,
-          '_nickname': safeNickname,
-        });
-      } catch (_) {}
-    }
+    try {
+      await _supabase.rpc('ensure_my_account', params: {
+        '_tenant_id': tenantId,
+        '_email': provisioningEmail,
+        '_full_name': safeFullName,
+        '_nickname': safeNickname,
+      });
+    } catch (_) {}
 
     Map<String, dynamic>? row;
     var hasAuthUserIdColumn = true;
@@ -89,7 +131,16 @@ class AuthRepository {
           .limit(10);
 
       if (rows.isNotEmpty) {
-        row = _pickBestUserAccountRow(rows);
+        final exact = rows.where((e) => (e as Map)['id']?.toString() == desiredId).toList();
+        if (exact.isNotEmpty) {
+          row = _pickBestUserAccountRow(exact);
+        } else if (email.isNotEmpty) {
+          final emailMatches = rows
+              .where((e) => ((e as Map)['email']?.toString() ?? '').trim().toLowerCase() == email.toLowerCase())
+              .toList();
+          if (emailMatches.isNotEmpty) row = _pickBestUserAccountRow(emailMatches);
+        }
+        row ??= _pickBestUserAccountRow(rows);
         selectedId = row?['id']?.toString();
       }
     } catch (e) {
@@ -104,6 +155,11 @@ class AuthRepository {
       } else {
         debugPrint('❌ [AuthRepository.ensureUserAccountForSession] Erro ao buscar por auth_user_id: $e');
       }
+    }
+
+    if (selectedId != null && selectedId != desiredId) {
+      row = null;
+      selectedId = null;
     }
 
     if (row == null) {
@@ -136,17 +192,38 @@ class AuthRepository {
       }
     }
 
+    if (row == null && email.isNotEmpty) {
+      try {
+        final rows = await _supabase
+            .from('user_account')
+            .select('id, auth_user_id, email, full_name, tenant_id, status, is_active')
+            .eq('email', email)
+            .eq('tenant_id', tenantId)
+            .limit(10);
+        if (rows.isNotEmpty) {
+          row = _pickBestUserAccountRow(rows);
+          selectedId = row?['id']?.toString();
+        }
+      } catch (_) {}
+    }
+
     var userAccountId = selectedId ?? row?['id']?.toString();
+
+    if (userAccountId != null && userAccountId != desiredId) {
+      row = null;
+      selectedId = null;
+      userAccountId = null;
+    }
 
     if (userAccountId == null) {
       final payload = <String, dynamic>{
         'id': desiredId,
-        'email': email,
         'full_name': safeFullName,
         'nickname': safeNickname,
         'is_active': true,
         'status': 'visitor',
       };
+      if (provisioningEmail != null) payload['email'] = provisioningEmail;
       if (hasTenantIdColumn) payload['tenant_id'] = tenantId;
       if (hasAuthUserIdColumn) payload['auth_user_id'] = user.id;
 
@@ -156,6 +233,19 @@ class AuthRepository {
       } catch (e) {
         final msg = e.toString();
         final retry = Map<String, dynamic>.from(payload);
+        final lower = msg.toLowerCase();
+        final looksLikeEmailRequired = lower.contains('email') &&
+            (lower.contains('null') ||
+                lower.contains('not-null') ||
+                lower.contains('not null') ||
+                lower.contains('violates'));
+        if (looksLikeEmailRequired && (retry['email'] == null || (retry['email']?.toString().trim().isEmpty ?? true))) {
+          retry['email'] = 'no-email+${user.id}@church360.local';
+        }
+        final looksLikeEmailConflict = lower.contains('email') && lower.contains('duplicate');
+        if (looksLikeEmailConflict) {
+          retry['email'] = 'no-email+${user.id}@church360.local';
+        }
         if (msg.contains('status')) retry.remove('status');
         if (msg.contains('nickname')) retry.remove('nickname');
         if (msg.contains('tenant_id')) retry.remove('tenant_id');
@@ -174,7 +264,9 @@ class AuthRepository {
       final currentFullName = row?['full_name']?.toString().trim() ?? '';
       final currentTenant = row?['tenant_id']?.toString();
 
-      if (email.isNotEmpty && currentEmail.isEmpty) updates['email'] = email;
+      if (email.isNotEmpty && (currentEmail.isEmpty || isPlaceholderEmail(currentEmail))) {
+        updates['email'] = email;
+      }
       if (currentFullName.isEmpty) updates['full_name'] = safeFullName;
       updates['nickname'] = safeNickname;
       if (hasTenantIdColumn && (currentTenant == null || currentTenant.trim().isEmpty)) {

@@ -57,6 +57,10 @@ BEGIN
       v_tenant_id := NULL;
   END;
 
+  IF v_tenant_id IS NULL THEN
+    RETURN false;
+  END IF;
+
   IF to_regclass('public.user_tenant_membership') IS NOT NULL THEN
     RETURN EXISTS (
       SELECT 1
@@ -64,7 +68,7 @@ BEGIN
       WHERE utm.user_id = p_user_id
         AND utm.is_active = true
         AND utm.access_level_number >= 4
-        AND (v_tenant_id IS NULL OR utm.tenant_id = v_tenant_id)
+        AND utm.tenant_id = v_tenant_id
     );
   END IF;
 
@@ -75,7 +79,7 @@ BEGIN
       WHERE table_schema = 'public'
         AND table_name = 'user_access_level'
         AND column_name = 'tenant_id'
-    ) AND v_tenant_id IS NOT NULL THEN
+    ) THEN
       RETURN EXISTS (
         SELECT 1
         FROM public.user_access_level ual
@@ -84,13 +88,6 @@ BEGIN
           AND ual.access_level_number >= 4
       );
     END IF;
-
-    RETURN EXISTS (
-      SELECT 1
-      FROM public.user_access_level ual
-      WHERE ual.user_id = p_user_id
-        AND ual.access_level_number >= 4
-    );
   END IF;
 
   RETURN false;

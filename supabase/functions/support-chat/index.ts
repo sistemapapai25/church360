@@ -4,7 +4,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-tenant-id',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 const AGENT_PROMPT_V2 = `'use client';
@@ -72,7 +73,12 @@ Cenários especiais:
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    const requested = req.headers.get('Access-Control-Request-Headers')?.trim();
+    const headers = {
+      ...corsHeaders,
+      'Access-Control-Allow-Headers': requested || corsHeaders['Access-Control-Allow-Headers'],
+    };
+    return new Response(null, { status: 204, headers });
   }
 
   const requestId = crypto.randomUUID();
@@ -106,19 +112,35 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabase = createClient(supabaseUrl, serviceRoleKey || supabaseAnonKey);
 
     const targetKey = agentKey ? agentKey.toLowerCase() : 'default';
+    const tenantId = (req.headers.get('x-tenant-id') ?? '').trim();
     
     // Fetch from DB
-    const { data: config } = await supabase
-      .from('agent_config')
-      .select('assistant_id, openai_api_key, display_name')
-      .eq('key', targetKey)
-      .maybeSingle();
+    let config: any = null;
+    if (tenantId) {
+      const { data } = await supabase
+        .from('agent_config')
+        .select('assistant_id, openai_api_key, display_name')
+        .eq('key', targetKey)
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      config = data ?? null;
+    }
+    if (!config) {
+      const { data } = await supabase
+        .from('agent_config')
+        .select('assistant_id, openai_api_key, display_name')
+        .eq('key', targetKey)
+        .is('tenant_id', null)
+        .maybeSingle();
+      config = data ?? null;
+    }
 
     let assistantId = config?.assistant_id;
-    let dynamicApiKey = config?.openai_api_key;
+    let dynamicApiKey = (config?.openai_api_key ?? '').toString().trim();
     const displayNameFromDb = (config as any)?.display_name?.toString?.().trim?.() ?? '';
 
     const extractAgentNameFromContext = (raw: string | null) => {
@@ -147,7 +169,7 @@ serve(async (req) => {
     // 1. DB (specific agent)
     // 2. Env Var (OPENAI_API_KEY)
     if (!dynamicApiKey) {
-      dynamicApiKey = Deno.env.get('OPENAI_API_KEY');
+      dynamicApiKey = (Deno.env.get('OPENAI_API_KEY') ?? '').trim();
     }
 
     if (!dynamicApiKey) {
@@ -188,7 +210,6 @@ serve(async (req) => {
     const clip = (s: string, max = 2500) => s.length > max ? `${s.slice(0, max)}…` : s;
 
     const bucket = (Deno.env.get('SUPPORT_CHAT_UPLOAD_BUCKET') ?? 'support-material-files').trim() || 'support-material-files';
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabaseStorage = createClient(supabaseUrl, serviceRoleKey || supabaseAnonKey);
 
     const safePathSegment = (s: string) =>

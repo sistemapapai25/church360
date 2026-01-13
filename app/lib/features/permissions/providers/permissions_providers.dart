@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../../members/presentation/providers/members_provider.dart';
 import '../data/roles_repository.dart';
 import '../data/permissions_repository.dart';
@@ -177,9 +178,11 @@ final canAccessDashboardProvider = FutureProvider.family<bool, String>((ref, use
 
 /// Provider: ID do usuário atual
 final currentUserIdProvider = Provider<String?>((ref) {
-  ref.watch(authStateProvider);
+  final authState = ref.watch(authStateProvider).valueOrNull;
   final supabase = ref.watch(supabaseClientProvider);
-  return supabase.auth.currentUser?.id;
+  final fromClient = supabase.auth.currentUser ?? supabase.auth.currentSession?.user;
+  final fromStream = authState?.session?.user;
+  return (fromStream ?? fromClient)?.id;
 });
 
 /// Provider: ID canônico (cadastro) do usuário atual
@@ -190,35 +193,63 @@ final currentMemberIdProvider = FutureProvider<String?>((ref) async {
 
 /// Provider: Cargos do usuário atual
 final currentUserRolesProvider = FutureProvider<List<UserRole>>((ref) async {
-  final memberId = await ref.watch(currentMemberIdProvider.future);
-  if (memberId == null) return [];
+  ref.watch(authStateProvider);
+  final supabase = ref.watch(supabaseClientProvider);
+  SupabaseConstants.applyTenantHeadersToClient(supabase);
+  try {
+    await SupabaseConstants.syncTenantFromServer(supabase, syncJwt: false);
+  } catch (_) {}
+
+  final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return [];
   final repository = ref.watch(userRolesRepositoryProvider);
-  return repository.getUserRoles(memberId);
+  return repository.getUserRoles(userId);
 });
 
 /// Provider: Permissões efetivas do usuário atual
 final currentUserPermissionsProvider = FutureProvider<List<UserEffectivePermission>>((ref) async {
-  final memberId = await ref.watch(currentMemberIdProvider.future);
-  if (memberId == null) return [];
+  ref.watch(authStateProvider);
+  final supabase = ref.watch(supabaseClientProvider);
+  SupabaseConstants.applyTenantHeadersToClient(supabase);
+  try {
+    await SupabaseConstants.syncTenantFromServer(supabase, syncJwt: false);
+  } catch (_) {}
+
+  final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return [];
   final repository = ref.watch(permissionsRepositoryProvider);
-  return repository.getUserEffectivePermissions(memberId);
+  return repository.getUserEffectivePermissions(userId);
 });
 
 /// Provider: Verificar se usuário atual pode acessar Dashboard
 final currentUserCanAccessDashboardProvider = FutureProvider<bool>((ref) async {
-  final memberId = await ref.watch(currentMemberIdProvider.future);
-  if (memberId == null) return false;
+  ref.watch(authStateProvider);
+  final supabase = ref.watch(supabaseClientProvider);
+  SupabaseConstants.applyTenantHeadersToClient(supabase);
+  try {
+    await SupabaseConstants.syncTenantFromServer(supabase, syncJwt: false);
+  } catch (_) {}
+
+  final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return false;
   final repository = ref.watch(permissionsRepositoryProvider);
-  return repository.canAccessDashboard(memberId);
+  return repository.canAccessDashboard(userId);
 });
 
 /// Provider: Verificar se usuário atual tem permissão específica
 final currentUserHasPermissionProvider = FutureProvider.family<bool, String>((ref, permissionCode) async {
-  final memberId = await ref.watch(currentMemberIdProvider.future);
-  if (memberId == null) return false;
+  ref.watch(authStateProvider);
+  final supabase = ref.watch(supabaseClientProvider);
+  SupabaseConstants.applyTenantHeadersToClient(supabase);
+  try {
+    await SupabaseConstants.syncTenantFromServer(supabase, syncJwt: false);
+  } catch (_) {}
+
+  final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return false;
   final repository = ref.watch(permissionsRepositoryProvider);
   return repository.checkUserPermission(
-    userId: memberId,
+    userId: userId,
     permissionCode: permissionCode,
   );
 });

@@ -209,11 +209,17 @@ BEGIN
           RETURN;
         END IF;
 
-        tid := COALESCE(
-          NULLIF(current_setting('app.tenant_id', true), '')::uuid,
-          NULLIF(current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id', '')::uuid,
-          NULLIF(current_setting('request.jwt.claims', true)::jsonb -> 'user_metadata' ->> 'tenant_id', '')::uuid
-        );
+        BEGIN
+          tid := public.jwt_tenant_id();
+        EXCEPTION
+          WHEN undefined_function THEN
+            tid := COALESCE(
+              NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+              NULLIF(current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id', '')::uuid,
+              NULLIF(current_setting('request.jwt.claims', true)::jsonb -> 'user_metadata' ->> 'tenant_id', '')::uuid,
+              NULLIF((current_setting('request.headers', true)::jsonb ->> 'x-tenant-id')::text, '')::uuid
+            );
+        END;
 
         IF tid IS NULL THEN
           RETURN;
@@ -305,11 +311,17 @@ BEGIN
           RETURN false;
         END IF;
 
-        tid := COALESCE(
-          NULLIF(current_setting('app.tenant_id', true), '')::uuid,
-          NULLIF(current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id', '')::uuid,
-          NULLIF(current_setting('request.jwt.claims', true)::jsonb -> 'user_metadata' ->> 'tenant_id', '')::uuid
-        );
+        BEGIN
+          tid := public.jwt_tenant_id();
+        EXCEPTION
+          WHEN undefined_function THEN
+            tid := COALESCE(
+              NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+              NULLIF(current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id', '')::uuid,
+              NULLIF(current_setting('request.jwt.claims', true)::jsonb -> 'user_metadata' ->> 'tenant_id', '')::uuid,
+              NULLIF((current_setting('request.headers', true)::jsonb ->> 'x-tenant-id')::text, '')::uuid
+            );
+        END;
 
         IF tid IS NULL THEN
           RETURN false;
@@ -391,11 +403,17 @@ BEGIN
           RETURN false;
         END IF;
 
-        tid := COALESCE(
-          NULLIF(current_setting('app.tenant_id', true), '')::uuid,
-          NULLIF(current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id', '')::uuid,
-          NULLIF(current_setting('request.jwt.claims', true)::jsonb -> 'user_metadata' ->> 'tenant_id', '')::uuid
-        );
+        BEGIN
+          tid := public.jwt_tenant_id();
+        EXCEPTION
+          WHEN undefined_function THEN
+            tid := COALESCE(
+              NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+              NULLIF(current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id', '')::uuid,
+              NULLIF(current_setting('request.jwt.claims', true)::jsonb -> 'user_metadata' ->> 'tenant_id', '')::uuid,
+              NULLIF((current_setting('request.headers', true)::jsonb ->> 'x-tenant-id')::text, '')::uuid
+            );
+        END;
 
         IF tid IS NULL THEN
           RETURN false;
@@ -440,4 +458,3 @@ BEGIN
     $sql$;
   END IF;
 END $$;
-

@@ -117,12 +117,31 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
     setState(() => _loadingAgents = true);
     final supabase = ref.read(supabaseClientProvider);
     try {
+      final tenantId = SupabaseConstants.currentTenantId.trim();
       final response = await supabase
           .from('agent_config')
-          .select('key, assistant_id, openai_api_key, display_name, subtitle, avatar_url, theme_color, show_on_home, show_on_dashboard, show_floating_button, floating_route, allowed_access_levels')
+          .select('tenant_id, key, assistant_id, openai_api_key, display_name, subtitle, avatar_url, theme_color, show_on_home, show_on_dashboard, show_floating_button, floating_route, allowed_access_levels')
+          .or('tenant_id.eq.$tenantId,tenant_id.is.null')
           .order('key');
       
-      final data = response as List;
+      final raw = response as List;
+      final byKey = <String, Map<String, dynamic>>{};
+      for (final r in raw.whereType<Map>()) {
+        final map = Map<String, dynamic>.from(r);
+        final key = (map['key'] ?? '').toString().trim();
+        if (key.isEmpty) continue;
+        final rowTenant = (map['tenant_id'] ?? '').toString().trim();
+        if (rowTenant.isEmpty) byKey.putIfAbsent(key.toLowerCase(), () => map);
+      }
+      for (final r in raw.whereType<Map>()) {
+        final map = Map<String, dynamic>.from(r);
+        final key = (map['key'] ?? '').toString().trim();
+        if (key.isEmpty) continue;
+        final rowTenant = (map['tenant_id'] ?? '').toString().trim();
+        if (rowTenant == tenantId) byKey[key.toLowerCase()] = map;
+      }
+      final data = byKey.values.toList()
+        ..sort((a, b) => (a['key'] ?? '').toString().compareTo((b['key'] ?? '').toString()));
       _agentConfigs.clear();
       for (final c in _agentIdControllers.values) {
         c.dispose();
@@ -250,6 +269,7 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
       final allowed = (_agentAllowedAccessLevels[key] ?? {}).toList();
       final floatingRoute = _agentFloatingRouteControllers[key]?.text.trim() ?? '';
       final data = {
+        'tenant_id': SupabaseConstants.currentTenantId,
         'key': key,
         'assistant_id': assistantId,
         'display_name': displayName.isEmpty ? null : displayName,
@@ -265,7 +285,7 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
       };
       data['openai_api_key'] = apiKey;
 
-      await supabase.from('agent_config').upsert(data);
+      await supabase.from('agent_config').upsert(data, onConflict: 'tenant_id,key');
       ref.invalidate(agentRuntimeConfigsProvider);
       ref.invalidate(resolvedAgentsProvider);
       ref.invalidate(visibleAgentsForCurrentUserProvider);
@@ -304,7 +324,11 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
 
     final supabase = ref.read(supabaseClientProvider);
     try {
-      await supabase.from('agent_config').delete().eq('key', key);
+      await supabase
+          .from('agent_config')
+          .delete()
+          .eq('key', key)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
       ref.invalidate(agentRuntimeConfigsProvider);
       ref.invalidate(resolvedAgentsProvider);
       ref.invalidate(visibleAgentsForCurrentUserProvider);

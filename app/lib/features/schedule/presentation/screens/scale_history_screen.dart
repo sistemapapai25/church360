@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../../core/design/community_design.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../ministries/domain/models/ministry.dart';
 
@@ -88,37 +89,58 @@ class _ScaleHistoryScreenState extends ConsumerState<ScaleHistoryScreen> {
                       final eventSchedules = entry.value;
                       final eventName = eventSchedules.first.eventName;
                       final dateStr = _formatDate(eventSchedules.first.createdAt);
-                      return Card(
+                      return Container(
                         margin: const EdgeInsets.only(bottom: 16),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                        decoration: CommunityDesign.overlayDecoration(
+                          Theme.of(context).colorScheme,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: const BoxDecoration(
+                                color: Color(0x1A2196F3),
+                                borderRadius: BorderRadius.only(
+                                  topLeft: Radius.circular(CommunityDesign.radius),
+                                  topRight: Radius.circular(CommunityDesign.radius),
+                                ),
+                              ),
+                              child: Row(
                                 children: [
                                   const Icon(Icons.event, color: Colors.blue),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       eventName,
-                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                                   Text(
                                     dateStr,
-                                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+                                    style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withValues(alpha: 0.7),
+                                    ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 12),
-                              ...eventSchedules.map((s) => ListTile(
-                                    leading: const CircleAvatar(child: Icon(Icons.person)),
-                                    title: Text(s.memberName),
-                                    subtitle: s.notes != null ? Text(s.notes!) : null,
-                                  )),
-                            ],
-                          ),
+                            ),
+                            ...eventSchedules.map(
+                              (s) => ListTile(
+                                leading: const CircleAvatar(
+                                  child: Icon(Icons.person),
+                                ),
+                                title: Text(s.memberName),
+                                subtitle: s.notes != null ? Text(s.notes!) : null,
+                              ),
+                            ),
+                          ],
                         ),
                       );
                     }),

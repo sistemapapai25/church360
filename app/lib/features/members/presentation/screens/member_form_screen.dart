@@ -6,10 +6,10 @@ import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/design/community_design.dart';
-import '../../../../core/widgets/permission_widget.dart';
 import '../../../../core/services/viacep_service.dart';
 import '../providers/members_provider.dart';
 import '../../domain/models/member.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de formulário de membro (criar/editar)
 class MemberFormScreen extends ConsumerStatefulWidget {
@@ -417,74 +417,70 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     }
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 60, 16, 20),
-      decoration: BoxDecoration(
-        color: CommunityDesign.headerColor(context),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+  @override
+  Widget build(BuildContext context) {
+    final permission = widget.memberId == null
+        ? (_status == 'visitor' ? 'visitors.create' : 'members.create')
+        : (_status == 'visitor' ? 'visitors.edit' : 'members.edit');
+
+    return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
+      appBar: AppBar(
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text(
+          widget.memberId == null ? 'Novo Membro' : 'Editar Membro',
+          style: CommunityDesign.titleStyle(context).copyWith(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            widget.memberId == null ? 'Novo Membro' : 'Editar Membro',
-            style: CommunityDesign.titleStyle(
-              context,
-            ).copyWith(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const Spacer(),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
+        actions: [
           if (_isLoading)
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
             )
           else
-            CoordinatorOnlyWidget(
-              child: ElevatedButton.icon(
-                onPressed: _saveMember,
-                icon: const Icon(Icons.check, size: 18),
-                label: const Text('Salvar'),
-                style: CommunityDesign.pillButtonStyle(
-                  context,
-                  Colors.green,
-                  compact: true,
+            PermissionGate(
+              permission: permission,
+              showLoading: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Center(
+                  child: ElevatedButton.icon(
+                    onPressed: _saveMember,
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('Salvar'),
+                    style: CommunityDesign.pillButtonStyle(
+                      context,
+                      Colors.green,
+                      compact: true,
+                    ),
+                  ),
                 ),
               ),
             ),
         ],
       ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       body: _isLoading && widget.memberId != null
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              child: Column(
-                children: [
-                  _buildHeader(context),
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                           // Seção: Dados Pessoais
                           _buildSectionTitle('Dados Pessoais'),
                           const SizedBox(height: 16),
@@ -979,11 +975,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                             maxLines: 4,
                           ),
                           const SizedBox(height: 32),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
     );

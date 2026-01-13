@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/visitors_provider.dart';
 import '../../domain/models/visitor.dart';
-import '../../../../core/widgets/permission_widget.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de visitantes
 class VisitorsListScreen extends ConsumerStatefulWidget {
@@ -222,7 +222,8 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
           ),
         ],
       ),
-      floatingActionButton: LeaderOnlyWidget(
+      floatingActionButton: PermissionGate(
+        permission: 'visitors.create',
         child: FloatingActionButton.extended(
           onPressed: () => context.push('/members/new?status=visitor'),
           icon: const Icon(Icons.add),

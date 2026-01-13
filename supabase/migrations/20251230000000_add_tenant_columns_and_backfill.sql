@@ -11,9 +11,11 @@ BEGIN
     ALTER TABLE public."group" ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenant(id) ON DELETE CASCADE;
     CREATE INDEX IF NOT EXISTS idx_group_tenant_id ON public."group"(tenant_id);
     UPDATE public."group" g
-    SET tenant_id = COALESCE(c.tenant_id, ua.tenant_id)
+    SET tenant_id = COALESCE(
+      c.tenant_id,
+      (SELECT ua.tenant_id FROM public.user_account ua WHERE ua.id = g.created_by)
+    )
     FROM public.campus c
-    LEFT JOIN public.user_account ua ON ua.id = g.created_by
     WHERE g.campus_id = c.id AND g.tenant_id IS NULL;
   END IF;
 
@@ -42,9 +44,11 @@ BEGIN
     ALTER TABLE public.visitor ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenant(id) ON DELETE CASCADE;
     CREATE INDEX IF NOT EXISTS idx_visitor_tenant_id ON public.visitor(tenant_id);
     UPDATE public.visitor v
-    SET tenant_id = COALESCE(gm.tenant_id, ua.tenant_id)
+    SET tenant_id = COALESCE(
+      gm.tenant_id,
+      (SELECT ua.tenant_id FROM public.user_account ua WHERE ua.id = v.created_by)
+    )
     FROM public.group_meeting gm
-    LEFT JOIN public.user_account ua ON ua.id = v.created_by
     WHERE v.meeting_id = gm.id AND v.tenant_id IS NULL;
   END IF;
 
@@ -53,9 +57,11 @@ BEGIN
     ALTER TABLE public.group_visitor ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenant(id) ON DELETE CASCADE;
     CREATE INDEX IF NOT EXISTS idx_group_visitor_tenant_id ON public.group_visitor(tenant_id);
     UPDATE public.group_visitor gv
-    SET tenant_id = COALESCE(gm.tenant_id, ua.tenant_id)
+    SET tenant_id = COALESCE(
+      gm.tenant_id,
+      (SELECT ua.tenant_id FROM public.user_account ua WHERE ua.id = gv.created_by)
+    )
     FROM public.group_meeting gm
-    LEFT JOIN public.user_account ua ON ua.id = gv.created_by
     WHERE gv.meeting_id = gm.id AND gv.tenant_id IS NULL;
   END IF;
 
@@ -64,9 +70,11 @@ BEGIN
     ALTER TABLE public.event ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenant(id) ON DELETE CASCADE;
     CREATE INDEX IF NOT EXISTS idx_event_tenant_id ON public.event(tenant_id);
     UPDATE public.event e
-    SET tenant_id = COALESCE(c.tenant_id, ua.tenant_id)
+    SET tenant_id = COALESCE(
+      c.tenant_id,
+      (SELECT ua.tenant_id FROM public.user_account ua WHERE ua.id = e.created_by)
+    )
     FROM public.campus c
-    LEFT JOIN public.user_account ua ON ua.id = e.created_by
     WHERE e.campus_id = c.id AND e.tenant_id IS NULL;
   END IF;
 
@@ -244,8 +252,17 @@ BEGIN
     WHERE ac.tenant_id IS NULL
     ON CONFLICT DO NOTHING;
     DELETE FROM public.agent_config WHERE tenant_id IS NULL;
-    ALTER TABLE public.agent_config
-      ADD CONSTRAINT agent_config_tenant_fk FOREIGN KEY (tenant_id) REFERENCES public.tenant(id) ON DELETE CASCADE;
+    DO $inner$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'public.agent_config'::regclass
+          AND conname = 'agent_config_tenant_fk'
+      ) THEN
+        ALTER TABLE public.agent_config
+          ADD CONSTRAINT agent_config_tenant_fk FOREIGN KEY (tenant_id) REFERENCES public.tenant(id) ON DELETE CASCADE;
+      END IF;
+    END $inner$;
     ALTER TABLE public.agent_config
       ALTER COLUMN tenant_id SET NOT NULL;
     CREATE INDEX IF NOT EXISTS idx_agent_config_tenant_id ON public.agent_config(tenant_id);

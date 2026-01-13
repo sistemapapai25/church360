@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../providers/study_group_provider.dart';
-import '../../../access_levels/presentation/providers/access_level_provider.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/design/community_design.dart';
 
 class StudyGroupsListScreen extends ConsumerWidget {
@@ -12,7 +12,6 @@ class StudyGroupsListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final studyGroupsAsync = ref.watch(activeStudyGroupsProvider);
-    final userAccessLevelAsync = ref.watch(currentUserAccessLevelProvider);
     final currentMemberId = ref.watch(currentMemberProvider).value?.id;
 
     return Scaffold(
@@ -28,22 +27,19 @@ class StudyGroupsListScreen extends ConsumerWidget {
           style: CommunityDesign.titleStyle(context),
         ),
         actions: [
-          // Apenas Coordenadores+ podem criar grupos
-          userAccessLevelAsync.when(
-            data: (accessLevel) {
-              if (accessLevel != null && accessLevel.accessLevelNumber >= 4) {
-                return IconButton(
-                  icon: const Icon(Icons.add),
-                  tooltip: 'Criar Grupo',
-                  onPressed: () {
-                    context.push('/study-groups/new');
-                  },
-                );
-              }
-              return const SizedBox.shrink();
+          PermissionBuilder(
+            permission: 'study_groups.create',
+            builder: (context, hasPermission) {
+              if (!hasPermission) return const SizedBox.shrink();
+              return IconButton(
+                icon: const Icon(Icons.add),
+                tooltip: 'Criar Grupo',
+                onPressed: () {
+                  context.push('/study-groups/new');
+                },
+              );
             },
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            loadingWidget: const SizedBox.shrink(),
           ),
         ],
       ),

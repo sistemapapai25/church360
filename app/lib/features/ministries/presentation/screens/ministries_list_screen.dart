@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../access_levels/presentation/providers/access_level_provider.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 
 import '../providers/ministries_provider.dart';
 import '../../domain/models/ministry.dart';
@@ -22,16 +22,17 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAdminAsync = ref.watch(isAdminProvider);
+    final canCreateAsync = ref.watch(currentUserHasPermissionProvider('ministries.create'));
+    final canEditAsync = ref.watch(currentUserHasPermissionProvider('ministries.edit'));
+    final canDeleteAsync = ref.watch(currentUserHasPermissionProvider('ministries.delete'));
 
-    final ministriesAsync = isAdminAsync.when(
-      data: (isAdmin) {
-        if (isAdmin) return ref.watch(allMinistriesProvider);
-        return ref.watch(currentMemberMinistriesProvider);
-      },
-      loading: () => const AsyncValue<List<Ministry>>.loading(),
-      error: (_, __) => const AsyncValue<List<Ministry>>.data([]),
-    );
+    final canSeeAll = canCreateAsync.maybeWhen(data: (v) => v, orElse: () => false) ||
+        canEditAsync.maybeWhen(data: (v) => v, orElse: () => false) ||
+        canDeleteAsync.maybeWhen(data: (v) => v, orElse: () => false);
+
+    final ministriesAsync = canSeeAll
+        ? ref.watch(allMinistriesProvider)
+        : ref.watch(currentMemberMinistriesProvider);
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -102,8 +103,8 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                         ],
                       ),
                     ),
-                    isAdminAsync.maybeWhen(
-                      data: (isAdmin) => isAdmin
+                    canCreateAsync.maybeWhen(
+                      data: (canCreate) => canCreate
                           ? ElevatedButton.icon(
                               onPressed: () => context.push('/ministries/new'),
                               icon: const Icon(Icons.add, size: 18),
@@ -146,21 +147,15 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                           ).colorScheme.primary.withValues(alpha: 0.2),
                         ),
                         const SizedBox(height: 16),
-                        isAdminAsync.maybeWhen(
-                          data: (isAdmin) => Text(
-                            isAdmin
-                                ? 'Nenhum ministério cadastrado'
-                                : 'Você não possui ministérios vinculados',
-                            style: CommunityDesign.titleStyle(context),
-                          ),
-                          orElse: () => Text(
-                            'Carregando...',
-                            style: CommunityDesign.metaStyle(context),
-                          ),
+                        Text(
+                          canSeeAll
+                              ? 'Nenhum ministério cadastrado'
+                              : 'Você não possui ministérios vinculados',
+                          style: CommunityDesign.titleStyle(context),
                         ),
                         const SizedBox(height: 24),
-                        isAdminAsync.maybeWhen(
-                          data: (isAdmin) => isAdmin
+                        canCreateAsync.maybeWhen(
+                          data: (canCreate) => canCreate
                               ? ElevatedButton.icon(
                                   onPressed: () {
                                     context.push('/ministries/new');

@@ -211,6 +211,26 @@ class DevotionalRepository {
         .toList();
   }
 
+  Future<List<Map<String, dynamic>>> getUserReadingsWithDevotional(String userId) async {
+    final response = await _supabase
+        .from('devotional_readings')
+        .select('''
+          id,
+          devotional_id,
+          user_id,
+          read_at,
+          notes,
+          created_at,
+          updated_at,
+          devotionals(title, devotional_date)
+        ''')
+        .eq('user_id', userId)
+        .eq('tenant_id', _tenantId)
+        .order('read_at', ascending: false);
+
+    return (response as List).cast<Map<String, dynamic>>();
+  }
+
   /// Verificar se usuário já leu um devocional
   Future<bool> hasUserReadDevotional(String userId, String devotionalId) async {
     final response = await _supabase
@@ -286,6 +306,90 @@ class DevotionalRepository {
         .delete()
         .eq('id', readingId)
         .eq('tenant_id', _tenantId);
+  }
+
+  // =====================================================
+  // DEVOTIONAL BOOKMARKS (SALVOS)
+  // =====================================================
+
+  Future<void> saveDevotional({
+    required String devotionalId,
+    required String userId,
+  }) async {
+    await _supabase.from('devotional_bookmarks').upsert(
+      {
+        'tenant_id': _tenantId,
+        'user_id': userId,
+        'devotional_id': devotionalId,
+      },
+      onConflict: 'tenant_id,user_id,devotional_id',
+    );
+  }
+
+  Future<void> removeSavedDevotional({
+    required String devotionalId,
+    required String userId,
+  }) async {
+    await _supabase
+        .from('devotional_bookmarks')
+        .delete()
+        .eq('tenant_id', _tenantId)
+        .eq('user_id', userId)
+        .eq('devotional_id', devotionalId);
+  }
+
+  Future<bool> isDevotionalSaved({
+    required String devotionalId,
+    required String userId,
+  }) async {
+    final row = await _supabase
+        .from('devotional_bookmarks')
+        .select('id')
+        .eq('tenant_id', _tenantId)
+        .eq('user_id', userId)
+        .eq('devotional_id', devotionalId)
+        .maybeSingle();
+    return row != null;
+  }
+
+  Future<List<String>> getSavedDevotionalIds({
+    required String userId,
+    required List<String> devotionalIds,
+  }) async {
+    if (devotionalIds.isEmpty) return const [];
+
+    final response = await _supabase
+        .from('devotional_bookmarks')
+        .select('devotional_id')
+        .eq('tenant_id', _tenantId)
+        .eq('user_id', userId)
+        .inFilter('devotional_id', devotionalIds);
+
+    return (response as List)
+        .map((e) => (e as Map)['devotional_id']?.toString())
+        .whereType<String>()
+        .where((id) => id.trim().isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+  }
+
+  Future<List<Devotional>> getSavedDevotionals(String userId) async {
+    final response = await _supabase
+        .from('devotional_bookmarks')
+        .select('created_at, devotionals!inner(*)')
+        .eq('tenant_id', _tenantId)
+        .eq('user_id', userId)
+        .order('created_at', ascending: false);
+
+    return (response as List)
+        .map((row) {
+          final devotionalJson =
+              (row as Map)['devotionals'] as Map<String, dynamic>?;
+          if (devotionalJson == null) return null;
+          return Devotional.fromJson(devotionalJson).copyWith(isSavedByMe: true);
+        })
+        .whereType<Devotional>()
+        .toList();
   }
 
   // =====================================================

@@ -262,6 +262,7 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
           'ministries.view',
           'ministries.manage_members',
           'ministries.manage_schedule',
+          'bible.manage_lexicon',
           'events.view',
           'events.create',
           'events.edit',
@@ -284,6 +285,7 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
           'ministries.view',
           'ministries.manage_members',
           'ministries.manage_schedule',
+          'bible.manage_lexicon',
           'events.view',
           'events.create',
           'events.edit',
@@ -438,6 +440,7 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
       case 'church_info': return Icons.info;
       case 'church_schedule': return Icons.event_note;
       case 'reading_plans': return Icons.menu_book_outlined;
+      case 'bible': return Icons.menu_book_rounded;
       case 'analytics': return Icons.insights;
       case 'settings': return Icons.settings;
       case 'dashboard': return Icons.dashboard;

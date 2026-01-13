@@ -461,12 +461,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 _DrawerMenuItem(
                   icon: Icons.article,
                   title: 'Notícias',
-                  route: '/news',
+                  route: '/news/admin',
                 ),
                 _DrawerMenuItem(
                   icon: Icons.menu_book,
                   title: 'Planos de Leitura',
-                  route: '/reading-plans',
+                  route: '/reading-plans/admin',
                 ),
               ],
             ),

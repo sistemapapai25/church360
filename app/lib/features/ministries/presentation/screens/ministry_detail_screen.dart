@@ -4,11 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/ministries_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
-import '../../../access_levels/presentation/providers/access_level_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../domain/models/ministry.dart';
 import '../../../../core/design/community_design.dart';
-import '../../../../core/widgets/permission_widget.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de detalhes do ministério
 class MinistryDetailScreen extends ConsumerWidget {
@@ -37,12 +36,12 @@ class MinistryDetailScreen extends ConsumerWidget {
           );
         }
 
-        final isAdminAsync = ref.watch(isAdminProvider);
+        final canManageAllAsync = ref.watch(currentUserHasPermissionProvider('ministries.edit'));
         final membershipAsync = ref.watch(currentMemberMinistriesProvider);
 
-        return isAdminAsync.when(
-          data: (isAdmin) {
-            if (isAdmin) {
+        return canManageAllAsync.when(
+          data: (canManageAll) {
+            if (canManageAll) {
               return _MinistryDetailContent(ministry: ministry);
             }
 
@@ -187,17 +186,22 @@ class _MinistryDetailContent extends ConsumerWidget {
                     context,
                   ).copyWith(fontSize: 20),
                 ),
-                CoordinatorOnlyWidget(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showAddMemberDialog(context, ref),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Adicionar'),
-                    style: CommunityDesign.pillButtonStyle(
-                      context,
-                      colorScheme.primary,
-                      compact: true,
-                    ),
-                  ),
+                PermissionBuilder(
+                  permission: 'ministries.manage_members',
+                  builder: (context, hasPermission) {
+                    if (!hasPermission) return const SizedBox.shrink();
+                    return ElevatedButton.icon(
+                      onPressed: () => _showAddMemberDialog(context, ref),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Adicionar'),
+                      style: CommunityDesign.pillButtonStyle(
+                        context,
+                        colorScheme.primary,
+                        compact: true,
+                      ),
+                    );
+                  },
+                  loadingWidget: const SizedBox.shrink(),
                 ),
               ],
             ),
@@ -226,29 +230,39 @@ class _MinistryDetailContent extends ConsumerWidget {
                 ),
                 Row(
                   children: [
-                    CoordinatorOnlyWidget(
-                      child: IconButton(
-                        onPressed: () => context.push(
-                          '/ministries/${ministry.id}/scale-history',
-                        ),
-                        icon: const Icon(Icons.history),
-                        tooltip: 'Abrir Histórico',
-                      ),
+                    PermissionBuilder(
+                      permission: 'ministries.manage_schedule',
+                      builder: (context, hasPermission) {
+                        if (!hasPermission) return const SizedBox.shrink();
+                        return IconButton(
+                          onPressed: () => context.push(
+                            '/ministries/${ministry.id}/scale-history',
+                          ),
+                          icon: const Icon(Icons.history),
+                          tooltip: 'Abrir Histórico',
+                        );
+                      },
+                      loadingWidget: const SizedBox.shrink(),
                     ),
                     const SizedBox(width: 8),
-                    CoordinatorOnlyWidget(
-                      child: ElevatedButton.icon(
-                        onPressed: () => context.push(
-                          '/ministries/${ministry.id}/auto-scheduler',
-                        ),
-                        icon: const Icon(Icons.auto_awesome, size: 18),
-                        label: const Text('Gerar'),
-                        style: CommunityDesign.pillButtonStyle(
-                          context,
-                          colorScheme.primary,
-                          compact: true,
-                        ),
-                      ),
+                    PermissionBuilder(
+                      permission: 'ministries.manage_schedule',
+                      builder: (context, hasPermission) {
+                        if (!hasPermission) return const SizedBox.shrink();
+                        return ElevatedButton.icon(
+                          onPressed: () => context.push(
+                            '/ministries/${ministry.id}/auto-scheduler',
+                          ),
+                          icon: const Icon(Icons.auto_awesome, size: 18),
+                          label: const Text('Gerar'),
+                          style: CommunityDesign.pillButtonStyle(
+                            context,
+                            colorScheme.primary,
+                            compact: true,
+                          ),
+                        );
+                      },
+                      loadingWidget: const SizedBox.shrink(),
                     ),
                   ],
                 ),
@@ -295,22 +309,34 @@ class _MinistryDetailContent extends ConsumerWidget {
             ).copyWith(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const Spacer(),
-          CoordinatorOnlyWidget(
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined),
-                  onPressed: () =>
-                      context.push('/ministries/${ministry.id}/edit'),
-                  tooltip: 'Editar Ministério',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  onPressed: () => _confirmDelete(context, ref),
-                  tooltip: 'Deletar Ministério',
-                ),
-              ],
-            ),
+          Row(
+            children: [
+              PermissionBuilder(
+                permission: 'ministries.edit',
+                builder: (context, hasPermission) {
+                  if (!hasPermission) return const SizedBox.shrink();
+                  return IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () =>
+                        context.push('/ministries/${ministry.id}/edit'),
+                    tooltip: 'Editar Ministério',
+                  );
+                },
+                loadingWidget: const SizedBox.shrink(),
+              ),
+              PermissionBuilder(
+                permission: 'ministries.delete',
+                builder: (context, hasPermission) {
+                  if (!hasPermission) return const SizedBox.shrink();
+                  return IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    onPressed: () => _confirmDelete(context, ref),
+                    tooltip: 'Deletar Ministério',
+                  );
+                },
+                loadingWidget: const SizedBox.shrink(),
+              ),
+            ],
           ),
         ],
       ),

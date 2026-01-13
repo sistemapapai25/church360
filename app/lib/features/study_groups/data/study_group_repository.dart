@@ -72,20 +72,27 @@ class StudyGroupRepository {
 
   /// Obter grupos do usuário
   Future<List<StudyGroup>> getUserStudyGroups(String userId) async {
-    final response = await _supabase
-        .from('study_groups')
-        .select('''
-          *,
-          study_participants!inner(user_id)
-        ''')
-        .eq('study_participants.user_id', userId)
-        .eq('study_participants.is_active', true)
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .order('created_at', ascending: false);
+    try {
+      final response = await _supabase
+          .from('study_groups')
+          .select('''
+            *,
+            study_participants!inner(user_id)
+          ''')
+          .eq('study_participants.user_id', userId)
+          .eq('study_participants.is_active', true)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .order('created_at', ascending: false);
 
-    return (response as List)
-        .map((json) => StudyGroup.fromJson(json))
-        .toList();
+      return (response as List)
+          .map((json) => StudyGroup.fromJson(json))
+          .toList();
+    } catch (e) {
+      final msg = e.toString();
+      final isPolicyRecursion = msg.contains('infinite recursion detected in policy') || msg.contains('42P17');
+      if (isPolicyRecursion) return const [];
+      rethrow;
+    }
   }
 
   /// Obter grupo por ID

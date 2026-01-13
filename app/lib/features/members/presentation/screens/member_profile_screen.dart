@@ -5,8 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/design/community_design.dart';
-import '../../../../core/widgets/permission_widget.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 import '../providers/members_provider.dart';
 import '../../domain/models/member.dart';
@@ -218,15 +218,21 @@ class MemberProfileScreen extends ConsumerWidget {
               ),
               Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined),
-                    onPressed: () => context.push('/members/$memberId/edit'),
-                    tooltip: 'Editar Informações',
-                    style: IconButton.styleFrom(
-                      foregroundColor: colorScheme.primary,
+                  PermissionGate(
+                    permission: member.status == 'visitor' ? 'visitors.edit' : 'members.edit',
+                    showLoading: false,
+                    child: IconButton(
+                      icon: const Icon(Icons.edit_outlined),
+                      onPressed: () => context.push('/members/$memberId/edit'),
+                      tooltip: 'Editar Informações',
+                      style: IconButton.styleFrom(
+                        foregroundColor: colorScheme.primary,
+                      ),
                     ),
                   ),
-                  CoordinatorOnlyWidget(
+                  PermissionGate(
+                    permission: member.status == 'visitor' ? 'visitors.delete' : 'members.delete',
+                    showLoading: false,
                     child: IconButton(
                       icon: const Icon(Icons.delete_outline, color: Colors.red),
                       onPressed: () => _showDeleteDialog(context, ref),

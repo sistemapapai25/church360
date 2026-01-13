@@ -6,8 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../domain/models/course.dart';
 import '../../domain/models/course_lesson.dart';
 import '../providers/courses_provider.dart';
-import '../../../access_levels/presentation/providers/access_level_provider.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 
 /// Tela de visualização de curso (para alunos)
 class CourseViewerScreen extends ConsumerStatefulWidget {
@@ -100,7 +100,10 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
 
   /// App Bar com imagem de capa
   Widget _buildAppBar(BuildContext context, Course course) {
-    final isCoordinatorAsync = ref.watch(isCoordinatorOrAboveProvider);
+    final canEditAsync = ref.watch(currentUserHasPermissionProvider('courses.edit'));
+    final canManageLessonsAsync = ref.watch(
+      currentUserHasPermissionProvider('courses.manage_lessons'),
+    );
 
     return SliverAppBar(
       backgroundColor: CommunityDesign.headerColor(context),
@@ -113,10 +116,17 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
       expandedHeight: 250,
       pinned: true,
       actions: [
-        // Botão de editar curso (apenas coordenadores)
-        isCoordinatorAsync.when(
-          data: (isCoordinator) {
-            if (!isCoordinator) return const SizedBox.shrink();
+        canEditAsync.when(
+          data: (canEdit) {
+            final canManageLessons = canManageLessonsAsync.maybeWhen(
+              data: (v) => v,
+              orElse: () => false,
+            );
+
+            final showEdit = canEdit;
+            final showLessons = canManageLessons && course.courseType == CourseType.onlineRecorded;
+            if (!showEdit && !showLessons) return const SizedBox.shrink();
+
             return PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
               onSelected: (value) {
@@ -127,17 +137,18 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
                 }
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit, size: 20),
-                      SizedBox(width: 8),
-                      Text('Editar Curso'),
-                    ],
+                if (showEdit)
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 20),
+                        SizedBox(width: 8),
+                        Text('Editar Curso'),
+                      ],
+                    ),
                   ),
-                ),
-                if (course.courseType == CourseType.onlineRecorded)
+                if (showLessons)
                   const PopupMenuItem(
                     value: 'lessons',
                     child: Row(

@@ -10,7 +10,7 @@ BEGIN
       AND p.proname = 'is_admin'
   LOOP
     EXECUTE format(
-      'ALTER FUNCTION %s SET search_path TO public, auth',
+      'ALTER FUNCTION %s SET search_path TO pg_catalog, public, auth',
       fn.signature
     );
   END LOOP;

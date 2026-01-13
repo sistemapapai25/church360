@@ -1143,6 +1143,8 @@ END $$;
 
 DO $$
 DECLARE
+  v_has_ual boolean;
+  v_has_utm boolean;
   v_member_has_tenant boolean;
   v_ual_has_tenant boolean;
 BEGIN
@@ -1150,6 +1152,9 @@ BEGIN
     ALTER TABLE public.member ENABLE ROW LEVEL SECURITY;
 
     DROP POLICY IF EXISTS member_update_admin ON public.member;
+
+    SELECT (to_regclass('public.user_access_level') IS NOT NULL) INTO v_has_ual;
+    SELECT (to_regclass('public.user_tenant_membership') IS NOT NULL) INTO v_has_utm;
 
     SELECT EXISTS (
       SELECT 1
@@ -1167,7 +1172,36 @@ BEGIN
         AND column_name = 'tenant_id'
     ) INTO v_ual_has_tenant;
 
-    IF v_member_has_tenant AND v_ual_has_tenant THEN
+    IF v_member_has_tenant AND v_has_utm THEN
+      EXECUTE $ddl$
+        CREATE POLICY member_update_admin
+        ON public.member
+        FOR UPDATE
+        TO authenticated
+        USING (
+          tenant_id = public.current_tenant_id()
+          AND EXISTS (
+            SELECT 1
+            FROM public.user_tenant_membership utm
+            WHERE utm.user_id = auth.uid()
+              AND utm.tenant_id = public.current_tenant_id()
+              AND utm.is_active = true
+              AND utm.access_level_number >= 5
+          )
+        )
+        WITH CHECK (
+          tenant_id = public.current_tenant_id()
+          AND EXISTS (
+            SELECT 1
+            FROM public.user_tenant_membership utm
+            WHERE utm.user_id = auth.uid()
+              AND utm.tenant_id = public.current_tenant_id()
+              AND utm.is_active = true
+              AND utm.access_level_number >= 5
+          )
+        );
+      $ddl$;
+    ELSIF v_member_has_tenant AND v_has_ual AND v_ual_has_tenant THEN
       EXECUTE $ddl$
         CREATE POLICY member_update_admin
         ON public.member
@@ -1200,26 +1234,10 @@ BEGIN
         ON public.member
         FOR UPDATE
         TO authenticated
-        USING (
-          tenant_id = public.current_tenant_id()
-          AND EXISTS (
-            SELECT 1
-            FROM public.user_access_level ual
-            WHERE ual.user_id = auth.uid()
-              AND ual.access_level_number >= 5
-          )
-        )
-        WITH CHECK (
-          tenant_id = public.current_tenant_id()
-          AND EXISTS (
-            SELECT 1
-            FROM public.user_access_level ual
-            WHERE ual.user_id = auth.uid()
-              AND ual.access_level_number >= 5
-          )
-        );
+        USING (false)
+        WITH CHECK (false);
       $ddl$;
-    ELSIF v_ual_has_tenant THEN
+    ELSIF v_has_ual AND NOT v_ual_has_tenant THEN
       EXECUTE $ddl$
         CREATE POLICY member_update_admin
         ON public.member
@@ -1230,7 +1248,6 @@ BEGIN
             SELECT 1
             FROM public.user_access_level ual
             WHERE ual.user_id = auth.uid()
-              AND ual.tenant_id = public.current_tenant_id()
               AND ual.access_level_number >= 5
           )
         )
@@ -1239,7 +1256,6 @@ BEGIN
             SELECT 1
             FROM public.user_access_level ual
             WHERE ual.user_id = auth.uid()
-              AND ual.tenant_id = public.current_tenant_id()
               AND ual.access_level_number >= 5
           )
         );
@@ -1250,22 +1266,8 @@ BEGIN
         ON public.member
         FOR UPDATE
         TO authenticated
-        USING (
-          EXISTS (
-            SELECT 1
-            FROM public.user_access_level ual
-            WHERE ual.user_id = auth.uid()
-              AND ual.access_level_number >= 5
-          )
-        )
-        WITH CHECK (
-          EXISTS (
-            SELECT 1
-            FROM public.user_access_level ual
-            WHERE ual.user_id = auth.uid()
-              AND ual.access_level_number >= 5
-          )
-        );
+        USING (false)
+        WITH CHECK (false);
       $ddl$;
     END IF;
   END IF;

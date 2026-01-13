@@ -65,7 +65,6 @@ class Church360App extends StatelessWidget {
                   listenable: appRouter.routeInformationProvider,
                   builder: (context, _) {
                     final currentUri = appRouter.routeInformationProvider.value.uri;
-                    final isMobile = MediaQuery.of(context).size.width < 640;
 
                     Uri effectiveUri(Uri uri) {
                       final frag = uri.fragment.trim();
@@ -80,6 +79,14 @@ class Church360App extends StatelessWidget {
                     }
 
                     final effectiveCurrentUri = effectiveUri(currentUri);
+
+                    bool allowFloatingOnCurrentRoute(Uri uri) {
+                      final p = uri.path;
+                      if (p == '/login') return false;
+                      if (p == '/signup') return false;
+                      if (p == '/splash') return false;
+                      return true;
+                    }
 
                     bool matchesLocation(String configured, Uri current) {
                       String raw = configured.trim();
@@ -155,6 +162,17 @@ class Church360App extends StatelessWidget {
                       }
                     }
 
+                    ResolvedAgent? findDefaultAgent() {
+                      for (final a in agents) {
+                        if (!a.showFloatingButton) continue;
+                        if (a.key.toLowerCase() == 'default') return a;
+                      }
+                      for (final a in agents) {
+                        if (a.showFloatingButton) return a;
+                      }
+                      return null;
+                    }
+
                     if (selected == null && effectiveCurrentUri.path == '/home') {
                       for (final a in agents) {
                         if (a.key.toLowerCase() == 'default') {
@@ -164,14 +182,8 @@ class Church360App extends StatelessWidget {
                       }
                     }
 
-                    if (selected == null && isMobile) {
-                      for (final a in agents) {
-                        if (a.key.toLowerCase() == 'default') {
-                          selected = a;
-                          break;
-                        }
-                      }
-                      selected ??= agents.isNotEmpty ? agents.first : null;
+                    if (selected == null && allowFloatingOnCurrentRoute(effectiveCurrentUri)) {
+                      selected = findDefaultAgent();
                     }
 
                     if (selected == null) return appChild;
@@ -185,22 +197,22 @@ class Church360App extends StatelessWidget {
                         ? (16.0 + navBarHeight + navBarGap)
                         : (16.0 + safeBottom);
 
-                    return Stack(
-                      children: [
-                        appChild,
-                        SupportChatContainer(
-                          title: 'Fale Conosco',
-                          bottomOffset: bottomOffset,
-                          agentKey: selectedAgent.key,
-                          accentColor: selectedAgent.themeColor,
-                          childBuilder: (onAgentChanged, agentKey, accentColor) =>
-                              UniversalSupportChat(
-                            agentKey: agentKey,
-                            accentColor: accentColor,
-                            onAgentChanged: onAgentChanged,
-                          ),
-                        ),
-                      ],
+                    final chat = SupportChatContainer(
+                      title: 'Fale Conosco',
+                      bottomOffset: bottomOffset,
+                      agentKey: selectedAgent.key,
+                      accentColor: selectedAgent.themeColor,
+                      childBuilder: (onAgentChanged, agentKey, accentColor) =>
+                          UniversalSupportChat(
+                        agentKey: agentKey,
+                        accentColor: accentColor,
+                        onAgentChanged: onAgentChanged,
+                      ),
+                    );
+
+                    return _AppOverlayRoot(
+                      appChild: appChild,
+                      overlayChild: chat,
                     );
                   },
                 );
@@ -222,6 +234,48 @@ class Church360App extends StatelessWidget {
         Locale('pt', 'BR'),
       ],
       locale: const Locale('pt', 'BR'),
+    );
+  }
+}
+
+class _AppOverlayRoot extends StatefulWidget {
+  final Widget appChild;
+  final Widget overlayChild;
+
+  const _AppOverlayRoot({
+    required this.appChild,
+    required this.overlayChild,
+  });
+
+  @override
+  State<_AppOverlayRoot> createState() => _AppOverlayRootState();
+}
+
+class _AppOverlayRootState extends State<_AppOverlayRoot> {
+  late final OverlayEntry _appEntry;
+  late final OverlayEntry _overlayEntry;
+
+  @override
+  void initState() {
+    super.initState();
+    _appEntry = OverlayEntry(builder: (context) => widget.appChild);
+    _overlayEntry = OverlayEntry(builder: (context) => widget.overlayChild);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AppOverlayRoot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _appEntry.markNeedsBuild();
+    _overlayEntry.markNeedsBuild();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Overlay(
+      initialEntries: [
+        _appEntry,
+        _overlayEntry,
+      ],
     );
   }
 }

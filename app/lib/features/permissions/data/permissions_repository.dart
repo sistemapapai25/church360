@@ -9,6 +9,7 @@ import '../domain/models/user_effective_permission.dart';
 class PermissionsRepository {
   final SupabaseClient _supabase;
   bool _agentPermissionsEnsured = false;
+  bool _corePermissionsEnsured = false;
 
   PermissionsRepository(this._supabase);
 
@@ -37,9 +38,11 @@ class PermissionsRepository {
     if (_agentPermissionsEnsured) return;
 
     try {
+      final tenantId = SupabaseConstants.currentTenantId.trim();
       final runtimeConfigs = await _supabase
           .from('agent_config')
-          .select('key, display_name')
+          .select('tenant_id, key, display_name')
+          .or('tenant_id.eq.$tenantId,tenant_id.is.null')
           .order('key');
 
       final runtimeNameByKey = <String, String>{};
@@ -95,9 +98,98 @@ class PermissionsRepository {
     }
   }
 
+  Future<void> _ensureCorePermissions() async {
+    if (_corePermissionsEnsured) return;
+    try {
+      final rows = <Map<String, dynamic>>[
+        {
+          'code': 'dispatch.configure',
+          'name': 'Configurar Disparos',
+          'description': 'Acessar e configurar integrações e disparos automáticos.',
+          'category': 'dispatch',
+          'subcategory': 'configure',
+          'is_active': true,
+          'requires_context': false,
+        },
+        {
+          'code': 'events.checkin',
+          'name': 'Check-in Eventos',
+          'description': 'Fazer check-in em eventos via QR Code.',
+          'category': 'events',
+          'subcategory': 'checkin',
+          'is_active': true,
+          'requires_context': false,
+        },
+        {
+          'code': 'reports.view',
+          'name': 'Ver Relatórios',
+          'description': 'Visualizar relatórios.',
+          'category': 'reports',
+          'subcategory': 'view',
+          'is_active': true,
+          'requires_context': false,
+        },
+        {
+          'code': 'reports.create',
+          'name': 'Criar Relatórios',
+          'description': 'Criar relatórios customizados.',
+          'category': 'reports',
+          'subcategory': 'create',
+          'is_active': true,
+          'requires_context': false,
+        },
+        {
+          'code': 'reports.edit',
+          'name': 'Editar Relatórios',
+          'description': 'Editar relatórios customizados.',
+          'category': 'reports',
+          'subcategory': 'edit',
+          'is_active': true,
+          'requires_context': false,
+        },
+        {
+          'code': 'reports.delete',
+          'name': 'Deletar Relatórios',
+          'description': 'Remover relatórios customizados.',
+          'category': 'reports',
+          'subcategory': 'delete',
+          'is_active': true,
+          'requires_context': false,
+        },
+        {
+          'code': 'reports.export',
+          'name': 'Exportar Relatórios',
+          'description': 'Exportar relatórios.',
+          'category': 'reports',
+          'subcategory': 'export',
+          'is_active': true,
+          'requires_context': false,
+        },
+        {
+          'code': 'reports.view_analytics',
+          'name': 'Ver Analytics',
+          'description': 'Acessar dashboard de analytics.',
+          'category': 'reports',
+          'subcategory': 'view',
+          'is_active': true,
+          'requires_context': false,
+        },
+      ];
+
+      await _supabase.from('permissions').upsert(
+        rows,
+        onConflict: 'code',
+      );
+    } catch (_) {
+    } finally {
+      _corePermissionsEnsured = true;
+    }
+  }
+
   /// Buscar todas as permissões
   Future<List<Permission>> getPermissions() async {
     await _ensureAgentPermissions();
+    await _ensureCorePermissions();
     final response = await _supabase
         .from('permissions')
         .select()
@@ -113,6 +205,7 @@ class PermissionsRepository {
   /// Buscar permissões por categoria
   Future<List<Permission>> getPermissionsByCategory(String category) async {
     await _ensureAgentPermissions();
+    await _ensureCorePermissions();
     final response = await _supabase
         .from('permissions')
         .select()
@@ -127,6 +220,7 @@ class PermissionsRepository {
 
   /// Buscar permissão por código
   Future<Permission?> getPermissionByCode(String code) async {
+    await _ensureCorePermissions();
     final response = await _supabase
         .from('permissions')
         .select()
@@ -139,6 +233,7 @@ class PermissionsRepository {
 
   /// Buscar categorias únicas
   Future<List<String>> getCategories() async {
+    await _ensureCorePermissions();
     final response = await _supabase
         .from('permissions')
         .select('category')
@@ -159,6 +254,7 @@ class PermissionsRepository {
 
   /// Buscar permissões de um cargo
   Future<List<Permission>> getRolePermissions(String roleId) async {
+    await _ensureCorePermissions();
     final response = await _supabase
         .from('role_permissions')
         .select('permissions(*)')
@@ -239,6 +335,7 @@ class PermissionsRepository {
 
   /// Buscar permissões efetivas de um usuário
   Future<List<UserEffectivePermission>> getUserEffectivePermissions(String userId) async {
+    await _ensureCorePermissions();
     final response = await _supabase
         .rpc('get_user_effective_permissions', params: {'p_user_id': userId});
 
@@ -252,6 +349,7 @@ class PermissionsRepository {
     required String userId,
     required String permissionCode,
   }) async {
+    await _ensureCorePermissions();
     final response = await _supabase.rpc(
       'check_user_permission',
       params: {
@@ -265,12 +363,24 @@ class PermissionsRepository {
 
   /// Verificar se usuário pode acessar Dashboard
   Future<bool> canAccessDashboard(String userId) async {
-    final response = await _supabase.rpc(
-      'can_access_dashboard',
-      params: {'p_user_id': userId},
-    );
+    try {
+      final hasPermission = await checkUserPermission(
+        userId: userId,
+        permissionCode: 'dashboard.access',
+      );
+      if (hasPermission) return true;
+    } catch (_) {}
 
-    return response as bool;
+    try {
+      final response = await _supabase.rpc(
+        'can_access_dashboard',
+        params: {'p_user_id': userId},
+      );
+
+      return response as bool;
+    } catch (_) {
+      return false;
+    }
   }
 
   // =====================================================

@@ -31,6 +31,7 @@ import '../../features/visitors/presentation/screens/visitors_list_screen.dart';
 import '../../features/visitors/presentation/screens/visitor_visit_form_screen.dart';
 import '../../features/visitors/presentation/screens/visitor_followup_form_screen.dart';
 import '../../features/visitors/presentation/screens/visitors_statistics_screen.dart';
+import '../../features/access_levels/domain/models/access_level.dart';
 import '../../features/access_levels/presentation/screens/access_levels_list_screen.dart';
 import '../../features/access_levels/presentation/screens/access_level_history_screen.dart';
 import '../../features/devotionals/presentation/screens/devotionals_list_screen.dart';
@@ -69,10 +70,15 @@ import '../../features/courses/presentation/screens/lesson_viewer_screen.dart';
 import '../../features/church_info/presentation/screens/church_info_screen.dart';
 import '../../features/church_info/presentation/screens/church_info_form_screen.dart';
 import '../../features/news/presentation/screens/news_screen.dart';
+import '../../features/news/presentation/screens/manage_news_screen.dart';
+import '../../features/news/presentation/screens/news_form_screen.dart';
 import '../../features/reading_plans/presentation/screens/reading_plans_list_screen.dart';
 import '../../features/reading_plans/presentation/screens/reading_plan_detail_screen.dart';
+import '../../features/reading_plans/presentation/screens/manage_reading_plans_screen.dart';
+import '../../features/reading_plans/presentation/screens/reading_plan_form_screen.dart';
 import '../../features/bible/presentation/screens/bible_books_screen.dart';
 import '../../features/bible/presentation/screens/bible_chapters_screen.dart';
+import '../../features/bible/presentation/screens/bible_lexicon_editor_screen.dart';
 import '../../features/bible/presentation/screens/bible_reader_screen.dart';
 import '../../features/home_content/presentation/screens/banners_list_screen.dart';
 import '../../features/home_content/presentation/screens/banner_form_screen.dart';
@@ -305,45 +311,66 @@ final appRouter = GoRouter(
     // Rotas de ministérios
     GoRoute(
       path: '/ministries',
-      builder: (context, state) => const MinistriesListScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'ministries.view',
+        child: MinistriesListScreen(),
+      ),
     ),
     GoRoute(
       path: '/ministries/new',
-      builder: (context, state) => const MinistryFormScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'ministries.create',
+        child: MinistryFormScreen(),
+      ),
     ),
     GoRoute(
       path: '/ministries/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return MinistryFormScreen(ministryId: id);
+        return PermissionOnlyRoute(
+          permission: 'ministries.edit',
+          child: MinistryFormScreen(ministryId: id),
+        );
       },
     ),
     GoRoute(
       path: '/ministries/:id',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return MinistryDetailScreen(ministryId: id);
+        return PermissionOnlyRoute(
+          permission: 'ministries.view',
+          child: MinistryDetailScreen(ministryId: id),
+        );
       },
     ),
     GoRoute(
       path: '/ministries/:id/auto-scheduler',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return AutoScheduleGeneratorScreen(ministryId: id);
+        return PermissionOnlyRoute(
+          permission: 'ministries.manage_schedule',
+          child: AutoScheduleGeneratorScreen(ministryId: id),
+        );
       },
     ),
     GoRoute(
       path: '/ministries/:id/schedule-rules',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return ScheduleRulesPreferencesScreen(ministryId: id);
+        return PermissionOnlyRoute(
+          permission: 'ministries.manage_schedule',
+          child: ScheduleRulesPreferencesScreen(ministryId: id),
+        );
       },
     ),
     GoRoute(
       path: '/ministries/:id/scale-history',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return ScaleHistoryScreen(ministryId: id);
+        return PermissionOnlyRoute(
+          permission: 'ministries.manage_schedule',
+          child: ScaleHistoryScreen(ministryId: id),
+        );
       },
     ),
     // =====================================================
@@ -351,13 +378,15 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/financial',
-      builder: (context, state) => const CoordinatorOnlyRoute(
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'financial.view',
         child: FinancialScreen(),
       ),
     ),
     GoRoute(
       path: '/contributions/new',
-      builder: (context, state) => const CoordinatorOnlyRoute(
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'financial.create_contribution',
         child: ContributionFormScreen(),
       ),
     ),
@@ -365,14 +394,16 @@ final appRouter = GoRouter(
       path: '/contributions/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return CoordinatorOnlyRoute(
+        return PermissionOnlyRoute(
+          permission: 'financial.edit',
           child: ContributionFormScreen(contributionId: id),
         );
       },
     ),
     GoRoute(
       path: '/expenses/new',
-      builder: (context, state) => const CoordinatorOnlyRoute(
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'financial.create_expense',
         child: ExpenseFormScreen(),
       ),
     ),
@@ -380,14 +411,16 @@ final appRouter = GoRouter(
       path: '/expenses/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return CoordinatorOnlyRoute(
+        return PermissionOnlyRoute(
+          permission: 'financial.edit',
           child: ExpenseFormScreen(expenseId: id),
         );
       },
     ),
     GoRoute(
       path: '/financial-goals/new',
-      builder: (context, state) => const CoordinatorOnlyRoute(
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'financial.manage_goals',
         child: FinancialGoalFormScreen(),
       ),
     ),
@@ -395,21 +428,24 @@ final appRouter = GoRouter(
       path: '/financial-goals/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return CoordinatorOnlyRoute(
+        return PermissionOnlyRoute(
+          permission: 'financial.manage_goals',
           child: FinancialGoalFormScreen(goalId: id),
         );
       },
     ),
     GoRoute(
       path: '/financial-reports',
-      builder: (context, state) => const CoordinatorOnlyRoute(
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'financial.view_reports',
         child: FinancialReportsScreen(),
       ),
     ),
     // Gerenciar Contribuição
     GoRoute(
       path: '/manage-contribution',
-      builder: (context, state) => const CoordinatorOnlyRoute(
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'financial.edit',
         child: ManageContributionScreen(),
       ),
     ),
@@ -460,7 +496,10 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/qr-scanner',
-      builder: (context, state) => const QRScannerScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'events.checkin',
+        child: QRScannerScreen(),
+      ),
     ),
     GoRoute(
       path: '/visitors/:id/visit/new',
@@ -493,13 +532,15 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/access-levels',
-      builder: (context, state) => const AdminOnlyRoute(
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'settings.manage_access_levels',
         child: AccessLevelsListScreen(),
       ),
     ),
     GoRoute(
       path: '/access-levels/history',
-      builder: (context, state) => const AdminOnlyRoute(
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'settings.manage_access_levels',
         child: AccessLevelHistoryScreen(),
       ),
     ),
@@ -507,7 +548,8 @@ final appRouter = GoRouter(
       path: '/access-levels/history/:userId',
       builder: (context, state) {
         final userId = state.pathParameters['userId']!;
-        return AdminOnlyRoute(
+        return PermissionOnlyRoute(
+          permission: 'settings.manage_access_levels',
           child: AccessLevelHistoryScreen(userId: userId),
         );
       },
@@ -527,15 +569,25 @@ final appRouter = GoRouter(
     // Gestão (colocar ANTES de '/devotionals/:id' para evitar colisão)
     GoRoute(
       path: '/devotionals/admin',
-      builder: (context, state) => CoordinatorOnlyRoute(
-        child: const DevotionalsListScreen(fromDashboard: true),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'devotionals.create',
+        child: DevotionalsListScreen(fromDashboard: true),
       ),
     ),
     GoRoute(
       path: '/devotionals/new',
-      builder: (context, state) => const CoordinatorOnlyRoute(
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'devotionals.create',
         child: DevotionalFormScreen(),
       ),
+    ),
+    GoRoute(
+      path: '/devotionals/saved',
+      builder: (context, state) => const SavedDevotionalsScreen(),
+    ),
+    GoRoute(
+      path: '/my-journey',
+      builder: (context, state) => const MyJourneyScreen(),
     ),
     GoRoute(
       path: '/devotionals/:id',
@@ -548,7 +600,8 @@ final appRouter = GoRouter(
       path: '/devotionals/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return CoordinatorOnlyRoute(
+        return PermissionOnlyRoute(
+          permission: 'devotionals.edit',
           child: DevotionalFormScreen(devotionalId: id),
         );
       },
@@ -601,13 +654,19 @@ final appRouter = GoRouter(
     // Lista de grupos de estudo
     GoRoute(
       path: '/study-groups',
-      builder: (context, state) => const StudyGroupsListScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'study_groups.view',
+        child: StudyGroupsListScreen(),
+      ),
     ),
 
     // Novo grupo de estudo
     GoRoute(
       path: '/study-groups/new',
-      builder: (context, state) => const StudyGroupFormScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'study_groups.create',
+        child: StudyGroupFormScreen(),
+      ),
     ),
 
     // Detalhes do grupo de estudo
@@ -615,7 +674,10 @@ final appRouter = GoRouter(
       path: '/study-groups/:id',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return StudyGroupDetailScreen(groupId: id);
+        return PermissionOnlyRoute(
+          permission: 'study_groups.view',
+          child: StudyGroupDetailScreen(groupId: id),
+        );
       },
     ),
 
@@ -624,7 +686,10 @@ final appRouter = GoRouter(
       path: '/study-groups/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return StudyGroupFormScreen(groupId: id);
+        return PermissionOnlyRoute(
+          permission: 'study_groups.edit',
+          child: StudyGroupFormScreen(groupId: id),
+        );
       },
     ),
 
@@ -634,7 +699,10 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final groupId = state.pathParameters['groupId']!;
         final lessonId = state.pathParameters['lessonId']!;
-        return LessonDetailScreen(groupId: groupId, lessonId: lessonId);
+        return PermissionOnlyRoute(
+          permission: 'study_groups.manage_lessons',
+          child: LessonDetailScreen(groupId: groupId, lessonId: lessonId),
+        );
       },
     ),
 
@@ -643,13 +711,19 @@ final appRouter = GoRouter(
     // Lista de materiais de apoio
     GoRoute(
       path: '/support-materials',
-      builder: (context, state) => const SupportMaterialsScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'support_materials.view',
+        child: SupportMaterialsScreen(),
+      ),
     ),
 
     // Novo material
     GoRoute(
       path: '/support-materials/new',
-      builder: (context, state) => const SupportMaterialFormScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'support_materials.create',
+        child: SupportMaterialFormScreen(),
+      ),
     ),
 
     // Editar material
@@ -657,7 +731,10 @@ final appRouter = GoRouter(
       path: '/support-materials/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return SupportMaterialFormScreen(materialId: id);
+        return PermissionOnlyRoute(
+          permission: 'support_materials.edit',
+          child: SupportMaterialFormScreen(materialId: id),
+        );
       },
     ),
 
@@ -666,7 +743,10 @@ final appRouter = GoRouter(
       path: '/support-materials/:id',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return MaterialViewerScreen(materialId: id);
+        return PermissionOnlyRoute(
+          permission: 'support_materials.view',
+          child: MaterialViewerScreen(materialId: id),
+        );
       },
     ),
 
@@ -676,7 +756,10 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         final title = state.uri.queryParameters['title'] ?? 'Material';
-        return MaterialModulesScreen(materialId: id, materialTitle: title);
+        return PermissionOnlyRoute(
+          permission: 'support_materials.manage_modules',
+          child: MaterialModulesScreen(materialId: id, materialTitle: title),
+        );
       },
     ),
 
@@ -686,9 +769,12 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final materialId = state.pathParameters['materialId']!;
         final moduleId = state.pathParameters['moduleId']!;
-        return ModuleViewerScreen(
-          materialId: materialId,
-          moduleId: moduleId,
+        return PermissionOnlyRoute(
+          permission: 'support_materials.view',
+          child: ModuleViewerScreen(
+            materialId: materialId,
+            moduleId: moduleId,
+          ),
         );
       },
     ),
@@ -696,7 +782,10 @@ final appRouter = GoRouter(
     // Analytics Dashboard
     GoRoute(
       path: '/analytics',
-      builder: (context, state) => const AnalyticsDashboardScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'reports.view_analytics',
+        child: AnalyticsDashboardScreen(),
+      ),
     ),
 
     // =====================================================
@@ -778,7 +867,8 @@ final appRouter = GoRouter(
     // Criar curso
     GoRoute(
       path: '/courses/new',
-      builder: (context, state) => const CoordinatorOnlyRoute(
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'courses.create',
         child: CourseFormScreen(),
       ),
     ),
@@ -788,7 +878,8 @@ final appRouter = GoRouter(
       path: '/courses/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return CoordinatorOnlyRoute(
+        return PermissionOnlyRoute(
+          permission: 'courses.edit',
           child: CourseFormScreen(courseId: id),
         );
       },
@@ -799,7 +890,8 @@ final appRouter = GoRouter(
       path: '/courses/:id/lessons',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return CoordinatorOnlyRoute(
+        return PermissionOnlyRoute(
+          permission: 'courses.manage_lessons',
           child: CourseLessonsScreen(courseId: id),
         );
       },
@@ -810,7 +902,8 @@ final appRouter = GoRouter(
       path: '/courses/:courseId/lessons/new',
       builder: (context, state) {
         final courseId = state.pathParameters['courseId']!;
-        return CoordinatorOnlyRoute(
+        return PermissionOnlyRoute(
+          permission: 'courses.manage_lessons',
           child: CourseLessonFormScreen(courseId: courseId),
         );
       },
@@ -822,7 +915,8 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final courseId = state.pathParameters['courseId']!;
         final lessonId = state.pathParameters['lessonId']!;
-        return CoordinatorOnlyRoute(
+        return PermissionOnlyRoute(
+          permission: 'courses.manage_lessons',
           child: CourseLessonFormScreen(
             courseId: courseId,
             lessonId: lessonId,
@@ -869,6 +963,25 @@ final appRouter = GoRouter(
     // ROTAS: NOTÍCIAS
     // =====================================================
     GoRoute(
+      path: '/news/admin',
+      builder: (context, state) => const DashboardAccessGate(
+        child: ManageNewsScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/news/admin/new',
+      builder: (context, state) => const DashboardAccessGate(
+        child: NewsFormScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/news/admin/:id/edit',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return DashboardAccessGate(child: NewsFormScreen(newsId: id));
+      },
+    ),
+    GoRoute(
       path: '/news',
       builder: (context, state) => const NewsScreen(),
     ),
@@ -879,6 +992,25 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/reading-plans',
       builder: (context, state) => const ReadingPlansListScreen(),
+    ),
+    GoRoute(
+      path: '/reading-plans/admin',
+      builder: (context, state) => const DashboardAccessGate(
+        child: ManageReadingPlansScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/reading-plans/admin/new',
+      builder: (context, state) => const DashboardAccessGate(
+        child: ReadingPlanFormScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/reading-plans/admin/:id/edit',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return DashboardAccessGate(child: ReadingPlanFormScreen(planId: id));
+      },
     ),
     GoRoute(
       path: '/reading-plans/:id',
@@ -986,6 +1118,16 @@ final appRouter = GoRouter(
         return BibleReaderScreen(bookId: bookId, chapter: chapter);
       },
     ),
+    GoRoute(
+      path: '/bible/lexicon',
+      builder: (context, state) {
+        final initialQuery = (state.uri.queryParameters['q'] ?? state.uri.queryParameters['strong'])?.trim();
+        return PermissionOnlyRoute(
+          permission: 'bible.manage_lexicon',
+          child: BibleLexiconEditorScreen(initialQuery: initialQuery),
+        );
+      },
+    ),
 
     // =====================================================
     // ROTAS: RELATÓRIOS
@@ -994,20 +1136,32 @@ final appRouter = GoRouter(
       path: '/reports/members',
       builder: (context, state) {
         final tab = state.uri.queryParameters['tab'];
-        return MembersReportScreen(initialTab: tab);
+        return PermissionOnlyRoute(
+          permission: 'reports.view',
+          child: MembersReportScreen(initialTab: tab),
+        );
       },
     ),
     GoRoute(
       path: '/reports/events',
-      builder: (context, state) => const EventsReportScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'reports.view',
+        child: EventsReportScreen(),
+      ),
     ),
     GoRoute(
       path: '/reports/groups',
-      builder: (context, state) => const GroupsReportScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'reports.view',
+        child: GroupsReportScreen(),
+      ),
     ),
     GoRoute(
       path: '/reports/attendance',
-      builder: (context, state) => const AttendanceReportScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'reports.view',
+        child: AttendanceReportScreen(),
+      ),
     ),
 
     // =====================================================
@@ -1015,7 +1169,8 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/dashboard-settings',
-      builder: (context, state) => const CoordinatorOnlyRoute(
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'dashboard.configure',
         child: DashboardSettingsScreen(),
       ),
     ),
@@ -1030,7 +1185,9 @@ final appRouter = GoRouter(
     // Configuração de Disparos (WhatsApp/Uazapi)
     GoRoute(
       path: '/dispatch-config',
-      builder: (context, state) => const CoordinatorOnlyRoute(
+      builder: (context, state) => const PermissionOrLevelRoute(
+        permission: 'dispatch.configure',
+        requiredLevel: AccessLevelType.coordinator,
         child: DispatchConfigScreen(),
       ),
     ),
@@ -1165,24 +1322,36 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/custom-reports',
-      builder: (context, state) => const CustomReportsListScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'reports.view',
+        child: CustomReportsListScreen(),
+      ),
     ),
     GoRoute(
       path: '/custom-reports/new',
-      builder: (context, state) => const CustomReportBuilderScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'reports.create',
+        child: CustomReportBuilderScreen(),
+      ),
     ),
     GoRoute(
       path: '/custom-reports/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return CustomReportBuilderScreen(reportId: id);
+        return PermissionOnlyRoute(
+          permission: 'reports.edit',
+          child: CustomReportBuilderScreen(reportId: id),
+        );
       },
     ),
     GoRoute(
       path: '/custom-reports/:id/view',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return CustomReportViewScreen(reportId: id);
+        return PermissionOnlyRoute(
+          permission: 'reports.view',
+          child: CustomReportViewScreen(reportId: id),
+        );
       },
     ),
   ],

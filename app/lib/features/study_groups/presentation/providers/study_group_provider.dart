@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/study_group_repository.dart';
 import '../../domain/models/study_group.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 
 // =====================================================
 // REPOSITORY PROVIDER
@@ -37,6 +38,13 @@ final publicStudyGroupsProvider = FutureProvider<List<StudyGroup>>((ref) async {
 final userStudyGroupsProvider = FutureProvider.family<List<StudyGroup>, String>((ref, userId) async {
   final repository = ref.watch(studyGroupRepositoryProvider);
   return repository.getUserStudyGroups(userId);
+});
+
+final currentUserStudyGroupsProvider = FutureProvider<List<StudyGroup>>((ref) async {
+  final member = await ref.watch(currentMemberProvider.future);
+  if (member == null) return const [];
+  final repository = ref.watch(studyGroupRepositoryProvider);
+  return repository.getUserStudyGroups(member.id);
 });
 
 /// Grupo por ID
@@ -455,4 +463,3 @@ class StudyGroupActions {
     ref.invalidate(groupResourcesProvider(groupId));
   }
 }
-

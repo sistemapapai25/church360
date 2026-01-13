@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/courses_provider.dart';
 import '../../domain/models/course.dart';
-import '../../../access_levels/presentation/providers/access_level_provider.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/church_image.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 
 /// Tela de listagem de cursos
 class CoursesListScreen extends ConsumerStatefulWidget {
@@ -32,7 +32,7 @@ class _CoursesListScreenState extends ConsumerState<CoursesListScreen> {
         ? ref.watch(upcomingCoursesProvider)
         : ref.watch(allCoursesProvider);
 
-    final isCoordinatorAsync = ref.watch(isCoordinatorOrAboveProvider);
+    final canCreateAsync = ref.watch(currentUserHasPermissionProvider('courses.create'));
 
     return PopScope(
       canPop: true,
@@ -116,9 +116,9 @@ class _CoursesListScreenState extends ConsumerState<CoursesListScreen> {
           ],
         ),
         floatingActionButton: widget.showFab
-            ? isCoordinatorAsync.when(
-                data: (isCoordinator) {
-                  if (!isCoordinator) return null;
+            ? canCreateAsync.when(
+                data: (canCreate) {
+                  if (!canCreate) return null;
                   return FloatingActionButton.extended(
                     onPressed: () => context.push('/courses/new'),
                     icon: const Icon(Icons.add),
@@ -221,7 +221,10 @@ class _CourseCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isCoordinatorAsync = ref.watch(isCoordinatorOrAboveProvider);
+    final canEditAsync = ref.watch(
+      currentUserHasPermissionProvider('courses.edit'),
+    );
+    final canEdit = canEditAsync.maybeWhen(data: (v) => v, orElse: () => false);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -235,12 +238,9 @@ class _CourseCard extends ConsumerWidget {
           context.push('/courses/${course.id}/view');
         },
         onLongPress: () {
-          // Long press para editar (apenas coordenadores)
-          isCoordinatorAsync.whenData((isCoordinator) {
-            if (isCoordinator) {
-              context.push('/courses/${course.id}/edit');
-            }
-          });
+          if (canEdit) {
+            context.push('/courses/${course.id}/edit');
+          }
         },
         child: Stack(
           children: [
@@ -364,11 +364,10 @@ class _CourseCard extends ConsumerWidget {
               ],
             ),
 
-            // Botão de editar (apenas quando showEditButton=true e for coordenador)
             if (showEditButton)
-              isCoordinatorAsync.when(
-                data: (isCoordinator) {
-                  if (!isCoordinator) return const SizedBox.shrink();
+              canEditAsync.when(
+                data: (canEdit) {
+                  if (!canEdit) return const SizedBox.shrink();
                   return Positioned(
                     top: 8,
                     right: 8,

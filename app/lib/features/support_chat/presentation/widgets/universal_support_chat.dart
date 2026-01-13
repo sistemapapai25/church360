@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,6 +40,10 @@ class UniversalSupportChat extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<UniversalSupportChat> createState() => _UniversalSupportChatState();
+}
+
+class _SendMessageIntent extends Intent {
+  const _SendMessageIntent();
 }
 
 Future<void> clearLocalChat(String agentKey) async {
@@ -83,6 +89,8 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   String? _chatWallpaperUrl;
   bool _isUploadingWallpaper = false;
   String? _userMemberId;
+  Map<String, dynamic> _remoteChatPreferences = const {};
+  bool _remoteChatPreferencesLoaded = false;
 
   static const int _maxLocalMessagesPerAgent = 50;
 
@@ -205,6 +213,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     _accentColor = widget.accentColor;
     _localHistoryKey = 'chat_history_${_activeAgentKey.toLowerCase()}';
     _showQuickActions = false;
+    _remoteChatPreferencesLoaded = false;
     _baseAgent = kSupportAgents[_activeAgentKey.toLowerCase()] ?? kSupportAgents['default']!;
     _agent = resolveAgent(_baseAgent, null);
     final current = ref.read(resolvedAgentsProvider);
@@ -218,6 +227,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     widget.onAgentChanged?.call(_agent);
     _loadChatBackgroundSafely();
     _loadChatWallpaperSafely();
+    _loadRemoteChatPreferencesSafely();
     _loadThreadSafely();
   }
 
@@ -230,6 +240,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     } catch (_) {}
     await _loadChatBackgroundSafely();
     await _loadChatWallpaperSafely();
+    await _loadRemoteChatPreferencesSafely();
     await _loadThreadSafely();
     await _loadLocalHistorySafely();
 
@@ -251,6 +262,124 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   String get _chatWallpaperStorageKey {
     final uid = (_userMemberId ?? 'anon').toLowerCase();
     return 'support_chat_wallpaper_${uid}_${_activeAgentKey.toLowerCase()}';
+  }
+
+  Map<String, dynamic>? _asJsonMap(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    if (raw is String) {
+      final s = raw.trim();
+      if (s.isEmpty) return null;
+      try {
+        final decoded = jsonDecode(s);
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  Map<String, dynamic> _agentPrefsFromRoot(Map<String, dynamic> root) {
+    final key = _activeAgentKey.toLowerCase();
+    final v = root[key];
+    final map = _asJsonMap(v);
+    return map ?? <String, dynamic>{};
+  }
+
+  Future<void> _loadRemoteChatPreferencesSafely() async {
+    if (_remoteChatPreferencesLoaded) return;
+    final supabase = Supabase.instance.client;
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+
+    try {
+      Map<String, dynamic>? row;
+      try {
+        row = await supabase
+            .from('user_account')
+            .select('support_chat_preferences')
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .eq('auth_user_id', uid)
+            .maybeSingle();
+      } catch (_) {}
+
+      row ??= await supabase
+          .from('user_account')
+          .select('support_chat_preferences')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .eq('id', uid)
+          .maybeSingle();
+
+      final root = _asJsonMap(row?['support_chat_preferences']) ?? <String, dynamic>{};
+      _remoteChatPreferences = root;
+      _remoteChatPreferencesLoaded = true;
+
+      final agentPrefs = _agentPrefsFromRoot(root);
+      final bgRaw = agentPrefs['bgColor']?.toString().trim();
+      final wpRaw = agentPrefs['wallpaperUrl']?.toString().trim();
+      Color? parsedBg;
+      String? parsedWp;
+
+      if (bgRaw != null && bgRaw.isNotEmpty) {
+        final v = int.tryParse(bgRaw, radix: 16);
+        if (v != null) parsedBg = Color(v);
+      }
+      if (wpRaw != null && wpRaw.isNotEmpty) {
+        parsedWp = wpRaw;
+      }
+
+      if (parsedBg != null) {
+        await _saveChatBackgroundSafely(parsedBg);
+      }
+      if (parsedWp != null && parsedWp.isNotEmpty) {
+        await _saveChatWallpaperUrlSafely(parsedWp);
+      }
+
+      if (mounted) {
+        setState(() {
+          if (parsedBg != null) _chatBackgroundColor = parsedBg;
+          if (parsedWp != null && parsedWp.isNotEmpty) _chatWallpaperUrl = parsedWp;
+        });
+      }
+    } catch (_) {
+      _remoteChatPreferencesLoaded = true;
+    }
+  }
+
+  Future<void> _saveRemoteChatPreferencesSafely({
+    Color? chatBackgroundColor,
+    String? chatWallpaperUrl,
+  }) async {
+    final supabase = Supabase.instance.client;
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+
+    try {
+      if (!_remoteChatPreferencesLoaded) {
+        await _loadRemoteChatPreferencesSafely();
+      }
+
+      final root = Map<String, dynamic>.from(_remoteChatPreferences);
+      final agentKey = _activeAgentKey.toLowerCase();
+      final currentAgent = _agentPrefsFromRoot(root);
+      final nextAgent = Map<String, dynamic>.from(currentAgent);
+      if (chatBackgroundColor != null) {
+        nextAgent['bgColor'] = chatBackgroundColor.toARGB32().toRadixString(16);
+      }
+      if (chatWallpaperUrl != null) {
+        nextAgent['wallpaperUrl'] = chatWallpaperUrl.trim();
+      }
+      root[agentKey] = nextAgent;
+
+      await supabase
+          .from('user_account')
+          .update({'support_chat_preferences': root})
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .eq('auth_user_id', uid);
+
+      _remoteChatPreferences = root;
+      _remoteChatPreferencesLoaded = true;
+    } catch (_) {}
   }
 
   Future<void> _loadChatBackgroundSafely() async {
@@ -305,6 +434,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     setState(() {
       _chatBackgroundColor = next;
     });
+    await _saveRemoteChatPreferencesSafely(chatBackgroundColor: next);
     await _saveChatBackgroundSafely(next);
   }
 
@@ -428,6 +558,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       final publicUrl = supabase.storage.from(usedBucket).getPublicUrl(filePath);
       final cacheBustedUrl = '$publicUrl?v=${DateTime.now().millisecondsSinceEpoch}';
 
+      await _saveRemoteChatPreferencesSafely(chatWallpaperUrl: cacheBustedUrl);
       await _saveChatWallpaperUrlSafely(cacheBustedUrl);
       if (!mounted) return;
       setState(() {
@@ -964,6 +1095,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
 
     request.headers.addAll({
       'Authorization': 'Bearer ${SupabaseConstants.supabaseAnonKey}',
+      'x-tenant-id': SupabaseConstants.currentTenantId,
     });
 
     request.fields['message'] = message;
@@ -1315,29 +1447,54 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                 horizontal: 16,
                 vertical: 6,
               ),
-              child: TextField(
-                controller: _textController,
-                focusNode: _textFocusNode,
-                minLines: 1,
-                maxLines: 4,
-                textInputAction: TextInputAction.newline,
-                decoration: const InputDecoration(
-                  isDense: true,
-                  border: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  disabledBorder: InputBorder.none,
-                  errorBorder: InputBorder.none,
-                  focusedErrorBorder: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                  hintText: 'Digite sua mensagem...',
-                  hintStyle: TextStyle(fontSize: 15, color: Color(0xFF9CA3AF)),
+              child: Shortcuts(
+                shortcuts: kIsWeb
+                    ? const <ShortcutActivator, Intent>{
+                        SingleActivator(LogicalKeyboardKey.enter): _SendMessageIntent(),
+                      }
+                    : const <ShortcutActivator, Intent>{},
+                child: Actions(
+                  actions: <Type, Action<Intent>>{
+                    _SendMessageIntent: CallbackAction<_SendMessageIntent>(
+                      onInvoke: (_) {
+                        if (!kIsWeb) return null;
+                        final shift = HardwareKeyboard.instance.logicalKeysPressed.any(
+                          (k) => k == LogicalKeyboardKey.shiftLeft || k == LogicalKeyboardKey.shiftRight,
+                        );
+                        if (shift) return null;
+                        if (_isLoading) return null;
+                        unawaited(_handleSend());
+                        return null;
+                      },
+                    ),
+                  },
+                  child: TextField(
+                    controller: _textController,
+                    focusNode: _textFocusNode,
+                    minLines: 1,
+                    maxLines: 4,
+                    textInputAction: TextInputAction.newline,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      errorBorder: InputBorder.none,
+                      focusedErrorBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Digite sua mensagem...',
+                      hintStyle: TextStyle(fontSize: 15, color: Color(0xFF9CA3AF)),
+                    ),
+                    style: const TextStyle(fontSize: 15),
+                    textCapitalization: TextCapitalization.sentences,
+                    onSubmitted: (_) => _handleSend(),
+                    enabled: true,
+                    onTap: _scrollToBottom,
+                  ),
                 ),
-                style: const TextStyle(fontSize: 15),
-                textCapitalization: TextCapitalization.sentences,
-                onSubmitted: (_) => _handleSend(),
-                enabled: true,
-                onTap: _scrollToBottom,
               ),
             ),
           ),
@@ -1354,9 +1511,13 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                 backgroundColor: _accentColor,
                 foregroundColor: Colors.white,
               ),
-              onPressed: (_isLoading || (_textController.text.trim().isEmpty && _attachments.isEmpty && !_isRecording)) 
-                  ? (canRecord && !_isLoading ? _toggleRecording : null) 
-                  : _handleSend,
+              onPressed: _isLoading
+                  ? null
+                  : _isRecording
+                      ? _toggleRecording
+                      : (_textController.text.trim().isEmpty && _attachments.isEmpty)
+                          ? (canRecord ? _toggleRecording : null)
+                          : _handleSend,
               child: _isLoading
                   ? const SizedBox(
                       width: 20,

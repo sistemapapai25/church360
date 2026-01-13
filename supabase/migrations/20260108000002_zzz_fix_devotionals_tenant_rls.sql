@@ -185,6 +185,17 @@ BEGIN
 
     DROP INDEX IF EXISTS public.idx_devotionals_date_unique;
     DROP INDEX IF EXISTS public.idx_devotionals_tenant_date_unique;
+
+    DELETE FROM public.devotionals d
+    USING (
+      SELECT
+        ctid,
+        ROW_NUMBER() OVER (PARTITION BY tenant_id, devotional_date ORDER BY ctid) AS rn
+      FROM public.devotionals
+    ) dupe
+    WHERE d.ctid = dupe.ctid
+      AND dupe.rn > 1;
+
     CREATE UNIQUE INDEX idx_devotionals_tenant_date_unique
       ON public.devotionals(tenant_id, devotional_date);
   END IF;
@@ -315,4 +326,3 @@ BEGIN
     $sql$;
   END IF;
 END $$;
-

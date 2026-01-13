@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/design/community_design.dart';
-import '../../../../core/widgets/permission_widget.dart';
 import '../../domain/models/contribution.dart';
 import '../providers/financial_provider.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela principal do sistema financeiro
 class FinancialScreen extends ConsumerStatefulWidget {
@@ -68,7 +68,13 @@ class _FinancialScreenState extends ConsumerState<FinancialScreen>
           _GoalsTab(),
         ],
       ),
-      floatingActionButton: CoordinatorOnlyWidget(
+      floatingActionButton: PermissionGate(
+        permission: _tabController.index == 0
+            ? 'financial.create_contribution'
+            : _tabController.index == 1
+                ? 'financial.create_expense'
+                : 'financial.manage_goals',
+        showLoading: false,
         child: FloatingActionButton.extended(
           onPressed: () {
             if (_tabController.index == 0) {

@@ -8,6 +8,7 @@ import '../providers/events_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../ministries/domain/models/ministry.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/design/community_design.dart';
 
 /// Tela de detalhes do evento
@@ -900,129 +901,129 @@ class _SchedulesTab extends ConsumerWidget {
           schedulesByMinistry[schedule.ministryId]!.add(schedule);
         }
 
+        Widget buildMinistryCard({
+          required String ministryId,
+          required String ministryName,
+          required List<MinistrySchedule> ministrySchedules,
+        }) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: CommunityDesign.overlayDecoration(
+              Theme.of(context).colorScheme,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.1),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(CommunityDesign.radius),
+                      topRight: Radius.circular(CommunityDesign.radius),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.church, color: Colors.blue),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          ministryName,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${ministrySchedules.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                PermissionBuilder(
+                  permission: 'ministries.manage_schedule',
+                  builder: (context, hasPermission) {
+                    if (!hasPermission) return const SizedBox.shrink();
+                    return Column(
+                      children: [
+                        ListTile(
+                          leading: const Icon(
+                            Icons.person_add_alt_1,
+                            color: Colors.blue,
+                          ),
+                          title: const Text('Adicionar membro'),
+                          subtitle: const Text(
+                            'Adicionar/ajustar escala deste ministério',
+                          ),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                          ),
+                          onTap: () => _openMinistryAutoScheduler(
+                            context,
+                            ministryId,
+                          ),
+                        ),
+                        Divider(
+                          height: 1,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .outlineVariant
+                              .withValues(alpha: 0.2),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                if (ministrySchedules.isNotEmpty)
+                  ...ministrySchedules.map((schedule) {
+                    return ListTile(
+                      leading: const CircleAvatar(
+                        child: Icon(Icons.person),
+                      ),
+                      title: Text(schedule.memberName),
+                      subtitle:
+                          schedule.notes != null ? Text(schedule.notes!) : null,
+                    );
+                  }),
+              ],
+            ),
+          );
+        }
+
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Botão para adicionar escala
-            Container(
-              decoration: CommunityDesign.overlayDecoration(
-                Theme.of(context).colorScheme,
-              ),
-              child: ListTile(
-                leading: const Icon(Icons.add_circle, color: Colors.blue),
-                title: const Text('Adicionar Membro à Escala'),
-                subtitle: const Text(
-                  'Escale membros de ministérios para este evento',
-                ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () => _showAddScheduleDialog(context, ref),
-              ),
-            ),
-            const SizedBox(height: 16),
-
             // Lista de escalas agrupadas por ministério
             if (schedulesByMinistry.isEmpty)
-              Container(
-                decoration: CommunityDesign.overlayDecoration(
-                  Theme.of(context).colorScheme,
-                ),
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.calendar_today_outlined,
-                      size: 48,
-                      color: Colors.grey[400],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Nenhum membro escalado',
-                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Adicione membros de ministérios para servir neste evento',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
+              _EmptySchedulesContent(
+                buildMinistryCard: buildMinistryCard,
               )
             else
               ...schedulesByMinistry.entries.map((entry) {
                 final ministrySchedules = entry.value;
                 final ministryName = ministrySchedules.first.ministryName;
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: CommunityDesign.overlayDecoration(
-                    Theme.of(context).colorScheme,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header do ministério
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.1),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(CommunityDesign.radius),
-                            topRight: Radius.circular(CommunityDesign.radius),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.church, color: Colors.blue),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                ministryName,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.blue,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                '${ministrySchedules.length}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Lista de membros escalados
-                      ...ministrySchedules.map((schedule) {
-                        return ListTile(
-                          leading: const CircleAvatar(
-                            child: Icon(Icons.person),
-                          ),
-                          title: Text(schedule.memberName),
-                          subtitle: schedule.notes != null
-                              ? Text(schedule.notes!)
-                              : null,
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () =>
-                                _confirmRemoveSchedule(context, ref, schedule),
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
+                return buildMinistryCard(
+                  ministryId: entry.key,
+                  ministryName: ministryName,
+                  ministrySchedules: ministrySchedules,
                 );
               }),
           ],
@@ -1033,317 +1034,80 @@ class _SchedulesTab extends ConsumerWidget {
     );
   }
 
-  void _showAddScheduleDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (context) => _AddScheduleDialog(eventId: eventId),
-    );
-  }
-
-  Future<void> _confirmRemoveSchedule(
-    BuildContext context,
-    WidgetRef ref,
-    MinistrySchedule schedule,
-  ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar Remoção'),
-        content: Text(
-          'Tem certeza que deseja remover ${schedule.memberName} da escala?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Remover'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && context.mounted) {
-      try {
-        final repository = ref.read(ministriesRepositoryProvider);
-        await repository.removeSchedule(schedule.id);
-
-        ref.invalidate(eventSchedulesProvider(eventId));
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Membro removido da escala com sucesso!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erro ao remover da escala: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    }
+  void _openMinistryAutoScheduler(BuildContext context, String ministryId) {
+    context.push('/ministries/$ministryId/auto-scheduler');
   }
 }
 
-/// Diálogo para adicionar membro à escala
-class _AddScheduleDialog extends ConsumerStatefulWidget {
-  final String eventId;
+class _EmptySchedulesContent extends ConsumerWidget {
+  final Widget Function({
+    required String ministryId,
+    required String ministryName,
+    required List<MinistrySchedule> ministrySchedules,
+  }) buildMinistryCard;
 
-  const _AddScheduleDialog({required this.eventId});
-
-  @override
-  ConsumerState<_AddScheduleDialog> createState() => _AddScheduleDialogState();
-}
-
-class _AddScheduleDialogState extends ConsumerState<_AddScheduleDialog> {
-  String? _selectedMinistryId;
-  String? _selectedMemberId;
-  final _notesController = TextEditingController();
-  bool _isLoading = false;
-  String _memberSearchQuery = '';
+  const _EmptySchedulesContent({required this.buildMinistryCard});
 
   @override
-  void dispose() {
-    _notesController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ministriesAsync = ref.watch(activeMinistriesProvider);
 
-    return AlertDialog(
-      title: const Text('Adicionar à Escala'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: SingleChildScrollView(
+    return Column(
+      children: [
+        Container(
+          decoration: CommunityDesign.overlayDecoration(
+            Theme.of(context).colorScheme,
+          ),
+          padding: const EdgeInsets.all(32),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              // Seletor de ministério
-              ministriesAsync.when(
-                data: (ministries) {
-                  if (ministries.isEmpty) {
-                    return const Text('Nenhum ministério ativo disponível');
-                  }
-
-                  return DropdownButtonFormField<String>(
-                    initialValue: _selectedMinistryId,
-                    decoration: const InputDecoration(
-                      labelText: 'Selecione o Ministério',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.church),
-                    ),
-                    items: ministries.map((ministry) {
-                      return DropdownMenuItem(
-                        value: ministry.id,
-                        child: Text(ministry.name),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedMinistryId = value;
-                        _selectedMemberId = null; // Reset member selection
-                      });
-                    },
-                  );
-                },
-                loading: () => const CircularProgressIndicator(),
-                error: (error, _) => Text('Erro: $error'),
+              Icon(
+                Icons.calendar_today_outlined,
+                size: 48,
+                color: Colors.grey[400],
               ),
               const SizedBox(height: 16),
-
-              // Seletor de membro (só aparece se ministério foi selecionado)
-              if (_selectedMinistryId != null) _buildMemberSelector(),
-
-              const SizedBox(height: 16),
-
-              // Notas
-              TextFormField(
-                controller: _notesController,
-                decoration: const InputDecoration(
-                  labelText: 'Notas (opcional)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.note),
-                ),
-                maxLines: 2,
+              Text(
+                'Nenhum membro escalado',
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Selecione um ministério abaixo para adicionar membros',
+                style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isLoading ? null : () => Navigator.pop(context),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _isLoading ? null : _addSchedule,
-          child: _isLoading
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
+        const SizedBox(height: 16),
+        ministriesAsync.when(
+          data: (ministries) {
+            if (ministries.isEmpty) {
+              return Container(
+                decoration: CommunityDesign.overlayDecoration(
+                  Theme.of(context).colorScheme,
+                ),
+                padding: const EdgeInsets.all(16),
+                child: const Text('Nenhum ministério ativo disponível'),
+              );
+            }
+
+            return Column(
+              children: [
+                for (final m in ministries)
+                  buildMinistryCard(
+                    ministryId: m.id,
+                    ministryName: m.name,
+                    ministrySchedules: const [],
                   ),
-                )
-              : const Text('Adicionar'),
+              ],
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Center(child: Text('Erro: $error')),
         ),
       ],
     );
-  }
-
-  Widget _buildMemberSelector() {
-    final membersAsync = ref.watch(
-      ministryMembersProvider(_selectedMinistryId!),
-    );
-
-    return membersAsync.when(
-      data: (members) {
-        if (members.isEmpty) {
-          return const Text('Nenhum membro neste ministério');
-        }
-
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              decoration: const InputDecoration(
-                labelText: 'Buscar membro...',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.search),
-              ),
-              onChanged: (value) {
-                setState(() => _memberSearchQuery = value);
-              },
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 240,
-              child: Builder(
-                builder: (context) {
-                  var filtered = members;
-                  if (_memberSearchQuery.isNotEmpty) {
-                    final q = _memberSearchQuery.toLowerCase();
-                    filtered = filtered
-                        .where((m) => m.memberName.toLowerCase().contains(q))
-                        .toList();
-                  }
-
-                  if (filtered.isEmpty) {
-                    return Center(
-                      child: Text(
-                        _memberSearchQuery.isEmpty
-                            ? 'Nenhum membro disponível'
-                            : 'Nenhum resultado para "$_memberSearchQuery"',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
-                      ),
-                    );
-                  }
-
-                  return ListView.builder(
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final m = filtered[index];
-                      final isSelected = _selectedMemberId == m.memberId;
-                      return ListTile(
-                        leading: const CircleAvatar(
-                          child: Icon(Icons.person, size: 20),
-                        ),
-                        title: Text(m.memberName),
-                        trailing: isSelected
-                            ? const Icon(
-                                Icons.check_circle,
-                                color: Colors.green,
-                              )
-                            : null,
-                        onTap: () {
-                          setState(() => _selectedMemberId = m.memberId);
-                        },
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        );
-      },
-      loading: () => const CircularProgressIndicator(),
-      error: (error, _) => Text('Erro: $error'),
-    );
-  }
-
-  Future<void> _addSchedule() async {
-    if (_selectedMinistryId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selecione um ministério'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    if (_selectedMemberId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selecione um membro'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final repository = ref.read(ministriesRepositoryProvider);
-      await repository.addSchedule({
-        'event_id': widget.eventId,
-        'ministry_id': _selectedMinistryId,
-        'user_id': _selectedMemberId,
-        if (_notesController.text.isNotEmpty)
-          'notes': _notesController.text.trim(),
-      });
-
-      ref.invalidate(eventSchedulesProvider(widget.eventId));
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Membro adicionado à escala com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao adicionar à escala: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
   }
 }

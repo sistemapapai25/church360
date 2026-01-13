@@ -2729,6 +2729,7 @@ class _PostCardState extends ConsumerState<_PostCard>
   Completer<String?>? _reactionCompleter;
   late final AnimationController _reactionController;
   bool _reactionsShowBelow = false;
+  double _reactionsAnchorX = 0;
 
   static const _emojiFallback = <String>[
     'Apple Color Emoji',
@@ -2895,11 +2896,22 @@ class _PostCardState extends ConsumerState<_PostCard>
 
     final box =
         _reactionTargetKey.currentContext?.findRenderObject() as RenderBox?;
+    final screenWidth = MediaQuery.sizeOf(context).width;
     if (box != null) {
       final top = box.localToGlobal(Offset.zero).dy;
       _reactionsShowBelow = top < 104;
+      final centerX =
+          box.localToGlobal(Offset(box.size.width / 2, 0)).dx;
+      if (centerX < screenWidth / 3) {
+        _reactionsAnchorX = -1;
+      } else if (centerX > (screenWidth * 2) / 3) {
+        _reactionsAnchorX = 1;
+      } else {
+        _reactionsAnchorX = 0;
+      }
     } else {
       _reactionsShowBelow = false;
+      _reactionsAnchorX = 0;
     }
 
     final colorScheme = Theme.of(context).colorScheme;
@@ -2916,6 +2928,19 @@ class _PostCardState extends ConsumerState<_PostCard>
     final overlay = Overlay.of(context, rootOverlay: true);
     _reactionOverlay = OverlayEntry(
       builder: (context) {
+        final builderScreenWidth = MediaQuery.sizeOf(context).width;
+        final isNarrow = builderScreenWidth < 420;
+        final optionPadding = EdgeInsets.symmetric(
+          horizontal: isNarrow ? 8 : 12,
+          vertical: 8,
+        );
+        final emojiSize = isNarrow ? 20.0 : 22.0;
+        final labelSize = isNarrow ? 10.0 : 11.0;
+        final containerPadding = EdgeInsets.symmetric(
+          horizontal: isNarrow ? 8 : 10,
+          vertical: isNarrow ? 8 : 10,
+        );
+
         final opacity = CurvedAnimation(
           parent: _reactionController,
           curve: Curves.easeOutCubic,
@@ -2927,12 +2952,14 @@ class _PostCardState extends ConsumerState<_PostCard>
           ),
         );
 
-        final targetAnchor = _reactionsShowBelow
-            ? Alignment.bottomCenter
-            : Alignment.topCenter;
-        final followerAnchor = _reactionsShowBelow
-            ? Alignment.topCenter
-            : Alignment.bottomCenter;
+        final targetAnchor = Alignment(
+          _reactionsAnchorX,
+          _reactionsShowBelow ? 1 : -1,
+        );
+        final followerAnchor = Alignment(
+          _reactionsAnchorX,
+          _reactionsShowBelow ? -1 : 1,
+        );
         final offset = _reactionsShowBelow
             ? const Offset(0, 10)
             : const Offset(0, -10);
@@ -2958,86 +2985,138 @@ class _PostCardState extends ConsumerState<_PostCard>
                   opacity: opacity,
                   child: ScaleTransition(
                     scale: scale,
-                    alignment: _reactionsShowBelow
-                        ? Alignment.topCenter
-                        : Alignment.bottomCenter,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 10,
+                    alignment: Alignment(
+                      _reactionsAnchorX,
+                      _reactionsShowBelow ? -1 : 1,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: builderScreenWidth - 16,
                       ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surface,
-                        borderRadius: BorderRadius.circular(999),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.14),
-                            blurRadius: 18,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                        border: Border.all(
-                          color: colorScheme.outline.withValues(alpha: 0.10),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (final option in options) ...[
-                            InkWell(
-                              borderRadius: BorderRadius.circular(999),
-                              onTap: () => _dismissReactionPicker(
-                                result: option.$1,
-                                immediate: false,
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      option.$3,
-                                      style: TextStyle(
-                                        fontSize: 22,
-                                        fontFamilyFallback: _emojiFallback,
-                                        height: 1,
-                                        color: selected == option.$1
-                                            ? colorScheme.primary
-                                            : colorScheme.onSurface,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      option.$2,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        height: 1.1,
-                                        color: selected == option.$1
-                                            ? colorScheme.primary
-                                            : colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                      child: Container(
+                        padding: containerPadding,
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface,
+                          borderRadius: BorderRadius.circular(999),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.14),
+                              blurRadius: 18,
+                              offset: const Offset(0, 8),
                             ),
-                            if (option != options.last)
-                              SizedBox(
-                                height: 34,
-                                child: VerticalDivider(
-                                  width: 10,
-                                  thickness: 1,
-                                  color: colorScheme.outline.withValues(
-                                    alpha: 0.10,
-                                  ),
-                                ),
-                              ),
                           ],
-                        ],
+                          border: Border.all(
+                            color: colorScheme.outline.withValues(alpha: 0.10),
+                          ),
+                        ),
+                        child: isNarrow
+                            ? Wrap(
+                                alignment: WrapAlignment.center,
+                                runAlignment: WrapAlignment.center,
+                                spacing: 4,
+                                runSpacing: 4,
+                                children: [
+                                  for (final option in options)
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(999),
+                                      onTap: () => _dismissReactionPicker(
+                                        result: option.$1,
+                                        immediate: false,
+                                      ),
+                                      child: Padding(
+                                        padding: optionPadding,
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              option.$3,
+                                              style: TextStyle(
+                                                fontSize: emojiSize,
+                                                fontFamilyFallback:
+                                                    _emojiFallback,
+                                                height: 1,
+                                                color: selected == option.$1
+                                                    ? colorScheme.primary
+                                                    : colorScheme.onSurface,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              option.$2,
+                                              style: TextStyle(
+                                                fontSize: labelSize,
+                                                fontWeight: FontWeight.w600,
+                                                height: 1.1,
+                                                color: selected == option.$1
+                                                    ? colorScheme.primary
+                                                    : colorScheme
+                                                        .onSurfaceVariant,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              )
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  for (final option in options) ...[
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(999),
+                                      onTap: () => _dismissReactionPicker(
+                                        result: option.$1,
+                                        immediate: false,
+                                      ),
+                                      child: Padding(
+                                        padding: optionPadding,
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              option.$3,
+                                              style: TextStyle(
+                                                fontSize: emojiSize,
+                                                fontFamilyFallback:
+                                                    _emojiFallback,
+                                                height: 1,
+                                                color: selected == option.$1
+                                                    ? colorScheme.primary
+                                                    : colorScheme.onSurface,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              option.$2,
+                                              style: TextStyle(
+                                                fontSize: labelSize,
+                                                fontWeight: FontWeight.w600,
+                                                height: 1.1,
+                                                color: selected == option.$1
+                                                    ? colorScheme.primary
+                                                    : colorScheme
+                                                        .onSurfaceVariant,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    if (option != options.last)
+                                      SizedBox(
+                                        height: 34,
+                                        child: VerticalDivider(
+                                          width: 10,
+                                          thickness: 1,
+                                          color: colorScheme.outline.withValues(
+                                            alpha: 0.10,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ],
+                              ),
                       ),
                     ),
                   ),
@@ -3763,6 +3842,7 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
   Completer<String?>? _reactionCompleter;
   late final AnimationController _reactionController;
   bool _reactionsShowBelow = false;
+  double _reactionsAnchorX = 0;
   static const _emojiFallback = <String>[
     'Apple Color Emoji',
     'Segoe UI Emoji',
@@ -3929,11 +4009,22 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
     if (existing != null) return existing.future;
     final box =
         _reactionTargetKey.currentContext?.findRenderObject() as RenderBox?;
+    final screenWidth = MediaQuery.sizeOf(context).width;
     if (box != null) {
       final top = box.localToGlobal(Offset.zero).dy;
       _reactionsShowBelow = top < 104;
+      final centerX =
+          box.localToGlobal(Offset(box.size.width / 2, 0)).dx;
+      if (centerX < screenWidth / 3) {
+        _reactionsAnchorX = -1;
+      } else if (centerX > (screenWidth * 2) / 3) {
+        _reactionsAnchorX = 1;
+      } else {
+        _reactionsAnchorX = 0;
+      }
     } else {
       _reactionsShowBelow = false;
+      _reactionsAnchorX = 0;
     }
     final colorScheme = Theme.of(context).colorScheme;
     final options = const [
@@ -3947,6 +4038,19 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
     final overlay = Overlay.of(context, rootOverlay: true);
     _reactionOverlay = OverlayEntry(
       builder: (context) {
+        final builderScreenWidth = MediaQuery.sizeOf(context).width;
+        final isNarrow = builderScreenWidth < 420;
+        final optionPadding = EdgeInsets.symmetric(
+          horizontal: isNarrow ? 8 : 12,
+          vertical: 8,
+        );
+        final emojiSize = isNarrow ? 20.0 : 22.0;
+        final labelSize = isNarrow ? 10.0 : 11.0;
+        final containerPadding = EdgeInsets.symmetric(
+          horizontal: isNarrow ? 8 : 10,
+          vertical: isNarrow ? 8 : 10,
+        );
+
         final opacity = CurvedAnimation(
           parent: _reactionController,
           curve: Curves.easeOutCubic,
@@ -3957,12 +4061,14 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
             curve: Curves.easeOutBack,
           ),
         );
-        final targetAnchor = _reactionsShowBelow
-            ? Alignment.bottomCenter
-            : Alignment.topCenter;
-        final followerAnchor = _reactionsShowBelow
-            ? Alignment.topCenter
-            : Alignment.bottomCenter;
+        final targetAnchor = Alignment(
+          _reactionsAnchorX,
+          _reactionsShowBelow ? 1 : -1,
+        );
+        final followerAnchor = Alignment(
+          _reactionsAnchorX,
+          _reactionsShowBelow ? -1 : 1,
+        );
         final offset = _reactionsShowBelow
             ? const Offset(0, 10)
             : const Offset(0, -10);
@@ -3987,86 +4093,138 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
                   opacity: opacity,
                   child: ScaleTransition(
                     scale: scale,
-                    alignment: _reactionsShowBelow
-                        ? Alignment.topCenter
-                        : Alignment.bottomCenter,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 10,
+                    alignment: Alignment(
+                      _reactionsAnchorX,
+                      _reactionsShowBelow ? -1 : 1,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: builderScreenWidth - 16,
                       ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surface,
-                        borderRadius: BorderRadius.circular(999),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.14),
-                            blurRadius: 18,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                        border: Border.all(
-                          color: colorScheme.outline.withValues(alpha: 0.10),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (final option in options) ...[
-                            InkWell(
-                              borderRadius: BorderRadius.circular(999),
-                              onTap: () => _dismissReactionPicker(
-                                result: option.$1,
-                                immediate: false,
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      option.$3,
-                                      style: TextStyle(
-                                        fontSize: 22,
-                                        fontFamilyFallback: _emojiFallback,
-                                        height: 1,
-                                        color: selected == option.$1
-                                            ? colorScheme.primary
-                                            : colorScheme.onSurface,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      option.$2,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        height: 1.1,
-                                        color: selected == option.$1
-                                            ? colorScheme.primary
-                                            : colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                      child: Container(
+                        padding: containerPadding,
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface,
+                          borderRadius: BorderRadius.circular(999),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.14),
+                              blurRadius: 18,
+                              offset: const Offset(0, 8),
                             ),
-                            if (option != options.last)
-                              SizedBox(
-                                height: 34,
-                                child: VerticalDivider(
-                                  width: 10,
-                                  thickness: 1,
-                                  color: colorScheme.outline.withValues(
-                                    alpha: 0.10,
-                                  ),
-                                ),
-                              ),
                           ],
-                        ],
+                          border: Border.all(
+                            color: colorScheme.outline.withValues(alpha: 0.10),
+                          ),
+                        ),
+                        child: isNarrow
+                            ? Wrap(
+                                alignment: WrapAlignment.center,
+                                runAlignment: WrapAlignment.center,
+                                spacing: 4,
+                                runSpacing: 4,
+                                children: [
+                                  for (final option in options)
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(999),
+                                      onTap: () => _dismissReactionPicker(
+                                        result: option.$1,
+                                        immediate: false,
+                                      ),
+                                      child: Padding(
+                                        padding: optionPadding,
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              option.$3,
+                                              style: TextStyle(
+                                                fontSize: emojiSize,
+                                                fontFamilyFallback:
+                                                    _emojiFallback,
+                                                height: 1,
+                                                color: selected == option.$1
+                                                    ? colorScheme.primary
+                                                    : colorScheme.onSurface,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              option.$2,
+                                              style: TextStyle(
+                                                fontSize: labelSize,
+                                                fontWeight: FontWeight.w600,
+                                                height: 1.1,
+                                                color: selected == option.$1
+                                                    ? colorScheme.primary
+                                                    : colorScheme
+                                                        .onSurfaceVariant,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              )
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  for (final option in options) ...[
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(999),
+                                      onTap: () => _dismissReactionPicker(
+                                        result: option.$1,
+                                        immediate: false,
+                                      ),
+                                      child: Padding(
+                                        padding: optionPadding,
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              option.$3,
+                                              style: TextStyle(
+                                                fontSize: emojiSize,
+                                                fontFamilyFallback:
+                                                    _emojiFallback,
+                                                height: 1,
+                                                color: selected == option.$1
+                                                    ? colorScheme.primary
+                                                    : colorScheme.onSurface,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              option.$2,
+                                              style: TextStyle(
+                                                fontSize: labelSize,
+                                                fontWeight: FontWeight.w600,
+                                                height: 1.1,
+                                                color: selected == option.$1
+                                                    ? colorScheme.primary
+                                                    : colorScheme
+                                                        .onSurfaceVariant,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    if (option != options.last)
+                                      SizedBox(
+                                        height: 34,
+                                        child: VerticalDivider(
+                                          width: 10,
+                                          thickness: 1,
+                                          color: colorScheme.outline.withValues(
+                                            alpha: 0.10,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ],
+                              ),
                       ),
                     ),
                   ),

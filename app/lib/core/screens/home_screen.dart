@@ -17,11 +17,14 @@ import '../screens/agenda_tab_screen.dart';
 import '../../features/notifications/presentation/widgets/notification_badge.dart';
 import '../../features/events/presentation/providers/events_provider.dart';
 import '../../features/devotionals/presentation/providers/devotional_provider.dart';
+import '../../features/courses/presentation/providers/courses_provider.dart';
 import '../../features/members/presentation/providers/members_provider.dart';
 import '../../features/home_content/presentation/providers/banners_provider.dart';
 import '../../features/home_content/domain/models/banner.dart';
 import '../../features/reading_plans/presentation/screens/reading_plan_detail_screen.dart';
 import '../../features/church_info/presentation/providers/church_info_provider.dart';
+import '../../features/study_groups/domain/models/study_group.dart';
+import '../../features/study_groups/presentation/providers/study_group_provider.dart';
 import '../design/community_design.dart';
 import '../widgets/navigation/custom_bottom_nav_bar.dart';
 import '../../features/home/presentation/widgets/home_content_card.dart';
@@ -366,12 +369,12 @@ class _SpiritualFeedCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(20), // Bordas mais arredondadas
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04), // Sombra muito suave
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
         border: Border.all(
@@ -383,25 +386,23 @@ class _SpiritualFeedCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: () => context.push('/community'),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16), // Padding vertical reduzido
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                // Ícone ilustrativo
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08), // Fundo suave
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                   ),
                   child: Text(
                     '🙏',
-                    style: const TextStyle(fontSize: 28), // Ícone maior
+                    style: const TextStyle(fontSize: 22),
                   ),
                 ),
-                const SizedBox(width: 20), // Mais espaço
-                // Textos
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -409,25 +410,28 @@ class _SpiritualFeedCard extends StatelessWidget {
                       Text(
                         'Como está se sentindo?',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700, // Fonte mais forte
-                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         'Compartilhe ou peça oração',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600], // Subtítulo cinza premium
-                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontSize: 13,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
-                // Seta
                 Icon(
                   Icons.arrow_forward_ios_rounded,
-                  size: 18,
+                  size: 16,
                   color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                 ),
               ],
@@ -650,6 +654,22 @@ class _MoreTab extends ConsumerWidget {
             '/bible',
             color: Colors.indigo,
           ),
+          const SizedBox(height: 12),
+          _buildMenuCard(
+            context,
+            Icons.timeline_outlined,
+            'Minha Caminhada',
+            '/my-journey',
+            color: Colors.green,
+          ),
+          const SizedBox(height: 12),
+          _buildMenuCard(
+            context,
+            Icons.bookmark_outline,
+            'Devocionais Salvos',
+            '/devotionals/saved',
+            color: Colors.blue,
+          ),
 
           const SizedBox(height: 32),
 
@@ -815,6 +835,569 @@ class _MoreTab extends ConsumerWidget {
                   color: cs.onSurface.withValues(alpha: 0.3),
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class MyJourneyScreen extends ConsumerStatefulWidget {
+  const MyJourneyScreen({super.key});
+
+  @override
+  ConsumerState<MyJourneyScreen> createState() => _MyJourneyScreenState();
+}
+
+class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
+  int _visibleCount = 25;
+
+  @override
+  Widget build(BuildContext context) {
+    final savedAsync = ref.watch(savedDevotionalsProvider);
+    final streakAsync = ref.watch(currentUserReadingStreakProvider);
+    final totalAsync = ref.watch(currentUserTotalReadingsProvider);
+    final memberAsync = ref.watch(currentMemberProvider);
+    final readingsAsync = ref.watch(currentUserReadingsWithDevotionalProvider);
+    final coursesAsync = ref.watch(currentUserCourseEnrollmentsProvider);
+    final groupsAsync = ref.watch(currentUserStudyGroupsProvider);
+    final cs = Theme.of(context).colorScheme;
+
+    final bool isLoading =
+        memberAsync.isLoading || readingsAsync.isLoading || coursesAsync.isLoading || groupsAsync.isLoading;
+    final Object? anyError = memberAsync.error ?? readingsAsync.error ?? coursesAsync.error ?? groupsAsync.error;
+
+    final memberId = memberAsync.value?.id;
+    final readings = readingsAsync.value ?? const <Map<String, dynamic>>[];
+    final enrollments = coursesAsync.value ?? const <Map<String, dynamic>>[];
+    final groups = groupsAsync.value ?? const <StudyGroup>[];
+
+    final events = anyError == null && !isLoading
+        ? _JourneyEvent.merge(
+            memberId: memberId,
+            readings: readings,
+            enrollments: enrollments,
+            studyGroups: groups,
+          )
+        : const <_JourneyEvent>[];
+
+    final shown = events.length <= _visibleCount ? events : events.take(_visibleCount).toList(growable: false);
+    final canShowMore = events.length > shown.length;
+
+    return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
+      appBar: AppBar(
+        toolbarHeight: 64,
+        elevation: 1,
+        shadowColor: Colors.black.withValues(alpha: 0.08),
+        backgroundColor: CommunityDesign.headerColor(context),
+        surfaceTintColor: Colors.transparent,
+        titleSpacing: 16,
+        centerTitle: false,
+        title: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: cs.primaryContainer,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: cs.primary.withValues(alpha: 0.18)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Icon(Icons.timeline_outlined, size: 18, color: cs.primary),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Minha Caminhada',
+              style: CommunityDesign.titleStyle(context).copyWith(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+        children: [
+          Container(
+            decoration: CommunityDesign.overlayDecoration(cs),
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.auto_awesome, color: cs.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Sua jornada espiritual vai ficando registrada aqui.',
+                    style: CommunityDesign.titleStyle(context).copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _JourneyStatCard(
+                title: 'Devocionais salvos',
+                icon: Icons.bookmark_outline,
+                value: savedAsync.when(
+                  data: (items) => '${items.length}',
+                  loading: () => '—',
+                  error: (_, __) => '—',
+                ),
+                onTap: () => context.push('/devotionals/saved'),
+              ),
+              _JourneyStatCard(
+                title: 'Sequência',
+                icon: Icons.local_fire_department_outlined,
+                value: streakAsync.when(
+                  data: (value) => '$value',
+                  loading: () => '—',
+                  error: (_, __) => '—',
+                ),
+              ),
+              _JourneyStatCard(
+                title: 'Leituras',
+                icon: Icons.check_circle_outline,
+                value: totalAsync.when(
+                  data: (value) => '$value',
+                  loading: () => '—',
+                  error: (_, __) => '—',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            decoration: CommunityDesign.overlayDecoration(cs),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Linha do tempo',
+                      style: CommunityDesign.titleStyle(context).copyWith(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (!isLoading && anyError == null && canShowMore)
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _visibleCount = (_visibleCount + 25).clamp(25, events.length).toInt();
+                          });
+                        },
+                        child: const Text('Mostrar mais'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (isLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (anyError != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Text(
+                      'Não foi possível carregar sua caminhada agora.',
+                      style: CommunityDesign.metaStyle(context).copyWith(color: cs.error),
+                    ),
+                  )
+                else if (events.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Text(
+                      'Quando você ler devocionais, iniciar cursos ou entrar em grupos, isso aparece aqui.',
+                      style: CommunityDesign.metaStyle(context),
+                    ),
+                  )
+                else
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: shown.length,
+                    itemBuilder: (context, index) {
+                      final event = shown[index];
+                      final prev = index > 0 ? shown[index - 1] : null;
+                      final showMonthHeader = prev == null || !_sameMonth(event.when, prev.when);
+                      final isLast = index == shown.length - 1;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (showMonthHeader)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(4, 12, 0, 6),
+                              child: Text(
+                                _formatMonthYear(event.when),
+                                style: CommunityDesign.metaStyle(context).copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: cs.onSurface.withValues(alpha: 0.72),
+                                ),
+                              ),
+                            ),
+                          _JourneyTimelineItem(
+                            event: event,
+                            isLast: isLast,
+                            onTap: event.route == null
+                                ? null
+                                : () {
+                                    context.push(event.route!);
+                                  },
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _JourneyEventKind {
+  devotional,
+  course,
+  studyGroup,
+}
+
+class _JourneyEvent {
+  final DateTime when;
+  final _JourneyEventKind kind;
+  final String title;
+  final String subtitle;
+  final String? route;
+  final IconData icon;
+  final bool isPinned;
+
+  const _JourneyEvent({
+    required this.when,
+    required this.kind,
+    required this.title,
+    required this.subtitle,
+    required this.route,
+    required this.icon,
+    required this.isPinned,
+  });
+
+  static List<_JourneyEvent> merge({
+    required String? memberId,
+    required List<Map<String, dynamic>> readings,
+    required List<Map<String, dynamic>> enrollments,
+    required List<StudyGroup> studyGroups,
+  }) {
+    final items = <_JourneyEvent>[
+      ...readings.map(_JourneyEvent._fromReading),
+      ...enrollments.map(_JourneyEvent._fromEnrollment),
+      ...studyGroups.map((g) => _JourneyEvent._fromStudyGroup(g, memberId: memberId)),
+    ];
+
+    items.sort((a, b) => b.when.compareTo(a.when));
+    return items;
+  }
+
+  static _JourneyEvent _fromReading(Map<String, dynamic> row) {
+    final readAt = _parseDateTime(row['read_at']) ?? _parseDateTime(row['created_at']) ?? DateTime.now();
+    final devotionalId = row['devotional_id']?.toString();
+    final devotional = row['devotionals'];
+    final devotionalTitle = devotional is Map ? (devotional['title']?.toString().trim() ?? '') : '';
+    final title = devotionalTitle.isNotEmpty ? devotionalTitle : 'Devocional';
+    final notes = row['notes']?.toString().trim() ?? '';
+
+    return _JourneyEvent(
+      when: readAt,
+      kind: _JourneyEventKind.devotional,
+      title: 'Leu devocional',
+      subtitle: title,
+      route: devotionalId == null ? null : '/devotionals/$devotionalId',
+      icon: Icons.menu_book_outlined,
+      isPinned: notes.isNotEmpty,
+    );
+  }
+
+  static _JourneyEvent _fromEnrollment(Map<String, dynamic> row) {
+    final enrolledAt = _parseDateTime(row['enrolled_at']) ?? DateTime.now();
+    final course = row['course'];
+    final courseId = row['course_id']?.toString();
+    final courseTitle = course is Map ? (course['title']?.toString().trim() ?? '') : '';
+    final status = row['status']?.toString().trim().toLowerCase();
+    final progress = row['progress'];
+    final endDate = course is Map ? _parseDateTime(course['end_date']) : null;
+    final isCompleted = status == 'completed' || (progress is num && progress >= 100);
+
+    return _JourneyEvent(
+      when: isCompleted ? (endDate ?? enrolledAt) : enrolledAt,
+      kind: _JourneyEventKind.course,
+      title: isCompleted ? 'Concluiu curso' : 'Iniciou curso',
+      subtitle: courseTitle.isNotEmpty ? courseTitle : 'Curso',
+      route: courseId == null ? null : '/courses/$courseId/view',
+      icon: Icons.school_outlined,
+      isPinned: isCompleted,
+    );
+  }
+
+  static _JourneyEvent _fromStudyGroup(StudyGroup group, {required String? memberId}) {
+    final when = group.startDate;
+    final topic = (group.studyTopic ?? '').trim();
+    final subtitle = topic.isNotEmpty ? '${group.name} • $topic' : group.name;
+    final isPinned = memberId != null && group.createdBy == memberId;
+
+    return _JourneyEvent(
+      when: when,
+      kind: _JourneyEventKind.studyGroup,
+      title: 'Participa do grupo de estudo',
+      subtitle: subtitle,
+      route: '/study-groups/${group.id}',
+      icon: Icons.groups_2_outlined,
+      isPinned: isPinned,
+    );
+  }
+}
+
+class _JourneyTimelineItem extends StatelessWidget {
+  final _JourneyEvent event;
+  final bool isLast;
+  final VoidCallback? onTap;
+
+  const _JourneyTimelineItem({
+    required this.event,
+    required this.isLast,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final markerColor = cs.primary;
+    final markerBg = cs.primary.withValues(alpha: 0.10);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(CommunityDesign.radius),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 44,
+                child: Column(
+                  children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: markerBg,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: cs.primary.withValues(alpha: 0.20)),
+                      ),
+                      child: Icon(
+                        event.isPinned ? Icons.push_pin_outlined : event.icon,
+                        size: 16,
+                        color: markerColor,
+                      ),
+                    ),
+                    if (!isLast)
+                      Container(
+                        width: 2,
+                        height: 42,
+                        margin: const EdgeInsets.only(top: 6),
+                        decoration: BoxDecoration(
+                          color: cs.outline.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Container(
+                  decoration: CommunityDesign.overlayDecoration(cs, hovered: true),
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              event.title,
+                              style: CommunityDesign.titleStyle(context).copyWith(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            _formatDay(event.when),
+                            style: CommunityDesign.metaStyle(context),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        event.subtitle,
+                        style: CommunityDesign.metaStyle(context).copyWith(
+                          fontSize: 13,
+                          color: cs.onSurface.withValues(alpha: 0.80),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+DateTime? _parseDateTime(dynamic v) {
+  if (v == null) return null;
+  if (v is DateTime) return v;
+  final s = v.toString().trim();
+  if (s.isEmpty) return null;
+  try {
+    return DateTime.parse(s);
+  } catch (_) {
+    return null;
+  }
+}
+
+bool _sameMonth(DateTime a, DateTime b) => a.year == b.year && a.month == b.month;
+
+String _formatDay(DateTime dt) {
+  final dd = dt.day.toString().padLeft(2, '0');
+  final mm = dt.month.toString().padLeft(2, '0');
+  final yyyy = dt.year.toString();
+  return '$dd/$mm/$yyyy';
+}
+
+String _formatMonthYear(DateTime dt) {
+  const months = [
+    'Janeiro',
+    'Fevereiro',
+    'Março',
+    'Abril',
+    'Maio',
+    'Junho',
+    'Julho',
+    'Agosto',
+    'Setembro',
+    'Outubro',
+    'Novembro',
+    'Dezembro',
+  ];
+  final monthName = months[(dt.month - 1).clamp(0, 11).toInt()];
+  return '$monthName ${dt.year}';
+}
+
+class _JourneyStatCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final String value;
+  final VoidCallback? onTap;
+
+  const _JourneyStatCard({
+    required this.title,
+    required this.icon,
+    required this.value,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 170,
+      child: Container(
+        decoration: CommunityDesign.overlayDecoration(cs, hovered: true),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(CommunityDesign.radius),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, color: cs.primary, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          value,
+                          style: CommunityDesign.titleStyle(context).copyWith(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: CommunityDesign.metaStyle(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (onTap != null)
+                    Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: cs.onSurface.withValues(alpha: 0.35),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

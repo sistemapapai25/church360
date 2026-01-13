@@ -18,12 +18,17 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final memberAsync = ref.watch(currentMemberProvider);
     final currentUser = ref.watch(currentUserProvider);
+    final resolvedEmailAsync = ref.watch(resolvedUserEmailProvider);
 
     return memberAsync.when(
       data: (member) {
         if (member == null) {
           // Se não encontrou o membro, exibe tela de "Perfil não encontrado" (Onboarding)
-          return _buildProfileNotFound(context, currentUser?.email);
+          final email = resolvedEmailAsync.maybeWhen(
+            data: (v) => v,
+            orElse: () => currentUser?.email,
+          );
+          return _buildProfileNotFound(context, email);
         }
 
         // Se encontrou, reutiliza a tela padrão de perfil de membro

@@ -6,9 +6,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/members_provider.dart';
 import '../../domain/models/member.dart';
 import '../../../tags/presentation/providers/tags_provider.dart';
-import '../../../../core/widgets/permission_widget.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de membros
 class MembersListScreen extends ConsumerStatefulWidget {
@@ -98,7 +98,8 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                         ],
                       ),
                     ),
-                    LeaderOnlyWidget(
+                    PermissionGate(
+                      permission: 'members.create',
                       child: ElevatedButton.icon(
                         onPressed: () => context.push('/members/new'),
                         icon: const Icon(Icons.add, size: 18),

@@ -5,26 +5,52 @@ import '../../../access_levels/presentation/providers/access_level_provider.dart
 import '../../../access_levels/domain/models/access_level.dart';
 import '../../../permissions/providers/permissions_providers.dart' hide supabaseClientProvider;
 import '../../../permissions/domain/models/user_effective_permission.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 import '../../data/support_agents_data.dart';
 import '../../domain/models/support_agent.dart';
 import '../../../../core/constants/supabase_constants.dart';
 
 final agentRuntimeConfigsProvider = FutureProvider<List<AgentRuntimeConfig>>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return <AgentRuntimeConfig>[];
   try {
+    try {
+      await ref.watch(currentMemberProvider.future);
+    } catch (_) {}
     final supabase = ref.watch(supabaseClientProvider);
-    final response = await supabase
+    SupabaseConstants.applyTenantHeadersToClient(supabase);
+    final selectFields =
+        'tenant_id, key, assistant_id, display_name, subtitle, avatar_url, theme_color, show_on_home, show_on_dashboard, show_floating_button, floating_route, allowed_access_levels';
+    final tenantId = SupabaseConstants.currentTenantId.trim();
+    final rows = await supabase
         .from('agent_config')
-        .select(
-          'key, assistant_id, display_name, subtitle, avatar_url, theme_color, show_on_home, show_on_dashboard, show_floating_button, floating_route, allowed_access_levels',
-        )
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .select(selectFields)
+        .or('tenant_id.eq.$tenantId,tenant_id.is.null')
         .order('key');
 
-    final data = response as List<dynamic>;
-    return data
+    final byKey = <String, Map<String, dynamic>>{};
+    for (final r in (rows as List).whereType<Map>()) {
+      final map = Map<String, dynamic>.from(r);
+      final key = (map['key']?.toString() ?? '').trim();
+      if (key.isEmpty) continue;
+      final rowTenant = (map['tenant_id']?.toString() ?? '').trim();
+      if (rowTenant.isEmpty) byKey.putIfAbsent(key.toLowerCase(), () => map);
+    }
+    for (final r in (rows as List).whereType<Map>()) {
+      final map = Map<String, dynamic>.from(r);
+      final key = (map['key']?.toString() ?? '').trim();
+      if (key.isEmpty) continue;
+      final rowTenant = (map['tenant_id']?.toString() ?? '').trim();
+      if (rowTenant == tenantId) byKey[key.toLowerCase()] = map;
+    }
+
+    final merged = byKey.values.toList()
+      ..sort((a, b) => (a['key']?.toString() ?? '').compareTo((b['key']?.toString() ?? '')));
+
+    return merged
         .map((e) {
           try {
-            return AgentRuntimeConfig.fromJson(e as Map<String, dynamic>);
+            return AgentRuntimeConfig.fromJson(e);
           } catch (_) {
             return null;
           }
