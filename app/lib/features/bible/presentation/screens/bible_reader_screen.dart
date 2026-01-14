@@ -449,7 +449,6 @@ class _InteractiveVerseText extends StatelessWidget {
       }
 
       final tokenText = text.substring(token.startOffset, token.endOffset);
-      final lexeme = token.lexeme;
       spans.add(
         WidgetSpan(
           alignment: PlaceholderAlignment.baseline,
@@ -457,6 +456,7 @@ class _InteractiveVerseText extends StatelessWidget {
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTapDown: (details) {
+              final lexeme = token.lexeme;
               if (lexeme != null) {
                 onOpenLexeme(lexeme, tokenText, details.globalPosition);
               }

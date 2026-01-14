@@ -5,14 +5,28 @@ param(
   [string]$DbMode = 'auto',
   [string]$OutDir = "",
   [switch]$SkipDb,
+  [switch]$ForceRetokenize,
   [switch]$EnsureStepBibleOriginalSchema,
   [switch]$ImportTahotOriginalTokens,
   [switch]$ImportTahotOriginalTokensDryRun,
   [switch]$ImportTagntOriginalTokens,
   [switch]$ImportTagntOriginalTokensDryRun,
+  [switch]$BackfillStepBibleTokenLexemeIds,
+  [switch]$Phase4Auto,
+  [int]$Phase4Chapter = 1,
+  [int]$Phase4ChapterFrom = 0,
+  [int]$Phase4ChapterTo = 0,
+  [int]$Phase4VerseFrom = 1,
+  [int]$Phase4VerseTo = 10,
+  [switch]$Phase4DryRun,
+  [double]$Phase4MinDominantRatio = 1.0,
+  [int]$Phase4MinOccurrences = 2,
+  [int]$Phase4MinSurfaceLength = 3,
+  [double]$Phase4DefaultConfidence = 0.9,
   [switch]$OnlyAutoLink,
   [switch]$AutoLinkFromGloss,
   [switch]$AutoLinkFromStepBibleCandidates,
+  [switch]$AutoLinkFromStepBibleCooccurrence,
   [switch]$AutoLinkDryRun,
   [switch]$BuildAlignmentFromLexemes,
   [switch]$LinkSingleToken,
@@ -29,6 +43,12 @@ param(
 )
 
 Write-Host "Church 360 - Tokenização AT (ARC) por livro" -ForegroundColor Cyan
+
+try {
+  $utf8 = [System.Text.UTF8Encoding]::new($false)
+  [Console]::OutputEncoding = $utf8
+  $OutputEncoding = $utf8
+} catch {}
 
 $PROJECT_HOST = "aws-0-sa-east-1.pooler.supabase.com"
 $PROJECT_PORT = 6543
@@ -168,7 +188,7 @@ function Get-RootStrongCode {
   param([string]$StrongTag)
 
   if ([string]::IsNullOrWhiteSpace($StrongTag)) { return $null }
-  $matches = [regex]::Matches($StrongTag.ToUpperInvariant(), "([HG]\d{4,5}[A-Z]*)")
+  $matches = [regex]::Matches($StrongTag.ToUpperInvariant(), "([HG]\d{4,5})(?:[A-Z]+)?")
   if (-not $matches -or $matches.Count -eq 0) { return $null }
   return $matches[$matches.Count - 1].Groups[1].Value
 }
@@ -371,6 +391,7 @@ function Invoke-Psql {
   param([string]$Command)
   $psqlExe = "psql"
   if ($PSQL_PATH) { $psqlExe = $PSQL_PATH }
+  $env:PGCLIENTENCODING = "UTF8"
 
   $attempts = @()
   if ($DbMode -eq 'direct') {
@@ -386,7 +407,11 @@ function Invoke-Psql {
   foreach ($a in $attempts) {
     try {
       Write-Host ("Conectando via {0} ({1}:{2}, user {3})..." -f $a.label, $a.host, $a.port, $a.user) -ForegroundColor DarkCyan
-      & $psqlExe -h $a.host -p $a.port -U $a.user -d $PROJECT_DB -v ON_ERROR_STOP=1 -c $Command
+      if ($Command -match "(\r|\n)") {
+        $Command | & $psqlExe -h $a.host -p $a.port -U $a.user -d $PROJECT_DB -v ON_ERROR_STOP=1 -f -
+      } else {
+        & $psqlExe -h $a.host -p $a.port -U $a.user -d $PROJECT_DB -v ON_ERROR_STOP=1 -c $Command
+      }
       if ($LASTEXITCODE -eq 0) { return }
       $lastErr = "psql falhou (exit code: $LASTEXITCODE) em modo $($a.label)"
     } catch {
@@ -398,7 +423,7 @@ function Invoke-Psql {
   throw $lastErr
 }
 
-$ensureStepBibleOriginalSql = @"
+$ensureStepBibleOriginalSql = @'
 CREATE TABLE IF NOT EXISTS public.stepbible_original_token (
   id BIGSERIAL PRIMARY KEY,
   testament TEXT NOT NULL CHECK (testament IN ('OT', 'NT')),
@@ -456,7 +481,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO ''
 SET row_security TO off
-AS \$function\$
+AS $function$
 DECLARE
   v_merged bigint := 0;
 BEGIN
@@ -569,8 +594,305 @@ BEGIN
 
   RETURN v_merged;
 END
-\$function\$;
-"@
+$function$;
+
+CREATE OR REPLACE FUNCTION public.auto_link_bible_tokens_from_stepbible(
+  p_book_id int,
+  p_only_missing boolean DEFAULT true,
+  p_default_confidence real DEFAULT 0.7,
+  p_source text DEFAULT 'stepbible candidate'
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+SET row_security TO off
+AS $function$
+DECLARE
+  v_linked bigint := 0;
+  v_testament text;
+  v_language text;
+BEGIN
+  IF p_book_id IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  IF to_regclass('public.bible_book') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.bible_verse') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.bible_verse_token') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.bible_lexeme') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.stepbible_original_token') IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  SELECT testament INTO v_testament
+  FROM public.bible_book
+  WHERE id = p_book_id;
+
+  v_language := CASE
+    WHEN v_testament = 'OT' THEN 'hebrew'
+    WHEN v_testament = 'NT' THEN 'greek'
+    ELSE NULL
+  END;
+
+  IF v_language IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  WITH token_candidates AS (
+    SELECT
+      t.id AS token_id,
+      v.book_id,
+      v.chapter,
+      v.verse,
+      lower(trim(t.surface)) AS surface
+    FROM public.bible_verse_token t
+    JOIN public.bible_verse v ON v.id = t.verse_id
+    WHERE v.book_id = p_book_id
+      AND NULLIF(trim(t.surface), '') IS NOT NULL
+      AND (NOT p_only_missing OR t.lexeme_id IS NULL)
+  ),
+  verse_lexemes AS (
+    SELECT
+      sot.book_id,
+      sot.chapter,
+      sot.verse,
+      sot.lexeme_id
+    FROM public.stepbible_original_token sot
+    WHERE sot.book_id = p_book_id
+      AND sot.lexeme_id IS NOT NULL
+    GROUP BY sot.book_id, sot.chapter, sot.verse, sot.lexeme_id
+  ),
+  lexeme_gloss AS (
+    SELECT
+      lower(trim(l.pt_gloss)) AS gloss,
+      l.id AS lexeme_id
+    FROM public.bible_lexeme l
+    WHERE l.language = v_language
+      AND NULLIF(trim(l.pt_gloss), '') IS NOT NULL
+  ),
+  matches AS (
+    SELECT
+      tc.token_id,
+      lg.lexeme_id,
+      count(*) OVER (PARTITION BY tc.token_id) AS cnt
+    FROM token_candidates tc
+    JOIN lexeme_gloss lg ON lg.gloss = tc.surface
+    JOIN verse_lexemes vl
+      ON vl.book_id = tc.book_id
+      AND vl.chapter = tc.chapter
+      AND vl.verse = tc.verse
+      AND vl.lexeme_id = lg.lexeme_id
+  ),
+  unique_matches AS (
+    SELECT token_id, lexeme_id
+    FROM matches
+    WHERE cnt = 1
+  ),
+  updated AS (
+    UPDATE public.bible_verse_token t
+    SET
+      lexeme_id = um.lexeme_id,
+      confidence = COALESCE(t.confidence, p_default_confidence),
+      source = CASE
+        WHEN NULLIF(trim(t.source), '') IS NULL THEN p_source
+        ELSE t.source || ' | ' || p_source
+      END
+    FROM unique_matches um
+    WHERE t.id = um.token_id
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_linked FROM updated;
+
+  RETURN v_linked;
+END
+$function$;
+
+CREATE TABLE IF NOT EXISTS public.bible_verse_token_alignment (
+  id BIGSERIAL PRIMARY KEY,
+  verse_token_id BIGINT NOT NULL REFERENCES public.bible_verse_token(id) ON DELETE CASCADE,
+  step_token_id BIGINT NOT NULL REFERENCES public.stepbible_original_token(id) ON DELETE CASCADE,
+  confidence REAL,
+  source TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(verse_token_id, step_token_id)
+);
+
+ALTER TABLE public.bible_verse_token_alignment ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Todos podem visualizar alinhamentos de tokens" ON public.bible_verse_token_alignment;
+CREATE POLICY "Todos podem visualizar alinhamentos de tokens"
+  ON public.bible_verse_token_alignment
+  FOR SELECT
+  USING (true);
+
+CREATE INDEX IF NOT EXISTS idx_bible_verse_token_alignment_token
+  ON public.bible_verse_token_alignment(verse_token_id);
+CREATE INDEX IF NOT EXISTS idx_bible_verse_token_alignment_step_token
+  ON public.bible_verse_token_alignment(step_token_id);
+
+CREATE OR REPLACE FUNCTION public.build_bible_verse_token_alignment_for_book(
+  p_book_id int,
+  p_only_missing boolean DEFAULT true,
+  p_default_confidence real DEFAULT 0.6,
+  p_source text DEFAULT 'auto alignment'
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+SET row_security TO off
+AS $function$
+DECLARE
+  v_aligned bigint := 0;
+  v_testament text;
+  v_language text;
+BEGIN
+  IF p_book_id IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  IF to_regclass('public.bible_book') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.bible_verse') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.bible_verse_token') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.stepbible_original_token') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.bible_verse_token_alignment') IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  SELECT testament INTO v_testament
+  FROM public.bible_book
+  WHERE id = p_book_id;
+
+  v_language := CASE
+    WHEN v_testament = 'OT' THEN 'hebrew'
+    WHEN v_testament = 'NT' THEN 'greek'
+    ELSE NULL
+  END;
+
+  IF v_language IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  WITH pt_tokens AS (
+    SELECT
+      t.id AS verse_token_id,
+      v.book_id,
+      v.chapter,
+      v.verse,
+      t.lexeme_id
+    FROM public.bible_verse_token t
+    JOIN public.bible_verse v ON v.id = t.verse_id
+    WHERE v.book_id = p_book_id
+      AND t.lexeme_id IS NOT NULL
+  ),
+  pt_counts AS (
+    SELECT
+      book_id,
+      chapter,
+      verse,
+      lexeme_id,
+      count(*) AS cnt
+    FROM pt_tokens
+    GROUP BY book_id, chapter, verse, lexeme_id
+  ),
+  step_tokens AS (
+    SELECT
+      sot.id AS step_token_id,
+      sot.book_id,
+      sot.chapter,
+      sot.verse,
+      sot.lexeme_id
+    FROM public.stepbible_original_token sot
+    WHERE sot.book_id = p_book_id
+      AND sot.lexeme_id IS NOT NULL
+  ),
+  step_counts AS (
+    SELECT
+      book_id,
+      chapter,
+      verse,
+      lexeme_id,
+      count(*) AS cnt
+    FROM step_tokens
+    GROUP BY book_id, chapter, verse, lexeme_id
+  ),
+  candidates AS (
+    SELECT
+      pt.verse_token_id,
+      st.step_token_id,
+      pt.book_id,
+      pt.chapter,
+      pt.verse,
+      pt.lexeme_id,
+      pc.cnt AS pt_cnt,
+      sc.cnt AS step_cnt
+    FROM pt_tokens pt
+    JOIN step_tokens st
+      ON st.book_id = pt.book_id
+      AND st.chapter = pt.chapter
+      AND st.verse = pt.verse
+      AND st.lexeme_id = pt.lexeme_id
+    JOIN pt_counts pc
+      ON pc.book_id = pt.book_id
+      AND pc.chapter = pt.chapter
+      AND pc.verse = pt.verse
+      AND pc.lexeme_id = pt.lexeme_id
+    JOIN step_counts sc
+      ON sc.book_id = st.book_id
+      AND sc.chapter = st.chapter
+      AND sc.verse = st.verse
+      AND sc.lexeme_id = st.lexeme_id
+    WHERE pc.cnt = 1 AND sc.cnt = 1
+  ),
+  filtered AS (
+    SELECT c.*
+    FROM candidates c
+    WHERE NOT p_only_missing
+       OR NOT EXISTS (
+         SELECT 1
+         FROM public.bible_verse_token_alignment a
+         WHERE a.verse_token_id = c.verse_token_id
+       )
+  ),
+  inserted AS (
+    INSERT INTO public.bible_verse_token_alignment (
+      verse_token_id,
+      step_token_id,
+      confidence,
+      source
+    )
+    SELECT
+      f.verse_token_id,
+      f.step_token_id,
+      p_default_confidence,
+      p_source
+    FROM filtered f
+    ON CONFLICT (verse_token_id, step_token_id) DO NOTHING
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_aligned FROM inserted;
+
+  RETURN v_aligned;
+END
+$function$;
+'@
 
 if ($EnsureStepBibleOriginalSchema -and -not $SkipDb) {
   Write-Host "Garantindo schema para tokens originais STEPBible..." -ForegroundColor Cyan
@@ -870,15 +1192,15 @@ DECLARE
   v_book_testament text;
 BEGIN
   IF NULLIF(trim('__LINK_SURFACE_RAW__'), '') IS NULL THEN
-    RAISE EXCEPTION 'LinkSurface é obrigatório';
+    RAISE EXCEPTION 'LinkSurface is required';
   END IF;
 
   IF NULLIF(trim('__LINK_STRONG_RAW__'), '') IS NULL THEN
-    RAISE EXCEPTION 'LinkStrongCode é obrigatório';
+    RAISE EXCEPTION 'LinkStrongCode is required';
   END IF;
 
   IF __LINK_CHAPTER__ <= 0 OR __LINK_VERSE__ <= 0 THEN
-    RAISE EXCEPTION 'LinkChapter e LinkVerse devem ser > 0';
+    RAISE EXCEPTION 'LinkChapter and LinkVerse must be > 0';
   END IF;
 
   SELECT testament INTO v_book_testament
@@ -890,7 +1212,7 @@ BEGIN
   WHERE book_id = __BOOK_ID__ AND chapter = __LINK_CHAPTER__ AND verse = __LINK_VERSE__;
 
   IF v_verse_id IS NULL THEN
-    RAISE EXCEPTION 'Verso não encontrado: book_id %, %:%', __BOOK_ID__, __LINK_CHAPTER__, __LINK_VERSE__;
+    RAISE EXCEPTION 'Verse not found: book_id %, %:%', __BOOK_ID__, __LINK_CHAPTER__, __LINK_VERSE__;
   END IF;
 
   v_language := CASE
@@ -900,14 +1222,14 @@ BEGIN
   END;
 
   IF v_language IS NULL THEN
-    RAISE EXCEPTION 'Strong code inválido: %', upper(trim('__LINK_STRONG__'));
+    RAISE EXCEPTION 'Invalid Strong code: %', upper(trim('__LINK_STRONG__'));
   END IF;
 
   IF v_book_testament = 'OT' AND v_language <> 'hebrew' THEN
-    RAISE EXCEPTION 'Livro OT requer strong H..., recebido: %', upper(trim('__LINK_STRONG__'));
+    RAISE EXCEPTION 'OT book requires H..., got: %', upper(trim('__LINK_STRONG__'));
   END IF;
   IF v_book_testament = 'NT' AND v_language <> 'greek' THEN
-    RAISE EXCEPTION 'Livro NT requer strong G..., recebido: %', upper(trim('__LINK_STRONG__'));
+    RAISE EXCEPTION 'NT book requires G..., got: %', upper(trim('__LINK_STRONG__'));
   END IF;
 
   INSERT INTO public.bible_lexeme (strong_code, language, updated_at)
@@ -928,7 +1250,7 @@ BEGIN
   LIMIT 1;
 
   IF v_token_id IS NULL THEN
-    RAISE EXCEPTION 'Token não encontrado no verso: surface "%"', trim('__LINK_SURFACE__');
+    RAISE EXCEPTION 'Token not found in verse: surface "%"', trim('__LINK_SURFACE__');
   END IF;
 
   UPDATE public.bible_verse_token
@@ -972,6 +1294,375 @@ GROUP BY lower(trim(t.surface))
 ORDER BY total DESC, surface ASC
 LIMIT 30;
 "@
+
+$forceRetokenizeSql = "false"
+if ($ForceRetokenize) { $forceRetokenizeSql = "true" }
+
+$retokenizeGuardSqlTemplate = @'
+DO $$
+DECLARE
+  v_tokens bigint := 0;
+  v_linked bigint := 0;
+  v_align bigint := 0;
+BEGIN
+  SELECT count(*) INTO v_tokens
+  FROM public.bible_verse_token t
+  JOIN public.bible_verse v ON v.id = t.verse_id
+  WHERE v.book_id = __BOOK_ID__;
+
+  SELECT count(*) INTO v_linked
+  FROM public.bible_verse_token t
+  JOIN public.bible_verse v ON v.id = t.verse_id
+  WHERE v.book_id = __BOOK_ID__
+    AND t.lexeme_id IS NOT NULL;
+
+  SELECT count(*) INTO v_align
+  FROM public.bible_verse_token_alignment a
+  JOIN public.bible_verse_token t ON t.id = a.verse_token_id
+  JOIN public.bible_verse v ON v.id = t.verse_id
+  WHERE v.book_id = __BOOK_ID__;
+
+  IF (NOT __FORCE_RETOKENIZE__) AND (v_linked > 0 OR v_align > 0) THEN
+    RAISE EXCEPTION
+      'Blocked: retokenizing book_id=% would erase links (tokens with lexeme_id=%; alignments=%). Use -ForceRetokenize, or run -OnlyAutoLink / -Phase4Auto.',
+      __BOOK_ID__, v_linked, v_align;
+  END IF;
+END $$;
+'@
+
+$retokenizeGuardSql = $retokenizeGuardSqlTemplate
+$retokenizeGuardSql = $retokenizeGuardSql.Replace('__BOOK_ID__', [string]$BookId)
+$retokenizeGuardSql = $retokenizeGuardSql.Replace('__FORCE_RETOKENIZE__', $forceRetokenizeSql)
+
+$invariant = [System.Globalization.CultureInfo]::InvariantCulture
+
+$phase4VerseScopeSqlTemplate = @'
+WITH target_verses AS (
+  SELECT id, chapter, verse
+  FROM public.bible_verse
+  WHERE book_id = __BOOK_ID__
+    AND chapter = __PHASE4_CHAPTER__
+    AND verse BETWEEN __VERSE_FROM__ AND __VERSE_TO__
+)
+SELECT
+  count(*) AS versos_no_escopo,
+  min(chapter) AS chapter_min,
+  min(verse) AS verse_min,
+  max(verse) AS verse_max
+FROM target_verses;
+'@
+
+$phase4ScopeTokenMetricsSqlTemplate = @'
+WITH target_verses AS (
+  SELECT id, chapter, verse
+  FROM public.bible_verse
+  WHERE book_id = __BOOK_ID__
+    AND chapter = __PHASE4_CHAPTER__
+    AND verse BETWEEN __VERSE_FROM__ AND __VERSE_TO__
+),
+tokens AS (
+  SELECT
+    t.id,
+    lower(trim(t.surface)) AS surface,
+    t.lexeme_id
+  FROM public.bible_verse_token t
+  WHERE t.verse_id IN (SELECT id FROM target_verses)
+)
+SELECT
+  (SELECT count(*) FROM target_verses) AS versos_no_escopo,
+  count(*) AS tokens_pt,
+  count(*) FILTER (WHERE lexeme_id IS NOT NULL) AS tokens_pt_com_lexeme,
+  count(*) FILTER (WHERE lexeme_id IS NULL) AS tokens_pt_sem_lexeme,
+  count(DISTINCT surface) FILTER (WHERE lexeme_id IS NULL) AS superficies_sem_lexeme
+FROM tokens;
+'@
+
+$phase4InheritFromAlignmentDryRunSqlTemplate = @'
+WITH target_verses AS (
+  SELECT id
+  FROM public.bible_verse
+  WHERE book_id = __BOOK_ID__
+    AND chapter = __PHASE4_CHAPTER__
+    AND verse BETWEEN __VERSE_FROM__ AND __VERSE_TO__
+),
+candidates AS (
+  SELECT
+    t0.id AS token_id,
+    lower(trim(t0.surface)) AS surface,
+    sot.lexeme_id
+  FROM public.bible_verse_token_alignment a
+  JOIN public.stepbible_original_token sot
+    ON sot.id = a.step_token_id
+  JOIN public.bible_verse_token t0
+    ON t0.id = a.verse_token_id
+  WHERE t0.verse_id IN (SELECT id FROM target_verses)
+    AND t0.lexeme_id IS NULL
+    AND sot.lexeme_id IS NOT NULL
+)
+SELECT
+  count(*) AS tokens_que_seriam_vinculados,
+  count(DISTINCT surface) AS superficies_unicas
+FROM candidates;
+'@
+
+$phase4InheritFromAlignmentApplySqlTemplate = @'
+WITH target_verses AS (
+  SELECT id
+  FROM public.bible_verse
+  WHERE book_id = __BOOK_ID__
+    AND chapter = __PHASE4_CHAPTER__
+    AND verse BETWEEN __VERSE_FROM__ AND __VERSE_TO__
+),
+candidates AS (
+  SELECT
+    t0.id AS token_id,
+    sot.lexeme_id
+  FROM public.bible_verse_token_alignment a
+  JOIN public.stepbible_original_token sot
+    ON sot.id = a.step_token_id
+  JOIN public.bible_verse_token t0
+    ON t0.id = a.verse_token_id
+  WHERE t0.verse_id IN (SELECT id FROM target_verses)
+    AND t0.lexeme_id IS NULL
+    AND sot.lexeme_id IS NOT NULL
+),
+updated AS (
+  UPDATE public.bible_verse_token t
+  SET
+    lexeme_id = c.lexeme_id,
+    confidence = COALESCE(t.confidence, 1.0),
+    source = CASE
+      WHEN NULLIF(trim(t.source), '') IS NULL THEN 'alignment inherit'
+      ELSE t.source || ' | alignment inherit'
+    END
+  FROM candidates c
+  WHERE t.id = c.token_id
+  RETURNING 1
+)
+SELECT count(*) AS tokens_vinculados
+FROM updated;
+'@
+
+$phase4DominantSurfaceSurveySqlTemplate = @'
+WITH target_verses AS (
+  SELECT id
+  FROM public.bible_verse
+  WHERE book_id = __BOOK_ID__
+    AND chapter = __PHASE4_CHAPTER__
+    AND verse BETWEEN __VERSE_FROM__ AND __VERSE_TO__
+),
+tokens AS (
+  SELECT
+    t.id AS token_id,
+    lower(trim(t.surface)) AS surface,
+    t.lexeme_id
+  FROM public.bible_verse_token t
+  WHERE t.verse_id IN (SELECT id FROM target_verses)
+    AND NULLIF(trim(t.surface), '') IS NOT NULL
+),
+surface_lexeme AS (
+  SELECT
+    surface,
+    lexeme_id,
+    count(*) AS cnt
+  FROM tokens
+  WHERE lexeme_id IS NOT NULL
+    AND length(surface) >= __MIN_SURFACE_LEN__
+  GROUP BY surface, lexeme_id
+),
+surface_totals AS (
+  SELECT
+    surface,
+    sum(cnt) AS total_cnt,
+    max(cnt) AS max_cnt,
+    count(*) AS variants
+  FROM surface_lexeme
+  GROUP BY surface
+),
+dominant AS (
+  SELECT
+    sl.surface,
+    sl.lexeme_id,
+    sl.cnt,
+    st.total_cnt,
+    (sl.cnt::float / NULLIF(st.total_cnt, 0)) AS ratio
+  FROM surface_lexeme sl
+  JOIN surface_totals st
+    ON st.surface = sl.surface
+    AND st.max_cnt = sl.cnt
+  WHERE st.variants = 1
+    AND st.total_cnt >= __MIN_OCCURRENCES__
+    AND (sl.cnt::float / NULLIF(st.total_cnt, 0)) >= __MIN_DOM_RATIO__
+)
+SELECT
+  surface,
+  lexeme_id,
+  cnt,
+  total_cnt,
+  ratio
+FROM dominant
+ORDER BY total_cnt DESC, surface ASC
+LIMIT 200;
+'@
+
+$phase4DominantSurfaceDryRunSqlTemplate = @'
+WITH target_verses AS (
+  SELECT id
+  FROM public.bible_verse
+  WHERE book_id = __BOOK_ID__
+    AND chapter = __PHASE4_CHAPTER__
+    AND verse BETWEEN __VERSE_FROM__ AND __VERSE_TO__
+),
+tokens AS (
+  SELECT
+    t.id AS token_id,
+    lower(trim(t.surface)) AS surface,
+    t.lexeme_id
+  FROM public.bible_verse_token t
+  WHERE t.verse_id IN (SELECT id FROM target_verses)
+    AND NULLIF(trim(t.surface), '') IS NOT NULL
+),
+surface_lexeme AS (
+  SELECT
+    surface,
+    lexeme_id,
+    count(*) AS cnt
+  FROM tokens
+  WHERE lexeme_id IS NOT NULL
+    AND length(surface) >= __MIN_SURFACE_LEN__
+  GROUP BY surface, lexeme_id
+),
+surface_totals AS (
+  SELECT
+    surface,
+    sum(cnt) AS total_cnt,
+    max(cnt) AS max_cnt,
+    count(*) AS variants
+  FROM surface_lexeme
+  GROUP BY surface
+),
+dominant AS (
+  SELECT
+    sl.surface,
+    sl.lexeme_id
+  FROM surface_lexeme sl
+  JOIN surface_totals st
+    ON st.surface = sl.surface
+    AND st.max_cnt = sl.cnt
+  WHERE st.variants = 1
+    AND st.total_cnt >= __MIN_OCCURRENCES__
+    AND (sl.cnt::float / NULLIF(st.total_cnt, 0)) >= __MIN_DOM_RATIO__
+),
+candidates AS (
+  SELECT t.token_id
+  FROM tokens t
+  JOIN dominant d ON d.surface = t.surface
+  WHERE t.lexeme_id IS NULL
+)
+SELECT
+  count(*) AS tokens_que_seriam_vinculados,
+  (SELECT count(*) FROM dominant) AS superficies_dominantes
+FROM candidates;
+'@
+
+$phase4DominantSurfaceApplySqlTemplate = @'
+WITH target_verses AS (
+  SELECT id
+  FROM public.bible_verse
+  WHERE book_id = __BOOK_ID__
+    AND chapter = __PHASE4_CHAPTER__
+    AND verse BETWEEN __VERSE_FROM__ AND __VERSE_TO__
+),
+tokens AS (
+  SELECT
+    t.id AS token_id,
+    lower(trim(t.surface)) AS surface,
+    t.lexeme_id
+  FROM public.bible_verse_token t
+  WHERE t.verse_id IN (SELECT id FROM target_verses)
+    AND NULLIF(trim(t.surface), '') IS NOT NULL
+),
+surface_lexeme AS (
+  SELECT
+    surface,
+    lexeme_id,
+    count(*) AS cnt
+  FROM tokens
+  WHERE lexeme_id IS NOT NULL
+    AND length(surface) >= __MIN_SURFACE_LEN__
+  GROUP BY surface, lexeme_id
+),
+surface_totals AS (
+  SELECT
+    surface,
+    sum(cnt) AS total_cnt,
+    max(cnt) AS max_cnt,
+    count(*) AS variants
+  FROM surface_lexeme
+  GROUP BY surface
+),
+dominant AS (
+  SELECT
+    sl.surface,
+    sl.lexeme_id
+  FROM surface_lexeme sl
+  JOIN surface_totals st
+    ON st.surface = sl.surface
+    AND st.max_cnt = sl.cnt
+  WHERE st.variants = 1
+    AND st.total_cnt >= __MIN_OCCURRENCES__
+    AND (sl.cnt::float / NULLIF(st.total_cnt, 0)) >= __MIN_DOM_RATIO__
+),
+candidates AS (
+  SELECT
+    t.token_id,
+    d.lexeme_id
+  FROM tokens t
+  JOIN dominant d
+    ON d.surface = t.surface
+  WHERE t.lexeme_id IS NULL
+),
+updated AS (
+  UPDATE public.bible_verse_token t
+  SET
+    lexeme_id = c.lexeme_id,
+    confidence = COALESCE(t.confidence, __DEFAULT_CONF__),
+    source = CASE
+      WHEN NULLIF(trim(t.source), '') IS NULL THEN 'surface dominant'
+      ELSE t.source || ' | surface dominant'
+    END
+  FROM candidates c
+  WHERE t.id = c.token_id
+  RETURNING 1
+)
+SELECT count(*) AS tokens_vinculados
+FROM updated;
+'@
+
+$phase4PerVerseMetricsSqlTemplate = @'
+WITH target_verses AS (
+  SELECT id, verse
+  FROM public.bible_verse
+  WHERE book_id = __BOOK_ID__
+    AND chapter = __PHASE4_CHAPTER__
+    AND verse BETWEEN __VERSE_FROM__ AND __VERSE_TO__
+),
+tokens AS (
+  SELECT
+    v.verse,
+    t.id,
+    t.lexeme_id
+  FROM public.bible_verse_token t
+  JOIN target_verses v ON v.id = t.verse_id
+)
+SELECT
+  verse,
+  count(*) AS tokens_pt,
+  count(*) FILTER (WHERE lexeme_id IS NOT NULL) AS tokens_pt_com_lexeme
+FROM tokens
+GROUP BY verse
+ORDER BY verse ASC;
+'@
 
 $surveyBookSql = @"
 WITH tokens AS (
@@ -1342,9 +2033,474 @@ SELECT
 FROM unique_matches;
 "@
 
+$ensureAutoLinkStepBibleCooccurrenceFnSql = @'
+CREATE OR REPLACE FUNCTION public.auto_link_bible_tokens_from_stepbible_cooccurrence(
+  p_book_id int,
+  p_only_missing boolean DEFAULT true,
+  p_min_co_verses int DEFAULT 3,
+  p_min_precision real DEFAULT 0.6,
+  p_min_surface_len int DEFAULT 3,
+  p_default_confidence real DEFAULT 0.75,
+  p_source text DEFAULT 'stepbible cooccurrence'
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+SET row_security TO off
+AS $function$
+DECLARE
+  v_linked bigint := 0;
+BEGIN
+  IF p_book_id IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  IF to_regclass('public.bible_verse') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.bible_verse_token') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.stepbible_original_token') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.bible_lexeme') IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  WITH pt_tokens AS (
+    SELECT
+      v.book_id,
+      v.chapter,
+      v.verse,
+      t.id AS token_id,
+      lower(trim(t.surface)) AS surface
+    FROM public.bible_verse_token t
+    JOIN public.bible_verse v ON v.id = t.verse_id
+    WHERE v.book_id = p_book_id
+      AND NULLIF(trim(t.surface), '') IS NOT NULL
+      AND length(lower(trim(t.surface))) >= p_min_surface_len
+      AND (NOT p_only_missing OR t.lexeme_id IS NULL)
+  ),
+  pt_verse_surface AS (
+    SELECT book_id, chapter, verse, surface
+    FROM pt_tokens
+    GROUP BY book_id, chapter, verse, surface
+  ),
+  step_verse_strong AS (
+    SELECT
+      sot.book_id,
+      sot.chapter,
+      sot.verse,
+      upper(trim(sot.strong_code)) AS strong_code
+    FROM public.stepbible_original_token sot
+    WHERE sot.book_id = p_book_id
+      AND NULLIF(trim(sot.strong_code), '') IS NOT NULL
+    GROUP BY sot.book_id, sot.chapter, sot.verse, upper(trim(sot.strong_code))
+  ),
+  strong_verses AS (
+    SELECT strong_code, count(*) AS verses_cnt
+    FROM step_verse_strong
+    GROUP BY strong_code
+  ),
+  surface_verses AS (
+    SELECT surface, count(*) AS verses_cnt
+    FROM pt_verse_surface
+    GROUP BY surface
+  ),
+  co AS (
+    SELECT
+      s.strong_code,
+      p.surface,
+      count(*) AS co_verses
+    FROM step_verse_strong s
+    JOIN pt_verse_surface p
+      ON p.book_id = s.book_id
+      AND p.chapter = s.chapter
+      AND p.verse = s.verse
+    GROUP BY s.strong_code, p.surface
+  ),
+  scored AS (
+    SELECT
+      co.strong_code,
+      co.surface,
+      co.co_verses,
+      sv.verses_cnt AS strong_verses,
+      pv.verses_cnt AS surface_verses,
+      (co.co_verses::real / NULLIF(sv.verses_cnt, 0)) AS precision
+    FROM co
+    JOIN strong_verses sv ON sv.strong_code = co.strong_code
+    JOIN surface_verses pv ON pv.surface = co.surface
+    WHERE co.co_verses >= p_min_co_verses
+  ),
+  best_for_strong AS (
+    SELECT
+      s.*,
+      row_number() OVER (
+        PARTITION BY strong_code
+        ORDER BY precision DESC, co_verses DESC, surface_verses ASC, surface ASC
+      ) AS rn
+    FROM scored s
+    WHERE precision >= p_min_precision
+  ),
+  best_strong_pick AS (
+    SELECT strong_code, surface
+    FROM best_for_strong
+    WHERE rn = 1
+  ),
+  best_for_surface AS (
+    SELECT
+      s.*,
+      row_number() OVER (
+        PARTITION BY surface
+        ORDER BY precision DESC, co_verses DESC, strong_code ASC
+      ) AS rn
+    FROM scored s
+    WHERE precision >= p_min_precision
+  ),
+  mutual AS (
+    SELECT b.strong_code, b.surface
+    FROM best_strong_pick b
+    JOIN best_for_surface s
+      ON s.surface = b.surface
+      AND s.strong_code = b.strong_code
+      AND s.rn = 1
+  ),
+  target_lexeme AS (
+    SELECT
+      m.strong_code,
+      m.surface,
+      l.id AS lexeme_id
+    FROM mutual m
+    JOIN public.bible_lexeme l
+      ON l.strong_code = m.strong_code
+  ),
+  eligible_tokens AS (
+    SELECT DISTINCT
+      pt.token_id,
+      tl.lexeme_id
+    FROM pt_tokens pt
+    JOIN target_lexeme tl
+      ON tl.surface = pt.surface
+    JOIN step_verse_strong sv
+      ON sv.book_id = pt.book_id
+      AND sv.chapter = pt.chapter
+      AND sv.verse = pt.verse
+      AND sv.strong_code = tl.strong_code
+  ),
+  updated AS (
+    UPDATE public.bible_verse_token t
+    SET
+      lexeme_id = e.lexeme_id,
+      confidence = COALESCE(t.confidence, p_default_confidence),
+      source = CASE
+        WHEN NULLIF(trim(t.source), '') IS NULL THEN p_source
+        ELSE t.source || ' | ' || p_source
+      END
+    FROM eligible_tokens e
+    WHERE t.id = e.token_id
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_linked
+  FROM updated;
+
+  RETURN v_linked;
+END
+$function$;
+'@
+
+$autoLinkStepBibleCooccurrenceDryRunSql = @"
+WITH pt_tokens AS (
+  SELECT
+    v.book_id,
+    v.chapter,
+    v.verse,
+    t.id AS token_id,
+    lower(trim(t.surface)) AS surface
+  FROM public.bible_verse_token t
+  JOIN public.bible_verse v ON v.id = t.verse_id
+  WHERE v.book_id = $BookId
+    AND t.lexeme_id IS NULL
+    AND NULLIF(trim(t.surface), '') IS NOT NULL
+    AND length(lower(trim(t.surface))) >= 3
+),
+pt_verse_surface AS (
+  SELECT book_id, chapter, verse, surface
+  FROM pt_tokens
+  GROUP BY book_id, chapter, verse, surface
+),
+step_verse_strong AS (
+  SELECT
+    sot.book_id,
+    sot.chapter,
+    sot.verse,
+    upper(trim(sot.strong_code)) AS strong_code
+  FROM public.stepbible_original_token sot
+  WHERE sot.book_id = $BookId
+    AND NULLIF(trim(sot.strong_code), '') IS NOT NULL
+  GROUP BY sot.book_id, sot.chapter, sot.verse, upper(trim(sot.strong_code))
+),
+strong_verses AS (
+  SELECT strong_code, count(*) AS verses_cnt
+  FROM step_verse_strong
+  GROUP BY strong_code
+),
+surface_verses AS (
+  SELECT surface, count(*) AS verses_cnt
+  FROM pt_verse_surface
+  GROUP BY surface
+),
+co AS (
+  SELECT
+    s.strong_code,
+    p.surface,
+    count(*) AS co_verses
+  FROM step_verse_strong s
+  JOIN pt_verse_surface p
+    ON p.book_id = s.book_id
+    AND p.chapter = s.chapter
+    AND p.verse = s.verse
+  GROUP BY s.strong_code, p.surface
+),
+scored AS (
+  SELECT
+    co.strong_code,
+    co.surface,
+    co.co_verses,
+    sv.verses_cnt AS strong_verses,
+    pv.verses_cnt AS surface_verses,
+    (co.co_verses::real / NULLIF(sv.verses_cnt, 0)) AS precision
+  FROM co
+  JOIN strong_verses sv ON sv.strong_code = co.strong_code
+  JOIN surface_verses pv ON pv.surface = co.surface
+  WHERE co.co_verses >= 3
+    AND (co.co_verses::real / NULLIF(sv.verses_cnt, 0)) >= 0.6
+),
+best_for_strong AS (
+  SELECT
+    s.*,
+    row_number() OVER (
+      PARTITION BY strong_code
+      ORDER BY precision DESC, co_verses DESC, surface_verses ASC, surface ASC
+    ) AS rn
+  FROM scored s
+),
+best_strong_pick AS (
+  SELECT strong_code, surface
+  FROM best_for_strong
+  WHERE rn = 1
+),
+best_for_surface AS (
+  SELECT
+    s.*,
+    row_number() OVER (
+      PARTITION BY surface
+      ORDER BY precision DESC, co_verses DESC, strong_code ASC
+    ) AS rn
+  FROM scored s
+),
+mutual AS (
+  SELECT b.strong_code, b.surface
+  FROM best_strong_pick b
+  JOIN best_for_surface s
+    ON s.surface = b.surface
+    AND s.strong_code = b.strong_code
+    AND s.rn = 1
+),
+eligible_tokens AS (
+  SELECT DISTINCT
+    pt.token_id
+  FROM pt_tokens pt
+  JOIN mutual m
+    ON m.surface = pt.surface
+  JOIN step_verse_strong sv
+    ON sv.book_id = pt.book_id
+    AND sv.chapter = pt.chapter
+    AND sv.verse = pt.verse
+    AND sv.strong_code = m.strong_code
+)
+SELECT
+  (SELECT count(*) FROM mutual) AS mapeamentos_strong_surface,
+  (SELECT count(*) FROM eligible_tokens) AS tokens_que_seriam_vinculados;
+"@
+
+if ($BackfillStepBibleTokenLexemeIds) {
+  Write-Host "Modo BackfillStepBibleTokenLexemeIds: vou normalizar strong_code e preencher lexeme_id no STEPBible." -ForegroundColor Cyan
+  $backfillSql = @"
+WITH normalized AS (
+  SELECT
+    id,
+    book_id,
+    regexp_replace(upper(trim(strong_code)), '^([HG][0-9]{1,5}).*$', '\1') AS strong_code_norm
+  FROM public.stepbible_original_token
+  WHERE book_id = $BookId
+    AND NULLIF(trim(strong_code), '') IS NOT NULL
+),
+src AS (
+  SELECT DISTINCT
+    strong_code_norm AS strong_code
+  FROM normalized
+  WHERE NULLIF(trim(strong_code_norm), '') IS NOT NULL
+),
+computed AS (
+  SELECT
+    strong_code,
+    CASE
+      WHEN strong_code LIKE 'H%' THEN 'hebrew'
+      WHEN strong_code LIKE 'G%' THEN 'greek'
+      ELSE NULL
+    END AS language
+  FROM src
+),
+upserted AS (
+  INSERT INTO public.bible_lexeme (strong_code, language, updated_at)
+  SELECT
+    c.strong_code,
+    c.language,
+    now()
+  FROM computed c
+  WHERE c.language IS NOT NULL
+  ON CONFLICT (strong_code) DO UPDATE SET
+    language = EXCLUDED.language,
+    updated_at = now()
+  RETURNING 1
+),
+updated AS (
+  UPDATE public.stepbible_original_token sot
+  SET
+    strong_code = n.strong_code_norm,
+    lexeme_id = l.id
+  FROM normalized n
+  JOIN public.bible_lexeme l
+    ON l.strong_code = n.strong_code_norm
+  WHERE sot.id = n.id
+    AND (sot.lexeme_id IS NULL OR sot.strong_code IS DISTINCT FROM n.strong_code_norm)
+  RETURNING 1
+)
+SELECT
+  (SELECT count(*) FROM upserted) AS lexemes_upserted,
+  (SELECT count(*) FROM updated) AS step_tokens_updated,
+  (SELECT count(*) FROM public.stepbible_original_token WHERE book_id = $BookId AND lexeme_id IS NULL AND NULLIF(trim(strong_code), '') IS NOT NULL) AS step_tokens_ainda_sem_lexeme;
+"@
+  Invoke-Psql $backfillSql
+  exit 0
+}
+
 if ($BuildAlignmentFromLexemes) {
-  Write-Host "Modo BuildAlignmentFromLexemes: vou criar alinhamentos ARC↔STEP por lexeme." -ForegroundColor Cyan
+  Write-Host "Modo BuildAlignmentFromLexemes: vou criar alinhamentos ARC<->STEP por lexeme." -ForegroundColor Cyan
   Invoke-Psql ("SELECT public.build_bible_verse_token_alignment_for_book({0}, true, 0.6, 'auto alignment') AS alinhamentos_criados;" -f $BookId)
+  exit 0
+}
+
+if ($Phase4Auto) {
+  try {
+    Invoke-Psql "SELECT 1 FROM public.stepbible_original_token LIMIT 1;"
+    Invoke-Psql "SELECT 1 FROM public.bible_verse_token_alignment LIMIT 1;"
+  } catch {
+    throw "Faltam tabelas public.stepbible_original_token e/ou public.bible_verse_token_alignment para Phase4Auto."
+  }
+
+  $chapters = @($Phase4Chapter)
+  if ($Phase4ChapterFrom -gt 0 -and $Phase4ChapterTo -gt 0 -and $Phase4ChapterTo -ge $Phase4ChapterFrom) {
+    $chapters = @($Phase4ChapterFrom..$Phase4ChapterTo)
+  }
+
+  foreach ($ch in $chapters) {
+    $Phase4Chapter = $ch
+    $minDomRatioSql = $Phase4MinDominantRatio.ToString($invariant)
+    $defaultConfidenceSql = $Phase4DefaultConfidence.ToString($invariant)
+
+    $phase4VerseScopeSql = $phase4VerseScopeSqlTemplate
+    $phase4VerseScopeSql = $phase4VerseScopeSql.Replace('__BOOK_ID__', [string]$BookId)
+    $phase4VerseScopeSql = $phase4VerseScopeSql.Replace('__PHASE4_CHAPTER__', [string]$Phase4Chapter)
+    $phase4VerseScopeSql = $phase4VerseScopeSql.Replace('__VERSE_FROM__', [string]$Phase4VerseFrom)
+    $phase4VerseScopeSql = $phase4VerseScopeSql.Replace('__VERSE_TO__', [string]$Phase4VerseTo)
+
+    $phase4ScopeTokenMetricsSql = $phase4ScopeTokenMetricsSqlTemplate
+    $phase4ScopeTokenMetricsSql = $phase4ScopeTokenMetricsSql.Replace('__BOOK_ID__', [string]$BookId)
+    $phase4ScopeTokenMetricsSql = $phase4ScopeTokenMetricsSql.Replace('__PHASE4_CHAPTER__', [string]$Phase4Chapter)
+    $phase4ScopeTokenMetricsSql = $phase4ScopeTokenMetricsSql.Replace('__VERSE_FROM__', [string]$Phase4VerseFrom)
+    $phase4ScopeTokenMetricsSql = $phase4ScopeTokenMetricsSql.Replace('__VERSE_TO__', [string]$Phase4VerseTo)
+
+    $phase4InheritFromAlignmentDryRunSql = $phase4InheritFromAlignmentDryRunSqlTemplate
+    $phase4InheritFromAlignmentDryRunSql = $phase4InheritFromAlignmentDryRunSql.Replace('__BOOK_ID__', [string]$BookId)
+    $phase4InheritFromAlignmentDryRunSql = $phase4InheritFromAlignmentDryRunSql.Replace('__PHASE4_CHAPTER__', [string]$Phase4Chapter)
+    $phase4InheritFromAlignmentDryRunSql = $phase4InheritFromAlignmentDryRunSql.Replace('__VERSE_FROM__', [string]$Phase4VerseFrom)
+    $phase4InheritFromAlignmentDryRunSql = $phase4InheritFromAlignmentDryRunSql.Replace('__VERSE_TO__', [string]$Phase4VerseTo)
+
+    $phase4InheritFromAlignmentApplySql = $phase4InheritFromAlignmentApplySqlTemplate
+    $phase4InheritFromAlignmentApplySql = $phase4InheritFromAlignmentApplySql.Replace('__BOOK_ID__', [string]$BookId)
+    $phase4InheritFromAlignmentApplySql = $phase4InheritFromAlignmentApplySql.Replace('__PHASE4_CHAPTER__', [string]$Phase4Chapter)
+    $phase4InheritFromAlignmentApplySql = $phase4InheritFromAlignmentApplySql.Replace('__VERSE_FROM__', [string]$Phase4VerseFrom)
+    $phase4InheritFromAlignmentApplySql = $phase4InheritFromAlignmentApplySql.Replace('__VERSE_TO__', [string]$Phase4VerseTo)
+
+    $phase4DominantSurfaceSurveySql = $phase4DominantSurfaceSurveySqlTemplate
+    $phase4DominantSurfaceSurveySql = $phase4DominantSurfaceSurveySql.Replace('__BOOK_ID__', [string]$BookId)
+    $phase4DominantSurfaceSurveySql = $phase4DominantSurfaceSurveySql.Replace('__PHASE4_CHAPTER__', [string]$Phase4Chapter)
+    $phase4DominantSurfaceSurveySql = $phase4DominantSurfaceSurveySql.Replace('__VERSE_FROM__', [string]$Phase4VerseFrom)
+    $phase4DominantSurfaceSurveySql = $phase4DominantSurfaceSurveySql.Replace('__VERSE_TO__', [string]$Phase4VerseTo)
+    $phase4DominantSurfaceSurveySql = $phase4DominantSurfaceSurveySql.Replace('__MIN_SURFACE_LEN__', [string]$Phase4MinSurfaceLength)
+    $phase4DominantSurfaceSurveySql = $phase4DominantSurfaceSurveySql.Replace('__MIN_OCCURRENCES__', [string]$Phase4MinOccurrences)
+    $phase4DominantSurfaceSurveySql = $phase4DominantSurfaceSurveySql.Replace('__MIN_DOM_RATIO__', $minDomRatioSql)
+
+    $phase4DominantSurfaceDryRunSql = $phase4DominantSurfaceDryRunSqlTemplate
+    $phase4DominantSurfaceDryRunSql = $phase4DominantSurfaceDryRunSql.Replace('__BOOK_ID__', [string]$BookId)
+    $phase4DominantSurfaceDryRunSql = $phase4DominantSurfaceDryRunSql.Replace('__PHASE4_CHAPTER__', [string]$Phase4Chapter)
+    $phase4DominantSurfaceDryRunSql = $phase4DominantSurfaceDryRunSql.Replace('__VERSE_FROM__', [string]$Phase4VerseFrom)
+    $phase4DominantSurfaceDryRunSql = $phase4DominantSurfaceDryRunSql.Replace('__VERSE_TO__', [string]$Phase4VerseTo)
+    $phase4DominantSurfaceDryRunSql = $phase4DominantSurfaceDryRunSql.Replace('__MIN_SURFACE_LEN__', [string]$Phase4MinSurfaceLength)
+    $phase4DominantSurfaceDryRunSql = $phase4DominantSurfaceDryRunSql.Replace('__MIN_OCCURRENCES__', [string]$Phase4MinOccurrences)
+    $phase4DominantSurfaceDryRunSql = $phase4DominantSurfaceDryRunSql.Replace('__MIN_DOM_RATIO__', $minDomRatioSql)
+
+    $phase4DominantSurfaceApplySql = $phase4DominantSurfaceApplySqlTemplate
+    $phase4DominantSurfaceApplySql = $phase4DominantSurfaceApplySql.Replace('__BOOK_ID__', [string]$BookId)
+    $phase4DominantSurfaceApplySql = $phase4DominantSurfaceApplySql.Replace('__PHASE4_CHAPTER__', [string]$Phase4Chapter)
+    $phase4DominantSurfaceApplySql = $phase4DominantSurfaceApplySql.Replace('__VERSE_FROM__', [string]$Phase4VerseFrom)
+    $phase4DominantSurfaceApplySql = $phase4DominantSurfaceApplySql.Replace('__VERSE_TO__', [string]$Phase4VerseTo)
+    $phase4DominantSurfaceApplySql = $phase4DominantSurfaceApplySql.Replace('__MIN_SURFACE_LEN__', [string]$Phase4MinSurfaceLength)
+    $phase4DominantSurfaceApplySql = $phase4DominantSurfaceApplySql.Replace('__MIN_OCCURRENCES__', [string]$Phase4MinOccurrences)
+    $phase4DominantSurfaceApplySql = $phase4DominantSurfaceApplySql.Replace('__MIN_DOM_RATIO__', $minDomRatioSql)
+    $phase4DominantSurfaceApplySql = $phase4DominantSurfaceApplySql.Replace('__DEFAULT_CONF__', $defaultConfidenceSql)
+
+    $phase4PerVerseMetricsSql = $phase4PerVerseMetricsSqlTemplate
+    $phase4PerVerseMetricsSql = $phase4PerVerseMetricsSql.Replace('__BOOK_ID__', [string]$BookId)
+    $phase4PerVerseMetricsSql = $phase4PerVerseMetricsSql.Replace('__PHASE4_CHAPTER__', [string]$Phase4Chapter)
+    $phase4PerVerseMetricsSql = $phase4PerVerseMetricsSql.Replace('__VERSE_FROM__', [string]$Phase4VerseFrom)
+    $phase4PerVerseMetricsSql = $phase4PerVerseMetricsSql.Replace('__VERSE_TO__', [string]$Phase4VerseTo)
+
+    Write-Host ("Modo Phase4Auto: book_id={0} {1}:{2}-{3}" -f $BookId, $Phase4Chapter, $Phase4VerseFrom, $Phase4VerseTo) -ForegroundColor Cyan
+    Invoke-Psql $phase4VerseScopeSql
+
+    Write-Host "Phase4: métricas do escopo (antes)..." -ForegroundColor Cyan
+    Invoke-Psql $phase4ScopeTokenMetricsSql
+
+    Write-Host "Phase4: herança via alinhamentos (dry-run)..." -ForegroundColor Cyan
+    Invoke-Psql $phase4InheritFromAlignmentDryRunSql
+
+    Write-Host "Phase4: superfícies dominantes detectadas..." -ForegroundColor Cyan
+    Invoke-Psql $phase4DominantSurfaceSurveySql
+
+    Write-Host "Phase4: propagação por superfície dominante (dry-run)..." -ForegroundColor Cyan
+    Invoke-Psql $phase4DominantSurfaceDryRunSql
+
+    if (-not $Phase4DryRun) {
+      Write-Host "Phase4: aplicando herança via alinhamentos..." -ForegroundColor Cyan
+      Invoke-Psql $phase4InheritFromAlignmentApplySql
+
+      Write-Host "Phase4: aplicando propagação por superfície dominante..." -ForegroundColor Cyan
+      Invoke-Psql $phase4DominantSurfaceApplySql
+
+      Write-Host "Phase4: métricas do escopo (depois)..." -ForegroundColor Cyan
+      Invoke-Psql $phase4ScopeTokenMetricsSql
+
+      Write-Host "Phase4: métricas por verso no escopo..." -ForegroundColor Cyan
+      Invoke-Psql $phase4PerVerseMetricsSql
+    } else {
+      Write-Host "Phase4DryRun ativo: nada foi alterado no banco." -ForegroundColor Yellow
+    }
+  }
+
   exit 0
 }
 
@@ -1372,6 +2528,19 @@ if ($OnlyAutoLink) {
     } else {
       Write-Host "AutoLinkFromStepBibleCandidates: aplicando vínculos com candidatos do STEPBible..." -ForegroundColor Cyan
       Invoke-Psql ("SELECT public.auto_link_bible_tokens_from_stepbible({0}, true, 0.7, 'stepbible candidate') AS tokens_vinculados;" -f $BookId)
+      Write-Host "Validação após auto-link:" -ForegroundColor Cyan
+      Invoke-Psql $validateSql
+    }
+  }
+
+  if ($AutoLinkFromStepBibleCooccurrence) {
+    if ($AutoLinkDryRun) {
+      Write-Host "AutoLinkFromStepBibleCooccurrence (dry-run): simulando vínculos por coocorrência (Strong <-> surface)..." -ForegroundColor Cyan
+      Invoke-Psql $autoLinkStepBibleCooccurrenceDryRunSql
+    } else {
+      Write-Host "AutoLinkFromStepBibleCooccurrence: aplicando vínculos por coocorrência (Strong <-> surface)..." -ForegroundColor Cyan
+      Invoke-Psql $ensureAutoLinkStepBibleCooccurrenceFnSql
+      Invoke-Psql ("SELECT public.auto_link_bible_tokens_from_stepbible_cooccurrence({0}, true, 3, 0.6::real, 3, 0.75::real, 'stepbible cooccurrence') AS tokens_vinculados;" -f $BookId)
       Write-Host "Validação após auto-link:" -ForegroundColor Cyan
       Invoke-Psql $validateSql
     }
@@ -1459,6 +2628,7 @@ if ($tokenizedVerses -lt $minExpected) {
 }
 
 Write-Host "Limpando tokens existentes do livro e carregando staging..." -ForegroundColor Cyan
+Invoke-Psql $retokenizeGuardSql
 Invoke-Psql "DELETE FROM public.bible_verse_token t USING public.bible_verse v WHERE t.verse_id = v.id AND v.book_id = $BookId;"
 Invoke-Psql "TRUNCATE TABLE public.bible_verse_token_base_import;"
 

@@ -1393,6 +1393,179 @@ BEGIN
 END
 $function$;
 
+CREATE OR REPLACE FUNCTION public.auto_link_bible_tokens_from_stepbible_cooccurrence(
+  p_book_id int,
+  p_only_missing boolean DEFAULT true,
+  p_min_co_verses int DEFAULT 3,
+  p_min_precision real DEFAULT 0.6,
+  p_min_surface_len int DEFAULT 3,
+  p_default_confidence real DEFAULT 0.75,
+  p_source text DEFAULT 'stepbible cooccurrence'
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_linked bigint := 0;
+BEGIN
+  IF p_book_id IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  IF to_regclass('public.bible_verse') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.bible_verse_token') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.stepbible_original_token') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.bible_lexeme') IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  WITH pt_tokens AS (
+    SELECT
+      v.book_id,
+      v.chapter,
+      v.verse,
+      t.id AS token_id,
+      lower(trim(t.surface)) AS surface
+    FROM public.bible_verse_token t
+    JOIN public.bible_verse v ON v.id = t.verse_id
+    WHERE v.book_id = p_book_id
+      AND NULLIF(trim(t.surface), '') IS NOT NULL
+      AND length(lower(trim(t.surface))) >= p_min_surface_len
+      AND (NOT p_only_missing OR t.lexeme_id IS NULL)
+  ),
+  pt_verse_surface AS (
+    SELECT book_id, chapter, verse, surface
+    FROM pt_tokens
+    GROUP BY book_id, chapter, verse, surface
+  ),
+  step_verse_strong AS (
+    SELECT
+      sot.book_id,
+      sot.chapter,
+      sot.verse,
+      upper(trim(sot.strong_code)) AS strong_code
+    FROM public.stepbible_original_token sot
+    WHERE sot.book_id = p_book_id
+      AND NULLIF(trim(sot.strong_code), '') IS NOT NULL
+    GROUP BY sot.book_id, sot.chapter, sot.verse, upper(trim(sot.strong_code))
+  ),
+  strong_verses AS (
+    SELECT strong_code, count(*) AS verses_cnt
+    FROM step_verse_strong
+    GROUP BY strong_code
+  ),
+  surface_verses AS (
+    SELECT surface, count(*) AS verses_cnt
+    FROM pt_verse_surface
+    GROUP BY surface
+  ),
+  co AS (
+    SELECT
+      s.strong_code,
+      p.surface,
+      count(*) AS co_verses
+    FROM step_verse_strong s
+    JOIN pt_verse_surface p
+      ON p.book_id = s.book_id
+      AND p.chapter = s.chapter
+      AND p.verse = s.verse
+    GROUP BY s.strong_code, p.surface
+  ),
+  scored AS (
+    SELECT
+      co.strong_code,
+      co.surface,
+      co.co_verses,
+      sv.verses_cnt AS strong_verses,
+      pv.verses_cnt AS surface_verses,
+      (co.co_verses::real / NULLIF(sv.verses_cnt, 0)) AS precision
+    FROM co
+    JOIN strong_verses sv ON sv.strong_code = co.strong_code
+    JOIN surface_verses pv ON pv.surface = co.surface
+    WHERE co.co_verses >= p_min_co_verses
+  ),
+  best_for_strong AS (
+    SELECT
+      s.*,
+      row_number() OVER (
+        PARTITION BY strong_code
+        ORDER BY precision DESC, co_verses DESC, surface_verses ASC, surface ASC
+      ) AS rn
+    FROM scored s
+    WHERE precision >= p_min_precision
+  ),
+  best_strong_pick AS (
+    SELECT strong_code, surface
+    FROM best_for_strong
+    WHERE rn = 1
+  ),
+  best_for_surface AS (
+    SELECT
+      s.*,
+      row_number() OVER (
+        PARTITION BY surface
+        ORDER BY precision DESC, co_verses DESC, strong_code ASC
+      ) AS rn
+    FROM scored s
+    WHERE precision >= p_min_precision
+  ),
+  mutual AS (
+    SELECT b.strong_code, b.surface
+    FROM best_strong_pick b
+    JOIN best_for_surface s
+      ON s.surface = b.surface
+      AND s.strong_code = b.strong_code
+      AND s.rn = 1
+  ),
+  target_lexeme AS (
+    SELECT
+      m.strong_code,
+      m.surface,
+      l.id AS lexeme_id
+    FROM mutual m
+    JOIN public.bible_lexeme l
+      ON l.strong_code = m.strong_code
+  ),
+  eligible_tokens AS (
+    SELECT DISTINCT
+      pt.token_id,
+      tl.lexeme_id
+    FROM pt_tokens pt
+    JOIN target_lexeme tl
+      ON tl.surface = pt.surface
+    JOIN step_verse_strong sv
+      ON sv.book_id = pt.book_id
+      AND sv.chapter = pt.chapter
+      AND sv.verse = pt.verse
+      AND sv.strong_code = tl.strong_code
+  ),
+  updated AS (
+    UPDATE public.bible_verse_token t
+    SET
+      lexeme_id = e.lexeme_id,
+      confidence = COALESCE(t.confidence, p_default_confidence),
+      source = CASE
+        WHEN NULLIF(trim(t.source), '') IS NULL THEN p_source
+        ELSE t.source || ' | ' || p_source
+      END
+    FROM eligible_tokens e
+    WHERE t.id = e.token_id
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_linked
+  FROM updated;
+
+  RETURN v_linked;
+END
+$function$;
+
 CREATE TABLE IF NOT EXISTS public.bible_verse_token_alignment (
   id BIGSERIAL PRIMARY KEY,
   verse_token_id BIGINT NOT NULL REFERENCES public.bible_verse_token(id) ON DELETE CASCADE,
