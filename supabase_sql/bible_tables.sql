@@ -1083,6 +1083,492 @@ BEGIN
 END
 $function$;
 
+CREATE TABLE IF NOT EXISTS public.stepbible_original_token (
+  id BIGSERIAL PRIMARY KEY,
+  testament TEXT NOT NULL CHECK (testament IN ('OT', 'NT')),
+  book_id INTEGER NOT NULL REFERENCES public.bible_book(id) ON DELETE CASCADE,
+  chapter INTEGER NOT NULL,
+  verse INTEGER NOT NULL,
+  token_index INTEGER NOT NULL,
+  surface TEXT NOT NULL,
+  strong_tag TEXT,
+  strong_code TEXT,
+  lexeme_id BIGINT REFERENCES public.bible_lexeme(id) ON DELETE SET NULL,
+  morphology TEXT,
+  source TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(testament, book_id, chapter, verse, token_index)
+);
+
+ALTER TABLE public.stepbible_original_token ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Todos podem visualizar tokens originais STEPBible" ON public.stepbible_original_token;
+CREATE POLICY "Todos podem visualizar tokens originais STEPBible"
+  ON public.stepbible_original_token
+  FOR SELECT
+  USING (true);
+
+CREATE INDEX IF NOT EXISTS idx_stepbible_original_token_book_ref
+  ON public.stepbible_original_token(book_id, chapter, verse);
+CREATE INDEX IF NOT EXISTS idx_stepbible_original_token_lexeme_id
+  ON public.stepbible_original_token(lexeme_id);
+CREATE INDEX IF NOT EXISTS idx_stepbible_original_token_strong_code
+  ON public.stepbible_original_token(strong_code);
+
+CREATE TABLE IF NOT EXISTS public.stepbible_original_token_base_import (
+  testament TEXT NOT NULL CHECK (testament IN ('OT', 'NT')),
+  book_id INTEGER NOT NULL REFERENCES public.bible_book(id) ON DELETE CASCADE,
+  chapter INTEGER NOT NULL,
+  verse INTEGER NOT NULL,
+  token_index INTEGER NOT NULL,
+  surface TEXT NOT NULL,
+  strong_tag TEXT,
+  strong_code TEXT,
+  morphology TEXT,
+  source TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(testament, book_id, chapter, verse, token_index)
+);
+
+ALTER TABLE public.stepbible_original_token_base_import ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Gerenciar import de tokens originais requer permissão" ON public.stepbible_original_token_base_import;
+DO $$
+BEGIN
+  IF to_regprocedure('public.check_user_permission(uuid,text)') IS NOT NULL THEN
+    EXECUTE $sql$
+      CREATE POLICY "Gerenciar import de tokens originais requer permissão"
+        ON public.stepbible_original_token_base_import
+        FOR ALL
+        TO authenticated
+        USING (public.check_user_permission(auth.uid(), 'bible.manage_lexicon'))
+        WITH CHECK (public.check_user_permission(auth.uid(), 'bible.manage_lexicon'))
+    $sql$;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_stepbible_original_token_base_import_ref
+  ON public.stepbible_original_token_base_import(book_id, chapter, verse);
+CREATE INDEX IF NOT EXISTS idx_stepbible_original_token_base_import_strong_code
+  ON public.stepbible_original_token_base_import(strong_code);
+
+CREATE OR REPLACE FUNCTION public.merge_stepbible_original_token_base_import(
+  p_truncate_after boolean DEFAULT true
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+SET row_security TO off
+AS $function$
+DECLARE
+  v_merged bigint := 0;
+BEGIN
+  IF to_regclass('public.stepbible_original_token_base_import') IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  IF to_regclass('public.stepbible_original_token') IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  IF to_regclass('public.bible_lexeme') IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  WITH src AS (
+    SELECT DISTINCT
+      upper(trim(strong_code)) AS strong_code
+    FROM public.stepbible_original_token_base_import
+    WHERE NULLIF(trim(strong_code), '') IS NOT NULL
+  ),
+  computed AS (
+    SELECT
+      strong_code,
+      CASE
+        WHEN strong_code LIKE 'H%' THEN 'hebrew'
+        WHEN strong_code LIKE 'G%' THEN 'greek'
+        ELSE NULL
+      END AS language
+    FROM src
+  ),
+  upserted AS (
+    INSERT INTO public.bible_lexeme (strong_code, language, updated_at)
+    SELECT
+      c.strong_code,
+      c.language,
+      now()
+    FROM computed c
+    WHERE c.language IS NOT NULL
+    ON CONFLICT (strong_code) DO UPDATE SET
+      language = EXCLUDED.language,
+      updated_at = now()
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_merged FROM upserted;
+
+  WITH src AS (
+    SELECT
+      bi.testament,
+      bi.book_id,
+      bi.chapter,
+      bi.verse,
+      bi.token_index,
+      bi.surface,
+      NULLIF(trim(bi.strong_tag), '') AS strong_tag,
+      NULLIF(upper(trim(bi.strong_code)), '') AS strong_code,
+      NULLIF(trim(bi.morphology), '') AS morphology,
+      bi.source
+    FROM public.stepbible_original_token_base_import bi
+  ),
+  joined AS (
+    SELECT
+      s.*,
+      l.id AS lexeme_id
+    FROM src s
+    LEFT JOIN public.bible_lexeme l
+      ON l.strong_code = s.strong_code
+  ),
+  upserted AS (
+    INSERT INTO public.stepbible_original_token (
+      testament,
+      book_id,
+      chapter,
+      verse,
+      token_index,
+      surface,
+      strong_tag,
+      strong_code,
+      lexeme_id,
+      morphology,
+      source
+    )
+    SELECT
+      j.testament,
+      j.book_id,
+      j.chapter,
+      j.verse,
+      j.token_index,
+      j.surface,
+      j.strong_tag,
+      j.strong_code,
+      j.lexeme_id,
+      j.morphology,
+      j.source
+    FROM joined j
+    ON CONFLICT (testament, book_id, chapter, verse, token_index) DO UPDATE SET
+      surface = EXCLUDED.surface,
+      strong_tag = EXCLUDED.strong_tag,
+      strong_code = EXCLUDED.strong_code,
+      lexeme_id = EXCLUDED.lexeme_id,
+      morphology = EXCLUDED.morphology,
+      source = EXCLUDED.source
+    RETURNING 1
+  )
+  SELECT v_merged + count(*) INTO v_merged FROM upserted;
+
+  IF p_truncate_after THEN
+    TRUNCATE TABLE public.stepbible_original_token_base_import;
+  END IF;
+
+  RETURN v_merged;
+END
+$function$;
+
+CREATE OR REPLACE FUNCTION public.auto_link_bible_tokens_from_stepbible(
+  p_book_id int,
+  p_only_missing boolean DEFAULT true,
+  p_default_confidence real DEFAULT 0.7,
+  p_source text DEFAULT 'stepbible candidate'
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_linked bigint := 0;
+  v_testament text;
+  v_language text;
+BEGIN
+  IF p_book_id IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  IF to_regclass('public.bible_book') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.bible_verse') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.bible_verse_token') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.bible_lexeme') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.stepbible_original_token') IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  SELECT testament INTO v_testament
+  FROM public.bible_book
+  WHERE id = p_book_id;
+
+  v_language := CASE
+    WHEN v_testament = 'OT' THEN 'hebrew'
+    WHEN v_testament = 'NT' THEN 'greek'
+    ELSE NULL
+  END;
+
+  IF v_language IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  WITH token_candidates AS (
+    SELECT
+      t.id AS token_id,
+      v.book_id,
+      v.chapter,
+      v.verse,
+      lower(trim(t.surface)) AS surface
+    FROM public.bible_verse_token t
+    JOIN public.bible_verse v ON v.id = t.verse_id
+    WHERE v.book_id = p_book_id
+      AND NULLIF(trim(t.surface), '') IS NOT NULL
+      AND (NOT p_only_missing OR t.lexeme_id IS NULL)
+  ),
+  verse_lexemes AS (
+    SELECT
+      sot.book_id,
+      sot.chapter,
+      sot.verse,
+      sot.lexeme_id
+    FROM public.stepbible_original_token sot
+    WHERE sot.book_id = p_book_id
+      AND sot.lexeme_id IS NOT NULL
+    GROUP BY sot.book_id, sot.chapter, sot.verse, sot.lexeme_id
+  ),
+  lexeme_gloss AS (
+    SELECT
+      lower(trim(l.pt_gloss)) AS gloss,
+      l.id AS lexeme_id
+    FROM public.bible_lexeme l
+    WHERE l.language = v_language
+      AND NULLIF(trim(l.pt_gloss), '') IS NOT NULL
+  ),
+  matches AS (
+    SELECT
+      tc.token_id,
+      lg.lexeme_id,
+      count(*) OVER (PARTITION BY tc.token_id) AS cnt
+    FROM token_candidates tc
+    JOIN lexeme_gloss lg ON lg.gloss = tc.surface
+    JOIN verse_lexemes vl
+      ON vl.book_id = tc.book_id
+      AND vl.chapter = tc.chapter
+      AND vl.verse = tc.verse
+      AND vl.lexeme_id = lg.lexeme_id
+  ),
+  unique_matches AS (
+    SELECT token_id, lexeme_id
+    FROM matches
+    WHERE cnt = 1
+  ),
+  updated AS (
+    UPDATE public.bible_verse_token t
+    SET
+      lexeme_id = um.lexeme_id,
+      confidence = COALESCE(t.confidence, p_default_confidence),
+      source = CASE
+        WHEN NULLIF(trim(t.source), '') IS NULL THEN p_source
+        ELSE t.source || ' | ' || p_source
+      END
+    FROM unique_matches um
+    WHERE t.id = um.token_id
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_linked FROM updated;
+
+  RETURN v_linked;
+END
+$function$;
+
+CREATE TABLE IF NOT EXISTS public.bible_verse_token_alignment (
+  id BIGSERIAL PRIMARY KEY,
+  verse_token_id BIGINT NOT NULL REFERENCES public.bible_verse_token(id) ON DELETE CASCADE,
+  step_token_id BIGINT NOT NULL REFERENCES public.stepbible_original_token(id) ON DELETE CASCADE,
+  confidence REAL,
+  source TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(verse_token_id, step_token_id)
+);
+
+ALTER TABLE public.bible_verse_token_alignment ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Todos podem visualizar alinhamentos de tokens" ON public.bible_verse_token_alignment;
+CREATE POLICY "Todos podem visualizar alinhamentos de tokens"
+  ON public.bible_verse_token_alignment
+  FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Gerenciar alinhamentos requer permissão" ON public.bible_verse_token_alignment;
+DO $$
+BEGIN
+  IF to_regprocedure('public.check_user_permission(uuid,text)') IS NOT NULL THEN
+    EXECUTE $sql$
+      CREATE POLICY "Gerenciar alinhamentos requer permissão"
+        ON public.bible_verse_token_alignment
+        FOR ALL
+        TO authenticated
+        USING (public.check_user_permission(auth.uid(), 'bible.manage_lexicon'))
+        WITH CHECK (public.check_user_permission(auth.uid(), 'bible.manage_lexicon'))
+    $sql$;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_bible_verse_token_alignment_token
+  ON public.bible_verse_token_alignment(verse_token_id);
+CREATE INDEX IF NOT EXISTS idx_bible_verse_token_alignment_step_token
+  ON public.bible_verse_token_alignment(step_token_id);
+
+CREATE OR REPLACE FUNCTION public.build_bible_verse_token_alignment_for_book(
+  p_book_id int,
+  p_only_missing boolean DEFAULT true,
+  p_default_confidence real DEFAULT 0.6,
+  p_source text DEFAULT 'auto alignment'
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_aligned bigint := 0;
+  v_testament text;
+  v_language text;
+BEGIN
+  IF p_book_id IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  IF to_regclass('public.bible_book') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.bible_verse') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.bible_verse_token') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.stepbible_original_token') IS NULL THEN
+    RETURN 0;
+  END IF;
+  IF to_regclass('public.bible_verse_token_alignment') IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  SELECT testament INTO v_testament
+  FROM public.bible_book
+  WHERE id = p_book_id;
+
+  v_language := CASE
+    WHEN v_testament = 'OT' THEN 'hebrew'
+    WHEN v_testament = 'NT' THEN 'greek'
+    ELSE NULL
+  END;
+
+  IF v_language IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  WITH pt_tokens AS (
+    SELECT
+      t.id AS verse_token_id,
+      v.book_id,
+      v.chapter,
+      v.verse,
+      t.lexeme_id
+    FROM public.bible_verse_token t
+    JOIN public.bible_verse v ON v.id = t.verse_id
+    WHERE v.book_id = p_book_id
+      AND t.lexeme_id IS NOT NULL
+  ),
+  pt_counts AS (
+    SELECT
+      book_id,
+      chapter,
+      verse,
+      lexeme_id,
+      count(*) AS cnt
+    FROM pt_tokens
+    GROUP BY book_id, chapter, verse, lexeme_id
+  ),
+  step_tokens AS (
+    SELECT
+      sot.id AS step_token_id,
+      sot.book_id,
+      sot.chapter,
+      sot.verse,
+      sot.lexeme_id
+    FROM public.stepbible_original_token sot
+    WHERE sot.book_id = p_book_id
+      AND sot.lexeme_id IS NOT NULL
+  ),
+  step_counts AS (
+    SELECT
+      book_id,
+      chapter,
+      verse,
+      lexeme_id,
+      count(*) AS cnt
+    FROM step_tokens
+    GROUP BY book_id, chapter, verse, lexeme_id
+  ),
+  pairs AS (
+    SELECT
+      pt.verse_token_id,
+      st.step_token_id
+    FROM pt_tokens pt
+    JOIN pt_counts pc
+      ON pc.book_id = pt.book_id
+      AND pc.chapter = pt.chapter
+      AND pc.verse = pt.verse
+      AND pc.lexeme_id = pt.lexeme_id
+      AND pc.cnt = 1
+    JOIN step_tokens st
+      ON st.book_id = pt.book_id
+      AND st.chapter = pt.chapter
+      AND st.verse = pt.verse
+      AND st.lexeme_id = pt.lexeme_id
+    JOIN step_counts sc
+      ON sc.book_id = st.book_id
+      AND sc.chapter = st.chapter
+      AND sc.verse = st.verse
+      AND sc.lexeme_id = st.lexeme_id
+      AND sc.cnt = 1
+    WHERE NOT p_only_missing
+      OR NOT EXISTS (
+        SELECT 1
+        FROM public.bible_verse_token_alignment a
+        WHERE a.verse_token_id = pt.verse_token_id
+      )
+  ),
+  inserted AS (
+    INSERT INTO public.bible_verse_token_alignment (verse_token_id, step_token_id, confidence, source)
+    SELECT
+      p.verse_token_id,
+      p.step_token_id,
+      p_default_confidence,
+      p_source
+    FROM pairs p
+    ON CONFLICT (verse_token_id, step_token_id) DO NOTHING
+    RETURNING 1
+  )
+  SELECT count(*) INTO v_aligned FROM inserted;
+
+  RETURN v_aligned;
+END
+$function$;
+
 -- =====================================================
 -- DADOS: LIVROS DA BÍBLIA (66 livros)
 -- =====================================================
