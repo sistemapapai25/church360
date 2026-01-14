@@ -7,6 +7,20 @@ import '../../domain/models/role.dart';
 import '../../../members/domain/models/member.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 
+class _ContextOption {
+  const _ContextOption(this.value, this.label);
+
+  final String? value;
+  final String label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _ContextOption && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+}
+
 /// Tela de Atribuir Cargo a Usuário
 /// Permite atribuir um cargo (com contexto opcional) a um usuário
 class AssignRoleScreen extends ConsumerStatefulWidget {
@@ -302,23 +316,28 @@ class _AssignRoleScreenState extends ConsumerState<AssignRoleScreen> {
           );
         }
 
-        return DropdownMenu<String?>(
-          initialSelection: _selectedContextId,
+        final options = <_ContextOption>[
+          const _ContextOption(null, 'Nenhum contexto específico'),
+          ...contexts.map((context) => _ContextOption(context.id, context.contextName)),
+        ];
+        final selectedOption = options.firstWhere(
+          (option) => option.value == _selectedContextId,
+          orElse: () => options.first,
+        );
+
+        return DropdownMenu<_ContextOption>(
+          initialSelection: selectedOption,
           label: const Text('Contexto'),
           leadingIcon: const Icon(Icons.location_on),
-          dropdownMenuEntries: [
-            const DropdownMenuEntry<String?>(
-              value: null,
-              label: 'Nenhum contexto específico',
-            ),
-            ...contexts.map((context) => DropdownMenuEntry<String?>(
-                  value: context.id,
-                  label: context.contextName,
-                )),
-          ],
-          onSelected: (value) {
+          dropdownMenuEntries: options
+            .map((option) => DropdownMenuEntry<_ContextOption>(
+              value: option,
+              label: option.label,
+            ))
+            .toList(),
+          onSelected: (option) {
             setState(() {
-              _selectedContextId = value;
+              _selectedContextId = option?.value;
             });
           },
         );

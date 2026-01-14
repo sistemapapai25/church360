@@ -4,6 +4,20 @@ import 'package:go_router/go_router.dart';
 import '../../providers/permissions_providers.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 
+class _MinistryOption {
+  const _MinistryOption(this.value, this.label);
+
+  final String? value;
+  final String label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _MinistryOption && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+}
+
 /// Tela de Formulário de Contexto
 /// Permite criar ou editar um contexto específico de um cargo
 class ContextFormScreen extends ConsumerStatefulWidget {
@@ -247,20 +261,28 @@ class _ContextFormScreenState extends ConsumerState<ContextFormScreen> {
                         const SizedBox(height: 16),
                         ministriesAsync.when(
                           data: (ministries) {
-                            return DropdownMenu<String?>(
-                              initialSelection: _selectedMinistryId,
-                              label: const Text('Ministério'),
+                            final options = <_MinistryOption>[
+                              const _MinistryOption(null, 'Nenhum'),
+                              ...ministries.map((m) => _MinistryOption(m.id, m.name)),
+                            ];
+                            final selectedOption = options.firstWhere(
+                              (option) => option.value == _selectedMinistryId,
+                              orElse: () => options.first,
+                            );
+
+                            return DropdownMenu<_MinistryOption>(
+                              initialSelection: selectedOption,
+                              label: const Text('Minist‚rio'),
                               leadingIcon: const Icon(Icons.church),
-                              dropdownMenuEntries: [
-                                const DropdownMenuEntry<String?>(value: null, label: 'Nenhum'),
-                                ...ministries.map((m) => DropdownMenuEntry<String?>(
-                                      value: m.id,
-                                      label: m.name,
-                                    )),
-                              ],
-                              onSelected: (value) {
+                              dropdownMenuEntries: options
+                                .map((option) => DropdownMenuEntry<_MinistryOption>(
+                                  value: option,
+                                  label: option.label,
+                                ))
+                                .toList(),
+                              onSelected: (option) {
                                 setState(() {
-                                  _selectedMinistryId = value;
+                                  _selectedMinistryId = option?.value;
                                 });
                               },
                             );

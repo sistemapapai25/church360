@@ -3,6 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/permissions_providers.dart';
 import '../../../access_levels/domain/models/access_level.dart';
+class _ParentRoleOption {
+  const _ParentRoleOption(this.value, this.label);
+
+  final String? value;
+  final String label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _ParentRoleOption && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+}
+
  
 
 /// Tela de Formulário de Cargo
@@ -171,22 +185,30 @@ class _RoleFormScreenState extends ConsumerState<RoleFormScreen> {
                           return r.isActive && r.id != widget.roleId;
                         }).toList();
 
-                        return DropdownMenu<String?>(
-                          initialSelection: _selectedParentRoleId,
+                        final options = <_ParentRoleOption>[
+                          const _ParentRoleOption(null, 'Nenhum (cargo raiz)'),
+                          ...availableRoles.map((role) => _ParentRoleOption(
+                            role.id,
+                            '${role.name} (Nível ${role.hierarchyLevel})',
+                          )),
+                        ];
+                        final selectedOption = options.firstWhere(
+                          (option) => option.value == _selectedParentRoleId,
+                          orElse: () => options.first,
+                        );
+
+                        return DropdownMenu<_ParentRoleOption>(
+                          initialSelection: selectedOption,
                           label: const Text('Cargo Superior'),
-                          dropdownMenuEntries: [
-                            const DropdownMenuEntry<String?>(
-                              value: null,
-                              label: 'Nenhum (cargo raiz)',
-                            ),
-                            ...availableRoles.map((role) => DropdownMenuEntry<String?>(
-                                  value: role.id,
-                                  label: '${role.name} (Nível ${role.hierarchyLevel})',
-                                )),
-                          ],
-                          onSelected: (value) {
+                          dropdownMenuEntries: options
+                            .map((option) => DropdownMenuEntry<_ParentRoleOption>(
+                              value: option,
+                              label: option.label,
+                            ))
+                            .toList(),
+                          onSelected: (option) {
                             setState(() {
-                              _selectedParentRoleId = value;
+                              _selectedParentRoleId = option?.value;
                             });
                           },
                         );

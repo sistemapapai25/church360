@@ -5,6 +5,20 @@ import '../../providers/permissions_providers.dart';
 import '../../domain/models/permission.dart';
 import '../../domain/models/user_effective_permission.dart';
 
+class _PermissionCategoryOption {
+  const _PermissionCategoryOption(this.value, this.label);
+
+  final String? value;
+  final String label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _PermissionCategoryOption && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+}
+
 class UserPermissionsScreen extends ConsumerStatefulWidget {
   final String userId;
   const UserPermissionsScreen({super.key, required this.userId});
@@ -23,6 +37,24 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
     final memberAsync = ref.watch(memberByIdProvider(widget.userId));
     final permissionsAsync = ref.watch(permissionsProvider);
     final effectiveAsync = ref.watch(userEffectivePermissionsProvider(widget.userId));
+    final categoryOptions = <_PermissionCategoryOption>[
+      const _PermissionCategoryOption(null, 'Todas categorias'),
+      const _PermissionCategoryOption('dashboard', 'Dashboard'),
+      const _PermissionCategoryOption('ministries', 'Minist‚rios'),
+      const _PermissionCategoryOption('events', 'Eventos'),
+      const _PermissionCategoryOption('financial', 'Financeiro'),
+      const _PermissionCategoryOption('settings', 'Configura‡äes'),
+      const _PermissionCategoryOption('members', 'Membros'),
+      const _PermissionCategoryOption('groups', 'Grupos'),
+      const _PermissionCategoryOption('news', 'Not¡cias'),
+      const _PermissionCategoryOption('banners', 'Banners'),
+      const _PermissionCategoryOption('church_info', 'Igreja'),
+      const _PermissionCategoryOption('agents', 'Agentes IA'),
+    ];
+    final selectedCategory = categoryOptions.firstWhere(
+      (option) => option.value == _selectedCategory,
+      orElse: () => categoryOptions.first,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -94,24 +126,17 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                DropdownMenu<String?>(
-                  initialSelection: _selectedCategory,
+
+                DropdownMenu<_PermissionCategoryOption>(
+                  initialSelection: selectedCategory,
                   label: const Text('Categoria'),
-                  dropdownMenuEntries: const [
-                    DropdownMenuEntry<String?>(value: null, label: 'Todas categorias'),
-                    DropdownMenuEntry<String?>(value: 'dashboard', label: 'Dashboard'),
-                    DropdownMenuEntry<String?>(value: 'ministries', label: 'Ministérios'),
-                    DropdownMenuEntry<String?>(value: 'events', label: 'Eventos'),
-                    DropdownMenuEntry<String?>(value: 'financial', label: 'Financeiro'),
-                    DropdownMenuEntry<String?>(value: 'settings', label: 'Configurações'),
-                    DropdownMenuEntry<String?>(value: 'members', label: 'Membros'),
-                    DropdownMenuEntry<String?>(value: 'groups', label: 'Grupos'),
-                    DropdownMenuEntry<String?>(value: 'news', label: 'Notícias'),
-                    DropdownMenuEntry<String?>(value: 'banners', label: 'Banners'),
-                    DropdownMenuEntry<String?>(value: 'church_info', label: 'Igreja'),
-                    DropdownMenuEntry<String?>(value: 'agents', label: 'Agentes IA'),
-                  ],
-                  onSelected: (v) => setState(() => _selectedCategory = v),
+                  dropdownMenuEntries: categoryOptions
+                    .map((option) => DropdownMenuEntry<_PermissionCategoryOption>(
+                      value: option,
+                      label: option.label,
+                    ))
+                    .toList(),
+                  onSelected: (option) => setState(() => _selectedCategory = option?.value),
                 ),
               ],
             ),

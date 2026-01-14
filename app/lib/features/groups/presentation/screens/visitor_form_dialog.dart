@@ -5,6 +5,20 @@ import '../../../members/presentation/providers/members_provider.dart';
 import '../../../../core/design/community_design.dart';
 import '../providers/groups_provider.dart' as groups;
 
+class _GenderOption {
+  const _GenderOption(this.value, this.label);
+
+  final String? value;
+  final String label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _GenderOption && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+}
+
 /// Dialog para cadastrar visitante
 class VisitorFormDialog extends ConsumerStatefulWidget {
   final String meetingId;
@@ -101,6 +115,16 @@ class _VisitorFormDialogState extends ConsumerState<VisitorFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final genderOptions = <_GenderOption>[
+      const _GenderOption(null, 'Não informado'),
+      const _GenderOption('M', 'Masculino'),
+      const _GenderOption('F', 'Feminino'),
+    ];
+    final selectedGender = genderOptions.firstWhere(
+      (option) => option.value == _gender,
+      orElse: () => genderOptions.first,
+    );
+
     return Dialog(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       child: Container(
@@ -199,16 +223,17 @@ class _VisitorFormDialogState extends ConsumerState<VisitorFormDialog> {
                       const SizedBox(height: 16),
 
                       // Gênero
-                      DropdownMenu<String?>(
-                        initialSelection: _gender,
+                      DropdownMenu<_GenderOption>(
+                        initialSelection: selectedGender,
                         label: const Text('Gênero'),
                         leadingIcon: const Icon(Icons.wc),
-                        dropdownMenuEntries: const [
-                          DropdownMenuEntry<String?>(value: null, label: 'Não informado'),
-                          DropdownMenuEntry<String?>(value: 'M', label: 'Masculino'),
-                          DropdownMenuEntry<String?>(value: 'F', label: 'Feminino'),
-                        ],
-                        onSelected: (value) => setState(() => _gender = value),
+                        dropdownMenuEntries: genderOptions
+                          .map((option) => DropdownMenuEntry<_GenderOption>(
+                            value: option,
+                            label: option.label,
+                          ))
+                          .toList(),
+                        onSelected: (option) => setState(() => _gender = option?.value),
                       ),
                       const SizedBox(height: 16),
 

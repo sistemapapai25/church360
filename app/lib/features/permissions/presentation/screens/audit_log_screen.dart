@@ -3,6 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../providers/permissions_providers.dart';
 
+class _AuditActionOption {
+  const _AuditActionOption(this.value, this.label);
+
+  final String? value;
+  final String label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _AuditActionOption && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+}
+
 /// Tela de Log de Auditoria
 /// Exibe histórico de mudanças de permissões
 class AuditLogScreen extends ConsumerStatefulWidget {
@@ -353,6 +367,18 @@ class _AuditLogScreenState extends ConsumerState<AuditLogScreen> {
   }
 
   Future<void> _showFilterDialog() async {
+    final actionOptions = <_AuditActionOption>[
+      const _AuditActionOption(null, 'Todas'),
+      const _AuditActionOption('assign_role', 'Atribuir Cargo'),
+      const _AuditActionOption('remove_role', 'Remover Cargo'),
+      const _AuditActionOption('update_permissions', 'Atualizar Permissäes'),
+      const _AuditActionOption('create_role', 'Criar Cargo'),
+      const _AuditActionOption('update_role', 'Atualizar Cargo'),
+    ];
+    final selectedAction = actionOptions.firstWhere(
+      (option) => option.value == _filterAction,
+      orElse: () => actionOptions.first,
+    );
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -362,20 +388,19 @@ class _AuditLogScreenState extends ConsumerState<AuditLogScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               // Filtro por ação
-              DropdownMenu<String?>(
-                initialSelection: _filterAction,
-                label: const Text('Ação'),
-                dropdownMenuEntries: const [
-                  DropdownMenuEntry<String?>(value: null, label: 'Todas'),
-                  DropdownMenuEntry<String?>(value: 'assign_role', label: 'Atribuir Cargo'),
-                  DropdownMenuEntry<String?>(value: 'remove_role', label: 'Remover Cargo'),
-                  DropdownMenuEntry<String?>(value: 'update_permissions', label: 'Atualizar Permissões'),
-                  DropdownMenuEntry<String?>(value: 'create_role', label: 'Criar Cargo'),
-                  DropdownMenuEntry<String?>(value: 'update_role', label: 'Atualizar Cargo'),
-                ],
-                onSelected: (value) {
+
+              DropdownMenu<_AuditActionOption>(
+                initialSelection: selectedAction,
+                label: const Text('A‡Æo'),
+                dropdownMenuEntries: actionOptions
+                  .map((option) => DropdownMenuEntry<_AuditActionOption>(
+                    value: option,
+                    label: option.label,
+                  ))
+                  .toList(),
+                onSelected: (option) {
                   setState(() {
-                    _filterAction = value;
+                    _filterAction = option?.value;
                   });
                 },
               ),
