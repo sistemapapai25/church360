@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "church360-15887238",
     "public": "app/build/web",
     "ignore": [
       "firebase.json",
