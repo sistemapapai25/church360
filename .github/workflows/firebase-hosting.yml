@@ -27,12 +27,20 @@ jobs:
         working-directory: app
 
       - name: Install Firebase CLI
-        run: npm install -g firebase-tools
+       run: npm install -g firebase-tools@13.0.0
+
+      - name: Show Firebase CLI version
+        run: firebase --version
 
       - name: Debug build output
         run: ls -lah app/build/web
 
+      - name: Check Hosting sites access
+        env:
+            FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+            run: firebase hosting:sites:list --project church360-15887238
+
       - name: Deploy to Firebase Hosting
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-        run: firebase deploy --only hosting --project church360-15887238
+        run: firebase deploy --only hosting --project church360-15887238 --debug
