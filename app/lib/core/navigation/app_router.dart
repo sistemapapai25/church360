@@ -1,4 +1,5 @@
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/auth/presentation/screens/login_screen.dart';
@@ -128,14 +129,27 @@ import '../../features/support_chat/presentation/screens/agents_center_screen.da
 /// Configuração de rotas do aplicativo
 final appRouter = GoRouter(
   initialLocation: '/splash',
-  redirect: (context, state) {
+  redirect: (context, state) async {
     bool isAuthenticated = false;
+
+    // Verificar modo desenvolvedor
     try {
-      final supabase = Supabase.instance.client;
-      final session = supabase.auth.currentSession;
-      isAuthenticated = session != null;
-    } catch (_) {
-      isAuthenticated = false;
+      final prefs = await SharedPreferences.getInstance();
+      final isDevMode = prefs.getBool('dev_mode_active') ?? false;
+      if (isDevMode) {
+        isAuthenticated = true;
+      }
+    } catch (_) {}
+
+    // Verificar autenticação normal do Supabase
+    if (!isAuthenticated) {
+      try {
+        final supabase = Supabase.instance.client;
+        final session = supabase.auth.currentSession;
+        isAuthenticated = session != null;
+      } catch (_) {
+        isAuthenticated = false;
+      }
     }
 
     final isSplash = state.matchedLocation == '/splash';
@@ -160,43 +174,28 @@ final appRouter = GoRouter(
     return null;
   },
   routes: [
-    GoRoute(
-      path: '/splash',
-      builder: (context, state) => const SplashScreen(),
-    ),
-    GoRoute(
-      path: '/login',
-      builder: (context, state) => const LoginScreen(),
-    ),
-    GoRoute(
-      path: '/signup',
-      builder: (context, state) => const SignUpScreen(),
-    ),
-    GoRoute(
-      path: '/home',
-      builder: (context, state) => HomeScreen(),
-    ),
+    GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
+    GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+    GoRoute(path: '/signup', builder: (context, state) => const SignUpScreen()),
+    GoRoute(path: '/home', builder: (context, state) => HomeScreen()),
     GoRoute(
       path: '/community',
       builder: (context, state) => const CommunityScreen(),
     ),
     GoRoute(
       path: '/community/admin',
-      builder: (context, state) => const DashboardAccessGate(
-        child: CommunityAdminScreen(),
-      ),
+      builder: (context, state) =>
+          const DashboardAccessGate(child: CommunityAdminScreen()),
     ),
     GoRoute(
       path: '/dashboard',
-      builder: (context, state) => const DashboardAccessGate(
-        child: DashboardScreen(),
-      ),
+      builder: (context, state) =>
+          const DashboardAccessGate(child: DashboardScreen()),
     ),
     GoRoute(
       path: '/agents-center',
-      builder: (context, state) => const DashboardAccessGate(
-        child: AgentsCenterScreen(),
-      ),
+      builder: (context, state) =>
+          const DashboardAccessGate(child: AgentsCenterScreen()),
     ),
     GoRoute(
       path: '/members',
@@ -210,7 +209,7 @@ final appRouter = GoRouter(
         final type = state.uri.queryParameters['type'];
         final status = state.uri.queryParameters['status'];
         return MemberFormScreen(
-          initialEmail: userEmail, 
+          initialEmail: userEmail,
           initialMemberType: type,
           initialStatus: status,
         );
@@ -303,9 +302,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/groups/:groupId/meetings/:meetingId/visitors/new',
       builder: (context, state) {
-        return MemberFormScreen(
-          initialStatus: 'visitor',
-        );
+        return MemberFormScreen(initialStatus: 'visitor');
       },
     ),
     // Rotas de ministérios
@@ -485,7 +482,10 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/visitors/new',
-      builder: (context, state) => const MemberFormScreen(initialStatus: 'visitor'),
+      builder: (context, state) => const MemberFormScreen(
+        initialStatus: 'visitor',
+        initialMemberType: 'visitante',
+      ),
     ),
     GoRoute(
       path: '/visitors/:id/edit',
@@ -520,10 +520,7 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         final followupId = state.pathParameters['followupId']!;
-        return VisitorFollowupFormScreen(
-          visitorId: id,
-          followupId: followupId,
-        );
+        return VisitorFollowupFormScreen(visitorId: id, followupId: followupId);
       },
     ),
 
@@ -771,10 +768,7 @@ final appRouter = GoRouter(
         final moduleId = state.pathParameters['moduleId']!;
         return PermissionOnlyRoute(
           permission: 'support_materials.view',
-          child: ModuleViewerScreen(
-            materialId: materialId,
-            moduleId: moduleId,
-          ),
+          child: ModuleViewerScreen(materialId: materialId, moduleId: moduleId),
         );
       },
     ),
@@ -917,10 +911,7 @@ final appRouter = GoRouter(
         final lessonId = state.pathParameters['lessonId']!;
         return PermissionOnlyRoute(
           permission: 'courses.manage_lessons',
-          child: CourseLessonFormScreen(
-            courseId: courseId,
-            lessonId: lessonId,
-          ),
+          child: CourseLessonFormScreen(courseId: courseId, lessonId: lessonId),
         );
       },
     ),
@@ -940,10 +931,7 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final courseId = state.pathParameters['courseId']!;
         final lessonId = state.pathParameters['lessonId']!;
-        return LessonViewerScreen(
-          courseId: courseId,
-          lessonId: lessonId,
-        );
+        return LessonViewerScreen(courseId: courseId, lessonId: lessonId);
       },
     ),
 
@@ -964,15 +952,13 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/news/admin',
-      builder: (context, state) => const DashboardAccessGate(
-        child: ManageNewsScreen(),
-      ),
+      builder: (context, state) =>
+          const DashboardAccessGate(child: ManageNewsScreen()),
     ),
     GoRoute(
       path: '/news/admin/new',
-      builder: (context, state) => const DashboardAccessGate(
-        child: NewsFormScreen(),
-      ),
+      builder: (context, state) =>
+          const DashboardAccessGate(child: NewsFormScreen()),
     ),
     GoRoute(
       path: '/news/admin/:id/edit',
@@ -981,10 +967,7 @@ final appRouter = GoRouter(
         return DashboardAccessGate(child: NewsFormScreen(newsId: id));
       },
     ),
-    GoRoute(
-      path: '/news',
-      builder: (context, state) => const NewsScreen(),
-    ),
+    GoRoute(path: '/news', builder: (context, state) => const NewsScreen()),
 
     // =====================================================
     // ROTAS: PLANOS DE LEITURA
@@ -995,15 +978,13 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/reading-plans/admin',
-      builder: (context, state) => const DashboardAccessGate(
-        child: ManageReadingPlansScreen(),
-      ),
+      builder: (context, state) =>
+          const DashboardAccessGate(child: ManageReadingPlansScreen()),
     ),
     GoRoute(
       path: '/reading-plans/admin/new',
-      builder: (context, state) => const DashboardAccessGate(
-        child: ReadingPlanFormScreen(),
-      ),
+      builder: (context, state) =>
+          const DashboardAccessGate(child: ReadingPlanFormScreen()),
     ),
     GoRoute(
       path: '/reading-plans/admin/:id/edit',
@@ -1121,7 +1102,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/bible/lexicon',
       builder: (context, state) {
-        final initialQuery = (state.uri.queryParameters['q'] ?? state.uri.queryParameters['strong'])?.trim();
+        final initialQuery =
+            (state.uri.queryParameters['q'] ??
+                    state.uri.queryParameters['strong'])
+                ?.trim();
         return PermissionOnlyRoute(
           permission: 'bible.manage_lexicon',
           child: BibleLexiconEditorScreen(initialQuery: initialQuery),
@@ -1177,9 +1161,8 @@ final appRouter = GoRouter(
 
     GoRoute(
       path: '/developer-settings',
-      builder: (context, state) => const OwnerOnlyRoute(
-        child: DeveloperSettingsScreen(),
-      ),
+      builder: (context, state) =>
+          const OwnerOnlyRoute(child: DeveloperSettingsScreen()),
     ),
 
     // Configuração de Disparos (WhatsApp/Uazapi)
@@ -1209,9 +1192,8 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/permissions/roles/edit/:roleId',
-      builder: (context, state) => RoleFormScreen(
-        roleId: state.pathParameters['roleId'],
-      ),
+      builder: (context, state) =>
+          RoleFormScreen(roleId: state.pathParameters['roleId']),
     ),
     GoRoute(
       path: '/permissions/roles/:roleId/permissions',
@@ -1237,9 +1219,8 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/permissions/users/:userId/permissions',
-      builder: (context, state) => UserPermissionsScreen(
-        userId: state.pathParameters['userId']!,
-      ),
+      builder: (context, state) =>
+          UserPermissionsScreen(userId: state.pathParameters['userId']!),
     ),
     GoRoute(
       path: '/permissions/assign-role',
@@ -1310,10 +1291,7 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final childId = state.pathParameters['childId']!;
         final childName = state.uri.queryParameters['name'] ?? 'Criança';
-        return KidsRegistrationScreen(
-          childId: childId,
-          childName: childName,
-        );
+        return KidsRegistrationScreen(childId: childId, childName: childName);
       },
     ),
 

@@ -2108,7 +2108,7 @@ class _CommunityMomentCardState extends ConsumerState<_CommunityMomentCard> {
 
     final moments = <_MomentItem>[
       _MomentItem(
-        icon: Icons.auto_awesome,
+        icon: Icons.groups,
         title: 'Momento da Comunidade',
         subtitle: 'Compartilhe, ore e participe hoje',
         accent: colorScheme.primary,

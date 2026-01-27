@@ -1,0 +1,12 @@
+project_id = "ghzwyigouhvljubitowt"
+
+[functions.analisar-comprovante]
+
+[functions.carne-por-token]
+verify_jwt = false
+
+[functions.create-user]
+
+[functions.whatsapp-send-message]
+
+[functions.desafio-lembrete-vencimento]

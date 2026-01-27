@@ -427,20 +427,112 @@ class MembersRepository {
   }
 
   /// Buscar profissões por nome (autocomplete)
-  Future<List<String>> searchProfessions(String query) async {
+  Future<List<ProfessionOption>> searchProfessions(String query) async {
     try {
+      final q = query.trim();
+      if (q.isEmpty) return [];
+
+      try {
+        final rpcResponse = await _supabase.rpc('search_profissao', params: {
+          'p_query': q,
+        });
+
+        if (rpcResponse is List) {
+          final codeRegex = RegExp(r'^prof\d{6}$');
+          final allOptions = rpcResponse.map((raw) {
+            final json = Map<String, dynamic>.from(raw as Map);
+            final id = (json['id'] ?? json['idprofissao'] ?? '').toString();
+            final label = (json['label'] ?? json['profissao'] ?? '').toString();
+            if (id.isEmpty || label.isEmpty) return null;
+            return ProfessionOption(id: id, label: label);
+          }).whereType<ProfessionOption>().toList();
+
+          final coded = allOptions.where((o) => codeRegex.hasMatch(o.id)).toList();
+          final options = coded.isNotEmpty ? coded : allOptions;
+          if (options.isNotEmpty) return options.take(20).toList();
+        }
+      } catch (_) {}
+
       final response = await _supabase
           .from('profissao')
-          .select('profissao')
-          .ilike('profissao', '%$query%')
-          .limit(20);
+          .select('idprofissao, id, profissao')
+          .ilike('profissao', '%$q%')
+          .limit(50);
 
-      return (response as List)
-          .map((json) => json['profissao'] as String)
-          .toList();
+      final codeRegex = RegExp(r'^prof\d{6}$');
+      final options = (response as List).map((raw) {
+        final json = raw as Map<String, dynamic>;
+        final id = (json['idprofissao'] ?? json['id'] ?? '').toString();
+        final label = (json['profissao'] ?? '').toString();
+        if (id.isEmpty || label.isEmpty) return null;
+        return ProfessionOption(id: id, label: label);
+      }).whereType<ProfessionOption>().toList();
+
+      final coded = options.where((o) => codeRegex.hasMatch(o.id)).toList();
+      final effective = coded.isNotEmpty ? coded : options;
+
+      final deduped = <String, ProfessionOption>{};
+      for (final o in effective) {
+        deduped[o.id] = o;
+      }
+
+      final loweredQuery = q.toLowerCase();
+      final sorted = deduped.values.toList()
+        ..sort((a, b) {
+          final al = a.label.toLowerCase();
+          final bl = b.label.toLowerCase();
+
+          final aStarts = al.startsWith(loweredQuery);
+          final bStarts = bl.startsWith(loweredQuery);
+          if (aStarts != bStarts) return aStarts ? -1 : 1;
+
+          final aIdx = al.indexOf(loweredQuery);
+          final bIdx = bl.indexOf(loweredQuery);
+          if (aIdx != bIdx) return aIdx.compareTo(bIdx);
+
+          return al.compareTo(bl);
+        });
+
+      return sorted.take(20).toList();
     } catch (e) {
-      debugPrint('Erro ao buscar profissões: $e');
-      return [];
+      try {
+        final q = query.trim();
+        if (q.isEmpty) return [];
+        final response = await _supabase
+            .from('profissao')
+            .select('id, profissao')
+            .ilike('profissao', '%$q%')
+            .limit(50);
+
+        final options = (response as List).map((raw) {
+          final json = raw as Map<String, dynamic>;
+          final id = (json['id'] ?? '').toString();
+          final label = (json['profissao'] ?? '').toString();
+          if (id.isEmpty || label.isEmpty) return null;
+          return ProfessionOption(id: id, label: label);
+        }).whereType<ProfessionOption>().toList();
+
+        final loweredQuery = q.toLowerCase();
+        options.sort((a, b) {
+          final al = a.label.toLowerCase();
+          final bl = b.label.toLowerCase();
+
+          final aStarts = al.startsWith(loweredQuery);
+          final bStarts = bl.startsWith(loweredQuery);
+          if (aStarts != bStarts) return aStarts ? -1 : 1;
+
+          final aIdx = al.indexOf(loweredQuery);
+          final bIdx = bl.indexOf(loweredQuery);
+          if (aIdx != bIdx) return aIdx.compareTo(bIdx);
+
+          return al.compareTo(bl);
+        });
+
+        return options.take(20).toList();
+      } catch (inner) {
+        debugPrint('Erro ao buscar profissões: $inner');
+        return [];
+      }
     }
   }
 

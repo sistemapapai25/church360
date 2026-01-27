@@ -399,12 +399,23 @@ class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
                                   return TextFormField(
                                     controller: fieldController,
                                     focusNode: fieldFocusNode,
-                                    decoration: const InputDecoration(
+                                    onChanged: (_) => setState(() {}),
+                                    decoration: InputDecoration(
                                       filled: true,
                                       fillColor: Colors.white,
-                                      border: OutlineInputBorder(),
+                                      border: const OutlineInputBorder(),
                                       labelText: 'Buscar guardião',
-                                      prefixIcon: Icon(Icons.search),
+                                      prefixIcon: const Icon(Icons.search),
+                                      suffixIcon: fieldController.text.trim().isNotEmpty
+                                          ? IconButton(
+                                              icon: const Icon(Icons.clear),
+                                              onPressed: () {
+                                                setState(() {
+                                                  fieldController.clear();
+                                                });
+                                              },
+                                            )
+                                          : null,
                                       helperText:
                                           'Digite 3 letras ou mais para buscar',
                                     ),

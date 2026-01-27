@@ -188,7 +188,7 @@ class _WorshipServiceFormScreenState
       case WorshipType.friday:
         return Icons.favorite;
       case WorshipType.special:
-        return Icons.star;
+        return Icons.celebration;
       case WorshipType.other:
         return Icons.event;
     }
@@ -377,4 +377,3 @@ class _WorshipServiceFormScreenState
     );
   }
 }
-

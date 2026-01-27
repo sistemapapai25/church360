@@ -213,7 +213,7 @@ class _WorshipStatisticsScreenState
           child: _buildSummaryCard(
             'Maior Presença',
             maxAttendance.toString(),
-            Icons.star,
+            Icons.groups,
             Colors.purple,
           ),
         ),

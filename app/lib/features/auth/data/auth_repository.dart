@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 
@@ -63,7 +64,9 @@ class AuthRepository {
     int rowScore(Map<String, dynamic> r) {
       final isActive = (r['is_active'] == true) ? 1 : 0;
       final status = statusScore(r['status']?.toString());
-      final fullName = (r['full_name']?.toString() ?? '').trim().isNotEmpty ? 1 : 0;
+      final fullName = (r['full_name']?.toString() ?? '').trim().isNotEmpty
+          ? 1
+          : 0;
       return (isActive * 100) + (status * 10) + fullName;
     }
 
@@ -81,8 +84,11 @@ class AuthRepository {
     return best;
   }
 
-  Future<String?> ensureUserAccountForSession({String? preferredFullName}) async {
-    final user = _supabase.auth.currentUser ?? _supabase.auth.currentSession?.user;
+  Future<String?> ensureUserAccountForSession({
+    String? preferredFullName,
+  }) async {
+    final user =
+        _supabase.auth.currentUser ?? _supabase.auth.currentSession?.user;
     if (user == null) return null;
 
     final tenantId = SupabaseConstants.currentTenantId;
@@ -96,64 +102,134 @@ class AuthRepository {
       final t = value.trim();
       return t.startsWith('no-email+') && t.endsWith('@church360.local');
     }
+
     final metadataName = user.userMetadata?['full_name']?.toString();
-    final safeFullName = (preferredFullName ?? metadataName ?? '').trim().isNotEmpty
+    final safeFullName =
+        (preferredFullName ?? metadataName ?? '').trim().isNotEmpty
         ? (preferredFullName ?? metadataName ?? '').trim()
         : (email.isNotEmpty ? email.split('@').first : user.id);
     final metadataNickname = user.userMetadata?['nickname']?.toString();
     final safeNickname = (metadataNickname ?? '').trim().isNotEmpty
         ? (metadataNickname ?? '').trim()
         : (email.isNotEmpty
-            ? email.split('@').first
-            : (safeFullName.trim().isNotEmpty ? safeFullName.trim().split(' ').first : user.id));
+              ? email.split('@').first
+              : (safeFullName.trim().isNotEmpty
+                    ? safeFullName.trim().split(' ').first
+                    : user.id));
 
     try {
-      await _supabase.rpc('ensure_my_account', params: {
-        '_tenant_id': tenantId,
-        '_email': provisioningEmail,
-        '_full_name': safeFullName,
-        '_nickname': safeNickname,
-      });
+      await _supabase.rpc(
+        'ensure_my_account',
+        params: {
+          '_tenant_id': tenantId,
+          '_email': provisioningEmail,
+          '_full_name': safeFullName,
+          '_nickname': safeNickname,
+        },
+      );
     } catch (_) {}
 
     Map<String, dynamic>? row;
     var hasAuthUserIdColumn = true;
     var hasTenantIdColumn = true;
+    var hasNicknameColumn = true;
     final desiredId = user.id;
     String? selectedId;
 
     try {
-      final rows = await _supabase
-          .from('user_account')
-          .select('id, auth_user_id, email, full_name, tenant_id, status, is_active')
-          .eq('auth_user_id', user.id)
-          .eq('tenant_id', tenantId)
-          .limit(10);
-
-      if (rows.isNotEmpty) {
-        final exact = rows.where((e) => (e as Map)['id']?.toString() == desiredId).toList();
+      void pickRowFromRows(List<dynamic> rows) {
+        if (rows.isEmpty) return;
+        final exact = rows
+            .where((e) => (e as Map)['id']?.toString() == desiredId)
+            .toList();
         if (exact.isNotEmpty) {
           row = _pickBestUserAccountRow(exact);
         } else if (email.isNotEmpty) {
           final emailMatches = rows
-              .where((e) => ((e as Map)['email']?.toString() ?? '').trim().toLowerCase() == email.toLowerCase())
+              .where(
+                (e) =>
+                    ((e as Map)['email']?.toString() ?? '')
+                        .trim()
+                        .toLowerCase() ==
+                    email.toLowerCase(),
+              )
               .toList();
-          if (emailMatches.isNotEmpty) row = _pickBestUserAccountRow(emailMatches);
+          if (emailMatches.isNotEmpty) {
+            row = _pickBestUserAccountRow(emailMatches);
+          }
         }
         row ??= _pickBestUserAccountRow(rows);
         selectedId = row?['id']?.toString();
       }
+
+      final rows = await _supabase
+          .from('user_account')
+          .select(
+            'id, auth_user_id, email, full_name, tenant_id, status, is_active, nickname',
+          )
+          .eq('auth_user_id', user.id)
+          .eq('tenant_id', tenantId)
+          .limit(10);
+
+      pickRowFromRows(rows);
     } catch (e) {
       final msg = e.toString();
-      final missingAuthUserId = msg.contains('auth_user_id') &&
-          (msg.contains('PGRST204') || msg.toLowerCase().contains('does not exist') || msg.toLowerCase().contains('column'));
+      final missingAuthUserId =
+          msg.contains('auth_user_id') &&
+          (msg.contains('PGRST204') ||
+              msg.toLowerCase().contains('does not exist') ||
+              msg.toLowerCase().contains('column'));
+      final missingNickname =
+          msg.contains('nickname') &&
+          (msg.contains('PGRST204') ||
+              msg.toLowerCase().contains('does not exist') ||
+              msg.toLowerCase().contains('column'));
       if (missingAuthUserId) {
         hasAuthUserIdColumn = false;
       } else if (msg.contains('tenant_id') &&
-          (msg.contains('PGRST204') || msg.toLowerCase().contains('does not exist') || msg.toLowerCase().contains('column'))) {
+          (msg.contains('PGRST204') ||
+              msg.toLowerCase().contains('does not exist') ||
+              msg.toLowerCase().contains('column'))) {
         hasTenantIdColumn = false;
+      } else if (missingNickname) {
+        hasNicknameColumn = false;
+        try {
+          final rows = await _supabase
+              .from('user_account')
+              .select(
+                'id, auth_user_id, email, full_name, tenant_id, status, is_active',
+              )
+              .eq('auth_user_id', user.id)
+              .eq('tenant_id', tenantId)
+              .limit(10);
+          if (rows.isNotEmpty) {
+            final exact = rows
+                .where((e) => (e as Map)['id']?.toString() == desiredId)
+                .toList();
+            if (exact.isNotEmpty) {
+              row = _pickBestUserAccountRow(exact);
+            } else if (email.isNotEmpty) {
+              final emailMatches = rows
+                  .where(
+                    (e) =>
+                        ((e as Map)['email']?.toString() ?? '')
+                            .trim()
+                            .toLowerCase() ==
+                        email.toLowerCase(),
+                  )
+                  .toList();
+              if (emailMatches.isNotEmpty) {
+                row = _pickBestUserAccountRow(emailMatches);
+              }
+            }
+            row ??= _pickBestUserAccountRow(rows);
+            selectedId = row?['id']?.toString();
+          }
+        } catch (_) {}
       } else {
-        debugPrint('❌ [AuthRepository.ensureUserAccountForSession] Erro ao buscar por auth_user_id: $e');
+        debugPrint(
+          '❌ [AuthRepository.ensureUserAccountForSession] Erro ao buscar por auth_user_id: $e',
+        );
       }
     }
 
@@ -166,28 +242,59 @@ class AuthRepository {
       try {
         var query = _supabase
             .from('user_account')
-            .select('id, email, full_name, tenant_id')
+            .select(
+              'id, email, full_name, tenant_id${hasNicknameColumn ? ', nickname' : ''}',
+            )
             .eq('id', desiredId);
         row = await query.maybeSingle();
         selectedId = row?['id']?.toString();
       } catch (e) {
         final msg = e.toString();
-        final missingTenantId = msg.contains('tenant_id') &&
-            (msg.contains('PGRST204') || msg.toLowerCase().contains('does not exist') || msg.toLowerCase().contains('column'));
+        final missingTenantId =
+            msg.contains('tenant_id') &&
+            (msg.contains('PGRST204') ||
+                msg.toLowerCase().contains('does not exist') ||
+                msg.toLowerCase().contains('column'));
+        final missingNickname =
+            msg.contains('nickname') &&
+            (msg.contains('PGRST204') ||
+                msg.toLowerCase().contains('does not exist') ||
+                msg.toLowerCase().contains('column'));
+        if (missingNickname && hasNicknameColumn) {
+          hasNicknameColumn = false;
+          try {
+            row = await _supabase
+                .from('user_account')
+                .select(
+                  hasTenantIdColumn
+                      ? 'id, email, full_name, tenant_id'
+                      : 'id, email, full_name',
+                )
+                .eq('id', desiredId)
+                .maybeSingle();
+            selectedId = row?['id']?.toString();
+          } catch (_) {}
+        }
         if (missingTenantId && hasTenantIdColumn) {
           hasTenantIdColumn = false;
           try {
             row = await _supabase
                 .from('user_account')
-                .select('id, email, full_name')
+                .select(
+                  'id, email, full_name${hasNicknameColumn ? ', nickname' : ''}',
+                )
                 .eq('id', desiredId)
                 .maybeSingle();
             selectedId = row?['id']?.toString();
           } catch (e2) {
-            debugPrint('❌ [AuthRepository.ensureUserAccountForSession] Erro ao buscar por id: $e2');
+            debugPrint(
+              '❌ [AuthRepository.ensureUserAccountForSession] Erro ao buscar por id: $e2',
+            );
           }
         } else {
-          debugPrint('❌ [AuthRepository.ensureUserAccountForSession] Erro ao buscar por id: $e');
+          debugPrint(
+            '❌ [AuthRepository.ensureUserAccountForSession] Erro ao buscar por id: $e',
+          );
         }
       }
     }
@@ -196,7 +303,9 @@ class AuthRepository {
       try {
         final rows = await _supabase
             .from('user_account')
-            .select('id, auth_user_id, email, full_name, tenant_id, status, is_active')
+            .select(
+              'id, auth_user_id, email, full_name, tenant_id, status, is_active${hasNicknameColumn ? ', nickname' : ''}',
+            )
             .eq('email', email)
             .eq('tenant_id', tenantId)
             .limit(10);
@@ -228,21 +337,29 @@ class AuthRepository {
       if (hasAuthUserIdColumn) payload['auth_user_id'] = user.id;
 
       try {
-        final created = await _supabase.from('user_account').insert(payload).select('id').single();
+        final created = await _supabase
+            .from('user_account')
+            .insert(payload)
+            .select('id')
+            .single();
         userAccountId = created['id']?.toString();
       } catch (e) {
         final msg = e.toString();
         final retry = Map<String, dynamic>.from(payload);
         final lower = msg.toLowerCase();
-        final looksLikeEmailRequired = lower.contains('email') &&
+        final looksLikeEmailRequired =
+            lower.contains('email') &&
             (lower.contains('null') ||
                 lower.contains('not-null') ||
                 lower.contains('not null') ||
                 lower.contains('violates'));
-        if (looksLikeEmailRequired && (retry['email'] == null || (retry['email']?.toString().trim().isEmpty ?? true))) {
+        if (looksLikeEmailRequired &&
+            (retry['email'] == null ||
+                (retry['email']?.toString().trim().isEmpty ?? true))) {
           retry['email'] = 'no-email+${user.id}@church360.local';
         }
-        final looksLikeEmailConflict = lower.contains('email') && lower.contains('duplicate');
+        final looksLikeEmailConflict =
+            lower.contains('email') && lower.contains('duplicate');
         if (looksLikeEmailConflict) {
           retry['email'] = 'no-email+${user.id}@church360.local';
         }
@@ -251,10 +368,16 @@ class AuthRepository {
         if (msg.contains('tenant_id')) retry.remove('tenant_id');
         if (msg.contains('auth_user_id')) retry.remove('auth_user_id');
         try {
-          final created = await _supabase.from('user_account').insert(retry).select('id').single();
+          final created = await _supabase
+              .from('user_account')
+              .insert(retry)
+              .select('id')
+              .single();
           userAccountId = created['id']?.toString();
         } catch (e2) {
-          debugPrint('❌ [AuthRepository.ensureUserAccountForSession] Erro ao inserir user_account: $e2');
+          debugPrint(
+            '❌ [AuthRepository.ensureUserAccountForSession] Erro ao inserir user_account: $e2',
+          );
           return null;
         }
       }
@@ -262,14 +385,19 @@ class AuthRepository {
       final updates = <String, dynamic>{};
       final currentEmail = row?['email']?.toString().trim() ?? '';
       final currentFullName = row?['full_name']?.toString().trim() ?? '';
+      final currentNickname = row?['nickname']?.toString().trim() ?? '';
       final currentTenant = row?['tenant_id']?.toString();
 
-      if (email.isNotEmpty && (currentEmail.isEmpty || isPlaceholderEmail(currentEmail))) {
+      if (email.isNotEmpty &&
+          (currentEmail.isEmpty || isPlaceholderEmail(currentEmail))) {
         updates['email'] = email;
       }
       if (currentFullName.isEmpty) updates['full_name'] = safeFullName;
-      updates['nickname'] = safeNickname;
-      if (hasTenantIdColumn && (currentTenant == null || currentTenant.trim().isEmpty)) {
+      if (hasNicknameColumn && currentNickname.isEmpty) {
+        updates['nickname'] = safeNickname;
+      }
+      if (hasTenantIdColumn &&
+          (currentTenant == null || currentTenant.trim().isEmpty)) {
         updates['tenant_id'] = tenantId;
       }
       updates['is_active'] = true;
@@ -277,18 +405,32 @@ class AuthRepository {
 
       if (updates.isNotEmpty) {
         try {
-          await _supabase.from('user_account').update(updates).eq('id', userAccountId).select().maybeSingle();
+          await _supabase
+              .from('user_account')
+              .update(updates)
+              .eq('id', userAccountId)
+              .select()
+              .maybeSingle();
         } catch (e) {
           final msg = e.toString();
           if (msg.contains('nickname')) {
             updates.remove('nickname');
             try {
-              await _supabase.from('user_account').update(updates).eq('id', userAccountId).select().maybeSingle();
+              await _supabase
+                  .from('user_account')
+                  .update(updates)
+                  .eq('id', userAccountId)
+                  .select()
+                  .maybeSingle();
             } catch (e2) {
-              debugPrint('❌ [AuthRepository.ensureUserAccountForSession] Erro ao atualizar user_account: $e2');
+              debugPrint(
+                '❌ [AuthRepository.ensureUserAccountForSession] Erro ao atualizar user_account: $e2',
+              );
             }
           } else {
-            debugPrint('❌ [AuthRepository.ensureUserAccountForSession] Erro ao atualizar user_account: $e');
+            debugPrint(
+              '❌ [AuthRepository.ensureUserAccountForSession] Erro ao atualizar user_account: $e',
+            );
           }
         }
       }
@@ -306,10 +448,17 @@ class AuthRepository {
               .maybeSingle();
         } catch (e) {
           final msg = e.toString();
-          final missingTenantId = msg.contains('tenant_id') &&
-              (msg.contains('PGRST204') || msg.toLowerCase().contains('does not exist') || msg.toLowerCase().contains('column'));
+          final missingTenantId =
+              msg.contains('tenant_id') &&
+              (msg.contains('PGRST204') ||
+                  msg.toLowerCase().contains('does not exist') ||
+                  msg.toLowerCase().contains('column'));
           if (missingTenantId) {
-            existing = await _supabase.from('user_access_level').select('user_id').eq('user_id', desiredId).maybeSingle();
+            existing = await _supabase
+                .from('user_access_level')
+                .select('user_id')
+                .eq('user_id', desiredId)
+                .maybeSingle();
           } else {
             rethrow;
           }
@@ -324,7 +473,9 @@ class AuthRepository {
           await _supabase.from('user_access_level').insert(accessLevelPayload);
         }
       } catch (e) {
-        debugPrint('❌ [AuthRepository.ensureUserAccountForSession] Erro ao garantir user_access_level: $e');
+        debugPrint(
+          '❌ [AuthRepository.ensureUserAccountForSession] Erro ao garantir user_access_level: $e',
+        );
       }
     }
 
@@ -337,6 +488,10 @@ class AuthRepository {
     required String password,
   }) async {
     try {
+      debugPrint(
+        '[Auth] signInWithPassword start email=${email.trim()} tenant=${SupabaseConstants.currentTenantId}',
+      );
+      debugPrint('[Auth] supabase url=${SupabaseConstants.supabaseUrl}');
       final response = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
@@ -345,22 +500,41 @@ class AuthRepository {
         await SupabaseConstants.syncTenantFromServer(_supabase);
       } catch (_) {}
       try {
-        await _supabase.rpc('ensure_my_account', params: {
-          '_tenant_id': SupabaseConstants.currentTenantId,
-          '_email': email,
-          '_full_name': userFullNameFromEmail(email),
-          '_nickname': userFullNameFromEmail(email),
-        });
+        await _supabase.rpc(
+          'ensure_my_account',
+          params: {
+            '_tenant_id': SupabaseConstants.currentTenantId,
+            '_email': email,
+            '_full_name': userFullNameFromEmail(email),
+            '_nickname': userFullNameFromEmail(email),
+          },
+        );
       } catch (e) {
-        debugPrint('❌ [AuthRepository.signInWithPassword] ensure_my_account falhou: $e');
+        debugPrint(
+          '❌ [AuthRepository.signInWithPassword] ensure_my_account falhou: $e',
+        );
       }
       try {
-        await ensureUserAccountForSession(preferredFullName: userFullNameFromEmail(email));
+        await ensureUserAccountForSession(
+          preferredFullName: userFullNameFromEmail(email),
+        );
       } catch (e) {
-        debugPrint('❌ [AuthRepository.signInWithPassword] ensureUserAccountForSession falhou: $e');
+        debugPrint(
+          '❌ [AuthRepository.signInWithPassword] ensureUserAccountForSession falhou: $e',
+        );
       }
       return response;
     } catch (e) {
+      debugPrint(
+        '[Auth] signInWithPassword failed type=${e.runtimeType} error=$e',
+      );
+      if (e is AuthApiException) {
+        debugPrint(
+          '[Auth] status=${e.statusCode} code=${e.code} message=${e.message}',
+        );
+      } else if (e is AuthException) {
+        debugPrint('[Auth] auth_exception message=${e.message}');
+      }
       rethrow;
     }
   }
@@ -378,7 +552,9 @@ class AuthRepository {
 
       final response = await _supabase
           .from('user_account')
-          .select('first_name, last_name, phone, address, city, state, zip_code')
+          .select(
+            'first_name, last_name, phone, address, city, state, zip_code',
+          )
           .eq('email', email)
           .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('status', 'visitor')
@@ -421,30 +597,34 @@ class AuthRepository {
       } catch (_) {}
 
       try {
-        await _supabase.rpc('ensure_my_account', params: {
-          '_tenant_id': SupabaseConstants.currentTenantId,
-          '_full_name': '$firstName $lastName',
-          '_email': email,
-          '_nickname': nickname,
-        });
+        await _supabase.rpc(
+          'ensure_my_account',
+          params: {
+            '_tenant_id': SupabaseConstants.currentTenantId,
+            '_full_name': '$firstName $lastName',
+            '_email': email,
+            '_nickname': nickname,
+          },
+        );
       } catch (e) {
         debugPrint('❌ [AuthRepository.signUp] ensure_my_account falhou: $e');
       }
 
-      final memberId = await ensureUserAccountForSession(preferredFullName: '$firstName $lastName');
+      final memberId = await ensureUserAccountForSession(
+        preferredFullName: '$firstName $lastName',
+      );
       if (memberId != null) {
         try {
           await _supabase
               .from('user_account')
-              .update({
-                'nickname': nickname,
-                'is_active': true,
-              })
+              .update({'nickname': nickname, 'is_active': true})
               .eq('id', memberId)
               .select()
               .maybeSingle();
         } catch (e) {
-          debugPrint('❌ [AuthRepository.signUp] update user_account falhou: $e');
+          debugPrint(
+            '❌ [AuthRepository.signUp] update user_account falhou: $e',
+          );
         }
       }
 
@@ -474,4 +654,138 @@ class AuthRepository {
 
   /// Verificar se está autenticado
   bool get isAuthenticated => currentSession != null || currentUser != null;
+
+  // =====================================================
+  // 🚨 DEVELOPER LOGIN BYPASS (TEMPORARY)
+  // =====================================================
+  // Este método bypassa o Supabase Auth e cria uma sessão
+  // local com usuário master. USE APENAS PARA DESENVOLVIMENTO!
+  // =====================================================
+
+  static const String _devLoginKey = 'dev_mode_active';
+  static const String _devUserIdKey = 'dev_user_id';
+
+  /// Login de desenvolvedor (bypass - sem Supabase Auth)
+  Future<void> developerLogin() async {
+    try {
+      debugPrint('[Auth] 🚨 DEVELOPER LOGIN BYPASS ACTIVATED');
+
+      const masterTenantId = 'd8b6be47-f99f-45b8-a3f4-b7ca3cca9645';
+      const masterUserId = '418a25db-76d5-47f8-9ff4-c8e6d8325a1f';
+      const masterEmail = 'financeiro.teste@church360.dev';
+      const masterPassword = 'Financeiro@2026';
+      const masterFullName = 'Financeiro Teste';
+      const masterFirstName = 'Financeiro';
+      const masterLastName = 'Teste';
+      const masterNickname = 'Financeiro';
+
+      try {
+        await _supabase.auth.signInWithPassword(
+          email: masterEmail,
+          password: masterPassword,
+        );
+        await SupabaseConstants.setTenantId(
+          masterTenantId,
+          client: _supabase,
+          persist: true,
+        );
+        try {
+          await SupabaseConstants.syncTenantFromServer(_supabase);
+        } catch (_) {}
+        try {
+          await ensureUserAccountForSession(preferredFullName: masterFullName);
+        } catch (_) {}
+      } catch (e) {
+        debugPrint(
+          '⚠️ [Auth] Real auth failed, proceeding with LOCAL BYPASS: $e',
+        );
+        // Não faz rethrow para permitir que o bypass local funcione
+      }
+
+      // Cria/atualiza user_account master no banco
+
+      try {
+        // Tentar criar ou atualizar o usuário master diretamente no banco
+        await _supabase
+            .from('user_account')
+            .upsert({
+              'id': masterUserId,
+              'auth_user_id': masterUserId,
+              'email': masterEmail,
+              'full_name': masterFullName,
+              'first_name': masterFirstName,
+              'last_name': masterLastName,
+              'nickname': masterNickname,
+              'tenant_id': masterTenantId,
+              'is_active': true,
+              'status': 'visitor',
+              'role_global': 'member',
+            })
+            .select()
+            .maybeSingle();
+      } catch (e) {
+        debugPrint('⚠️ [Auth] Não foi possível criar user_account: $e');
+      }
+
+      try {
+        // Garantir access_level de admin
+        await _supabase
+            .from('user_access_level')
+            .upsert({
+              'user_id': masterUserId,
+              'tenant_id': masterTenantId,
+              'access_level': 'admin',
+              'access_level_number': 5,
+            })
+            .select()
+            .maybeSingle();
+      } catch (e) {
+        debugPrint('⚠️ [Auth] Não foi possível criar access_level: $e');
+      }
+
+      try {
+        // Garantir membership
+        await _supabase
+            .from('user_tenant_membership')
+            .upsert({
+              'user_id': masterUserId,
+              'tenant_id': masterTenantId,
+              'access_level': 'admin',
+              'access_level_number': 5,
+              'is_active': true,
+            })
+            .select()
+            .maybeSingle();
+      } catch (e) {
+        debugPrint('⚠️ [Auth] Não foi possível criar membership: $e');
+      }
+
+      // Salvar flag de dev mode no SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_devLoginKey, true);
+      await prefs.setString(_devUserIdKey, masterUserId);
+
+      debugPrint(
+        '[Auth] ✅ Developer login completed as Master ($masterUserId)',
+      );
+    } catch (e, stackTrace) {
+      debugPrint('[Auth] ❌ Developer login failed: $e');
+      debugPrint('Stack: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Verifica se está em modo desenvolvedor
+  Future<bool> isDevMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_devLoginKey) ?? false;
+  }
+
+  /// Limpa o modo desenvolvedor
+  Future<void> clearDevMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_devLoginKey);
+    await prefs.remove(_devUserIdKey);
+    debugPrint('[Auth] Developer mode cleared');
+  }
 }

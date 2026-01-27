@@ -35,6 +35,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
   bool _isSaving = false;
   final Map<String, List<Map<String, String>>> _assignmentsByEvent = {};
   final Map<String, String> _memberNames = {}; // userId -> name
+  final Map<String, String> _memberPhotoUrls = {};
   final List<String> _functions = [];
   final Map<String, int> _requiredByFunction = {};
   final Map<String, String> _funcCategory = {};
@@ -62,12 +63,22 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     // Mapear nomes dos membros elegíveis (todos dos ministérios selecionados)
     final repo = ref.read(ministriesRepositoryProvider);
     final List<dynamic> allMembers = [];
+    final Set<String> allMemberIds = {};
     for (final mid in ids) {
       final members = await repo.getMinistryMembers(mid);
       for (final m in members) {
         _memberNames[m.memberId] = m.memberName;
+        allMemberIds.add(m.memberId.toString());
       }
       allMembers.addAll(members);
+    }
+    try {
+      final photos = await repo.getUserPhotoUrlsByIds(allMemberIds.where((e) => e.isNotEmpty).toList());
+      _memberPhotoUrls
+        ..clear()
+        ..addAll(photos);
+    } catch (_) {
+      _memberPhotoUrls.clear();
     }
     // Coletar funções a partir dos contextos do cargo no ministério (união)
     String norm(String s) {
@@ -207,6 +218,10 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       try {
         final names = await repo.getUserNamesByIds(missingIds);
         _memberNames.addAll(names);
+      } catch (_) {}
+      try {
+        final photos = await repo.getUserPhotoUrlsByIds(missingIds);
+        _memberPhotoUrls.addAll(photos);
       } catch (_) {}
     }
     // Ordenação por categorias
@@ -707,6 +722,30 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
   }
 
   Widget _buildGrid(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    Widget fallbackAvatar() {
+      return CircleAvatar(
+        radius: 12,
+        backgroundColor: colorScheme.primaryContainer,
+        foregroundColor: colorScheme.onPrimaryContainer,
+        child: const Icon(Icons.security, size: 14),
+      );
+    }
+
+    Widget avatarFor(String memberId) {
+      final url = (_memberPhotoUrls[memberId] ?? '').trim();
+      if (url.isEmpty) return fallbackAvatar();
+      return ClipOval(
+        child: Image.network(
+          url,
+          width: 24,
+          height: 24,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => fallbackAvatar(),
+        ),
+      );
+    }
+
     final header = [
       const DataColumn(label: Text('DATA')),
       const DataColumn(label: Text('DIA')),
@@ -741,7 +780,23 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
                   })(),
                   items: allowedLocal
                       .toSet()
-                      .map((uid) => DropdownMenuItem(value: uid, child: Text(_memberNames[uid] ?? uid)))
+                      .map(
+                        (uid) => DropdownMenuItem(
+                          value: uid,
+                          child: Row(
+                            children: [
+                              avatarFor(uid),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  _memberNames[uid] ?? uid,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
                       .toList(),
                   isExpanded: true,
                   onChanged: allowedLocal.isEmpty ? null : (uid) {

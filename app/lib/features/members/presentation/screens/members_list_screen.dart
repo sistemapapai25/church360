@@ -23,6 +23,13 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
   bool _showInactive = false; // Toggle para mostrar inativos/desligados
   String? _selectedTagId; // null = sem filtro de tag
   String? _expandedMemberId; // controla qual card está expandido
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +108,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                     PermissionGate(
                       permission: 'members.create',
                       child: ElevatedButton.icon(
-                        onPressed: () => context.push('/members/new'),
+                        onPressed: () => context.push('/members/new?status=member_active&type=membro'),
                         icon: const Icon(Icons.add, size: 18),
                         label: const Text('Novo'),
                         style: CommunityDesign.pillButtonStyle(
@@ -146,6 +153,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                       children: [
                         Expanded(
                           child: TextField(
+                            controller: _searchController,
                             onChanged: (value) {
                               setState(() => _searchQuery = value);
                             },
@@ -153,6 +161,17 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                               hintText: 'Digite o nome ou apelido...',
                               hintStyle: CommunityDesign.metaStyle(context),
                               prefixIcon: const Icon(Icons.search, size: 20),
+                              suffixIcon: _searchQuery.trim().isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear),
+                                      onPressed: () {
+                                        setState(() {
+                                          _searchController.clear();
+                                          _searchQuery = '';
+                                        });
+                                      },
+                                    )
+                                  : null,
                               filled: true,
                               fillColor: Theme.of(context)
                                   .colorScheme

@@ -35,11 +35,19 @@ param(
   [int]$LinkChapter = 0,
   [int]$LinkVerse = 0,
   [switch]$LinkDryRun,
+  [switch]$ApplyManualSeeds,
+  [switch]$ManualSeedsDryRun,
   [switch]$DownloadTahotForBook,
   [switch]$DownloadTagntForBook,
   [switch]$SurveyMissingLexemeLinks,
   [ValidateSet('book', 'ot')]
-  [string]$SurveyScope = 'book'
+  [string]$SurveyScope = 'book',
+  [switch]$ReportCoverage,
+  [switch]$ReportCoverageNt,
+  [switch]$ReportOtRanking,
+  [int]$ReportOtRankingLimit = 12,
+  [switch]$ReportNtRanking,
+  [int]$ReportNtRankingLimit = 12
 )
 
 Write-Host "Church 360 - Tokenização AT (ARC) por livro" -ForegroundColor Cyan
@@ -166,15 +174,15 @@ function Get-StepBibleOtBookCodeForBookId {
     23 { return "Isa" }
     24 { return "Jer" }
     25 { return "Lam" }
-    26 { return "Eze" }
+    26 { return "Ezk" }
     27 { return "Dan" }
     28 { return "Hos" }
-    29 { return "Joe" }
+    29 { return "Jol" }
     30 { return "Amo" }
     31 { return "Oba" }
     32 { return "Jon" }
     33 { return "Mic" }
-    34 { return "Nah" }
+    34 { return "Nam" }
     35 { return "Hab" }
     36 { return "Zep" }
     37 { return "Hag" }
@@ -352,6 +360,8 @@ if ($needsDbAuth) {
     $SecurePwd = Read-Host "Digite a senha do banco de dados" -AsSecureString
     $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecurePwd)
     $PlainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+    $env:SUPABASE_DB_PASSWORD = $PlainPassword
+    $DbPasswordEnv = $PlainPassword
   } else {
     $PlainPassword = $DbPasswordEnv
   }
@@ -947,7 +957,7 @@ function Get-StepBibleNtBookCodeForBookId {
 
   switch ($BookId) {
     40 { return "Mat" }
-    41 { return "Mar" }
+    41 { return "Mrk" }
     42 { return "Luk" }
     43 { return "Jhn" }
     44 { return "Act" }
@@ -1293,6 +1303,102 @@ WHERE v.book_id = $BookId AND t.lexeme_id IS NULL
 GROUP BY lower(trim(t.surface))
 ORDER BY total DESC, surface ASC
 LIMIT 30;
+"@
+
+$reportCoverageSql = @"
+WITH tok AS (
+  SELECT
+    count(*) AS tokens_total,
+    count(*) FILTER (WHERE t.lexeme_id IS NOT NULL AND l.strong_code LIKE 'H%') AS tokens_lexeme_hebraico
+  FROM public.bible_verse_token t
+  JOIN public.bible_verse v ON v.id = t.verse_id
+  LEFT JOIN public.bible_lexeme l ON l.id = t.lexeme_id
+  WHERE v.book_id = $BookId
+)
+SELECT
+  tokens_total,
+  tokens_lexeme_hebraico,
+  round((tokens_lexeme_hebraico::numeric / NULLIF(tokens_total,0)) * 100, 2) AS pct_hebraico
+FROM tok;
+"@
+
+$reportCoverageNtSql = @"
+WITH tok AS (
+  SELECT
+    count(*) AS tokens_total,
+    count(*) FILTER (WHERE t.lexeme_id IS NOT NULL AND l.strong_code LIKE 'G%') AS tokens_lexeme_grego
+  FROM public.bible_verse_token t
+  JOIN public.bible_verse v ON v.id = t.verse_id
+  LEFT JOIN public.bible_lexeme l ON l.id = t.lexeme_id
+  WHERE v.book_id = $BookId
+)
+SELECT
+  tokens_total,
+  tokens_lexeme_grego,
+  round((tokens_lexeme_grego::numeric / NULLIF(tokens_total,0)) * 100, 2) AS pct_grego
+FROM tok;
+"@
+
+$reportOtRankingSql = @"
+WITH book_tok AS (
+  SELECT
+    v.book_id,
+    count(*) AS tokens_total,
+    count(*) FILTER (WHERE t.lexeme_id IS NOT NULL AND l.strong_code LIKE 'H%') AS tokens_lexeme_hebraico
+  FROM public.bible_verse_token t
+  JOIN public.bible_verse v ON v.id = t.verse_id
+  LEFT JOIN public.bible_lexeme l ON l.id = t.lexeme_id
+  JOIN public.bible_book b ON b.id = v.book_id
+  WHERE b.testament = 'OT'
+  GROUP BY v.book_id
+),
+book_pct AS (
+  SELECT
+    book_id,
+    tokens_total,
+    tokens_lexeme_hebraico,
+    round((tokens_lexeme_hebraico::numeric / NULLIF(tokens_total,0)) * 100, 2) AS pct_hebraico
+  FROM book_tok
+)
+SELECT
+  book_id,
+  tokens_total,
+  tokens_lexeme_hebraico,
+  pct_hebraico
+FROM book_pct
+ORDER BY pct_hebraico ASC, book_id ASC
+LIMIT $ReportOtRankingLimit;
+"@
+
+$reportNtRankingSql = @"
+WITH book_tok AS (
+  SELECT
+    v.book_id,
+    count(*) AS tokens_total,
+    count(*) FILTER (WHERE t.lexeme_id IS NOT NULL AND l.strong_code LIKE 'G%') AS tokens_lexeme_grego
+  FROM public.bible_verse_token t
+  JOIN public.bible_verse v ON v.id = t.verse_id
+  LEFT JOIN public.bible_lexeme l ON l.id = t.lexeme_id
+  JOIN public.bible_book b ON b.id = v.book_id
+  WHERE b.testament = 'NT'
+  GROUP BY v.book_id
+),
+book_pct AS (
+  SELECT
+    book_id,
+    tokens_total,
+    tokens_lexeme_grego,
+    round((tokens_lexeme_grego::numeric / NULLIF(tokens_total,0)) * 100, 2) AS pct_grego
+  FROM book_tok
+)
+SELECT
+  book_id,
+  tokens_total,
+  tokens_lexeme_grego,
+  pct_grego
+FROM book_pct
+ORDER BY pct_grego ASC, book_id ASC
+LIMIT $ReportNtRankingLimit;
 "@
 
 $forceRetokenizeSql = "false"
@@ -2093,11 +2199,16 @@ BEGIN
       sot.book_id,
       sot.chapter,
       sot.verse,
-      upper(trim(sot.strong_code)) AS strong_code
+      regexp_replace(upper(trim(sot.strong_code)), '^([HG][0-9]{1,5}).*$', '\1') AS strong_code
     FROM public.stepbible_original_token sot
     WHERE sot.book_id = p_book_id
       AND NULLIF(trim(sot.strong_code), '') IS NOT NULL
-    GROUP BY sot.book_id, sot.chapter, sot.verse, upper(trim(sot.strong_code))
+      AND NULLIF(trim(regexp_replace(upper(trim(sot.strong_code)), '^([HG][0-9]{1,5}).*$', '\1')), '') IS NOT NULL
+    GROUP BY
+      sot.book_id,
+      sot.chapter,
+      sot.verse,
+      regexp_replace(upper(trim(sot.strong_code)), '^([HG][0-9]{1,5}).*$', '\1')
   ),
   strong_verses AS (
     SELECT strong_code, count(*) AS verses_cnt
@@ -2235,11 +2346,16 @@ step_verse_strong AS (
     sot.book_id,
     sot.chapter,
     sot.verse,
-    upper(trim(sot.strong_code)) AS strong_code
+    regexp_replace(upper(trim(sot.strong_code)), '^([HG][0-9]{1,5}).*$', '\1') AS strong_code
   FROM public.stepbible_original_token sot
   WHERE sot.book_id = $BookId
     AND NULLIF(trim(sot.strong_code), '') IS NOT NULL
-  GROUP BY sot.book_id, sot.chapter, sot.verse, upper(trim(sot.strong_code))
+    AND NULLIF(trim(regexp_replace(upper(trim(sot.strong_code)), '^([HG][0-9]{1,5}).*$', '\1')), '') IS NOT NULL
+  GROUP BY
+    sot.book_id,
+    sot.chapter,
+    sot.verse,
+    regexp_replace(upper(trim(sot.strong_code)), '^([HG][0-9]{1,5}).*$', '\1')
 ),
 strong_verses AS (
   SELECT strong_code, count(*) AS verses_cnt
@@ -2325,6 +2441,150 @@ SELECT
   (SELECT count(*) FROM eligible_tokens) AS tokens_que_seriam_vinculados;
 "@
 
+$autoLinkStepBibleCooccurrenceApplySql = @"
+WITH pt_tokens AS (
+  SELECT
+    v.book_id,
+    v.chapter,
+    v.verse,
+    t.id AS token_id,
+    lower(trim(t.surface)) AS surface
+  FROM public.bible_verse_token t
+  JOIN public.bible_verse v ON v.id = t.verse_id
+  WHERE v.book_id = $BookId
+    AND t.lexeme_id IS NULL
+    AND NULLIF(trim(t.surface), '') IS NOT NULL
+    AND length(lower(trim(t.surface))) >= 3
+),
+pt_verse_surface AS (
+  SELECT book_id, chapter, verse, surface
+  FROM pt_tokens
+  GROUP BY book_id, chapter, verse, surface
+),
+step_verse_strong AS (
+  SELECT
+    sot.book_id,
+    sot.chapter,
+    sot.verse,
+    regexp_replace(upper(trim(sot.strong_code)), '^([HG][0-9]{1,5}).*$', '\1') AS strong_code
+  FROM public.stepbible_original_token sot
+  WHERE sot.book_id = $BookId
+    AND NULLIF(trim(sot.strong_code), '') IS NOT NULL
+    AND NULLIF(trim(regexp_replace(upper(trim(sot.strong_code)), '^([HG][0-9]{1,5}).*$', '\1')), '') IS NOT NULL
+  GROUP BY
+    sot.book_id,
+    sot.chapter,
+    sot.verse,
+    regexp_replace(upper(trim(sot.strong_code)), '^([HG][0-9]{1,5}).*$', '\1')
+),
+strong_verses AS (
+  SELECT strong_code, count(*) AS verses_cnt
+  FROM step_verse_strong
+  GROUP BY strong_code
+),
+surface_verses AS (
+  SELECT surface, count(*) AS verses_cnt
+  FROM pt_verse_surface
+  GROUP BY surface
+),
+co AS (
+  SELECT
+    s.strong_code,
+    p.surface,
+    count(*) AS co_verses
+  FROM step_verse_strong s
+  JOIN pt_verse_surface p
+    ON p.book_id = s.book_id
+    AND p.chapter = s.chapter
+    AND p.verse = s.verse
+  GROUP BY s.strong_code, p.surface
+),
+scored AS (
+  SELECT
+    co.strong_code,
+    co.surface,
+    co.co_verses,
+    sv.verses_cnt AS strong_verses,
+    pv.verses_cnt AS surface_verses,
+    (co.co_verses::real / NULLIF(sv.verses_cnt, 0)) AS precision
+  FROM co
+  JOIN strong_verses sv ON sv.strong_code = co.strong_code
+  JOIN surface_verses pv ON pv.surface = co.surface
+  WHERE co.co_verses >= 3
+),
+best_for_strong AS (
+  SELECT
+    s.*,
+    row_number() OVER (
+      PARTITION BY strong_code
+      ORDER BY precision DESC, co_verses DESC, surface_verses ASC, surface ASC
+    ) AS rn
+  FROM scored s
+  WHERE precision >= 0.6
+),
+best_strong_pick AS (
+  SELECT strong_code, surface
+  FROM best_for_strong
+  WHERE rn = 1
+),
+best_for_surface AS (
+  SELECT
+    s.*,
+    row_number() OVER (
+      PARTITION BY surface
+      ORDER BY precision DESC, co_verses DESC, strong_code ASC
+    ) AS rn
+  FROM scored s
+  WHERE precision >= 0.6
+),
+mutual AS (
+  SELECT b.strong_code, b.surface
+  FROM best_strong_pick b
+  JOIN best_for_surface s
+    ON s.surface = b.surface
+    AND s.strong_code = b.strong_code
+    AND s.rn = 1
+),
+target_lexeme AS (
+  SELECT
+    m.strong_code,
+    m.surface,
+    l.id AS lexeme_id
+  FROM mutual m
+  JOIN public.bible_lexeme l
+    ON l.strong_code = m.strong_code
+),
+eligible_tokens AS (
+  SELECT DISTINCT
+    pt.token_id,
+    tl.lexeme_id
+  FROM pt_tokens pt
+  JOIN target_lexeme tl
+    ON tl.surface = pt.surface
+  JOIN step_verse_strong sv
+    ON sv.book_id = pt.book_id
+    AND sv.chapter = pt.chapter
+    AND sv.verse = pt.verse
+    AND sv.strong_code = tl.strong_code
+),
+updated AS (
+  UPDATE public.bible_verse_token t
+  SET
+    lexeme_id = e.lexeme_id,
+    confidence = COALESCE(t.confidence, 0.75),
+    source = CASE
+      WHEN NULLIF(trim(t.source), '') IS NULL THEN 'stepbible cooccurrence'
+      ELSE t.source || ' | ' || 'stepbible cooccurrence'
+    END
+  FROM eligible_tokens e
+  WHERE t.id = e.token_id
+    AND t.lexeme_id IS NULL
+  RETURNING 1
+)
+SELECT count(*) AS tokens_vinculados
+FROM updated;
+"@
+
 if ($BackfillStepBibleTokenLexemeIds) {
   Write-Host "Modo BackfillStepBibleTokenLexemeIds: vou normalizar strong_code e preencher lexeme_id no STEPBible." -ForegroundColor Cyan
   $backfillSql = @"
@@ -2384,6 +2644,30 @@ SELECT
   (SELECT count(*) FROM public.stepbible_original_token WHERE book_id = $BookId AND lexeme_id IS NULL AND NULLIF(trim(strong_code), '') IS NOT NULL) AS step_tokens_ainda_sem_lexeme;
 "@
   Invoke-Psql $backfillSql
+  exit 0
+}
+
+if ($ReportCoverage -or $ReportCoverageNt -or $ReportOtRanking -or $ReportNtRanking) {
+  if ($ReportCoverage) {
+    Write-Host "Relatório: cobertura (H%) do livro" -ForegroundColor Cyan
+    Invoke-Psql $reportCoverageSql
+  }
+
+  if ($ReportCoverageNt) {
+    Write-Host "Relatório: cobertura (G%) do livro" -ForegroundColor Cyan
+    Invoke-Psql $reportCoverageNtSql
+  }
+
+  if ($ReportOtRanking) {
+    Write-Host ("Relatório: ranking OT (menores H%) - top {0}" -f $ReportOtRankingLimit) -ForegroundColor Cyan
+    Invoke-Psql $reportOtRankingSql
+  }
+
+  if ($ReportNtRanking) {
+    Write-Host ("Relatório: ranking NT (menores G%) - top {0}" -f $ReportNtRankingLimit) -ForegroundColor Cyan
+    Invoke-Psql $reportNtRankingSql
+  }
+
   exit 0
 }
 
@@ -2539,8 +2823,13 @@ if ($OnlyAutoLink) {
       Invoke-Psql $autoLinkStepBibleCooccurrenceDryRunSql
     } else {
       Write-Host "AutoLinkFromStepBibleCooccurrence: aplicando vínculos por coocorrência (Strong <-> surface)..." -ForegroundColor Cyan
-      Invoke-Psql $ensureAutoLinkStepBibleCooccurrenceFnSql
-      Invoke-Psql ("SELECT public.auto_link_bible_tokens_from_stepbible_cooccurrence({0}, true, 3, 0.6::real, 3, 0.75::real, 'stepbible cooccurrence') AS tokens_vinculados;" -f $BookId)
+      $prevDbMode = $DbMode
+      $DbMode = 'direct'
+      try {
+        Invoke-Psql $autoLinkStepBibleCooccurrenceApplySql
+      } finally {
+        $DbMode = $prevDbMode
+      }
       Write-Host "Validação após auto-link:" -ForegroundColor Cyan
       Invoke-Psql $validateSql
     }
@@ -2559,6 +2848,197 @@ if ($LinkSingleToken) {
   } else {
     Write-Host "LinkDryRun ativo: nada foi alterado no banco." -ForegroundColor Yellow
   }
+  exit 0
+}
+
+if ($ApplyManualSeeds) {
+  if ($SkipDb) {
+    throw "ApplyManualSeeds requer acesso ao banco (não use -SkipDb)."
+  }
+
+  $seeds = @(
+    @{ surface = "jesus"; strong_code = "G2424" }
+    @{ surface = "deus"; strong_code = "G2316" }
+    @{ surface = "senhor"; strong_code = "G2962" }
+    @{ surface = "cristo"; strong_code = "G5547" }
+    @{ surface = "pai"; strong_code = "G3962" }
+    @{ surface = "filho"; strong_code = "G5207" }
+    @{ surface = "homem"; strong_code = "G0444" }
+    @{ surface = "discípulos"; strong_code = "G3101" }
+    @{ surface = "discÃ­pulos"; strong_code = "G3101" }
+    @{ surface = "reino"; strong_code = "G0932" }
+    @{ surface = "vida"; strong_code = "G2222" }
+    @{ surface = "verdade"; strong_code = "G0225" }
+    @{ surface = "fé"; strong_code = "G4102" }
+    @{ surface = "fÃ©"; strong_code = "G4102" }
+    @{ surface = "pecado"; strong_code = "G0266" }
+    @{ surface = "amor"; strong_code = "G0026" }
+    @{ surface = "espírito"; strong_code = "G4151" }
+    @{ surface = "espÃ­rito"; strong_code = "G4151" }
+    @{ surface = "terra"; strong_code = "G1093" }
+    @{ surface = "céu"; strong_code = "G3772" }
+    @{ surface = "céus"; strong_code = "G3772" }
+    @{ surface = "cÃ©u"; strong_code = "G3772" }
+    @{ surface = "cÃ©us"; strong_code = "G3772" }
+    @{ surface = "disse"; strong_code = "G3004" }
+    @{ surface = "disse-lhes"; strong_code = "G3004" }
+    @{ surface = "graça"; strong_code = "G5485" }
+    @{ surface = "graÃ§a"; strong_code = "G5485" }
+    @{ surface = "paz"; strong_code = "G1515" }
+    @{ surface = "irmãos"; strong_code = "G0080" }
+    @{ surface = "irmÃ£os"; strong_code = "G0080" }
+    @{ surface = "igreja"; strong_code = "G1577" }
+    @{ surface = "salvação"; strong_code = "G4991" }
+    @{ surface = "salvaÃ§Ã£o"; strong_code = "G4991" }
+    @{ surface = "glória"; strong_code = "G1391" }
+    @{ surface = "glÃ³ria"; strong_code = "G1391" }
+    @{ surface = "paulo"; strong_code = "G3972" }
+    @{ surface = "timóteo"; strong_code = "G5095" }
+    @{ surface = "timÃ³teo"; strong_code = "G5095" }
+    @{ surface = "evangelho"; strong_code = "G2098" }
+    @{ surface = "joão"; strong_code = "G2491" }
+    @{ surface = "joÃ£o"; strong_code = "G2491" }
+    @{ surface = "maria"; strong_code = "G3137" }
+    @{ surface = "israel"; strong_code = "G2474" }
+    @{ surface = "davi"; strong_code = "G1138" }
+    @{ surface = "jerusalém"; strong_code = "G2414" }
+    @{ surface = "jerusalÃ©m"; strong_code = "G2414" }
+    @{ surface = "anjo"; strong_code = "G0032" }
+    @{ surface = "anjos"; strong_code = "G0032" }
+    @{ surface = "outra"; strong_code = "G3825" }
+    @{ surface = "tudo"; strong_code = "G3745" }
+    @{ surface = "muitos"; strong_code = "G4183" }
+    @{ surface = "povo"; strong_code = "G2992" }
+    @{ surface = "fora"; strong_code = "G1854" }
+    @{ surface = "palavra"; strong_code = "G3056" }
+    @{ surface = "mulher"; strong_code = "G1135" }
+    @{ surface = "mortos"; strong_code = "G3498" }
+    @{ surface = "então"; strong_code = "G5119" }
+    @{ surface = "entÃ£o"; strong_code = "G5119" }
+    @{ surface = "caminho"; strong_code = "G3598" }
+    @{ surface = "lugar"; strong_code = "G5117" }
+    @{ surface = "alguém"; strong_code = "G5100" }
+    @{ surface = "alguÃ©m"; strong_code = "G5100" }
+    @{ surface = "pães"; strong_code = "G0740" }
+    @{ surface = "pÃ£es"; strong_code = "G0740" }
+    @{ surface = "hora"; strong_code = "G5610" }
+    @{ surface = "assentado"; strong_code = "G2521" }
+    @{ surface = "cidade"; strong_code = "G4172" }
+    @{ surface = "dois"; strong_code = "G1417" }
+    @{ surface = "morte"; strong_code = "G2288" }
+    @{ surface = "primeiro"; strong_code = "G4413" }
+    @{ surface = "vestes"; strong_code = "G2440" }
+    @{ surface = "coração"; strong_code = "G2588" }
+    @{ surface = "coraÃ§Ã£o"; strong_code = "G2588" }
+    @{ surface = "cada"; strong_code = "G1538" }
+    @{ surface = "três"; strong_code = "G5140" }
+    @{ surface = "trÃªs"; strong_code = "G5140" }
+    @{ surface = "fogo"; strong_code = "G4442" }
+    @{ surface = "parábola"; strong_code = "G3850" }
+    @{ surface = "parÃ¡bola"; strong_code = "G3850" }
+    @{ surface = "pois"; strong_code = "G5028" }
+    @{ surface = "digo"; strong_code = "G0281" }
+    @{ surface = "fariseus"; strong_code = "G5330" }
+    @{ surface = "irmão"; strong_code = "G0080" }
+    @{ surface = "irmÃ£o"; strong_code = "G0080" }
+    @{ surface = "qualquer"; strong_code = "G0302" }
+    @{ surface = "escribas"; strong_code = "G1122" }
+    @{ surface = "diante"; strong_code = "G1715" }
+    @{ surface = "campo"; strong_code = "G0068" }
+    @{ surface = "sacerdotes"; strong_code = "G0749" }
+    @{ surface = "servo"; strong_code = "G1401" }
+  )
+
+  Write-Host ("Modo ApplyManualSeeds: book_id={0} seeds={1} dry_run={2}" -f $BookId, $seeds.Count, $ManualSeedsDryRun) -ForegroundColor Cyan
+  Invoke-Psql ("SELECT id AS book_id, testament FROM public.bible_book WHERE id = {0};" -f $BookId)
+
+  $seedDryRunSqlTemplate = @'
+WITH target_tokens AS (
+  SELECT
+    t.id,
+    lower(trim(t.surface)) AS surface
+  FROM public.bible_verse_token t
+  JOIN public.bible_verse v ON v.id = t.verse_id
+  WHERE v.book_id = __BOOK_ID__
+    AND t.lexeme_id IS NULL
+    AND lower(trim(t.surface)) = lower(trim('__SURFACE__'))
+)
+SELECT
+  '__SURFACE__' AS surface,
+  '__STRONG__' AS strong_code,
+  count(*) AS tokens_missing_lexeme
+FROM target_tokens;
+'@
+
+  $seedApplySqlTemplate = @'
+WITH upserted AS (
+  INSERT INTO public.bible_lexeme (strong_code, language, updated_at)
+  VALUES (upper(trim('__STRONG__')), 'greek', now())
+  ON CONFLICT (strong_code) DO UPDATE SET
+    language = EXCLUDED.language,
+    updated_at = now()
+  RETURNING id
+),
+lex AS (
+  SELECT id FROM upserted
+  UNION ALL
+  SELECT l.id
+  FROM public.bible_lexeme l
+  WHERE l.strong_code = upper(trim('__STRONG__'))
+    AND NOT EXISTS (SELECT 1 FROM upserted)
+  LIMIT 1
+),
+target_tokens AS (
+  SELECT t.id
+  FROM public.bible_verse_token t
+  JOIN public.bible_verse v ON v.id = t.verse_id
+  WHERE v.book_id = __BOOK_ID__
+    AND t.lexeme_id IS NULL
+    AND lower(trim(t.surface)) = lower(trim('__SURFACE__'))
+),
+updated AS (
+  UPDATE public.bible_verse_token t2
+  SET
+    lexeme_id = (SELECT id FROM lex),
+    confidence = 1.0,
+    source = CASE
+      WHEN NULLIF(trim(t2.source), '') IS NULL THEN '__SOURCE__'
+      ELSE t2.source || ' | ' || '__SOURCE__'
+    END
+  FROM target_tokens tt
+  WHERE t2.id = tt.id
+  RETURNING 1
+)
+SELECT
+  '__SURFACE__' AS surface,
+  '__STRONG__' AS strong_code,
+  (SELECT count(*) FROM target_tokens) AS tokens_missing_lexeme,
+  (SELECT count(*) FROM updated) AS tokens_updated;
+'@
+
+  foreach ($seed in $seeds) {
+    $surfaceSql = ([string]$seed.surface).Replace("'", "''")
+    $strongSql = ([string]$seed.strong_code).Replace("'", "''")
+    $sourceSql = ("manual seed {0}" -f $strongSql).Replace("'", "''")
+
+    if ($ManualSeedsDryRun) {
+      $sql = $seedDryRunSqlTemplate
+      $sql = $sql.Replace('__BOOK_ID__', [string]$BookId)
+      $sql = $sql.Replace('__SURFACE__', $surfaceSql)
+      $sql = $sql.Replace('__STRONG__', $strongSql)
+      Invoke-Psql $sql
+    } else {
+      $sql = $seedApplySqlTemplate
+      $sql = $sql.Replace('__BOOK_ID__', [string]$BookId)
+      $sql = $sql.Replace('__SURFACE__', $surfaceSql)
+      $sql = $sql.Replace('__STRONG__', $strongSql)
+      $sql = $sql.Replace('__SOURCE__', $sourceSql)
+      Invoke-Psql $sql
+    }
+  }
+
+  Write-Host "Validação após seeds:" -ForegroundColor Cyan
+  Invoke-Psql $validateSql
   exit 0
 }
 

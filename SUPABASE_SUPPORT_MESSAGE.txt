@@ -1,0 +1,51 @@
+Subject: Auth Schema RLS Enabled - Blocking All Authentication
+
+---
+
+Hi Supabase Team,
+
+I need urgent help with my project. Row Level Security (RLS) was accidentally enabled on all tables in the auth schema, which is now blocking all authentication attempts.
+
+Project Details:
+- Project ID: khsupilgpzpjuociippe
+- Project URL: https://khsupilgpzpjuociippe.supabase.co
+- Region: South America (São Paulo)
+
+Error:
+When users try to login, they receive:
+{"code":"unexpected_failure","message":"Database error querying schema"}
+
+Diagnosis:
+I ran this query and confirmed 16 out of 20 auth tables have RLS enabled:
+
+SELECT schemaname, tablename, rowsecurity 
+FROM pg_tables 
+WHERE schemaname = 'auth';
+
+Affected tables:
+✗ auth.users (rowsecurity = true)
+✗ auth.identities (rowsecurity = true)
+✗ auth.sessions (rowsecurity = true)
+✗ auth.refresh_tokens (rowsecurity = true)
+✗ auth.instances (rowsecurity = true)
+✗ auth.schema_migrations (rowsecurity = true)
+✗ auth.audit_log_entries (rowsecurity = true)
+✗ auth.saml_providers (rowsecurity = true)
+✗ auth.saml_relay_states (rowsecurity = true)
+✗ auth.sso_providers (rowsecurity = true)
+✗ auth.sso_domains (rowsecurity = true)
+✗ auth.mfa_factors (rowsecurity = true)
+✗ auth.mfa_challenges (rowsecurity = true)
+✗ auth.mfa_amr_claims (rowsecurity = true)
+✗ auth.flow_state (rowsecurity = true)
+✗ auth.one_time_tokens (rowsecurity = true)
+
+What I tried:
+I attempted to disable RLS via SQL Editor and SECURITY DEFINER functions, but received "must be owner of table" errors, which is expected since these tables are owned by supabase_auth_admin.
+
+Request:
+Could you please disable RLS on all auth.* tables or restore the default auth schema configuration? This is blocking all users from logging into the application.
+
+Thank you for your help!
+
+Best regards

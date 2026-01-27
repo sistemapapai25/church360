@@ -539,3 +539,13 @@ class Member {
   /// Verificar se foi transferido
   bool get isTransferred => status == 'transferred';
 }
+
+class ProfessionOption {
+  final String id;
+  final String label;
+
+  const ProfessionOption({
+    required this.id,
+    required this.label,
+  });
+}

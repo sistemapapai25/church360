@@ -368,10 +368,9 @@ class _WorshipServiceCard extends ConsumerWidget {
       case WorshipType.friday:
         return Icons.favorite;
       case WorshipType.special:
-        return Icons.star;
+        return Icons.celebration;
       case WorshipType.other:
         return Icons.church;
     }
   }
 }
-

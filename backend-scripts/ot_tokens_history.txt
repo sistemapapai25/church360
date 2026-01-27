@@ -1,0 +1,96 @@
+Church360 — Histórico de processamento de tokens do AT (ARC ↔ STEPBible)
+
+Projeto: Church360
+Pasta: c:\Users\prber\projetos\Church360
+Script principal: backend-scripts\import_stepbible_ot_tokens.ps1
+
+Objetivo
+- Aumentar cobertura de tokens com lexeme_id hebraico (Strong H%) nos livros do AT.
+- Usar o pipeline padrão: OnlyAutoLink → BuildAlignmentFromLexemes → Phase4Auto.
+- Validar integridade estrutural dos tokens por livro:
+  - tokens_out_of_bounds = 0
+  - tokens_overlap_or_backwards = 0
+- Critérios de parada por livro:
+  - ganho de cobertura (H%) < 0,5pp, ou
+  - Phase4Auto vinculou 0 tokens (sem efeito).
+
+Observação sobre cobertura (H%)
+- Métrica usada: pct_hebraico = tokens com lexeme_id cujo strong_code LIKE 'H%' / tokens_total.
+
+Execuções (ordem cronológica aproximada)
+
+1) Lamentações (book_id=25)
+- Problema inicial: Phase4Auto foi executado com range de capítulos incorreto (1–12), mas o livro possui 5 capítulos.
+- Correção: limitar Phase4 para capítulos 1–5.
+- Resultado: sem ganho relevante (Phase4=0 / ou ganho 0pp).
+- Critério de parada atendido.
+
+2) Gênesis (book_id=1)
+- Pipeline executado:
+  - OnlyAutoLink (candidates + cooccurrence)
+  - BuildAlignmentFromLexemes
+  - Phase4Auto (cap. 1–50)
+- Validação estrutural: ok (tokens_out_of_bounds=0, tokens_overlap_or_backwards=0).
+- Cobertura (H%): 13,68% → 16,41% (ganho +2,73pp).
+
+3) Naum (book_id=34)
+- OnlyAutoLink:
+  - StepBibleCandidates: 0 tokens vinculados
+  - StepBibleCooccurrence: 0 tokens vinculados
+- BuildAlignmentFromLexemes: 0 alinhamentos criados
+- Phase4Auto (cap. 1–3): 0 tokens vinculados
+- Validação estrutural: ok
+- Cobertura (H%): 6,87% (sem ganho prático)
+- Critério de parada atendido.
+
+4) Jó (book_id=18)
+- OnlyAutoLink:
+  - StepBibleCandidates: 0 tokens vinculados
+  - StepBibleCooccurrence: 8 tokens vinculados
+- BuildAlignmentFromLexemes: 5 alinhamentos criados
+- Phase4Auto (cap. 1–42): 0 tokens vinculados
+- Validação estrutural: ok
+- Cobertura (H%): 11,73% → 11,83% (ganho ~+0,10pp)
+- Critério de parada atendido (ganho < 0,5pp e Phase4=0).
+
+5) Habacuque (book_id=35)
+- OnlyAutoLink:
+  - StepBibleCandidates: 0 tokens vinculados
+  - StepBibleCooccurrence: 0 tokens vinculados
+- BuildAlignmentFromLexemes: 0 alinhamentos criados
+- Phase4Auto (cap. 1–3): 0 tokens vinculados
+- Validação estrutural: ok
+- Cobertura (H%): 13,17% (sem ganho)
+- Critério de parada atendido.
+
+Ranking OT (menores H% no momento em que este arquivo foi criado)
+- 34 Naum: 6,87%
+- 18 Jó: 11,83%
+- 35 Habacuque: 13,17%
+- 28 Oséias: 13,38%
+- 25 Lamentações: 13,45%
+- 33 Miquéias: 13,72%
+- 32 Jonas: 13,75%
+- 19 Salmos: 13,91%
+- 36 Sofonias: 14,09%
+- 23 Isaías: 14,67%
+- 31 Obadias: 15,83%
+- 39 Malaquias: 16,20%
+
+Mudanças no script (import_stepbible_ot_tokens.ps1)
+- Adicionados switches de relatório para facilitar validação sem “gambiarras” no terminal:
+  - -ReportCoverage (cobertura H% do livro)
+  - -ReportOtRanking -ReportOtRankingLimit N (ranking OT por H%)
+
+Como retomar depois
+- Próximo livro pela lista (na última checagem): Oséias (book_id=28).
+- Comandos típicos por livro:
+  - OnlyAutoLink:
+    pwsh -NoProfile -ExecutionPolicy Bypass -File .\backend-scripts\import_stepbible_ot_tokens.ps1 -BookId <ID> -OnlyAutoLink -AutoLinkFromStepBibleCandidates -AutoLinkFromStepBibleCooccurrence
+  - BuildAlignmentFromLexemes:
+    pwsh -NoProfile -ExecutionPolicy Bypass -File .\backend-scripts\import_stepbible_ot_tokens.ps1 -BookId <ID> -BuildAlignmentFromLexemes
+  - Phase4Auto (capítulos variam por livro):
+    pwsh -NoProfile -ExecutionPolicy Bypass -File .\backend-scripts\import_stepbible_ot_tokens.ps1 -BookId <ID> -Phase4Auto -Phase4ChapterFrom 1 -Phase4ChapterTo <CAPS> -Phase4VerseFrom 1 -Phase4VerseTo 200
+  - Relatórios:
+    pwsh -NoProfile -ExecutionPolicy Bypass -File .\backend-scripts\import_stepbible_ot_tokens.ps1 -BookId <ID> -ReportCoverage -ReportOtRanking -ReportOtRankingLimit 12
+

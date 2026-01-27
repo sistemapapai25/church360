@@ -579,8 +579,10 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
   final Map<String, String> _selectedEntities = {};
   final List<String> _selectedEventTypes = [];
   Future<List<String>>? _eventTypesFuture;
+  final _singleQueryController = TextEditingController();
   String _singleQuery = '';
   Map<String, String> _singleSelected = {};
+  final _multiQueryController = TextEditingController();
   String _multiQuery = '';
   final Map<String, ({String name, String? phone})> _multiSelected = {};
   String? _selectedMinistryId;
@@ -640,6 +642,8 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
           });
       }
     }
+    _singleQueryController.text = _singleQuery;
+    _multiQueryController.text = _multiQuery;
     _eventTypesFuture = _loadEventTypes();
     final tid = _templateId;
     if (tid != null && tid.isNotEmpty) {
@@ -662,6 +666,8 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
     _groupPhoneController.dispose();
     _templateNameController.dispose();
     _templateContentController.dispose();
+    _singleQueryController.dispose();
+    _multiQueryController.dispose();
     super.dispose();
   }
 
@@ -749,10 +755,22 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TextField(
-                    decoration: const InputDecoration(
+                    controller: _singleQueryController,
+                    decoration: InputDecoration(
                       labelText: 'Buscar membro (mín. 3 letras)',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.search),
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _singleQuery.trim().isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                setState(() {
+                                  _singleQueryController.clear();
+                                  _singleQuery = '';
+                                });
+                              },
+                            )
+                          : null,
                     ),
                     onChanged: (v) => setState(() => _singleQuery = v.trim().toLowerCase()),
                   ),
@@ -828,10 +846,22 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
             if (_recipientMode == DispatchRecipientMode.multi) ...[
               const SizedBox(height: 12),
               TextField(
-                decoration: const InputDecoration(
+                controller: _multiQueryController,
+                decoration: InputDecoration(
                   labelText: 'Buscar membros (mín. 3 letras)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.search),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _multiQuery.trim().isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            setState(() {
+                              _multiQueryController.clear();
+                              _multiQuery = '';
+                            });
+                          },
+                        )
+                      : null,
                 ),
                 onChanged: (v) => setState(() => _multiQuery = v.trim().toLowerCase()),
               ),

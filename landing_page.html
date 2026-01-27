@@ -1,0 +1,1048 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Church360 — Pastoreie com leveza</title>
+  <meta name="description" content="Organize sua igreja, multiplique sua liderança e acompanhe membros sem precisar ser bom de tecnologia. Experimente o Church360." />
+
+  <!-- Fonts: Montserrat (titles) + Open Sans (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      /* Guide palette */
+      --teal:#50B4B4;        /* highlight */
+      --teal-dark:#3C8A8A;   /* shadows/details */
+      --bg:#EAEFF2;          /* general background */
+      --card:#F4F7F9;        /* card background */
+      --shadow:#C0C8D0;      /* projected shadows */
+      --ink:#3A4352;         /* main text / hair / contrast */
+      --white:#FFFFFF;
+
+      --orange:#F6B65D;
+      --lime:#A8D68A;
+      --pink:#F7CAD0;
+      --sky:#9CD0F6;
+
+      --radius:22px;
+      --radius2:18px;
+      --max:1120px;
+
+      --glow-teal: 0 0 0 6px rgba(80,180,180,.14);
+      --glow-orange: 0 0 0 6px rgba(246,182,93,.16);
+      --soft-shadow: 0 18px 40px rgba(58,67,82,.12);
+      --line: rgba(58,67,82,.10);
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--ink);
+      font-family:"Open Sans", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      line-height:1.55;
+      position:relative;
+      z-index:0;
+    }
+    body:before{
+      content:"";
+      position:fixed;
+      inset:0;
+      background:
+        radial-gradient(1200px 520px at 12% 8%, rgba(80,180,180,.14), transparent 60%),
+        radial-gradient(900px 420px at 84% 6%, rgba(156,208,246,.18), transparent 60%),
+        radial-gradient(1000px 520px at 90% 92%, rgba(246,182,93,.10), transparent 55%),
+        radial-gradient(circle at 2px 2px, rgba(58,67,82,.04) 1px, transparent 1px);
+      background-size: auto, auto, auto, 26px 26px;
+      pointer-events:none;
+      z-index:-1;
+    }
+    a{color:inherit; text-decoration:none}
+    .container{max-width:var(--max); margin:0 auto; padding:0 20px}
+
+    /* Animations */
+    @keyframes fadeUp{
+      from{opacity:0; transform:translateY(16px)}
+      to{opacity:1; transform:translateY(0)}
+    }
+    @keyframes floatIn{
+      from{opacity:0; transform:translateY(20px) scale(.98)}
+      to{opacity:1; transform:translateY(0) scale(1)}
+    }
+    .reveal > *{
+      animation: fadeUp .7s ease both;
+    }
+    .reveal > *:nth-child(2){animation-delay:.06s}
+    .reveal > *:nth-child(3){animation-delay:.12s}
+    .reveal > *:nth-child(4){animation-delay:.18s}
+    .reveal > *:nth-child(5){animation-delay:.24s}
+    .reveal > *:nth-child(6){animation-delay:.30s}
+    .reveal > *:nth-child(7){animation-delay:.36s}
+    .reveal > *:nth-child(8){animation-delay:.42s}
+    @media (prefers-reduced-motion: reduce){
+      *{animation:none !important; transition:none !important}
+    }
+
+    /* Buttons */
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center;
+      gap:10px;
+      padding:14px 18px;
+      border-radius:999px;
+      font-weight:800;
+      border:1px solid transparent;
+      cursor:pointer;
+      user-select:none;
+      transition:transform .08s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+      font-family:"Montserrat", system-ui, sans-serif;
+      letter-spacing:-.01em;
+      white-space:nowrap;
+    }
+    .btn:active{transform:translateY(1px)}
+    .btn-primary{
+      background:var(--teal);
+      color:var(--white);
+      box-shadow:0 16px 34px rgba(80,180,180,.28);
+    }
+    .btn-primary:hover{box-shadow:0 18px 40px rgba(80,180,180,.34)}
+    .btn-secondary{
+      background:rgba(255,255,255,.55);
+      border-color:rgba(58,67,82,.14);
+      color:var(--ink);
+      box-shadow:0 12px 26px rgba(58,67,82,.10);
+    }
+    .btn-secondary:hover{box-shadow:0 14px 30px rgba(58,67,82,.12)}
+    .btn-whatsapp{
+      background:var(--orange);
+      color:#2B2B2B;
+      box-shadow:0 16px 34px rgba(246,182,93,.22);
+    }
+
+    /* Header */
+    header{
+      position:sticky;
+      top:0;
+      z-index:50;
+      background:rgba(234,239,242,.78);
+      backdrop-filter: blur(12px) saturate(160%);
+      border-bottom:1px solid rgba(58,67,82,.08);
+    }
+    .nav{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 0;
+      gap:14px;
+    }
+    .brand{
+      display:flex; align-items:center; gap:12px;
+      font-family:"Montserrat", system-ui, sans-serif;
+      font-weight:900;
+      letter-spacing:-.02em;
+    }
+    .mark{
+      width:38px; height:38px; border-radius:14px;
+      background:var(--card);
+      border:1px solid rgba(58,67,82,.10);
+      box-shadow:var(--soft-shadow);
+      position:relative;
+      overflow:hidden;
+    }
+    .mark:before{
+      content:"";
+      position:absolute;
+      inset:-18px;
+      background:
+        radial-gradient(circle at 30% 30%, rgba(80,180,180,.55), transparent 55%),
+        radial-gradient(circle at 70% 70%, rgba(246,182,93,.40), transparent 55%);
+      filter: blur(0px);
+    }
+    .brand small{
+      display:block;
+      margin-top:2px;
+      font-family:"Open Sans", system-ui, sans-serif;
+      font-weight:700;
+      color:rgba(58,67,82,.75);
+      letter-spacing:0;
+    }
+    nav a{
+      display:inline-flex;
+      padding:10px 12px;
+      border-radius:14px;
+      font-weight:800;
+      font-size:14px;
+      color:rgba(58,67,82,.88);
+      font-family:"Montserrat", system-ui, sans-serif;
+    }
+    nav a:hover{
+      background:rgba(244,247,249,.85);
+      box-shadow:var(--glow-teal);
+      border:1px solid rgba(80,180,180,.18);
+    }
+    .nav-cta{display:flex; gap:10px; align-items:center}
+
+    /* Hero */
+    .hero{
+      position:relative;
+      padding:54px 0 26px;
+      overflow:hidden;
+    }
+    .hero:before{
+      content:"";
+      position:absolute;
+      inset:-200px -200px auto -200px;
+      height:520px;
+      background:
+        radial-gradient(600px 320px at 20% 30%, rgba(80,180,180,.26), transparent 65%),
+        radial-gradient(600px 320px at 70% 20%, rgba(156,208,246,.22), transparent 65%),
+        radial-gradient(600px 320px at 80% 55%, rgba(246,182,93,.16), transparent 65%);
+      pointer-events:none;
+    }
+    .hero-grid{
+      position:relative;
+      display:grid;
+      grid-template-columns: 1.08fr .92fr;
+      gap:22px;
+      align-items:center;
+    }
+    .tag{
+      display:inline-flex; align-items:center; gap:10px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(244,247,249,.92);
+      border:1px solid rgba(58,67,82,.10);
+      box-shadow:var(--glow-teal);
+      font-weight:800;
+      font-size:13px;
+      color:rgba(58,67,82,.92);
+      animation: floatIn .7s ease both;
+    }
+    .dot{
+      width:9px; height:9px; border-radius:999px; background:var(--teal);
+      box-shadow:0 0 0 4px rgba(80,180,180,.18);
+    }
+    h1{
+      margin:14px 0 12px;
+      font-family:"Montserrat", system-ui, sans-serif;
+      font-size: clamp(34px, 4vw, 54px);
+      line-height:1.02;
+      letter-spacing:-.04em;
+      color:rgba(58,67,82,1);
+      animation: floatIn .8s ease both .05s;
+    }
+    .lead{
+      margin:0 0 18px;
+      font-size:16.5px;
+      font-weight:600;
+      color:rgba(58,67,82,.86);
+      max-width:62ch;
+      animation: floatIn .8s ease both .10s;
+    }
+    .hero-actions{display:flex; gap:12px; flex-wrap:wrap; margin-top:14px; animation: floatIn .8s ease both .16s}
+    .mini{
+      margin-top:14px;
+      display:flex; gap:10px; flex-wrap:wrap;
+      animation: floatIn .8s ease both .20s;
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      background:rgba(244,247,249,.92);
+      border:1px solid rgba(58,67,82,.10);
+      box-shadow: 0 10px 18px rgba(58,67,82,.08);
+      font-weight:700;
+      color:rgba(58,67,82,.88);
+      font-size:13px;
+    }
+    .pill i{
+      width:10px; height:10px; border-radius:999px; display:inline-block;
+      background:var(--lime);
+      box-shadow:0 0 0 4px rgba(168,214,138,.18);
+    }
+
+    /* Illustration panel (isometric placeholder) */
+    .illus{
+      border-radius:var(--radius);
+      background:var(--card);
+      border:1px solid rgba(58,67,82,.10);
+      box-shadow:var(--soft-shadow);
+      position:relative;
+      overflow:hidden;
+      min-height:360px;
+      animation: floatIn .9s ease both .24s;
+    }
+    .illus .base{
+      position:absolute;
+      left:22px; right:22px; bottom:22px;
+      height:22px;
+      border-radius:999px;
+      background:rgba(192,200,208,.55);
+      filter: blur(.2px);
+    }
+    .illus .shine{
+      position:absolute;
+      inset:-40px -40px auto -40px;
+      height:220px;
+      background:
+        radial-gradient(180px 120px at 30% 45%, rgba(80,180,180,.28), transparent 70%),
+        radial-gradient(180px 120px at 70% 35%, rgba(246,182,93,.18), transparent 70%);
+      pointer-events:none;
+    }
+    .illus .star{
+      position:absolute;
+      right:18px;
+      bottom:14px;
+      width:18px; height:18px;
+      transform: rotate(10deg);
+      opacity:.9;
+    }
+    /* “Objects” (rounded, pseudo-isometric) */
+    .obj{
+      position:absolute;
+      border-radius:18px;
+      background:#fff;
+      border:1px solid rgba(58,67,82,.10);
+      box-shadow:0 16px 26px rgba(58,67,82,.10);
+    }
+    .obj.header{
+      left:22px; top:24px;
+      width:64%; height:64px;
+      background:linear-gradient(180deg, #fff, rgba(244,247,249,.65));
+    }
+    .obj.card1{
+      left:22px; top:104px;
+      width:52%; height:110px;
+    }
+    .obj.card2{
+      left:22px; top:230px;
+      width:42%; height:90px;
+    }
+    .obj.phone{
+      right:22px; top:70px;
+      width:34%; height:240px;
+      border-radius:26px;
+      background:linear-gradient(180deg, #fff, rgba(244,247,249,.78));
+      box-shadow:0 18px 34px rgba(58,67,82,.12);
+    }
+    .glow{
+      box-shadow:var(--soft-shadow), var(--glow-teal);
+      border-color:rgba(80,180,180,.22);
+    }
+    .accent-bar{
+      position:absolute; left:16px; top:16px;
+      width:72px; height:10px; border-radius:999px; background:var(--teal);
+    }
+    .accent-chip{
+      position:absolute; left:16px; top:34px;
+      width:110px; height:10px; border-radius:999px; background:rgba(80,180,180,.35);
+    }
+    .confetti{
+      position:absolute;
+      left:16px; bottom:44px;
+      display:flex; gap:8px; align-items:center;
+      opacity:.95;
+    }
+    .c{width:10px; height:10px; border-radius:4px; transform:rotate(12deg)}
+    .c.o{background:var(--orange)}
+    .c.g{background:var(--lime)}
+    .c.p{background:var(--pink)}
+    .c.s{background:var(--sky)}
+    .conn{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:.9;
+    }
+
+    /* Sections */
+    section{padding:44px 0}
+    .section-head{display:flex; flex-direction:column; gap:10px; margin-bottom:18px}
+    h2{
+      margin:0;
+      font-family:"Montserrat", system-ui, sans-serif;
+      font-size:32px;
+      line-height:1.12;
+      letter-spacing:-.03em;
+    }
+    .sub{
+      margin:0;
+      color:rgba(58,67,82,.78);
+      font-weight:600;
+      max-width:80ch;
+    }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      width:max-content;
+      padding:8px 12px;
+      border-radius:999px;
+      font-weight:900;
+      font-size:12px;
+      font-family:"Montserrat", system-ui, sans-serif;
+      background:rgba(80,180,180,.12);
+      border:1px solid rgba(80,180,180,.18);
+      color:rgba(58,67,82,.92);
+    }
+    .grid-3{display:grid; grid-template-columns:repeat(3, 1fr); gap:14px}
+    .grid-2{display:grid; grid-template-columns:repeat(2, 1fr); gap:14px}
+
+    .card{
+      border-radius:var(--radius2);
+      background:var(--card);
+      border:1px solid rgba(58,67,82,.10);
+      box-shadow:0 12px 22px rgba(58,67,82,.10);
+      padding:18px;
+      position:relative;
+      overflow:hidden;
+    }
+    .card strong{
+      display:block;
+      font-family:"Montserrat", system-ui, sans-serif;
+      font-size:16px;
+      letter-spacing:-.01em;
+      margin-bottom:8px;
+    }
+    .card p{margin:0 0 10px; color:rgba(58,67,82,.78); font-weight:600}
+    .icon{
+      width:44px; height:44px; border-radius:18px;
+      display:grid; place-items:center;
+      background:#fff;
+      border:1px solid rgba(58,67,82,.10);
+      box-shadow:var(--glow-teal);
+      margin-bottom:12px;
+      font-size:18px;
+    }
+    .card:after{
+      content:"";
+      position:absolute;
+      right:-30px; top:-30px;
+      width:130px; height:130px;
+      background:radial-gradient(circle at 30% 30%, rgba(80,180,180,.22), transparent 60%);
+      pointer-events:none;
+    }
+    .feature .bullets{margin-top:8px}
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      font-weight:800;
+      font-size:12px;
+      background:rgba(246,182,93,.18);
+      border:1px solid rgba(246,182,93,.24);
+      color:rgba(58,67,82,.92);
+    }
+
+    /* Pain blocks */
+    .pain{
+      border-radius:22px;
+      background:var(--card);
+      border:1px solid rgba(58,67,82,.10);
+      box-shadow:0 14px 28px rgba(58,67,82,.10);
+      padding:18px;
+      display:flex;
+      gap:14px;
+      align-items:flex-start;
+      position:relative;
+      overflow:hidden;
+    }
+    .pain .left{
+      width:48px; height:48px;
+      border-radius:18px;
+      display:grid; place-items:center;
+      background:#fff;
+      border:1px solid rgba(58,67,82,.10);
+      box-shadow:var(--glow-orange);
+      flex:0 0 auto;
+      font-size:18px;
+    }
+    .pain h3{
+      margin:0;
+      font-family:"Montserrat", system-ui, sans-serif;
+      font-size:18px;
+      letter-spacing:-.02em;
+    }
+    .pain .quote{
+      margin:8px 0 10px;
+      color:rgba(58,67,82,.80);
+      font-weight:700;
+    }
+    .bullets{
+      margin:0;
+      padding-left:18px;
+      display:grid;
+      gap:8px;
+      color:rgba(58,67,82,.86);
+      font-weight:600;
+    }
+    .pain:after{
+      content:"";
+      position:absolute;
+      left:16px; bottom:14px;
+      width:22px; height:8px;
+      border-radius:999px;
+      background:rgba(192,200,208,.55);
+      filter: blur(.1px);
+      opacity:.8;
+    }
+
+    /* Modules */
+    .modules{
+      border-radius:24px;
+      background:var(--card);
+      border:1px solid rgba(58,67,82,.10);
+      box-shadow:0 14px 28px rgba(58,67,82,.10);
+      overflow:hidden;
+      position:relative;
+    }
+    .modules-top{
+      padding:18px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      border-bottom:1px solid rgba(58,67,82,.08);
+      background:rgba(255,255,255,.55);
+    }
+    .modules-top strong{
+      font-family:"Montserrat", system-ui, sans-serif;
+      font-size:16px;
+    }
+    .modules-grid{
+      padding:18px;
+      display:grid;
+      grid-template-columns:repeat(3, 1fr);
+      gap:12px;
+    }
+    .module{
+      border-radius:18px;
+      background:#fff;
+      border:1px solid rgba(58,67,82,.10);
+      padding:14px;
+      box-shadow:0 12px 22px rgba(58,67,82,.10);
+      position:relative;
+    }
+    .module .t{
+      font-family:"Montserrat", system-ui, sans-serif;
+      font-weight:900;
+      letter-spacing:-.02em;
+    }
+    .module .d{
+      margin-top:6px;
+      color:rgba(58,67,82,.78);
+      font-weight:600;
+      font-size:14px;
+    }
+    .module:before{
+      content:"";
+      position:absolute;
+      left:14px; top:14px;
+      width:44px; height:10px;
+      border-radius:999px;
+      background:rgba(80,180,180,.25);
+    }
+
+    /* FAQ */
+    details{
+      border:1px solid rgba(58,67,82,.10);
+      border-radius:18px;
+      padding:16px;
+      background:var(--card);
+      box-shadow:0 12px 22px rgba(58,67,82,.10);
+    }
+    details summary{
+      cursor:pointer;
+      font-family:"Montserrat", system-ui, sans-serif;
+      font-weight:900;
+      list-style:none;
+      display:flex; align-items:center; justify-content:space-between;
+      gap:12px;
+    }
+    details summary::-webkit-details-marker{display:none}
+    details p{
+      margin:10px 0 0;
+      color:rgba(58,67,82,.78);
+      font-weight:600;
+    }
+
+    /* CTA band */
+    .cta{
+      padding:46px 0 58px;
+    }
+    .cta-box{
+      border-radius:26px;
+      background:var(--card);
+      border:1px solid rgba(58,67,82,.10);
+      box-shadow:var(--soft-shadow);
+      padding:22px;
+      position:relative;
+      overflow:hidden;
+    }
+    .cta-box:before{
+      content:"";
+      position:absolute;
+      inset:-80px -80px auto -80px;
+      height:260px;
+      background:
+        radial-gradient(240px 160px at 22% 45%, rgba(80,180,180,.26), transparent 70%),
+        radial-gradient(240px 160px at 72% 25%, rgba(246,182,93,.22), transparent 70%);
+      pointer-events:none;
+    }
+    .cta-grid{
+      position:relative;
+      display:flex; align-items:center; justify-content:space-between;
+      gap:14px; flex-wrap:wrap;
+    }
+    .cta h2{margin:0}
+    .cta p{
+      margin:10px 0 0;
+      color:rgba(58,67,82,.78);
+      font-weight:600;
+      max-width:78ch;
+    }
+    .cta-actions{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
+
+    footer{
+      padding:26px 0;
+      color:rgba(58,67,82,.72);
+      font-weight:600;
+      font-size:14px;
+      border-top:1px solid rgba(58,67,82,.08);
+    }
+
+    /* Responsive */
+    @media (max-width: 980px){
+      .hero-grid{grid-template-columns:1fr}
+      .grid-3{grid-template-columns:1fr}
+      .grid-2{grid-template-columns:1fr}
+      .modules-grid{grid-template-columns:1fr}
+      nav{display:none}
+    }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="container">
+    <div class="nav">
+      <div class="brand" aria-label="Church360">
+        <div class="mark" aria-hidden="true"></div>
+        <div>
+          <div style="line-height:1; font-size:14px;">Church360</div>
+          <small>Gestão completa para igrejas</small>
+        </div>
+      </div>
+
+      <nav aria-label="Navegação">
+        <a href="#dores">Dores</a>
+        <a href="#como-funciona">Como funciona</a>
+        <a href="#diferenciais">Diferenciais</a>
+        <a href="#faq">Dúvidas</a>
+        <a href="#cta">Começar</a>
+      </nav>
+
+      <div class="nav-cta">
+        <a class="btn btn-primary" href="#cta">Ativar agora</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section class="hero" id="topo">
+    <div class="container">
+      <div class="hero-grid">
+        <div>
+          <span class="tag"><span class="dot"></span> Sem precisar ser “bom de tecnologia”</span>
+          <h1>Church360: a solução completa para pastores sobrecarregados</h1>
+          <p class="lead">
+            ✔️ Organize sua igreja • ✔️ Multiplique sua liderança • ✔️ Atenda melhor sem perder mais ninguém •
+            ✔️ E tudo isso… sem virar refém de planilhas e mensagens soltas.
+          </p>
+
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#cta">Quero começar agora</a>
+            <a class="btn btn-secondary" href="#dores">Ver como resolve as dores</a>
+          </div>
+
+          <div class="mini" aria-label="Benefícios rápidos">
+            <span class="pill"><i></i> Acompanhamento automático</span>
+            <span class="pill"><i></i> Delegação com permissões</span>
+            <span class="pill"><i></i> IA personalizável</span>
+            <span class="pill"><i></i> Comunidade ativa</span>
+          </div>
+        </div>
+
+        <!-- Illustration-style panel -->
+        <div class="illus" aria-label="Painel ilustrado no estilo do guia">
+          <div class="shine" aria-hidden="true"></div>
+
+          <!-- Connection lines (curvy) -->
+          <svg class="conn" viewBox="0 0 520 360" aria-hidden="true">
+            <path d="M70 115 C 155 75, 210 120, 285 95 S 400 85, 450 150"
+                  fill="none" stroke="#50B4B4" stroke-width="3" stroke-linecap="round"/>
+            <path d="M92 255 C 160 220, 230 260, 290 245 S 380 230, 455 265"
+                  fill="none" stroke="#50B4B4" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 8"/>
+          </svg>
+
+          <div class="obj header glow">
+            <div class="accent-bar" aria-hidden="true"></div>
+            <div class="accent-chip" aria-hidden="true"></div>
+            <div style="position:absolute; right:14px; top:14px; width:54px; height:18px; border-radius:999px; background:rgba(168,214,138,.55); border:1px solid rgba(168,214,138,.55)"></div>
+          </div>
+
+          <div class="obj card1">
+            <div style="position:absolute; left:16px; top:16px; width:90px; height:10px; border-radius:999px; background:rgba(58,67,82,.22)"></div>
+            <div style="position:absolute; left:16px; top:34px; width:150px; height:10px; border-radius:999px; background:rgba(58,67,82,.14)"></div>
+            <div style="position:absolute; left:16px; top:58px; width:70px; height:26px; border-radius:14px; background:rgba(246,182,93,.55); border:1px solid rgba(246,182,93,.55)"></div>
+            <div style="position:absolute; right:16px; bottom:16px; width:42px; height:42px; border-radius:16px; background:rgba(80,180,180,.18); border:1px solid rgba(80,180,180,.24)"></div>
+          </div>
+
+          <div class="obj card2 glow">
+            <div style="position:absolute; left:16px; top:16px; width:120px; height:10px; border-radius:999px; background:rgba(58,67,82,.22)"></div>
+            <div style="position:absolute; left:16px; top:34px; width:160px; height:10px; border-radius:999px; background:rgba(58,67,82,.14)"></div>
+            <div style="position:absolute; right:16px; top:18px; width:46px; height:18px; border-radius:999px; background:rgba(156,208,246,.55); border:1px solid rgba(156,208,246,.55)"></div>
+          </div>
+
+          <div class="obj phone">
+            <div style="position:absolute; left:18px; top:16px; width:86px; height:10px; border-radius:999px; background:rgba(58,67,82,.22)"></div>
+            <div style="position:absolute; left:18px; top:36px; width:140px; height:10px; border-radius:999px; background:rgba(58,67,82,.14)"></div>
+
+            <div style="position:absolute; left:18px; top:62px; right:18px; height:70px; border-radius:18px; background:rgba(80,180,180,.12); border:1px solid rgba(80,180,180,.20)"></div>
+
+            <div style="position:absolute; left:18px; top:144px; right:18px; height:18px; border-radius:999px; background:rgba(58,67,82,.12)"></div>
+            <div style="position:absolute; left:18px; top:170px; right:64px; height:18px; border-radius:999px; background:rgba(58,67,82,.10)"></div>
+
+            <div style="position:absolute; left:18px; bottom:18px; right:18px; height:44px; border-radius:18px; background:rgba(246,182,93,.55); border:1px solid rgba(246,182,93,.55); box-shadow:var(--glow-orange)"></div>
+          </div>
+
+          <div class="confetti" aria-hidden="true">
+            <span class="c o"></span><span class="c g"></span><span class="c p"></span><span class="c s"></span>
+          </div>
+
+          <!-- Star icon (bottom-right) -->
+          <svg class="star" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2l2.2 6.6L21 12l-6.8 3.4L12 22l-2.2-6.6L3 12l6.8-3.4L12 2Z"
+                  fill="#F6B65D" stroke="#F6B65D" stroke-width="1.2"/>
+          </svg>
+
+          <div class="base" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROMESSA -->
+  <section>
+    <div class="container">
+      <div class="section-head">
+        <span class="badge">Promessa</span>
+        <h2>Você acompanha. Sua equipe cuida. Ninguém fica esquecido.</h2>
+        <p class="sub">
+          O Church360 organiza rotinas e responsabilidades para você sair do modo “apagar incêndio”
+          e voltar a ter tempo para o que importa: pessoas.
+        </p>
+      </div>
+
+      <div class="grid-3 reveal">
+        <div class="card">
+          <div class="icon" aria-hidden="true">📌</div>
+          <strong>Organize sua igreja</strong>
+          <p>Centralize presença, grupos, eventos, escalas, avisos e relatórios — sem bagunça.</p>
+        </div>
+        <div class="card">
+          <div class="icon" aria-hidden="true">🧩</div>
+          <strong>Multiplique sua liderança</strong>
+          <p>Permissões e níveis de acesso para delegar com segurança, sem perder o controle.</p>
+        </div>
+        <div class="card">
+          <div class="icon" aria-hidden="true">⏰</div>
+          <strong>Ganhe tempo</strong>
+          <p>Automação de lembretes, notificações e relatórios para sobrar tempo pro ministério.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DORES -->
+  <section id="dores">
+    <div class="container">
+      <div class="section-head">
+        <span class="badge">Dores que resolvemos</span>
+        <h2>As dores reais de um pastor (e como o Church360 resolve)</h2>
+        <p class="sub">Copy do carrossel aplicada em uma jornada clara de solução.</p>
+      </div>
+
+      <div class="grid-2 reveal">
+        <div class="pain">
+          <div class="left" aria-hidden="true">💔</div>
+          <div>
+            <h3>Membros se afastando por falta de atenção</h3>
+            <div class="quote">“Pastor, sumiu alguém da igreja?”</div>
+            <ul class="bullets">
+              <li>Histórico completo de presença em cultos, grupos e eventos</li>
+              <li>Relatórios automáticos de crescimento e faltas</li>
+              <li>Notificações de visitantes e membros ausentes</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="pain">
+          <div class="left" aria-hidden="true">🧩</div>
+          <div>
+            <h3>Falta de apoio na gestão</h3>
+            <div class="quote">Ser pastor e administrador ao mesmo tempo é pesado.</div>
+            <ul class="bullets">
+              <li>Níveis de acesso e permissões (pastores, líderes, membros)</li>
+              <li>Painel administrativo com visão total da igreja</li>
+              <li>Ajuda da equipe sem perder o controle</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="pain">
+          <div class="left" aria-hidden="true">🗣️</div>
+          <div>
+            <h3>Cobrança constante de líderes</h3>
+            <div class="quote">Você vira “cobrador” de grupo, evento, escala…</div>
+            <ul class="bullets">
+              <li>Lembretes automáticos e notificações programadas</li>
+              <li>Agenda compartilhada por ministério e grupo</li>
+              <li>Histórico de atividades visível para o pastor</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="pain">
+          <div class="left" aria-hidden="true">🧭</div>
+          <div>
+            <h3>Desorganização geral</h3>
+            <div class="quote">Tudo “solto”: cultos, grupos, agenda, devocionais, finanças…</div>
+            <ul class="bullets">
+              <li>Rotas por módulos: Grupos, Cultos, Eventos, Cursos</li>
+              <li>Escalas de ministérios com regras de prioridade</li>
+              <li>Comunidade e mural de oração integrados</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="pain">
+          <div class="left" aria-hidden="true">🕒</div>
+          <div>
+            <h3>Falta de tempo para tudo isso</h3>
+            <div class="quote">Você tenta organizar, ajudar, liderar… mas o dia não sobra.</div>
+            <ul class="bullets">
+              <li>Processos automáticos (menos trabalho repetitivo)</li>
+              <li>Agentes de IA personalizáveis para triagem e suporte</li>
+              <li>App leve e direto ao ponto</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="pain">
+          <div class="left" aria-hidden="true">💸</div>
+          <div>
+            <h3>Orçamento apertado</h3>
+            <div class="quote">“O sistema é ótimo, mas é caro demais.”</div>
+            <ul class="bullets">
+              <li>Preço abaixo da média do mercado</li>
+              <li>Pagamento flexível por tamanho da igreja</li>
+              <li>Plano de entrada gratuito</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMO FUNCIONA / MÓDULOS -->
+  <section id="como-funciona">
+    <div class="container">
+      <div class="section-head">
+        <span class="badge">Como funciona</span>
+        <h2>Centralize tudo em módulos simples</h2>
+        <p class="sub">Sem “tecnês”. Sem bagunça. Apenas clareza e rotina organizada.</p>
+      </div>
+
+      <div class="modules">
+        <div class="modules-top">
+          <strong>Church360 centraliza tudo</strong>
+          <span class="badge" style="background:rgba(246,182,93,.16); border-color:rgba(246,182,93,.24);">Visão 360</span>
+        </div>
+
+        <div class="modules-grid reveal">
+          <div class="module">
+            <div class="t">Membros & Presença</div>
+            <div class="d">Histórico, visitantes, faltas e acompanhamento.</div>
+          </div>
+          <div class="module">
+            <div class="t">Grupos & Ministérios</div>
+            <div class="d">Agenda, atividades e relatórios por área.</div>
+          </div>
+          <div class="module">
+            <div class="t">Eventos & Cultos</div>
+            <div class="d">Organização, comunicação e registros.</div>
+          </div>
+          <div class="module">
+            <div class="t">Escalas Inteligentes</div>
+            <div class="d">Regras de prioridade e visão do que falta.</div>
+          </div>
+          <div class="module">
+            <div class="t">Devocionais & Avisos</div>
+            <div class="d">Conteúdo e comunicação no app.</div>
+          </div>
+          <div class="module">
+            <div class="t">Relatórios & IA</div>
+            <div class="d">Insights, alertas e agentes de suporte.</div>
+          </div>
+          <div class="module">
+            <div class="t">Agentes de IA</div>
+            <div class="d">Assistentes com persona pastoral/administrativa.</div>
+          </div>
+          <div class="module">
+            <div class="t">Comunidade & Classificados</div>
+            <div class="d">Pedidos de oração, testemunhos e marketplace interno.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DIFERENCIAIS -->
+  <section id="diferenciais">
+    <div class="container">
+      <div class="section-head">
+        <span class="badge">Diferenciais</span>
+        <h2>IA personalizada e comunidade viva para engajar de verdade</h2>
+        <p class="sub">
+          Dois pilares que transformam uso diário em relacionamento real: atendimento inteligente e
+          um espaço seguro para oração, testemunhos e negócios entre membros.
+        </p>
+      </div>
+
+      <div class="grid-2 reveal">
+        <div class="card feature">
+          <div class="icon" aria-hidden="true">🤖</div>
+          <strong>Agentes de IA personalizáveis</strong>
+          <p>Crie assistentes com persona própria para secretaria, pastoral, eventos ou financeiro.</p>
+          <ul class="bullets">
+            <li>Respostas rápidas e padronizadas dentro do app</li>
+            <li>Atendimento 24/7 para dúvidas e triagem</li>
+            <li>Ativação por igreja e controle de disponibilidade</li>
+          </ul>
+          <div style="margin-top:12px">
+            <span class="chip">IA opcional • ativação por módulo</span>
+          </div>
+        </div>
+
+        <div class="card feature">
+          <div class="icon" aria-hidden="true">🤝</div>
+          <strong>Comunidade + Classificados internos</strong>
+          <p>Um mural vivo com pedidos de oração, testemunhos e interação segura entre membros.</p>
+          <ul class="bullets">
+            <li>Orações compartilhadas aumentam o cuidado mútuo</li>
+            <li>Classificados para serviços, produtos e vagas da igreja</li>
+            <li>Moderação e aprovação para manter o ambiente saudável</li>
+          </ul>
+          <div style="margin-top:12px">
+            <span class="chip">Engajamento + economia da igreja</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ (Slide 8) -->
+  <section id="faq">
+    <div class="container">
+      <div class="section-head">
+        <span class="badge">Dúvidas comuns</span>
+        <h2>Respostas rápidas</h2>
+        <p class="sub">As perguntas do carrossel, em formato de FAQ.</p>
+      </div>
+
+      <div class="grid-2 reveal">
+        <details>
+          <summary>“É difícil de usar?” <span style="opacity:.6">+</span></summary>
+          <p>Não. Interface simples e intuitiva, pensada para pastor e liderança — sem curva de aprendizado.</p>
+        </details>
+        <details>
+          <summary>“Precisa instalar algo?” <span style="opacity:.6">+</span></summary>
+          <p>Não. Funciona direto no navegador e no celular.</p>
+        </details>
+        <details>
+          <summary>“Integra com minha igreja atual?” <span style="opacity:.6">+</span></summary>
+          <p>Sim. Importação fácil de dados para começar rápido.</p>
+        </details>
+        <details>
+          <summary>“Tem inteligência artificial?” <span style="opacity:.6">+</span></summary>
+          <p>Sim. Agentes personalizáveis para dúvidas, triagem e suporte interno da igreja.</p>
+        </details>
+        <details>
+          <summary>“A comunidade é moderada?” <span style="opacity:.6">+</span></summary>
+          <p>Sim. Pedidos de oração, testemunhos e classificados passam por aprovação quando necessário.</p>
+        </details>
+        <details>
+          <summary>“Os agentes de IA são configuráveis?” <span style="opacity:.6">+</span></summary>
+          <p>Sim. Você define persona, tom de voz, áreas e disponibilidade por igreja.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA (Slide 10 + Bônus) -->
+  <section class="cta" id="cta">
+    <div class="container">
+      <div class="cta-box">
+        <div class="cta-grid">
+          <div>
+            <h2>Você já tentou fazer tudo sozinho. Agora é hora de fazer com estratégia.</h2>
+            <p>
+              🔓 Liberte tempo • 🧭 Tenha controle • 🙌 Pastoreie com leveza. <br/>
+              <strong>Bônus:</strong> treinamento em vídeo + manual passo a passo + suporte rápido + 3 líderes já configurado.
+            </p>
+          </div>
+
+          <div class="cta-actions">
+            <a class="btn btn-primary" href="#topo">Quero ativar agora</a>
+            <a class="btn btn-whatsapp" href="https://wa.me/0000000000000" target="_blank" rel="noopener">Falar no WhatsApp</a>
+          </div>
+        </div>
+
+        <div style="position:relative; margin-top:16px; border-top:1px solid rgba(58,67,82,.08); padding-top:14px; color:rgba(58,67,82,.74); font-weight:700;">
+          * Troque o WhatsApp acima pelo seu número real (wa.me/55DDDNUMERO).
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+    <div>© <span id="y"></span> Church360. Todos os direitos reservados.</div>
+    <div style="display:flex; gap:14px; flex-wrap:wrap;">
+      <a href="#dores">Dores</a>
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#diferenciais">Diferenciais</a>
+      <a href="#faq">Dúvidas</a>
+      <a href="#cta">Começar</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  document.getElementById("y").textContent = new Date().getFullYear();
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener("click", (e) => {
+      const id = a.getAttribute("href");
+      const el = document.querySelector(id);
+      if (!el) return;
+      e.preventDefault();
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+</script>
+</body>
+</html>

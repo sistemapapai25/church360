@@ -637,7 +637,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                       decoration: InputDecoration(
                         labelText: 'Valor ${index + 1}',
                         border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.star),
+                        prefixIcon: const Icon(Icons.circle_outlined),
                       ),
                     ),
                   ),

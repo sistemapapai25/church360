@@ -728,6 +728,13 @@ class _AddRegistrationDialogState
     extends ConsumerState<_AddRegistrationDialog> {
   String? _selectedMemberId;
   String _searchQuery = '';
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -768,9 +775,21 @@ class _AddRegistrationDialogState
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     TextField(
-                      decoration: const InputDecoration(
+                      controller: _searchController,
+                      decoration: InputDecoration(
                         labelText: 'Buscar membro...',
-                        prefixIcon: Icon(Icons.search),
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: _searchQuery.trim().isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  setState(() {
+                                    _searchController.clear();
+                                    _searchQuery = '';
+                                  });
+                                },
+                              )
+                            : null,
                       ),
                       onChanged: (value) {
                         setState(() => _searchQuery = value);

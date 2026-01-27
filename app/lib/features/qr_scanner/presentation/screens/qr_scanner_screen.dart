@@ -694,6 +694,14 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
 
   String _getMemberTypeLabel(String? type) {
     switch (type) {
+      case 'membro':
+        return 'Membro';
+      case 'visitante':
+        return 'Visitante';
+      case 'lider':
+        return 'Líder';
+      case 'voluntario':
+        return 'Voluntário';
       case 'titular':
         return 'Liderança';
       case 'congregado':
@@ -703,7 +711,17 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
       case 'crianca':
         return 'Criança';
       default:
-        return 'Não informado';
+        final v = type?.trim() ?? '';
+        if (v.isEmpty) return 'Não informado';
+        var s = v.replaceAll(RegExp(r'[_-]+'), ' ').trim();
+        if (s.isEmpty) return v;
+        final words = s.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+        final normalized = words
+            .map((w) => w.length == 1
+                ? w.toUpperCase()
+                : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+            .join(' ');
+        return normalized.isNotEmpty ? normalized : v;
     }
   }
 }

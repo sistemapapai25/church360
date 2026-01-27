@@ -689,7 +689,7 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
                   children: [
                     FilledButton.icon(
                       onPressed: _isGenerating || events.isEmpty ? null : () => _generate(events),
-                      icon: _isGenerating ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.auto_awesome),
+                      icon: _isGenerating ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.hub),
                       label: const Text('GERAR ESCALA'),
                     ),
                     const SizedBox(width: 12),

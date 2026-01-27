@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers/ministries_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
@@ -253,7 +254,7 @@ class _MinistryDetailContent extends ConsumerWidget {
                           onPressed: () => context.push(
                             '/ministries/${ministry.id}/auto-scheduler',
                           ),
-                          icon: const Icon(Icons.auto_awesome, size: 18),
+                          icon: const Icon(Icons.hub, size: 18),
                           label: const Text('Gerar'),
                           style: CommunityDesign.pillButtonStyle(
                             context,
@@ -468,6 +469,7 @@ class _MemberCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final roleColor = _getRoleColor(member.role);
+    final memberAsync = ref.watch(memberByIdProvider(member.memberId));
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -485,7 +487,40 @@ class _MemberCard extends ConsumerWidget {
               width: 1,
             ),
           ),
-          child: Icon(_getRoleIcon(member.role), color: roleColor, size: 24),
+          child: memberAsync.when(
+            data: (m) {
+              final rawUrl = m?.photoUrl;
+              String? resolvedUrl;
+              if (rawUrl != null && rawUrl.trim().isNotEmpty) {
+                final parsed = Uri.tryParse(rawUrl.trim());
+                if (parsed != null && parsed.hasScheme) {
+                  resolvedUrl = rawUrl.trim();
+                } else {
+                  resolvedUrl = Supabase.instance.client.storage
+                      .from('member-photos')
+                      .getPublicUrl(rawUrl.trim());
+                }
+              }
+
+              if (resolvedUrl != null && resolvedUrl.isNotEmpty) {
+                return ClipOval(
+                  child: Image.network(
+                    resolvedUrl,
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Icon(_getRoleIcon(member.role), color: roleColor, size: 24);
+                    },
+                  ),
+                );
+              }
+
+              return Icon(_getRoleIcon(member.role), color: roleColor, size: 24);
+            },
+            loading: () => Icon(_getRoleIcon(member.role), color: roleColor, size: 24),
+            error: (error, stackTrace) => Icon(_getRoleIcon(member.role), color: roleColor, size: 24),
+          ),
         ),
         title: Text(
           member.memberName,
@@ -557,7 +592,7 @@ class _MemberCard extends ConsumerWidget {
   IconData _getRoleIcon(MinistryRole role) {
     switch (role) {
       case MinistryRole.leader:
-        return Icons.star;
+        return Icons.security;
       case MinistryRole.coordinator:
         return Icons.supervisor_account;
       case MinistryRole.member:
@@ -1093,6 +1128,7 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
   final Map<String, String> _functionCategory = {};
   final _newFunctionController = TextEditingController();
   final _notesController = TextEditingController();
+  final _memberSearchController = TextEditingController();
   bool _isLoading = false;
   String _memberSearchQuery = '';
   // Fluxo simplificado: sempre atribui cargo de ministério automaticamente
@@ -1101,6 +1137,7 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
   void dispose() {
     _newFunctionController.dispose();
     _notesController.dispose();
+    _memberSearchController.dispose();
     super.dispose();
   }
 
@@ -1121,9 +1158,21 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
                 children: [
                   // Campo de busca de membro
                   TextField(
-                    decoration: const InputDecoration(
+                    controller: _memberSearchController,
+                    decoration: InputDecoration(
                       labelText: 'Buscar membro...',
                       prefixIcon: Icon(Icons.search),
+                      suffixIcon: _memberSearchQuery.trim().isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                setState(() {
+                                  _memberSearchController.clear();
+                                  _memberSearchQuery = '';
+                                });
+                              },
+                            )
+                          : null,
                       border: OutlineInputBorder(),
                     ),
                     onChanged: (value) {

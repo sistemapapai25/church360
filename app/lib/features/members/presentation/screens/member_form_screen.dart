@@ -1,3 +1,5 @@
+﻿import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -63,6 +65,30 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   bool _isLoading = false;
   bool _isSearchingCep = false;
   Member? _existingMember;
+  final _professionFocusNode = FocusNode();
+  Timer? _professionDebounce;
+  List<ProfessionOption> _professionOptions = [];
+  String? _professionOptionsQuery;
+  String? _selectedProfessionId;
+  String? _selectedProfessionLabel;
+  final List<String> _customMemberTypes = [];
+  static const String _addMemberTypeValue = '__add_member_type__';
+  static const List<String> _defaultMemberTypes = [
+    'membro',
+    'visitante',
+    'lider',
+    'voluntario',
+  ];
+  static const Map<String, String> _memberTypeLabels = {
+    'membro': 'Membro',
+    'visitante': 'Visitante',
+    'lider': 'Líder',
+    'voluntario': 'Voluntário',
+    'titular': 'Liderança',
+    'congregado': 'Congregado',
+    'cooperador': 'Cooperador',
+    'crianca': 'Criança',
+  };
 
   @override
   void initState() {
@@ -79,16 +105,261 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     if (widget.initialMemberType != null) {
       _memberType = widget.initialMemberType;
     }
+    if (widget.memberId == null && (_memberType == null || _memberType!.trim().isEmpty)) {
+      _memberType = _status == 'visitor' ? 'visitante' : 'membro';
+    }
+    _professionController.addListener(_handleProfessionChanged);
+    _professionFocusNode.addListener(() {
+      if (!mounted) return;
+      setState(() {});
+    });
     if (widget.memberId != null) {
       _loadMember();
     }
+  }
+
+  bool _looksLikeProfessionId(String value) {
+    final v = value.trim();
+    return RegExp(r'^prof\d{6}$').hasMatch(v) ||
+        RegExp(r'^[0-9a-fA-F]{32}$').hasMatch(v) ||
+        RegExp(r'^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$').hasMatch(v);
+  }
+
+  String _normalizeMemberTypeInput(String value) {
+    final t = value.trim().toLowerCase();
+    const repl = {
+      'á': 'a',
+      'à': 'a',
+      'â': 'a',
+      'ã': 'a',
+      'ä': 'a',
+      'é': 'e',
+      'ê': 'e',
+      'ë': 'e',
+      'í': 'i',
+      'ï': 'i',
+      'ó': 'o',
+      'ô': 'o',
+      'õ': 'o',
+      'ö': 'o',
+      'ú': 'u',
+      'ü': 'u',
+      'ç': 'c',
+    };
+
+    final buf = StringBuffer();
+    for (final rune in t.runes) {
+      final c = String.fromCharCode(rune);
+      buf.write(repl[c] ?? c);
+    }
+
+    var s = buf.toString();
+    s = s.replaceAll(RegExp(r'\s+'), '_');
+    s = s.replaceAll(RegExp(r'[^a-z0-9_-]'), '');
+    s = s.replaceAll(RegExp(r'_+'), '_');
+    s = s.replaceAll(RegExp(r'^_+|_+$'), '');
+    return s;
+  }
+
+  String _memberTypeLabelFor(String type) {
+    final v = type.trim();
+    final mapped = _memberTypeLabels[v];
+    if (mapped != null && mapped.isNotEmpty) return mapped;
+    var s = v.replaceAll(RegExp(r'[_-]+'), ' ').trim();
+    if (s.isEmpty) return v;
+    final words = s.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final normalized = words
+        .map((w) => w.length == 1
+            ? w.toUpperCase()
+            : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+        .join(' ');
+    return normalized.isNotEmpty ? normalized : v;
+  }
+
+  List<DropdownMenuItem<String>> _buildMemberTypeItems() {
+    final items = <String>[
+      ..._defaultMemberTypes,
+      ..._customMemberTypes,
+    ];
+
+    final current = _memberType?.trim();
+    if (current != null &&
+        current.isNotEmpty &&
+        current != _addMemberTypeValue &&
+        !items.contains(current)) {
+      items.add(current);
+    }
+
+    items.add(_addMemberTypeValue);
+
+    final unique = <String>{};
+    final finalItems = <String>[];
+    for (final v in items) {
+      if (unique.add(v)) finalItems.add(v);
+    }
+
+    return finalItems
+        .map(
+          (value) => DropdownMenuItem(
+            value: value,
+            child: Text(
+              value == _addMemberTypeValue
+                  ? 'Adicionar novo tipo...'
+                  : _memberTypeLabelFor(value),
+            ),
+          ),
+        )
+        .toList();
+  }
+
+  Future<String?> _askForCustomMemberType() async {
+    final controller = TextEditingController();
+    try {
+      final result = await showDialog<String>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Novo tipo de membro'),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Tipo',
+                border: OutlineInputBorder(),
+              ),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (v) {
+                final normalized = _normalizeMemberTypeInput(v);
+                if (normalized.isEmpty) return;
+                Navigator.of(context).pop(normalized);
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final normalized = _normalizeMemberTypeInput(controller.text);
+                  if (normalized.isEmpty) return;
+                  Navigator.of(context).pop(normalized);
+                },
+                child: const Text('Adicionar'),
+              ),
+            ],
+          );
+        },
+      );
+      return result;
+    } finally {
+      controller.dispose();
+    }
+  }
+
+  Future<void> _handleMemberTypeChanged(String? value) async {
+    if (value == null) {
+      setState(() => _memberType = null);
+      return;
+    }
+
+    if (value != _addMemberTypeValue) {
+      setState(() => _memberType = value);
+      return;
+    }
+
+    final previous = _memberType;
+    final custom = await _askForCustomMemberType();
+    if (!mounted) return;
+    if (custom == null || custom.trim().isEmpty) {
+      setState(() => _memberType = previous);
+      return;
+    }
+
+    setState(() {
+      if (!_customMemberTypes.contains(custom)) {
+        _customMemberTypes.add(custom);
+      }
+      _memberType = custom;
+    });
+  }
+
+  void _handleProfessionChanged() {
+    final text = _professionController.text;
+    if (_selectedProfessionLabel != null && text != _selectedProfessionLabel) {
+      _selectedProfessionId = null;
+      _selectedProfessionLabel = null;
+    }
+
+    if (_selectedProfessionLabel != null && text == _selectedProfessionLabel) {
+      if (_professionOptions.isNotEmpty || _professionOptionsQuery != null) {
+        setState(() {
+          _professionOptions = [];
+          _professionOptionsQuery = null;
+        });
+      }
+      return;
+    }
+
+    final query = text.trim();
+    _professionDebounce?.cancel();
+
+    if (query.length < 3) {
+      if (_professionOptions.isNotEmpty) {
+        setState(() {
+          _professionOptions = [];
+          _professionOptionsQuery = null;
+        });
+      }
+      return;
+    }
+
+    _professionDebounce = Timer(const Duration(milliseconds: 250), () async {
+      final requestedQuery = query;
+      final results = await ref.read(membersRepositoryProvider).searchProfessions(query);
+      if (!mounted) return;
+      if (_professionController.text.trim() != requestedQuery) return;
+      setState(() {
+        _professionOptions = results;
+        _professionOptionsQuery = requestedQuery;
+      });
+
+      if (_professionFocusNode.hasFocus) {
+        final v = _professionController.value;
+        final sel = v.selection;
+        _professionController.value = v.copyWith(
+          selection: TextSelection(
+            baseOffset: sel.baseOffset,
+            extentOffset: sel.extentOffset,
+            affinity: sel.affinity == TextAffinity.downstream
+                ? TextAffinity.upstream
+                : TextAffinity.downstream,
+            isDirectional: sel.isDirectional,
+          ),
+        );
+      }
+    });
+  }
+
+  void _selectProfessionOption(ProfessionOption option) {
+    setState(() {
+      _selectedProfessionId = option.id;
+      _selectedProfessionLabel = option.label;
+      _professionOptions = [];
+      _professionOptionsQuery = null;
+    });
+    _professionController.value = TextEditingValue(
+      text: option.label,
+      selection: TextSelection.collapsed(offset: option.label.length),
+    );
   }
 
   Future<void> _loadMember() async {
     setState(() => _isLoading = true);
     
     try {
-      final member = await ref.read(membersRepositoryProvider).getMemberById(widget.memberId!);
+      final repo = ref.read(membersRepositoryProvider);
+      final member = await repo.getMemberById(widget.memberId!);
       
       if (member != null && mounted) {
         setState(() {
@@ -118,6 +389,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           _conversionDate = member.conversionDate;
           _baptismDate = member.baptismDate;
         });
+
+        final rawProfession = member.profession;
+        if (rawProfession != null && _looksLikeProfessionId(rawProfession)) {
+          final label = await repo.getProfessionLabelById(rawProfession);
+          if (!mounted) return;
+          setState(() {
+            _selectedProfessionId = rawProfession;
+            _selectedProfessionLabel = label ?? rawProfession;
+          });
+          _professionController.text = label ?? rawProfession;
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -143,6 +425,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _cpfController.dispose();
+    _professionDebounce?.cancel();
+    _professionFocusNode.dispose();
+    _professionController.removeListener(_handleProfessionChanged);
     _professionController.dispose();
     _addressController.dispose();
     _addressComplementController.dispose();
@@ -277,8 +562,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         if (_cpfController.text.trim().isNotEmpty) {
           memberData['cpf'] = _cpfController.text.trim();
         }
-        if (_professionController.text.trim().isNotEmpty) {
-          memberData['profession'] = _professionController.text.trim();
+        final professionValue = _selectedProfessionId ?? _professionController.text.trim();
+        if (professionValue.isNotEmpty) {
+          memberData['profession'] = professionValue;
         }
         if (_birthdate != null) {
           memberData['birthdate'] = _birthdate!.toIso8601String().split('T')[0]; // Apenas a data
@@ -348,6 +634,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
         // Garantir que fullName nunca seja vazio (usar email como fallback)
         final finalFullName = fullName.isNotEmpty ? fullName : email;
+        final professionValue = _selectedProfessionId ?? _professionController.text.trim();
 
         final member = Member(
           id: widget.memberId!,
@@ -358,7 +645,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           nickname: _nicknameController.text.trim().isEmpty ? null : _nicknameController.text.trim(),
           phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
           cpf: _cpfController.text.trim().isEmpty ? null : _cpfController.text.trim(),
-          profession: _professionController.text.trim().isEmpty ? null : _professionController.text.trim(),
+          profession: professionValue.isEmpty ? null : professionValue,
           birthdate: _birthdate,
           gender: _gender,
           maritalStatus: _maritalStatus,
@@ -387,6 +674,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         ref.invalidate(allMembersProvider);
         ref.invalidate(activeMembersProvider);
         ref.invalidate(visitorsProvider);
+        if (widget.memberId != null) {
+          ref.invalidate(memberByIdProvider(widget.memberId!));
+          final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+          if (currentUserId != null && currentUserId == widget.memberId) {
+            ref.invalidate(currentMemberProvider);
+          }
+        }
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -422,6 +716,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     final permission = widget.memberId == null
         ? (_status == 'visitor' ? 'visitors.create' : 'members.create')
         : (_status == 'visitor' ? 'visitors.edit' : 'members.edit');
+    final professionQuery = _professionController.text.trim();
+    final showProfessionOptions = _professionFocusNode.hasFocus &&
+        professionQuery.length >= 3 &&
+        _professionOptions.isNotEmpty &&
+        (_selectedProfessionLabel == null || professionQuery != _selectedProfessionLabel);
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -695,19 +994,43 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                             const SizedBox(height: 16),
                           ],
         
-                          // Profissão
+                          // ProfissÆo
                           TextFormField(
                             controller: _professionController,
+                            focusNode: _professionFocusNode,
                             decoration: InputDecoration(
-                              labelText: 'Profissão',
+                              labelText: 'ProfissÆo',
                               filled: true,
                               fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                               border: const OutlineInputBorder(),
                               prefixIcon: const Icon(Icons.work),
                             ),
                           ),
-                          const SizedBox(height: 24),
-        
+                          if (showProfessionOptions) ...[
+                            const SizedBox(height: 8),
+                            Material(
+                              elevation: 4,
+                              borderRadius: BorderRadius.circular(8),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxHeight: 240),
+                                child: ListView.builder(
+                                  padding: EdgeInsets.zero,
+                                  shrinkWrap: true,
+                                  primary: false,
+                                  itemCount: _professionOptions.length,
+                                  itemBuilder: (context, index) {
+                                    final option = _professionOptions[index];
+                                    return ListTile(
+                                      dense: true,
+                                      title: Text(option.label),
+                                      onTap: () => _selectProfessionOption(option),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 24),        
                           // Seção: Endereço
                           _buildSectionTitle('Endereço'),
                           const SizedBox(height: 16),
@@ -936,6 +1259,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         
                           // Tipo de Membro
                           DropdownButtonFormField<String>(
+                            key: ValueKey(_memberType),
                             initialValue: _memberType,
                             decoration: InputDecoration(
                               labelText: 'Tipo de Membro',
@@ -944,16 +1268,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                               border: const OutlineInputBorder(),
                               prefixIcon: const Icon(Icons.person_outline),
                             ),
-                            items: const [
-                              DropdownMenuItem(value: 'titular', child: Text('Titular')),
-                              DropdownMenuItem(value: 'congregado', child: Text('Congregado')),
-                              DropdownMenuItem(value: 'cooperador', child: Text('Cooperador')),
-                              DropdownMenuItem(value: 'crianca', child: Text('Criança')),
-                            ],
+                            items: _buildMemberTypeItems(),
                             onChanged: (value) {
-                              setState(() {
-                                _memberType = value;
-                              });
+                              _handleMemberTypeChanged(value);
                             },
                           ),
                           const SizedBox(height: 24),

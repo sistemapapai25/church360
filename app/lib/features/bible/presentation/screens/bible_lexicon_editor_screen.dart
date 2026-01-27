@@ -235,6 +235,15 @@ class _BibleLexiconEditorScreenState extends ConsumerState<BibleLexiconEditorScr
               decoration: InputDecoration(
                 hintText: 'Buscar Strong (ex: H7225) ou termo...',
                 prefixIcon: const Icon(Icons.search),
+                suffixIcon: query.trim().isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          ref.read(bibleLexemeSearchQueryProvider.notifier).state = '';
+                        },
+                      )
+                    : null,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

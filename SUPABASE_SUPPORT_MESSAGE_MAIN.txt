@@ -1,0 +1,25 @@
+Ola, Supabase,
+
+Preciso de ajuda para restaurar o schema auth do meu projeto. Ao tentar
+desabilitar RLS via migracao, recebo:
+ERROR: must be owner of table users
+
+Projeto:
+- Project ref/ID: heswheljavpcyspuicsi
+- URL: https://heswheljavpcyspuicsi.supabase.co
+- Regiao: sa-east-1
+
+Diagnostico:
+RLS esta habilitada nas seguintes tabelas auth:
+audit_log_entries, flow_state, identities, instances, mfa_amr_claims,
+mfa_challenges, mfa_factors, one_time_tokens, refresh_tokens,
+saml_providers, saml_relay_states, schema_migrations, sessions,
+sso_domains, sso_providers, users.
+(Tabelas OAuth estao com RLS desabilitada.)
+
+Pedido:
+Solicito o reset do schema auth para o estado padrao da plataforma
+(ownership, RLS/policies, grants e triggers), preservando os dados, para
+restabelecer o funcionamento de autenticacao.
+
+Obrigado!

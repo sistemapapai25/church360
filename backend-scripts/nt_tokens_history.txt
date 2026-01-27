@@ -1,0 +1,66 @@
+Church360 — Histórico de processamento de tokens do NT (ARC ↔ STEPBible)
+
+Projeto: Church360
+Pasta: c:\Users\prber\projetos\Church360
+Script principal: backend-scripts\import_stepbible_ot_tokens.ps1
+
+Objetivo
+- Aumentar cobertura de tokens com lexeme_id grego (Strong G%) nos livros do NT.
+- Usar o pipeline padrão: OnlyAutoLink → BuildAlignmentFromLexemes → Phase4Auto.
+- Validar integridade estrutural dos tokens por livro:
+  - tokens_out_of_bounds = 0
+  - tokens_overlap_or_backwards = 0
+- Critérios de parada por livro:
+  - ganho de cobertura (G%) < 0,5pp, ou
+  - Phase4Auto vinculou 0 tokens (sem efeito).
+
+Observação sobre cobertura (G%)
+- Métrica usada: pct_grego = tokens com lexeme_id cujo strong_code LIKE 'G%' / tokens_total.
+
+Execuções registradas
+- Nenhuma execução do NT registrada ainda neste histórico.
+
+Ranking NT (menores G% no momento em que este arquivo foi criado)
+- 50 Filipenses: 10,24% (207 / 2022)
+- 65 Judas: 15,87% (90 / 567)
+- 61 2 Pedro: 16,84% (230 / 1366)
+- 44 Atos: 16,91% (3544 / 20964)
+- 42 Lucas: 17,51% (3849 / 21978)
+- 59 Tiago: 18,21% (386 / 2120)
+- 55 2 Timóteo: 18,37% (275 / 1497)
+- 41 Marcos: 18,45% (2362 / 12805)
+- 56 Tito: 18,85% (161 / 854)
+- 58 Hebreus: 19,09% (1181 / 6188)
+- 51 Colossenses: 19,11% (355 / 1858)
+- 47 2 Coríntios: 19,56% (1069 / 5465)
+
+Mudanças no script (import_stepbible_ot_tokens.ps1)
+- Adicionados switches de relatório (para consulta rápida):
+  - -ReportCoverage (H%) e -ReportOtRanking (OT)
+  - -ReportCoverageNt (G%) e -ReportNtRanking (NT)
+
+Como começar o NT (pré-requisitos)
+- O Phase4Auto e os alinhamentos dependem de tokens originais do STEPBible (TAGNT) em public.stepbible_original_token.
+- Se ainda não houver tokens TAGNT no banco para o livro alvo, importar primeiro:
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File .\backend-scripts\import_stepbible_ot_tokens.ps1 -BookId <ID_NT> -EnsureStepBibleOriginalSchema -ImportTagntOriginalTokens
+- Em seguida, normalizar strong_code e preencher lexeme_id nos tokens STEPBible:
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File .\backend-scripts\import_stepbible_ot_tokens.ps1 -BookId <ID_NT> -BackfillStepBibleTokenLexemeIds
+
+Pipeline por livro (comandos típicos)
+- OnlyAutoLink:
+  pwsh -NoProfile -ExecutionPolicy Bypass -File .\backend-scripts\import_stepbible_ot_tokens.ps1 -BookId <ID_NT> -OnlyAutoLink -AutoLinkFromStepBibleCandidates -AutoLinkFromStepBibleCooccurrence
+- BuildAlignmentFromLexemes:
+  pwsh -NoProfile -ExecutionPolicy Bypass -File .\backend-scripts\import_stepbible_ot_tokens.ps1 -BookId <ID_NT> -BuildAlignmentFromLexemes
+- Phase4Auto (capítulos variam por livro):
+  pwsh -NoProfile -ExecutionPolicy Bypass -File .\backend-scripts\import_stepbible_ot_tokens.ps1 -BookId <ID_NT> -Phase4Auto -Phase4ChapterFrom 1 -Phase4ChapterTo <CAPS> -Phase4VerseFrom 1 -Phase4VerseTo 200
+- Relatórios:
+  pwsh -NoProfile -ExecutionPolicy Bypass -File .\backend-scripts\import_stepbible_ot_tokens.ps1 -BookId <ID_NT> -ReportCoverageNt -ReportNtRanking -ReportNtRankingLimit 12
+
+Mapeamento book_id (NT) — referência rápida
+- 40 Mateus, 41 Marcos, 42 Lucas, 43 João, 44 Atos
+- 45 Romanos, 46 1 Coríntios, 47 2 Coríntios, 48 Gálatas, 49 Efésios
+- 50 Filipenses, 51 Colossenses, 52 1 Tessalonicenses, 53 2 Tessalonicenses
+- 54 1 Timóteo, 55 2 Timóteo, 56 Tito, 57 Filemom
+- 58 Hebreus, 59 Tiago, 60 1 Pedro, 61 2 Pedro
+- 62 1 João, 63 2 João, 64 3 João, 65 Judas, 66 Apocalipse
+

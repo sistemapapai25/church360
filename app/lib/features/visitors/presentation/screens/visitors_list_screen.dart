@@ -17,6 +17,13 @@ class VisitorsListScreen extends ConsumerStatefulWidget {
 
 class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
   String _searchQuery = '';
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -125,12 +132,24 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
                     ),
                     const SizedBox(height: 16),
                     TextField(
+                      controller: _searchController,
                       onChanged: (value) =>
                           setState(() => _searchQuery = value.trim()),
                       decoration: InputDecoration(
                         hintText: 'Digite o nome ou apelido...',
                         hintStyle: CommunityDesign.metaStyle(context),
                         prefixIcon: const Icon(Icons.search, size: 20),
+                        suffixIcon: _searchQuery.trim().isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  setState(() {
+                                    _searchController.clear();
+                                    _searchQuery = '';
+                                  });
+                                },
+                              )
+                            : null,
                         filled: true,
                         fillColor: Theme.of(context)
                             .colorScheme
@@ -225,7 +244,7 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
       floatingActionButton: PermissionGate(
         permission: 'visitors.create',
         child: FloatingActionButton.extended(
-          onPressed: () => context.push('/members/new?status=visitor'),
+          onPressed: () => context.push('/members/new?status=visitor&type=visitante'),
           icon: const Icon(Icons.add),
           label: const Text('Novo Visitante'),
         ),

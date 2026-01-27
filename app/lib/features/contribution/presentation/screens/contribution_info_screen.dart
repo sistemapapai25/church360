@@ -339,9 +339,6 @@ class ContributionInfoScreen extends ConsumerWidget {
                 'Conta',
                 info.accountNumber!,
                 info.accountType,
-                canCopy: true,
-                copyTooltip: 'Copiar conta',
-                copiedMessage: 'Conta copiada!',
               ),
               Divider(
                 color: Theme.of(
@@ -364,9 +361,6 @@ class ContributionInfoScreen extends ConsumerWidget {
                 'CPF/CNPJ',
                 info.accountHolderDocument!,
                 null,
-                canCopy: true,
-                copyTooltip: 'Copiar CPF/CNPJ',
-                copiedMessage: 'CPF/CNPJ copiado!',
               ),
           ],
         ),
@@ -379,9 +373,6 @@ class ContributionInfoScreen extends ConsumerWidget {
     String label,
     String value,
     String? extra,
-    {bool canCopy = false,
-    String? copyTooltip,
-    String? copiedMessage}
   ) {
     final cs = Theme.of(context).colorScheme;
     return Padding(
@@ -420,22 +411,6 @@ class ContributionInfoScreen extends ConsumerWidget {
               ],
             ),
           ),
-          if (canCopy)
-            IconButton(
-              icon: const Icon(Icons.copy, size: 18),
-              onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: value));
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(copiedMessage ?? '$label copiado!'),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                }
-              },
-              tooltip: copyTooltip ?? 'Copiar $label',
-            ),
         ],
       ),
     );

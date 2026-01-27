@@ -31,6 +31,13 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
   String _searchQuery = '';
   String? _selectedCategory;
   bool _isSaving = false;
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -112,9 +119,21 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
               children: [
                 Expanded(
                   child: TextField(
+                    controller: _searchController,
                     decoration: InputDecoration(
                       hintText: 'Buscar permissão...',
                       prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                setState(() {
+                                  _searchController.clear();
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                          : null,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -327,4 +346,3 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
     );
   }
 }
-

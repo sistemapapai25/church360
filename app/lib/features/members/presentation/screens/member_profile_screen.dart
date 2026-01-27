@@ -168,7 +168,7 @@ class MemberProfileScreen extends ConsumerWidget {
           if (member.memberType == 'titular') ...[
             _buildSection(
               context,
-              icon: Icons.stars,
+              icon: Icons.groups,
               title: 'Liderança',
               child: _buildLeadershipInfo(context, member, ref),
             ),
@@ -740,7 +740,7 @@ class MemberProfileScreen extends ConsumerWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.stars, color: colorScheme.primary, size: 20),
+                  Icon(Icons.groups, color: colorScheme.primary, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -960,6 +960,14 @@ class MemberProfileScreen extends ConsumerWidget {
 
   String _getMemberTypeLabel(String type) {
     switch (type) {
+      case 'membro':
+        return 'Membro';
+      case 'visitante':
+        return 'Visitante';
+      case 'lider':
+        return 'Líder';
+      case 'voluntario':
+        return 'Voluntário';
       case 'titular':
         return 'Liderança';
       case 'congregado':
@@ -969,7 +977,16 @@ class MemberProfileScreen extends ConsumerWidget {
       case 'crianca':
         return 'Criança';
       default:
-        return type;
+        final v = type.trim();
+        var s = v.replaceAll(RegExp(r'[_-]+'), ' ').trim();
+        if (s.isEmpty) return v;
+        final words = s.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+        final normalized = words
+            .map((w) => w.length == 1
+                ? w.toUpperCase()
+                : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+            .join(' ');
+        return normalized.isNotEmpty ? normalized : v;
     }
   }
 

@@ -940,7 +940,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
                     color: cs.primary.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.auto_awesome, color: cs.primary),
+                  child: Icon(Icons.volunteer_activism, color: cs.primary),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

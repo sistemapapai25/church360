@@ -553,6 +553,27 @@ class MinistriesRepository {
     }
   }
 
+  Future<Map<String, String>> getUserPhotoUrlsByIds(List<String> ids) async {
+    try {
+      if (ids.isEmpty) return {};
+      final response = await _supabase
+          .from('user_account')
+          .select('id,photo_url')
+          .inFilter('id', ids)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
+      final out = <String, String>{};
+      for (final row in (response as List)) {
+        final id = row['id']?.toString();
+        if (id == null || id.isEmpty) continue;
+        final url = row['photo_url']?.toString() ?? '';
+        if (url.trim().isNotEmpty) out[id] = url.trim();
+      }
+      return out;
+    } catch (_) {
+      return {};
+    }
+  }
+
   Future<void> setMemberFunctionsByMinistry(String ministryId, Map<String, List<String>> byFunc) async {
     try {
       final catalog = await getFunctionsCatalog();

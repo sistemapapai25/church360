@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../../members/presentation/providers/members_provider.dart';
@@ -80,10 +81,12 @@ final allRoleContextsProvider = FutureProvider<List<RoleContext>>((ref) async {
 final roleContextsProvider = allRoleContextsProvider;
 
 /// Provider: Contextos de um cargo específico
-final contextsByRoleProvider = FutureProvider.family<List<RoleContext>, String>((ref, roleId) async {
-  final repository = ref.watch(roleContextsRepositoryProvider);
-  return repository.getContextsByRole(roleId);
-});
+final contextsByRoleProvider = FutureProvider.family<List<RoleContext>, String>(
+  (ref, roleId) async {
+    final repository = ref.watch(roleContextsRepositoryProvider);
+    return repository.getContextsByRole(roleId);
+  },
+);
 
 // =====================================================
 // PROVIDERS DE DADOS - PERMISSÕES
@@ -99,10 +102,11 @@ final permissionsProvider = FutureProvider<List<Permission>>((ref) async {
 final allPermissionsProvider = permissionsProvider;
 
 /// Provider: Permissões por categoria
-final permissionsByCategoryProvider = FutureProvider.family<List<Permission>, String>((ref, category) async {
-  final repository = ref.watch(permissionsRepositoryProvider);
-  return repository.getPermissionsByCategory(category);
-});
+final permissionsByCategoryProvider =
+    FutureProvider.family<List<Permission>, String>((ref, category) async {
+      final repository = ref.watch(permissionsRepositoryProvider);
+      return repository.getPermissionsByCategory(category);
+    });
 
 /// Provider: Categorias de permissões
 final permissionCategoriesProvider = FutureProvider<List<String>>((ref) async {
@@ -111,10 +115,12 @@ final permissionCategoriesProvider = FutureProvider<List<String>>((ref) async {
 });
 
 /// Provider: Permissões de um cargo
-final rolePermissionsProvider = FutureProvider.family<List<Permission>, String>((ref, roleId) async {
-  final repository = ref.watch(permissionsRepositoryProvider);
-  return repository.getRolePermissions(roleId);
-});
+final rolePermissionsProvider = FutureProvider.family<List<Permission>, String>(
+  (ref, roleId) async {
+    final repository = ref.watch(permissionsRepositoryProvider);
+    return repository.getRolePermissions(roleId);
+  },
+);
 
 // =====================================================
 // PROVIDERS DE DADOS - ATRIBUIÇÕES
@@ -130,44 +136,65 @@ final allUserRolesProvider = FutureProvider<List<UserRole>>((ref) async {
 final userRolesProvider = allUserRolesProvider;
 
 /// Provider: Cargos de um usuário específico
-final userRolesByUserProvider = FutureProvider.family<List<UserRole>, String>((ref, userId) async {
+final userRolesByUserProvider = FutureProvider.family<List<UserRole>, String>((
+  ref,
+  userId,
+) async {
   final repository = ref.watch(userRolesRepositoryProvider);
   return repository.getUserRoles(userId);
 });
 
 /// Provider: Usuários com um cargo específico
-final usersByRoleProvider = FutureProvider.family<List<UserRole>, String>((ref, roleId) async {
+final usersByRoleProvider = FutureProvider.family<List<UserRole>, String>((
+  ref,
+  roleId,
+) async {
   final repository = ref.watch(userRolesRepositoryProvider);
   return repository.getUsersByRole(roleId);
 });
 
 /// Provider: Contextos de um usuário
-final userRoleContextsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, userId) async {
-  final repository = ref.watch(userRolesRepositoryProvider);
-  return repository.getUserRoleContexts(userId: userId);
-});
+final userRoleContextsProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>((
+      ref,
+      userId,
+    ) async {
+      final repository = ref.watch(userRolesRepositoryProvider);
+      return repository.getUserRoleContexts(userId: userId);
+    });
 
 // =====================================================
 // PROVIDERS DE PERMISSÕES EFETIVAS
 // =====================================================
 
 /// Provider: Permissões efetivas de um usuário
-final userEffectivePermissionsProvider = FutureProvider.family<List<UserEffectivePermission>, String>((ref, userId) async {
-  final repository = ref.watch(permissionsRepositoryProvider);
-  return repository.getUserEffectivePermissions(userId);
-});
+final userEffectivePermissionsProvider =
+    FutureProvider.family<List<UserEffectivePermission>, String>((
+      ref,
+      userId,
+    ) async {
+      final repository = ref.watch(permissionsRepositoryProvider);
+      return repository.getUserEffectivePermissions(userId);
+    });
 
 /// Provider: Verificar permissão específica
-final checkUserPermissionProvider = FutureProvider.family<bool, ({String userId, String permissionCode})>((ref, params) async {
-  final repository = ref.watch(permissionsRepositoryProvider);
-  return repository.checkUserPermission(
-    userId: params.userId,
-    permissionCode: params.permissionCode,
-  );
-});
+final checkUserPermissionProvider =
+    FutureProvider.family<bool, ({String userId, String permissionCode})>((
+      ref,
+      params,
+    ) async {
+      final repository = ref.watch(permissionsRepositoryProvider);
+      return repository.checkUserPermission(
+        userId: params.userId,
+        permissionCode: params.permissionCode,
+      );
+    });
 
 /// Provider: Verificar acesso ao Dashboard
-final canAccessDashboardProvider = FutureProvider.family<bool, String>((ref, userId) async {
+final canAccessDashboardProvider = FutureProvider.family<bool, String>((
+  ref,
+  userId,
+) async {
   final repository = ref.watch(permissionsRepositoryProvider);
   return repository.canAccessDashboard(userId);
 });
@@ -178,9 +205,15 @@ final canAccessDashboardProvider = FutureProvider.family<bool, String>((ref, use
 
 /// Provider: ID do usuário atual
 final currentUserIdProvider = Provider<String?>((ref) {
+  // Developer Mode Bypass
+  if (SupabaseConstants.devModeUserId != null) {
+    return SupabaseConstants.devModeUserId;
+  }
+
   final authState = ref.watch(authStateProvider).valueOrNull;
   final supabase = ref.watch(supabaseClientProvider);
-  final fromClient = supabase.auth.currentUser ?? supabase.auth.currentSession?.user;
+  final fromClient =
+      supabase.auth.currentUser ?? supabase.auth.currentSession?.user;
   final fromStream = authState?.session?.user;
   return (fromStream ?? fromClient)?.id;
 });
@@ -207,22 +240,31 @@ final currentUserRolesProvider = FutureProvider<List<UserRole>>((ref) async {
 });
 
 /// Provider: Permissões efetivas do usuário atual
-final currentUserPermissionsProvider = FutureProvider<List<UserEffectivePermission>>((ref) async {
-  ref.watch(authStateProvider);
-  final supabase = ref.watch(supabaseClientProvider);
-  SupabaseConstants.applyTenantHeadersToClient(supabase);
-  try {
-    await SupabaseConstants.syncTenantFromServer(supabase, syncJwt: false);
-  } catch (_) {}
+final currentUserPermissionsProvider =
+    FutureProvider<List<UserEffectivePermission>>((ref) async {
+      ref.watch(authStateProvider);
+      final supabase = ref.watch(supabaseClientProvider);
+      SupabaseConstants.applyTenantHeadersToClient(supabase);
+      try {
+        await SupabaseConstants.syncTenantFromServer(supabase, syncJwt: false);
+      } catch (_) {}
 
-  final userId = ref.watch(currentUserIdProvider);
-  if (userId == null) return [];
-  final repository = ref.watch(permissionsRepositoryProvider);
-  return repository.getUserEffectivePermissions(userId);
-});
+      final userId = ref.watch(currentUserIdProvider);
+      if (userId == null) return [];
+      final repository = ref.watch(permissionsRepositoryProvider);
+      return repository.getUserEffectivePermissions(userId);
+    });
 
 /// Provider: Verificar se usuário atual pode acessar Dashboard
 final currentUserCanAccessDashboardProvider = FutureProvider<bool>((ref) async {
+  // BYPASS DEV MODE
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('dev_mode_active') ?? false) {
+      return true;
+    }
+  } catch (_) {}
+
   ref.watch(authStateProvider);
   final supabase = ref.watch(supabaseClientProvider);
   SupabaseConstants.applyTenantHeadersToClient(supabase);
@@ -237,7 +279,18 @@ final currentUserCanAccessDashboardProvider = FutureProvider<bool>((ref) async {
 });
 
 /// Provider: Verificar se usuário atual tem permissão específica
-final currentUserHasPermissionProvider = FutureProvider.family<bool, String>((ref, permissionCode) async {
+final currentUserHasPermissionProvider = FutureProvider.family<bool, String>((
+  ref,
+  permissionCode,
+) async {
+  // BYPASS DEV MODE
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('dev_mode_active') ?? false) {
+      return true;
+    }
+  } catch (_) {}
+
   ref.watch(authStateProvider);
   final supabase = ref.watch(supabaseClientProvider);
   SupabaseConstants.applyTenantHeadersToClient(supabase);
@@ -259,16 +312,22 @@ final currentUserHasPermissionProvider = FutureProvider.family<bool, String>((re
 // =====================================================
 
 /// Provider: Log de auditoria
-final permissionAuditLogProvider = FutureProvider.family<List<Map<String, dynamic>>, ({String? userId, int limit})>((ref, params) async {
-  final repository = ref.watch(userRolesRepositoryProvider);
-  return repository.getPermissionAuditLog(
-    userId: params.userId,
-    limit: params.limit,
-  );
-});
+final permissionAuditLogProvider =
+    FutureProvider.family<
+      List<Map<String, dynamic>>,
+      ({String? userId, int limit})
+    >((ref, params) async {
+      final repository = ref.watch(userRolesRepositoryProvider);
+      return repository.getPermissionAuditLog(
+        userId: params.userId,
+        limit: params.limit,
+      );
+    });
 
 /// Provider: Log de auditoria (sem parâmetros - últimos 100)
-final auditLogProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final auditLogProvider = FutureProvider<List<Map<String, dynamic>>>((
+  ref,
+) async {
   final repository = ref.watch(userRolesRepositoryProvider);
   return repository.getPermissionAuditLog(limit: 100);
 });

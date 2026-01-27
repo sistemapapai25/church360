@@ -6,27 +6,36 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class SupabaseConstants {
   // URL do projeto Supabase
   static const String supabaseUrl = 'https://heswheljavpcyspuicsi.supabase.co';
-  
+
   // Anon Key (chave pública - seguro para expor no app)
-  static const String supabaseAnonKey = 
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhlc3doZWxqYXZwY3lzcHVpY3NpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk3NDc4NDMsImV4cCI6MjA2NTMyMzg0M30.JcGUOFynclGhrLRuZbiGMXsNviMLLBSLZ4l89HgDvNg';
-  
+  static const String supabaseAnonKey =
+      'sb_publishable_LfPOQeLcfniZohiBvmesnw_sgRWht18';
+
   // ⚠️ NUNCA exponha o service_role key no app!
   // Ele deve ser usado apenas em scripts backend
-  static const String defaultTenantId = 'd5a1cbee-99f4-4c12-8bd8-55c8c22c2645';
+  static const String defaultTenantId = 'd8b6be47-f99f-45b8-a3f4-b7ca3cca9645';
   static String currentTenantId = defaultTenantId;
 
   static const String tenantPrefsKey = 'active_tenant_id';
 
   static Map<String, String> get tenantHeaders => {
-        'x-tenant-id': currentTenantId,
-      };
+    'x-tenant-id': currentTenantId,
+  };
 
   static Future<void> loadPersistedTenantId() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = (prefs.getString(tenantPrefsKey) ?? '').trim();
     if (saved.isNotEmpty) currentTenantId = saved;
+
+    // Load Developer Mode User ID
+    if (prefs.getBool('dev_mode_active') ?? false) {
+      devModeUserId = prefs.getString('dev_user_id');
+    } else {
+      devModeUserId = null;
+    }
   }
+
+  static String? devModeUserId;
 
   static Future<void> setTenantId(
     String tenantId, {
@@ -54,9 +63,10 @@ class SupabaseConstants {
     if (user == null) return null;
 
     final preferred = currentTenantId.trim();
-    final jwtTenant = (user.userMetadata?['tenant_id'] ?? user.appMetadata['tenant_id'])
-        ?.toString()
-        .trim();
+    final jwtTenant =
+        (user.userMetadata?['tenant_id'] ?? user.appMetadata['tenant_id'])
+            ?.toString()
+            .trim();
 
     List<String> memberships = const [];
     try {
@@ -74,8 +84,14 @@ class SupabaseConstants {
     } catch (_) {}
 
     if (memberships.isNotEmpty) {
-      if (preferred.isNotEmpty && memberships.contains(preferred)) return preferred;
-      if (jwtTenant != null && jwtTenant.isNotEmpty && memberships.contains(jwtTenant)) return jwtTenant;
+      if (preferred.isNotEmpty && memberships.contains(preferred)) {
+        return preferred;
+      }
+      if (jwtTenant != null &&
+          jwtTenant.isNotEmpty &&
+          memberships.contains(jwtTenant)) {
+        return jwtTenant;
+      }
       return memberships.first;
     }
 
@@ -93,8 +109,14 @@ class SupabaseConstants {
           .toSet()
           .toList();
       if (candidates.isNotEmpty) {
-        if (preferred.isNotEmpty && candidates.contains(preferred)) return preferred;
-        if (jwtTenant != null && jwtTenant.isNotEmpty && candidates.contains(jwtTenant)) return jwtTenant;
+        if (preferred.isNotEmpty && candidates.contains(preferred)) {
+          return preferred;
+        }
+        if (jwtTenant != null &&
+            jwtTenant.isNotEmpty &&
+            candidates.contains(jwtTenant)) {
+          return jwtTenant;
+        }
         return candidates.first;
       }
     } catch (_) {}
@@ -139,13 +161,10 @@ class SupabaseConstants {
     if (!syncJwt) return;
     try {
       await client.auth.updateUser(
-        UserAttributes(
-          data: {
-            'tenant_id': currentTenantId,
-          },
-        ),
+        UserAttributes(data: {'tenant_id': currentTenantId}),
       );
       await client.auth.refreshSession();
     } catch (_) {}
   }
 }
+

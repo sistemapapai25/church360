@@ -19,6 +19,13 @@ class MinistriesListScreen extends ConsumerStatefulWidget {
 
 class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
   String _searchQuery = '';
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -206,6 +213,7 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                               ),
                               const SizedBox(height: 16),
                               TextField(
+                                controller: _searchController,
                                 onChanged: (value) =>
                                     setState(() => _searchQuery = value.trim()),
                                 decoration: InputDecoration(
@@ -215,6 +223,17 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                                     Icons.search,
                                     size: 20,
                                   ),
+                                  suffixIcon: _searchQuery.trim().isNotEmpty
+                                      ? IconButton(
+                                          icon: const Icon(Icons.clear),
+                                          onPressed: () {
+                                            setState(() {
+                                              _searchController.clear();
+                                              _searchQuery = '';
+                                            });
+                                          },
+                                        )
+                                      : null,
                                   filled: true,
                                   fillColor: Theme.of(context)
                                       .colorScheme
@@ -412,22 +431,45 @@ class _MinistryCard extends ConsumerWidget {
                   final leaders = members
                       .where((m) => m.role == MinistryRole.leader)
                       .length;
+                  final sortedNames = members
+                      .map((m) => m.memberName)
+                      .where((n) => n.trim().isNotEmpty)
+                      .toList()
+                    ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+                  final visibleNames = sortedNames.take(8).toList();
+                  final overflow = sortedNames.length - visibleNames.length;
 
-                  return Row(
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.people, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${members.length} ${members.length == 1 ? 'membro' : 'membros'}',
-                        style: CommunityDesign.metaStyle(
-                          context,
-                        ).copyWith(fontWeight: FontWeight.w500),
+                      Row(
+                        children: [
+                          Icon(Icons.people, size: 16, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${members.length} ${members.length == 1 ? 'membro' : 'membros'}',
+                            style: CommunityDesign.metaStyle(
+                              context,
+                            ).copyWith(fontWeight: FontWeight.w500),
+                          ),
+                          if (leaders > 0) ...[
+                            const SizedBox(width: 12),
+                            Text(
+                              '$leaders ${leaders == 1 ? 'líder' : 'líderes'}',
+                              style: CommunityDesign.metaStyle(context),
+                            ),
+                          ],
+                        ],
                       ),
-                      if (leaders > 0) ...[
-                        const SizedBox(width: 12),
+                      if (visibleNames.isNotEmpty) ...[
+                        const SizedBox(height: 6),
                         Text(
-                          '$leaders ${leaders == 1 ? 'líder' : 'líderes'}',
+                          overflow > 0
+                              ? '${visibleNames.join(', ')} (+$overflow)'
+                              : visibleNames.join(', '),
                           style: CommunityDesign.metaStyle(context),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ],

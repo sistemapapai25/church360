@@ -332,7 +332,7 @@ class _ContributionCard extends StatelessWidget {
       case ContributionType.building:
         return Icons.construction;
       case ContributionType.special:
-        return Icons.star;
+        return Icons.celebration;
       case ContributionType.other:
         return Icons.attach_money;
     }

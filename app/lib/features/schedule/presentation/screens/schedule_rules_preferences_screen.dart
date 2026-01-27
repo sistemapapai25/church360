@@ -21,6 +21,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
   Map<String, dynamic> _rules = {};
   List<dynamic> _members = [];
   Map<String, String> _memberNames = {};
+  final Map<String, String> _memberPhotoUrls = {};
   List<String> _functions = [];
   List<String> _eventTypes = [];
   List<Event> _events = [];
@@ -56,6 +57,19 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
       
       _members = await repo.getMinistryMembers(widget.ministryId);
       _memberNames = {for (final m in _members) m.memberId as String: m.memberName as String};
+      try {
+        final ids = _members
+            .map((m) => m.memberId as String)
+            .where((e) => e.isNotEmpty)
+            .toSet()
+            .toList();
+        final photos = await repo.getUserPhotoUrlsByIds(ids);
+        _memberPhotoUrls
+          ..clear()
+          ..addAll(photos);
+      } catch (_) {
+        _memberPhotoUrls.clear();
+      }
       // Vínculos de funções dos membros (member_function)
       Map<String, List<String>> memberFuncMap = {};
       try {
@@ -1421,8 +1435,46 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
       base = List<dynamic>.from(_members);
     }
     base.sort((a, b) => (a.memberName as String).compareTo(b.memberName as String));
+
+    final colorScheme = Theme.of(context).colorScheme;
+    Widget fallbackAvatar() {
+      return CircleAvatar(
+        radius: 12,
+        backgroundColor: colorScheme.primaryContainer,
+        foregroundColor: colorScheme.onPrimaryContainer,
+        child: const Icon(Icons.security, size: 14),
+      );
+    }
+
+    Widget avatarFor(String memberId) {
+      final url = (_memberPhotoUrls[memberId] ?? '').trim();
+      if (url.isEmpty) return fallbackAvatar();
+      return ClipOval(
+        child: Image.network(
+          url,
+          width: 24,
+          height: 24,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => fallbackAvatar(),
+        ),
+      );
+    }
+
     return base
-        .map((m) => DropdownMenuItem<String>(value: m.memberId as String, child: Text(m.memberName as String)))
+        .map((m) {
+          final memberId = m.memberId as String;
+          final memberName = m.memberName as String;
+          return DropdownMenuItem<String>(
+            value: memberId,
+            child: Row(
+              children: [
+                avatarFor(memberId),
+                const SizedBox(width: 8),
+                Flexible(child: Text(memberName, overflow: TextOverflow.ellipsis)),
+              ],
+            ),
+          );
+        })
         .toList();
   }
 

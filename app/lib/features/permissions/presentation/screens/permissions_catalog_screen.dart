@@ -15,6 +15,13 @@ class PermissionsCatalogScreen extends ConsumerStatefulWidget {
 class _PermissionsCatalogScreenState extends ConsumerState<PermissionsCatalogScreen> {
   String _searchQuery = '';
   String? _selectedCategory;
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,9 +40,21 @@ class _PermissionsCatalogScreenState extends ConsumerState<PermissionsCatalogScr
           Padding(
             padding: const EdgeInsets.all(16),
             child: TextField(
+              controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Buscar permissão...',
                 prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() {
+                            _searchController.clear();
+                            _searchQuery = '';
+                          });
+                        },
+                      )
+                    : null,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -340,4 +359,3 @@ class _PermissionsCatalogScreenState extends ConsumerState<PermissionsCatalogScr
     }
   }
 }
-
