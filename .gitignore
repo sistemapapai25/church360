@@ -47,5 +47,3 @@ app.*.map.json
 
 # Firebase local files (do not commit)
 .firebase/
-.firebaserc
-firebase.json
