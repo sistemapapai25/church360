@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/events/domain/models/event.dart';
+import '../../constants/supabase_constants.dart';
 
 /// Enum para períodos de filtro
 enum EventAnalysisPeriod {
@@ -63,11 +64,12 @@ final eventsAnalysisByPeriodProvider = FutureProvider.family<Map<String, dynamic
           *,
           event_registration(
             id,
-            member_id,
+            user_id,
             checked_in_at,
             registered_at
           )
         ''')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .gte('start_date', startDate.toIso8601String())
         .lte('start_date', endDate.toIso8601String());
 
@@ -106,6 +108,7 @@ final eventsAnalysisByPeriodProvider = FutureProvider.family<Map<String, dynamic
     final visitorsResponse = await supabase
         .from('visitor')
         .select('id, first_visit_date, last_visit_date, status')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .gte('first_visit_date', startDate.toIso8601String().split('T')[0])
         .lte('first_visit_date', endDate.toIso8601String().split('T')[0])
         .neq('status', 'converted');

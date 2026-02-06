@@ -109,7 +109,7 @@ class GroupAttendance {
     return GroupAttendance(
       id: json['id'] as String,
       meetingId: json['meeting_id'] as String,
-      memberId: json['member_id'] as String,
+      memberId: json['user_id'] as String,
       memberName: json['member_name'] as String?,
       wasPresent: json['was_present'] as bool? ?? true,
       notes: json['notes'] as String?,
@@ -122,7 +122,7 @@ class GroupAttendance {
     return {
       'id': id,
       'meeting_id': meetingId,
-      'member_id': memberId,
+      'user_id': memberId,
       'was_present': wasPresent,
       'notes': notes,
       'created_at': createdAt.toIso8601String(),
@@ -150,4 +150,3 @@ class GroupAttendance {
     );
   }
 }
-

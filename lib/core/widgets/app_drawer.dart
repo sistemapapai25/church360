@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../features/access_levels/presentation/providers/access_level_provider.dart';
+import 'app_logo.dart';
+import '../../features/permissions/providers/permissions_providers.dart';
+import '../utils/app_exit.dart';
 
 /// Menu lateral do aplicativo
 class AppDrawer extends ConsumerWidget {
@@ -12,7 +14,9 @@ class AppDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUser = Supabase.instance.client.auth.currentUser;
-    final userAccessLevelAsync = ref.watch(currentUserAccessLevelProvider);
+    final canManageAccessLevelsAsync = ref.watch(
+      currentUserHasPermissionProvider('settings.manage_access_levels'),
+    );
 
     return Drawer(
       child: ListView(
@@ -32,10 +36,9 @@ class AppDrawer extends ConsumerWidget {
             ),
             currentAccountPicture: CircleAvatar(
               backgroundColor: Theme.of(context).colorScheme.surface,
-              child: Icon(
-                Icons.church,
-                size: 40,
-                color: Theme.of(context).colorScheme.primary,
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: const AppLogo(),
               ),
             ),
             accountName: Text(
@@ -77,17 +80,15 @@ class AppDrawer extends ConsumerWidget {
             route: '/visitors',
             currentRoute: GoRouterState.of(context).uri.toString(),
           ),
-          userAccessLevelAsync.when(
-            data: (accessLevel) {
-              if (accessLevel?.accessLevelNumber != null && accessLevel!.accessLevelNumber >= 5) {
-                return _DrawerItem(
-                  icon: Icons.admin_panel_settings,
-                  title: 'Níveis de Acesso',
-                  route: '/access-levels',
-                  currentRoute: GoRouterState.of(context).uri.toString(),
-                );
-              }
-              return const SizedBox.shrink();
+          canManageAccessLevelsAsync.when(
+            data: (canManage) {
+              if (!canManage) return const SizedBox.shrink();
+              return _DrawerItem(
+                icon: Icons.admin_panel_settings,
+                title: 'Níveis de Acesso',
+                route: '/access-levels',
+                currentRoute: GoRouterState.of(context).uri.toString(),
+              );
             },
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
@@ -171,12 +172,12 @@ class AppDrawer extends ConsumerWidget {
 
           // CONFIGURAÇÕES
           _DrawerSection(title: 'CONFIGURAÇÕES'),
-          _DrawerItem(
-            icon: Icons.label,
-            title: 'Tags',
-            route: '/tags',
-            currentRoute: GoRouterState.of(context).uri.toString(),
-          ),
+          // _DrawerItem(
+          //   icon: Icons.label,
+          //   title: 'Tags',
+          //   route: '/tags',
+          //   currentRoute: GoRouterState.of(context).uri.toString(),
+          // ),
           _DrawerItem(
             icon: Icons.notifications,
             title: 'Notificações',
@@ -216,10 +217,7 @@ class AppDrawer extends ConsumerWidget {
               );
 
               if (confirm == true && context.mounted) {
-                await Supabase.instance.client.auth.signOut();
-                if (context.mounted) {
-                  context.go('/login');
-                }
+                await signOutAndExit(context);
               }
             },
           ),
@@ -305,7 +303,7 @@ class _DrawerItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       onTap: () {
-        context.go(route);
+        context.push(route);
       },
     );
   }

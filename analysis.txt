@@ -1,0 +1,6 @@
+Analyzing app...                                                
+
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\members\presentation\screens\members_list_screen.dart:180:27 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\features\ministries\presentation\screens\ministries_list_screen.dart:33:11 - curly_braces_in_flow_control_structures
+
+2 issues found. (ran in 18.7s)

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/design/community_design.dart';
 import '../providers/groups_provider.dart';
 import '../providers/meetings_provider.dart';
 import '../../domain/models/group.dart';
@@ -26,8 +27,13 @@ class GroupDetailScreen extends ConsumerWidget {
     final groupAsync = ref.watch(groupByIdProvider(groupId));
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('Detalhes do Grupo'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text('Detalhes do Grupo', style: CommunityDesign.titleStyle(context)),
+        iconTheme: IconThemeData(
+          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+        ),
         actions: [
           // Botão de editar
           IconButton(

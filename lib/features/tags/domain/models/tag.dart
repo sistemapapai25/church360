@@ -97,7 +97,7 @@ class MemberTag {
   /// Criar a partir de JSON
   factory MemberTag.fromJson(Map<String, dynamic> json) {
     return MemberTag(
-      memberId: json['member_id'] as String,
+      memberId: json['user_id'] as String,
       tagId: json['tag_id'] as String,
       tagName: json['tag_name'] as String?,
       tagColor: json['tag_color'] as String?,
@@ -108,10 +108,9 @@ class MemberTag {
   /// Converter para JSON
   Map<String, dynamic> toJson() {
     return {
-      'member_id': memberId,
+      'user_id': memberId,
       'tag_id': tagId,
       'assigned_at': assignedAt.toIso8601String(),
     };
   }
 }
-

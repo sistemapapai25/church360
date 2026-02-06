@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/design/community_design.dart';
 import '../providers/visitors_provider.dart';
 
 /// Tela de formulário para follow-up
@@ -135,8 +136,13 @@ class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormS
     final visitorAsync = ref.watch(visitorByIdProvider(widget.visitorId));
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: Text(_isEditMode ? 'Editar Follow-up' : 'Novo Follow-up'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text(
+          _isEditMode ? 'Editar Follow-up' : 'Novo Follow-up',
+          style: CommunityDesign.titleStyle(context),
+        ),
       ),
       body: visitorAsync.when(
         data: (visitor) {

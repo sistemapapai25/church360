@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../providers/financial_provider.dart';
+import '../../../../core/design/community_design.dart';
 import '../../domain/models/contribution.dart';
-import '../../../../core/widgets/permission_widget.dart';
+import '../providers/financial_provider.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela principal do sistema financeiro
 class FinancialScreen extends ConsumerStatefulWidget {
@@ -37,8 +38,10 @@ class _FinancialScreenState extends ConsumerState<FinancialScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('Financeiro'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text('Financeiro', style: CommunityDesign.titleStyle(context)),
         actions: [
           IconButton(
             icon: const Icon(Icons.bar_chart),
@@ -65,7 +68,13 @@ class _FinancialScreenState extends ConsumerState<FinancialScreen>
           _GoalsTab(),
         ],
       ),
-      floatingActionButton: CoordinatorOnlyWidget(
+      floatingActionButton: PermissionGate(
+        permission: _tabController.index == 0
+            ? 'financial.create_contribution'
+            : _tabController.index == 1
+                ? 'financial.create_expense'
+                : 'financial.manage_goals',
+        showLoading: false,
         child: FloatingActionButton.extended(
           onPressed: () {
             if (_tabController.index == 0) {
@@ -323,7 +332,7 @@ class _ContributionCard extends StatelessWidget {
       case ContributionType.building:
         return Icons.construction;
       case ContributionType.special:
-        return Icons.star;
+        return Icons.celebration;
       case ContributionType.other:
         return Icons.attach_money;
     }

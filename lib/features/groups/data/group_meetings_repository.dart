@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 
 import '../domain/models/group_meeting.dart';
 
@@ -21,6 +22,7 @@ class GroupMeetingsRepository {
           .from('group_meeting')
           .select()
           .eq('group_id', groupId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('meeting_date', ascending: false);
 
       return (response as List).map((data) => GroupMeeting.fromJson(data)).toList();
@@ -36,6 +38,7 @@ class GroupMeetingsRepository {
           .from('group_meeting')
           .select()
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .maybeSingle();
 
       if (response == null) return null;
@@ -48,9 +51,11 @@ class GroupMeetingsRepository {
   /// Criar reunião
   Future<GroupMeeting> createMeeting(Map<String, dynamic> data) async {
     try {
+      final payload = Map<String, dynamic>.from(data);
+      payload['tenant_id'] = payload['tenant_id'] ?? SupabaseConstants.currentTenantId;
       final response = await _supabase
           .from('group_meeting')
-          .insert(data)
+          .insert(payload)
           .select()
           .single();
 
@@ -67,6 +72,7 @@ class GroupMeetingsRepository {
           .from('group_meeting')
           .update(data)
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
@@ -79,7 +85,11 @@ class GroupMeetingsRepository {
   /// Deletar reunião
   Future<void> deleteMeeting(String id) async {
     try {
-      await _supabase.from('group_meeting').delete().eq('id', id);
+      await _supabase
+          .from('group_meeting')
+          .delete()
+          .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -92,12 +102,13 @@ class GroupMeetingsRepository {
           .from('group_attendance')
           .select('''
             *,
-            user_account:member_id (
+            user_account:user_id (
               first_name,
               last_name
             )
           ''')
           .eq('meeting_id', meetingId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('created_at', ascending: true);
 
       return (response as List).map((data) {
@@ -119,9 +130,11 @@ class GroupMeetingsRepository {
   /// Registrar presença
   Future<GroupAttendance> recordAttendance(Map<String, dynamic> data) async {
     try {
+      final payload = Map<String, dynamic>.from(data);
+      payload['tenant_id'] = payload['tenant_id'] ?? SupabaseConstants.currentTenantId;
       final response = await _supabase
           .from('group_attendance')
-          .insert(data)
+          .insert(payload)
           .select()
           .single();
 
@@ -138,6 +151,7 @@ class GroupMeetingsRepository {
           .from('group_attendance')
           .update(data)
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
@@ -150,7 +164,11 @@ class GroupMeetingsRepository {
   /// Deletar presença
   Future<void> deleteAttendance(String id) async {
     try {
-      await _supabase.from('group_attendance').delete().eq('id', id);
+      await _supabase
+          .from('group_attendance')
+          .delete()
+          .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -167,7 +185,8 @@ class GroupMeetingsRepository {
       await _supabase
           .from('group_meeting')
           .update({'total_attendance': presentCount})
-          .eq('id', meetingId);
+          .eq('id', meetingId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -195,8 +214,9 @@ class GroupMeetingsRepository {
       final response = await _supabase
           .from('group_attendance')
           .select('was_present, meeting_id')
-          .eq('member_id', memberId)
-          .inFilter('meeting_id', meetings.map((m) => m.id).toList());
+          .eq('user_id', memberId)
+          .inFilter('meeting_id', meetings.map((m) => m.id).toList())
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
 
       final attendances = response as List;
       final attended = attendances.where((a) => a['was_present'] == true).length;
@@ -215,4 +235,3 @@ class GroupMeetingsRepository {
     }
   }
 }
-

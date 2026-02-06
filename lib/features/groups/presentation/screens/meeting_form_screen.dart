@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/design/community_design.dart';
 import '../../data/group_meetings_repository.dart';
 import '../providers/meetings_provider.dart';
 import '../providers/groups_provider.dart';
@@ -62,8 +63,13 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
     final groupAsync = ref.watch(groupByIdProvider(widget.groupId));
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: Text(isEditing ? 'Editar Reunião' : 'Nova Reunião'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text(
+          isEditing ? 'Editar Reunião' : 'Nova Reunião',
+          style: CommunityDesign.titleStyle(context),
+        ),
       ),
       body: groupAsync.when(
         data: (group) {

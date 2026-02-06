@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 
 import '../../../members/presentation/providers/members_provider.dart';
@@ -314,23 +315,52 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
                 child: Column(
                   children: [
                     // Foto
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.blue.withValues(alpha: 0.1),
-                      backgroundImage: member.photoUrl != null
-                          ? NetworkImage(member.photoUrl!)
-                          : null,
-                      child: member.photoUrl == null
-                          ? Text(
-                              member.initials,
-                              style: const TextStyle(
-                                fontSize: 36,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue,
+                    Builder(builder: (context) {
+                      final rawUrl = member.photoUrl;
+                      String? resolvedUrl;
+                      if (rawUrl != null && rawUrl.isNotEmpty) {
+                        final parsed = Uri.tryParse(rawUrl);
+                        if (parsed != null && parsed.hasScheme) {
+                          resolvedUrl = rawUrl;
+                        } else {
+                          resolvedUrl = Supabase.instance.client.storage
+                              .from('member-photos')
+                              .getPublicUrl(rawUrl);
+                        }
+                      }
+
+                      return CircleAvatar(
+                        radius: 50,
+                        backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                        child: resolvedUrl != null
+                            ? ClipOval(
+                                child: Image.network(
+                                  resolvedUrl,
+                                  width: 100,
+                                  height: 100,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Text(
+                                      member.initials,
+                                      style: const TextStyle(
+                                        fontSize: 36,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              )
+                            : Text(
+                                member.initials,
+                                style: const TextStyle(
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                ),
                               ),
-                            )
-                          : null,
-                    ),
+                      );
+                    }),
                     const SizedBox(height: 16),
                     // Nome
                     Text(
@@ -524,23 +554,52 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
                       ),
                       child: Row(
                         children: [
-                          CircleAvatar(
-                            radius: 30,
-                            backgroundColor: Colors.blue.withValues(alpha: 0.1),
-                            backgroundImage: member.photoUrl != null
-                                ? NetworkImage(member.photoUrl!)
-                                : null,
-                            child: member.photoUrl == null
-                                ? Text(
-                                    member.initials,
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue,
+                          Builder(builder: (context) {
+                            final rawUrl = member.photoUrl;
+                            String? resolvedUrl;
+                            if (rawUrl != null && rawUrl.isNotEmpty) {
+                              final parsed = Uri.tryParse(rawUrl);
+                              if (parsed != null && parsed.hasScheme) {
+                                resolvedUrl = rawUrl;
+                              } else {
+                                resolvedUrl = Supabase.instance.client.storage
+                                    .from('member-photos')
+                                    .getPublicUrl(rawUrl);
+                              }
+                            }
+
+                            return CircleAvatar(
+                              radius: 30,
+                              backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                              child: resolvedUrl != null
+                                  ? ClipOval(
+                                      child: Image.network(
+                                        resolvedUrl,
+                                        width: 60,
+                                        height: 60,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Text(
+                                            member.initials,
+                                            style: const TextStyle(
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.blue,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    )
+                                  : Text(
+                                      member.initials,
+                                      style: const TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue,
+                                      ),
                                     ),
-                                  )
-                                : null,
-                          ),
+                            );
+                          }),
                           const SizedBox(width: 16),
                           Expanded(
                             child: Column(
@@ -635,6 +694,14 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
 
   String _getMemberTypeLabel(String? type) {
     switch (type) {
+      case 'membro':
+        return 'Membro';
+      case 'visitante':
+        return 'Visitante';
+      case 'lider':
+        return 'Líder';
+      case 'voluntario':
+        return 'Voluntário';
       case 'titular':
         return 'Liderança';
       case 'congregado':
@@ -644,7 +711,17 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
       case 'crianca':
         return 'Criança';
       default:
-        return 'Não informado';
+        final v = type?.trim() ?? '';
+        if (v.isEmpty) return 'Não informado';
+        var s = v.replaceAll(RegExp(r'[_-]+'), ' ').trim();
+        if (s.isEmpty) return v;
+        final words = s.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+        final normalized = words
+            .map((w) => w.length == 1
+                ? w.toUpperCase()
+                : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+            .join(' ');
+        return normalized.isNotEmpty ? normalized : v;
     }
   }
 }

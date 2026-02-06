@@ -2,8 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/widgets/church_image.dart';
 import '../providers/reading_plans_provider.dart';
 import '../../domain/models/reading_plan.dart';
+import '../../../../core/design/community_design.dart';
+
+const double _pagePadding = 16;
+const double _cardPadding = 16;
+const double _cardRadius = 16;
+const double _gap = 12;
 
 /// Tela de Listagem de Planos de Leitura
 class ReadingPlansListScreen extends ConsumerWidget {
@@ -14,16 +21,68 @@ class ReadingPlansListScreen extends ConsumerWidget {
     final plansAsync = ref.watch(activeReadingPlansProvider);
 
     return PopScope(
-      canPop: false,
+      canPop: true,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        // Voltar para a tela Home ao invés de sair do app
-        context.go('/home');
+        Navigator.of(context).pop();
       },
       child: Scaffold(
+        backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
         appBar: AppBar(
-          title: const Text('Planos de Leitura'),
-          centerTitle: true,
+          backgroundColor: CommunityDesign.headerColor(context),
+          elevation: 0,
+          scrolledUnderElevation: 2,
+          shadowColor: Colors.black.withValues(alpha: 0.1),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+          ),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.18),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.menu_book_rounded,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Planos de Leitura',
+                    style: CommunityDesign.titleStyle(context),
+                  ),
+                  Text(
+                    'Bíblia e Devocionais',
+                    style: CommunityDesign.metaStyle(context),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          centerTitle: false,
+          toolbarHeight: 64,
         ),
         body: plansAsync.when(
           data: (plans) {
@@ -35,21 +94,28 @@ class ReadingPlansListScreen extends ConsumerWidget {
                     Icon(
                       Icons.menu_book_outlined,
                       size: 80,
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.5),
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'Nenhum plano disponível',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                          ),
+                      style: CommunityDesign.titleStyle(context).copyWith(
+                        fontSize: 22,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Os planos de leitura aparecerão aqui',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                          ),
+                      style: CommunityDesign.contentStyle(context).copyWith(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.5),
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -62,11 +128,11 @@ class ReadingPlansListScreen extends ConsumerWidget {
                 ref.invalidate(activeReadingPlansProvider);
               },
               child: ListView.builder(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(_pagePadding),
                 itemCount: plans.length,
                 itemBuilder: (context, index) {
                   final plan = plans[index];
-                  return _ReadingPlanCard(plan: plan);
+                  return ReadingPlanCard(plan: plan);
                 },
               ),
             );
@@ -96,158 +162,207 @@ class ReadingPlansListScreen extends ConsumerWidget {
 }
 
 /// Card de Plano de Leitura
-class _ReadingPlanCard extends StatelessWidget {
+class ReadingPlanCard extends StatelessWidget {
   final ReadingPlan plan;
 
-  const _ReadingPlanCard({required this.plan});
+  const ReadingPlanCard({super.key, required this.plan});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
+    final hasImage = plan.imageUrl != null && plan.imageUrl!.isNotEmpty;
+    final decoration = hasImage
+        ? CommunityDesign.overlayDecoration(
+            Theme.of(context).colorScheme,
+          )
+        : BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(_cardRadius),
+            boxShadow: [CommunityDesign.overlayBaseShadow()],
+          );
+    return Container(
+      margin: const EdgeInsets.only(bottom: _pagePadding),
+      decoration: decoration,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
           // Navegar para a tela de detalhes do plano
           context.push('/reading-plans/${plan.id}');
         },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Imagem
-            if (plan.imageUrl != null && plan.imageUrl!.isNotEmpty)
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Image.network(
-                  plan.imageUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: Center(
-                        child: Icon(
-                          Icons.menu_book,
-                          size: 64,
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
-                        ),
-                      ),
-                    );
-                  },
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                                  loadingProgress.expectedTotalBytes!
-                              : null,
-                        ),
-                      ),
-                    );
-                  },
+        child: hasImage ? _buildWithImage(context) : _buildWithoutImage(context),
+      ),
+    );
+  }
+
+  Widget _buildWithImage(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ChurchImage(
+          imageUrl: plan.imageUrl!,
+          type: ChurchImageType.card,
+        ),
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                plan.title,
+                style: CommunityDesign.titleStyle(context).copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
-              )
-            else
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Container(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: Center(
-                    child: Icon(
-                      Icons.menu_book,
-                      size: 64,
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
-                    ),
-                  ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              _buildBadgesRow(context),
+              const SizedBox(height: 12),
+              if (plan.description != null && plan.description!.isNotEmpty)
+                Text(
+                  plan.description!,
+                  style: CommunityDesign.contentStyle(context),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              const SizedBox(height: 12),
+              _buildCta(context),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWithoutImage(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.all(_cardPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
+                ),
+                child: Icon(
+                  Icons.menu_book,
+                  size: 18,
+                  color: cs.primary,
                 ),
               ),
-
-            // Conteúdo
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(width: _gap),
+              Expanded(
+                child: Text(
+                  plan.title,
+                  style: CommunityDesign.titleStyle(context).copyWith(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: _gap),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (plan.category != null) _buildCategoryBadge(context),
+              Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Título
+                  Icon(
+                    Icons.schedule,
+                    size: 16,
+                    color: cs.onSurface.withValues(alpha: 0.6),
+                  ),
+                  const SizedBox(width: 4),
                   Text(
-                    plan.title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Categoria e Duração
-                  Row(
-                    children: [
-                      // Categoria
-                      if (plan.category != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            plan.categoryText,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                        ),
-                      const SizedBox(width: 8),
-
-                      // Duração
-                      Icon(
-                        Icons.schedule,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        plan.durationText,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                            ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Descrição
-                  if (plan.description != null && plan.description!.isNotEmpty)
-                    Text(
-                      plan.description!,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  const SizedBox(height: 12),
-
-                  // Botão "Ver Detalhes"
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () {
-                        context.push('/reading-plans/${plan.id}');
-                      },
-                      icon: const Icon(Icons.arrow_forward, size: 16),
-                      label: const Text('VER DETALHES'),
+                    plan.durationText,
+                    style: CommunityDesign.contentStyle(context).copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
               ),
+            ],
+          ),
+          if (plan.description != null && plan.description!.isNotEmpty) ...[
+            const SizedBox(height: _gap),
+            Text(
+              plan.description!,
+              style: CommunityDesign.contentStyle(context),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
+          const SizedBox(height: _gap),
+          _buildCta(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryBadge(BuildContext context) {
+    if (plan.category == null) return const SizedBox.shrink();
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        plan.categoryText,
+        style: CommunityDesign.metaStyle(context).copyWith(
+          color: cs.onPrimaryContainer,
+          fontWeight: FontWeight.bold,
+          fontSize: 10,
         ),
+      ),
+    );
+  }
+
+  Widget _buildBadgesRow(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        if (plan.category != null) _buildCategoryBadge(context),
+        const SizedBox(width: 8),
+        Icon(
+          Icons.schedule,
+          size: 16,
+          color: cs.onSurface.withValues(alpha: 0.6),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          plan.durationText,
+          style: CommunityDesign.contentStyle(context).copyWith(
+            color: cs.onSurface.withValues(alpha: 0.6),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCta(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: TextButton.icon(
+        onPressed: () {
+          context.push('/reading-plans/${plan.id}');
+        },
+        icon: const Icon(Icons.arrow_forward, size: 16),
+        label: const Text('VER DETALHES'),
       ),
     );
   }

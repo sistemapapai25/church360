@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/image_upload_widget.dart';
 import '../../domain/models/course.dart';
 import '../providers/courses_provider.dart';
-import '../../../../core/widgets/image_upload_widget.dart';
 
 /// Tela de formulário de curso (criar/editar)
 class CourseFormScreen extends ConsumerStatefulWidget {
@@ -230,16 +231,23 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
   Widget build(BuildContext context) {
     if (_isLoading && _isEditMode) {
       return Scaffold(
+        backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
         appBar: AppBar(
-          title: const Text('Carregando...'),
+          backgroundColor: CommunityDesign.headerColor(context),
+          title: Text('Carregando...', style: CommunityDesign.titleStyle(context)),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: Text(_isEditMode ? 'Editar Curso' : 'Novo Curso'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text(
+          _isEditMode ? 'Editar Curso' : 'Novo Curso',
+          style: CommunityDesign.titleStyle(context),
+        ),
         actions: [
           if (_isEditMode && widget.courseId != null)
             IconButton(

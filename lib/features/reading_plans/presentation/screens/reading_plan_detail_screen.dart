@@ -4,21 +4,20 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/reading_plans_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import '../../../../core/design/community_design.dart';
 
 /// Tela de Detalhes do Plano de Leitura
 class ReadingPlanDetailScreen extends ConsumerWidget {
   final String planId;
 
-  const ReadingPlanDetailScreen({
-    super.key,
-    required this.planId,
-  });
+  const ReadingPlanDetailScreen({super.key, required this.planId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final planAsync = ref.watch(readingPlanByIdProvider(planId));
 
     return Scaffold(
+      backgroundColor: CommunityDesign.backgroundColor,
       body: planAsync.when(
         data: (plan) {
           if (plan == null) {
@@ -43,15 +42,23 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
             slivers: [
               // App Bar com imagem
               SliverAppBar(
+                backgroundColor: CommunityDesign.headerColor(context),
+                elevation: 0,
+                scrolledUnderElevation: 2,
+                shadowColor: Colors.black.withValues(alpha: 0.1),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+                ),
                 expandedHeight: 250,
                 pinned: true,
+                centerTitle: false,
                 flexibleSpace: FlexibleSpaceBar(
                   title: Text(
                     plan.title,
-                    style: const TextStyle(
+                    style: CommunityDesign.titleStyle(context).copyWith(
                       fontWeight: FontWeight.bold,
                       shadows: [
-                        Shadow(
+                        const Shadow(
                           offset: Offset(0, 1),
                           blurRadius: 3.0,
                           color: Colors.black45,
@@ -68,11 +75,14 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
                                 return Container(
-                                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
                                   child: Icon(
                                     Icons.menu_book,
                                     size: 80,
-                                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                                    color: Theme.of(context).colorScheme.primary
+                                        .withValues(alpha: 0.5),
                                   ),
                                 );
                               },
@@ -93,11 +103,15 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
                           ],
                         )
                       : Container(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
                           child: Icon(
                             Icons.menu_book,
                             size: 80,
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.5),
                           ),
                         ),
                 ),
@@ -106,7 +120,7 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
               // Conteúdo
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -121,15 +135,21 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primaryContainer,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primaryContainer,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
                                 plan.categoryText,
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                style: CommunityDesign.metaStyle(
+                                  context,
+                                ).copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           const SizedBox(width: 12),
@@ -141,7 +161,9 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.secondaryContainer,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.secondaryContainer,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -149,15 +171,21 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
                                 Icon(
                                   Icons.schedule,
                                   size: 16,
-                                  color: Theme.of(context).colorScheme.onSecondaryContainer,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSecondaryContainer,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   plan.durationText,
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSecondaryContainer,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                  style: CommunityDesign.contentStyle(
+                                    context,
+                                  ).copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSecondaryContainer,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ],
                             ),
@@ -167,33 +195,37 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
                       const SizedBox(height: 24),
 
                       // Descrição
-                      if (plan.description != null && plan.description!.isNotEmpty) ...[
+                      if (plan.description != null &&
+                          plan.description!.isNotEmpty) ...[
                         Text(
                           'Sobre o Plano',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style: CommunityDesign.titleStyle(context).copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         Text(
                           plan.description!,
-                          style: Theme.of(context).textTheme.bodyLarge,
+                          style: CommunityDesign.contentStyle(context),
                         ),
                         const SizedBox(height: 24),
                       ],
 
                       // Informações adicionais
-                      Card(
+                      Container(
+                        decoration: CommunityDesign.overlayDecoration(
+                          Theme.of(context).colorScheme,
+                        ),
                         child: Padding(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(20),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'Informações',
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                style: CommunityDesign.titleStyle(
+                                  context,
+                                ).copyWith(fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 16),
                               _InfoRow(
@@ -224,33 +256,53 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
                         width: double.infinity,
                         child: FilledButton.icon(
                           onPressed: () async {
-                            final member = await ref.read(currentMemberProvider.future);
+                            final member = await ref.read(
+                              currentMemberProvider.future,
+                            );
                             if (member == null) {
                               if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Faça login para iniciar o plano')),
+                                const SnackBar(
+                                  content: Text(
+                                    'Faça login para iniciar o plano',
+                                  ),
+                                ),
                               );
                               return;
                             }
 
                             try {
-                              final repo = ref.read(readingPlansRepositoryProvider);
+                              final repo = ref.read(
+                                readingPlansRepositoryProvider,
+                              );
                               await repo.startPlan(plan.id, member.id);
 
-                              ref.invalidate(userActiveProgressProvider(member.id));
-                              ref.invalidate(userPlanProgressProvider((planId: plan.id, memberId: member.id)));
+                              ref.invalidate(
+                                userActiveProgressProvider(member.id),
+                              );
+                              ref.invalidate(
+                                userPlanProgressProvider((
+                                  planId: plan.id,
+                                  memberId: member.id,
+                                )),
+                              );
 
                               if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Plano iniciado! Bom estudo 📖'),
+                                  content: Text(
+                                    'Plano iniciado! Bom estudo 📖',
+                                  ),
                                   backgroundColor: Colors.green,
                                 ),
                               );
                             } catch (e) {
                               if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Erro ao iniciar plano: $e'), backgroundColor: Colors.red),
+                                SnackBar(
+                                  content: Text('Erro ao iniciar plano: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
                               );
                             }
                           },
@@ -308,23 +360,19 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 20,
-          color: Theme.of(context).colorScheme.primary,
-        ),
+        Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
         const SizedBox(width: 12),
         Text(
           '$label:',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: CommunityDesign.contentStyle(
+            context,
+          ).copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             value,
-            style: Theme.of(context).textTheme.bodyMedium,
+            style: CommunityDesign.contentStyle(context),
             textAlign: TextAlign.end,
           ),
         ),

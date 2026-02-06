@@ -207,25 +207,55 @@ class Visitor {
   }
 
   factory Visitor.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(dynamic value) {
+      if (value == null) return null;
+      if (value is DateTime) return value;
+      final text = value.toString();
+      if (text.isEmpty) return null;
+      return DateTime.tryParse(text);
+    }
+
+    String asNonNullString(dynamic value) {
+      return value?.toString() ?? '';
+    }
+
+    final rawFirstName = json['first_name']?.toString();
+    final rawLastName = json['last_name']?.toString();
+
+    var firstName = rawFirstName ?? '';
+    var lastName = rawLastName ?? '';
+
+    if (firstName.isEmpty && lastName.isEmpty) {
+      final fullName = json['name']?.toString() ?? '';
+      final parts = fullName.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+      if (parts.isNotEmpty) {
+        firstName = parts.first;
+        lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+      }
+    }
+
+    String? assignedMentorName;
+    final mentor = json['mentor'];
+    if (mentor is Map<String, dynamic>) {
+      final mentorFirstName = mentor['first_name']?.toString();
+      final mentorLastName = mentor['last_name']?.toString();
+      assignedMentorName = [mentorFirstName, mentorLastName].where((p) => (p ?? '').trim().isNotEmpty).join(' ').trim();
+      if (assignedMentorName.isEmpty) assignedMentorName = null;
+    }
+
     return Visitor(
-      id: json['id'] as String,
-      firstName: json['first_name'] as String,
-      lastName: json['last_name'] as String,
+      id: asNonNullString(json['id']),
+      firstName: firstName,
+      lastName: lastName,
       email: json['email'] as String?,
       phone: json['phone'] as String?,
-      birthDate: json['birthdate'] != null
-          ? DateTime.parse(json['birthdate'] as String)
-          : null,
+      birthDate: parseDate(json['birthdate'] ?? json['birth_date']),
       address: json['address'] as String?,
       city: json['city'] as String?,
       state: json['state'] as String?,
       zipCode: json['zip_code'] as String?,
-      firstVisitDate: json['first_visit_date'] != null
-          ? DateTime.parse(json['first_visit_date'] as String)
-          : null,
-      lastVisitDate: json['last_visit_date'] != null
-          ? DateTime.parse(json['last_visit_date'] as String)
-          : null,
+      firstVisitDate: parseDate(json['first_visit_date']),
+      lastVisitDate: parseDate(json['last_visit_date']),
       totalVisits: json['total_visits'] as int? ?? 1,
       status: VisitorStatus.fromValue(json['status'] as String? ?? 'first_visit'),
       howFound: json['how_found'] != null
@@ -234,10 +264,8 @@ class Visitor {
       prayerRequest: json['prayer_request'] as String?,
       interests: json['interests'] as String?,
       notes: json['notes'] as String?,
-      convertedToMemberId: json['converted_to_member_id'] as String?,
-      convertedAt: json['converted_at'] != null
-          ? DateTime.parse(json['converted_at'] as String)
-          : null,
+      convertedToMemberId: (json['converted_to_user_id'] ?? json['converted_to_member_id']) as String?,
+      convertedAt: parseDate(json['converted_at']),
       assignedTo: json['assigned_to'] as String?,
       visitorSource: json['visitor_source'] != null
           ? VisitorSource.fromValue(json['visitor_source'] as String)
@@ -249,9 +277,7 @@ class Visitor {
       wantsContact: json['wants_contact'] as bool? ?? true,
       wantsToReturn: json['wants_to_return'] as bool? ?? false,
       isSalvation: json['is_salvation'] as bool? ?? false,
-      salvationDate: json['salvation_date'] != null
-          ? DateTime.parse(json['salvation_date'] as String)
-          : null,
+      salvationDate: parseDate(json['salvation_date']),
       testimony: json['testimony'] as String?,
       wantsBaptism: json['wants_baptism'] as bool? ?? false,
       baptismEventId: json['baptism_event_id'] as String?,
@@ -259,13 +285,11 @@ class Visitor {
       wantsDiscipleship: json['wants_discipleship'] as bool? ?? false,
       discipleshipCourseId: json['discipleship_course_id'] as String?,
       assignedMentorId: json['assigned_mentor_id'] as String?,
-      assignedMentorName: json['assigned_mentor_name'] as String?,
+      assignedMentorName: assignedMentorName ?? json['assigned_mentor_name'] as String?,
       followUpStatus: json['follow_up_status'] as String? ?? 'pending',
-      lastContactDate: json['last_contact_date'] != null
-          ? DateTime.parse(json['last_contact_date'] as String)
-          : null,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      lastContactDate: parseDate(json['last_contact_date']),
+      createdAt: parseDate(json['created_at']) ?? DateTime.now(),
+      updatedAt: parseDate(json['updated_at']) ?? parseDate(json['created_at']) ?? DateTime.now(),
       createdBy: json['created_by'] as String?,
     );
   }
@@ -290,7 +314,7 @@ class Visitor {
       'prayer_request': prayerRequest,
       'interests': interests,
       'notes': notes,
-      'converted_to_member_id': convertedToMemberId,
+      'converted_to_user_id': convertedToMemberId,
       'converted_at': convertedAt?.toIso8601String(),
       'assigned_to': assignedTo,
       'visitor_source': visitorSource.value,

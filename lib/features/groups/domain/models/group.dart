@@ -55,9 +55,9 @@ class Group {
       id: json['id'] as String,
       name: json['name'] as String,
       description: json['description'] as String?,
-      leaderId: json['leader_id'] as String?,
+      leaderId: json['leader_user_id'] as String?,
       leaderName: json['leader_name'] as String?,
-      hostId: json['host_id'] as String?,
+      hostId: json['host_user_id'] as String?,
       hostName: json['host_name'] as String?,
       campusId: json['campus_id'] as String?,
       meetingDayOfWeek: json['meeting_day_of_week'] as int?,
@@ -78,8 +78,8 @@ class Group {
       'id': id,
       'name': name,
       'description': description,
-      'leader_id': leaderId,
-      'host_id': hostId,
+      'leader_user_id': leaderId,
+      'host_user_id': hostId,
       'campus_id': campusId,
       'meeting_day_of_week': meetingDayOfWeek,
       'meeting_time': meetingTime,
@@ -148,7 +148,7 @@ class GroupMember {
   factory GroupMember.fromJson(Map<String, dynamic> json) {
     return GroupMember(
       groupId: json['group_id'] as String,
-      memberId: json['member_id'] as String,
+      memberId: json['user_id'] as String,
       memberName: json['member_name'] as String?,
       role: json['role'] as String?,
       joinedDate: DateTime.parse(json['joined_date'] as String),
@@ -159,7 +159,7 @@ class GroupMember {
   Map<String, dynamic> toJson() {
     return {
       'group_id': groupId,
-      'member_id': memberId,
+      'user_id': memberId,
       'role': role,
       'joined_date': joinedDate.toIso8601String().split('T')[0],
     };
@@ -211,4 +211,3 @@ class GroupMeeting {
     };
   }
 }
-

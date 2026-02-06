@@ -13,6 +13,10 @@ class Devotional {
   final String? youtubeUrl; // Link do YouTube
   final DateTime createdAt;
   final DateTime updatedAt;
+  final int likesCount;
+  final bool isLikedByMe;
+  final String? myReaction;
+  final bool isSavedByMe;
 
   const Devotional({
     required this.id,
@@ -28,6 +32,10 @@ class Devotional {
     this.youtubeUrl,
     required this.createdAt,
     required this.updatedAt,
+    this.likesCount = 0,
+    this.isLikedByMe = false,
+    this.myReaction,
+    this.isSavedByMe = false,
   });
 
   /// Criar Devotional a partir de JSON
@@ -46,6 +54,10 @@ class Devotional {
       youtubeUrl: json['youtube_url'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      likesCount: (json['likes_count'] as int?) ?? 0,
+      isLikedByMe: (json['is_liked_by_me'] as bool?) ?? ((json['my_reaction'] as String?) != null),
+      myReaction: json['my_reaction'] as String?,
+      isSavedByMe: (json['is_saved_by_me'] as bool?) ?? false,
     );
   }
 
@@ -83,6 +95,10 @@ class Devotional {
     String? youtubeUrl,
     DateTime? createdAt,
     DateTime? updatedAt,
+    int? likesCount,
+    bool? isLikedByMe,
+    String? myReaction,
+    bool? isSavedByMe,
   }) {
     return Devotional(
       id: id ?? this.id,
@@ -98,6 +114,10 @@ class Devotional {
       youtubeUrl: youtubeUrl ?? this.youtubeUrl,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      likesCount: likesCount ?? this.likesCount,
+      isLikedByMe: isLikedByMe ?? this.isLikedByMe,
+      myReaction: myReaction ?? this.myReaction,
+      isSavedByMe: isSavedByMe ?? this.isSavedByMe,
     );
   }
 
@@ -313,4 +333,3 @@ class UserReadingStreak {
     return 'UserReadingStreak(current: $currentStreak, longest: $longestStreak, total: $totalReadings)';
   }
 }
-

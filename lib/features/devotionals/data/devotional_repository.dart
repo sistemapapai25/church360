@@ -1,11 +1,14 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../domain/models/devotional.dart';
+import '../../../core/constants/supabase_constants.dart';
 
 /// Repository para gerenciar devocionais
 class DevotionalRepository {
   final SupabaseClient _supabase;
 
   DevotionalRepository(this._supabase);
+
+  String get _tenantId => SupabaseConstants.currentTenantId;
 
   // =====================================================
   // DEVOTIONALS - CRUD
@@ -16,6 +19,7 @@ class DevotionalRepository {
     final response = await _supabase
         .from('devotionals')
         .select()
+        .eq('tenant_id', _tenantId)
         .eq('is_published', true)
         .order('devotional_date', ascending: false);
 
@@ -29,6 +33,7 @@ class DevotionalRepository {
     final response = await _supabase
         .from('devotionals')
         .select()
+        .eq('tenant_id', _tenantId)
         .order('devotional_date', ascending: false);
 
     return (response as List)
@@ -42,6 +47,7 @@ class DevotionalRepository {
         .from('devotionals')
         .select()
         .eq('id', id)
+        .eq('tenant_id', _tenantId)
         .maybeSingle();
 
     if (response == null) return null;
@@ -56,6 +62,7 @@ class DevotionalRepository {
         .from('devotionals')
         .select()
         .eq('devotional_date', today)
+        .eq('tenant_id', _tenantId)
         .eq('is_published', true)
         .maybeSingle();
 
@@ -71,6 +78,7 @@ class DevotionalRepository {
         .from('devotionals')
         .select()
         .eq('devotional_date', dateStr)
+        .eq('tenant_id', _tenantId)
         .eq('is_published', true)
         .maybeSingle();
 
@@ -102,6 +110,7 @@ class DevotionalRepository {
       'category': category,
       'preacher': preacher,
       'youtube_url': youtubeUrl,
+      'tenant_id': _tenantId,
     };
 
     final response = await _supabase
@@ -144,6 +153,7 @@ class DevotionalRepository {
         .from('devotionals')
         .update(data)
         .eq('id', id)
+        .eq('tenant_id', _tenantId)
         .select()
         .single();
 
@@ -155,7 +165,8 @@ class DevotionalRepository {
     await _supabase
         .from('devotionals')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('tenant_id', _tenantId);
   }
 
   /// Publicar devocional
@@ -178,6 +189,7 @@ class DevotionalRepository {
         .from('devotional_readings')
         .select()
         .eq('devotional_id', devotionalId)
+        .eq('tenant_id', _tenantId)
         .order('read_at', ascending: false);
 
     return (response as List)
@@ -191,11 +203,32 @@ class DevotionalRepository {
         .from('devotional_readings')
         .select()
         .eq('user_id', userId)
+        .eq('tenant_id', _tenantId)
         .order('read_at', ascending: false);
 
     return (response as List)
         .map((json) => DevotionalReading.fromJson(json))
         .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getUserReadingsWithDevotional(String userId) async {
+    final response = await _supabase
+        .from('devotional_readings')
+        .select('''
+          id,
+          devotional_id,
+          user_id,
+          read_at,
+          notes,
+          created_at,
+          updated_at,
+          devotionals(title, devotional_date)
+        ''')
+        .eq('user_id', userId)
+        .eq('tenant_id', _tenantId)
+        .order('read_at', ascending: false);
+
+    return (response as List).cast<Map<String, dynamic>>();
   }
 
   /// Verificar se usuário já leu um devocional
@@ -205,6 +238,7 @@ class DevotionalRepository {
         .select()
         .eq('user_id', userId)
         .eq('devotional_id', devotionalId)
+        .eq('tenant_id', _tenantId)
         .maybeSingle();
 
     return response != null;
@@ -220,6 +254,7 @@ class DevotionalRepository {
         .select()
         .eq('user_id', userId)
         .eq('devotional_id', devotionalId)
+        .eq('tenant_id', _tenantId)
         .maybeSingle();
 
     if (response == null) return null;
@@ -236,6 +271,7 @@ class DevotionalRepository {
       'devotional_id': devotionalId,
       'user_id': userId,
       'notes': notes,
+      'tenant_id': _tenantId,
     };
 
     final response = await _supabase
@@ -256,6 +292,7 @@ class DevotionalRepository {
         .from('devotional_readings')
         .update({'notes': notes})
         .eq('id', readingId)
+        .eq('tenant_id', _tenantId)
         .select()
         .single();
 
@@ -267,7 +304,92 @@ class DevotionalRepository {
     await _supabase
         .from('devotional_readings')
         .delete()
-        .eq('id', readingId);
+        .eq('id', readingId)
+        .eq('tenant_id', _tenantId);
+  }
+
+  // =====================================================
+  // DEVOTIONAL BOOKMARKS (SALVOS)
+  // =====================================================
+
+  Future<void> saveDevotional({
+    required String devotionalId,
+    required String userId,
+  }) async {
+    await _supabase.from('devotional_bookmarks').upsert(
+      {
+        'tenant_id': _tenantId,
+        'user_id': userId,
+        'devotional_id': devotionalId,
+      },
+      onConflict: 'tenant_id,user_id,devotional_id',
+    );
+  }
+
+  Future<void> removeSavedDevotional({
+    required String devotionalId,
+    required String userId,
+  }) async {
+    await _supabase
+        .from('devotional_bookmarks')
+        .delete()
+        .eq('tenant_id', _tenantId)
+        .eq('user_id', userId)
+        .eq('devotional_id', devotionalId);
+  }
+
+  Future<bool> isDevotionalSaved({
+    required String devotionalId,
+    required String userId,
+  }) async {
+    final row = await _supabase
+        .from('devotional_bookmarks')
+        .select('id')
+        .eq('tenant_id', _tenantId)
+        .eq('user_id', userId)
+        .eq('devotional_id', devotionalId)
+        .maybeSingle();
+    return row != null;
+  }
+
+  Future<List<String>> getSavedDevotionalIds({
+    required String userId,
+    required List<String> devotionalIds,
+  }) async {
+    if (devotionalIds.isEmpty) return const [];
+
+    final response = await _supabase
+        .from('devotional_bookmarks')
+        .select('devotional_id')
+        .eq('tenant_id', _tenantId)
+        .eq('user_id', userId)
+        .inFilter('devotional_id', devotionalIds);
+
+    return (response as List)
+        .map((e) => (e as Map)['devotional_id']?.toString())
+        .whereType<String>()
+        .where((id) => id.trim().isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+  }
+
+  Future<List<Devotional>> getSavedDevotionals(String userId) async {
+    final response = await _supabase
+        .from('devotional_bookmarks')
+        .select('created_at, devotionals!inner(*)')
+        .eq('tenant_id', _tenantId)
+        .eq('user_id', userId)
+        .order('created_at', ascending: false);
+
+    return (response as List)
+        .map((row) {
+          final devotionalJson =
+              (row as Map)['devotionals'] as Map<String, dynamic>?;
+          if (devotionalJson == null) return null;
+          return Devotional.fromJson(devotionalJson).copyWith(isSavedByMe: true);
+        })
+        .whereType<Devotional>()
+        .toList();
   }
 
   // =====================================================
@@ -300,6 +422,7 @@ class DevotionalRepository {
         .from('devotional_readings')
         .select('id')
         .eq('user_id', userId)
+        .eq('tenant_id', _tenantId)
         .count();
 
     return response.count;
@@ -310,10 +433,33 @@ class DevotionalRepository {
     final response = await _supabase
         .from('devotional_readings')
         .select('devotional_id, devotionals(title, devotional_date)')
+        .eq('tenant_id', _tenantId)
         .order('read_at', ascending: false)
         .limit(limit);
 
     return (response as List).cast<Map<String, dynamic>>();
   }
-}
 
+  Future<int> getReadingsCountSince(DateTime since) async {
+    final response = await _supabase
+        .from('devotional_readings')
+        .select('id')
+        .gte('read_at', since.toIso8601String())
+        .eq('tenant_id', _tenantId)
+        .count();
+    return response.count;
+  }
+
+  Future<int> getUniqueReadersCountSince(DateTime since) async {
+    final response = await _supabase
+        .from('devotional_readings')
+        .select('user_id')
+        .gte('read_at', since.toIso8601String())
+        .eq('tenant_id', _tenantId);
+    final list = (response as List)
+        .map((e) => e['user_id'] as String?)
+        .whereType<String>()
+        .toSet();
+    return list.length;
+  }
+}

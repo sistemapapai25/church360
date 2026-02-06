@@ -6,6 +6,8 @@ import 'role_context.dart';
 class UserRole {
   final String id;
   final String userId;
+  final String? userName;
+  final String? userEmail;
   final String roleId;
   final String? roleContextId;
   final DateTime? assignedAt;
@@ -23,6 +25,8 @@ class UserRole {
   const UserRole({
     required this.id,
     required this.userId,
+    this.userName,
+    this.userEmail,
     required this.roleId,
     this.roleContextId,
     this.assignedAt,
@@ -37,9 +41,20 @@ class UserRole {
   });
 
   factory UserRole.fromJson(Map<String, dynamic> json) {
+    String? computedName;
+    String? computedEmail;
+    if (json['user_account'] != null) {
+      final ua = json['user_account'] as Map<String, dynamic>;
+      final first = ua['first_name'] as String?;
+      final last = ua['last_name'] as String?;
+      computedName = [first, last].where((e) => (e ?? '').isNotEmpty).join(' ').trim();
+      computedEmail = ua['email'] as String?;
+    }
     return UserRole(
       id: json['id'] as String,
       userId: json['user_id'] as String,
+      userName: computedName,
+      userEmail: computedEmail,
       roleId: json['role_id'] as String,
       roleContextId: json['role_context_id'] as String?,
       assignedAt: json['assigned_at'] != null
@@ -70,6 +85,8 @@ class UserRole {
     return {
       'id': id,
       'user_id': userId,
+      'user_name': userName,
+      'user_email': userEmail,
       'role_id': roleId,
       'role_context_id': roleContextId,
       'assigned_at': assignedAt?.toIso8601String(),
@@ -87,6 +104,8 @@ class UserRole {
   UserRole copyWith({
     String? id,
     String? userId,
+    String? userName,
+    String? userEmail,
     String? roleId,
     String? roleContextId,
     DateTime? assignedAt,
@@ -102,6 +121,8 @@ class UserRole {
     return UserRole(
       id: id ?? this.id,
       userId: userId ?? this.userId,
+      userName: userName ?? this.userName,
+      userEmail: userEmail ?? this.userEmail,
       roleId: roleId ?? this.roleId,
       roleContextId: roleContextId ?? this.roleContextId,
       assignedAt: assignedAt ?? this.assignedAt,
@@ -116,4 +137,3 @@ class UserRole {
     );
   }
 }
-

@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/banner.dart';
 
 /// Repository para gerenciar banners da Home
@@ -13,6 +14,7 @@ class BannersRepository {
       final response = await _supabase
           .from('home_banner')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('order_index', ascending: true);
 
       return (response as List)
@@ -29,6 +31,7 @@ class BannersRepository {
       final response = await _supabase
           .from('home_banner')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('is_active', true)
           .order('order_index', ascending: true);
 
@@ -45,17 +48,22 @@ class BannersRepository {
     return _supabase
         .from('home_banner')
         .stream(primaryKey: ['id'])
-        .eq('is_active', true)
         .order('order_index', ascending: true)
-        .map((data) => data.map((json) => HomeBanner.fromJson(json)).toList());
+        .map((data) => data
+            .where((json) =>
+                json['tenant_id'] == SupabaseConstants.currentTenantId &&
+                (json['is_active'] ?? false) == true)
+            .map((json) => HomeBanner.fromJson(json))
+            .toList());
   }
 
-  /// Buscar banner por ID
+/// Buscar banner por ID
   Future<HomeBanner?> getBannerById(String id) async {
     try {
       final response = await _supabase
           .from('home_banner')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('id', id)
           .maybeSingle();
 
@@ -69,6 +77,7 @@ class BannersRepository {
   /// Criar novo banner
   Future<HomeBanner> createBanner(Map<String, dynamic> data) async {
     try {
+      data['tenant_id'] = SupabaseConstants.currentTenantId;
       final response = await _supabase
           .from('home_banner')
           .insert(data)
@@ -88,6 +97,7 @@ class BannersRepository {
           .from('home_banner')
           .update(data)
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
@@ -100,7 +110,7 @@ class BannersRepository {
   /// Deletar banner
   Future<void> deleteBanner(String id) async {
     try {
-      await _supabase.from('home_banner').delete().eq('id', id);
+      await _supabase.from('home_banner').delete().eq('id', id).eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -113,6 +123,7 @@ class BannersRepository {
           .from('home_banner')
           .update({'is_active': isActive})
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
@@ -131,7 +142,8 @@ class BannersRepository {
         await _supabase
             .from('home_banner')
             .update({'order_index': i})
-            .eq('id', bannerIds[i]);
+            .eq('id', bannerIds[i])
+            .eq('tenant_id', SupabaseConstants.currentTenantId);
       }
     } catch (e) {
       rethrow;
@@ -144,6 +156,7 @@ class BannersRepository {
       final response = await _supabase
           .from('home_banner')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .count();
 
       return response.count;
@@ -158,6 +171,7 @@ class BannersRepository {
       final response = await _supabase
           .from('home_banner')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('is_active', true)
           .count();
 
@@ -167,4 +181,3 @@ class BannersRepository {
     }
   }
 }
-

@@ -14,7 +14,14 @@ class PermissionsCatalogScreen extends ConsumerStatefulWidget {
 
 class _PermissionsCatalogScreenState extends ConsumerState<PermissionsCatalogScreen> {
   String _searchQuery = '';
-  String? _selectedCategory;
+  bool _showAll = false;
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,9 +40,21 @@ class _PermissionsCatalogScreenState extends ConsumerState<PermissionsCatalogScr
           Padding(
             padding: const EdgeInsets.all(16),
             child: TextField(
+              controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Buscar permissão...',
                 prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() {
+                            _searchController.clear();
+                            _searchQuery = '';
+                          });
+                        },
+                      )
+                    : null,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -44,15 +63,46 @@ class _PermissionsCatalogScreenState extends ConsumerState<PermissionsCatalogScr
               onChanged: (value) {
                 setState(() {
                   _searchQuery = value.toLowerCase();
+                  if (_searchQuery.isNotEmpty) {
+                    _showAll = true;
+                  }
                 });
               },
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton(
+                onPressed: () {
+                  setState(() {
+                    _searchController.clear();
+                    _searchQuery = '';
+                    _showAll = true;
+                  });
+                },
+                child: const Text('Ver todas'),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
 
           // Lista de permissões
           Expanded(
             child: permissionsAsync.when(
               data: (permissions) {
+                final shouldShowResults = _showAll || _searchQuery.isNotEmpty;
+                if (!shouldShowResults) {
+                  return Center(
+                    child: Text(
+                      'Clique em "Ver todas" para listar as permissões.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  );
+                }
                 // Agrupar por categoria
                 final permissionsByCategory = <String, List<Permission>>{};
                 for (final perm in permissions) {
@@ -60,10 +110,8 @@ class _PermissionsCatalogScreenState extends ConsumerState<PermissionsCatalogScr
                       perm.name.toLowerCase().contains(_searchQuery) ||
                       perm.code.toLowerCase().contains(_searchQuery) ||
                       (perm.description?.toLowerCase().contains(_searchQuery) ?? false);
-                  
-                  final matchesCategory = _selectedCategory == null || perm.category == _selectedCategory;
-                  
-                  if (matchesSearch && matchesCategory) {
+
+                  if (matchesSearch) {
                     permissionsByCategory.putIfAbsent(perm.category, () => []);
                     permissionsByCategory[perm.category]!.add(perm);
                   }
@@ -93,82 +141,16 @@ class _PermissionsCatalogScreenState extends ConsumerState<PermissionsCatalogScr
 
                 final categories = permissionsByCategory.keys.toList()..sort();
 
-                return Row(
-                  children: [
-                    // Sidebar de categorias
-                    Container(
-                      width: 200,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        border: Border(
-                          right: BorderSide(
-                            color: Theme.of(context).colorScheme.outlineVariant,
-                          ),
-                        ),
-                      ),
-                      child: ListView(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Text(
-                              'CATEGORIAS',
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                              ),
-                            ),
-                          ),
-                          ListTile(
-                            selected: _selectedCategory == null,
-                            leading: const Icon(Icons.all_inclusive),
-                            title: const Text('Todas'),
-                            trailing: Text(
-                              '${permissions.length}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            onTap: () {
-                              setState(() {
-                                _selectedCategory = null;
-                              });
-                            },
-                          ),
-                          const Divider(height: 1),
-                          ...categories.map((category) {
-                            final count = permissionsByCategory[category]!.length;
-                            return ListTile(
-                              selected: _selectedCategory == category,
-                              leading: Icon(_getCategoryIcon(category)),
-                              title: Text(_formatCategoryName(category)),
-                              trailing: Text(
-                                '$count',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                              onTap: () {
-                                setState(() {
-                                  _selectedCategory = category;
-                                });
-                              },
-                            );
-                          }),
-                        ],
-                      ),
-                    ),
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: categories.length,
+                  itemBuilder: (context, index) {
+                    final category = categories[index];
+                    final categoryPermissions = permissionsByCategory[category]!;
+                    categoryPermissions.sort((a, b) => a.name.compareTo(b.name));
 
-                    // Lista de permissões
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: categories.length,
-                        itemBuilder: (context, index) {
-                          final category = categories[index];
-                          final categoryPermissions = permissionsByCategory[category]!;
-                          categoryPermissions.sort((a, b) => a.name.compareTo(b.name));
-
-                          return _buildCategoryCard(context, category, categoryPermissions);
-                        },
-                      ),
-                    ),
-                  ],
+                    return _buildCategoryCard(context, category, categoryPermissions);
+                  },
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -340,4 +322,3 @@ class _PermissionsCatalogScreenState extends ConsumerState<PermissionsCatalogScr
     }
   }
 }
-

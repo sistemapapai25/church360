@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/constants/supabase_constants.dart';
 
 import '../domain/models/visitor.dart';
 
@@ -16,6 +17,7 @@ class VisitorsRepository {
     final response = await _supabase
         .from('user_account')
         .select('*')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('status', 'visitor')
         .order('created_at', ascending: false);
 
@@ -32,6 +34,7 @@ class VisitorsRepository {
           *,
           mentor:user_account!assigned_mentor_id(first_name, last_name)
         ''')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('status', 'visitor')
         .order('first_visit_date', ascending: false);
 
@@ -49,6 +52,7 @@ class VisitorsRepository {
           mentor:user_account!assigned_mentor_id(first_name, last_name)
         ''')
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
     if (response == null) return null;
@@ -64,6 +68,7 @@ class VisitorsRepository {
     // Mapear campos para user_account
     final userData = {
       'id': visitorId, // Gerar UUID manualmente
+      'tenant_id': SupabaseConstants.currentTenantId,
       'first_name': data['first_name'],
       'last_name': data['last_name'],
       'email': data['email'],
@@ -130,6 +135,7 @@ class VisitorsRepository {
         .from('user_account')
         .update(userData)
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -138,7 +144,11 @@ class VisitorsRepository {
 
   /// Deletar visitante
   Future<void> deleteVisitor(String id) async {
-    await _supabase.from('user_account').delete().eq('id', id);
+    await _supabase
+        .from('user_account')
+        .delete()
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   /// Converter visitante em membro
@@ -149,6 +159,7 @@ class VisitorsRepository {
           'status': 'member_active',
         })
         .eq('id', visitorId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -162,6 +173,7 @@ class VisitorsRepository {
     final response = await _supabase
         .from('visitor')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .gte('first_visit_date', thirtyDaysAgo.toIso8601String().split('T')[0])
         .order('first_visit_date', ascending: false);
 
@@ -177,6 +189,7 @@ class VisitorsRepository {
     final response = await _supabase
         .from('visitor')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .lt('last_visit_date', cutoffDate.toIso8601String().split('T')[0])
         .neq('status', 'converted')
         .order('last_visit_date', ascending: true);
@@ -213,6 +226,7 @@ class VisitorsRepository {
         .from('visitor_visit')
         .select()
         .eq('visitor_id', visitorId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('visit_date', ascending: false);
 
     return (response as List)
@@ -224,7 +238,10 @@ class VisitorsRepository {
   Future<VisitorVisit> createVisit(Map<String, dynamic> data) async {
     final response = await _supabase
         .from('visitor_visit')
-        .insert(data)
+        .insert({
+          ...data,
+          'tenant_id': SupabaseConstants.currentTenantId,
+        })
         .select()
         .single();
 
@@ -237,6 +254,7 @@ class VisitorsRepository {
         .from('visitor_visit')
         .update(data)
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -245,7 +263,11 @@ class VisitorsRepository {
 
   /// Deletar visita
   Future<void> deleteVisit(String id) async {
-    await _supabase.from('visitor_visit').delete().eq('id', id);
+    await _supabase
+        .from('visitor_visit')
+        .delete()
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   /// Marcar visita como contatada
@@ -261,6 +283,7 @@ class VisitorsRepository {
           'contact_notes': contactNotes,
         })
         .eq('id', visitId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -275,6 +298,7 @@ class VisitorsRepository {
         .from('visitor_followup')
         .select()
         .eq('visitor_id', visitorId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('followup_date', ascending: true);
 
     return (response as List)
@@ -288,6 +312,7 @@ class VisitorsRepository {
         .from('visitor_followup')
         .select()
         .eq('completed', false)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('followup_date', ascending: true);
 
     return (response as List)
@@ -299,7 +324,10 @@ class VisitorsRepository {
   Future<VisitorFollowup> createFollowup(Map<String, dynamic> data) async {
     final response = await _supabase
         .from('visitor_followup')
-        .insert(data)
+        .insert({
+          ...data,
+          'tenant_id': SupabaseConstants.currentTenantId,
+        })
         .select()
         .single();
 
@@ -315,6 +343,7 @@ class VisitorsRepository {
         .from('visitor_followup')
         .update(data)
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -323,7 +352,11 @@ class VisitorsRepository {
 
   /// Deletar follow-up
   Future<void> deleteFollowup(String id) async {
-    await _supabase.from('visitor_followup').delete().eq('id', id);
+    await _supabase
+        .from('visitor_followup')
+        .delete()
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   /// Marcar follow-up como completo
@@ -335,6 +368,7 @@ class VisitorsRepository {
           'completed_at': DateTime.now().toIso8601String(),
         })
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -350,6 +384,7 @@ class VisitorsRepository {
         .select()
         .eq('followup_date', today)
         .eq('completed', false)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('followup_date', ascending: true);
 
     return (response as List)
@@ -365,9 +400,10 @@ class VisitorsRepository {
         .from('visitor')
         .select('''
           *,
-          mentor:member!assigned_mentor_id(first_name, last_name)
+          mentor:user_account!assigned_mentor_id(first_name, last_name)
         ''')
         .eq('meeting_id', meetingId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
     return (response as List)
@@ -381,9 +417,10 @@ class VisitorsRepository {
         .from('visitor')
         .select('''
           *,
-          mentor:member!assigned_mentor_id(first_name, last_name)
+          mentor:user_account!assigned_mentor_id(first_name, last_name)
         ''')
         .eq('is_salvation', true)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('salvation_date', ascending: false);
 
     return (response as List)
@@ -396,7 +433,8 @@ class VisitorsRepository {
     final response = await _supabase
         .from('visitor')
         .select()
-        .eq('is_salvation', true);
+        .eq('is_salvation', true)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
 
     return (response as List).length;
   }
@@ -407,10 +445,10 @@ class VisitorsRepository {
         .from('visitor')
         .select()
         .eq('is_salvation', true)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .gte('salvation_date', startDate.toIso8601String().split('T')[0])
         .lte('salvation_date', endDate.toIso8601String().split('T')[0]);
 
     return (response as List).length;
   }
 }
-

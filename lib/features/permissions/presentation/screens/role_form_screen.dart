@@ -2,6 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/permissions_providers.dart';
+import '../../../access_levels/domain/models/access_level.dart';
+class _ParentRoleOption {
+  const _ParentRoleOption(this.value, this.label);
+
+  final String? value;
+  final String label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _ParentRoleOption && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+}
+
+ 
 
 /// Tela de Formulário de Cargo
 /// Criar ou editar um cargo
@@ -20,8 +36,11 @@ class _RoleFormScreenState extends ConsumerState<RoleFormScreen> {
   final _descriptionController = TextEditingController();
   
   String? _selectedParentRoleId;
-  bool _allowsContext = false;
+  bool _allowsContext = true;
   bool _isLoading = false;
+  AccessLevelType? _baseLevel;
+
+  
 
   @override
   void initState() {
@@ -30,6 +49,8 @@ class _RoleFormScreenState extends ConsumerState<RoleFormScreen> {
       _loadRole();
     }
   }
+
+  
 
   Future<void> _loadRole() async {
     try {
@@ -41,7 +62,10 @@ class _RoleFormScreenState extends ConsumerState<RoleFormScreen> {
           _descriptionController.text = role.description ?? '';
           _selectedParentRoleId = role.parentRoleId;
           _allowsContext = role.allowsContext;
+          _baseLevel = AccessLevelType.fromNumber(role.hierarchyLevel);
         });
+
+        
       }
     } catch (e) {
       if (mounted) {
@@ -161,22 +185,30 @@ class _RoleFormScreenState extends ConsumerState<RoleFormScreen> {
                           return r.isActive && r.id != widget.roleId;
                         }).toList();
 
-                        return DropdownMenu<String?>(
-                          initialSelection: _selectedParentRoleId,
+                        final options = <_ParentRoleOption>[
+                          const _ParentRoleOption(null, 'Nenhum (cargo raiz)'),
+                          ...availableRoles.map((role) => _ParentRoleOption(
+                            role.id,
+                            '${role.name} (Nível ${role.hierarchyLevel})',
+                          )),
+                        ];
+                        final selectedOption = options.firstWhere(
+                          (option) => option.value == _selectedParentRoleId,
+                          orElse: () => options.first,
+                        );
+
+                        return DropdownMenu<_ParentRoleOption>(
+                          initialSelection: selectedOption,
                           label: const Text('Cargo Superior'),
-                          dropdownMenuEntries: [
-                            const DropdownMenuEntry<String?>(
-                              value: null,
-                              label: 'Nenhum (cargo raiz)',
-                            ),
-                            ...availableRoles.map((role) => DropdownMenuEntry<String?>(
-                                  value: role.id,
-                                  label: '${role.name} (Nível ${role.hierarchyLevel})',
-                                )),
-                          ],
-                          onSelected: (value) {
+                          dropdownMenuEntries: options
+                            .map((option) => DropdownMenuEntry<_ParentRoleOption>(
+                              value: option,
+                              label: option.label,
+                            ))
+                            .toList(),
+                          onSelected: (option) {
                             setState(() {
-                              _selectedParentRoleId = value;
+                              _selectedParentRoleId = option?.value;
                             });
                           },
                         );
@@ -223,7 +255,7 @@ class _RoleFormScreenState extends ConsumerState<RoleFormScreen> {
 
             const SizedBox(height: 16),
 
-            // Card de contextos
+            // Card de nível base do cargo
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -231,71 +263,46 @@ class _RoleFormScreenState extends ConsumerState<RoleFormScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Contextos',
+                      'Nível Base do Cargo',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Contextos permitem criar instâncias específicas deste cargo',
+                      'Usado para pré-selecionar contextos e permissões recomendadas',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                     const SizedBox(height: 16),
-
-                    SwitchListTile(
-                      value: _allowsContext,
-                      onChanged: (value) {
+                    DropdownMenu<AccessLevelType>(
+                      initialSelection: _baseLevel ?? AccessLevelType.member,
+                      label: const Text('Selecione o nível'),
+                      dropdownMenuEntries: AccessLevelType.values
+                          .map((lvl) => DropdownMenuEntry<AccessLevelType>(
+                                value: lvl,
+                                label: '${lvl.displayName} (Nível ${lvl.toNumber()})',
+                              ))
+                          .toList(),
+                      onSelected: (value) {
                         setState(() {
-                          _allowsContext = value;
+                          _baseLevel = value;
                         });
                       },
-                      title: const Text('Permite Contextos'),
-                      subtitle: const Text(
-                        'Ex: "Líder Casa de Oração - Dona Joana"',
-                      ),
-                      secondary: const Icon(Icons.location_on),
                     ),
-
-                    if (_allowsContext) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.lightbulb_outline,
-                                  size: 20,
-                                  color: Theme.of(context).colorScheme.secondary,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Exemplos de uso:',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '• Líder Casa de Oração - Dona Joana\n'
-                              '• Líder Capelania - Hospital São Lucas\n'
-                              '• Coordenador Zona - Zona Sul',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                              ),
-                            ),
-                          ],
+                    if (widget.roleId != null) ...[
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () {
+                            if (widget.roleId == null) return;
+                            final levelNumber = (_baseLevel ?? AccessLevelType.member).toNumber();
+                            context.push('/permissions/roles/${widget.roleId}/permissions?level=$levelNumber');
+                          },
+                          icon: const Icon(Icons.tune),
+                          label: const Text('Configurar Permissões'),
                         ),
                       ),
                     ],
@@ -304,7 +311,15 @@ class _RoleFormScreenState extends ConsumerState<RoleFormScreen> {
               ),
             ),
 
+            const SizedBox(height: 16),
+
+            
+
             const SizedBox(height: 24),
+
+            // Catálogo de categorias por ministério removido — categorias agora são geridas por tela de regras do ministério
+
+            
 
             // Botões de ação
             Row(
@@ -338,6 +353,9 @@ class _RoleFormScreenState extends ConsumerState<RoleFormScreen> {
     );
   }
 
+  
+
+
   Future<void> _saveRole() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -360,7 +378,10 @@ class _RoleFormScreenState extends ConsumerState<RoleFormScreen> {
               : _descriptionController.text.trim(),
           parentRoleId: _selectedParentRoleId,
           allowsContext: _allowsContext,
+          hierarchyLevel: (_baseLevel ?? AccessLevelType.member).toNumber(),
         );
+
+        
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -376,7 +397,10 @@ class _RoleFormScreenState extends ConsumerState<RoleFormScreen> {
               : _descriptionController.text.trim(),
           parentRoleId: _selectedParentRoleId,
           allowsContext: _allowsContext,
+          hierarchyLevel: (_baseLevel ?? AccessLevelType.member).toNumber(),
         );
+
+        
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

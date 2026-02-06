@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import '../../constants/supabase_constants.dart';
 
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 
@@ -20,7 +21,7 @@ enum GroupActivityPeriod {
 }
 
 /// Provider para grupos ativos com análise por período
-final activeGroupsByPeriodProvider = FutureProvider.family<List<Map<String, dynamic>>, DateTime?>(
+  final activeGroupsByPeriodProvider = FutureProvider.family<List<Map<String, dynamic>>, DateTime?>(
   (ref, startDate) async {
     final supabase = ref.watch(supabaseClientProvider);
 
@@ -28,6 +29,7 @@ final activeGroupsByPeriodProvider = FutureProvider.family<List<Map<String, dyna
     final groupsResponse = await supabase
         .from('group')
         .select('id, name, description, group_type, created_at')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('is_active', true)
         .order('name', ascending: true);
 
@@ -59,7 +61,7 @@ final activeGroupsByPeriodProvider = FutureProvider.family<List<Map<String, dyna
       // Contar membros do grupo
       final membersResponse = await supabase
           .from('group_member')
-          .select('member_id')
+          .select('user_id')
           .eq('group_id', groupId);
 
       final memberCount = (membersResponse as List).length;

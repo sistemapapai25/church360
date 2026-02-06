@@ -1,8 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 
-import '../providers/groups_provider.dart';
+import '../../../../core/design/community_design.dart';
+import '../providers/groups_provider.dart' as groups;
+
+class _GenderOption {
+  const _GenderOption(this.value, this.label);
+
+  final String? value;
+  final String label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _GenderOption && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+}
 
 /// Dialog para cadastrar visitante
 class VisitorFormDialog extends ConsumerStatefulWidget {
@@ -50,7 +65,8 @@ class _VisitorFormDialogState extends ConsumerState<VisitorFormDialog> {
     setState(() => _isLoading = true);
 
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
+      final member = await ref.read(currentMemberProvider.future);
+      final userId = member?.id;
       
       final data = {
         'meeting_id': widget.meetingId,
@@ -67,10 +83,10 @@ class _VisitorFormDialogState extends ConsumerState<VisitorFormDialog> {
         'created_by': userId,
       };
 
-      await ref.read(groupsRepositoryProvider).createVisitor(data);
+      await ref.read(groups.groupsRepositoryProvider).createVisitor(data);
 
       // Invalidar provider para recarregar lista
-      ref.invalidate(visitorsProvider(widget.meetingId));
+      ref.invalidate(groups.visitorsProvider(widget.meetingId));
 
       if (mounted) {
         Navigator.of(context).pop();
@@ -99,7 +115,18 @@ class _VisitorFormDialogState extends ConsumerState<VisitorFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final genderOptions = <_GenderOption>[
+      const _GenderOption(null, 'Não informado'),
+      const _GenderOption('M', 'Masculino'),
+      const _GenderOption('F', 'Feminino'),
+    ];
+    final selectedGender = genderOptions.firstWhere(
+      (option) => option.value == _gender,
+      orElse: () => genderOptions.first,
+    );
+
     return Dialog(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
         padding: const EdgeInsets.all(24),
@@ -196,16 +223,17 @@ class _VisitorFormDialogState extends ConsumerState<VisitorFormDialog> {
                       const SizedBox(height: 16),
 
                       // Gênero
-                      DropdownMenu<String?>(
-                        initialSelection: _gender,
+                      DropdownMenu<_GenderOption>(
+                        initialSelection: selectedGender,
                         label: const Text('Gênero'),
                         leadingIcon: const Icon(Icons.wc),
-                        dropdownMenuEntries: const [
-                          DropdownMenuEntry<String?>(value: null, label: 'Não informado'),
-                          DropdownMenuEntry<String?>(value: 'M', label: 'Masculino'),
-                          DropdownMenuEntry<String?>(value: 'F', label: 'Feminino'),
-                        ],
-                        onSelected: (value) => setState(() => _gender = value),
+                        dropdownMenuEntries: genderOptions
+                          .map((option) => DropdownMenuEntry<_GenderOption>(
+                            value: option,
+                            label: option.label,
+                          ))
+                          .toList(),
+                        onSelected: (option) => setState(() => _gender = option?.value),
                       ),
                       const SizedBox(height: 16),
 

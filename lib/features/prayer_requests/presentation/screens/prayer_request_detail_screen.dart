@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 
 import '../providers/prayer_request_provider.dart';
 import '../../domain/models/prayer_request.dart';
@@ -115,7 +115,7 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
     final prayerRequestAsync = ref.watch(prayerRequestByIdProvider(widget.prayerRequestId));
     final statsAsync = ref.watch(prayerRequestStatsProvider(widget.prayerRequestId));
     final hasUserPrayedAsync = ref.watch(hasUserPrayedProvider(widget.prayerRequestId));
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final currentMemberId = ref.watch(currentMemberProvider).value?.id;
 
     return Scaffold(
       appBar: AppBar(
@@ -126,7 +126,7 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
               if (prayerRequest == null) return const SizedBox.shrink();
               
               // Apenas o autor pode editar/deletar
-              if (prayerRequest.authorId != currentUserId) {
+              if (prayerRequest.authorId != currentMemberId) {
                 return const SizedBox.shrink();
               }
 

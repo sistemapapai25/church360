@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/app_logo.dart';
 import '../providers/auth_provider.dart';
 
 /// Tela de Login
@@ -16,9 +18,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  
+
   bool _isLoading = false;
   bool _obscurePassword = true;
+
+  void _logLogin(String message, {Object? error, StackTrace? stackTrace}) {
+    debugPrint('[Login] $message');
+    if (error != null) debugPrint('[Login] error=$error');
+    if (stackTrace != null) debugPrint('[Login] stackTrace=$stackTrace');
+  }
 
   @override
   void dispose() {
@@ -29,6 +37,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) {
+      _logLogin('validation failed');
       return;
     }
 
@@ -38,17 +47,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       final authRepo = ref.read(authRepositoryProvider);
-      
+      _logLogin('attempt login email=${_emailController.text.trim()}');
+
       await authRepo.signInWithPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
       if (mounted) {
+        _logLogin('login success, redirect to /home');
         // Login bem-sucedido, redireciona para home
         context.go('/home');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      _logLogin(
+        'login failed type=${e.runtimeType}',
+        error: e,
+        stackTrace: stackTrace,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -69,53 +85,89 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400),
+            padding: const EdgeInsets.all(32.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(CommunityDesign.radius),
+              boxShadow: [CommunityDesign.overlayBaseShadow()],
+            ),
             child: Form(
               key: _formKey,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo/Ícone
-                  Icon(
-                    Icons.church,
-                    size: 80,
-                    color: Theme.of(context).colorScheme.primary,
+                  // Logo
+                  Center(
+                    child: SizedBox(
+                      width: 96,
+                      height: 96,
+                      child: const AppLogo(),
+                    ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Título
                   Text(
                     'Church 360',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  
+
                   // Subtítulo
                   Text(
                     'Faça login para continuar',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.grey,
-                        ),
+                    style: CommunityDesign.metaStyle(context),
                   ),
-                  const SizedBox(height: 48),
-                  
+                  const SizedBox(height: 32),
+
                   // Campo de Email
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
+                    autofillHints: const [AutofillHints.email],
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    decoration: InputDecoration(
                       labelText: 'Email',
                       hintText: 'seu@email.com',
-                      prefixIcon: Icon(Icons.email),
+                      prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Colors.grey.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Colors.grey.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -127,27 +179,55 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
-                  
+                  const SizedBox(height: 20),
+
                   // Campo de Senha
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
+                    autofillHints: const [AutofillHints.password],
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Senha',
                       hintText: '••••••••',
-                      prefixIcon: const Icon(Icons.lock),
+                      prefixIcon: const Icon(Icons.lock_outline, size: 20),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword
-                              ? Icons.visibility
-                              : Icons.visibility_off,
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
                         ),
                         onPressed: () {
                           setState(() {
                             _obscurePassword = !_obscurePassword;
                           });
                         },
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Colors.grey.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Colors.grey.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                       ),
                     ),
                     validator: (value) {
@@ -160,78 +240,63 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 24),
-                  
+                  const SizedBox(height: 32),
+
                   // Botão de Login
                   ElevatedButton(
                     onPressed: _isLoading ? null : _handleLogin,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0B5FA5),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
                     child: _isLoading
                         ? const SizedBox(
-                            height: 20,
-                            width: 20,
+                            height: 24,
+                            width: 24,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
-                        : const Text('Entrar'),
+                        : const Text(
+                            'Entrar',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
 
                   // Link para Cadastro
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('Não tem uma conta? '),
+                      Text(
+                        'Não tem uma conta? ',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                       TextButton(
                         onPressed: () => context.push('/signup'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF0B5FA5),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         child: const Text('Criar Conta'),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Informações de teste
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.blue.shade200,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              size: 20,
-                              color: Colors.blue.shade700,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Credenciais de Teste',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue.shade700,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Email: alcidescostant@hotmail.com\n'
-                          'Senha: Camila10@',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.blue.shade900,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ],
               ),
@@ -242,4 +307,3 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 }
-

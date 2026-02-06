@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../widgets/app_logo.dart';
 
 /// Tela de Splash - Primeira tela do app
 /// Verifica autenticação e redireciona
@@ -12,29 +16,36 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  Timer? _redirectTimer;
+
   @override
   void initState() {
     super.initState();
-    _checkAuth();
+    _redirectTimer = Timer(const Duration(seconds: 2), _checkAuth);
   }
 
-  Future<void> _checkAuth() async {
-    // Aguarda 2 segundos para mostrar a splash
-    await Future.delayed(const Duration(seconds: 2));
-    
+  void _checkAuth() {
     if (!mounted) return;
-    
-    // Verifica se está autenticado
-    final supabase = Supabase.instance.client;
-    final session = supabase.auth.currentSession;
-    
-    if (session != null) {
-      // Está autenticado, vai para home
-      context.go('/home');
-    } else {
-      // Não está autenticado, vai para login
+
+    try {
+      final supabase = Supabase.instance.client;
+      final session = supabase.auth.currentSession;
+
+      if (session != null) {
+        context.go('/home');
+      } else {
+        context.go('/login');
+      }
+    } catch (_) {
       context.go('/login');
     }
+  }
+
+  @override
+  void dispose() {
+    _redirectTimer?.cancel();
+    _redirectTimer = null;
+    super.dispose();
   }
 
   @override
@@ -44,11 +55,11 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Ícone da igreja
-            Icon(
-              Icons.church,
-              size: 100,
-              color: Theme.of(context).colorScheme.primary,
+            // Logo do app
+            SizedBox(
+              width: 120,
+              height: 120,
+              child: const AppLogo(),
             ),
             const SizedBox(height: 24),
             
@@ -81,4 +92,3 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
-

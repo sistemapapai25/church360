@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/banners_repository.dart';
 import '../../domain/models/banner.dart';
 
@@ -11,37 +12,42 @@ final bannersRepositoryProvider = Provider<BannersRepository>((ref) {
 
 /// Provider de todos os banners (incluindo inativos) - usado no painel admin
 final allBannersProvider = FutureProvider<List<HomeBanner>>((ref) async {
+  ref.watch(authStateProvider);
   final repo = ref.watch(bannersRepositoryProvider);
   return repo.getAllBanners();
 });
 
 /// Provider de banners ativos (para exibição no app) - mantido para compatibilidade
 final activeBannersProvider = FutureProvider<List<HomeBanner>>((ref) async {
+  ref.watch(authStateProvider);
   final repo = ref.watch(bannersRepositoryProvider);
   return repo.getActiveBanners();
 });
 
 /// Provider de banners ativos com realtime (para tela Home do app) - USAR ESTE NA HOME!
 final activeBannersStreamProvider = StreamProvider.autoDispose<List<HomeBanner>>((ref) {
+  ref.watch(authStateProvider);
   final repo = ref.watch(bannersRepositoryProvider);
   return repo.watchActiveBanners();
 });
 
 /// Provider de banner por ID
 final bannerByIdProvider = FutureProvider.family<HomeBanner?, String>((ref, id) async {
+  ref.watch(authStateProvider);
   final repo = ref.watch(bannersRepositoryProvider);
   return repo.getBannerById(id);
 });
 
 /// Provider para contar total de banners
 final bannersCountProvider = FutureProvider<int>((ref) async {
+  ref.watch(authStateProvider);
   final repo = ref.watch(bannersRepositoryProvider);
   return repo.countBanners();
 });
 
 /// Provider para contar banners ativos
 final activeBannersCountProvider = FutureProvider<int>((ref) async {
+  ref.watch(authStateProvider);
   final repo = ref.watch(bannersRepositoryProvider);
   return repo.countActiveBanners();
 });
-

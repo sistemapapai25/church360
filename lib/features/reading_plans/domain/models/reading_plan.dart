@@ -109,7 +109,7 @@ class ReadingPlanProgress {
   factory ReadingPlanProgress.fromJson(Map<String, dynamic> json) {
     return ReadingPlanProgress(
       planId: json['plan_id'] as String,
-      memberId: json['member_id'] as String,
+      memberId: json['user_id'] as String,
       startedAt: DateTime.parse(json['started_at'] as String),
       currentDay: json['current_day'] as int? ?? 1,
       completedAt: json['completed_at'] != null
@@ -125,7 +125,7 @@ class ReadingPlanProgress {
   Map<String, dynamic> toJson() {
     return {
       'plan_id': planId,
-      'member_id': memberId,
+      'user_id': memberId,
       'started_at': startedAt.toIso8601String(),
       'current_day': currentDay,
       'completed_at': completedAt?.toIso8601String(),
@@ -133,4 +133,3 @@ class ReadingPlanProgress {
     };
   }
 }
-

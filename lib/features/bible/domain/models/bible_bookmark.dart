@@ -24,7 +24,7 @@ class BibleBookmark {
   factory BibleBookmark.fromJson(Map<String, dynamic> json) {
     return BibleBookmark(
       id: json['id'] as String,
-      memberId: json['member_id'] as String,
+      memberId: json['user_id'] as String,
       verseId: json['verse_id'] as int,
       note: json['note'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -37,7 +37,7 @@ class BibleBookmark {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'member_id': memberId,
+      'user_id': memberId,
       'verse_id': verseId,
       if (note != null) 'note': note,
       'created_at': createdAt.toIso8601String(),
@@ -78,4 +78,3 @@ class BibleBookmark {
   @override
   int get hashCode => id.hashCode;
 }
-

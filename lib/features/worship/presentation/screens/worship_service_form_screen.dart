@@ -188,7 +188,7 @@ class _WorshipServiceFormScreenState
       case WorshipType.friday:
         return Icons.favorite;
       case WorshipType.special:
-        return Icons.star;
+        return Icons.celebration;
       case WorshipType.other:
         return Icons.event;
     }
@@ -288,6 +288,7 @@ class _WorshipServiceFormScreenState
                               Text(type.label),
                             ],
                           ),
+                          showCheckmark: false,
                           onSelected: (selected) {
                             if (selected) {
                               setState(() {
@@ -296,7 +297,6 @@ class _WorshipServiceFormScreenState
                             }
                           },
                           selectedColor: _getTypeColor(type),
-                          checkmarkColor: Colors.white,
                           labelStyle: TextStyle(
                             color: isSelected ? Colors.white : null,
                           ),
@@ -377,4 +377,3 @@ class _WorshipServiceFormScreenState
     );
   }
 }
-

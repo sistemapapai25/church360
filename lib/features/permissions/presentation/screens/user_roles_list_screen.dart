@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../../domain/models/user_role.dart';
 import '../../providers/permissions_providers.dart';
+import '../../../members/presentation/providers/members_provider.dart';
+import '../../../members/domain/models/member.dart';
 
 /// Tela de Usuários e Cargos
 /// Exibe todos os usuários e seus cargos atribuídos
@@ -17,10 +18,17 @@ class UserRolesListScreen extends ConsumerStatefulWidget {
 class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
   String _searchQuery = '';
   bool _showExpired = false;
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final userRolesAsync = ref.watch(userRolesProvider);
+    final membersAsync = ref.watch(allMembersProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -46,9 +54,21 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: TextField(
+              controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Buscar usuários ou cargos...',
                 prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() {
+                            _searchController.clear();
+                            _searchQuery = '';
+                          });
+                        },
+                      )
+                    : null,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -64,29 +84,17 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
 
           // Lista de atribuições
           Expanded(
-            child: userRolesAsync.when(
-              data: (userRoles) {
-                // Filtrar atribuições
-                final filteredRoles = userRoles.where((userRole) {
-                  final now = DateTime.now();
-                  final isExpired = userRole.expiresAt != null && userRole.expiresAt!.isBefore(now);
-                  final matchesExpired = _showExpired || !isExpired;
-                  
-                  final matchesSearch = userRole.role?.name.toLowerCase().contains(_searchQuery) ?? false;
-                  
-                  return matchesSearch && matchesExpired && userRole.isActive;
-                }).toList();
+            child: membersAsync.when(
+              data: (members) {
+                final filteredMembers = members.where((m) {
+                  final name = m.displayName.toLowerCase();
+                  final email = m.email.toLowerCase();
+                  final matchesSearch = _searchQuery.isEmpty || name.contains(_searchQuery) || email.contains(_searchQuery);
+                  return matchesSearch;
+                }).toList()
+                  ..sort((a, b) => a.displayName.compareTo(b.displayName));
 
-                // Agrupar por usuário
-                final Map<String, List<UserRole>> userRolesMap = {};
-                for (final userRole in filteredRoles) {
-                  if (!userRolesMap.containsKey(userRole.userId)) {
-                    userRolesMap[userRole.userId] = [];
-                  }
-                  userRolesMap[userRole.userId]!.add(userRole);
-                }
-
-                if (userRolesMap.isEmpty) {
+                if (filteredMembers.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -98,16 +106,14 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          _searchQuery.isEmpty
-                              ? 'Nenhum cargo atribuído'
-                              : 'Nenhum resultado encontrado',
+                          'Nenhum usuário encontrado',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: Theme.of(context).colorScheme.outline,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Atribua cargos aos usuários',
+                          'Todos os usuários cadastrados são listados aqui',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: Theme.of(context).colorScheme.outline,
                           ),
@@ -119,11 +125,10 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
 
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: userRolesMap.length,
+                  itemCount: filteredMembers.length,
                   itemBuilder: (context, index) {
-                    final userId = userRolesMap.keys.elementAt(index);
-                    final roles = userRolesMap[userId]!;
-                    return _buildUserCard(context, userId, roles);
+                    final member = filteredMembers[index];
+                    return _buildUserCard(context, member);
                   },
                 );
               },
@@ -139,7 +144,7 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Erro ao carregar atribuições',
+                      'Erro ao carregar usuários',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
@@ -150,7 +155,7 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
-                      onPressed: () => ref.refresh(userRolesProvider),
+                      onPressed: () => ref.refresh(allMembersProvider),
                       icon: const Icon(Icons.refresh),
                       label: const Text('Tentar novamente'),
                     ),
@@ -169,176 +174,232 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
     );
   }
 
-  Widget _buildUserCard(BuildContext context, String userId, List<UserRole> roles) {
+  Widget _buildUserCard(BuildContext context, Member member) {
+    final rolesAsync = ref.watch(userRoleContextsProvider(member.id));
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
         leading: CircleAvatar(
           backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-          child: Icon(
-            Icons.person,
-            color: Theme.of(context).colorScheme.onPrimaryContainer,
+          child: Text(
+            member.initials,
+            style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer),
           ),
         ),
         title: Text(
-          'Usuário: ${userId.substring(0, 8)}...',
+          member.displayName,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        subtitle: Text('${roles.length} cargo(s) atribuído(s)'),
-        children: roles.map((userRole) => _buildRoleItem(context, userRole)).toList(),
-      ),
-    );
-  }
-
-  Widget _buildRoleItem(BuildContext context, UserRole userRole) {
-    final now = DateTime.now();
-    final isExpired = userRole.expiresAt != null && userRole.expiresAt!.isBefore(now);
-    final dateFormat = DateFormat('dd/MM/yyyy');
-
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-      leading: Icon(
-        Icons.badge,
-        color: isExpired
-            ? Theme.of(context).colorScheme.error
-            : Theme.of(context).colorScheme.primary,
-      ),
-      title: Row(
-        children: [
-          Expanded(
-            child: Text(
-              userRole.role?.name ?? 'Cargo desconhecido',
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                color: isExpired ? Theme.of(context).colorScheme.error : null,
-              ),
-            ),
-          ),
-          if (isExpired)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.errorContainer,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'EXPIRADO',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onErrorContainer,
-                ),
-              ),
-            ),
-        ],
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (userRole.roleContext != null)
-            Text('Contexto: ${userRole.roleContext!.contextName}'),
-          if (userRole.expiresAt != null)
-            Text(
-              'Expira em: ${dateFormat.format(userRole.expiresAt!)}',
-              style: TextStyle(
-                color: isExpired
-                    ? Theme.of(context).colorScheme.error
-                    : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-              ),
-            ),
-          if (userRole.assignedAt != null)
-            Text(
-              'Atribuído em: ${dateFormat.format(userRole.assignedAt!)}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-        ],
-      ),
-      trailing: PopupMenuButton<String>(
-        icon: const Icon(Icons.more_vert),
-        onSelected: (value) => _handleMenuAction(context, value, userRole),
-        itemBuilder: (context) => [
-          const PopupMenuItem(
-            value: 'edit',
-            child: Row(
-              children: [
-                Icon(Icons.edit),
-                SizedBox(width: 12),
-                Text('Editar'),
-              ],
-            ),
-          ),
-          const PopupMenuItem(
-            value: 'remove',
-            child: Row(
-              children: [
-                Icon(Icons.delete, color: Colors.red),
-                SizedBox(width: 12),
-                Text('Remover', style: TextStyle(color: Colors.red)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _handleMenuAction(BuildContext context, String action, UserRole userRole) {
-    switch (action) {
-      case 'edit':
-        context.push('/permissions/assign-role');
-        break;
-      case 'remove':
-        _confirmRemove(context, userRole);
-        break;
-    }
-  }
-
-  Future<void> _confirmRemove(BuildContext context, UserRole userRole) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar remoção'),
-        content: Text(
-          'Tem certeza que deseja remover o cargo "${userRole.role?.name}" deste usuário?\n\n'
-          'Esta ação não pode ser desfeita.',
+        subtitle: rolesAsync.when(
+          data: (items) {
+            final seenKeys = <String>{};
+            for (final it in items) {
+              final roleId = (it['role_id'] as String?)?.trim();
+              final roleName = (it['role_name'] as String? ?? '').trim().toLowerCase();
+              final key = (roleId != null && roleId.isNotEmpty) ? roleId : 'name:$roleName';
+              seenKeys.add(key);
+            }
+            return Text('${seenKeys.length} cargo(s) atribuído(s)');
+          },
+          loading: () => const Text('Carregando cargos...'),
+          error: (e, _) => const Text('Erro ao carregar cargos'),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (_) => _AssignRoleToUserDialog(userId: member.id),
+                    );
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Atribuir cargo'),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    context.push('/permissions/users/${member.id}/permissions');
+                  },
+                  icon: const Icon(Icons.tune),
+                  label: const Text('Editar permissões'),
+                ),
+              ],
             ),
-            child: const Text('Remover'),
+          ),
+          rolesAsync.when(
+            data: (items) {
+              final uniqueByRole = <String, Map<String, dynamic>>{};
+              for (final it in items) {
+                final roleId = (it['role_id'] as String?)?.trim();
+                final roleNameKey = (it['role_name'] as String? ?? '').trim().toLowerCase();
+                final key = (roleId != null && roleId.isNotEmpty) ? roleId : 'name:$roleNameKey';
+                uniqueByRole.putIfAbsent(key, () => it);
+              }
+
+              final filtered = uniqueByRole.values.where((it) {
+                final roleName = (it['role_name'] as String? ?? '').toLowerCase();
+                return _searchQuery.isEmpty || roleName.contains(_searchQuery);
+              }).toList();
+
+              if (filtered.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Text(
+                    'Sem cargos atribuídos',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                );
+              }
+              return Column(
+                children: filtered.map((it) {
+                  final roleName = it['role_name'] as String? ?? 'Cargo';
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                    leading: Icon(
+                      Icons.badge,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    title: Text(roleName),
+                  );
+                }).toList(),
+              );
+            },
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: LinearProgressIndicator(),
+            ),
+            error: (e, _) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text('Erro ao carregar cargos: $e'),
+            ),
           ),
         ],
       ),
     );
+  }
 
-    if (confirmed == true && context.mounted) {
-      try {
-        final repo = ref.read(userRolesRepositoryProvider);
-        await repo.removeUserRole(userRole.id);
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cargo removido com sucesso'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        ref.invalidate(userRolesProvider);
-      } catch (e) {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao remover cargo: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+
+}
+
+
+class _AssignRoleToUserDialog extends ConsumerStatefulWidget {
+  final String userId;
+  const _AssignRoleToUserDialog({required this.userId});
+
+  @override
+  ConsumerState<_AssignRoleToUserDialog> createState() => _AssignRoleToUserDialogState();
+}
+
+class _AssignRoleToUserDialogState extends ConsumerState<_AssignRoleToUserDialog> {
+  String? _selectedRoleId;
+  DateTime? _expiresAt;
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final rolesAsync = ref.watch(allRolesProvider);
+
+    return AlertDialog(
+      title: const Text('Atribuir Cargo ao Usuário'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            rolesAsync.when(
+              data: (roles) {
+                if (roles.isEmpty) return const Text('Nenhum cargo cadastrado');
+                _selectedRoleId ??= roles.first.id;
+                return DropdownButtonFormField<String>(
+                  initialValue: _selectedRoleId,
+                  decoration: const InputDecoration(
+                    labelText: 'Cargo',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: roles.map((r) => DropdownMenuItem(value: r.id, child: Text(r.name))).toList(),
+                  onChanged: (v) => setState(() {
+                    _selectedRoleId = v;
+                  }),
+                );
+              },
+              loading: () => const LinearProgressIndicator(),
+              error: (e, _) => Text('Erro ao carregar cargos: $e'),
+            ),
+            const SizedBox(height: 12),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final now = DateTime.now();
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _expiresAt ?? now.add(const Duration(days: 30)),
+                        firstDate: now,
+                        lastDate: now.add(const Duration(days: 365 * 5)),
+                      );
+                      if (picked != null) setState(() => _expiresAt = picked);
+                    },
+                    icon: const Icon(Icons.event),
+                    label: Text(_expiresAt == null ? 'Definir expiração (opcional)' : 'Expira em: ${DateFormat('dd/MM/yyyy').format(_expiresAt!)}'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton.icon(
+          onPressed: _isLoading ? null : _assignRole,
+          icon: const Icon(Icons.save),
+          label: const Text('Atribuir'),
+        ),
+      ],
+    );
+  }
+
+  // Contextos ocultos: atribuição global sem contexto
+
+  Future<void> _assignRole() async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (_selectedRoleId == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Selecione o cargo')),
+      );
+      return;
+    }
+
+    final nav = Navigator.of(context);
+    setState(() => _isLoading = true);
+    try {
+      await ref.read(userRolesRepositoryProvider).assignRoleToUser(
+        userId: widget.userId,
+        roleId: _selectedRoleId!,
+        contextId: null,
+        expiresAt: _expiresAt,
+        notes: 'Atribuído via Usuários e Cargos',
+      );
+
+      ref.invalidate(userRolesByUserProvider(widget.userId));
+      ref.invalidate(userRolesProvider);
+
+      if (mounted) nav.pop();
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Erro ao atribuir cargo: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 }

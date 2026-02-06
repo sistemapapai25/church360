@@ -4,18 +4,17 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/courses_provider.dart';
 import '../../domain/models/course_lesson.dart';
+import '../../../../core/design/community_design.dart';
 
 /// Tela de gerenciamento de aulas de um curso
 class CourseLessonsScreen extends ConsumerStatefulWidget {
   final String courseId;
 
-  const CourseLessonsScreen({
-    super.key,
-    required this.courseId,
-  });
+  const CourseLessonsScreen({super.key, required this.courseId});
 
   @override
-  ConsumerState<CourseLessonsScreen> createState() => _CourseLessonsScreenState();
+  ConsumerState<CourseLessonsScreen> createState() =>
+      _CourseLessonsScreenState();
 }
 
 class _CourseLessonsScreenState extends ConsumerState<CourseLessonsScreen> {
@@ -29,10 +28,45 @@ class _CourseLessonsScreenState extends ConsumerState<CourseLessonsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: courseAsync.when(
-          data: (course) => Text('Aulas - ${course?.title ?? "Curso"}'),
-          loading: () => const Text('Aulas'),
-          error: (_, __) => const Text('Aulas'),
+        titleSpacing: 0,
+        centerTitle: false,
+        title: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              margin: const EdgeInsets.only(left: 4),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.18),
+                ),
+              ),
+              child: Icon(
+                Icons.play_lesson_rounded,
+                size: 18,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            courseAsync.when(
+              data: (course) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Aulas', style: CommunityDesign.titleStyle(context)),
+                  Text(
+                    course?.title ?? 'Conteúdo do curso',
+                    style: CommunityDesign.metaStyle(context),
+                  ),
+                ],
+              ),
+              loading: () => const Text('Aulas'),
+              error: (_, __) => const Text('Aulas'),
+            ),
+          ],
         ),
         actions: [
           if (_lessons.isNotEmpty)
@@ -60,21 +94,28 @@ class _CourseLessonsScreenState extends ConsumerState<CourseLessonsScreen> {
                   Icon(
                     Icons.video_library_outlined,
                     size: 80,
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.5),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'Nenhuma aula cadastrada',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
+                    style: CommunityDesign.titleStyle(context).copyWith(
+                      fontSize: 22,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Clique no botão + para adicionar a primeira aula',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                        ),
+                    style: CommunityDesign.contentStyle(context).copyWith(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -88,7 +129,7 @@ class _CourseLessonsScreenState extends ConsumerState<CourseLessonsScreen> {
 
           if (_isReordering) {
             return ReorderableListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               itemCount: _lessons.length,
               onReorder: (oldIndex, newIndex) {
                 setState(() {
@@ -114,7 +155,7 @@ class _CourseLessonsScreenState extends ConsumerState<CourseLessonsScreen> {
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             itemCount: lessons.length,
             itemBuilder: (context, index) {
               final lesson = lessons[index];
@@ -124,7 +165,9 @@ class _CourseLessonsScreenState extends ConsumerState<CourseLessonsScreen> {
                 index: index,
                 isReordering: false,
                 onTap: () {
-                  context.push('/courses/${widget.courseId}/lessons/${lesson.id}/edit');
+                  context.push(
+                    '/courses/${widget.courseId}/lessons/${lesson.id}/edit',
+                  );
                 },
                 onDelete: () => _deleteLesson(lesson),
               );
@@ -132,9 +175,8 @@ class _CourseLessonsScreenState extends ConsumerState<CourseLessonsScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Text('Erro ao carregar aulas: $error'),
-        ),
+        error: (error, stack) =>
+            Center(child: Text('Erro ao carregar aulas: $error')),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
@@ -177,7 +219,9 @@ class _CourseLessonsScreenState extends ConsumerState<CourseLessonsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Excluir Aula'),
-        content: Text('Tem certeza que deseja excluir a aula "${lesson.title}"?'),
+        content: Text(
+          'Tem certeza que deseja excluir a aula "${lesson.title}"?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -237,13 +281,16 @@ class _LessonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      decoration: CommunityDesign.overlayDecoration(
+        Theme.of(context).colorScheme,
+      ),
       child: InkWell(
         onTap: isReordering ? null : onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(20),
           child: Row(
             children: [
               // Ícone de reordenação ou número
@@ -261,9 +308,9 @@ class _LessonCard extends StatelessWidget {
                     child: Text(
                       '${index + 1}',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -277,10 +324,11 @@ class _LessonCard extends StatelessWidget {
                     Text(
                       lesson.title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    if (lesson.description != null && lesson.description!.isNotEmpty) ...[
+                    if (lesson.description != null &&
+                        lesson.description!.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
                         lesson.description!,
@@ -293,7 +341,11 @@ class _LessonCard extends StatelessWidget {
                     Row(
                       children: [
                         if (lesson.hasVideo) ...[
-                          Icon(Icons.play_circle_outline, size: 16, color: Colors.blue),
+                          Icon(
+                            Icons.play_circle_outline,
+                            size: 16,
+                            color: Colors.blue,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             lesson.durationText,
@@ -302,7 +354,11 @@ class _LessonCard extends StatelessWidget {
                           const SizedBox(width: 12),
                         ],
                         if (lesson.hasFile) ...[
-                          Icon(Icons.attach_file, size: 16, color: Colors.green),
+                          Icon(
+                            Icons.attach_file,
+                            size: 16,
+                            color: Colors.green,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             'Arquivo',
@@ -339,4 +395,3 @@ class _LessonCard extends StatelessWidget {
     );
   }
 }
-

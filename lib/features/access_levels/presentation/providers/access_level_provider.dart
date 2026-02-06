@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/access_level_repository.dart';
 import '../../domain/models/access_level.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 
 // =====================================================
 // REPOSITORY PROVIDER
@@ -150,16 +151,16 @@ class AccessLevelActions {
     String? notes,
   }) async {
     final repository = ref.read(accessLevelRepositoryProvider);
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-
-    if (currentUserId == null) {
+    final currentMember = await ref.read(currentMemberProvider.future);
+    final promotedBy = currentMember?.id;
+    if (promotedBy == null) {
       throw Exception('Usuário não autenticado');
     }
 
     await repository.updateAccessLevel(
       userId: userId,
       newLevel: newLevel,
-      promotedBy: currentUserId,
+      promotedBy: promotedBy,
       reason: reason,
       notes: notes,
     );
@@ -179,12 +180,13 @@ class AccessLevelActions {
     String? notes,
   }) async {
     final repository = ref.read(accessLevelRepositoryProvider);
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final currentMember = await ref.read(currentMemberProvider.future);
+    final promotedBy = currentMember?.id;
 
     await repository.createAccessLevel(
       userId: userId,
       accessLevel: accessLevel,
-      promotedBy: currentUserId,
+      promotedBy: promotedBy,
       promotionReason: reason,
       notes: notes,
     );

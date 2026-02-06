@@ -27,9 +27,9 @@ class Contribution {
   factory Contribution.fromJson(Map<String, dynamic> json) {
     return Contribution(
       id: json['id'] as String,
-      memberId: json['member_id'] as String?,
-      memberName: json['member'] != null
-          ? '${json['member']['first_name']} ${json['member']['last_name']}'
+      memberId: json['user_id'] as String?,
+      memberName: json['user_account'] != null
+          ? '${json['user_account']['first_name']} ${json['user_account']['last_name']}'
           : null,
       type: ContributionType.fromValue(json['type'] as String),
       amount: (json['amount'] as num).toDouble(),
@@ -44,7 +44,7 @@ class Contribution {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'member_id': memberId,
+      'user_id': memberId,
       'type': type.value,
       'amount': amount,
       'payment_method': paymentMethod.value,
@@ -97,10 +97,23 @@ enum ContributionType {
   const ContributionType(this.value, this.label);
 
   static ContributionType fromValue(String value) {
-    return ContributionType.values.firstWhere(
-      (type) => type.value == value,
-      orElse: () => ContributionType.other,
-    );
+    final normalized = value.toLowerCase();
+    if (normalized == 'tithe' || normalized == 'dizimo' || normalized == 'dizimos') {
+      return ContributionType.tithe;
+    }
+    if (normalized == 'offering' || normalized == 'oferta' || normalized == 'ofertas') {
+      return ContributionType.offering;
+    }
+    if (normalized == 'missions' || normalized == 'missoes') {
+      return ContributionType.missions;
+    }
+    if (normalized == 'building' || normalized == 'construcao') {
+      return ContributionType.building;
+    }
+    if (normalized == 'special' || normalized == 'especial') {
+      return ContributionType.special;
+    }
+    return ContributionType.other;
   }
 }
 
@@ -120,10 +133,19 @@ enum PaymentMethod {
   const PaymentMethod(this.value, this.label);
 
   static PaymentMethod fromValue(String value) {
-    return PaymentMethod.values.firstWhere(
-      (method) => method.value == value,
-      orElse: () => PaymentMethod.other,
-    );
+    final normalized = value.toLowerCase();
+    if (normalized == 'pix') return PaymentMethod.pix;
+    if (normalized == 'dinheiro') return PaymentMethod.cash;
+    if (normalized == 'cartao') return PaymentMethod.credit;
+    if (normalized == 'transferencia') return PaymentMethod.transfer;
+    if (normalized == 'boleto') return PaymentMethod.check;
+    if (normalized == 'cash') return PaymentMethod.cash;
+    if (normalized == 'debit') return PaymentMethod.debit;
+    if (normalized == 'credit') return PaymentMethod.credit;
+    if (normalized == 'transfer') return PaymentMethod.transfer;
+    if (normalized == 'check') return PaymentMethod.check;
+    if (normalized == 'other' || normalized == 'outro') return PaymentMethod.other;
+    return PaymentMethod.other;
   }
 }
 
@@ -236,4 +258,3 @@ class Expense {
     };
   }
 }
-

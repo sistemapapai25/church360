@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/notification.dart';
 
 class NotificationRepository {
@@ -6,15 +7,37 @@ class NotificationRepository {
 
   NotificationRepository(this._supabase);
 
+  Future<String?> _effectiveUserId() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+    final email = user.email;
+    if (email != null && email.trim().isNotEmpty) {
+      try {
+        final nickname = email.trim().split('@').first;
+        await _supabase.rpc('ensure_my_account', params: {
+          '_tenant_id': SupabaseConstants.currentTenantId,
+          '_email': email,
+          '_nickname': nickname,
+        });
+      } catch (_) {}
+    }
+    return user.id;
+  }
+
   // =====================================================
   // NOTIFICATIONS
   // =====================================================
 
   /// Obter todas as notificações do usuário
   Future<List<AppNotification>> getAllNotifications() async {
+    final userId = await _effectiveUserId();
+    if (userId == null) throw Exception('Usuário não autenticado');
+
     final response = await _supabase
         .from('notifications')
         .select()
+        .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
     return (response as List)
@@ -24,9 +47,14 @@ class NotificationRepository {
 
   /// Obter notificações não lidas
   Future<List<AppNotification>> getUnreadNotifications() async {
+    final userId = await _effectiveUserId();
+    if (userId == null) throw Exception('Usuário não autenticado');
+
     final response = await _supabase
         .from('notifications')
         .select()
+        .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .neq('status', 'read')
         .order('created_at', ascending: false);
 
@@ -37,9 +65,14 @@ class NotificationRepository {
 
   /// Obter notificações por tipo
   Future<List<AppNotification>> getNotificationsByType(NotificationType type) async {
+    final userId = await _effectiveUserId();
+    if (userId == null) throw Exception('Usuário não autenticado');
+
     final response = await _supabase
         .from('notifications')
         .select()
+        .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('type', type.value)
         .order('created_at', ascending: false);
 
@@ -50,9 +83,14 @@ class NotificationRepository {
 
   /// Obter uma notificação por ID
   Future<AppNotification?> getNotificationById(String id) async {
+    final userId = await _effectiveUserId();
+    if (userId == null) return null;
+
     final response = await _supabase
         .from('notifications')
         .select()
+        .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('id', id)
         .maybeSingle();
 
@@ -62,7 +100,7 @@ class NotificationRepository {
 
   /// Obter contagem de notificações não lidas
   Future<int> getUnreadNotificationsCount() async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) return 0;
 
     final response = await _supabase
@@ -73,12 +111,17 @@ class NotificationRepository {
 
   /// Marcar notificação como lida
   Future<AppNotification> markAsRead(String id) async {
+    final userId = await _effectiveUserId();
+    if (userId == null) throw Exception('Usuário não autenticado');
+
     final response = await _supabase
         .from('notifications')
         .update({
           'status': 'read',
           'read_at': DateTime.now().toIso8601String(),
         })
+        .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('id', id)
         .select()
         .single();
@@ -88,7 +131,7 @@ class NotificationRepository {
 
   /// Marcar todas as notificações como lidas
   Future<void> markAllAsRead() async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) return;
 
     await _supabase.rpc('mark_all_notifications_as_read', params: {'target_user_id': userId});
@@ -96,12 +139,28 @@ class NotificationRepository {
 
   /// Deletar notificação
   Future<void> deleteNotification(String id) async {
-    await _supabase.from('notifications').delete().eq('id', id);
+    final userId = await _effectiveUserId();
+    if (userId == null) throw Exception('Usuário não autenticado');
+
+    await _supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('id', id);
   }
 
   /// Deletar todas as notificações lidas
   Future<void> deleteAllReadNotifications() async {
-    await _supabase.from('notifications').delete().eq('status', 'read');
+    final userId = await _effectiveUserId();
+    if (userId == null) throw Exception('Usuário não autenticado');
+
+    await _supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('status', 'read');
   }
 
   /// Criar notificação (para testes)
@@ -112,7 +171,7 @@ class NotificationRepository {
     Map<String, dynamic>? data,
     String? route,
   }) async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
 
     final response = await _supabase
@@ -125,6 +184,7 @@ class NotificationRepository {
           'data': data,
           'route': route,
           'status': 'pending',
+          'tenant_id': SupabaseConstants.currentTenantId,
         })
         .select()
         .single();
@@ -138,16 +198,27 @@ class NotificationRepository {
 
   /// Obter preferências de notificação do usuário
   Future<NotificationPreferences?> getNotificationPreferences() async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) return null;
 
     final response = await _supabase
         .from('notification_preferences')
         .select()
         .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
-    if (response == null) return null;
+    if (response == null) {
+      final created = await _supabase
+          .from('notification_preferences')
+          .upsert({
+            'user_id': userId,
+            'tenant_id': SupabaseConstants.currentTenantId,
+          })
+          .select()
+          .single();
+      return NotificationPreferences.fromJson(created);
+    }
     return NotificationPreferences.fromJson(response);
   }
 
@@ -167,7 +238,7 @@ class NotificationRepository {
     String? quietHoursStart,
     String? quietHoursEnd,
   }) async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
 
     final updates = <String, dynamic>{};
@@ -187,8 +258,11 @@ class NotificationRepository {
 
     final response = await _supabase
         .from('notification_preferences')
-        .update(updates)
-        .eq('user_id', userId)
+        .upsert({
+          'user_id': userId,
+          ...updates,
+          'tenant_id': SupabaseConstants.currentTenantId,
+        })
         .select()
         .single();
 
@@ -206,7 +280,7 @@ class NotificationRepository {
     String? deviceName,
     String? platform,
   }) async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
 
     final response = await _supabase
@@ -219,6 +293,7 @@ class NotificationRepository {
           'platform': platform,
           'is_active': true,
           'last_used_at': DateTime.now().toIso8601String(),
+          'tenant_id': SupabaseConstants.currentTenantId,
         })
         .select()
         .single();
@@ -228,13 +303,14 @@ class NotificationRepository {
 
   /// Obter tokens FCM do usuário
   Future<List<FcmToken>> getFcmTokens() async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) return [];
 
     final response = await _supabase
         .from('fcm_tokens')
         .select()
         .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('is_active', true)
         .order('last_used_at', ascending: false);
 
@@ -260,10 +336,13 @@ class NotificationRepository {
   // REALTIME SUBSCRIPTIONS
   // =====================================================
 
+
   /// Escutar novas notificações em tempo real
-  RealtimeChannel subscribeToNotifications(void Function(AppNotification) onNotification) {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('Usuário não autenticado');
+  Future<RealtimeChannel> subscribeToNotifications(void Function(AppNotification) onNotification) async {
+    final userId = await _effectiveUserId();
+    if (userId == null) {
+      throw Exception('Usuário não autenticado');
+    }
 
     return _supabase
         .channel('notifications:$userId')
@@ -277,11 +356,14 @@ class NotificationRepository {
             value: userId,
           ),
           callback: (payload) {
-            final notification = AppNotification.fromJson(payload.newRecord);
-            onNotification(notification);
+            final record = payload.newRecord;
+            final recordTenant = record['tenant_id']?.toString();
+            if (recordTenant == SupabaseConstants.currentTenantId) {
+              final notification = AppNotification.fromJson(record);
+              onNotification(notification);
+            }
           },
         )
         .subscribe();
   }
 }
-

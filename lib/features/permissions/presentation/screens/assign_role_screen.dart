@@ -1,10 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/permissions_providers.dart';
 import '../../domain/models/role.dart';
 import '../../../members/domain/models/member.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+
+class _ContextOption {
+  const _ContextOption(this.value, this.label);
+
+  final String? value;
+  final String label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _ContextOption && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+}
 
 /// Tela de Atribuir Cargo a Usuário
 /// Permite atribuir um cargo (com contexto opcional) a um usuário
@@ -301,23 +316,28 @@ class _AssignRoleScreenState extends ConsumerState<AssignRoleScreen> {
           );
         }
 
-        return DropdownMenu<String?>(
-          initialSelection: _selectedContextId,
+        final options = <_ContextOption>[
+          const _ContextOption(null, 'Nenhum contexto específico'),
+          ...contexts.map((context) => _ContextOption(context.id, context.contextName)),
+        ];
+        final selectedOption = options.firstWhere(
+          (option) => option.value == _selectedContextId,
+          orElse: () => options.first,
+        );
+
+        return DropdownMenu<_ContextOption>(
+          initialSelection: selectedOption,
           label: const Text('Contexto'),
           leadingIcon: const Icon(Icons.location_on),
-          dropdownMenuEntries: [
-            const DropdownMenuEntry<String?>(
-              value: null,
-              label: 'Nenhum contexto específico',
-            ),
-            ...contexts.map((context) => DropdownMenuEntry<String?>(
-                  value: context.id,
-                  label: context.contextName,
-                )),
-          ],
-          onSelected: (value) {
+          dropdownMenuEntries: options
+            .map((option) => DropdownMenuEntry<_ContextOption>(
+              value: option,
+              label: option.label,
+            ))
+            .toList(),
+          onSelected: (option) {
             setState(() {
-              _selectedContextId = value;
+              _selectedContextId = option?.value;
             });
           },
         );
@@ -376,23 +396,21 @@ class _AssignRoleScreenState extends ConsumerState<AssignRoleScreen> {
     try {
       final repository = ref.read(userRolesRepositoryProvider);
 
-      // Buscar o auth.users.id pelo email do membro na tabela user_account
       String? authUserId;
 
-      if (_selectedUserEmail != null && _selectedUserEmail!.isNotEmpty) {
+      if (_selectedUserId != null) {
         final supabase = ref.read(supabaseClientProvider);
-        final response = await supabase
-            .from('user_account')
-            .select('id')
-            .eq('email', _selectedUserEmail!)
+        final existingAccess = await supabase
+            .from('user_access_level')
+            .select('user_id')
+            .eq('user_id', _selectedUserId!)
             .maybeSingle();
 
-        if (response != null) {
-          authUserId = response['id'] as String;
+        if (existingAccess != null) {
+          authUserId = existingAccess['user_id'] as String;
         }
       }
 
-      // Se não encontrou o usuário autenticado, mostrar erro
       if (authUserId == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -400,7 +418,7 @@ class _AssignRoleScreenState extends ConsumerState<AssignRoleScreen> {
               content: Text(
                 _selectedUserEmail == null || _selectedUserEmail!.isEmpty
                     ? 'O membro selecionado não possui email cadastrado'
-                    : 'Não foi encontrado um usuário autenticado com o email $_selectedUserEmail',
+                    : 'Este membro ainda não possui conta criada no Auth. Peça para ele se cadastrar.',
               ),
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
@@ -498,10 +516,21 @@ class _UserSearchDialogState extends ConsumerState<_UserSearchDialog> {
             // Campo de busca
             TextField(
               controller: _searchController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Digite o nome do usuário...',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.trim().isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() {
+                            _searchController.clear();
+                            _searchQuery = '';
+                          });
+                        },
+                      )
+                    : null,
+                border: const OutlineInputBorder(),
               ),
               onChanged: (value) {
                 setState(() {
@@ -545,14 +574,36 @@ class _UserSearchDialogState extends ConsumerState<_UserSearchDialog> {
                     itemBuilder: (context, index) {
                       final member = members[index];
                       return ListTile(
-                        leading: CircleAvatar(
-                          backgroundImage: member.photoUrl != null
-                              ? NetworkImage(member.photoUrl!)
-                              : null,
-                          child: member.photoUrl == null
-                              ? Text(member.initials)
-                              : null,
-                        ),
+                        leading: Builder(builder: (context) {
+                          final rawUrl = member.photoUrl;
+                          String? resolvedUrl;
+                          if (rawUrl != null && rawUrl.isNotEmpty) {
+                            final parsed = Uri.tryParse(rawUrl);
+                            if (parsed != null && parsed.hasScheme) {
+                              resolvedUrl = rawUrl;
+                            } else {
+                              resolvedUrl = Supabase.instance.client.storage
+                                  .from('member-photos')
+                                  .getPublicUrl(rawUrl);
+                            }
+                          }
+
+                          return CircleAvatar(
+                            child: resolvedUrl != null
+                                ? ClipOval(
+                                    child: Image.network(
+                                      resolvedUrl,
+                                      width: 40,
+                                      height: 40,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Text(member.initials);
+                                      },
+                                    ),
+                                  )
+                                : Text(member.initials),
+                          );
+                        }),
                         title: Text(member.displayName),
                         subtitle: Text(member.email),
                         onTap: () => Navigator.pop(context, member),

@@ -44,8 +44,8 @@ enum LessonStatus {
 }
 
 enum ParticipantRole {
-  leader('leader', 'Líder', Icons.star),
-  coLeader('co_leader', 'Co-líder', Icons.star_half),
+  leader('leader', 'Líder', Icons.security),
+  coLeader('co_leader', 'Co-líder', Icons.supervisor_account),
   participant('participant', 'Participante', Icons.person);
 
   final String value;
@@ -500,4 +500,3 @@ class StudyResource {
     return '${mb.toStringAsFixed(1)} MB';
   }
 }
-

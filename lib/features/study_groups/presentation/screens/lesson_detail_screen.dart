@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/design/community_design.dart';
 import '../providers/study_group_provider.dart';
 
 class LessonDetailScreen extends ConsumerWidget {
@@ -28,8 +29,13 @@ class LessonDetailScreen extends ConsumerWidget {
         }
 
         return Scaffold(
+          backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
           appBar: AppBar(
-            title: Text('Lição ${lesson.lessonNumber}'),
+            backgroundColor: CommunityDesign.headerColor(context),
+            title: Text(
+              'Lição ${lesson.lessonNumber}',
+              style: CommunityDesign.titleStyle(context),
+            ),
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -39,7 +45,8 @@ class LessonDetailScreen extends ConsumerWidget {
                 // Título
                 Text(
                   lesson.title,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  style: CommunityDesign.titleStyle(context).copyWith(
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -80,7 +87,7 @@ class LessonDetailScreen extends ConsumerWidget {
                 if (lesson.description != null) ...[
                   Text(
                     lesson.description!,
-                    style: Theme.of(context).textTheme.bodyLarge,
+                    style: CommunityDesign.contentStyle(context),
                   ),
                   const SizedBox(height: 24),
                 ],
@@ -93,11 +100,11 @@ class LessonDetailScreen extends ConsumerWidget {
                   MarkdownBody(
                     data: lesson.content!,
                     styleSheet: MarkdownStyleSheet(
-                      h1: Theme.of(context).textTheme.headlineMedium,
-                      h2: Theme.of(context).textTheme.titleLarge,
-                      h3: Theme.of(context).textTheme.titleMedium,
-                      p: Theme.of(context).textTheme.bodyMedium,
-                      blockquote: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      h1: CommunityDesign.titleStyle(context).copyWith(fontSize: 24),
+                      h2: CommunityDesign.titleStyle(context).copyWith(fontSize: 20),
+                      h3: CommunityDesign.titleStyle(context).copyWith(fontSize: 18),
+                      p: CommunityDesign.contentStyle(context),
+                      blockquote: CommunityDesign.contentStyle(context).copyWith(
                         fontStyle: FontStyle.italic,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -112,8 +119,9 @@ class LessonDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 24),
                   Text(
                     'Perguntas para Discussão',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    style: CommunityDesign.titleStyle(context).copyWith(
                       fontWeight: FontWeight.bold,
+                      fontSize: 20,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -146,7 +154,7 @@ class LessonDetailScreen extends ConsumerWidget {
                           Expanded(
                             child: Text(
                               question,
-                              style: Theme.of(context).textTheme.bodyLarge,
+                              style: CommunityDesign.contentStyle(context),
                             ),
                           ),
                         ],
@@ -161,8 +169,9 @@ class LessonDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 24),
                   Text(
                     'Recursos',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    style: CommunityDesign.titleStyle(context).copyWith(
                       fontWeight: FontWeight.bold,
+                      fontSize: 20,
                     ),
                   ),
                   const SizedBox(height: 16),

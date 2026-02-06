@@ -8,6 +8,39 @@ import 'package:go_router/go_router.dart';
 import '../../domain/models/access_level.dart';
 import '../providers/access_level_provider.dart';
 
+enum _AccessLevelFilterOption {
+  all(null),
+  visitor(AccessLevelType.visitor),
+  attendee(AccessLevelType.attendee),
+  member(AccessLevelType.member),
+  leader(AccessLevelType.leader),
+  coordinator(AccessLevelType.coordinator),
+  admin(AccessLevelType.admin);
+
+  const _AccessLevelFilterOption(this.level);
+
+  final AccessLevelType? level;
+
+  static _AccessLevelFilterOption fromLevel(AccessLevelType? level) {
+    if (level == null) {
+      return _AccessLevelFilterOption.all;
+    }
+
+    return _AccessLevelFilterOption.values.firstWhere(
+      (option) => option.level == level,
+      orElse: () => _AccessLevelFilterOption.all,
+    );
+  }
+
+  String get label {
+    if (level == null) {
+      return 'Todos os n」eis';
+    }
+
+    return '${level!.icon} ${level!.displayName}';
+  }
+}
+
 class AccessLevelsListScreen extends ConsumerStatefulWidget {
   const AccessLevelsListScreen({super.key});
 
@@ -20,6 +53,13 @@ class _AccessLevelsListScreenState
     extends ConsumerState<AccessLevelsListScreen> {
   AccessLevelType? _filterLevel;
   String _searchQuery = '';
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,10 +93,22 @@ class _AccessLevelsListScreenState
               children: [
                 // Busca
                 TextField(
-                  decoration: const InputDecoration(
+                  controller: _searchController,
+                  decoration: InputDecoration(
                     labelText: 'Buscar usuário',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchQuery.trim().isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              setState(() {
+                                _searchController.clear();
+                                _searchQuery = '';
+                              });
+                            },
+                          )
+                        : null,
+                    border: const OutlineInputBorder(),
                   ),
                   onChanged: (value) {
                     setState(() {
@@ -67,24 +119,20 @@ class _AccessLevelsListScreenState
                 const SizedBox(height: 16),
 
                 // Filtro por nível
-                DropdownMenu<AccessLevelType?>(
-                  initialSelection: _filterLevel,
-                  label: const Text('Filtrar por nível'),
-                  dropdownMenuEntries: <DropdownMenuEntry<AccessLevelType?>>[
-                    const DropdownMenuEntry<AccessLevelType?>(
-                      value: null,
-                      label: 'Todos os níveis',
-                    ),
-                    ...AccessLevelType.values.map((level) {
-                      return DropdownMenuEntry<AccessLevelType?>(
-                        value: level,
-                        label: '${level.icon} ${level.displayName}',
-                      );
-                    }),
-                  ],
+                DropdownMenu<_AccessLevelFilterOption>(
+                  initialSelection:
+                      _AccessLevelFilterOption.fromLevel(_filterLevel),
+                  label: const Text('Filtrar por n」el'),
+                  dropdownMenuEntries:
+                      _AccessLevelFilterOption.values.map((option) {
+                    return DropdownMenuEntry<_AccessLevelFilterOption>(
+                      value: option,
+                      label: option.label,
+                    );
+                  }).toList(),
                   onSelected: (value) {
                     setState(() {
-                      _filterLevel = value;
+                      _filterLevel = value?.level;
                     });
                   },
                 ),

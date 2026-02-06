@@ -1,12 +1,30 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/models/custom_report.dart';
 import '../../domain/enums/report_enums.dart';
+import '../../../../core/constants/supabase_constants.dart';
 
 /// Repositório para gerenciar relatórios customizados
 class CustomReportRepository {
   final SupabaseClient _supabase;
 
   CustomReportRepository(this._supabase);
+
+  Future<String?> _currentMemberId() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+    final email = user.email;
+    if (email != null && email.trim().isNotEmpty) {
+      try {
+        final nickname = email.trim().split('@').first;
+        await _supabase.rpc('ensure_my_account', params: {
+          '_tenant_id': SupabaseConstants.currentTenantId,
+          '_email': email,
+          '_nickname': nickname,
+        });
+      } catch (_) {}
+    }
+    return user.id;
+  }
 
   /// Buscar todos os relatórios ativos
   Future<List<CustomReport>> getAllReports() async {
@@ -23,7 +41,7 @@ class CustomReportRepository {
 
   /// Buscar relatórios criados pelo usuário atual
   Future<List<CustomReport>> getMyReports() async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _currentMemberId();
     if (userId == null) return [];
 
     final response = await _supabase
@@ -53,7 +71,7 @@ class CustomReportRepository {
 
   /// Criar novo relatório
   Future<CustomReport> createReport(CustomReport report) async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _currentMemberId();
     
     final reportData = report.toInsertJson();
     reportData['created_by'] = userId;
@@ -99,7 +117,7 @@ class CustomReportRepository {
       throw Exception('Relatório não encontrado');
     }
 
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _currentMemberId();
 
     final duplicateData = {
       'name': '${original.name} (Cópia)',
@@ -136,11 +154,13 @@ class CustomReportRepository {
   }
 
   /// Stream de relatórios do usuário (real-time)
-  Stream<List<CustomReport>> watchMyReports() {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return Stream.value([]);
-
-    return _supabase
+  Stream<List<CustomReport>> watchMyReports() async* {
+    final userId = await _currentMemberId();
+    if (userId == null) {
+      yield [];
+      return;
+    }
+    yield* _supabase
         .from('custom_report')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)

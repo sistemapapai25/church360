@@ -1,24 +1,31 @@
+﻿import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/design/community_design.dart';
 import '../../../../core/services/viacep_service.dart';
 import '../providers/members_provider.dart';
 import '../../domain/models/member.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de formulário de membro (criar/editar)
 class MemberFormScreen extends ConsumerStatefulWidget {
   final String? memberId; // null = criar, não-null = editar
   final String? initialStatus; // Status inicial ao criar (ex: 'visitor')
   final String? initialEmail; // Email inicial ao criar (ex: email do usuário logado)
+  final String? initialMemberType; // Tipo de membro inicial (ex: 'member', 'visitor')
 
   const MemberFormScreen({
     super.key,
     this.memberId,
     this.initialStatus,
     this.initialEmail,
+    this.initialMemberType,
   });
 
   @override
@@ -58,6 +65,30 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   bool _isLoading = false;
   bool _isSearchingCep = false;
   Member? _existingMember;
+  final _professionFocusNode = FocusNode();
+  Timer? _professionDebounce;
+  List<ProfessionOption> _professionOptions = [];
+  String? _professionOptionsQuery;
+  String? _selectedProfessionId;
+  String? _selectedProfessionLabel;
+  final List<String> _customMemberTypes = [];
+  static const String _addMemberTypeValue = '__add_member_type__';
+  static const List<String> _defaultMemberTypes = [
+    'membro',
+    'visitante',
+    'lider',
+    'voluntario',
+  ];
+  static const Map<String, String> _memberTypeLabels = {
+    'membro': 'Membro',
+    'visitante': 'Visitante',
+    'lider': 'Líder',
+    'voluntario': 'Voluntário',
+    'titular': 'Liderança',
+    'congregado': 'Congregado',
+    'cooperador': 'Cooperador',
+    'crianca': 'Criança',
+  };
 
   @override
   void initState() {
@@ -70,16 +101,265 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     if (widget.initialEmail != null) {
       _emailController.text = widget.initialEmail!;
     }
+    // Definir tipo de membro inicial se fornecido
+    if (widget.initialMemberType != null) {
+      _memberType = widget.initialMemberType;
+    }
+    if (widget.memberId == null && (_memberType == null || _memberType!.trim().isEmpty)) {
+      _memberType = _status == 'visitor' ? 'visitante' : 'membro';
+    }
+    _professionController.addListener(_handleProfessionChanged);
+    _professionFocusNode.addListener(() {
+      if (!mounted) return;
+      setState(() {});
+    });
     if (widget.memberId != null) {
       _loadMember();
     }
+  }
+
+  bool _looksLikeProfessionId(String value) {
+    final v = value.trim();
+    return RegExp(r'^prof\d{6}$').hasMatch(v) ||
+        RegExp(r'^[0-9a-fA-F]{32}$').hasMatch(v) ||
+        RegExp(r'^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$').hasMatch(v);
+  }
+
+  String _normalizeMemberTypeInput(String value) {
+    final t = value.trim().toLowerCase();
+    const repl = {
+      'á': 'a',
+      'à': 'a',
+      'â': 'a',
+      'ã': 'a',
+      'ä': 'a',
+      'é': 'e',
+      'ê': 'e',
+      'ë': 'e',
+      'í': 'i',
+      'ï': 'i',
+      'ó': 'o',
+      'ô': 'o',
+      'õ': 'o',
+      'ö': 'o',
+      'ú': 'u',
+      'ü': 'u',
+      'ç': 'c',
+    };
+
+    final buf = StringBuffer();
+    for (final rune in t.runes) {
+      final c = String.fromCharCode(rune);
+      buf.write(repl[c] ?? c);
+    }
+
+    var s = buf.toString();
+    s = s.replaceAll(RegExp(r'\s+'), '_');
+    s = s.replaceAll(RegExp(r'[^a-z0-9_-]'), '');
+    s = s.replaceAll(RegExp(r'_+'), '_');
+    s = s.replaceAll(RegExp(r'^_+|_+$'), '');
+    return s;
+  }
+
+  String _memberTypeLabelFor(String type) {
+    final v = type.trim();
+    final mapped = _memberTypeLabels[v];
+    if (mapped != null && mapped.isNotEmpty) return mapped;
+    var s = v.replaceAll(RegExp(r'[_-]+'), ' ').trim();
+    if (s.isEmpty) return v;
+    final words = s.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final normalized = words
+        .map((w) => w.length == 1
+            ? w.toUpperCase()
+            : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+        .join(' ');
+    return normalized.isNotEmpty ? normalized : v;
+  }
+
+  List<DropdownMenuItem<String>> _buildMemberTypeItems() {
+    final items = <String>[
+      ..._defaultMemberTypes,
+      ..._customMemberTypes,
+    ];
+
+    final current = _memberType?.trim();
+    if (current != null &&
+        current.isNotEmpty &&
+        current != _addMemberTypeValue &&
+        !items.contains(current)) {
+      items.add(current);
+    }
+
+    items.add(_addMemberTypeValue);
+
+    final unique = <String>{};
+    final finalItems = <String>[];
+    for (final v in items) {
+      if (unique.add(v)) finalItems.add(v);
+    }
+
+    return finalItems
+        .map(
+          (value) => DropdownMenuItem(
+            value: value,
+            child: Text(
+              value == _addMemberTypeValue
+                  ? 'Adicionar novo tipo...'
+                  : _memberTypeLabelFor(value),
+            ),
+          ),
+        )
+        .toList();
+  }
+
+  Future<String?> _askForCustomMemberType() async {
+    final controller = TextEditingController();
+    try {
+      final result = await showDialog<String>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Novo tipo de membro'),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Tipo',
+                border: OutlineInputBorder(),
+              ),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (v) {
+                final normalized = _normalizeMemberTypeInput(v);
+                if (normalized.isEmpty) return;
+                Navigator.of(context).pop(normalized);
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final normalized = _normalizeMemberTypeInput(controller.text);
+                  if (normalized.isEmpty) return;
+                  Navigator.of(context).pop(normalized);
+                },
+                child: const Text('Adicionar'),
+              ),
+            ],
+          );
+        },
+      );
+      return result;
+    } finally {
+      controller.dispose();
+    }
+  }
+
+  Future<void> _handleMemberTypeChanged(String? value) async {
+    if (value == null) {
+      setState(() => _memberType = null);
+      return;
+    }
+
+    if (value != _addMemberTypeValue) {
+      setState(() => _memberType = value);
+      return;
+    }
+
+    final previous = _memberType;
+    final custom = await _askForCustomMemberType();
+    if (!mounted) return;
+    if (custom == null || custom.trim().isEmpty) {
+      setState(() => _memberType = previous);
+      return;
+    }
+
+    setState(() {
+      if (!_customMemberTypes.contains(custom)) {
+        _customMemberTypes.add(custom);
+      }
+      _memberType = custom;
+    });
+  }
+
+  void _handleProfessionChanged() {
+    final text = _professionController.text;
+    if (_selectedProfessionLabel != null && text != _selectedProfessionLabel) {
+      _selectedProfessionId = null;
+      _selectedProfessionLabel = null;
+    }
+
+    if (_selectedProfessionLabel != null && text == _selectedProfessionLabel) {
+      if (_professionOptions.isNotEmpty || _professionOptionsQuery != null) {
+        setState(() {
+          _professionOptions = [];
+          _professionOptionsQuery = null;
+        });
+      }
+      return;
+    }
+
+    final query = text.trim();
+    _professionDebounce?.cancel();
+
+    if (query.length < 3) {
+      if (_professionOptions.isNotEmpty) {
+        setState(() {
+          _professionOptions = [];
+          _professionOptionsQuery = null;
+        });
+      }
+      return;
+    }
+
+    _professionDebounce = Timer(const Duration(milliseconds: 250), () async {
+      final requestedQuery = query;
+      final results = await ref.read(membersRepositoryProvider).searchProfessions(query);
+      if (!mounted) return;
+      if (_professionController.text.trim() != requestedQuery) return;
+      setState(() {
+        _professionOptions = results;
+        _professionOptionsQuery = requestedQuery;
+      });
+
+      if (_professionFocusNode.hasFocus) {
+        final v = _professionController.value;
+        final sel = v.selection;
+        _professionController.value = v.copyWith(
+          selection: TextSelection(
+            baseOffset: sel.baseOffset,
+            extentOffset: sel.extentOffset,
+            affinity: sel.affinity == TextAffinity.downstream
+                ? TextAffinity.upstream
+                : TextAffinity.downstream,
+            isDirectional: sel.isDirectional,
+          ),
+        );
+      }
+    });
+  }
+
+  void _selectProfessionOption(ProfessionOption option) {
+    setState(() {
+      _selectedProfessionId = option.id;
+      _selectedProfessionLabel = option.label;
+      _professionOptions = [];
+      _professionOptionsQuery = null;
+    });
+    _professionController.value = TextEditingValue(
+      text: option.label,
+      selection: TextSelection.collapsed(offset: option.label.length),
+    );
   }
 
   Future<void> _loadMember() async {
     setState(() => _isLoading = true);
     
     try {
-      final member = await ref.read(membersRepositoryProvider).getMemberById(widget.memberId!);
+      final repo = ref.read(membersRepositoryProvider);
+      final member = await repo.getMemberById(widget.memberId!);
       
       if (member != null && mounted) {
         setState(() {
@@ -109,6 +389,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           _conversionDate = member.conversionDate;
           _baptismDate = member.baptismDate;
         });
+
+        final rawProfession = member.profession;
+        if (rawProfession != null && _looksLikeProfessionId(rawProfession)) {
+          final label = await repo.getProfessionLabelById(rawProfession);
+          if (!mounted) return;
+          setState(() {
+            _selectedProfessionId = rawProfession;
+            _selectedProfessionLabel = label ?? rawProfession;
+          });
+          _professionController.text = label ?? rawProfession;
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -134,6 +425,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _cpfController.dispose();
+    _professionDebounce?.cancel();
+    _professionFocusNode.dispose();
+    _professionController.removeListener(_handleProfessionChanged);
     _professionController.dispose();
     _addressController.dispose();
     _addressComplementController.dispose();
@@ -238,10 +532,21 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
       if (widget.memberId == null) {
         // Criar novo - não passa o ID, deixa o Supabase gerar
+        final authUser = Supabase.instance.client.auth.currentUser;
+        final authId = authUser?.id;
+        final authEmail = (authUser?.email ?? '').trim().toLowerCase();
+
+        final firstName = _firstNameController.text.trim();
+        final lastName = _lastNameController.text.trim();
+        final email = _emailController.text.trim();
+        final fullName = '$firstName $lastName'.trim().isNotEmpty ? '$firstName $lastName'.trim() : email;
+
         final memberData = <String, dynamic>{
-          'first_name': _firstNameController.text.trim(),
-          'last_name': _lastNameController.text.trim(),
+          'first_name': firstName,
+          'last_name': lastName,
+          'full_name': fullName,
           'status': _status,
+          'is_active': true,
         };
 
         // Adiciona campos opcionais apenas se não forem vazios
@@ -257,8 +562,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         if (_cpfController.text.trim().isNotEmpty) {
           memberData['cpf'] = _cpfController.text.trim();
         }
-        if (_professionController.text.trim().isNotEmpty) {
-          memberData['profession'] = _professionController.text.trim();
+        final professionValue = _selectedProfessionId ?? _professionController.text.trim();
+        if (professionValue.isNotEmpty) {
+          memberData['profession'] = professionValue;
         }
         if (_birthdate != null) {
           memberData['birthdate'] = _birthdate!.toIso8601String().split('T')[0]; // Apenas a data
@@ -306,7 +612,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           memberData['notes'] = _notesController.text.trim();
         }
 
-        memberData['id'] = const Uuid().v4();
+        final shouldBindToAuth =
+            authId != null && authId.isNotEmpty && authEmail.isNotEmpty && authEmail == email.trim().toLowerCase();
+        memberData['id'] = shouldBindToAuth ? authId : const Uuid().v4();
+        if (authId != null && authId.isNotEmpty) {
+          memberData['created_by'] = memberData['created_by'] ?? authId;
+        }
         await repo.createMemberFromJson(memberData);
       } else {
         // Atualizar existente
@@ -323,6 +634,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
         // Garantir que fullName nunca seja vazio (usar email como fallback)
         final finalFullName = fullName.isNotEmpty ? fullName : email;
+        final professionValue = _selectedProfessionId ?? _professionController.text.trim();
 
         final member = Member(
           id: widget.memberId!,
@@ -333,7 +645,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           nickname: _nicknameController.text.trim().isEmpty ? null : _nicknameController.text.trim(),
           phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
           cpf: _cpfController.text.trim().isEmpty ? null : _cpfController.text.trim(),
-          profession: _professionController.text.trim().isEmpty ? null : _professionController.text.trim(),
+          profession: professionValue.isEmpty ? null : professionValue,
           birthdate: _birthdate,
           gender: _gender,
           maritalStatus: _maritalStatus,
@@ -362,6 +674,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         ref.invalidate(allMembersProvider);
         ref.invalidate(activeMembersProvider);
         ref.invalidate(visitorsProvider);
+        if (widget.memberId != null) {
+          ref.invalidate(memberByIdProvider(widget.memberId!));
+          final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+          if (currentUserId != null && currentUserId == widget.memberId) {
+            ref.invalidate(currentMemberProvider);
+          }
+        }
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -394,510 +713,587 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final permission = widget.memberId == null
+        ? (_status == 'visitor' ? 'visitors.create' : 'members.create')
+        : (_status == 'visitor' ? 'visitors.edit' : 'members.edit');
+    final professionQuery = _professionController.text.trim();
+    final showProfessionOptions = _professionFocusNode.hasFocus &&
+        professionQuery.length >= 3 &&
+        _professionOptions.isNotEmpty &&
+        (_selectedProfessionLabel == null || professionQuery != _selectedProfessionLabel);
+
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: Text(widget.memberId == null ? 'Novo Membro' : 'Editar Membro'),
-        centerTitle: true,
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text(
+          widget.memberId == null ? 'Novo Membro' : 'Editar Membro',
+          style: CommunityDesign.titleStyle(context).copyWith(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
         actions: [
           if (_isLoading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(16.0),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Center(
                 child: SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 ),
               ),
             )
           else
-            IconButton(
-              icon: const Icon(Icons.check),
-              onPressed: _saveMember,
-              tooltip: 'Salvar',
+            PermissionGate(
+              permission: permission,
+              showLoading: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Center(
+                  child: ElevatedButton.icon(
+                    onPressed: _saveMember,
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('Salvar'),
+                    style: CommunityDesign.pillButtonStyle(
+                      context,
+                      Colors.green,
+                      compact: true,
+                    ),
+                  ),
+                ),
+              ),
             ),
         ],
       ),
       body: _isLoading && widget.memberId != null
           ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  // Seção: Dados Pessoais
-                  _buildSectionTitle('Dados Pessoais'),
-                  const SizedBox(height: 16),
-
-                  TextFormField(
-                    controller: _firstNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Primeiro Nome *',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.person),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Campo obrigatório';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  TextFormField(
-                    controller: _lastNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Sobrenome *',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.person_outline),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Campo obrigatório';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Apelido
-                  TextFormField(
-                    controller: _nicknameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Apelido',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.badge),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: InputDecoration(
-                      labelText: 'Email *',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.email),
-                      // Mostrar hint se o campo está bloqueado
-                      helperText: widget.initialEmail != null
-                          ? 'Email vinculado à sua conta (não editável)'
-                          : null,
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    // Bloquear edição se foi fornecido um email inicial
-                    readOnly: widget.initialEmail != null,
-                    enabled: widget.initialEmail == null,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Email é obrigatório';
-                      }
-                      // Validação básica de email
-                      if (!value.contains('@')) {
-                        return 'Email inválido';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  TextFormField(
-                    controller: _phoneController,
-                    decoration: const InputDecoration(
-                      labelText: 'Telefone',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.phone),
-                    ),
-                    keyboardType: TextInputType.phone,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Data de Nascimento
-                  InkWell(
-                    onTap: () => _selectDate(context, _birthdate, (date) {
-                      setState(() {
-                        _birthdate = date;
-                      });
-                    }),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Data de Nascimento',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.cake),
-                      ),
-                      child: Text(
-                        _birthdate != null
-                            ? DateFormat('dd/MM/yyyy').format(_birthdate!)
-                            : 'Selecione a data',
-                        style: TextStyle(
-                          color: _birthdate != null ? null : Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Gênero
-                  DropdownButtonFormField<String>(
-                    initialValue: _gender,
-                    decoration: const InputDecoration(
-                      labelText: 'Gênero',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.wc),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'male', child: Text('Masculino')),
-                      DropdownMenuItem(value: 'female', child: Text('Feminino')),
-                      DropdownMenuItem(value: 'other', child: Text('Outro')),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _gender = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // CPF
-                  TextFormField(
-                    controller: _cpfController,
-                    decoration: const InputDecoration(
-                      labelText: 'CPF',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.credit_card),
-                      hintText: '000.000.000-00',
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Estado Civil
-                  DropdownButtonFormField<String>(
-                    initialValue: _maritalStatus,
-                    decoration: const InputDecoration(
-                      labelText: 'Estado Civil',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.favorite),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'single', child: Text('Solteiro(a)')),
-                      DropdownMenuItem(value: 'married', child: Text('Casado(a)')),
-                      DropdownMenuItem(value: 'divorced', child: Text('Divorciado(a)')),
-                      DropdownMenuItem(value: 'widowed', child: Text('Viúvo(a)')),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _maritalStatus = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Data de Casamento (só aparece se casado)
-                  if (_maritalStatus == 'married') ...[
-                    InkWell(
-                      onTap: () => _selectDate(context, _marriageDate, (date) {
-                        setState(() {
-                          _marriageDate = date;
-                        });
-                      }),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Data de Casamento',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.favorite_border),
-                        ),
-                        child: Text(
-                          _marriageDate != null
-                              ? DateFormat('dd/MM/yyyy').format(_marriageDate!)
-                              : 'Selecione a data',
-                          style: TextStyle(
-                            color: _marriageDate != null ? null : Colors.grey,
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                          // Seção: Dados Pessoais
+                          _buildSectionTitle('Dados Pessoais'),
+                          const SizedBox(height: 16),
+        
+                          TextFormField(
+                            controller: _firstNameController,
+                            decoration: InputDecoration(
+                              labelText: 'Primeiro Nome *',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.person),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Campo obrigatório';
+                              }
+                              return null;
+                            },
                           ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // Profissão
-                  TextFormField(
-                    controller: _professionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Profissão',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.work),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Seção: Endereço
-                  _buildSectionTitle('Endereço'),
-                  const SizedBox(height: 16),
-
-                  // CEP
-                  TextFormField(
-                    controller: _zipCodeController,
-                    decoration: InputDecoration(
-                      labelText: 'CEP',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.pin_drop),
-                      hintText: '00000-000',
-                      suffixIcon: _isSearchingCep
-                          ? const Padding(
-                              padding: EdgeInsets.all(12.0),
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                          const SizedBox(height: 16),
+        
+                          TextFormField(
+                            controller: _lastNameController,
+                            decoration: InputDecoration(
+                              labelText: 'Sobrenome *',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.person_outline),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Campo obrigatório';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+        
+                          // Apelido
+                          TextFormField(
+                            controller: _nicknameController,
+                            decoration: InputDecoration(
+                              labelText: 'Apelido',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.badge),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+        
+                          TextFormField(
+                            controller: _emailController,
+                            decoration: InputDecoration(
+                              labelText: 'Email *',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.email),
+                              // Mostrar hint se o campo está bloqueado
+                              helperText: widget.initialEmail != null
+                                  ? 'Email vinculado à sua conta (não editável)'
+                                  : null,
+                            ),
+                            keyboardType: TextInputType.emailAddress,
+                            // Bloquear edição se foi fornecido um email inicial
+                            readOnly: widget.initialEmail != null,
+                            enabled: widget.initialEmail == null,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Email é obrigatório';
+                              }
+                              // Validação básica de email
+                              if (!value.contains('@')) {
+                                return 'Email inválido';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+        
+                          TextFormField(
+                            controller: _phoneController,
+                            decoration: InputDecoration(
+                              labelText: 'Telefone',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.phone),
+                            ),
+                            keyboardType: TextInputType.phone,
+                          ),
+                          const SizedBox(height: 16),
+        
+                          // Data de Nascimento
+                          InkWell(
+                            onTap: () => _selectDate(context, _birthdate, (date) {
+                              setState(() {
+                                _birthdate = date;
+                              });
+                            }),
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: 'Data de Nascimento',
+                                filled: true,
+                                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                border: const OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.cake),
                               ),
-                            )
-                          : IconButton(
-                              icon: const Icon(Icons.search),
-                              tooltip: 'Buscar CEP',
-                              onPressed: _searchCep,
+                              child: Text(
+                                _birthdate != null
+                                    ? DateFormat('dd/MM/yyyy').format(_birthdate!)
+                                    : 'Selecione a data',
+                                style: TextStyle(
+                                  color: _birthdate != null ? null : Colors.grey,
+                                ),
+                              ),
                             ),
-                    ),
-                    keyboardType: TextInputType.number,
-                    onChanged: (value) {
-                      // Auto-buscar quando digitar 8 dígitos
-                      final cleanCep = value.replaceAll(RegExp(r'[^0-9]'), '');
-                      if (cleanCep.length == 8 && !_isSearchingCep) {
-                        _searchCep();
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Complemento
-                  TextFormField(
-                    controller: _addressComplementController,
-                    decoration: const InputDecoration(
-                      labelText: 'Complemento',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.apartment),
-                      hintText: 'Apto, Bloco, etc',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Endereço
-                  TextFormField(
-                    controller: _addressController,
-                    decoration: const InputDecoration(
-                      labelText: 'Endereço',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.home),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Bairro
-                  TextFormField(
-                    controller: _neighborhoodController,
-                    decoration: const InputDecoration(
-                      labelText: 'Bairro',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.location_on),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Cidade
-                  TextFormField(
-                    controller: _cityController,
-                    decoration: const InputDecoration(
-                      labelText: 'Cidade',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.location_city),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Estado
-                  TextFormField(
-                    controller: _stateController,
-                    decoration: const InputDecoration(
-                      labelText: 'Estado',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.map),
-                      hintText: 'UF',
-                    ),
-                    textCapitalization: TextCapitalization.characters,
-                    maxLength: 2,
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Seção: Informações Eclesiásticas
-                  _buildSectionTitle('Informações Eclesiásticas'),
-                  const SizedBox(height: 16),
-
-                  // Status
-                  DropdownButtonFormField<String>(
-                    initialValue: _status,
-                    decoration: const InputDecoration(
-                      labelText: 'Status *',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.info),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'visitor', child: Text('Visitante')),
-                      DropdownMenuItem(value: 'new_convert', child: Text('Novo Convertido')),
-                      DropdownMenuItem(value: 'member_active', child: Text('Membro Ativo')),
-                      DropdownMenuItem(value: 'member_inactive', child: Text('Membro Inativo')),
-                      DropdownMenuItem(value: 'transferred', child: Text('Transferido')),
-                      DropdownMenuItem(value: 'deceased', child: Text('Falecido')),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _status = value!;
-                      });
-                    },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Campo obrigatório';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Data de Conversão
-                  InkWell(
-                    onTap: () => _selectDate(context, _conversionDate, (date) {
-                      setState(() {
-                        _conversionDate = date;
-                      });
-                    }),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Data de Conversão',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.church),
-                      ),
-                      child: Text(
-                        _conversionDate != null
-                            ? DateFormat('dd/MM/yyyy').format(_conversionDate!)
-                            : 'Selecione a data',
-                        style: TextStyle(
-                          color: _conversionDate != null ? null : Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Data de Batismo
-                  InkWell(
-                    onTap: () => _selectDate(context, _baptismDate, (date) {
-                      setState(() {
-                        _baptismDate = date;
-                      });
-                    }),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Data de Batismo',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.water_drop),
-                      ),
-                      child: Text(
-                        _baptismDate != null
-                            ? DateFormat('dd/MM/yyyy').format(_baptismDate!)
-                            : 'Selecione a data',
-                        style: TextStyle(
-                          color: _baptismDate != null ? null : Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Data de Membresia
-                  InkWell(
-                    onTap: () => _selectDate(context, _membershipDate, (date) {
-                      setState(() {
-                        _membershipDate = date;
-                      });
-                    }),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Data de Membresia',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.card_membership),
-                      ),
-                      child: Text(
-                        _membershipDate != null
-                            ? DateFormat('dd/MM/yyyy').format(_membershipDate!)
-                            : 'Selecione a data',
-                        style: TextStyle(
-                          color: _membershipDate != null ? null : Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Tipo de Membro
-                  DropdownButtonFormField<String>(
-                    initialValue: _memberType,
-                    decoration: const InputDecoration(
-                      labelText: 'Tipo de Membro',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.person_outline),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'titular', child: Text('Titular')),
-                      DropdownMenuItem(value: 'congregado', child: Text('Congregado')),
-                      DropdownMenuItem(value: 'cooperador', child: Text('Cooperador')),
-                      DropdownMenuItem(value: 'crianca', child: Text('Criança')),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _memberType = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Seção: Observações
-                  _buildSectionTitle('Observações'),
-                  const SizedBox(height: 16),
-
-                  TextFormField(
-                    controller: _notesController,
-                    decoration: const InputDecoration(
-                      labelText: 'Notas',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.note),
-                      alignLabelWithHint: true,
-                    ),
-                    maxLines: 4,
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Botão Salvar
-                  ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _saveMember,
-                    icon: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                          ),
+                          const SizedBox(height: 16),
+        
+                          // Gênero
+                          DropdownButtonFormField<String>(
+                            initialValue: _gender,
+                            decoration: InputDecoration(
+                              labelText: 'Gênero',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.wc),
                             ),
-                          )
-                        : const Icon(Icons.save),
-                    label: Text(_isLoading ? 'Salvando...' : (widget.memberId == null ? 'Criar Membro' : 'Salvar Alterações')),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      textStyle: const TextStyle(fontSize: 16),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
+                            items: const [
+                              DropdownMenuItem(value: 'male', child: Text('Masculino')),
+                              DropdownMenuItem(value: 'female', child: Text('Feminino')),
+                              DropdownMenuItem(value: 'other', child: Text('Outro')),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _gender = value;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 16),
+        
+                          // CPF
+                          TextFormField(
+                            controller: _cpfController,
+                            decoration: InputDecoration(
+                              labelText: 'CPF',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.credit_card),
+                              hintText: '000.000.000-00',
+                            ),
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 16),
+        
+                          // Estado Civil
+                          DropdownButtonFormField<String>(
+                            initialValue: _maritalStatus,
+                            decoration: InputDecoration(
+                              labelText: 'Estado Civil',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.favorite),
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 'single', child: Text('Solteiro(a)')),
+                              DropdownMenuItem(value: 'married', child: Text('Casado(a)')),
+                              DropdownMenuItem(value: 'divorced', child: Text('Divorciado(a)')),
+                              DropdownMenuItem(value: 'widowed', child: Text('Viúvo(a)')),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _maritalStatus = value;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 16),
+        
+                          // Data de Casamento (só aparece se casado)
+                          if (_maritalStatus == 'married') ...[
+                            InkWell(
+                              onTap: () => _selectDate(context, _marriageDate, (date) {
+                                setState(() {
+                                  _marriageDate = date;
+                                });
+                              }),
+                              child: InputDecorator(
+                                decoration: InputDecoration(
+                                  labelText: 'Data de Casamento',
+                                  filled: true,
+                                  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                  border: const OutlineInputBorder(),
+                                  prefixIcon: const Icon(Icons.favorite_border),
+                                ),
+                                child: Text(
+                                  _marriageDate != null
+                                      ? DateFormat('dd/MM/yyyy').format(_marriageDate!)
+                                      : 'Selecione a data',
+                                  style: TextStyle(
+                                    color: _marriageDate != null ? null : Colors.grey,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+        
+                          // ProfissÆo
+                          TextFormField(
+                            controller: _professionController,
+                            focusNode: _professionFocusNode,
+                            decoration: InputDecoration(
+                              labelText: 'ProfissÆo',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.work),
+                            ),
+                          ),
+                          if (showProfessionOptions) ...[
+                            const SizedBox(height: 8),
+                            Material(
+                              elevation: 4,
+                              borderRadius: BorderRadius.circular(8),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxHeight: 240),
+                                child: ListView.builder(
+                                  padding: EdgeInsets.zero,
+                                  shrinkWrap: true,
+                                  primary: false,
+                                  itemCount: _professionOptions.length,
+                                  itemBuilder: (context, index) {
+                                    final option = _professionOptions[index];
+                                    return ListTile(
+                                      dense: true,
+                                      title: Text(option.label),
+                                      onTap: () => _selectProfessionOption(option),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 24),        
+                          // Seção: Endereço
+                          _buildSectionTitle('Endereço'),
+                          const SizedBox(height: 16),
+        
+                          // CEP
+                          TextFormField(
+                            controller: _zipCodeController,
+                            decoration: InputDecoration(
+                              labelText: 'CEP',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.pin_drop),
+                              hintText: '00000-000',
+                              suffixIcon: _isSearchingCep
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(12.0),
+                                      child: SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      ),
+                                    )
+                                  : IconButton(
+                                      icon: const Icon(Icons.search),
+                                      tooltip: 'Buscar CEP',
+                                      onPressed: _searchCep,
+                                    ),
+                            ),
+                            keyboardType: TextInputType.number,
+                            onChanged: (value) {
+                              // Auto-buscar quando digitar 8 dígitos
+                              final cleanCep = value.replaceAll(RegExp(r'[^0-9]'), '');
+                              if (cleanCep.length == 8 && !_isSearchingCep) {
+                                _searchCep();
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 16),
+        
+                          // Complemento
+                          TextFormField(
+                            controller: _addressComplementController,
+                            decoration: InputDecoration(
+                              labelText: 'Complemento',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.apartment),
+                              hintText: 'Apto, Bloco, etc',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+        
+                          // Endereço
+                          TextFormField(
+                            controller: _addressController,
+                            decoration: InputDecoration(
+                              labelText: 'Endereço',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.home),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+        
+                          // Bairro
+                          TextFormField(
+                            controller: _neighborhoodController,
+                            decoration: InputDecoration(
+                              labelText: 'Bairro',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.location_on),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+        
+                          // Cidade
+                          TextFormField(
+                            controller: _cityController,
+                            decoration: InputDecoration(
+                              labelText: 'Cidade',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.location_city),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+        
+                          // Estado
+                          TextFormField(
+                            controller: _stateController,
+                            decoration: InputDecoration(
+                              labelText: 'Estado',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.map),
+                              hintText: 'UF',
+                            ),
+                            textCapitalization: TextCapitalization.characters,
+                            maxLength: 2,
+                          ),
+                          const SizedBox(height: 24),
+        
+                          // Seção: Informações Eclesiásticas
+                          _buildSectionTitle('Informações Eclesiásticas'),
+                          const SizedBox(height: 16),
+        
+                          // Status
+                          DropdownButtonFormField<String>(
+                            initialValue: _status,
+                            decoration: InputDecoration(
+                              labelText: 'Status *',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.info),
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 'visitor', child: Text('Visitante')),
+                              DropdownMenuItem(value: 'new_convert', child: Text('Novo Convertido')),
+                              DropdownMenuItem(value: 'member_active', child: Text('Membro Ativo')),
+                              DropdownMenuItem(value: 'member_inactive', child: Text('Membro Inativo')),
+                              DropdownMenuItem(value: 'transferred', child: Text('Transferido')),
+                              DropdownMenuItem(value: 'deceased', child: Text('Falecido')),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _status = value!;
+                              });
+                            },
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Campo obrigatório';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+        
+                          // Data de Conversão
+                          InkWell(
+                            onTap: () => _selectDate(context, _conversionDate, (date) {
+                              setState(() {
+                                _conversionDate = date;
+                              });
+                            }),
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: 'Data de Conversão',
+                                filled: true,
+                                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                border: const OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.church),
+                              ),
+                              child: Text(
+                                _conversionDate != null
+                                    ? DateFormat('dd/MM/yyyy').format(_conversionDate!)
+                                    : 'Selecione a data',
+                                style: TextStyle(
+                                  color: _conversionDate != null ? null : Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+        
+                          // Data de Batismo
+                          InkWell(
+                            onTap: () => _selectDate(context, _baptismDate, (date) {
+                              setState(() {
+                                _baptismDate = date;
+                              });
+                            }),
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: 'Data de Batismo',
+                                filled: true,
+                                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                border: const OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.water_drop),
+                              ),
+                              child: Text(
+                                _baptismDate != null
+                                    ? DateFormat('dd/MM/yyyy').format(_baptismDate!)
+                                    : 'Selecione a data',
+                                style: TextStyle(
+                                  color: _baptismDate != null ? null : Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+        
+                          // Data de Membresia
+                          InkWell(
+                            onTap: () => _selectDate(context, _membershipDate, (date) {
+                              setState(() {
+                                _membershipDate = date;
+                              });
+                            }),
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: 'Data de Membresia',
+                                filled: true,
+                                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                border: const OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.card_membership),
+                              ),
+                              child: Text(
+                                _membershipDate != null
+                                    ? DateFormat('dd/MM/yyyy').format(_membershipDate!)
+                                    : 'Selecione a data',
+                                style: TextStyle(
+                                  color: _membershipDate != null ? null : Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+        
+                          // Tipo de Membro
+                          DropdownButtonFormField<String>(
+                            key: ValueKey(_memberType),
+                            initialValue: _memberType,
+                            decoration: InputDecoration(
+                              labelText: 'Tipo de Membro',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.person_outline),
+                            ),
+                            items: _buildMemberTypeItems(),
+                            onChanged: (value) {
+                              _handleMemberTypeChanged(value);
+                            },
+                          ),
+                          const SizedBox(height: 24),
+        
+                          // Seção: Observações
+                          _buildSectionTitle('Observações'),
+                          const SizedBox(height: 16),
+        
+                          TextFormField(
+                            controller: _notesController,
+                            decoration: InputDecoration(
+                              labelText: 'Notas',
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.note),
+                              alignLabelWithHint: true,
+                            ),
+                            maxLines: 4,
+                          ),
+                          const SizedBox(height: 32),
+                  ],
+                ),
               ),
             ),
     );

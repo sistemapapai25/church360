@@ -4,6 +4,11 @@ import 'package:go_router/go_router.dart';
 import '../providers/support_materials_provider.dart';
 import '../../domain/models/support_material.dart';
 import '../../domain/models/support_material_link.dart';
+import '../../../courses/presentation/providers/courses_provider.dart';
+import '../../../events/presentation/providers/events_provider.dart';
+import '../../../groups/presentation/providers/groups_provider.dart';
+import '../../../ministries/presentation/providers/ministries_provider.dart';
+import '../../../study_groups/presentation/providers/study_group_provider.dart';
 import '../../../../core/widgets/file_upload_widget.dart';
 import '../../../../core/widgets/video_upload_widget.dart';
 import '../widgets/entity_selector_dialog.dart';
@@ -163,25 +168,81 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
       );
 
       if (links.isNotEmpty && mounted) {
-        // Agrupar links por tipo
-        final Map<MaterialLinkType, Map<String, String>> groupedLinks = {};
-
+        final Map<MaterialLinkType, List<String>> idsByType = {};
         for (final link in links) {
-          if (!groupedLinks.containsKey(link.linkType)) {
-            groupedLinks[link.linkType] = {};
-          }
-          // Aqui precisamos buscar o nome da entidade
-          // Por enquanto vou usar o ID como nome, depois podemos melhorar
-          groupedLinks[link.linkType]![link.linkedEntityId] = link.linkedEntityId;
+          idsByType.putIfAbsent(link.linkType, () => []).add(link.linkedEntityId);
         }
 
-        setState(() {
-          _selectedEntities.addAll(groupedLinks);
-        });
+        final Map<MaterialLinkType, Map<String, String>> groupedLinks = {};
+        for (final entry in idsByType.entries) {
+          groupedLinks[entry.key] = await _resolveEntityNames(entry.key, entry.value);
+        }
+
+        if (mounted) {
+          setState(() {
+            _selectedEntities.addAll(groupedLinks);
+          });
+        }
       }
     } catch (e) {
       // Ignorar erro ao carregar links
       debugPrint('Erro ao carregar vinculações: $e');
+    }
+  }
+
+  Map<String, String> _mapIdsToNames(
+    List<String> ids,
+    Map<String, String> lookup, {
+    required String fallbackLabel,
+  }) {
+    return {
+      for (final id in ids) id: lookup[id] ?? fallbackLabel,
+    };
+  }
+
+  Future<Map<String, String>> _resolveEntityNames(
+    MaterialLinkType linkType,
+    List<String> ids,
+  ) async {
+    if (ids.isEmpty) return {};
+    switch (linkType) {
+      case MaterialLinkType.event:
+        final events = await ref.read(allEventsProvider.future);
+        return _mapIdsToNames(
+          ids,
+          {for (final e in events) e.id: e.name},
+          fallbackLabel: 'Evento não encontrado',
+        );
+      case MaterialLinkType.course:
+        final courses = await ref.read(allCoursesProvider.future);
+        return _mapIdsToNames(
+          ids,
+          {for (final c in courses) c.id: c.title},
+          fallbackLabel: 'Curso não encontrado',
+        );
+      case MaterialLinkType.communionGroup:
+        final groups = await ref.read(allGroupsProvider.future);
+        return _mapIdsToNames(
+          ids,
+          {for (final g in groups) g.id: g.name},
+          fallbackLabel: 'Grupo não encontrado',
+        );
+      case MaterialLinkType.studyGroup:
+        final studyGroups = await ref.read(allStudyGroupsProvider.future);
+        return _mapIdsToNames(
+          ids,
+          {for (final g in studyGroups) g.id: g.name},
+          fallbackLabel: 'Grupo de estudo não encontrado',
+        );
+      case MaterialLinkType.ministry:
+        final ministries = await ref.read(allMinistriesProvider.future);
+        return _mapIdsToNames(
+          ids,
+          {for (final m in ministries) m.id: m.name},
+          fallbackLabel: 'Ministério não encontrado',
+        );
+      case MaterialLinkType.general:
+        return {for (final id in ids) id: 'Geral'};
     }
   }
 
@@ -399,7 +460,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Conteúdo Transcrito',
+              'Conteúdo por escrito',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,

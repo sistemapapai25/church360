@@ -7,20 +7,17 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:church360_app/main.dart';
-import 'package:church360_app/core/constants/supabase_constants.dart';
 
 void main() {
   testWidgets('App builds MaterialApp.router', (WidgetTester tester) async {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    await Supabase.initialize(
-      url: SupabaseConstants.supabaseUrl,
-      anonKey: SupabaseConstants.supabaseAnonKey,
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: Church360App(),
+      ),
     );
-
-    await tester.pumpWidget(const Church360App());
 
     expect(find.byType(MaterialApp), findsOneWidget);
   });

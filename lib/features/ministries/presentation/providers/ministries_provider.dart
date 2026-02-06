@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/ministries_repository.dart';
 import '../../domain/models/ministry.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 
 /// Provider do repository de ministérios
 final ministriesRepositoryProvider = Provider<MinistriesRepository>((ref) {
@@ -51,6 +52,14 @@ final memberMinistriesProvider = FutureProvider.family<List<Ministry>, String>((
   return repo.getMemberMinistries(memberId);
 });
 
+/// Provider de ministérios do membro atual (resolve id correto via cadastro)
+final currentMemberMinistriesProvider = FutureProvider<List<Ministry>>((ref) async {
+  final repo = ref.watch(ministriesRepositoryProvider);
+  final member = await ref.watch(currentMemberProvider.future);
+  if (member == null) return [];
+  return repo.getMemberMinistries(member.id);
+});
+
 /// Provider de escalas de um evento
 final eventSchedulesProvider = FutureProvider.family<List<MinistrySchedule>, String>((ref, eventId) async {
   final repo = ref.watch(ministriesRepositoryProvider);
@@ -62,4 +71,3 @@ final ministrySchedulesProvider = FutureProvider.family<List<MinistrySchedule>, 
   final repo = ref.watch(ministriesRepositoryProvider);
   return repo.getMinistrySchedules(ministryId);
 });
-

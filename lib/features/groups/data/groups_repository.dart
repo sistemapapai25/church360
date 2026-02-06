@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 
 import '../domain/models/group.dart';
 import '../domain/models/group_visitor.dart';
@@ -16,10 +17,11 @@ class GroupsRepository {
           .from('group')
           .select('''
             *,
-            leader:member!leader_id(first_name, last_name),
-            host:member!host_id(first_name, last_name),
+            leader:user_account!leader_user_id(first_name, last_name),
+            host:user_account!host_user_id(first_name, last_name),
             group_member(count)
           ''')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('name');
 
       return (response as List).map((json) {
@@ -54,10 +56,11 @@ class GroupsRepository {
           .from('group')
           .select('''
             *,
-            leader:member!leader_id(first_name, last_name),
-            host:member!host_id(first_name, last_name),
+            leader:user_account!leader_user_id(first_name, last_name),
+            host:user_account!host_user_id(first_name, last_name),
             group_member(count)
           ''')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('is_active', true)
           .order('name');
 
@@ -92,11 +95,12 @@ class GroupsRepository {
           .from('group')
           .select('''
             *,
-            leader:member!leader_id(first_name, last_name),
-            host:member!host_id(first_name, last_name),
+            leader:user_account!leader_user_id(first_name, last_name),
+            host:user_account!host_user_id(first_name, last_name),
             group_member(count)
           ''')
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .maybeSingle();
 
       if (response == null) return null;
@@ -126,9 +130,11 @@ class GroupsRepository {
   /// Criar novo grupo
   Future<Group> createGroupFromJson(Map<String, dynamic> data) async {
     try {
+      final payload = Map<String, dynamic>.from(data);
+      payload['tenant_id'] = payload['tenant_id'] ?? SupabaseConstants.currentTenantId;
       final response = await _supabase
           .from('group')
-          .insert(data)
+          .insert(payload)
           .select()
           .single();
 
@@ -145,6 +151,7 @@ class GroupsRepository {
           .from('group')
           .update(group.toJson())
           .eq('id', group.id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
@@ -157,7 +164,11 @@ class GroupsRepository {
   /// Deletar grupo
   Future<void> deleteGroup(String id) async {
     try {
-      await _supabase.from('group').delete().eq('id', id);
+      await _supabase
+          .from('group')
+          .delete()
+          .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -169,6 +180,7 @@ class GroupsRepository {
       final response = await _supabase
           .from('group')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .count();
 
       return response.count;
@@ -183,6 +195,7 @@ class GroupsRepository {
       final response = await _supabase
           .from('group')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('is_active', true)
           .count();
 
@@ -201,7 +214,7 @@ class GroupsRepository {
           .from('group_member')
           .select('''
             *,
-            member(first_name, last_name)
+            user_account:user_id (first_name, last_name)
           ''')
           .eq('group_id', groupId)
           .order('joined_date');
@@ -209,8 +222,8 @@ class GroupsRepository {
       return (response as List).map((json) {
         final data = Map<String, dynamic>.from(json);
 
-        if (data['member'] != null) {
-          final member = data['member'];
+        if (data['user_account'] != null) {
+          final member = data['user_account'];
           data['member_name'] = '${member['first_name']} ${member['last_name']}';
         }
 
@@ -232,7 +245,7 @@ class GroupsRepository {
           .from('group_member')
           .insert({
             'group_id': groupId,
-            'member_id': memberId,
+            'user_id': memberId,
             'role': role,
           })
           .select()
@@ -251,7 +264,7 @@ class GroupsRepository {
           .from('group_member')
           .delete()
           .eq('group_id', groupId)
-          .eq('member_id', memberId);
+          .eq('user_id', memberId);
     } catch (e) {
       rethrow;
     }
@@ -269,6 +282,7 @@ class GroupsRepository {
             group_attendance(count)
           ''')
           .eq('group_id', groupId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('meeting_date', ascending: false);
 
       return (response as List).map((json) {
@@ -288,9 +302,11 @@ class GroupsRepository {
   /// Criar reunião
   Future<GroupMeeting> createMeetingFromJson(Map<String, dynamic> data) async {
     try {
+      final payload = Map<String, dynamic>.from(data);
+      payload['tenant_id'] = payload['tenant_id'] ?? SupabaseConstants.currentTenantId;
       final response = await _supabase
           .from('group_meeting')
-          .insert(data)
+          .insert(payload)
           .select()
           .single();
 
@@ -303,7 +319,11 @@ class GroupsRepository {
   /// Deletar reunião
   Future<void> deleteMeeting(String meetingId) async {
     try {
-      await _supabase.from('group_meeting').delete().eq('id', meetingId);
+      await _supabase
+          .from('group_meeting')
+          .delete()
+          .eq('id', meetingId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -320,9 +340,10 @@ class GroupsRepository {
           .from('visitor')
           .select('''
             *,
-            mentor:member!assigned_mentor_id(first_name, last_name)
+            mentor:user_account!assigned_mentor_id(first_name, last_name)
           ''')
           .eq('meeting_id', meetingId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('created_at', ascending: false);
 
       return (response as List)
@@ -340,10 +361,11 @@ class GroupsRepository {
           .from('visitor')
           .select('''
             *,
-            mentor:member!assigned_mentor_id(first_name, last_name)
+            mentor:user_account!assigned_mentor_id(first_name, last_name)
           ''')
           .eq('meeting_id', meetingId)
           .eq('is_salvation', true)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('salvation_date', ascending: false);
 
       return (response as List)
@@ -361,9 +383,10 @@ class GroupsRepository {
           .from('visitor')
           .select('''
             *,
-            mentor:member!assigned_mentor_id(first_name, last_name)
+            mentor:user_account!assigned_mentor_id(first_name, last_name)
           ''')
           .eq('is_salvation', true)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('salvation_date', ascending: false);
 
       return (response as List)
@@ -380,6 +403,7 @@ class GroupsRepository {
       final response = await _supabase
           .from('visitor')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('is_salvation', true)
           .count();
 
@@ -392,9 +416,11 @@ class GroupsRepository {
   /// Criar visitante
   Future<GroupVisitor> createVisitor(Map<String, dynamic> data) async {
     try {
+      final payload = Map<String, dynamic>.from(data);
+      payload['tenant_id'] = payload['tenant_id'] ?? SupabaseConstants.currentTenantId;
       final response = await _supabase
           .from('visitor')
-          .insert(data)
+          .insert(payload)
           .select()
           .single();
 
@@ -411,6 +437,7 @@ class GroupsRepository {
           .from('visitor')
           .update(data)
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
@@ -423,7 +450,11 @@ class GroupsRepository {
   /// Deletar visitante
   Future<void> deleteVisitor(String id) async {
     try {
-      await _supabase.from('visitor').delete().eq('id', id);
+      await _supabase
+          .from('visitor')
+          .delete()
+          .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -438,6 +469,7 @@ class GroupsRepository {
       final response = await _supabase
           .from('group_visitor')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('is_salvation', true)
           .gte('salvation_date', startDate.toIso8601String().split('T')[0])
           .lte('salvation_date', endDate.toIso8601String().split('T')[0])
@@ -449,4 +481,3 @@ class GroupsRepository {
     }
   }
 }
-

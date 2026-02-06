@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import '../providers/quick_news_provider.dart';
 import '../../domain/models/quick_news.dart';
 
+import '../../../../core/design/community_design.dart';
+
 /// Tela de listagem e gerenciamento de avisos rápidos (Fique por Dentro)
 class QuickNewsListScreen extends ConsumerWidget {
   const QuickNewsListScreen({super.key});
@@ -15,7 +17,15 @@ class QuickNewsListScreen extends ConsumerWidget {
     final newsAsync = ref.watch(allQuickNewsProvider);
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
+        backgroundColor: CommunityDesign.headerColor(context),
+        elevation: 0,
+        scrolledUnderElevation: 2,
+        shadowColor: Colors.black.withValues(alpha: 0.1),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+        ),
         title: const Text('Fique por Dentro'),
         centerTitle: true,
       ),
@@ -39,14 +49,14 @@ class QuickNewsListScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   Text(
                     'Nenhum aviso cadastrado',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    style: CommunityDesign.titleStyle(context).copyWith(
                           color: Colors.grey[600],
                         ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Toque no botão + para criar o primeiro aviso',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    style: CommunityDesign.contentStyle(context).copyWith(
                           color: Colors.grey[500],
                         ),
                   ),
@@ -78,12 +88,12 @@ class QuickNewsListScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               Text(
                 'Erro ao carregar avisos',
-                style: Theme.of(context).textTheme.titleMedium,
+                style: CommunityDesign.titleStyle(context),
               ),
               const SizedBox(height: 8),
               Text(
                 error.toString(),
-                style: Theme.of(context).textTheme.bodySmall,
+                style: CommunityDesign.metaStyle(context),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -113,11 +123,12 @@ class _NewsCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      decoration: CommunityDesign.overlayDecoration(Theme.of(context).colorScheme),
       child: InkWell(
         onTap: () => context.push('/home/quick-news/${news.id}/edit'),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(CommunityDesign.radius),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -129,7 +140,7 @@ class _NewsCard extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       news.title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      style: CommunityDesign.titleStyle(context).copyWith(
                             fontWeight: FontWeight.bold,
                           ),
                     ),
@@ -144,7 +155,7 @@ class _NewsCard extends ConsumerWidget {
               // Descrição
               Text(
                 news.description,
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: CommunityDesign.contentStyle(context),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -167,7 +178,7 @@ class _NewsCard extends ConsumerWidget {
                       const SizedBox(width: 4),
                       Text(
                         'Prioridade: ${news.priority}',
-                        style: Theme.of(context).textTheme.bodySmall,
+                        style: CommunityDesign.metaStyle(context),
                       ),
                     ],
                   ),
@@ -184,7 +195,7 @@ class _NewsCard extends ConsumerWidget {
                       const SizedBox(width: 4),
                       Text(
                         dateFormat.format(news.createdAt),
-                        style: Theme.of(context).textTheme.bodySmall,
+                        style: CommunityDesign.metaStyle(context),
                       ),
                     ],
                   ),
@@ -202,7 +213,7 @@ class _NewsCard extends ConsumerWidget {
                         const SizedBox(width: 4),
                         Text(
                           'Expira: ${dateFormat.format(news.expiresAt!)}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style: CommunityDesign.metaStyle(context).copyWith(
                                 color: news.isExpired ? Colors.red : Colors.orange,
                               ),
                         ),

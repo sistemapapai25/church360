@@ -7,6 +7,8 @@ class Member {
   final String? fullName; // Mantido para compatibilidade com auth
   final String? avatarUrl;
   final bool isActive;
+  final bool showBirthday;
+  final bool showContact;
 
   // Dados pessoais (member)
   final String? firstName;
@@ -32,6 +34,7 @@ class Member {
   final String status;
   final String? memberType;
   final String? photoUrl;
+  final String? fichaPdf;
 
   // Relacionamentos (member)
   final String? householdId;
@@ -42,6 +45,7 @@ class Member {
   final DateTime? conversionDate;
   final DateTime? baptismDate;
   final DateTime? membershipDate;
+  final DateTime? credentialDate;
 
   // Jornada do visitante (visitor)
   final DateTime? firstVisitDate;
@@ -72,6 +76,8 @@ class Member {
   final bool? wantsToReturn;
 
   // Outros
+  final bool? entrevista;
+  final bool? entrevistador;
   final String? notes;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -83,6 +89,8 @@ class Member {
     this.fullName,
     this.avatarUrl,
     this.isActive = true,
+    this.showBirthday = false,
+    this.showContact = false,
 
     // Dados pessoais
     this.firstName,
@@ -108,6 +116,7 @@ class Member {
     this.status = 'visitor',
     this.memberType,
     this.photoUrl,
+    this.fichaPdf,
 
     // Relacionamentos
     this.householdId,
@@ -118,6 +127,7 @@ class Member {
     this.conversionDate,
     this.baptismDate,
     this.membershipDate,
+    this.credentialDate,
 
     // Jornada do visitante
     this.firstVisitDate,
@@ -148,6 +158,8 @@ class Member {
     this.wantsToReturn,
 
     // Outros
+    this.entrevista,
+    this.entrevistador,
     this.notes,
     required this.createdAt,
     this.updatedAt,
@@ -160,7 +172,8 @@ class Member {
   String get displayName {
     if (fullName != null && fullName!.isNotEmpty) return fullName!;
     if (computedFullName.isNotEmpty) return computedFullName;
-    return email;
+    if (email.isNotEmpty) return email;
+    return id;
   }
 
   /// Iniciais para avatar
@@ -171,7 +184,10 @@ class Member {
     if (fullName != null && fullName!.isNotEmpty) {
       return fullName![0].toUpperCase();
     }
-    return email[0].toUpperCase();
+    if (email.isNotEmpty) {
+      return email[0].toUpperCase();
+    }
+    return id[0].toUpperCase();
   }
 
   /// Idade (se tiver data de nascimento)
@@ -191,44 +207,83 @@ class Member {
     return Member(
       // Autenticação
       id: json['id'] as String,
-      email: json['email'] as String,
-      fullName: json['full_name'] as String?,
-      avatarUrl: json['avatar_url'] as String?,
+      email: json['email'] is String ? json['email'] as String : '',
+      fullName: json['full_name'] is String ? json['full_name'] as String : null,
+      avatarUrl: json['avatar_url'] is String ? json['avatar_url'] as String : null,
       isActive: json['is_active'] as bool? ?? true,
+      showBirthday: json['show_birthday'] as bool? ?? false,
+      showContact: json['show_contact'] as bool? ?? false,
 
       // Dados pessoais
-      firstName: json['first_name'] as String?,
-      lastName: json['last_name'] as String?,
-      nickname: json['nickname'] as String?,
-      phone: json['phone'] as String?,
-      cpf: json['cpf'] as String?,
+      firstName: json['first_name'] is String ? json['first_name'] as String : null,
+      lastName: json['last_name'] is String ? json['last_name'] as String : null,
+      nickname: json['nickname'] is String
+          ? json['nickname'] as String
+          : (json['apelido'] is String ? json['apelido'] as String : null),
+      phone: json['phone'] is String ? json['phone'] as String : null,
+      cpf: json['cpf'] is String ? json['cpf'] as String : null,
       birthdate: json['birthdate'] != null
           ? DateTime.parse(json['birthdate'] as String)
           : null,
-      gender: json['gender'] as String?,
-      maritalStatus: json['marital_status'] as String?,
+      gender: json['gender'] is String ? json['gender'] as String : null,
+      maritalStatus: json['marital_status'] is String ? json['marital_status'] as String : null,
       marriageDate: json['marriage_date'] != null
           ? DateTime.parse(json['marriage_date'] as String)
           : null,
-      profession: json['profession'] as String?,
+      profession: json['profession'] is String ? json['profession'] as String : null,
 
       // Endereço
-      address: json['address'] as String?,
-      addressComplement: json['address_complement'] as String?,
-      neighborhood: json['neighborhood'] as String?,
-      city: json['city'] as String?,
-      state: json['state'] as String?,
-      zipCode: json['zip_code'] as String?,
+      address: json['address'] is String ? json['address'] as String : null,
+      addressComplement: json['address_complement'] is String ? json['address_complement'] as String : null,
+      neighborhood: json['neighborhood'] is String ? json['neighborhood'] as String : null,
+      city: json['city'] is String ? json['city'] as String : null,
+      state: json['state'] is String ? json['state'] as String : null,
+      zipCode: json['zip_code'] is String ? json['zip_code'] as String : null,
 
       // Status e tipo
-      status: json['status'] as String? ?? 'visitor',
-      memberType: json['member_type'] as String?,
-      photoUrl: json['photo_url'] as String?,
+      status: (() {
+        final s = json['status'];
+        if (s is bool) return s ? 'member_active' : 'member_inactive';
+        if (s is String) {
+          final t = s.trim().toLowerCase();
+          switch (t) {
+            case 'visitor':
+            case 'visitante':
+              return 'visitor';
+            case 'new_convert':
+            case 'novo_convertido':
+            case 'novo-convertido':
+            case 'novo convertido':
+              return 'new_convert';
+            case 'member_active':
+            case 'active':
+            case 'ativo':
+            case 'membro':
+              return 'member_active';
+            case 'member_inactive':
+            case 'inactive':
+            case 'inativo':
+              return 'member_inactive';
+            case 'transferred':
+            case 'transferido':
+              return 'transferred';
+            case 'deceased':
+            case 'falecido':
+              return 'deceased';
+            default:
+              return t.isEmpty ? 'visitor' : t;
+          }
+        }
+        return 'visitor';
+      })(),
+      memberType: json['member_type'] is String ? json['member_type'] as String : null,
+      photoUrl: json['photo_url'] is String ? json['photo_url'] as String : null,
+      fichaPdf: json['ficha_pdf'] is String ? json['ficha_pdf'] as String : null,
 
       // Relacionamentos
-      householdId: json['household_id'] as String?,
-      campusId: json['campus_id'] as String?,
-      createdBy: json['created_by'] as String?,
+      householdId: json['household_id'] is String ? json['household_id'] as String : null,
+      campusId: json['campus_id'] is String ? json['campus_id'] as String : null,
+      createdBy: json['created_by'] is String ? json['created_by'] as String : null,
 
       // Datas espirituais
       conversionDate: json['conversion_date'] != null
@@ -240,6 +295,9 @@ class Member {
       membershipDate: json['membership_date'] != null
           ? DateTime.parse(json['membership_date'] as String)
           : null,
+      credentialDate: json['credencial_date'] != null
+          ? DateTime.parse(json['credencial_date'] as String)
+          : null,
 
       // Jornada do visitante
       firstVisitDate: json['first_visit_date'] != null
@@ -249,28 +307,28 @@ class Member {
           ? DateTime.parse(json['last_visit_date'] as String)
           : null,
       totalVisits: json['total_visits'] as int?,
-      howFound: json['how_found'] as String?,
-      visitorSource: json['visitor_source'] as String?,
+      howFound: json['how_found'] is String ? json['how_found'] as String : null,
+      visitorSource: json['visitor_source'] is String ? json['visitor_source'] as String : null,
 
       // Acompanhamento espiritual
-      prayerRequest: json['prayer_request'] as String?,
-      interests: json['interests'] as String?,
+      prayerRequest: json['prayer_request'] is String ? json['prayer_request'] as String : null,
+      interests: json['interests'] is String ? json['interests'] as String : null,
       isSalvation: json['is_salvation'] as bool?,
       salvationDate: json['salvation_date'] != null
           ? DateTime.parse(json['salvation_date'] as String)
           : null,
-      testimony: json['testimony'] as String?,
+      testimony: json['testimony'] is String ? json['testimony'] as String : null,
 
       // Discipulado e batismo
       wantsBaptism: json['wants_baptism'] as bool?,
-      baptismEventId: json['baptism_event_id'] as String?,
-      baptismCourseId: json['baptism_course_id'] as String?,
+      baptismEventId: json['baptism_event_id'] is String ? json['baptism_event_id'] as String : null,
+      baptismCourseId: json['baptism_course_id'] is String ? json['baptism_course_id'] as String : null,
       wantsDiscipleship: json['wants_discipleship'] as bool?,
-      discipleshipCourseId: json['discipleship_course_id'] as String?,
+      discipleshipCourseId: json['discipleship_course_id'] is String ? json['discipleship_course_id'] as String : null,
 
       // Mentoria e acompanhamento
-      assignedMentorId: json['assigned_mentor_id'] as String?,
-      followUpStatus: json['follow_up_status'] as String?,
+      assignedMentorId: json['assigned_mentor_id'] is String ? json['assigned_mentor_id'] as String : null,
+      followUpStatus: json['follow_up_status'] is String ? json['follow_up_status'] as String : null,
       lastContactDate: json['last_contact_date'] != null
           ? DateTime.parse(json['last_contact_date'] as String)
           : null,
@@ -278,7 +336,18 @@ class Member {
       wantsToReturn: json['wants_to_return'] as bool?,
 
       // Outros
-      notes: json['notes'] as String?,
+      entrevista: (() {
+        final v = json['entrevista'];
+        if (v is bool) return v;
+        if (v is String) {
+          final s = v.trim().toLowerCase();
+          if (s == 'sim' || s == 'true' || s == '1') return true;
+          if (s == 'nao' || s == 'não' || s == 'false' || s == '0') return false;
+        }
+        return null;
+      })(),
+      notes: json['notes'] is String ? json['notes'] as String : null,
+      entrevistador: json['entrevistador'] is bool ? json['entrevistador'] as bool : null,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
@@ -295,6 +364,8 @@ class Member {
       'full_name': fullName,
       'avatar_url': avatarUrl,
       'is_active': isActive,
+      'show_birthday': showBirthday,
+      'show_contact': showContact,
 
       // Dados pessoais
       'first_name': firstName,
@@ -320,6 +391,7 @@ class Member {
       'status': status,
       'member_type': memberType,
       'photo_url': photoUrl,
+      'ficha_pdf': fichaPdf,
 
       // Relacionamentos
       'household_id': householdId,
@@ -330,6 +402,7 @@ class Member {
       'conversion_date': conversionDate?.toIso8601String(),
       'baptism_date': baptismDate?.toIso8601String(),
       'membership_date': membershipDate?.toIso8601String(),
+      'credencial_date': credentialDate?.toIso8601String(),
 
       // Jornada do visitante
       'first_visit_date': firstVisitDate?.toIso8601String(),
@@ -360,6 +433,8 @@ class Member {
       'wants_to_return': wantsToReturn,
 
       // Outros
+      'entrevista': entrevista,
+      'entrevistador': entrevistador,
       'notes': notes,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
@@ -371,6 +446,11 @@ class Member {
     String? id,
     String? householdId,
     String? campusId,
+    String? fullName,
+    String? avatarUrl,
+    bool? isActive,
+    bool? showBirthday,
+    bool? showContact,
     String? firstName,
     String? lastName,
     String? nickname,
@@ -385,15 +465,19 @@ class Member {
     String? status,
     String? memberType,
     DateTime? membershipDate,
+    DateTime? credentialDate,
     DateTime? conversionDate,
     DateTime? baptismDate,
     String? photoUrl,
+    String? fichaPdf,
     String? address,
     String? addressComplement,
     String? neighborhood,
     String? city,
     String? state,
     String? zipCode,
+    bool? entrevista,
+    bool? entrevistador,
     String? notes,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -402,6 +486,11 @@ class Member {
       id: id ?? this.id,
       householdId: householdId ?? this.householdId,
       campusId: campusId ?? this.campusId,
+      fullName: fullName ?? this.fullName,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      isActive: isActive ?? this.isActive,
+      showBirthday: showBirthday ?? this.showBirthday,
+      showContact: showContact ?? this.showContact,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       nickname: nickname ?? this.nickname,
@@ -416,15 +505,19 @@ class Member {
       status: status ?? this.status,
       memberType: memberType ?? this.memberType,
       membershipDate: membershipDate ?? this.membershipDate,
+      credentialDate: credentialDate ?? this.credentialDate,
       conversionDate: conversionDate ?? this.conversionDate,
       baptismDate: baptismDate ?? this.baptismDate,
       photoUrl: photoUrl ?? this.photoUrl,
+      fichaPdf: fichaPdf ?? this.fichaPdf,
       address: address ?? this.address,
       addressComplement: addressComplement ?? this.addressComplement,
       neighborhood: neighborhood ?? this.neighborhood,
       city: city ?? this.city,
       state: state ?? this.state,
       zipCode: zipCode ?? this.zipCode,
+      entrevista: entrevista ?? this.entrevista,
+      entrevistador: entrevistador ?? this.entrevistador,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -447,3 +540,12 @@ class Member {
   bool get isTransferred => status == 'transferred';
 }
 
+class ProfessionOption {
+  final String id;
+  final String label;
+
+  const ProfessionOption({
+    required this.id,
+    required this.label,
+  });
+}

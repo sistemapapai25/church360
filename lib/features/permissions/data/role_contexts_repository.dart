@@ -41,6 +41,24 @@ class RoleContextsRepository {
     }
   }
 
+  /// Buscar contextos vinculados a um ministério (via metadata.ministry_id)
+  Future<List<RoleContext>> getContextsByMinistry(String ministryId) async {
+    try {
+      final response = await _supabase
+          .from('role_contexts')
+          .select()
+          .contains('metadata', {'ministry_id': ministryId})
+          .eq('is_active', true)
+          .order('context_name');
+
+      return (response as List)
+          .map((json) => RoleContext.fromJson(json))
+          .toList();
+    } catch (e) {
+      throw Exception('Erro ao buscar contextos por ministério: $e');
+    }
+  }
+
   /// Buscar contexto por ID
   Future<RoleContext?> getContextById(String contextId) async {
     try {
@@ -171,4 +189,3 @@ class RoleContextsRepository {
     }
   }
 }
-

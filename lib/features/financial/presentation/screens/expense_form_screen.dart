@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/design/community_design.dart';
 import '../../domain/models/contribution.dart';
 import '../providers/financial_provider.dart';
 
@@ -163,9 +164,12 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
+        backgroundColor: CommunityDesign.headerColor(context),
         title: Text(
           widget.expenseId == null ? 'Nova Despesa' : 'Editar Despesa',
+          style: CommunityDesign.titleStyle(context),
         ),
         actions: [
           if (widget.expenseId != null)

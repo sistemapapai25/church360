@@ -1,0 +1,7 @@
+Analyzing app...                                                
+
+   info - Statements in an if should be enclosed in a block - lib\core\constants\supabase_constants.dart:88:9 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\core\constants\supabase_constants.dart:92:9 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\core\constants\supabase_constants.dart:111:11 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\core\constants\supabase_constants.dart:115:11 - curly_braces_in_flow_control_structures
+

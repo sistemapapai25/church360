@@ -1,10 +1,28 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/study_group.dart';
 
 class StudyGroupRepository {
   final SupabaseClient _supabase;
 
   StudyGroupRepository(this._supabase);
+
+  Future<String?> _effectiveUserId() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+    final email = user.email;
+    if (email != null && email.trim().isNotEmpty) {
+      try {
+        final nickname = email.trim().split('@').first;
+        await _supabase.rpc('ensure_my_account', params: {
+          '_tenant_id': SupabaseConstants.currentTenantId,
+          '_email': email,
+          '_nickname': nickname,
+        });
+      } catch (_) {}
+    }
+    return user.id;
+  }
 
   // =====================================================
   // STUDY GROUPS - CRUD
@@ -15,6 +33,7 @@ class StudyGroupRepository {
     final response = await _supabase
         .from('study_groups')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
     return (response as List)
@@ -28,6 +47,7 @@ class StudyGroupRepository {
         .from('study_groups')
         .select()
         .eq('status', 'active')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
     return (response as List)
@@ -42,6 +62,7 @@ class StudyGroupRepository {
         .select()
         .eq('is_public', true)
         .eq('status', 'active')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
     return (response as List)
@@ -51,19 +72,27 @@ class StudyGroupRepository {
 
   /// Obter grupos do usuário
   Future<List<StudyGroup>> getUserStudyGroups(String userId) async {
-    final response = await _supabase
-        .from('study_groups')
-        .select('''
-          *,
-          study_participants!inner(user_id)
-        ''')
-        .eq('study_participants.user_id', userId)
-        .eq('study_participants.is_active', true)
-        .order('created_at', ascending: false);
+    try {
+      final response = await _supabase
+          .from('study_groups')
+          .select('''
+            *,
+            study_participants!inner(user_id)
+          ''')
+          .eq('study_participants.user_id', userId)
+          .eq('study_participants.is_active', true)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .order('created_at', ascending: false);
 
-    return (response as List)
-        .map((json) => StudyGroup.fromJson(json))
-        .toList();
+      return (response as List)
+          .map((json) => StudyGroup.fromJson(json))
+          .toList();
+    } catch (e) {
+      final msg = e.toString();
+      final isPolicyRecursion = msg.contains('infinite recursion detected in policy') || msg.contains('42P17');
+      if (isPolicyRecursion) return const [];
+      rethrow;
+    }
   }
 
   /// Obter grupo por ID
@@ -72,6 +101,7 @@ class StudyGroupRepository {
         .from('study_groups')
         .select()
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
     if (response == null) return null;
@@ -92,7 +122,7 @@ class StudyGroupRepository {
     bool isPublic = true,
     String? coverImageUrl,
   }) async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
 
     final response = await _supabase
@@ -110,6 +140,7 @@ class StudyGroupRepository {
           'is_public': isPublic,
           'cover_image_url': coverImageUrl,
           'created_by': userId,
+          'tenant_id': SupabaseConstants.currentTenantId,
         })
         .select()
         .single();
@@ -151,6 +182,7 @@ class StudyGroupRepository {
         .from('study_groups')
         .update(data)
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -162,7 +194,8 @@ class StudyGroupRepository {
     await _supabase
         .from('study_groups')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   // =====================================================
@@ -175,6 +208,7 @@ class StudyGroupRepository {
         .from('study_lessons')
         .select()
         .eq('study_group_id', groupId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('lesson_number', ascending: true);
 
     return (response as List)
@@ -189,6 +223,7 @@ class StudyGroupRepository {
         .select()
         .eq('study_group_id', groupId)
         .eq('status', 'published')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('lesson_number', ascending: true);
 
     return (response as List)
@@ -202,6 +237,7 @@ class StudyGroupRepository {
         .from('study_lessons')
         .select()
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
     if (response == null) return null;
@@ -223,7 +259,7 @@ class StudyGroupRepository {
     String? audioUrl,
     String? pdfUrl,
   }) async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
 
     final response = await _supabase
@@ -242,6 +278,7 @@ class StudyGroupRepository {
           'audio_url': audioUrl,
           'pdf_url': pdfUrl,
           'created_by': userId,
+          'tenant_id': SupabaseConstants.currentTenantId,
         })
         .select()
         .single();
@@ -281,6 +318,7 @@ class StudyGroupRepository {
         .from('study_lessons')
         .update(data)
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -292,7 +330,8 @@ class StudyGroupRepository {
     await _supabase
         .from('study_lessons')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   // =====================================================
@@ -306,6 +345,7 @@ class StudyGroupRepository {
         .select()
         .eq('study_group_id', groupId)
         .eq('is_active', true)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('role', ascending: true);
 
     return (response as List)
@@ -320,6 +360,7 @@ class StudyGroupRepository {
         .select()
         .eq('study_group_id', groupId)
         .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
     if (response == null) return null;
@@ -335,6 +376,7 @@ class StudyGroupRepository {
         .eq('user_id', userId)
         .eq('is_active', true)
         .inFilter('role', ['leader', 'co_leader'])
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
     return response != null;
@@ -352,6 +394,7 @@ class StudyGroupRepository {
           'study_group_id': groupId,
           'user_id': userId,
           'role': role.value,
+          'tenant_id': SupabaseConstants.currentTenantId,
         })
         .select()
         .single();
@@ -368,6 +411,7 @@ class StudyGroupRepository {
         .from('study_participants')
         .update({'role': role.value})
         .eq('id', participantId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -382,12 +426,13 @@ class StudyGroupRepository {
           'is_active': false,
           'left_at': DateTime.now().toIso8601String(),
         })
-        .eq('id', participantId);
+        .eq('id', participantId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   /// Sair do grupo (usuário atual)
   Future<void> leaveGroup(String groupId) async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
 
     await _supabase
@@ -397,7 +442,8 @@ class StudyGroupRepository {
           'left_at': DateTime.now().toIso8601String(),
         })
         .eq('study_group_id', groupId)
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   // =====================================================
@@ -409,7 +455,8 @@ class StudyGroupRepository {
     final response = await _supabase
         .from('study_attendance')
         .select()
-        .eq('study_lesson_id', lessonId);
+        .eq('study_lesson_id', lessonId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
 
     return (response as List)
         .map((json) => StudyAttendance.fromJson(json))
@@ -423,6 +470,7 @@ class StudyGroupRepository {
         .select()
         .eq('study_lesson_id', lessonId)
         .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
     if (response == null) return null;
@@ -437,7 +485,7 @@ class StudyGroupRepository {
     String? justification,
     String? notes,
   }) async {
-    final currentUserId = _supabase.auth.currentUser?.id;
+    final currentUserId = await _effectiveUserId();
     if (currentUserId == null) throw Exception('Usuário não autenticado');
 
     final response = await _supabase
@@ -449,6 +497,7 @@ class StudyGroupRepository {
           'justification': justification,
           'notes': notes,
           'marked_by': currentUserId,
+          'tenant_id': SupabaseConstants.currentTenantId,
         })
         .select()
         .single();
@@ -472,6 +521,7 @@ class StudyGroupRepository {
         .from('study_attendance')
         .update(data)
         .eq('id', attendanceId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -483,7 +533,8 @@ class StudyGroupRepository {
     await _supabase
         .from('study_attendance')
         .delete()
-        .eq('id', attendanceId);
+        .eq('id', attendanceId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   // =====================================================
@@ -496,6 +547,7 @@ class StudyGroupRepository {
         .from('study_comments')
         .select()
         .eq('study_lesson_id', lessonId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: true);
 
     return (response as List)
@@ -509,7 +561,7 @@ class StudyGroupRepository {
     required String content,
     String? parentCommentId,
   }) async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
 
     final response = await _supabase
@@ -519,6 +571,7 @@ class StudyGroupRepository {
           'author_id': userId,
           'content': content,
           'parent_comment_id': parentCommentId,
+          'tenant_id': SupabaseConstants.currentTenantId,
         })
         .select()
         .single();
@@ -532,6 +585,7 @@ class StudyGroupRepository {
         .from('study_comments')
         .update({'content': content})
         .eq('id', commentId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -543,7 +597,8 @@ class StudyGroupRepository {
     await _supabase
         .from('study_comments')
         .delete()
-        .eq('id', commentId);
+        .eq('id', commentId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   // =====================================================
@@ -556,6 +611,7 @@ class StudyGroupRepository {
         .from('study_resources')
         .select()
         .eq('study_group_id', groupId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
     return (response as List)
@@ -572,7 +628,7 @@ class StudyGroupRepository {
     required String url,
     int? fileSize,
   }) async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
 
     final response = await _supabase
@@ -585,6 +641,7 @@ class StudyGroupRepository {
           'url': url,
           'file_size': fileSize,
           'uploaded_by': userId,
+          'tenant_id': SupabaseConstants.currentTenantId,
         })
         .select()
         .single();
@@ -610,6 +667,7 @@ class StudyGroupRepository {
         .from('study_resources')
         .update(data)
         .eq('id', resourceId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -621,7 +679,8 @@ class StudyGroupRepository {
     await _supabase
         .from('study_resources')
         .delete()
-        .eq('id', resourceId);
+        .eq('id', resourceId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   // =====================================================

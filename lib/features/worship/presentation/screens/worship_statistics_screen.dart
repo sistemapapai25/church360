@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 
 import '../providers/worship_provider.dart';
 import '../../domain/models/worship_service.dart';
+import '../../../../core/design/community_design.dart';
 
 /// Tela de estatísticas de cultos
 class WorshipStatisticsScreen extends ConsumerStatefulWidget {
@@ -41,8 +42,13 @@ class _WorshipStatisticsScreenState
     final servicesAsync = ref.watch(allWorshipServicesProvider);
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('Estatísticas de Cultos'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text(
+          'Estatísticas de Cultos',
+          style: CommunityDesign.titleStyle(context),
+        ),
       ),
       body: servicesAsync.when(
         data: (allServices) {
@@ -207,7 +213,7 @@ class _WorshipStatisticsScreenState
           child: _buildSummaryCard(
             'Maior Presença',
             maxAttendance.toString(),
-            Icons.star,
+            Icons.groups,
             Colors.purple,
           ),
         ),

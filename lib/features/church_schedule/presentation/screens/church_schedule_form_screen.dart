@@ -6,6 +6,20 @@ import '../../domain/models/church_schedule.dart';
 import '../providers/church_schedule_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 
+class _ResponsibleOption {
+  const _ResponsibleOption(this.value, this.label);
+
+  final String? value;
+  final String label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _ResponsibleOption && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+}
+
 /// Tela de formulário para criar/editar agenda da igreja
 class ChurchScheduleFormScreen extends ConsumerStatefulWidget {
   final String? scheduleId;
@@ -221,16 +235,27 @@ class _ChurchScheduleFormScreenState extends ConsumerState<ChurchScheduleFormScr
             // Responsável
             membersAsync.when(
               data: (members) {
-                return DropdownMenu<String?>(
-                  initialSelection: _responsibleId,
+                final options = <_ResponsibleOption>[
+                  const _ResponsibleOption(null, 'Nenhum'),
+                  ...members.map((member) => _ResponsibleOption(member.id, member.displayName)),
+                ];
+                final selectedOption = options.firstWhere(
+                  (option) => option.value == _responsibleId,
+                  orElse: () => options.first,
+                );
+
+                return DropdownMenu<_ResponsibleOption>(
+                  initialSelection: selectedOption,
                   label: const Text('Responsável'),
                   leadingIcon: const Icon(Icons.person),
-                  dropdownMenuEntries: [
-                    const DropdownMenuEntry<String?>(value: null, label: 'Nenhum'),
-                    ...members.map((member) => DropdownMenuEntry<String?>(value: member.id, label: member.displayName)),
-                  ],
-                  onSelected: (value) {
-                    setState(() => _responsibleId = value);
+                  dropdownMenuEntries: options
+                    .map((option) => DropdownMenuEntry<_ResponsibleOption>(
+                      value: option,
+                      label: option.label,
+                    ))
+                    .toList(),
+                  onSelected: (option) {
+                    setState(() => _responsibleId = option?.value);
                   },
                 );
               },

@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/user_role.dart';
 
 /// Repository: UserRoles
@@ -7,6 +8,23 @@ class UserRolesRepository {
   final SupabaseClient _supabase;
 
   UserRolesRepository(this._supabase);
+
+  Future<String?> _effectiveUserId() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+    final email = user.email;
+    if (email != null && email.trim().isNotEmpty) {
+      try {
+        final nickname = email.trim().split('@').first;
+        await _supabase.rpc('ensure_my_account', params: {
+          '_tenant_id': SupabaseConstants.currentTenantId,
+          '_email': email,
+          '_nickname': nickname,
+        });
+      } catch (_) {}
+    }
+    return user.id;
+  }
 
   // =====================================================
   // ATRIBUIÇÕES DE CARGOS
@@ -23,9 +41,10 @@ class UserRolesRepository {
         ''')
         .order('created_at', ascending: false);
 
-    return (response as List)
+    final items = (response as List)
         .map((json) => UserRole.fromJson(json as Map<String, dynamic>))
         .toList();
+    return await _withUserData(items);
   }
 
   /// Buscar cargos de um usuário
@@ -42,9 +61,10 @@ class UserRolesRepository {
         .or('expires_at.is.null,expires_at.gt.${DateTime.now().toIso8601String()}')
         .order('created_at', ascending: false);
 
-    return (response as List)
+    final items = (response as List)
         .map((json) => UserRole.fromJson(json as Map<String, dynamic>))
         .toList();
+    return await _withUserData(items);
   }
 
   /// Buscar usuários com um cargo específico
@@ -61,9 +81,44 @@ class UserRolesRepository {
         .or('expires_at.is.null,expires_at.gt.${DateTime.now().toIso8601String()}')
         .order('created_at', ascending: false);
 
-    return (response as List)
+    final items = (response as List)
         .map((json) => UserRole.fromJson(json as Map<String, dynamic>))
         .toList();
+    return await _withUserData(items);
+  }
+
+  Future<List<UserRole>> _withUserData(List<UserRole> items) async {
+    final ids = items.map((e) => e.userId).toSet().toList();
+    if (ids.isEmpty) return items;
+    var query = _supabase
+        .from('user_account')
+        .select('id, first_name, last_name, email');
+
+    if (ids.length == 1) {
+      query = query.eq('id', ids.first);
+    } else {
+      final orClause = ids.map((id) => 'id.eq.$id').join(',');
+      query = query.or(orClause);
+    }
+
+    final ua = await query;
+    final map = <String, Map<String, dynamic>>{};
+    for (final row in (ua as List)) {
+      final m = row as Map<String, dynamic>;
+      map[m['id'] as String] = m;
+    }
+    return items.map((ur) {
+      final data = map[ur.userId];
+      if (data == null) return ur;
+      final first = data['first_name'] as String?;
+      final last = data['last_name'] as String?;
+      final name = [first, last].where((e) => (e ?? '').isNotEmpty).join(' ').trim();
+      final email = data['email'] as String?;
+      return ur.copyWith(
+        userName: name.isNotEmpty ? name : null,
+        userEmail: email,
+      );
+    }).toList();
   }
 
   /// Atribuir cargo a usuário
@@ -74,13 +129,14 @@ class UserRolesRepository {
     DateTime? expiresAt,
     String? notes,
   }) async {
+    final actorId = await _effectiveUserId();
     final response = await _supabase.rpc(
       'assign_role_to_user',
       params: {
         'p_user_id': userId,
         'p_role_id': roleId,
         'p_context_id': contextId,
-        'p_assigned_by': _supabase.auth.currentUser?.id,
+        'p_assigned_by': actorId,
         'p_expires_at': expiresAt?.toIso8601String(),
         'p_notes': notes,
       },
@@ -106,11 +162,12 @@ class UserRolesRepository {
 
   /// Remover cargo de usuário
   Future<bool> removeUserRole(String userRoleId) async {
+    final actorId = await _effectiveUserId();
     final response = await _supabase.rpc(
       'remove_user_role',
       params: {
         'p_user_role_id': userRoleId,
-        'p_removed_by': _supabase.auth.currentUser?.id,
+        'p_removed_by': actorId,
       },
     );
 
@@ -202,6 +259,18 @@ class UserRolesRepository {
     return response != null;
   }
 
+  /// Remover cargo de usuário por contexto (deleção direta)
+  Future<void> removeUserRoleByContext({
+    required String userId,
+    required String contextId,
+  }) async {
+    await _supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId)
+        .eq('role_context_id', contextId);
+  }
+
   // =====================================================
   // AUDITORIA
   // =====================================================
@@ -228,4 +297,3 @@ class UserRolesRepository {
         .toList();
   }
 }
-

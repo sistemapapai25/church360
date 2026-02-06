@@ -2,6 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/permissions_providers.dart';
+import '../../../ministries/presentation/providers/ministries_provider.dart';
+
+class _MinistryOption {
+  const _MinistryOption(this.value, this.label);
+
+  final String? value;
+  final String label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _MinistryOption && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+}
 
 /// Tela de Formulário de Contexto
 /// Permite criar ou editar um contexto específico de um cargo
@@ -23,6 +38,7 @@ class _ContextFormScreenState extends ConsumerState<ContextFormScreen> {
   final _descriptionController = TextEditingController();
   
   String? _selectedRoleId;
+  String? _selectedMinistryId;
   bool _isActive = true;
   bool _isLoading = false;
 
@@ -44,6 +60,8 @@ class _ContextFormScreenState extends ConsumerState<ContextFormScreen> {
         _descriptionController.text = context.description ?? '';
         _selectedRoleId = context.roleId;
         _isActive = context.isActive;
+        final meta = Map<String, dynamic>.from(context.metadata ?? {});
+        _selectedMinistryId = meta['ministry_id'] as String?;
       });
     } catch (e) {
       if (mounted) {
@@ -67,6 +85,7 @@ class _ContextFormScreenState extends ConsumerState<ContextFormScreen> {
   @override
   Widget build(BuildContext context) {
     final rolesAsync = ref.watch(allRolesProvider);
+    final ministriesAsync = ref.watch(activeMinistriesProvider);
     final isEditing = widget.contextId != null;
 
     return Scaffold(
@@ -219,6 +238,68 @@ class _ContextFormScreenState extends ConsumerState<ContextFormScreen> {
 
                 const SizedBox(height: 16),
 
+                // Ministério vinculado
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Ministério Vinculado',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Opcional: vincule este contexto a um ministério para gestão de funções',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ministriesAsync.when(
+                          data: (ministries) {
+                            final options = <_MinistryOption>[
+                              const _MinistryOption(null, 'Nenhum'),
+                              ...ministries.map((m) => _MinistryOption(m.id, m.name)),
+                            ];
+                            final selectedOption = options.firstWhere(
+                              (option) => option.value == _selectedMinistryId,
+                              orElse: () => options.first,
+                            );
+
+                            return DropdownMenu<_MinistryOption>(
+                              initialSelection: selectedOption,
+                              label: const Text('Minist‚rio'),
+                              leadingIcon: const Icon(Icons.church),
+                              dropdownMenuEntries: options
+                                .map((option) => DropdownMenuEntry<_MinistryOption>(
+                                  value: option,
+                                  label: option.label,
+                                ))
+                                .toList(),
+                              onSelected: (option) {
+                                setState(() {
+                                  _selectedMinistryId = option?.value;
+                                });
+                              },
+                            );
+                          },
+                          loading: () => const LinearProgressIndicator(),
+                          error: (e, _) => Text('Erro ao carregar ministérios: $e'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+
+                const SizedBox(height: 16),
+
                 // Status
                 Card(
                   child: SwitchListTile(
@@ -308,6 +389,14 @@ class _ContextFormScreenState extends ConsumerState<ContextFormScreen> {
 
     try {
       final repository = ref.read(roleContextsRepositoryProvider);
+      Map<String, dynamic> meta = {};
+      if (widget.contextId != null) {
+        final existing = await repository.getContextById(widget.contextId!);
+        meta = Map<String, dynamic>.from(existing?.metadata ?? {});
+      }
+      if (_selectedMinistryId != null) {
+        meta['ministry_id'] = _selectedMinistryId;
+      }
 
       if (widget.contextId != null) {
         // Editar contexto existente
@@ -317,6 +406,7 @@ class _ContextFormScreenState extends ConsumerState<ContextFormScreen> {
           description: _descriptionController.text.trim().isEmpty
               ? null
               : _descriptionController.text.trim(),
+          metadata: meta,
           isActive: _isActive,
         );
       } else {
@@ -327,6 +417,7 @@ class _ContextFormScreenState extends ConsumerState<ContextFormScreen> {
           description: _descriptionController.text.trim().isEmpty
               ? null
               : _descriptionController.text.trim(),
+          metadata: meta,
           isActive: _isActive,
         );
       }

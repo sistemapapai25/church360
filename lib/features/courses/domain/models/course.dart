@@ -208,7 +208,7 @@ class CourseEnrollment {
   factory CourseEnrollment.fromJson(Map<String, dynamic> json) {
     return CourseEnrollment(
       courseId: json['course_id'] as String,
-      memberId: json['member_id'] as String,
+      memberId: json['user_id'] as String,
       memberName: json['member_name'] as String?,
       enrolledAt: DateTime.parse(json['enrolled_at'] as String),
       status: json['status'] as String? ?? 'active',
@@ -219,11 +219,10 @@ class CourseEnrollment {
   Map<String, dynamic> toJson() {
     return {
       'course_id': courseId,
-      'member_id': memberId,
+      'user_id': memberId,
       'enrolled_at': enrolledAt.toIso8601String(),
       'status': status,
       'progress': progress,
     };
   }
 }
-

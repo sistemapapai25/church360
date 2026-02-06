@@ -5,6 +5,8 @@ import '../../data/bible_repository.dart';
 import '../../domain/models/bible_book.dart';
 import '../../domain/models/bible_verse.dart';
 import '../../domain/models/bible_bookmark.dart';
+import '../../domain/models/bible_lexeme.dart';
+import '../../domain/models/bible_verse_token.dart';
 
 /// Provider do repository da Bíblia
 final bibleRepositoryProvider = Provider<BibleRepository>((ref) {
@@ -41,6 +43,12 @@ final bibleChapterVersesProvider = FutureProvider.family<List<BibleVerse>, ({int
   return repo.getVersesByChapter(params.bookId, params.chapter);
 });
 
+final bibleChapterVerseTokensProvider =
+    FutureProvider.family<Map<int, List<BibleVerseToken>>, ({int bookId, int chapter})>((ref, params) async {
+  final repo = ref.watch(bibleRepositoryProvider);
+  return repo.getVerseTokensByChapter(params.bookId, params.chapter);
+});
+
 /// Provider de versículo específico
 final bibleVerseProvider = FutureProvider.family<BibleVerse?, ({int bookId, int chapter, int verse})>((ref, params) async {
   final repo = ref.watch(bibleRepositoryProvider);
@@ -51,6 +59,12 @@ final bibleVerseProvider = FutureProvider.family<BibleVerse?, ({int bookId, int 
 final bibleVerseByIdProvider = FutureProvider.family<BibleVerse?, int>((ref, id) async {
   final repo = ref.watch(bibleRepositoryProvider);
   return repo.getVerseById(id);
+});
+
+/// Provider de contagem de versículos por capítulo
+final verseCountsByBookProvider = FutureProvider.family<Map<int, int>, int>((ref, bookId) async {
+  final repo = ref.watch(bibleRepositoryProvider);
+  return repo.getVerseCountsByChapter(bookId);
 });
 
 /// Provider de busca de versículos
@@ -71,3 +85,15 @@ final isVerseBookmarkedProvider = FutureProvider.family<bool, ({String memberId,
   return repo.isBookmarked(params.memberId, params.verseId);
 });
 
+final bibleLexemeSearchQueryProvider = StateProvider<String>((ref) => '');
+
+final bibleLexemeSearchProvider = FutureProvider<List<BibleLexeme>>((ref) async {
+  final repo = ref.watch(bibleRepositoryProvider);
+  final query = ref.watch(bibleLexemeSearchQueryProvider);
+  return repo.searchLexemes(query, limit: 80);
+});
+
+final bibleLexemeSearchByQueryProvider = FutureProvider.family<List<BibleLexeme>, String>((ref, query) async {
+  final repo = ref.watch(bibleRepositoryProvider);
+  return repo.searchLexemes(query, limit: 25);
+});

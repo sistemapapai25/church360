@@ -2,6 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../domain/models/report_filter_state.dart';
 
+class _NullableStringOption {
+  const _NullableStringOption(this.value, this.label);
+
+  final String? value;
+  final String label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _NullableStringOption && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+}
+
 /// Dialog para aplicar filtros temporários em um relatório
 class ReportFilterDialog extends StatefulWidget {
   final ReportFilterState initialState;
@@ -229,6 +243,15 @@ class _ReportFilterDialogState extends State<ReportFilterDialog> {
     if (filter.key == 'gender') currentValue = _currentState.gender;
     if (filter.key == 'type') currentValue = _currentState.type;
 
+    final options = <_NullableStringOption>[
+      const _NullableStringOption(null, 'Todos'),
+      ...?filter.options?.map((option) => _NullableStringOption(option, option)),
+    ];
+    final selectedOption = options.firstWhere(
+      (option) => option.value == currentValue,
+      orElse: () => options.first,
+    );
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
@@ -253,20 +276,17 @@ class _ReportFilterDialogState extends State<ReportFilterDialog> {
               ],
             ),
             const SizedBox(height: 12),
-            DropdownMenu<String?>(
-              initialSelection: currentValue,
+            DropdownMenu<_NullableStringOption>(
+              initialSelection: selectedOption,
               label: Text('Selecione ${filter.label.toLowerCase()}'),
-              dropdownMenuEntries: [
-                const DropdownMenuEntry<String?>(
-                  value: null,
-                  label: 'Todos',
-                ),
-                ...?filter.options?.map((option) => DropdownMenuEntry<String?>(
-                      value: option,
-                      label: option,
-                    )),
-              ],
-              onSelected: (value) {
+              dropdownMenuEntries: options
+                  .map((option) => DropdownMenuEntry<_NullableStringOption>(
+                        value: option,
+                        label: option.label,
+                      ))
+                  .toList(),
+              onSelected: (option) {
+                final value = option?.value;
                 setState(() {
                   if (filter.key == 'status') {
                     _currentState = _currentState.copyWith(status: value);

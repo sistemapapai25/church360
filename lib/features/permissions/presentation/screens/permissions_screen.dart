@@ -46,7 +46,7 @@ class PermissionsScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Gerencie cargos, contextos e permissões dos usuários',
+                              'Gerencie cargos e permissões dos usuários',
                               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                               ),
@@ -81,13 +81,7 @@ class PermissionsScreen extends ConsumerWidget {
             onTap: () => context.push('/permissions/roles'),
           ),
 
-          _buildMenuCard(
-            context,
-            icon: Icons.location_on,
-            title: 'Contextos',
-            subtitle: 'Gerenciar contextos específicos dos cargos',
-            onTap: () => context.push('/permissions/contexts'),
-          ),
+          
 
           const SizedBox(height: 24),
 
@@ -104,16 +98,8 @@ class PermissionsScreen extends ConsumerWidget {
           _buildMenuCard(
             context,
             icon: Icons.person_add,
-            title: 'Atribuir Cargo',
-            subtitle: 'Atribuir cargos aos usuários',
-            onTap: () => context.push('/permissions/assign-role'),
-          ),
-
-          _buildMenuCard(
-            context,
-            icon: Icons.people,
             title: 'Usuários e Cargos',
-            subtitle: 'Ver todos os usuários e seus cargos',
+            subtitle: 'Gerenciar cargos por usuário',
             onTap: () => context.push('/permissions/user-roles'),
           ),
 
@@ -132,7 +118,7 @@ class PermissionsScreen extends ConsumerWidget {
           _buildMenuCard(
             context,
             icon: Icons.history,
-            title: 'Log de Auditoria',
+            title: 'Auditoria de Ações',
             subtitle: 'Histórico de mudanças de permissões',
             onTap: () => context.push('/permissions/audit-log'),
           ),
@@ -195,4 +181,3 @@ class PermissionsScreen extends ConsumerWidget {
     );
   }
 }
-

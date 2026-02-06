@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/dashboard_stats_provider.dart';
 import '../../features/financial/presentation/providers/financial_provider.dart';
 import '../../features/financial/domain/models/contribution.dart';
+import '../../features/dispatch/presentation/providers/auto_scheduler_providers.dart';
 
 /// Widget de gráfico de crescimento de membros
 class MemberGrowthChart extends ConsumerWidget {
@@ -229,6 +230,112 @@ class EventsStatsCard extends ConsumerWidget {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => Text('Erro: $error'),
             ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AutoSchedulerSummaryCard extends ConsumerWidget {
+  const AutoSchedulerSummaryCard({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final itemsAsync = ref.watch(allAutoSchedulesProvider);
+    return Card(
+      child: InkWell(
+        onTap: () => context.push('/dispatch-config'),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.schedule,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Agendamentos Automáticos',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey[400],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              itemsAsync.when(
+                data: (items) {
+                  if (items.isEmpty) {
+                    return const Text('Nenhum agendamento configurado');
+                  }
+                  final active = items.where((e) => e.active).toList();
+                  final nexts = active.where((e) => e.nextRun != null).toList()
+                    ..sort((a, b) => a.nextRun!.compareTo(b.nextRun!));
+                  final display = nexts.take(3).toList();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Ativos: ${active.length} · Total: ${items.length}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      for (final c in display)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  c.sendTime,
+                                  style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  c.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                c.nextRun != null
+                                    ? DateFormat('dd/MM HH:mm').format(c.nextRun!)
+                                    : '-',
+                                style: const TextStyle(color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  );
+                },
+                loading: () => const SizedBox(
+                  height: 80,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (err, _) => Text('Erro: $err'),
+              ),
             ],
           ),
         ),

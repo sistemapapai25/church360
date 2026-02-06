@@ -1,9 +1,13 @@
 import 'package:flutter/foundation.dart';
+import 'dart:async';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/members_repository.dart';
+import '../../data/family_relationships_repository.dart';
 import '../../domain/models/member.dart';
+import '../../../../core/constants/supabase_constants.dart';
 
 /// Provider do MembersRepository
 final membersRepositoryProvider = Provider<MembersRepository>((ref) {
@@ -64,21 +68,89 @@ final searchMembersProvider = FutureProvider.family<List<Member>, String>((ref, 
 
 /// Provider para buscar o membro do usuário atual
 final currentMemberProvider = FutureProvider<Member?>((ref) async {
+  ref.watch(authStateProvider);
+
   final currentUser = ref.watch(currentUserProvider);
-
-  debugPrint('🔍 [currentMemberProvider] Usuário atual: ${currentUser?.email}');
-
-  if (currentUser == null || currentUser.email == null) {
+  if (currentUser == null) {
     debugPrint('❌ [currentMemberProvider] Usuário não autenticado');
     return null;
   }
-
-  debugPrint('📡 [currentMemberProvider] Buscando dados do usuário: ${currentUser.email}');
+  debugPrint('📡 [currentMemberProvider] Buscando dados do usuário (id auth): ${currentUser.id}');
   final repo = ref.watch(membersRepositoryProvider);
-  final member = await repo.getMemberByEmail(currentUser.email!);
+  final supabase = ref.watch(supabaseClientProvider);
+  final authRepo = ref.watch(authRepositoryProvider);
+  var email = (currentUser.email ?? '').trim();
+  if (email.isEmpty) {
+    try {
+      await supabase.auth.refreshSession();
+    } catch (_) {}
+    try {
+      final response = await supabase.auth.getUser();
+      final serverUser = response.user;
+      final serverEmail = (serverUser?.email ?? serverUser?.userMetadata?['email']?.toString() ?? '').trim();
+      if (serverEmail.isNotEmpty) email = serverEmail;
+    } catch (_) {}
+  }
+  final String? provisioningEmail = email.isNotEmpty ? email : null;
+  final preferredFullName = (currentUser.userMetadata?['full_name']?.toString() ?? '').trim();
+  final safeFullName = preferredFullName.isNotEmpty
+      ? preferredFullName
+      : (email.isNotEmpty ? email.split('@').first : currentUser.id);
+  final preferredNickname = (currentUser.userMetadata?['nickname']?.toString() ?? '').trim();
+  final safeNickname = preferredNickname.isNotEmpty
+      ? preferredNickname
+      : (email.isNotEmpty ? email.split('@').first : currentUser.id);
+
+  try {
+    await SupabaseConstants.syncTenantFromServer(supabase, syncJwt: false);
+  } catch (e) {
+    debugPrint('❌ [currentMemberProvider] syncTenantFromServer falhou: $e');
+  }
+
+  try {
+    await supabase.rpc('ensure_my_account', params: {
+      '_tenant_id': SupabaseConstants.currentTenantId,
+      '_email': provisioningEmail,
+      '_full_name': safeFullName,
+      '_nickname': safeNickname,
+    });
+  } catch (e) {
+    debugPrint('❌ [currentMemberProvider] ensure_my_account falhou: $e');
+  }
+
+  String? ensuredId;
+  try {
+    ensuredId = await authRepo.ensureUserAccountForSession(preferredFullName: safeFullName);
+  } catch (e) {
+    debugPrint('❌ [currentMemberProvider] ensureUserAccountForSession falhou: $e');
+  }
+
+  Member? member;
+  if (ensuredId != null) {
+    member = await repo.getMemberById(ensuredId);
+  }
+  member ??= await repo.getMemberByAuthUserId(currentUser.id);
+  if (member == null && (currentUser.email ?? '').isNotEmpty) {
+    member = await repo.getMemberByEmail(currentUser.email!);
+  }
 
   if (member == null) {
-    debugPrint('❌ [currentMemberProvider] Nenhum dado encontrado para: ${currentUser.email}');
+    try {
+      final response = await supabase
+          .from('user_account')
+          .select()
+          .eq('id', currentUser.id)
+          .maybeSingle();
+      if (response != null) {
+        member = Member.fromJson(response);
+      }
+    } catch (e) {
+      debugPrint('❌ [currentMemberProvider] Fallback select por id falhou: $e');
+    }
+  }
+
+  if (member == null) {
+    debugPrint('❌ [currentMemberProvider] Nenhum dado encontrado para id/email: ${currentUser.id} / ${currentUser.email}');
   } else {
     debugPrint('✅ [currentMemberProvider] Dados encontrados: ${member.firstName} ${member.lastName}');
   }
@@ -90,4 +162,75 @@ final currentMemberProvider = FutureProvider<Member?>((ref) async {
 final householdMembersProvider = FutureProvider.family<List<Member>, String>((ref, householdId) async {
   final repo = ref.watch(membersRepositoryProvider);
   return repo.getHouseholdMembers(householdId);
+});
+
+/// Provider do FamilyRelationshipsRepository
+final familyRelationshipsRepositoryProvider = Provider<FamilyRelationshipsRepository>((ref) {
+  final supabase = ref.watch(supabaseClientProvider);
+  return FamilyRelationshipsRepository(supabase);
+});
+
+/// Provider para listar relacionamentos familiares de um membro
+final familyRelationshipsProvider = FutureProvider.family<List<FamilyRelationship>, String>((ref, memberId) async {
+  final repo = ref.watch(familyRelationshipsRepositoryProvider);
+  return repo.getByMember(memberId);
+});
+
+final familyRelationshipsStreamProvider = StreamProvider.family<List<FamilyRelationship>, String>((ref, memberId) async* {
+  final repo = ref.watch(familyRelationshipsRepositoryProvider);
+  final supabase = ref.watch(supabaseClientProvider);
+  final controller = StreamController<List<FamilyRelationship>>();
+
+  Future<void> load() async {
+    final data = await repo.getByMember(memberId);
+    if (!controller.isClosed) controller.add(data);
+  }
+
+  await load();
+
+  final channel = supabase
+      .channel('rels_member_$memberId')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public',
+        table: 'relacionamentos_familiares',
+        callback: (_) {
+          load();
+        },
+      )
+      .onPostgresChanges(
+        event: PostgresChangeEvent.update,
+        schema: 'public',
+        table: 'relacionamentos_familiares',
+        callback: (_) {
+          load();
+        },
+      )
+      .onPostgresChanges(
+        event: PostgresChangeEvent.delete,
+        schema: 'public',
+        table: 'relacionamentos_familiares',
+        callback: (_) {
+          load();
+        },
+      )
+      .subscribe();
+
+  ref.onDispose(() {
+    supabase.removeChannel(channel);
+    controller.close();
+  });
+
+  yield* controller.stream;
+});
+
+final professionLabelProvider = FutureProvider.family<String?, String>((ref, professionId) async {
+  final repo = ref.watch(membersRepositoryProvider);
+  return repo.getProfessionLabelById(professionId);
+});
+
+/// Provider para buscar aniversariantes do mês
+final birthdaysProvider = FutureProvider<List<Member>>((ref) async {
+  final repo = ref.watch(membersRepositoryProvider);
+  return repo.getBirthdaysOfMonth();
 });

@@ -16,6 +16,7 @@ class Ministry {
 
   // Contagem de membros (quando incluído na query)
   final int? memberCount;
+  final String? whatsappGroupNumber;
 
   Ministry({
     required this.id,
@@ -30,6 +31,7 @@ class Ministry {
     this.leaderName,
     this.leaderPhoto,
     this.memberCount,
+    this.whatsappGroupNumber,
   });
 
   factory Ministry.fromJson(Map<String, dynamic> json) {
@@ -46,6 +48,7 @@ class Ministry {
       leaderName: json['leader_name'] as String?,
       leaderPhoto: json['leader_photo'] as String?,
       memberCount: json['member_count'] as int?,
+      whatsappGroupNumber: json['whatsapp_group_number'] as String?,
     );
   }
 
@@ -60,6 +63,7 @@ class Ministry {
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'whatsapp_group_number': whatsappGroupNumber,
     };
   }
 
@@ -76,6 +80,7 @@ class Ministry {
     String? leaderName,
     String? leaderPhoto,
     int? memberCount,
+    String? whatsappGroupNumber,
   }) {
     return Ministry(
       id: id ?? this.id,
@@ -90,6 +95,7 @@ class Ministry {
       leaderName: leaderName ?? this.leaderName,
       leaderPhoto: leaderPhoto ?? this.leaderPhoto,
       memberCount: memberCount ?? this.memberCount,
+      whatsappGroupNumber: whatsappGroupNumber ?? this.whatsappGroupNumber,
     );
   }
 
@@ -137,6 +143,7 @@ class MinistryMember {
   final DateTime joinedAt;
   final String? notes;
   final DateTime createdAt;
+  final String? cargoName;
 
   MinistryMember({
     required this.id,
@@ -147,18 +154,20 @@ class MinistryMember {
     required this.joinedAt,
     this.notes,
     required this.createdAt,
+    this.cargoName,
   });
 
   factory MinistryMember.fromJson(Map<String, dynamic> json) {
     return MinistryMember(
       id: json['id'] as String,
       ministryId: json['ministry_id'] as String,
-      memberId: json['member_id'] as String,
+      memberId: json['user_id'] as String,
       memberName: json['member_name'] as String? ?? '',
       role: MinistryRole.fromString(json['role'] as String? ?? 'member'),
-      joinedAt: DateTime.parse(json['joined_at'] as String),
+      joinedAt: DateTime.parse((json['joined_at'] ?? json['created_at']) as String),
       notes: json['notes'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
+      cargoName: json['cargo_name'] as String?,
     );
   }
 
@@ -166,7 +175,7 @@ class MinistryMember {
     return {
       'id': id,
       'ministry_id': ministryId,
-      'member_id': memberId,
+      'user_id': memberId,
       'member_name': memberName,
       'role': role.value,
       'joined_at': joinedAt.toIso8601String().split('T')[0],
@@ -184,6 +193,7 @@ class MinistryMember {
     DateTime? joinedAt,
     String? notes,
     DateTime? createdAt,
+    String? cargoName,
   }) {
     return MinistryMember(
       id: id ?? this.id,
@@ -194,6 +204,7 @@ class MinistryMember {
       joinedAt: joinedAt ?? this.joinedAt,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
+      cargoName: cargoName ?? this.cargoName,
     );
   }
 }
@@ -203,10 +214,13 @@ class MinistrySchedule {
   final String id;
   final String eventId;
   final String eventName;
+  final DateTime? eventStartDate;
   final String ministryId;
   final String ministryName;
   final String memberId;
   final String memberName;
+  final String? functionId;
+  final String? functionName;
   final String? notes;
   final DateTime createdAt;
   final String? createdBy;
@@ -215,10 +229,13 @@ class MinistrySchedule {
     required this.id,
     required this.eventId,
     required this.eventName,
+    this.eventStartDate,
     required this.ministryId,
     required this.ministryName,
     required this.memberId,
     required this.memberName,
+    this.functionId,
+    this.functionName,
     this.notes,
     required this.createdAt,
     this.createdBy,
@@ -229,10 +246,13 @@ class MinistrySchedule {
       id: json['id'] as String,
       eventId: json['event_id'] as String,
       eventName: json['event_name'] as String? ?? '',
+      eventStartDate: json['event_start_date'] != null ? DateTime.parse(json['event_start_date'] as String) : null,
       ministryId: json['ministry_id'] as String,
       ministryName: json['ministry_name'] as String? ?? '',
-      memberId: json['member_id'] as String,
+      memberId: json['user_id'] as String,
       memberName: json['member_name'] as String? ?? '',
+      functionId: json['function_id'] as String?,
+      functionName: json['function_name'] as String?,
       notes: json['notes'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       createdBy: json['created_by'] as String?,
@@ -244,10 +264,13 @@ class MinistrySchedule {
       'id': id,
       'event_id': eventId,
       'event_name': eventName,
+      'event_start_date': eventStartDate?.toIso8601String(),
       'ministry_id': ministryId,
       'ministry_name': ministryName,
-      'member_id': memberId,
+      'user_id': memberId,
       'member_name': memberName,
+      'function_id': functionId,
+      'function_name': functionName,
       'notes': notes,
       'created_at': createdAt.toIso8601String(),
       'created_by': createdBy,
@@ -258,10 +281,13 @@ class MinistrySchedule {
     String? id,
     String? eventId,
     String? eventName,
+    DateTime? eventStartDate,
     String? ministryId,
     String? ministryName,
     String? memberId,
     String? memberName,
+    String? functionId,
+    String? functionName,
     String? notes,
     DateTime? createdAt,
     String? createdBy,
@@ -270,14 +296,16 @@ class MinistrySchedule {
       id: id ?? this.id,
       eventId: eventId ?? this.eventId,
       eventName: eventName ?? this.eventName,
+      eventStartDate: eventStartDate ?? this.eventStartDate,
       ministryId: ministryId ?? this.ministryId,
       ministryName: ministryName ?? this.ministryName,
       memberId: memberId ?? this.memberId,
       memberName: memberName ?? this.memberName,
+      functionId: functionId ?? this.functionId,
+      functionName: functionName ?? this.functionName,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       createdBy: createdBy ?? this.createdBy,
     );
   }
 }
-

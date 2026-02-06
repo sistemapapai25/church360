@@ -3,6 +3,7 @@
 // =====================================================
 
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/access_level.dart';
 
 class AccessLevelRepository {
@@ -16,13 +17,14 @@ class AccessLevelRepository {
 
   /// Buscar nível de acesso do usuário atual
   Future<UserAccessLevel?> getCurrentUserAccessLevel() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return null;
+    final authId = _supabase.auth.currentUser?.id;
+    if (authId == null) return null;
 
     final response = await _supabase
         .from('user_access_level')
         .select()
-        .eq('user_id', userId)
+        .eq('user_id', authId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
     if (response == null) return null;
@@ -35,6 +37,7 @@ class AccessLevelRepository {
         .from('user_access_level')
         .select()
         .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
     if (response == null) return null;
@@ -46,6 +49,7 @@ class AccessLevelRepository {
     final response = await _supabase
         .from('user_access_level')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('access_level_number', ascending: false);
 
     return (response as List)
@@ -61,6 +65,7 @@ class AccessLevelRepository {
         .from('user_access_level')
         .select()
         .eq('access_level', level.name)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
     return (response as List)
@@ -84,6 +89,7 @@ class AccessLevelRepository {
       'promoted_by': promotedBy,
       'promotion_reason': promotionReason,
       'notes': notes,
+      'tenant_id': SupabaseConstants.currentTenantId,
     };
 
     final response = await _supabase
@@ -116,6 +122,7 @@ class AccessLevelRepository {
         .from('user_access_level')
         .update(data)
         .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -127,7 +134,8 @@ class AccessLevelRepository {
     await _supabase
         .from('user_access_level')
         .delete()
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   /// Verificar se usuário tem permissão
@@ -144,9 +152,9 @@ class AccessLevelRepository {
   Future<bool> currentUserHasPermission(
     AccessLevelType requiredLevel,
   ) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return false;
-    return hasPermission(userId, requiredLevel);
+    final authId = _supabase.auth.currentUser?.id;
+    if (authId == null) return false;
+    return hasPermission(authId, requiredLevel);
   }
 
   // =====================================================
@@ -159,6 +167,7 @@ class AccessLevelRepository {
         .from('access_level_history')
         .select()
         .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
     return (response as List)
@@ -171,6 +180,7 @@ class AccessLevelRepository {
     final response = await _supabase
         .from('access_level_history')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false)
         .limit(100);
 
@@ -186,6 +196,7 @@ class AccessLevelRepository {
     final response = await _supabase
         .from('access_level_history')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .gte('created_at', thirtyDaysAgo.toIso8601String())
         .order('created_at', ascending: false);
 
@@ -267,4 +278,3 @@ class AccessLevelRepository {
     }
   }
 }
-

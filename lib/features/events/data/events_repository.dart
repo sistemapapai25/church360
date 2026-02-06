@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/event.dart';
 
 /// Repository para gerenciar eventos
@@ -6,6 +7,123 @@ class EventsRepository {
   final SupabaseClient _supabase;
 
   EventsRepository(this._supabase);
+
+  /// Buscar lista distinta de tipos de eventos
+  Future<List<String>> getDistinctEventTypes() async {
+    try {
+      final response = await _supabase
+          .from('event')
+          .select('event_type')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .order('event_type');
+
+      final list = (response as List)
+          .map((json) => (json['event_type'] ?? '').toString())
+          .where((v) => v.isNotEmpty)
+          .toSet()
+          .toList();
+      list.sort();
+      return list;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, String>>> getEventTypesCatalog() async {
+    try {
+      final response = await _supabase
+          .from('event_type')
+          .select()
+          .order('label');
+
+      return (response as List)
+          .map((json) => {
+                'code': (json['code'] ?? '').toString(),
+                'label': (json['label'] ?? '').toString(),
+              })
+          .where((e) => e['code']!.isNotEmpty)
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> upsertEventType(String code, String label) async {
+    try {
+      await _supabase
+          .from('event_type')
+          .upsert({'code': code, 'label': label});
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> syncEventTypesFromExistingEvents() async {
+    try {
+      final distinct = await _supabase
+          .from('event')
+          .select('event_type')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .order('event_type');
+      final codes = (distinct as List)
+          .map((j) => (j['event_type'] ?? '').toString())
+          .where((s) => s.isNotEmpty)
+          .toSet()
+          .toList();
+      for (final code in codes) {
+        final label = _guessLabel(code);
+        await _supabase.from('event_type').upsert({'code': code, 'label': label});
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  String _guessLabel(String code) {
+    switch (code) {
+      case 'culto_normal':
+        return 'Culto Normal / Ceia';
+      case 'ensaio':
+        return 'Ensaio';
+      case 'reuniao_ministerio':
+        return 'Reunião do Ministério (interna)';
+      case 'reuniao_externa':
+        return 'Reunião Externa / Célula';
+      case 'evento_conjunto':
+        return 'Evento Conjunto (vários ministérios)';
+      case 'lideranca_geral':
+        return 'Reunião de Liderança Geral';
+      case 'vigilia':
+        return 'Vigília ou Culto Especial';
+      case 'mutirao':
+        return 'Limpeza / Mutirão / Manutenção';
+      default:
+        final cleaned = code.replaceAll('_', ' ');
+        return cleaned[0].toUpperCase() + cleaned.substring(1);
+    }
+  }
+
+  Future<int> getEventsCountByType(String code) async {
+    try {
+      final response = await _supabase
+          .from('event')
+          .select()
+          .eq('event_type', code)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .count();
+      return response.count;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> deleteEventType(String code) async {
+    try {
+      await _supabase.from('event_type').delete().eq('code', code);
+    } catch (e) {
+      rethrow;
+    }
+  }
 
   /// Buscar todos os eventos
   Future<List<Event>> getAllEvents() async {
@@ -16,6 +134,7 @@ class EventsRepository {
             *,
             event_registration(count)
           ''')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('start_date', ascending: false);
 
       return (response as List).map((json) {
@@ -48,6 +167,7 @@ class EventsRepository {
             event_registration(count)
           ''')
           .neq('status', 'cancelled')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('start_date', ascending: false);
 
       return (response as List).map((json) {
@@ -81,6 +201,7 @@ class EventsRepository {
           ''')
           .neq('status', 'cancelled')
           .gte('start_date', now)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('start_date', ascending: true);
 
       return (response as List).map((json) {
@@ -112,6 +233,7 @@ class EventsRepository {
             event_registration(count)
           ''')
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .maybeSingle();
 
       if (response == null) return null;
@@ -136,14 +258,36 @@ class EventsRepository {
   /// Criar evento a partir de JSON
   Future<Event> createEventFromJson(Map<String, dynamic> data) async {
     try {
+      final payload = Map<String, dynamic>.from(data);
+      payload['tenant_id'] = payload['tenant_id'] ?? SupabaseConstants.currentTenantId;
       final response = await _supabase
           .from('event')
-          .insert(data)
+          .insert(payload)
           .select()
           .single();
 
       return Event.fromJson(response);
     } catch (e) {
+      final msg = e.toString();
+      final fallback = Map<String, dynamic>.from(data);
+      fallback['tenant_id'] = fallback['tenant_id'] ?? SupabaseConstants.currentTenantId;
+      var changed = false;
+      if (msg.contains("is_mandatory") && fallback.containsKey('is_mandatory')) {
+        fallback.remove('is_mandatory');
+        changed = true;
+      }
+      if (msg.contains("is_free") && fallback.containsKey('is_free')) {
+        fallback.remove('is_free');
+        changed = true;
+      }
+      if (changed) {
+        final response = await _supabase
+            .from('event')
+            .insert(fallback)
+            .select()
+            .single();
+        return Event.fromJson(response);
+      }
       rethrow;
     }
   }
@@ -160,6 +304,7 @@ class EventsRepository {
           .from('event')
           .update(event.toJson())
           .eq('id', event.id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
@@ -176,11 +321,33 @@ class EventsRepository {
           .from('event')
           .update(data)
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
       return Event.fromJson(response);
     } catch (e) {
+      final msg = e.toString();
+      final fallback = Map<String, dynamic>.from(data);
+      var changed = false;
+      if (msg.contains("is_mandatory") && fallback.containsKey('is_mandatory')) {
+        fallback.remove('is_mandatory');
+        changed = true;
+      }
+      if (msg.contains("is_free") && fallback.containsKey('is_free')) {
+        fallback.remove('is_free');
+        changed = true;
+      }
+      if (changed) {
+        final response = await _supabase
+            .from('event')
+            .update(fallback)
+            .eq('id', id)
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .select()
+            .single();
+        return Event.fromJson(response);
+      }
       rethrow;
     }
   }
@@ -188,7 +355,11 @@ class EventsRepository {
   /// Deletar evento
   Future<void> deleteEvent(String id) async {
     try {
-      await _supabase.from('event').delete().eq('id', id);
+      await _supabase
+          .from('event')
+          .delete()
+          .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -200,6 +371,7 @@ class EventsRepository {
       final response = await _supabase
           .from('event')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .count();
 
       return response.count;
@@ -215,6 +387,7 @@ class EventsRepository {
           .from('event')
           .select()
           .neq('status', 'cancelled')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .count();
 
       return response.count;
@@ -230,16 +403,17 @@ class EventsRepository {
           .from('event_registration')
           .select('''
             *,
-            member(first_name, last_name)
+            user_account:user_id (first_name, last_name)
           ''')
           .eq('event_id', eventId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('registered_at');
 
       return (response as List).map((json) {
         final data = Map<String, dynamic>.from(json);
         
-        if (data['member'] != null) {
-          final member = data['member'];
+        if (data['user_account'] != null) {
+          final member = data['user_account'];
           data['member_name'] = '${member['first_name']} ${member['last_name']}';
         }
         
@@ -261,8 +435,9 @@ class EventsRepository {
           .from('event_registration')
           .upsert({
             'event_id': eventId,
-            'member_id': memberId,
+            'user_id': memberId,
             'registered_at': DateTime.now().toIso8601String(),
+            'tenant_id': SupabaseConstants.currentTenantId,
           })
           .select()
           .single();
@@ -285,7 +460,8 @@ class EventsRepository {
           .from('event_registration')
           .delete()
           .eq('event_id', eventId)
-          .eq('member_id', memberId);
+          .eq('user_id', memberId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -300,7 +476,8 @@ class EventsRepository {
             'checked_in_at': DateTime.now().toIso8601String(),
           })
           .eq('event_id', eventId)
-          .eq('member_id', memberId);
+          .eq('user_id', memberId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -315,7 +492,8 @@ class EventsRepository {
             'checked_in_at': null,
           })
           .eq('event_id', eventId)
-          .eq('member_id', memberId);
+          .eq('user_id', memberId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -328,10 +506,10 @@ class EventsRepository {
           .from('event_registration')
           .delete()
           .eq('event_id', eventId)
-          .eq('member_id', memberId);
+          .eq('user_id', memberId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
   }
 }
-

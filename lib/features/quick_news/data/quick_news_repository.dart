@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 
 import '../domain/models/quick_news.dart';
 
@@ -7,6 +8,23 @@ class QuickNewsRepository {
   final SupabaseClient _supabase;
 
   QuickNewsRepository(this._supabase);
+
+  Future<String?> _effectiveUserId() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+    final email = user.email;
+    if (email != null && email.trim().isNotEmpty) {
+      try {
+        final nickname = email.trim().split('@').first;
+        await _supabase.rpc('ensure_my_account', params: {
+          '_tenant_id': SupabaseConstants.currentTenantId,
+          '_email': email,
+          '_nickname': nickname,
+        });
+      } catch (_) {}
+    }
+    return user.id;
+  }
 
   // =====================================================
   // QUICK NEWS - CRUD
@@ -17,6 +35,7 @@ class QuickNewsRepository {
     final response = await _supabase
         .from('quick_news')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('is_active', true)
         .or('expires_at.is.null,expires_at.gt.${DateTime.now().toIso8601String()}')
         .order('priority', ascending: false)
@@ -32,7 +51,7 @@ class QuickNewsRepository {
     return _supabase
         .from('quick_news')
         .stream(primaryKey: ['id'])
-        .eq('is_active', true)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('priority', ascending: false)
         .map((data) => data
             .map((json) => QuickNews.fromJson(json))
@@ -45,6 +64,7 @@ class QuickNewsRepository {
     final response = await _supabase
         .from('quick_news')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('priority', ascending: false)
         .order('created_at', ascending: false);
 
@@ -59,6 +79,7 @@ class QuickNewsRepository {
         .from('quick_news')
         .select()
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
     if (response == null) return null;
@@ -75,7 +96,7 @@ class QuickNewsRepository {
     bool isActive = true,
     DateTime? expiresAt,
   }) async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
 
     final response = await _supabase
@@ -89,6 +110,7 @@ class QuickNewsRepository {
           'is_active': isActive,
           'expires_at': expiresAt?.toIso8601String(),
           'created_by': userId,
+          'tenant_id': SupabaseConstants.currentTenantId,
         })
         .select()
         .single();
@@ -120,6 +142,7 @@ class QuickNewsRepository {
         .from('quick_news')
         .update(updateData)
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -131,7 +154,8 @@ class QuickNewsRepository {
     await _supabase
         .from('quick_news')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   /// Alternar status ativo/inativo
@@ -140,10 +164,10 @@ class QuickNewsRepository {
         .from('quick_news')
         .update({'is_active': isActive})
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
     return QuickNews.fromJson(response);
   }
 }
-

@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 
 import '../domain/models/testimony.dart';
 
@@ -7,6 +8,23 @@ class TestimonyRepository {
   final SupabaseClient _supabase;
 
   TestimonyRepository(this._supabase);
+
+  Future<String?> _effectiveUserId() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+    final email = user.email;
+    if (email != null && email.trim().isNotEmpty) {
+      try {
+        final nickname = email.trim().split('@').first;
+        await _supabase.rpc('ensure_my_account', params: {
+          '_tenant_id': SupabaseConstants.currentTenantId,
+          '_email': email,
+          '_nickname': nickname,
+        });
+      } catch (_) {}
+    }
+    return user.id;
+  }
 
   // =====================================================
   // TESTIMONIES - CRUD
@@ -17,6 +35,7 @@ class TestimonyRepository {
     final response = await _supabase
         .from('testimonies')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
     return (response as List)
@@ -29,6 +48,7 @@ class TestimonyRepository {
     final response = await _supabase
         .from('testimonies')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('is_public', true)
         .order('created_at', ascending: false);
 
@@ -39,12 +59,13 @@ class TestimonyRepository {
 
   /// Buscar testemunhos do usuário atual
   Future<List<Testimony>> getMyTestimonies() async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
 
     final response = await _supabase
         .from('testimonies')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('author_id', userId)
         .order('created_at', ascending: false);
 
@@ -59,6 +80,7 @@ class TestimonyRepository {
         .from('testimonies')
         .select()
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .maybeSingle();
 
     if (response == null) return null;
@@ -72,7 +94,7 @@ class TestimonyRepository {
     required bool isPublic,
     required bool allowWhatsappContact,
   }) async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
 
     final response = await _supabase
@@ -83,6 +105,7 @@ class TestimonyRepository {
           'author_id': userId,
           'is_public': isPublic,
           'allow_whatsapp_contact': allowWhatsappContact,
+          'tenant_id': SupabaseConstants.currentTenantId,
         })
         .select()
         .single();
@@ -108,6 +131,7 @@ class TestimonyRepository {
         .from('testimonies')
         .update(updateData)
         .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select()
         .single();
 
@@ -119,12 +143,13 @@ class TestimonyRepository {
     await _supabase
         .from('testimonies')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
   /// Contar testemunhos do usuário
   Future<int> countMyTestimonies() async {
-    final userId = _supabase.auth.currentUser?.id;
+    final userId = await _effectiveUserId();
     if (userId == null) return 0;
 
     final response = await _supabase
@@ -133,4 +158,3 @@ class TestimonyRepository {
     return response as int;
   }
 }
-

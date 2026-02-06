@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/support_material.dart';
 import '../domain/models/support_material_module.dart';
 import '../domain/models/support_material_link.dart';
@@ -8,6 +9,23 @@ class SupportMaterialsRepository {
   final SupabaseClient _supabase;
 
   SupportMaterialsRepository(this._supabase);
+
+  Future<String?> _effectiveUserId() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+    final email = user.email;
+    if (email != null && email.trim().isNotEmpty) {
+      try {
+        final nickname = email.trim().split('@').first;
+        await _supabase.rpc('ensure_my_account', params: {
+          '_tenant_id': SupabaseConstants.currentTenantId,
+          '_email': email,
+          '_nickname': nickname,
+        });
+      } catch (_) {}
+    }
+    return user.id;
+  }
 
   // =====================================================
   // MATERIAIS
@@ -19,6 +37,7 @@ class SupportMaterialsRepository {
       final response = await _supabase
           .from('support_material')
           .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('is_active', true)
           .order('created_at', ascending: false);
 
@@ -37,6 +56,7 @@ class SupportMaterialsRepository {
           .from('support_material')
           .select()
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .maybeSingle();
 
       if (response == null) return null;
@@ -53,6 +73,7 @@ class SupportMaterialsRepository {
           .from('support_material')
           .select()
           .eq('category', category)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('is_active', true)
           .order('created_at', ascending: false);
 
@@ -71,6 +92,7 @@ class SupportMaterialsRepository {
           .from('support_material')
           .select()
           .eq('material_type', type.value)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('is_active', true)
           .order('created_at', ascending: false);
 
@@ -85,7 +107,7 @@ class SupportMaterialsRepository {
   /// Criar material
   Future<SupportMaterial> createMaterial(Map<String, dynamic> data) async {
     try {
-      final userId = _supabase.auth.currentUser?.id;
+      final userId = await _effectiveUserId();
       
       final response = await _supabase
           .from('support_material')
@@ -93,6 +115,7 @@ class SupportMaterialsRepository {
             ...data,
             'created_by': userId,
             'updated_by': userId,
+            'tenant_id': SupabaseConstants.currentTenantId,
           })
           .select()
           .single();
@@ -106,7 +129,7 @@ class SupportMaterialsRepository {
   /// Atualizar material
   Future<SupportMaterial> updateMaterial(String id, Map<String, dynamic> data) async {
     try {
-      final userId = _supabase.auth.currentUser?.id;
+      final userId = await _effectiveUserId();
       
       final response = await _supabase
           .from('support_material')
@@ -115,6 +138,7 @@ class SupportMaterialsRepository {
             'updated_by': userId,
           })
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
@@ -130,7 +154,8 @@ class SupportMaterialsRepository {
       await _supabase
           .from('support_material')
           .update({'is_active': false})
-          .eq('id', id);
+          .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -142,7 +167,8 @@ class SupportMaterialsRepository {
       await _supabase
           .from('support_material')
           .delete()
-          .eq('id', id);
+          .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -159,6 +185,7 @@ class SupportMaterialsRepository {
           .from('support_material_module')
           .select()
           .eq('material_id', materialId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('order_index', ascending: true);
 
       return (response as List)
@@ -176,6 +203,7 @@ class SupportMaterialsRepository {
           .from('support_material_module')
           .select()
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .maybeSingle();
 
       if (response == null) return null;
@@ -188,7 +216,7 @@ class SupportMaterialsRepository {
   /// Criar módulo
   Future<SupportMaterialModule> createModule(Map<String, dynamic> data) async {
     try {
-      final userId = _supabase.auth.currentUser?.id;
+      final userId = await _effectiveUserId();
       
       final response = await _supabase
           .from('support_material_module')
@@ -196,6 +224,7 @@ class SupportMaterialsRepository {
             ...data,
             'created_by': userId,
             'updated_by': userId,
+            'tenant_id': SupabaseConstants.currentTenantId,
           })
           .select()
           .single();
@@ -209,7 +238,7 @@ class SupportMaterialsRepository {
   /// Atualizar módulo
   Future<SupportMaterialModule> updateModule(String id, Map<String, dynamic> data) async {
     try {
-      final userId = _supabase.auth.currentUser?.id;
+      final userId = await _effectiveUserId();
       
       final response = await _supabase
           .from('support_material_module')
@@ -218,6 +247,7 @@ class SupportMaterialsRepository {
             'updated_by': userId,
           })
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .select()
           .single();
 
@@ -233,7 +263,8 @@ class SupportMaterialsRepository {
       await _supabase
           .from('support_material_module')
           .delete()
-          .eq('id', id);
+          .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -250,6 +281,7 @@ class SupportMaterialsRepository {
           .from('support_material_link')
           .select()
           .eq('material_id', materialId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('created_at', ascending: false);
 
       return (response as List)
@@ -270,7 +302,8 @@ class SupportMaterialsRepository {
           .from('support_material_link')
           .select('material_id')
           .eq('link_type', linkType.value)
-          .eq('linked_entity_id', entityId);
+          .eq('linked_entity_id', entityId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
 
       final materialIds = (response as List)
           .map((json) => json['material_id'] as String)
@@ -282,6 +315,7 @@ class SupportMaterialsRepository {
           .from('support_material')
           .select()
           .inFilter('id', materialIds)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('is_active', true)
           .order('created_at', ascending: false);
 
@@ -296,13 +330,14 @@ class SupportMaterialsRepository {
   /// Criar vinculação
   Future<SupportMaterialLink> createLink(Map<String, dynamic> data) async {
     try {
-      final userId = _supabase.auth.currentUser?.id;
+      final userId = await _effectiveUserId();
       
       final response = await _supabase
           .from('support_material_link')
           .insert({
             ...data,
             'created_by': userId,
+            'tenant_id': SupabaseConstants.currentTenantId,
           })
           .select()
           .single();
@@ -319,7 +354,8 @@ class SupportMaterialsRepository {
       await _supabase
           .from('support_material_link')
           .delete()
-          .eq('id', id);
+          .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
@@ -331,10 +367,10 @@ class SupportMaterialsRepository {
       await _supabase
           .from('support_material_link')
           .delete()
-          .eq('material_id', materialId);
+          .eq('material_id', materialId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }
   }
 }
-

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/design/community_design.dart';
 import '../../domain/models/event.dart';
 import '../providers/events_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
@@ -366,8 +367,13 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
 
   Widget _buildTicketScreen(Event event, EventTicket ticket) {
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('Seu Ingresso'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text(
+          'Seu Ingresso',
+          style: CommunityDesign.titleStyle(context),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => context.pop(),
@@ -466,7 +472,7 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Colors.grey[300]!,
+                        color: Colors.grey[300] ?? Colors.grey,
                         width: 2,
                       ),
                     ),

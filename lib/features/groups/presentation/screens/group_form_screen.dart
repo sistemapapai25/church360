@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/design/community_design.dart';
 import '../providers/groups_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../domain/models/group.dart';
@@ -120,10 +121,10 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
           groupData['description'] = _descriptionController.text.trim();
         }
         if (_leaderId != null) {
-          groupData['leader_id'] = _leaderId;
+          groupData['leader_user_id'] = _leaderId;
         }
         if (_hostId != null) {
-          groupData['host_id'] = _hostId;
+          groupData['host_user_id'] = _hostId;
         }
         if (_meetingDayOfWeek != null) {
           groupData['meeting_day_of_week'] = _meetingDayOfWeek;
@@ -195,8 +196,13 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
     final membersAsync = ref.watch(allMembersProvider);
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: Text(widget.groupId == null ? 'Novo Grupo' : 'Editar Grupo'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text(
+          widget.groupId == null ? 'Novo Grupo' : 'Editar Grupo',
+          style: CommunityDesign.titleStyle(context),
+        ),
       ),
       body: _isLoading && widget.groupId != null
           ? const Center(child: CircularProgressIndicator())

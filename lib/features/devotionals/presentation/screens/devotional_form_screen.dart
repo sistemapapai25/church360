@@ -39,6 +39,8 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
     super.initState();
     if (_isEditing) {
       _loadDevotional();
+    } else {
+      _isPublished = true;
     }
   }
 
@@ -242,6 +244,7 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
               decoration: const InputDecoration(
                 labelText: 'Referência Bíblica',
                 hintText: 'Ex: João 3:16-17',
+                helperText: "Use ':' entre capítulo e versículo e '-' para intervalo de versículos. Ex: 3:16 ou 3:16-18",
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.menu_book),
               ),
@@ -375,4 +378,3 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
     );
   }
 }
-

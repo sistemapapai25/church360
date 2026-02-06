@@ -11,6 +11,7 @@ class Event {
   final bool requiresRegistration;
   final double? price; // Preço do evento (null = gratuito)
   final bool isFree; // Se é gratuito
+  final bool isMandatory; // Presença obrigatória
   final String status; // 'draft', 'published', 'cancelled', 'completed'
   final String? imageUrl;
   final DateTime createdAt;
@@ -31,6 +32,7 @@ class Event {
     this.requiresRegistration = false,
     this.price,
     this.isFree = true,
+    this.isMandatory = false,
     this.status = 'draft',
     this.imageUrl,
     required this.createdAt,
@@ -54,6 +56,7 @@ class Event {
       requiresRegistration: json['requires_registration'] as bool? ?? false,
       price: json['price'] != null ? (json['price'] as num).toDouble() : null,
       isFree: json['is_free'] as bool? ?? true,
+      isMandatory: json['is_mandatory'] as bool? ?? false,
       status: json['status'] as String? ?? 'draft',
       imageUrl: json['image_url'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -78,6 +81,7 @@ class Event {
       'requires_registration': requiresRegistration,
       'price': price,
       'is_free': isFree,
+      'is_mandatory': isMandatory,
       'status': status,
       'image_url': imageUrl,
       'created_at': createdAt.toIso8601String(),
@@ -150,7 +154,7 @@ class EventRegistration {
   factory EventRegistration.fromJson(Map<String, dynamic> json) {
     return EventRegistration(
       eventId: json['event_id'] as String,
-      memberId: json['member_id'] as String,
+      memberId: json['user_id'] as String,
       memberName: json['member_name'] as String?,
       registeredAt: DateTime.parse(json['registered_at'] as String),
       checkedInAt: json['checked_in_at'] != null
@@ -164,7 +168,7 @@ class EventRegistration {
   Map<String, dynamic> toJson() {
     return {
       'event_id': eventId,
-      'member_id': memberId,
+      'user_id': memberId,
       'registered_at': registeredAt.toIso8601String(),
       'checked_in_at': checkedInAt?.toIso8601String(),
       'ticket_id': ticketId,
@@ -211,7 +215,7 @@ class EventTicket {
     return EventTicket(
       id: json['id'] as String,
       eventId: json['event_id'] as String,
-      memberId: json['member_id'] as String,
+      memberId: json['user_id'] as String,
       qrCode: json['qr_code'] as String,
       status: json['status'] as String? ?? 'paid',
       paidAmount: json['paid_amount'] != null
@@ -234,7 +238,7 @@ class EventTicket {
     return {
       'id': id,
       'event_id': eventId,
-      'member_id': memberId,
+      'user_id': memberId,
       'qr_code': qrCode,
       'status': status,
       'paid_amount': paidAmount,
@@ -244,4 +248,3 @@ class EventTicket {
     };
   }
 }
-

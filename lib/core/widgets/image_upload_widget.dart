@@ -4,12 +4,14 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/constants/supabase_constants.dart';
 
 /// Widget reutilizável para upload de imagens
 class ImageUploadWidget extends StatefulWidget {
   final String? initialImageUrl;
   final Function(String?) onImageUrlChanged;
   final String storageBucket;
+  final List<String> fallbackBuckets;
   final String label;
 
   const ImageUploadWidget({
@@ -17,6 +19,7 @@ class ImageUploadWidget extends StatefulWidget {
     this.initialImageUrl,
     required this.onImageUrlChanged,
     required this.storageBucket,
+    this.fallbackBuckets = const [],
     this.label = 'Imagem',
   });
 
@@ -30,6 +33,23 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
   File? _imageFile;
   Uint8List? _webImage;
   bool _isUploading = false;
+  Future<String?> _effectiveUserId() async {
+    final supabase = Supabase.instance.client;
+    final user = supabase.auth.currentUser;
+    if (user == null) return null;
+    final email = user.email;
+    if (email != null && email.trim().isNotEmpty) {
+      try {
+        final nickname = email.trim().split('@').first;
+        await supabase.rpc('ensure_my_account', params: {
+          '_tenant_id': SupabaseConstants.currentTenantId,
+          '_email': email,
+          '_nickname': nickname,
+        });
+      } catch (_) {}
+    }
+    return user.id;
+  }
 
   @override
   void initState() {
@@ -80,7 +100,7 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
 
     try {
       final supabase = Supabase.instance.client;
-      final userId = supabase.auth.currentUser?.id;
+      final userId = await _effectiveUserId();
       if (userId == null) throw Exception('Usuário não autenticado');
 
       // Gerar nome único para o arquivo
@@ -88,22 +108,57 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
       final extension = pickedFile.name.split('.').last;
       final fileName = '${userId}_$timestamp.$extension';
 
-      // Upload para Supabase Storage
-      if (kIsWeb) {
-        // Upload dos bytes para Web
-        await supabase.storage
-            .from(widget.storageBucket)
-            .uploadBinary(fileName, _webImage!);
-      } else {
-        // Upload do arquivo para Mobile/Desktop
-        await supabase.storage
-            .from(widget.storageBucket)
-            .upload(fileName, _imageFile!);
+      final buckets = <String>[
+        widget.storageBucket,
+        ...widget.fallbackBuckets,
+      ].map((e) => e.trim()).where((e) => e.isNotEmpty).toSet().toList();
+
+      String? usedBucket;
+      final missingBuckets = <String>[];
+
+      for (final bucket in buckets) {
+        try {
+          if (kIsWeb) {
+            await supabase.storage
+                .from(bucket)
+                .uploadBinary(fileName, _webImage!);
+          } else {
+            await supabase.storage
+                .from(bucket)
+                .upload(fileName, _imageFile!);
+          }
+          usedBucket = bucket;
+          break;
+        } on StorageException catch (e) {
+          final msg = e.message.toString();
+          final sc = e.statusCode.toString();
+          final bucketMissing =
+              sc == '404' || msg.toLowerCase().contains('bucket not found');
+          if (!bucketMissing) rethrow;
+          missingBuckets.add(bucket);
+        }
+      }
+
+      if (usedBucket == null) {
+        setState(() {
+          _isUploading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Bucket não encontrado: ${missingBuckets.isEmpty ? widget.storageBucket : missingBuckets.join(', ')}',
+              ),
+            ),
+          );
+        }
+        return;
       }
 
       // Obter URL pública
       final publicUrl = supabase.storage
-          .from(widget.storageBucket)
+          .from(usedBucket)
           .getPublicUrl(fileName);
 
       setState(() {
@@ -119,6 +174,26 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
           const SnackBar(
             content: Text('Imagem enviada com sucesso!'),
             backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } on StorageException catch (e) {
+      setState(() {
+        _isUploading = false;
+      });
+
+      if (mounted) {
+        final msg = e.message.toString();
+        final sc = e.statusCode.toString();
+        final bucketMissing =
+            sc == '404' || msg.toLowerCase().contains('bucket not found');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              bucketMissing
+                  ? 'Bucket não encontrado: ${widget.storageBucket}'
+                  : 'Erro ao enviar imagem: ${e.message}',
+            ),
           ),
         );
       }
@@ -265,4 +340,3 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
     );
   }
 }
-

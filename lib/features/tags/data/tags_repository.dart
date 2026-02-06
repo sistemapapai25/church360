@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 
 import '../domain/models/tag.dart';
 
@@ -23,6 +24,7 @@ class TagsRepository {
             *,
             member_tag(count)
           ''')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('name', ascending: true);
 
       return (response as List).map((data) {
@@ -131,7 +133,7 @@ class TagsRepository {
               created_at
             )
           ''')
-          .eq('member_id', memberId);
+          .eq('user_id', memberId);
 
       return (response as List).map((data) {
         final tagData = data['tag'];
@@ -147,10 +149,10 @@ class TagsRepository {
     try {
       final response = await _supabase
           .from('member_tag')
-          .select('member_id')
+          .select('user_id')
           .eq('tag_id', tagId);
 
-      return (response as List).map((data) => data['member_id'] as String).toList();
+      return (response as List).map((data) => data['user_id'] as String).toList();
     } catch (e) {
       rethrow;
     }
@@ -160,7 +162,7 @@ class TagsRepository {
   Future<void> addTagToMember(String memberId, String tagId) async {
     try {
       await _supabase.from('member_tag').insert({
-        'member_id': memberId,
+        'user_id': memberId,
         'tag_id': tagId,
       });
     } catch (e) {
@@ -174,7 +176,7 @@ class TagsRepository {
       await _supabase
           .from('member_tag')
           .delete()
-          .eq('member_id', memberId)
+          .eq('user_id', memberId)
           .eq('tag_id', tagId);
     } catch (e) {
       rethrow;
@@ -230,4 +232,3 @@ class TagsRepository {
     }
   }
 }
-
