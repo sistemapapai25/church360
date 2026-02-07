@@ -84,6 +84,7 @@ dev_dependencies:
 
   # Linting
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
 
   # Code Generation
   riverpod_generator: ^2.6.2
@@ -114,6 +115,17 @@ flutter:
   assets:
     - assets/images/church360_logo.jpg
     - assets/images/church360-sf-p.svg
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  web:
+    generate: true
+  windows:
+    generate: true
+  macos:
+    generate: true
+  image_path: "assets/images/church360_logo.jpg"
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
