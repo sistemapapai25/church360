@@ -234,7 +234,9 @@ class _ChapterNavigation extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Container(
-        decoration: CommunityDesign.overlayDecoration(Theme.of(context).colorScheme),
+        decoration: CommunityDesign.feedCardDecoration(
+          Theme.of(context).colorScheme,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -361,10 +363,11 @@ class _VerseItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     final baseStyle = TextStyle(
       fontSize: fontSize,
       height: 1.6,
-      color: Theme.of(context).colorScheme.onSurface,
+      color: cs.onSurface,
     );
 
     return Material(
@@ -373,47 +376,54 @@ class _VerseItem extends ConsumerWidget {
         borderRadius: BorderRadius.circular(12),
         onLongPress: () => _showVerseOptions(context, ref),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                margin: const EdgeInsets.only(right: 12, top: 2),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Container(
+            decoration: CommunityDesign.feedCardDecoration(
+              cs,
+              radiusValue: 14,
+            ),
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(right: 12, top: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: cs.primary.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Text(
+                    '${verse.verse}',
+                    style: TextStyle(
+                      fontSize: fontSize - 2,
+                      fontWeight: FontWeight.w700,
+                      color: cs.primary,
+                    ),
                   ),
                 ),
-                child: Text(
-                  '${verse.verse}',
-                  style: TextStyle(
-                    fontSize: fontSize - 2,
-                    fontWeight: FontWeight.w700,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                Expanded(
+                  child: tokens.isEmpty
+                      ? Text(verse.text, style: baseStyle)
+                      : _InteractiveVerseText(
+                          text: verse.text,
+                          tokens: tokens,
+                          style: baseStyle,
+                          onOpenLexeme: (lexeme, surface, anchor) {
+                            _showLexemeOverlay(
+                              context: context,
+                              anchor: anchor,
+                              lexeme: lexeme,
+                              surface: surface,
+                            );
+                          },
+                        ),
                 ),
-              ),
-              Expanded(
-                child: tokens.isEmpty
-                    ? Text(verse.text, style: baseStyle)
-                    : _InteractiveVerseText(
-                        text: verse.text,
-                        tokens: tokens,
-                        style: baseStyle,
-                        onOpenLexeme: (lexeme, surface, anchor) {
-                          _showLexemeOverlay(
-                            context: context,
-                            anchor: anchor,
-                            lexeme: lexeme,
-                            surface: surface,
-                          );
-                        },
-                      ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -567,7 +577,7 @@ class _LexemeCard extends StatelessWidget {
         : (hasLemma && hasGloss ? glossText : null);
 
     return Container(
-      decoration: CommunityDesign.overlayDecoration(
+      decoration: CommunityDesign.feedCardDecoration(
         Theme.of(context).colorScheme,
       ).copyWith(
         borderRadius: BorderRadius.circular(CommunityDesign.radius),
@@ -668,8 +678,11 @@ class _AnchoredPopup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surfaceColor = Theme.of(context).colorScheme.surface;
-    final outlineColor = Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.7);
+    final colorScheme = Theme.of(context).colorScheme;
+    final surfaceColor = colorScheme.brightness == Brightness.light
+        ? Colors.white
+        : colorScheme.surface;
+    final outlineColor = colorScheme.outlineVariant.withValues(alpha: 0.7);
 
     final arrow = CustomPaint(
       painter: _TrianglePainter(

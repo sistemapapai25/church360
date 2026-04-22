@@ -28,7 +28,7 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
   final _uazapiSendPathController = TextEditingController(text: '/send/text');
   final _uazapiStatusPathController = TextEditingController(text: '/instance/status');
   final _testPhoneController = TextEditingController();
-  final _testTextController = TextEditingController(text: 'Teste Church360');
+  final _testTextController = TextEditingController(text: 'Teste PAPAI');
   final _advPathController = TextEditingController(text: '/messages');
   String _advMethod = 'POST';
   String _advAuth = 'BearerHeader';

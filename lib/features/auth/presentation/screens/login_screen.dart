@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/constants/app_branding.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../providers/auth_provider.dart';
 
@@ -115,7 +116,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                   // Título
                   Text(
-                    'Church 360',
+                    AppBranding.appName,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
@@ -126,7 +127,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                   // Subtítulo
                   Text(
-                    'Faça login para continuar',
+                    AppBranding.organizationName,
+                    textAlign: TextAlign.center,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: CommunityDesign.metaStyle(
+                      context,
+                    ).copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    AppBranding.loginPrompt,
                     textAlign: TextAlign.center,
                     style: CommunityDesign.metaStyle(context),
                   ),

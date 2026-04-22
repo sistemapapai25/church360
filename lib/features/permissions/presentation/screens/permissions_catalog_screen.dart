@@ -292,6 +292,7 @@ class _PermissionsCatalogScreenState extends ConsumerState<PermissionsCatalogScr
   }
 
   String _formatCategoryName(String category) {
+    if (category == 'live_stream') return 'Culto ao vivo';
     final words = category.split('_');
     return words.map((w) => w[0].toUpperCase() + w.substring(1)).join(' ');
   }
@@ -318,6 +319,7 @@ class _PermissionsCatalogScreenState extends ConsumerState<PermissionsCatalogScr
       case 'settings': return Icons.settings;
       case 'dashboard': return Icons.dashboard;
       case 'tags': return Icons.label;
+      case 'live_stream': return Icons.live_tv;
       default: return Icons.security;
     }
   }

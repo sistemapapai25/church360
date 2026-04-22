@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/devotional_provider.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
+import '../../../../core/errors/app_error_handler.dart';
 
 /// Tela de formulário para criar/editar devocional
 class DevotionalFormScreen extends ConsumerStatefulWidget {
@@ -62,11 +63,14 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
         _category = devotional.category;
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao carregar devocional: $e')),
-        );
-      }
+      if (!mounted) return;
+      AppErrorHandler.showSnackBar(
+        context,
+        e,
+        feature: 'devotionals.admin.load_devotional',
+        fallbackMessage:
+            'Nao foi possivel carregar o devocional. Tente novamente.',
+      );
     } finally {
       setState(() => _isLoading = false);
     }
@@ -160,14 +164,13 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao salvar: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!mounted) return;
+      AppErrorHandler.showSnackBar(
+        context,
+        e,
+        feature: 'devotionals.admin.save_devotional',
+        fallbackMessage: 'Nao foi possivel salvar. Revise e tente novamente.',
+      );
     } finally {
       if (mounted) {
         setState(() {

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/widgets/church_image.dart';
 import '../providers/reading_plans_provider.dart';
 
@@ -91,7 +92,7 @@ class ManageReadingPlansScreen extends ConsumerWidget {
                 final plan = plans[index];
                 final cs = Theme.of(context).colorScheme;
                 return Container(
-                  decoration: CommunityDesign.overlayDecoration(cs),
+                  decoration: CommunityDesign.feedCardDecoration(cs),
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -183,14 +184,14 @@ class ManageReadingPlansScreen extends ConsumerWidget {
                                 );
                               }
                             } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Erro ao atualizar: $e'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
+                              if (!context.mounted) return;
+                              AppErrorHandler.showSnackBar(
+                                context,
+                                e,
+                                feature: 'reading_plans.admin.toggle_active',
+                                fallbackMessage:
+                                    'Nao foi possivel atualizar o plano. Tente novamente.',
+                              );
                             }
                           },
                         ),
@@ -248,14 +249,14 @@ class ManageReadingPlansScreen extends ConsumerWidget {
                                 );
                               }
                             } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Erro ao excluir: $e'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
+                              if (!context.mounted) return;
+                              AppErrorHandler.showSnackBar(
+                                context,
+                                e,
+                                feature: 'reading_plans.admin.delete_plan',
+                                fallbackMessage:
+                                    'Nao foi possivel excluir o plano. Tente novamente.',
+                              );
                             }
                           },
                         ),
@@ -274,7 +275,12 @@ class ManageReadingPlansScreen extends ConsumerWidget {
             children: [
               const Icon(Icons.error_outline, size: 48, color: Colors.red),
               const SizedBox(height: 16),
-              Text('Erro ao carregar: $error'),
+              Text(
+                AppErrorHandler.userMessage(
+                  error,
+                  feature: 'reading_plans.admin.load_plans',
+                ),
+              ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => ref.invalidate(allReadingPlansProvider),
@@ -318,4 +324,3 @@ class _Chip extends StatelessWidget {
     );
   }
 }
-

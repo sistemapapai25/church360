@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 import '../providers/groups_provider.dart';
 import '../providers/meetings_provider.dart';
 import '../../domain/models/group.dart';
@@ -67,7 +68,13 @@ class GroupDetailScreen extends ConsumerWidget {
             children: [
               const Icon(Icons.error_outline, size: 64, color: Colors.red),
               const SizedBox(height: 16),
-              Text('Erro ao carregar grupo: $error'),
+              Text(
+                AppErrorHandler.userMessage(
+                  error,
+                  feature: 'groups.detail.load_group',
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => ref.invalidate(groupByIdProvider(groupId)),
@@ -128,11 +135,11 @@ class GroupDetailScreen extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao deletar grupo: $e'),
-            backgroundColor: Colors.red,
-          ),
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'groups.detail.delete_group',
+          fallbackMessage: 'Nao foi possivel deletar o grupo. Tente novamente.',
         );
       }
     }
@@ -411,7 +418,13 @@ class _MembersTab extends ConsumerWidget {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(
-          child: Text('Erro ao carregar membros: $error'),
+          child: Text(
+            AppErrorHandler.userMessage(
+              error,
+              feature: 'groups.detail.load_members',
+            ),
+            textAlign: TextAlign.center,
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -486,11 +499,12 @@ class _MembersTab extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao remover membro: $e'),
-            backgroundColor: Colors.red,
-          ),
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'groups.detail.remove_member',
+          fallbackMessage:
+              'Nao foi possivel remover o membro. Tente novamente.',
         );
       }
     }
@@ -687,11 +701,12 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao adicionar membro: $e'),
-            backgroundColor: Colors.red,
-          ),
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'groups.detail.add_member',
+          fallbackMessage:
+              'Nao foi possivel adicionar o membro. Tente novamente.',
         );
       }
     } finally {
@@ -774,7 +789,13 @@ class _MeetingsTab extends ConsumerWidget {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
-            Text('Erro ao carregar reuniões: $error'),
+            Text(
+              AppErrorHandler.userMessage(
+                error,
+                feature: 'groups.detail.load_meetings',
+              ),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => ref.invalidate(meetingsListProvider(groupId)),
@@ -957,7 +978,13 @@ class _MaterialsTab extends ConsumerWidget {
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            Text('Erro ao carregar materiais: $error'),
+            Text(
+              AppErrorHandler.userMessage(
+                error,
+                feature: 'groups.detail.load_materials',
+              ),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {

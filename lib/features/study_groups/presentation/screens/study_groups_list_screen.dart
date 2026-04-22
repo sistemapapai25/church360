@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../members/presentation/providers/members_provider.dart';
 import '../providers/study_group_provider.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 
 class StudyGroupsListScreen extends ConsumerWidget {
-  const StudyGroupsListScreen({super.key});
+  final bool fromDashboard;
+
+  const StudyGroupsListScreen({super.key, this.fromDashboard = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final studyGroupsAsync = ref.watch(activeStudyGroupsProvider);
-    final currentMemberId = ref.watch(currentMemberProvider).value?.id;
+    final currentMember = ref.watch(currentMemberProvider).valueOrNull;
+    final currentMemberId = currentMember?.id;
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -30,12 +34,17 @@ class StudyGroupsListScreen extends ConsumerWidget {
           PermissionBuilder(
             permission: 'study_groups.create',
             builder: (context, hasPermission) {
-              if (!hasPermission) return const SizedBox.shrink();
+              if (!hasPermission && !fromDashboard) {
+                return const SizedBox.shrink();
+              }
               return IconButton(
                 icon: const Icon(Icons.add),
                 tooltip: 'Criar Grupo',
                 onPressed: () {
-                  context.push('/study-groups/new');
+                  final route = fromDashboard
+                      ? '/study-groups/new?from=dashboard'
+                      : '/study-groups/new';
+                  context.push(route);
                 },
               );
             },
@@ -107,7 +116,10 @@ class StudyGroupsListScreen extends ConsumerWidget {
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: () {
-                          context.push('/study-groups/${group.id}');
+                          final route = fromDashboard
+                              ? '/study-groups/${group.id}?from=dashboard'
+                              : '/study-groups/${group.id}';
+                          context.push(route);
                         },
                         child: Padding(
                           padding: const EdgeInsets.all(16),
@@ -163,6 +175,29 @@ class StudyGroupsListScreen extends ConsumerWidget {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
+                                  PermissionBuilder(
+                                    permission: 'study_groups.edit',
+                                    loadingWidget: const SizedBox.shrink(),
+                                    builder: (context, hasPermission) {
+                                      if (!hasPermission && !fromDashboard) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      return IconButton(
+                                        visualDensity: VisualDensity.compact,
+                                        tooltip: 'Editar grupo',
+                                        onPressed: () {
+                                          final route = fromDashboard
+                                              ? '/study-groups/${group.id}/edit?from=dashboard'
+                                              : '/study-groups/${group.id}/edit';
+                                          context.push(route);
+                                        },
+                                        icon: const Icon(
+                                          Icons.edit_outlined,
+                                          size: 18,
+                                        ),
+                                      );
+                                    },
+                                  ),
                                   // Status
                                   CommunityDesign.badge(
                                     context,
@@ -344,7 +379,12 @@ class StudyGroupsListScreen extends ConsumerWidget {
             children: [
               const Icon(Icons.error_outline, size: 48, color: Colors.red),
               const SizedBox(height: 16),
-              Text('Erro ao carregar grupos: $error'),
+              Text(
+                AppErrorHandler.userMessage(
+                  error,
+                  feature: 'study_groups.list',
+                ),
+              ),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => ref.invalidate(activeStudyGroupsProvider),

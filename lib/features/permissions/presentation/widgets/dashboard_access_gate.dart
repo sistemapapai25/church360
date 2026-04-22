@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/permissions_providers.dart';
+import '../../../../core/errors/app_error_handler.dart';
 
 /// Widget: DashboardAccessGate
 /// Controla o acesso ao Dashboard baseado no nível de acesso do usuário
@@ -63,8 +64,18 @@ class DashboardAccessGate extends ConsumerWidget {
       },
       loading: () => _buildLoadingScreen(),
       error: (error, stack) {
-        debugPrint('DashboardAccessGate error: $error');
-        return _buildErrorScreen(context, error.toString());
+        AppErrorHandler.log(
+          error,
+          feature: 'permissions.dashboard_access_gate',
+          stackTrace: stack,
+        );
+        return _buildErrorScreen(
+          context,
+          AppErrorHandler.userMessage(
+            error,
+            feature: 'permissions.dashboard_access_gate',
+          ),
+        );
       },
     );
   }

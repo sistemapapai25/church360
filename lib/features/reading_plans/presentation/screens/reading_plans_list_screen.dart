@@ -6,6 +6,7 @@ import '../../../../core/widgets/church_image.dart';
 import '../providers/reading_plans_provider.dart';
 import '../../domain/models/reading_plan.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 
 const double _pagePadding = 16;
 const double _cardPadding = 16;
@@ -144,7 +145,12 @@ class ReadingPlansListScreen extends ConsumerWidget {
               children: [
                 const Icon(Icons.error_outline, size: 64, color: Colors.red),
                 const SizedBox(height: 16),
-                Text('Erro ao carregar planos: $error'),
+                Text(
+                  AppErrorHandler.userMessage(
+                    error,
+                    feature: 'reading_plans.list',
+                  ),
+                ),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
@@ -170,14 +176,15 @@ class ReadingPlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasImage = plan.imageUrl != null && plan.imageUrl!.isNotEmpty;
+    final cs = Theme.of(context).colorScheme;
     final decoration = hasImage
-        ? CommunityDesign.overlayDecoration(
-            Theme.of(context).colorScheme,
+        ? CommunityDesign.feedCardDecoration(
+            cs,
+            radiusValue: _cardRadius,
           )
-        : BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(_cardRadius),
-            boxShadow: [CommunityDesign.overlayBaseShadow()],
+        : CommunityDesign.feedCardDecoration(
+            cs,
+            radiusValue: _cardRadius,
           );
     return Container(
       margin: const EdgeInsets.only(bottom: _pagePadding),

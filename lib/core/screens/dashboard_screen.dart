@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../constants/app_branding.dart';
+import '../errors/app_error_handler.dart';
 import '../widgets/dashboard_charts.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../core/constants/supabase_constants.dart';
@@ -9,6 +11,7 @@ import '../providers/dashboard_widget_provider.dart';
 import '../../features/notifications/presentation/widgets/notification_badge.dart';
 import '../../features/custom_reports/presentation/providers/custom_report_providers.dart';
 import '../../features/members/presentation/providers/members_provider.dart';
+import '../../features/permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de Dashboard com estatísticas e gráficos
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -49,7 +52,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           actions: [
             // Botão voltar para Menu Mais
             IconButton(
-              icon: const Icon(Icons.exit_to_app_outlined), // Ícone indicando saída/retorno
+              icon: const Icon(
+                Icons.exit_to_app_outlined,
+              ), // Ícone indicando saída/retorno
               onPressed: () {
                 if (Navigator.canPop(context)) {
                   Navigator.pop(context);
@@ -69,76 +74,95 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             const SizedBox(width: 8),
           ],
         ),
-        body: ref.watch(enabledDashboardWidgetsProvider).when(
-          data: (widgets) {
-            if (widgets.isEmpty) {
-              return const Center(
+        body: ref
+            .watch(enabledDashboardWidgetsProvider)
+            .when(
+              data: (widgets) {
+                if (widgets.isEmpty) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.widgets_outlined,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Nenhum widget ativo',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Configure os widgets da Dashboard nas configurações',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(enabledDashboardWidgetsProvider);
+                  },
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final widget in widgets) ...[
+                          _buildWidgetByKey(context, widget.widgetKey),
+                          const SizedBox(height: 16),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(
                 child: Padding(
-                  padding: EdgeInsets.all(32),
+                  padding: const EdgeInsets.all(32),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.widgets_outlined, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text(
-                        'Nenhum widget ativo',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      const Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: Colors.red,
                       ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Configure os widgets da Dashboard nas configurações',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            return RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(enabledDashboardWidgetsProvider);
-              },
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final widget in widgets) ...[
-                      _buildWidgetByKey(context, widget.widgetKey),
                       const SizedBox(height: 16),
+                      Text(
+                        'Erro ao carregar widgets',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        AppErrorHandler.userMessage(
+                          error,
+                          feature: 'dashboard.load_widgets',
+                        ),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.grey),
+                      ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Erro ao carregar widgets',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    error.toString(),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                ],
               ),
             ),
-          ),
-        ),
       ),
     );
   }
@@ -238,9 +262,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           Expanded(
                             child: Text(
                               report.name,
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],
@@ -249,9 +272,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         const SizedBox(height: 8),
                         Text(
                           report.description!,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
-                              ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: Colors.grey[600]),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -267,7 +289,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           const SizedBox(width: 8),
                           Chip(
                             label: Text(report.visualizationType.label),
-                            backgroundColor: Colors.green.withValues(alpha: 0.1),
+                            backgroundColor: Colors.green.withValues(
+                              alpha: 0.1,
+                            ),
                             labelStyle: const TextStyle(fontSize: 11),
                           ),
                         ],
@@ -313,17 +337,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Church 360',
+                    AppBranding.appName,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        ),
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
                   ),
                   Text(
-                    'Painel Administrativo',
+                    AppBranding.organizationName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        ),
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
                   ),
                 ],
               ),
@@ -372,7 +398,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 _DrawerMenuItem(
                   icon: Icons.menu_book,
                   title: 'Grupos de Estudo',
-                  route: '/study-groups',
+                  route: '/study-groups?from=dashboard',
                 ),
                 _DrawerMenuItem(
                   icon: Icons.library_books,
@@ -411,6 +437,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   icon: Icons.book,
                   title: 'Devocionais',
                   route: '/devotionals/admin',
+                ),
+                // Culto ao vivo
+                PermissionGate(
+                  permission: 'live_stream.manage',
+                  child: const _DrawerMenuItem(
+                    icon: Icons.live_tv,
+                    title: 'Culto ao vivo',
+                    route: '/live-stream/manage',
+                  ),
                 ),
                 // Contribuição
                 _DrawerMenuItem(
@@ -480,35 +515,44 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   title: 'Configuração de Disparos',
                   route: '/dispatch-config',
                 ),
-                Consumer(builder: (context, ref, _) {
-                  final supabase = ref.watch(supabaseClientProvider);
-                  final memberAsync = ref.watch(currentMemberProvider);
-                  return memberAsync.when(
-                    data: (member) {
-                      if (member == null) return const SizedBox.shrink();
-                      return FutureBuilder<Map<String, dynamic>?>(
-                        future: supabase
-                            .from('user_account')
-                            .select('role_global')
-                            .eq('id', member.id)
-                            .eq('tenant_id', SupabaseConstants.currentTenantId)
-                            .maybeSingle(),
-                        builder: (context, snapshot) {
-                          final role = (snapshot.data?['role_global']?.toString() ?? '').trim().toLowerCase();
-                          final isOwner = role == 'owner';
-                          if (!isOwner) return const SizedBox.shrink();
-                          return _DrawerMenuItem(
-                            icon: Icons.developer_mode,
-                            title: 'Configurações de Desenvolvedor',
-                            route: '/developer-settings',
-                          );
-                        },
-                      );
-                    },
-                    loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
-                  );
-                }),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final supabase = ref.watch(supabaseClientProvider);
+                    final memberAsync = ref.watch(currentMemberProvider);
+                    return memberAsync.when(
+                      data: (member) {
+                        if (member == null) return const SizedBox.shrink();
+                        return FutureBuilder<Map<String, dynamic>?>(
+                          future: supabase
+                              .from('user_account')
+                              .select('role_global')
+                              .eq('id', member.id)
+                              .eq(
+                                'tenant_id',
+                                SupabaseConstants.currentTenantId,
+                              )
+                              .maybeSingle(),
+                          builder: (context, snapshot) {
+                            final role =
+                                (snapshot.data?['role_global']?.toString() ??
+                                        '')
+                                    .trim()
+                                    .toLowerCase();
+                            final isOwner = role == 'owner';
+                            if (!isOwner) return const SizedBox.shrink();
+                            return _DrawerMenuItem(
+                              icon: Icons.developer_mode,
+                              title: 'Configurações de Desenvolvedor',
+                              route: '/developer-settings',
+                            );
+                          },
+                        );
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    );
+                  },
+                ),
                 _DrawerMenuItem(
                   icon: Icons.analytics,
                   title: 'Analytics & Relatórios',
@@ -528,11 +572,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Text(
-                'Church 360 v1.0.0',
+                AppBranding.versionLabel,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
               ),
             ),
           ],
@@ -557,17 +603,14 @@ class _DrawerCategory extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ExpansionTile(
-      leading: Icon(
-        icon,
-        color: Theme.of(context).colorScheme.primary,
-      ),
+      leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
       title: Text(
         title,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
+          color: Theme.of(context).colorScheme.primary,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
       ),
       tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       childrenPadding: const EdgeInsets.only(left: 16),
@@ -596,10 +639,7 @@ class _DrawerMenuItem extends StatelessWidget {
         size: 20,
         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
       ),
-      title: Text(
-        title,
-        style: Theme.of(context).textTheme.bodyMedium,
-      ),
+      title: Text(title, style: Theme.of(context).textTheme.bodyMedium),
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
       onTap: () {

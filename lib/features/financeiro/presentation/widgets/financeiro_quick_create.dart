@@ -10,6 +10,7 @@ import '../providers/financeiro_providers.dart';
 import 'quick_account_form.dart';
 import 'quick_beneficiary_form.dart';
 import 'quick_category_form.dart';
+import '../../../../core/errors/app_error_handler.dart';
 
 class FinanceiroQuickCreate {
   static Future<Beneficiario?> createBeneficiario(
@@ -57,8 +58,12 @@ class FinanceiroQuickCreate {
       return created;
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao criar beneficiário: $e')),
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'finance.quick_create.beneficiary',
+          fallbackMessage:
+              'Nao foi possivel criar o beneficiario. Tente novamente.',
         );
       }
       return null;
@@ -113,8 +118,11 @@ class FinanceiroQuickCreate {
       return created;
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao criar categoria: $e')),
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'finance.quick_create.category',
+          fallbackMessage: 'Nao foi possivel criar a categoria. Tente novamente.',
         );
       }
       return null;
@@ -171,8 +179,11 @@ class FinanceiroQuickCreate {
       return created;
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao criar conta: $e')),
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'finance.quick_create.account',
+          fallbackMessage: 'Nao foi possivel criar a conta. Tente novamente.',
         );
       }
       return null;

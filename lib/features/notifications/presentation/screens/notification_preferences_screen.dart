@@ -150,6 +150,24 @@ class NotificationPreferencesScreen extends ConsumerWidget {
                   await actions.updatePreferences(general: value);
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.phonelink_ring),
+                title: const Text('Registrar push neste dispositivo'),
+                subtitle: const Text(
+                  'Solicita permissao e sincroniza token FCM no backend',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  final result = await actions.registerCurrentDeviceForPush();
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(result.message),
+                      backgroundColor: result.success ? Colors.green : Colors.orange,
+                    ),
+                  );
+                },
+              ),
               const Divider(),
 
               // Seção: Horário de Silêncio
@@ -281,4 +299,3 @@ class _PreferenceTile extends StatelessWidget {
     );
   }
 }
-

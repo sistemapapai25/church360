@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 import '../providers/groups_provider.dart';
 import '../../domain/models/group.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
@@ -106,7 +107,13 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
             children: [
               const Icon(Icons.error_outline, size: 64, color: Colors.red),
               const SizedBox(height: 16),
-              Text('Erro ao carregar grupos: $error'),
+              Text(
+                AppErrorHandler.userMessage(
+                  error,
+                  feature: 'groups.list',
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => ref.invalidate(allGroupsProvider),

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/app_branding.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../providers/auth_provider.dart';
@@ -31,6 +32,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   bool _obscureConfirmPassword = true;
   bool _isCheckingEmail = false;
   bool _foundVisitorData = false;
+  bool _viewedLgpdPolicy = false;
+  bool _viewedCommitmentTerms = false;
+  bool _acceptedLgpd = false;
+  bool _acceptedCommitmentTerms = false;
 
   Timer? _debounceTimer;
 
@@ -130,6 +135,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+    if (!_acceptedLgpd || !_acceptedCommitmentTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Leia e aceite LGPD e Termos de Compromisso para concluir o cadastro.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -144,6 +158,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
         nickname: _nicknameController.text.trim(),
+        lgpdConsent: _acceptedLgpd,
+        commitmentTermsAccepted: _acceptedCommitmentTerms,
       );
 
       if (mounted) {
@@ -191,6 +207,97 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     }
   }
 
+  Future<void> _openLegalDocument({
+    required String title,
+    required String subtitle,
+    required List<String> paragraphs,
+    required VoidCallback onReadConfirmed,
+  }) async {
+    final wasRead = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(title),
+          content: SizedBox(
+            width: 560,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  subtitle,
+                  style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final paragraph in paragraphs) ...[
+                          Text(paragraph),
+                          const SizedBox(height: 8),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Fechar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Li e estou ciente'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (wasRead == true && mounted) {
+      setState(onReadConfirmed);
+    }
+  }
+
+  Future<void> _readLgpdPolicy() async {
+    await _openLegalDocument(
+      title: 'Consentimento LGPD',
+      subtitle: 'Leia antes de conceder o consentimento.',
+      paragraphs: const [
+        'Seus dados pessoais serão utilizados exclusivamente para finalidades ministeriais e administrativas da igreja, como identificação, contato e acompanhamento pastoral.',
+        'O tratamento dos dados seguirá os princípios da LGPD (Lei 13.709/2018), incluindo necessidade, transparência, segurança e minimização.',
+        'Você pode solicitar correção, anonimização, portabilidade, revogação de consentimento e exclusão, conforme hipóteses legais aplicáveis.',
+        'Ao conceder o consentimento, o sistema registra data e horário para comprovação e auditoria interna.',
+      ],
+      onReadConfirmed: () {
+        _viewedLgpdPolicy = true;
+      },
+    );
+  }
+
+  Future<void> _readCommitmentTerms() async {
+    await _openLegalDocument(
+      title: 'Termos de Compromisso',
+      subtitle: 'Leia os termos antes de aceitar no cadastro.',
+      paragraphs: const [
+        'Ao se cadastrar, você confirma que as informações fornecidas são verdadeiras e poderão ser usadas para comunicação oficial da igreja.',
+        'Você se compromete a manter seus dados atualizados e a utilizar os recursos do aplicativo de forma ética e respeitosa.',
+        'A liderança pastoral pode visualizar o status de aceite dos termos e de consentimento LGPD para fins de conformidade.',
+        'O descumprimento das diretrizes pode implicar restrições de acesso conforme regras internas da organização.',
+      ],
+      onReadConfirmed: () {
+        _viewedCommitmentTerms = true;
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -224,7 +331,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   
                   // Título
                   Text(
-                    'Criar Conta',
+                    AppBranding.appName,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
@@ -235,7 +342,17 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   
                   // Subtítulo
                   Text(
-                    'Comece digitando seu email',
+                    AppBranding.organizationName,
+                    textAlign: TextAlign.center,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: CommunityDesign.metaStyle(
+                      context,
+                    ).copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    AppBranding.signUpPrompt,
                     textAlign: TextAlign.center,
                     style: CommunityDesign.metaStyle(context),
                   ),
@@ -504,6 +621,100 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     },
                   ),
                   const SizedBox(height: 32),
+
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Consentimentos obrigatórios',
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Leia os documentos e confirme o aceite para finalizar seu cadastro.',
+                          style: CommunityDesign.metaStyle(context),
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton.icon(
+                          onPressed: _readLgpdPolicy,
+                          icon: Icon(
+                            _viewedLgpdPolicy
+                                ? Icons.check_circle
+                                : Icons.article_outlined,
+                            color: _viewedLgpdPolicy ? Colors.green : null,
+                          ),
+                          label: Text(
+                            _viewedLgpdPolicy
+                                ? 'LGPD lida'
+                                : 'Ler consentimento LGPD',
+                          ),
+                        ),
+                        CheckboxListTile(
+                          value: _acceptedLgpd,
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          onChanged: _viewedLgpdPolicy
+                              ? (value) {
+                                  setState(() {
+                                    _acceptedLgpd = value ?? false;
+                                  });
+                                }
+                              : null,
+                          title: const Text('Concordo com o consentimento LGPD'),
+                          subtitle: Text(
+                            _viewedLgpdPolicy
+                                ? 'Consentimento será registrado para auditoria pastoral.'
+                                : 'Leia o documento LGPD para habilitar o aceite.',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: _readCommitmentTerms,
+                          icon: Icon(
+                            _viewedCommitmentTerms
+                                ? Icons.check_circle
+                                : Icons.description_outlined,
+                            color: _viewedCommitmentTerms ? Colors.green : null,
+                          ),
+                          label: Text(
+                            _viewedCommitmentTerms
+                                ? 'Termos lidos'
+                                : 'Ler termos de compromisso',
+                          ),
+                        ),
+                        CheckboxListTile(
+                          value: _acceptedCommitmentTerms,
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          onChanged: _viewedCommitmentTerms
+                              ? (value) {
+                                  setState(() {
+                                    _acceptedCommitmentTerms = value ?? false;
+                                  });
+                                }
+                              : null,
+                          title: const Text('Aceito os termos de compromisso'),
+                          subtitle: Text(
+                            _viewedCommitmentTerms
+                                ? 'Aceite obrigatório para criação da conta.'
+                                : 'Leia os termos para habilitar o aceite.',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   
                   // Botão de Cadastro
                   ElevatedButton(

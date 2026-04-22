@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../providers/kids_providers.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 
 /// Provider para buscar crianças gerenciadas pelo usuário logado
 final managedChildrenProvider =
@@ -181,7 +182,15 @@ class KidsSelectChildScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => Center(child: Text('Erro ao carregar crianças: $e')),
+        error: (e, s) => Center(
+          child: Text(
+            AppErrorHandler.userMessage(
+              e,
+              feature: 'kids.list_children',
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
       ),
     );
   }

@@ -14,6 +14,7 @@ import '../../domain/models/categoria.dart';
 import '../../domain/models/financial_attachment.dart';
 import '../widgets/comprovante_upload_widget.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 
 class LancamentoFormScreen extends ConsumerStatefulWidget {
   final String? lancamentoId;
@@ -81,8 +82,12 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao carregar lançamento: $e')),
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'finance.transaction_form.load',
+          fallbackMessage:
+              'Nao foi possivel carregar o lancamento. Tente novamente.',
         );
       }
     } finally {
@@ -460,8 +465,12 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao salvar lançamento: $e')),
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'finance.transaction_form.save',
+          fallbackMessage:
+              'Nao foi possivel salvar o lancamento. Revise e tente novamente.',
         );
       }
     } finally {

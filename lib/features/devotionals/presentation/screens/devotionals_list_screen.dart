@@ -10,6 +10,7 @@ import '../../../../core/widgets/church_image.dart';
 import '../providers/devotional_provider.dart';
 import '../../domain/models/devotional.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../community/presentation/providers/community_providers.dart';
 
@@ -22,11 +23,9 @@ const double _maxFeedWidth = 640;
 
 BoxDecoration _surfaceCardDecoration(BuildContext context) {
   final cs = Theme.of(context).colorScheme;
-  return BoxDecoration(
-    color: cs.surface,
-    borderRadius: BorderRadius.circular(_cardRadius),
-    border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
-    boxShadow: [CommunityDesign.overlayBaseShadow()],
+  return CommunityDesign.feedCardDecoration(
+    cs,
+    radiusValue: _cardRadius,
   );
 }
 
@@ -234,7 +233,22 @@ class _DevotionalsListScreenState extends ConsumerState<DevotionalsListScreen> {
             children: [
               const Icon(Icons.error_outline, size: 48, color: Colors.red),
               const SizedBox(height: 16),
-              Text('Erro ao carregar devocionais: $error'),
+              Text(
+                AppErrorHandler.userMessage(
+                  error,
+                  feature: 'devotionals.list',
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => ref.invalidate(
+                  widget.fromDashboard
+                      ? allDevotionalsIncludingDraftsProvider
+                      : allDevotionalsProvider,
+                ),
+                child: const Text('Tentar novamente'),
+              ),
             ],
           ),
         ),
@@ -697,6 +711,9 @@ class _DevotionalFeedCardState extends ConsumerState<DevotionalFeedCard>
     }
 
     final colorScheme = Theme.of(context).colorScheme;
+    final sheetSurfaceColor = colorScheme.brightness == Brightness.light
+        ? Colors.white
+        : colorScheme.surface;
     final options = const [
       ('like', 'Curtir', '👍'),
       ('amen', 'Amém', '🙏'),
@@ -777,7 +794,7 @@ class _DevotionalFeedCardState extends ConsumerState<DevotionalFeedCard>
                       child: Container(
                         padding: containerPadding,
                         decoration: BoxDecoration(
-                          color: colorScheme.surface,
+                          color: sheetSurfaceColor,
                           borderRadius: BorderRadius.circular(999),
                           boxShadow: [
                             BoxShadow(
@@ -1257,7 +1274,12 @@ class _DevotionalFeedCardState extends ConsumerState<DevotionalFeedCard>
                                 showModalBottomSheet(
                                   context: context,
                                   isScrollControlled: true,
-                                  backgroundColor: Theme.of(context).colorScheme.surface,
+                                  backgroundColor: Theme.of(context)
+                                              .colorScheme
+                                              .brightness ==
+                                          Brightness.light
+                                      ? Colors.white
+                                      : Theme.of(context).colorScheme.surface,
                                   shape: const RoundedRectangleBorder(
                                     borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                                   ),

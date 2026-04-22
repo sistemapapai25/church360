@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import '../providers/financeiro_providers.dart';
 import '../../domain/models/lancamento.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 
 class ExtratoScreen extends ConsumerStatefulWidget {
   const ExtratoScreen({super.key});
@@ -112,7 +113,13 @@ class _ExtratoScreenState extends ConsumerState<ExtratoScreen> {
       data: (lancamentos) => _buildExtratoLoaded(lancamentos),
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(
-        child: Text('Erro ao carregar extrato: $error'),
+        child: Text(
+          AppErrorHandler.userMessage(
+            error,
+            feature: 'finance.statement.load',
+          ),
+          textAlign: TextAlign.center,
+        ),
       ),
     );
   }
@@ -228,4 +235,3 @@ class _ExtratoScreenState extends ConsumerState<ExtratoScreen> {
     }
   }
 }
-

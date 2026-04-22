@@ -475,7 +475,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
 
     FilePickerResult? result;
     try {
-      result = await FilePicker.pickFiles(
+      result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         withData: true,
       );
@@ -772,7 +772,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   Future<void> _pickFiles() async {
     if (!_agent.allowAttachments) return;
     try {
-      final result = await FilePicker.pickFiles(
+      final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         withData: true, // Necessário para upload via bytes
       );
@@ -1860,3 +1860,4 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 }
+

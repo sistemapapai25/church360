@@ -1,11 +1,11 @@
 {
-  "name": "Church 360",
-  "short_name": "Church 360",
+  "name": "PAPAI - Igreja Apostólica e Profética Águas Purificadoras",
+  "short_name": "PAPAI",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0175C2",
   "theme_color": "#0175C2",
-  "description": "Church360",
+  "description": "Igreja Apostólica e Profética Águas Purificadoras",
   "orientation": "portrait-primary",
   "prefer_related_applications": false,
   "icons": [

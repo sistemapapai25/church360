@@ -274,6 +274,7 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
           'financial.view',
           'financial.view_reports',
           'groups.view',
+          'live_stream.manage',
         };
       case 4: // coordinator
         return const {
@@ -297,6 +298,7 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
           'courses.view',
           'courses.create',
           'courses.edit',
+          'live_stream.manage',
         };
       case 5: // admin/owner
         return const {
@@ -317,6 +319,7 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
           'settings.manage_permissions',
           'settings.manage_roles',
           'settings.manage_access_levels',
+          'live_stream.manage',
         };
       default:
         return const {};
@@ -430,6 +433,7 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
       'tags': 'Tags',
       'analytics': 'Analytics',
       'reading_plans': 'Planos de Leitura',
+      'live_stream': 'Culto ao vivo',
     };
     final label = labels[category];
     if (label != null) return label;
@@ -464,6 +468,7 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
       case 'settings': return Icons.settings;
       case 'dashboard': return Icons.dashboard;
       case 'tags': return Icons.label;
+      case 'live_stream': return Icons.live_tv;
       default: return Icons.security;
     }
   }

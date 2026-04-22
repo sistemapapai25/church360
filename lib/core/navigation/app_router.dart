@@ -85,12 +85,15 @@ import '../../features/news/presentation/screens/manage_news_screen.dart';
 import '../../features/news/presentation/screens/news_form_screen.dart';
 import '../../features/reading_plans/presentation/screens/reading_plans_list_screen.dart';
 import '../../features/reading_plans/presentation/screens/reading_plan_detail_screen.dart';
+import '../../features/reading_plans/presentation/screens/reading_plan_module_screen.dart';
 import '../../features/reading_plans/presentation/screens/manage_reading_plans_screen.dart';
 import '../../features/reading_plans/presentation/screens/reading_plan_form_screen.dart';
 import '../../features/bible/presentation/screens/bible_books_screen.dart';
+import '../../features/bible/presentation/screens/bible_bookmarks_screen.dart';
 import '../../features/bible/presentation/screens/bible_chapters_screen.dart';
 import '../../features/bible/presentation/screens/bible_lexicon_editor_screen.dart';
 import '../../features/bible/presentation/screens/bible_reader_screen.dart';
+import '../../features/bible/presentation/screens/bible_search_screen.dart';
 import '../../features/home_content/presentation/screens/banners_list_screen.dart';
 import '../../features/home_content/presentation/screens/banner_form_screen.dart';
 import '../../features/quick_news/presentation/screens/quick_news_list_screen.dart';
@@ -135,6 +138,8 @@ import '../../features/kids/presentation/screens/kids_registration_screen.dart';
 import '../../features/kids/presentation/screens/kids_admin_dashboard_screen.dart';
 import '../../features/kids/presentation/screens/kids_select_child_screen.dart';
 import '../../features/support_chat/presentation/screens/agents_center_screen.dart';
+import '../../features/live_stream/presentation/screens/live_stream_screen.dart';
+import '../../features/live_stream/presentation/screens/manage_live_stream_screen.dart';
 
 final overlayRefresh = ValueNotifier<int>(0);
 
@@ -220,6 +225,19 @@ final appRouter = GoRouter(
       path: '/dashboard',
       builder: (context, state) =>
           const DashboardAccessGate(child: DashboardScreen()),
+    ),
+    GoRoute(
+      path: '/live-stream',
+      builder: (context, state) => const LiveStreamScreen(),
+    ),
+    GoRoute(
+      path: '/live-stream/manage',
+      builder: (context, state) => const DashboardAccessGate(
+        child: PermissionOnlyRoute(
+          permission: 'live_stream.manage',
+          child: ManageLiveStreamScreen(),
+        ),
+      ),
     ),
     GoRoute(
       path: '/agents-center',
@@ -748,19 +766,33 @@ final appRouter = GoRouter(
     // Lista de grupos de estudo
     GoRoute(
       path: '/study-groups',
-      builder: (context, state) => const PermissionOnlyRoute(
-        permission: 'study_groups.view',
-        child: StudyGroupsListScreen(),
-      ),
+      builder: (context, state) {
+        final fromDashboard = state.uri.queryParameters['from'] == 'dashboard';
+        if (fromDashboard) {
+          return const DashboardAccessGate(
+            child: StudyGroupsListScreen(fromDashboard: true),
+          );
+        }
+        return const PermissionOnlyRoute(
+          permission: 'study_groups.view',
+          child: StudyGroupsListScreen(),
+        );
+      },
     ),
 
     // Novo grupo de estudo
     GoRoute(
       path: '/study-groups/new',
-      builder: (context, state) => const PermissionOnlyRoute(
-        permission: 'study_groups.create',
-        child: StudyGroupFormScreen(),
-      ),
+      builder: (context, state) {
+        final fromDashboard = state.uri.queryParameters['from'] == 'dashboard';
+        if (fromDashboard) {
+          return const DashboardAccessGate(child: StudyGroupFormScreen());
+        }
+        return const PermissionOnlyRoute(
+          permission: 'study_groups.create',
+          child: StudyGroupFormScreen(),
+        );
+      },
     ),
 
     // Detalhes do grupo de estudo
@@ -768,6 +800,12 @@ final appRouter = GoRouter(
       path: '/study-groups/:id',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
+        final fromDashboard = state.uri.queryParameters['from'] == 'dashboard';
+        if (fromDashboard) {
+          return DashboardAccessGate(
+            child: StudyGroupDetailScreen(groupId: id, fromDashboard: true),
+          );
+        }
         return PermissionOnlyRoute(
           permission: 'study_groups.view',
           child: StudyGroupDetailScreen(groupId: id),
@@ -780,6 +818,10 @@ final appRouter = GoRouter(
       path: '/study-groups/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
+        final fromDashboard = state.uri.queryParameters['from'] == 'dashboard';
+        if (fromDashboard) {
+          return DashboardAccessGate(child: StudyGroupFormScreen(groupId: id));
+        }
         return PermissionOnlyRoute(
           permission: 'study_groups.edit',
           child: StudyGroupFormScreen(groupId: id),
@@ -793,6 +835,12 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final groupId = state.pathParameters['groupId']!;
         final lessonId = state.pathParameters['lessonId']!;
+        final fromDashboard = state.uri.queryParameters['from'] == 'dashboard';
+        if (fromDashboard) {
+          return DashboardAccessGate(
+            child: LessonDetailScreen(groupId: groupId, lessonId: lessonId),
+          );
+        }
         return PermissionOnlyRoute(
           permission: 'study_groups.manage_lessons',
           child: LessonDetailScreen(groupId: groupId, lessonId: lessonId),
@@ -1097,6 +1145,16 @@ final appRouter = GoRouter(
         return ReadingPlanDetailScreen(planId: id);
       },
     ),
+    GoRoute(
+      path: '/reading-plans/:planId/modules/:day',
+      builder: (context, state) {
+        final planId = state.pathParameters['planId']!;
+        final rawDay = state.pathParameters['day'] ?? '1';
+        final parsedDay = int.tryParse(rawDay) ?? 1;
+        final day = parsedDay < 1 ? 1 : parsedDay;
+        return ReadingPlanModuleScreen(planId: planId, moduleDay: day);
+      },
+    ),
 
     // =====================================================
     // ROTAS: BANNERS DA HOME
@@ -1195,6 +1253,14 @@ final appRouter = GoRouter(
         final chapter = int.parse(state.pathParameters['chapter']!);
         return BibleReaderScreen(bookId: bookId, chapter: chapter);
       },
+    ),
+    GoRoute(
+      path: '/bible/search',
+      builder: (context, state) => const BibleSearchScreen(),
+    ),
+    GoRoute(
+      path: '/bible/bookmarks',
+      builder: (context, state) => const BibleBookmarksScreen(),
     ),
     GoRoute(
       path: '/bible/lexicon',

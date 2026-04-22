@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../constants/app_branding.dart';
 import '../widgets/app_logo.dart';
 
 /// Tela de Splash - Primeira tela do app
@@ -65,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen> {
             
             // Nome do app
             Text(
-              'Church 360',
+              AppBranding.appName,
               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.primary,
@@ -75,7 +76,10 @@ class _SplashScreenState extends State<SplashScreen> {
             
             // Subtítulo
             Text(
-              'Gestão Completa de Igrejas',
+              AppBranding.organizationName,
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Colors.grey,
                   ),

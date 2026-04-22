@@ -23,9 +23,7 @@ class DevotionalRepository {
         .eq('is_published', true)
         .order('devotional_date', ascending: false);
 
-    return (response as List)
-        .map((json) => Devotional.fromJson(json))
-        .toList();
+    return (response as List).map((json) => Devotional.fromJson(json)).toList();
   }
 
   /// Buscar todos os devocionais (incluindo rascunhos) - apenas Coordenadores+
@@ -36,9 +34,7 @@ class DevotionalRepository {
         .eq('tenant_id', _tenantId)
         .order('devotional_date', ascending: false);
 
-    return (response as List)
-        .map((json) => Devotional.fromJson(json))
-        .toList();
+    return (response as List).map((json) => Devotional.fromJson(json)).toList();
   }
 
   /// Buscar devocional por ID
@@ -57,7 +53,7 @@ class DevotionalRepository {
   /// Buscar devocional do dia
   Future<Devotional?> getTodayDevotional() async {
     final today = DateTime.now().toIso8601String().split('T')[0];
-    
+
     final response = await _supabase
         .from('devotionals')
         .select()
@@ -73,7 +69,7 @@ class DevotionalRepository {
   /// Buscar devocional por data
   Future<Devotional?> getDevotionalByDate(DateTime date) async {
     final dateStr = date.toIso8601String().split('T')[0];
-    
+
     final response = await _supabase
         .from('devotionals')
         .select()
@@ -139,7 +135,9 @@ class DevotionalRepository {
 
     if (title != null) data['title'] = title;
     if (content != null) data['content'] = content;
-    if (scriptureReference != null) data['scripture_reference'] = scriptureReference;
+    if (scriptureReference != null) {
+      data['scripture_reference'] = scriptureReference;
+    }
     if (devotionalDate != null) {
       data['devotional_date'] = devotionalDate.toIso8601String().split('T')[0];
     }
@@ -184,7 +182,9 @@ class DevotionalRepository {
   // =====================================================
 
   /// Buscar leituras de um devocional
-  Future<List<DevotionalReading>> getDevotionalReadings(String devotionalId) async {
+  Future<List<DevotionalReading>> getDevotionalReadings(
+    String devotionalId,
+  ) async {
     final response = await _supabase
         .from('devotional_readings')
         .select()
@@ -211,7 +211,9 @@ class DevotionalRepository {
         .toList();
   }
 
-  Future<List<Map<String, dynamic>>> getUserReadingsWithDevotional(String userId) async {
+  Future<List<Map<String, dynamic>>> getUserReadingsWithDevotional(
+    String userId,
+  ) async {
     final response = await _supabase
         .from('devotional_readings')
         .select('''
@@ -233,15 +235,8 @@ class DevotionalRepository {
 
   /// Verificar se usuário já leu um devocional
   Future<bool> hasUserReadDevotional(String userId, String devotionalId) async {
-    final response = await _supabase
-        .from('devotional_readings')
-        .select()
-        .eq('user_id', userId)
-        .eq('devotional_id', devotionalId)
-        .eq('tenant_id', _tenantId)
-        .maybeSingle();
-
-    return response != null;
+    final reading = await getUserDevotionalReading(userId, devotionalId);
+    return reading != null;
   }
 
   /// Buscar leitura específica
@@ -249,7 +244,7 @@ class DevotionalRepository {
     String userId,
     String devotionalId,
   ) async {
-    final response = await _supabase
+    final scopedResponse = await _supabase
         .from('devotional_readings')
         .select()
         .eq('user_id', userId)
@@ -257,8 +252,37 @@ class DevotionalRepository {
         .eq('tenant_id', _tenantId)
         .maybeSingle();
 
-    if (response == null) return null;
-    return DevotionalReading.fromJson(response);
+    if (scopedResponse != null) {
+      return DevotionalReading.fromJson(scopedResponse);
+    }
+
+    // Fallback para dados legados sem tenant_id sincronizado.
+    final legacyResponse = await _supabase
+        .from('devotional_readings')
+        .select()
+        .eq('user_id', userId)
+        .eq('devotional_id', devotionalId)
+        .maybeSingle();
+
+    if (legacyResponse == null) return null;
+
+    final currentTenant = legacyResponse['tenant_id'] as String?;
+    final shouldSyncTenant =
+        currentTenant == null ||
+        currentTenant.isEmpty ||
+        currentTenant != _tenantId;
+    if (shouldSyncTenant) {
+      await _supabase
+          .from('devotional_readings')
+          .update({'tenant_id': _tenantId})
+          .eq('user_id', userId)
+          .eq('devotional_id', devotionalId);
+    }
+
+    return DevotionalReading.fromJson({
+      ...legacyResponse,
+      'tenant_id': _tenantId,
+    });
   }
 
   /// Marcar devocional como lido
@@ -267,20 +291,53 @@ class DevotionalRepository {
     required String userId,
     String? notes,
   }) async {
+    final existing = await getUserDevotionalReading(userId, devotionalId);
+    final now = DateTime.now().toIso8601String();
+
+    if (existing != null) {
+      final response = await _supabase
+          .from('devotional_readings')
+          .update({'read_at': now, if (notes != null) 'notes': notes})
+          .eq('id', existing.id)
+          .eq('tenant_id', _tenantId)
+          .select()
+          .single();
+      return DevotionalReading.fromJson(response);
+    }
+
     final data = {
       'devotional_id': devotionalId,
       'user_id': userId,
+      'read_at': now,
       'notes': notes,
       'tenant_id': _tenantId,
     };
 
-    final response = await _supabase
-        .from('devotional_readings')
-        .upsert(data)
-        .select()
-        .single();
+    try {
+      final response = await _supabase
+          .from('devotional_readings')
+          .insert(data)
+          .select()
+          .single();
 
-    return DevotionalReading.fromJson(response);
+      return DevotionalReading.fromJson(response);
+    } on PostgrestException catch (e) {
+      if (e.code == '23505') {
+        final recovered = await getUserDevotionalReading(userId, devotionalId);
+        if (recovered != null) return recovered;
+        final fallbackNow = DateTime.now();
+        return DevotionalReading(
+          id: 'local-$devotionalId-$userId',
+          devotionalId: devotionalId,
+          userId: userId,
+          readAt: fallbackNow,
+          notes: notes,
+          createdAt: fallbackNow,
+          updatedAt: fallbackNow,
+        );
+      }
+      rethrow;
+    }
   }
 
   /// Atualizar anotações de leitura
@@ -316,14 +373,11 @@ class DevotionalRepository {
     required String devotionalId,
     required String userId,
   }) async {
-    await _supabase.from('devotional_bookmarks').upsert(
-      {
-        'tenant_id': _tenantId,
-        'user_id': userId,
-        'devotional_id': devotionalId,
-      },
-      onConflict: 'tenant_id,user_id,devotional_id',
-    );
+    await _supabase.from('devotional_bookmarks').upsert({
+      'tenant_id': _tenantId,
+      'user_id': userId,
+      'devotional_id': devotionalId,
+    }, onConflict: 'tenant_id,user_id,devotional_id');
   }
 
   Future<void> removeSavedDevotional({
@@ -386,7 +440,9 @@ class DevotionalRepository {
           final devotionalJson =
               (row as Map)['devotionals'] as Map<String, dynamic>?;
           if (devotionalJson == null) return null;
-          return Devotional.fromJson(devotionalJson).copyWith(isSavedByMe: true);
+          return Devotional.fromJson(
+            devotionalJson,
+          ).copyWith(isSavedByMe: true);
         })
         .whereType<Devotional>()
         .toList();
@@ -398,8 +454,10 @@ class DevotionalRepository {
 
   /// Obter estatísticas de um devocional
   Future<DevotionalStats> getDevotionalStats(String devotionalId) async {
-    final response = await _supabase
-        .rpc('get_devotional_stats', params: {'devotional_uuid': devotionalId});
+    final response = await _supabase.rpc(
+      'get_devotional_stats',
+      params: {'devotional_uuid': devotionalId},
+    );
 
     if (response == null || response.isEmpty) {
       return const DevotionalStats(totalReads: 0, uniqueReaders: 0);
@@ -410,8 +468,10 @@ class DevotionalRepository {
 
   /// Obter streak de leituras do usuário
   Future<int> getUserReadingStreak(String userId) async {
-    final response = await _supabase
-        .rpc('get_user_reading_streak', params: {'user_uuid': userId});
+    final response = await _supabase.rpc(
+      'get_user_reading_streak',
+      params: {'user_uuid': userId},
+    );
 
     return response as int? ?? 0;
   }
@@ -429,7 +489,9 @@ class DevotionalRepository {
   }
 
   /// Obter devocionais mais lidos
-  Future<List<Map<String, dynamic>>> getMostReadDevotionals({int limit = 10}) async {
+  Future<List<Map<String, dynamic>>> getMostReadDevotionals({
+    int limit = 10,
+  }) async {
     final response = await _supabase
         .from('devotional_readings')
         .select('devotional_id, devotionals(title, devotional_date)')

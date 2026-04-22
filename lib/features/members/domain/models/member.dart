@@ -9,6 +9,8 @@ class Member {
   final bool isActive;
   final bool showBirthday;
   final bool showContact;
+  final bool? lgpdConsent;
+  final DateTime? lgpdConsentAt;
 
   // Dados pessoais (member)
   final String? firstName;
@@ -91,6 +93,8 @@ class Member {
     this.isActive = true,
     this.showBirthday = false,
     this.showContact = false,
+    this.lgpdConsent,
+    this.lgpdConsentAt,
 
     // Dados pessoais
     this.firstName,
@@ -204,6 +208,43 @@ class Member {
 
   /// Criar a partir do JSON do Supabase
   factory Member.fromJson(Map<String, dynamic> json) {
+    bool? parseBoolValue(dynamic value) {
+      if (value is bool) return value;
+      if (value is num) return value != 0;
+      if (value is String) {
+        final normalized = value.trim().toLowerCase();
+        if (normalized == 'true' || normalized == '1' || normalized == 'sim') {
+          return true;
+        }
+        if (normalized == 'false' || normalized == '0' || normalized == 'nao' || normalized == 'não') {
+          return false;
+        }
+      }
+      return null;
+    }
+
+    DateTime? parseDateTimeValue(dynamic value) {
+      if (value == null) return null;
+      if (value is DateTime) return value;
+      if (value is String && value.trim().isNotEmpty) {
+        return DateTime.tryParse(value);
+      }
+      return null;
+    }
+
+    final lgpdConsentRaw =
+        json['lgpd_consent'] ??
+        json['consentimento_lgpd'] ??
+        json['privacy_consent'];
+    final lgpdConsentAtRaw =
+        json['lgpd_consent_at'] ??
+        json['consentimento_lgpd_at'] ??
+        json['privacy_consent_at'];
+    final credentialDateRaw =
+        json['credencial_date'] ??
+        json['credential_date'] ??
+        json['credentialDate'];
+
     return Member(
       // Autenticação
       id: json['id'] as String,
@@ -213,6 +254,8 @@ class Member {
       isActive: json['is_active'] as bool? ?? true,
       showBirthday: json['show_birthday'] as bool? ?? false,
       showContact: json['show_contact'] as bool? ?? false,
+      lgpdConsent: parseBoolValue(lgpdConsentRaw),
+      lgpdConsentAt: parseDateTimeValue(lgpdConsentAtRaw),
 
       // Dados pessoais
       firstName: json['first_name'] is String ? json['first_name'] as String : null,
@@ -295,9 +338,7 @@ class Member {
       membershipDate: json['membership_date'] != null
           ? DateTime.parse(json['membership_date'] as String)
           : null,
-      credentialDate: json['credencial_date'] != null
-          ? DateTime.parse(json['credencial_date'] as String)
-          : null,
+      credentialDate: parseDateTimeValue(credentialDateRaw),
 
       // Jornada do visitante
       firstVisitDate: json['first_visit_date'] != null
@@ -366,6 +407,8 @@ class Member {
       'is_active': isActive,
       'show_birthday': showBirthday,
       'show_contact': showContact,
+      'lgpd_consent': lgpdConsent,
+      'lgpd_consent_at': lgpdConsentAt?.toIso8601String(),
 
       // Dados pessoais
       'first_name': firstName,
@@ -451,6 +494,8 @@ class Member {
     bool? isActive,
     bool? showBirthday,
     bool? showContact,
+    bool? lgpdConsent,
+    DateTime? lgpdConsentAt,
     String? firstName,
     String? lastName,
     String? nickname,
@@ -491,6 +536,8 @@ class Member {
       isActive: isActive ?? this.isActive,
       showBirthday: showBirthday ?? this.showBirthday,
       showContact: showContact ?? this.showContact,
+      lgpdConsent: lgpdConsent ?? this.lgpdConsent,
+      lgpdConsentAt: lgpdConsentAt ?? this.lgpdConsentAt,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       nickname: nickname ?? this.nickname,

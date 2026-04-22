@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import '../constants/app_branding.dart';
 import '../widgets/church_image.dart';
 import '../widgets/app_logo.dart';
 import '../../features/permissions/presentation/widgets/dashboard_access_gate.dart';
@@ -184,7 +185,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Sair do aplicativo?'),
-            content: const Text('Deseja realmente sair do Church 360?'),
+            content: Text(
+              'Deseja realmente sair do ${AppBranding.appName}?',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -227,6 +230,22 @@ const double _homePagePadding = 16;
 const double _homeCardRadius = 16;
 const double _homeCardPadding = 16;
 const double _homeSectionGap = 12;
+
+BoxDecoration _homeCardDecoration(
+  ColorScheme cs, {
+  bool hovered = false,
+}) {
+  final isLight = cs.brightness == Brightness.light;
+  return CommunityDesign.overlayDecoration(cs, hovered: hovered).copyWith(
+    color: isLight ? Colors.white : cs.surface,
+    borderRadius: BorderRadius.circular(_homeCardRadius),
+    border: isLight
+        ? Border.all(
+            color: cs.outline.withValues(alpha: 0.08),
+          )
+        : null,
+  );
+}
 
 class _NavLogoIcon extends StatelessWidget {
   final bool isActive;
@@ -721,9 +740,7 @@ class _CommunityCtaCard extends StatelessWidget {
       );
     }
     return Container(
-      decoration: CommunityDesign.overlayDecoration(cs).copyWith(
-        borderRadius: BorderRadius.circular(_homeCardRadius),
-      ),
+      decoration: _homeCardDecoration(cs),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -1193,9 +1210,7 @@ class _HomeSectionCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(_homeCardPadding),
-      decoration: CommunityDesign.overlayDecoration(cs).copyWith(
-        borderRadius: BorderRadius.circular(_homeCardRadius),
-      ),
+      decoration: _homeCardDecoration(cs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1245,9 +1260,7 @@ class _HomeSectionSkeleton extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(_homeCardPadding),
-      decoration: CommunityDesign.overlayDecoration(cs).copyWith(
-        borderRadius: BorderRadius.circular(_homeCardRadius),
-      ),
+      decoration: _homeCardDecoration(cs),
       child: Row(
         children: [
           const SizedBox(
@@ -1431,6 +1444,14 @@ class _MoreTab extends ConsumerWidget {
             color: Colors.blue,
           ),
           const SizedBox(height: 12),
+          _buildMenuCard(
+            context,
+            Icons.live_tv_outlined,
+            'Culto ao vivo',
+            '/live-stream',
+            color: Colors.deepOrange,
+          ),
+          const SizedBox(height: 12),
           ConditionalDashboardAccess(
             builder: (context, canAccess) {
               if (!canAccess) return const SizedBox.shrink();
@@ -1530,7 +1551,7 @@ class _MoreTab extends ConsumerWidget {
 
           // Version
           Text(
-            'Church 360 v1.0.0',
+            AppBranding.versionLabel,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers/analytics_provider.dart';
+import '../../../../core/errors/app_error_handler.dart';
 
 class AnalyticsDashboardScreen extends ConsumerWidget {
   const AnalyticsDashboardScreen({super.key});
@@ -266,7 +267,13 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
             children: [
               const Icon(Icons.error_outline, size: 48, color: Colors.red),
               const SizedBox(height: 16),
-              Text('Erro ao carregar analytics: $error'),
+              Text(
+                AppErrorHandler.userMessage(
+                  error,
+                  feature: 'analytics.dashboard',
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => ref.invalidate(dashboardSummaryProvider),

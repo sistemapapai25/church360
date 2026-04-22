@@ -14,14 +14,83 @@ class StudyGroupRepository {
     if (email != null && email.trim().isNotEmpty) {
       try {
         final nickname = email.trim().split('@').first;
-        await _supabase.rpc('ensure_my_account', params: {
-          '_tenant_id': SupabaseConstants.currentTenantId,
-          '_email': email,
-          '_nickname': nickname,
-        });
+        await _supabase.rpc(
+          'ensure_my_account',
+          params: {
+            '_tenant_id': SupabaseConstants.currentTenantId,
+            '_email': email,
+            '_nickname': nickname,
+          },
+        );
       } catch (_) {}
     }
+    try {
+      final byAuthId = await _supabase
+          .from('user_account')
+          .select('id')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .eq('auth_user_id', user.id)
+          .limit(1)
+          .maybeSingle();
+      final resolvedId = (byAuthId?['id'] as String?)?.trim();
+      if (resolvedId != null && resolvedId.isNotEmpty) {
+        return resolvedId;
+      }
+    } catch (_) {}
+
+    try {
+      final byId = await _supabase
+          .from('user_account')
+          .select('id')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .eq('id', user.id)
+          .limit(1)
+          .maybeSingle();
+      final resolvedId = (byId?['id'] as String?)?.trim();
+      if (resolvedId != null && resolvedId.isNotEmpty) {
+        return resolvedId;
+      }
+    } catch (_) {}
+
     return user.id;
+  }
+
+  Future<Set<String>> _candidateUserIds(String userId) async {
+    final ids = <String>{};
+    final normalizedUserId = userId.trim();
+    if (normalizedUserId.isNotEmpty) {
+      ids.add(normalizedUserId);
+    }
+
+    final authId = _supabase.auth.currentUser?.id;
+    if (authId != null && authId.trim().isNotEmpty) {
+      ids.add(authId.trim());
+    }
+
+    final seeds = ids.toList(growable: false);
+    for (final seed in seeds) {
+      try {
+        final rows = await _supabase
+            .from('user_account')
+            .select('id, auth_user_id')
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .or('id.eq.$seed,auth_user_id.eq.$seed')
+            .limit(5);
+        for (final raw in rows as List) {
+          final row = Map<String, dynamic>.from(raw as Map);
+          final id = (row['id'] as String?)?.trim();
+          final authUserId = (row['auth_user_id'] as String?)?.trim();
+          if (id != null && id.isNotEmpty) {
+            ids.add(id);
+          }
+          if (authUserId != null && authUserId.isNotEmpty) {
+            ids.add(authUserId);
+          }
+        }
+      } catch (_) {}
+    }
+
+    return ids;
   }
 
   // =====================================================
@@ -36,9 +105,7 @@ class StudyGroupRepository {
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
-    return (response as List)
-        .map((json) => StudyGroup.fromJson(json))
-        .toList();
+    return (response as List).map((json) => StudyGroup.fromJson(json)).toList();
   }
 
   /// Obter grupos ativos
@@ -50,9 +117,7 @@ class StudyGroupRepository {
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
-    return (response as List)
-        .map((json) => StudyGroup.fromJson(json))
-        .toList();
+    return (response as List).map((json) => StudyGroup.fromJson(json)).toList();
   }
 
   /// Obter grupos públicos
@@ -65,9 +130,7 @@ class StudyGroupRepository {
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
-    return (response as List)
-        .map((json) => StudyGroup.fromJson(json))
-        .toList();
+    return (response as List).map((json) => StudyGroup.fromJson(json)).toList();
   }
 
   /// Obter grupos do usuário
@@ -89,7 +152,9 @@ class StudyGroupRepository {
           .toList();
     } catch (e) {
       final msg = e.toString();
-      final isPolicyRecursion = msg.contains('infinite recursion detected in policy') || msg.contains('42P17');
+      final isPolicyRecursion =
+          msg.contains('infinite recursion detected in policy') ||
+          msg.contains('42P17');
       if (isPolicyRecursion) return const [];
       rethrow;
     }
@@ -307,9 +372,13 @@ class StudyGroupRepository {
     if (description != null) data['description'] = description;
     if (bibleReferences != null) data['bible_references'] = bibleReferences;
     if (content != null) data['content'] = content;
-    if (discussionQuestions != null) data['discussion_questions'] = discussionQuestions;
+    if (discussionQuestions != null) {
+      data['discussion_questions'] = discussionQuestions;
+    }
     if (status != null) data['status'] = status.value;
-    if (scheduledDate != null) data['scheduled_date'] = scheduledDate.toIso8601String();
+    if (scheduledDate != null) {
+      data['scheduled_date'] = scheduledDate.toIso8601String();
+    }
     if (videoUrl != null) data['video_url'] = videoUrl;
     if (audioUrl != null) data['audio_url'] = audioUrl;
     if (pdfUrl != null) data['pdf_url'] = pdfUrl;
@@ -354,13 +423,18 @@ class StudyGroupRepository {
   }
 
   /// Obter participação do usuário no grupo
-  Future<StudyParticipant?> getUserParticipation(String groupId, String userId) async {
+  Future<StudyParticipant?> getUserParticipation(
+    String groupId,
+    String userId,
+  ) async {
+    final candidateIds = await _candidateUserIds(userId);
     final response = await _supabase
         .from('study_participants')
         .select()
         .eq('study_group_id', groupId)
-        .eq('user_id', userId)
+        .inFilter('user_id', candidateIds.toList())
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .limit(1)
         .maybeSingle();
 
     if (response == null) return null;
@@ -369,14 +443,16 @@ class StudyGroupRepository {
 
   /// Verificar se usuário é líder do grupo
   Future<bool> isUserLeader(String groupId, String userId) async {
+    final candidateIds = await _candidateUserIds(userId);
     final response = await _supabase
         .from('study_participants')
         .select()
         .eq('study_group_id', groupId)
-        .eq('user_id', userId)
+        .inFilter('user_id', candidateIds.toList())
         .eq('is_active', true)
         .inFilter('role', ['leader', 'co_leader'])
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .limit(1)
         .maybeSingle();
 
     return response != null;
@@ -388,18 +464,53 @@ class StudyGroupRepository {
     required String userId,
     ParticipantRole role = ParticipantRole.participant,
   }) async {
-    final response = await _supabase
+    final existing = await _supabase
         .from('study_participants')
-        .insert({
-          'study_group_id': groupId,
-          'user_id': userId,
-          'role': role.value,
-          'tenant_id': SupabaseConstants.currentTenantId,
-        })
         .select()
-        .single();
+        .eq('study_group_id', groupId)
+        .eq('user_id', userId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .maybeSingle();
 
-    return StudyParticipant.fromJson(response);
+    if (existing != null) {
+      final response = await _supabase
+          .from('study_participants')
+          .update({'role': role.value, 'is_active': true, 'left_at': null})
+          .eq('id', existing['id'])
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .select()
+          .single();
+      return StudyParticipant.fromJson(response);
+    }
+
+    try {
+      final response = await _supabase
+          .from('study_participants')
+          .insert({
+            'study_group_id': groupId,
+            'user_id': userId,
+            'role': role.value,
+            'tenant_id': SupabaseConstants.currentTenantId,
+          })
+          .select()
+          .single();
+
+      return StudyParticipant.fromJson(response);
+    } on PostgrestException catch (e) {
+      if (e.code == '23505') {
+        final recovered = await _supabase
+            .from('study_participants')
+            .select()
+            .eq('study_group_id', groupId)
+            .eq('user_id', userId)
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .maybeSingle();
+        if (recovered != null) {
+          return StudyParticipant.fromJson(recovered);
+        }
+      }
+      rethrow;
+    }
   }
 
   /// Atualizar papel do participante
@@ -464,7 +575,10 @@ class StudyGroupRepository {
   }
 
   /// Obter presença do usuário em uma lição
-  Future<StudyAttendance?> getUserLessonAttendance(String lessonId, String userId) async {
+  Future<StudyAttendance?> getUserLessonAttendance(
+    String lessonId,
+    String userId,
+  ) async {
     final response = await _supabase
         .from('study_attendance')
         .select()
@@ -689,19 +803,23 @@ class StudyGroupRepository {
 
   /// Obter estatísticas do grupo
   Future<Map<String, dynamic>> getGroupStats(String groupId) async {
-    final response = await _supabase
-        .rpc('get_group_progress', params: {'target_group_id': groupId});
+    final response = await _supabase.rpc(
+      'get_group_progress',
+      params: {'target_group_id': groupId},
+    );
 
     return response as Map<String, dynamic>;
   }
 
   /// Obter taxa de presença do participante
-  Future<double> getParticipantAttendanceRate(String groupId, String userId) async {
-    final response = await _supabase
-        .rpc('get_participant_attendance_rate', params: {
-          'target_group_id': groupId,
-          'target_user_id': userId,
-        });
+  Future<double> getParticipantAttendanceRate(
+    String groupId,
+    String userId,
+  ) async {
+    final response = await _supabase.rpc(
+      'get_participant_attendance_rate',
+      params: {'target_group_id': groupId, 'target_user_id': userId},
+    );
 
     return (response as num).toDouble();
   }

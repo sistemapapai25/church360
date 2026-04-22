@@ -11,13 +11,56 @@ import '../../../notifications/presentation/widgets/notification_badge.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 import '../providers/members_provider.dart';
+import '../../data/members_repository.dart';
 import '../../domain/models/member.dart';
+import '../../domain/lgpd_request_labels.dart';
 
 const double _pagePadding = 16;
 const double _cardPadding = 16;
 const double _cardRadius = 16;
 const double _sectionGap = 16;
 const double _iconBubbleSize = 36;
+
+class _LgpdRequestOption {
+  final String type;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  const _LgpdRequestOption({
+    required this.type,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
+}
+
+const List<_LgpdRequestOption> _lgpdRequestOptions = [
+  _LgpdRequestOption(
+    type: 'export',
+    title: 'Exportação de dados',
+    subtitle: 'Solicitar cópia dos dados pessoais tratados',
+    icon: Icons.download_outlined,
+  ),
+  _LgpdRequestOption(
+    type: 'deletion',
+    title: 'Exclusão de dados',
+    subtitle: 'Solicitar remoção de dados quando aplicável',
+    icon: Icons.delete_outline,
+  ),
+  _LgpdRequestOption(
+    type: 'anonymization',
+    title: 'Anonimização',
+    subtitle: 'Solicitar anonimização dos dados pessoais',
+    icon: Icons.visibility_off_outlined,
+  ),
+  _LgpdRequestOption(
+    type: 'retention',
+    title: 'Retenção',
+    subtitle: 'Solicitar informação/ajuste de prazo de retenção',
+    icon: Icons.history_toggle_off_outlined,
+  ),
+];
 
 /// Tela de perfil completo do membro
 class MemberProfileScreen extends ConsumerStatefulWidget {
@@ -315,6 +358,615 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutCubic,
     );
+  }
+
+  Widget _buildLgpdConsentRow(BuildContext context, WidgetRef ref, Member member) {
+    final hasConsent = member.lgpdConsent == true;
+    final consentAt = member.lgpdConsentAt;
+    final statusText = hasConsent
+        ? (consentAt != null
+              ? 'Concedido em ${_formatShortDate(consentAt)}'
+              : 'Concedido')
+        : 'Não concedido';
+    final primary = Theme.of(context).colorScheme.primary;
+    final statusColor = hasConsent ? Colors.green : Colors.orange;
+    final statusIcon = hasConsent ? Icons.check_circle_outline : Icons.info_outline;
+    final currentMember = ref.watch(currentMemberProvider).valueOrNull;
+    final canUpdate = currentMember?.id == member.id;
+
+    final actionLabel = canUpdate
+        ? (hasConsent ? 'Revogar' : 'Conceder')
+        : 'Ver Política';
+
+    return _buildInfoRowWithAction(
+      Icons.verified_user_outlined,
+      'Consentimento LGPD',
+      statusText,
+      actionLabel,
+      () async {
+        if (!canUpdate) {
+          await _openLgpdPolicy(memberId: member.id);
+          return;
+        }
+        await _toggleLgpdConsent(context, ref, member, hasConsent: hasConsent);
+      },
+      valueIcon: statusIcon,
+      valueColor: statusColor,
+      actionColor: canUpdate ? primary : Colors.blue,
+    );
+  }
+
+  Widget _buildLgpdPolicyRow(BuildContext context, Member member) {
+    return _buildInfoRowWithAction(
+      Icons.privacy_tip_outlined,
+      'Política LGPD',
+      'Visualizar documento',
+      'Abrir',
+      () async {
+        await _openLgpdPolicy(memberId: member.id);
+      },
+      valueIcon: Icons.description_outlined,
+      valueColor: Colors.blue,
+      actionColor: Colors.blue,
+    );
+  }
+
+  Widget _buildCommitmentTermsRow(BuildContext context, Member member) {
+    return _buildInfoRowWithAction(
+      Icons.handshake_outlined,
+      'Termos de Compromisso',
+      'Visualizar documento',
+      'Abrir',
+      () async {
+        await _openCommitmentTerms(memberId: member.id);
+      },
+      valueIcon: Icons.open_in_new,
+      valueColor: Colors.deepPurple,
+      actionColor: Colors.deepPurple,
+    );
+  }
+
+  Widget _buildLgpdRightsRow(BuildContext context, WidgetRef ref, Member member) {
+    final currentMember = ref.watch(currentMemberProvider).valueOrNull;
+    final canRequest = currentMember?.id == member.id;
+    return _buildInfoRowWithAction(
+      Icons.gavel_outlined,
+      'Direitos do Titular',
+      'Exportação, exclusão, anonimização e retenção',
+      canRequest ? 'Solicitar' : 'Ver Política',
+      () async {
+        if (!canRequest) {
+          await _openLgpdPolicy(memberId: member.id);
+          return;
+        }
+        await _openLgpdRightsRequestDialog(context, ref);
+      },
+      valueIcon: Icons.privacy_tip_outlined,
+      valueColor: Colors.teal,
+      actionColor: canRequest ? Colors.teal : Colors.blue,
+    );
+  }
+
+  Widget _buildLgpdRequestsHistoryRow(BuildContext context, WidgetRef ref, Member member) {
+    final currentMember = ref.watch(currentMemberProvider).valueOrNull;
+    final canOpen = currentMember?.id == member.id;
+    return _buildInfoRowWithAction(
+      Icons.history_outlined,
+      'Minhas Solicitações LGPD',
+      'Acompanhar status das solicitações enviadas',
+      canOpen ? 'Ver Histórico' : 'Indisponível',
+      () async {
+        if (!canOpen) return;
+        await _openLgpdRequestsHistory(context, ref);
+      },
+      valueIcon: Icons.receipt_long_outlined,
+      valueColor: Colors.indigo,
+      actionColor: canOpen ? Colors.indigo : Colors.grey,
+    );
+  }
+
+  Widget _buildLgpdAdminQueueRow(BuildContext context, WidgetRef ref) {
+    return PermissionGate(
+      permission: 'lgpd.requests.manage',
+      showLoading: false,
+      fallback: const SizedBox.shrink(),
+      child: _buildInfoRowWithAction(
+        Icons.admin_panel_settings_outlined,
+        'Painel LGPD',
+        'Triagem e processamento de solicitações',
+        'Gerenciar',
+        () async => _openLgpdAdminQueue(context, ref),
+        valueIcon: Icons.rule_folder_outlined,
+        valueColor: Colors.deepOrange,
+        actionColor: Colors.deepOrange,
+      ),
+    );
+  }
+
+  Future<void> _openLgpdRightsRequestDialog(BuildContext context, WidgetRef ref) async {
+    final option = await showModalBottomSheet<_LgpdRequestOption>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text('Solicitar direito LGPD'),
+                subtitle: const Text('Escolha o tipo de solicitação'),
+                leading: const Icon(Icons.privacy_tip_outlined),
+              ),
+              for (final item in _lgpdRequestOptions)
+                ListTile(
+                  leading: Icon(item.icon),
+                  title: Text(item.title),
+                  subtitle: Text(item.subtitle),
+                  onTap: () => Navigator.of(sheetContext).pop(item),
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (option == null || !context.mounted) return;
+
+    final reasonController = TextEditingController();
+    DateTime? retentionUntil;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (innerContext, setInnerState) {
+            return AlertDialog(
+              title: Text(option.title),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(option.subtitle),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: reasonController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Detalhes (opcional)',
+                      hintText: 'Descreva qualquer contexto para esta solicitação',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (option.type == 'retention') ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final now = DateTime.now();
+                        final picked = await showDatePicker(
+                          context: innerContext,
+                          initialDate: now.add(const Duration(days: 30)),
+                          firstDate: now,
+                          lastDate: DateTime(now.year + 10),
+                        );
+                        if (picked == null) return;
+                        setInnerState(() => retentionUntil = picked);
+                      },
+                      icon: const Icon(Icons.calendar_today_outlined),
+                      label: Text(
+                        retentionUntil == null
+                            ? 'Definir prazo de retenção'
+                            : 'Retenção até ${_formatShortDate(retentionUntil!)}',
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Enviar solicitação'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      reasonController.dispose();
+      return;
+    }
+
+    try {
+      final repo = ref.read(membersRepositoryProvider);
+      await repo.submitLgpdDataRequest(
+        requestType: option.type,
+        reason: reasonController.text.trim().isEmpty ? null : reasonController.text.trim(),
+        retentionUntil: retentionUntil,
+      );
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Solicitação LGPD enviada: ${option.title}.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Não foi possível enviar a solicitação LGPD: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      reasonController.dispose();
+    }
+  }
+
+  Future<void> _openLgpdRequestsHistory(BuildContext context, WidgetRef ref) async {
+    try {
+      final repo = ref.read(membersRepositoryProvider);
+      final requests = await repo.getMyLgpdDataRequests(limit: 30);
+      if (!context.mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (sheetContext) {
+          return SafeArea(
+            child: SizedBox(
+              height: MediaQuery.of(sheetContext).size.height * 0.7,
+              child: Column(
+                children: [
+                  const ListTile(
+                    leading: Icon(Icons.receipt_long_outlined),
+                    title: Text('Histórico de solicitações LGPD'),
+                    subtitle: Text('Últimas solicitações enviadas por você'),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: requests.isEmpty
+                        ? const Center(
+                            child: Text('Você ainda não enviou solicitações LGPD.'),
+                          )
+                        : ListView.separated(
+                            itemCount: requests.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (itemContext, index) {
+                              final request = requests[index];
+                              final requestedAtText = request.requestedAt == null
+                                  ? 'Data não informada'
+                                  : _formatShortDate(request.requestedAt!);
+                              final resolvedAtText = request.resolvedAt == null
+                                  ? null
+                                  : _formatShortDate(request.resolvedAt!);
+                              final resolutionNotes = (request.resolutionNotes ?? '').trim();
+                              final hasResolutionNotes = resolutionNotes.isNotEmpty;
+                              return ListTile(
+                                leading: const Icon(Icons.privacy_tip_outlined),
+                                title: Text(lgpdRequestTypeLabel(request.requestType)),
+                                subtitle: Text(
+                                  [
+                                    'Status: ${lgpdStatusLabel(request.status)}',
+                                    'Solicitado em: $requestedAtText',
+                                    if (resolvedAtText != null) 'Resolvido em: $resolvedAtText',
+                                    if (hasResolutionNotes) 'Observação: $resolutionNotes',
+                                  ].join('\n'),
+                                ),
+                                isThreeLine: true,
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Não foi possível carregar histórico LGPD: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _openLgpdAdminQueue(BuildContext context, WidgetRef ref) async {
+    String selectedStatus = 'pending';
+    var refreshTick = 0;
+    final repository = ref.read(membersRepositoryProvider);
+
+    Future<List<LgpdDataRequest>> loadRequests() {
+      final status = selectedStatus == 'all' ? null : selectedStatus;
+      return repository.getLgpdDataRequestsForProcessing(status: status, limit: 50);
+    }
+
+    if (!context.mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (innerContext, setInnerState) {
+            return SafeArea(
+              child: SizedBox(
+                height: MediaQuery.of(innerContext).size.height * 0.8,
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.admin_panel_settings_outlined),
+                      title: const Text('Painel de solicitações LGPD'),
+                      subtitle: Text('Filtro atual: ${lgpdStatusLabel(selectedStatus)}'),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            for (final status in const [
+                              'all',
+                              'pending',
+                              'in_review',
+                              'approved',
+                              'rejected',
+                              'completed',
+                            ])
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: Text(lgpdStatusLabel(status)),
+                                  selected: selectedStatus == status,
+                                  onSelected: (_) {
+                                    setInnerState(() {
+                                      selectedStatus = status;
+                                      refreshTick++;
+                                    });
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: FutureBuilder<List<LgpdDataRequest>>(
+                        key: ValueKey(refreshTick),
+                        future: loadRequests(),
+                        builder: (builderContext, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
+                          if (snapshot.hasError) {
+                            return Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Text(
+                                  'Erro ao carregar solicitações: ${snapshot.error}',
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            );
+                          }
+                          final requests = snapshot.data ?? <LgpdDataRequest>[];
+                          if (requests.isEmpty) {
+                            return const Center(
+                              child: Text('Nenhuma solicitação para o filtro selecionado.'),
+                            );
+                          }
+                          return ListView.separated(
+                            itemCount: requests.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (itemContext, index) {
+                              final request = requests[index];
+                              final requestedAtText = request.requestedAt == null
+                                  ? 'Data não informada'
+                                  : _formatShortDate(request.requestedAt!);
+                              return ListTile(
+                                leading: const Icon(Icons.privacy_tip_outlined),
+                                title: Text(lgpdRequestTypeLabel(request.requestType)),
+                                subtitle: Text(
+                                  'Status: ${lgpdStatusLabel(request.status)}\n'
+                                  'Solicitado em: $requestedAtText\n'
+                                  'ID: ${request.id}',
+                                ),
+                                isThreeLine: true,
+                                trailing: PopupMenuButton<String>(
+                                  tooltip: 'Alterar status',
+                                  onSelected: (nextStatus) async {
+                                    final resolutionNotes = await _askLgpdResolutionNotes(
+                                      innerContext,
+                                      nextStatus: nextStatus,
+                                    );
+                                    if (resolutionNotes == null) return;
+
+                                    try {
+                                      await repository.processLgpdDataRequest(
+                                        requestId: request.id,
+                                        nextStatus: nextStatus,
+                                        resolutionNotes: resolutionNotes,
+                                      );
+                                      if (!innerContext.mounted) return;
+                                      ScaffoldMessenger.of(innerContext).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Solicitação atualizada com sucesso.'),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                      setInnerState(() => refreshTick++);
+                                    } catch (e) {
+                                      if (!innerContext.mounted) return;
+                                      ScaffoldMessenger.of(innerContext).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Falha ao atualizar solicitação: $e'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  itemBuilder: (menuContext) => const [
+                                    PopupMenuItem(
+                                      value: 'in_review',
+                                      child: Text('Mover para Em análise'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'approved',
+                                      child: Text('Aprovar'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'rejected',
+                                      child: Text('Rejeitar'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'completed',
+                                      child: Text('Concluir'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<String?> _askLgpdResolutionNotes(
+    BuildContext context, {
+    required String nextStatus,
+  }) async {
+    final controller = TextEditingController();
+    final result = await showDialog<String?>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirmar atualização'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Alterar status para ${lgpdStatusLabel(nextStatus)}?'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Observação (opcional)',
+                hintText: 'Ex.: Evidência validada pelo time jurídico',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(null),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return result;
+  }
+
+  Future<void> _openLgpdPolicy({required String memberId}) async {
+    final url = Uri.parse('https://www.gov.br/anpd/pt-br/assuntos/protecao-de-dados-pessoais').replace(
+      queryParameters: {'member_id': memberId},
+    );
+    await launchUrl(url, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _openCommitmentTerms({required String memberId}) async {
+    final url = Uri.parse('https://church360.app/legal/termos-de-compromisso').replace(
+      queryParameters: {'member_id': memberId},
+    );
+    await launchUrl(url, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _toggleLgpdConsent(
+    BuildContext context,
+    WidgetRef ref,
+    Member member, {
+    required bool hasConsent,
+  }) async {
+    final nextConsent = !hasConsent;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(nextConsent ? 'Conceder consentimento' : 'Revogar consentimento'),
+          content: Text(
+            nextConsent
+                ? 'Deseja registrar seu consentimento LGPD agora?'
+                : 'Deseja revogar seu consentimento LGPD?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(nextConsent ? 'Conceder' : 'Revogar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final repo = ref.read(membersRepositoryProvider);
+      await repo.updateLgpdConsent(memberId: member.id, consent: nextConsent);
+      ref.invalidate(memberByIdProvider(member.id));
+      ref.invalidate(currentMemberProvider);
+      ref.invalidate(allMembersProvider);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            nextConsent
+                ? 'Consentimento LGPD registrado com sucesso.'
+                : 'Consentimento LGPD revogado com sucesso.',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Não foi possível atualizar o consentimento LGPD: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _buildMyHeader(BuildContext context, WidgetRef ref, Member member) {
@@ -760,6 +1412,12 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     if (member.credentialDate != null) {
       items.add(_buildCredentialRow(context, member.credentialDate!));
     }
+    items.add(_buildLgpdConsentRow(context, ref, member));
+    items.add(_buildLgpdPolicyRow(context, member));
+    items.add(_buildCommitmentTermsRow(context, member));
+    items.add(_buildLgpdRightsRow(context, ref, member));
+    items.add(_buildLgpdRequestsHistoryRow(context, ref, member));
+    items.add(_buildLgpdAdminQueueRow(context, ref));
 
     if (items.isEmpty) {
       return Text(
@@ -1294,24 +1952,20 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             'Data de Casamento',
             '${member.marriageDate!.day.toString().padLeft(2, '0')}/${member.marriageDate!.month.toString().padLeft(2, '0')}/${member.marriageDate!.year}',
           ),
-        // Credencial Ativa (placeholder - implementar depois)
-        _buildInfoRow(
-          Icons.badge,
-          'Credencial Ativa',
-          'Válida até 17/10/2030',
-          valueColor: Colors.green,
-        ),
-        // Consentimento LGPD (placeholder - implementar depois)
-        _buildInfoRowWithAction(
-          Icons.check_circle,
-          'Consentimento LGPD',
-          'Concedido',
-          'Ver Política',
-          () {
-            final url = Uri.parse('https://www.gov.br/anpd/pt-br');
-            launchUrl(url, mode: LaunchMode.externalApplication);
-          },
-        ),
+        if (member.credentialDate != null)
+          _buildCredentialRow(context, member.credentialDate!)
+        else
+          _buildInfoRow(
+            Icons.badge,
+            'Credencial',
+            'Não informada',
+          ),
+        _buildLgpdConsentRow(context, ref, member),
+        _buildLgpdPolicyRow(context, member),
+        _buildCommitmentTermsRow(context, member),
+        _buildLgpdRightsRow(context, ref, member),
+        _buildLgpdRequestsHistoryRow(context, ref, member),
+        _buildLgpdAdminQueueRow(context, ref),
       ],
     );
   }
@@ -1645,10 +2299,16 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     String value,
     String actionLabel,
     VoidCallback onAction,
-  ) {
+    {
+    IconData valueIcon = Icons.check_circle_outline,
+    Color? valueColor,
+    Color? actionColor,
+  }) {
     return Builder(
       builder: (context) {
         final colorScheme = Theme.of(context).colorScheme;
+        final effectiveValueColor = valueColor ?? colorScheme.primary;
+        final effectiveActionColor = actionColor ?? Colors.blue;
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(
@@ -1678,9 +2338,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                     Row(
                       children: [
                         Icon(
-                          Icons.check_circle_outline,
+                          valueIcon,
                           size: 14,
-                          color: colorScheme.primary,
+                          color: effectiveValueColor,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -1688,7 +2348,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                           style: CommunityDesign.titleStyle(context).copyWith(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: colorScheme.primary,
+                            color: effectiveValueColor,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -1698,14 +2358,16 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withValues(alpha: 0.12),
+                              color: effectiveActionColor.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(999),
-                              border: Border.all(color: Colors.blue.withValues(alpha: 0.28)),
+                              border: Border.all(
+                                color: effectiveActionColor.withValues(alpha: 0.28),
+                              ),
                             ),
                             child: Text(
                               actionLabel,
-                              style: const TextStyle(
-                                color: Colors.blue,
+                              style: TextStyle(
+                                color: effectiveActionColor,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                               ),

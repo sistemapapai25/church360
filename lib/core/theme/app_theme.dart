@@ -28,6 +28,15 @@ class AppTheme {
   static final Color input = HSLColor.fromAHSL(1.0, 250, 0.20, 0.90).toColor();
   static final Color ring = HSLColor.fromAHSL(1.0, 240, 0.60, 0.50).toColor();
 
+  static final ColorScheme _lightColorScheme = ColorScheme.fromSeed(
+    seedColor: primaryColor,
+    secondary: secondaryColor,
+    error: errorColor,
+    brightness: Brightness.light,
+  ).copyWith(
+    surface: card,
+  );
+
   static const BorderRadius radiusLg = BorderRadius.all(Radius.circular(12));
   static const BorderRadius radiusMd = BorderRadius.all(Radius.circular(10));
   static const BorderRadius radiusSm = BorderRadius.all(Radius.circular(8));
@@ -94,26 +103,38 @@ class AppTheme {
     brightness: Brightness.light,
     
     // Color Scheme
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: primaryColor,
-      secondary: secondaryColor,
-      error: errorColor,
-      brightness: Brightness.light,
-    ),
+    colorScheme: _lightColorScheme,
+    cardColor: card,
     
     // AppBar
     appBarTheme: const AppBarTheme(
       centerTitle: true,
       elevation: 0,
       scrolledUnderElevation: 2,
+      surfaceTintColor: Colors.transparent,
     ),
     
     // Card
     cardTheme: CardThemeData(
+      color: card,
       elevation: 2,
+      surfaceTintColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(12)),
       ),
+    ),
+
+    dialogTheme: DialogThemeData(
+      backgroundColor: card,
+      surfaceTintColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(16)),
+      ),
+    ),
+
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: card,
+      surfaceTintColor: Colors.transparent,
     ),
     
     // Input Decoration
@@ -182,6 +203,7 @@ class AppTheme {
     // Card
     cardTheme: CardThemeData(
       elevation: 2,
+      surfaceTintColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(12)),
       ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 class AppLogo extends StatelessWidget {
   final double? size;
@@ -20,17 +19,11 @@ class AppLogo extends StatelessWidget {
     final resolvedWidth = size ?? width;
     final resolvedHeight = size ?? height;
 
-    return SvgPicture.asset(
-      'assets/images/church360-sf-p.svg',
+    return Image.asset(
+      'assets/images/brand_logo.png',
       width: resolvedWidth,
       height: resolvedHeight,
       fit: fit,
-      placeholderBuilder: (context) => Image.asset(
-        'assets/images/church360_logo.jpg',
-        width: resolvedWidth,
-        height: resolvedHeight,
-        fit: fit,
-      ),
     );
   }
 }

@@ -38,14 +38,43 @@ class CommunityDesign {
     );
   }
 
+  static bool isLightScheme(ColorScheme colorScheme) {
+    return colorScheme.brightness == Brightness.light;
+  }
+
+  static Color cardSurfaceColor(ColorScheme colorScheme) {
+    return isLightScheme(colorScheme) ? Colors.white : colorScheme.surface;
+  }
+
+  static Border? cardBorder(
+    ColorScheme colorScheme, {
+    double alpha = 0.08,
+  }) {
+    if (!isLightScheme(colorScheme)) return null;
+    return Border.all(
+      color: colorScheme.outline.withValues(alpha: alpha),
+    );
+  }
+
   static BoxDecoration overlayDecoration(
     ColorScheme colorScheme, {
     bool hovered = false,
   }) {
     return BoxDecoration(
-      color: colorScheme.surface,
+      color: cardSurfaceColor(colorScheme),
       borderRadius: BorderRadius.circular(radius),
       boxShadow: [hovered ? overlayHoverShadow() : overlayBaseShadow()],
+      border: cardBorder(colorScheme),
+    );
+  }
+
+  static BoxDecoration feedCardDecoration(
+    ColorScheme colorScheme, {
+    bool hovered = false,
+    double? radiusValue,
+  }) {
+    return overlayDecoration(colorScheme, hovered: hovered).copyWith(
+      borderRadius: BorderRadius.circular(radiusValue ?? radius),
     );
   }
 
@@ -160,7 +189,7 @@ class CommunityDesign {
 
   static BoxDecoration reactionOverlayDecoration(ColorScheme colorScheme) {
     return BoxDecoration(
-      color: colorScheme.surface,
+      color: cardSurfaceColor(colorScheme),
       borderRadius: BorderRadius.circular(999),
       boxShadow: [
         BoxShadow(
@@ -292,10 +321,22 @@ class CommunityDesign {
     return base.copyWith(
       colorScheme: scheme,
       scaffoldBackgroundColor: bg,
+      cardColor: surface,
+      cardTheme: base.cardTheme.copyWith(
+        color: surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      ),
       dialogTheme: base.dialogTheme.copyWith(
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      bottomSheetTheme: base.bottomSheetTheme.copyWith(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
       ),
       inputDecorationTheme: base.inputDecorationTheme.copyWith(
         filled: true,

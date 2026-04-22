@@ -6,8 +6,71 @@ import '../../../core/constants/supabase_constants.dart';
 /// Responsável por toda comunicação com Supabase Auth
 class AuthRepository {
   final SupabaseClient _supabase;
+  static const List<List<String>> _lgpdStrategies = [
+    ['lgpd_consent', 'lgpd_consent_at'],
+    ['consentimento_lgpd', 'consentimento_lgpd_at'],
+    ['privacy_consent', 'privacy_consent_at'],
+  ];
+  static const List<List<String>> _commitmentTermsStrategies = [
+    ['commitment_terms_accepted', 'commitment_terms_accepted_at'],
+    ['termos_compromisso_aceito', 'termos_compromisso_aceito_em'],
+    ['terms_commitment_accepted', 'terms_commitment_accepted_at'],
+  ];
 
   AuthRepository(this._supabase);
+
+  bool _isMissingColumnError(Object error, Iterable<String> columns) {
+    final msg = error.toString().toLowerCase();
+    final hasMissingMarker =
+        msg.contains('pgrst204') ||
+        msg.contains('42703') ||
+        msg.contains('does not exist') ||
+        msg.contains('column');
+    if (!hasMissingMarker) return false;
+    return columns.any((column) => msg.contains(column.toLowerCase()));
+  }
+
+  Future<void> _persistConsentWithStrategies({
+    required String memberId,
+    required List<List<String>> strategies,
+  }) async {
+    final acceptedAt = DateTime.now().toIso8601String();
+    for (final strategy in strategies) {
+      final payload = <String, dynamic>{
+        strategy[0]: true,
+        strategy[1]: acceptedAt,
+      };
+      try {
+        await _supabase
+            .from('user_account')
+            .update(payload)
+            .eq('id', memberId)
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .select()
+            .maybeSingle();
+        return;
+      } catch (e) {
+        if (_isMissingColumnError(e, strategy)) {
+          continue;
+        }
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> _persistLgpdConsentAtSignUp({required String memberId}) async {
+    await _persistConsentWithStrategies(
+      memberId: memberId,
+      strategies: _lgpdStrategies,
+    );
+  }
+
+  Future<void> _persistCommitmentTermsAtSignUp({required String memberId}) async {
+    await _persistConsentWithStrategies(
+      memberId: memberId,
+      strategies: _commitmentTermsStrategies,
+    );
+  }
 
   String? _resolveUserEmail(User user) {
     final direct = user.email?.trim();
@@ -576,6 +639,8 @@ class AuthRepository {
     required String firstName,
     required String lastName,
     required String nickname,
+    required bool lgpdConsent,
+    required bool commitmentTermsAccepted,
   }) async {
     try {
       final response = await _supabase.auth.signUp(
@@ -625,6 +690,42 @@ class AuthRepository {
             '❌ [AuthRepository.signUp] update user_account falhou: $e',
           );
         }
+
+        if (lgpdConsent) {
+          try {
+            await _persistLgpdConsentAtSignUp(memberId: memberId);
+          } catch (e) {
+            debugPrint('❌ [AuthRepository.signUp] persistir LGPD falhou: $e');
+          }
+        }
+
+        if (commitmentTermsAccepted) {
+          try {
+            await _persistCommitmentTermsAtSignUp(memberId: memberId);
+          } catch (e) {
+            debugPrint(
+              '❌ [AuthRepository.signUp] persistir termos de compromisso falhou: $e',
+            );
+          }
+        }
+      }
+
+      try {
+        await _supabase.auth.updateUser(
+          UserAttributes(
+            data: {
+              'lgpd_consent': lgpdConsent,
+              if (lgpdConsent) 'lgpd_consent_at': DateTime.now().toIso8601String(),
+              'commitment_terms_accepted': commitmentTermsAccepted,
+              if (commitmentTermsAccepted)
+                'commitment_terms_accepted_at': DateTime.now().toIso8601String(),
+            },
+          ),
+        );
+      } catch (e) {
+        debugPrint(
+          '❌ [AuthRepository.signUp] updateUser metadata de consentimento falhou: $e',
+        );
       }
 
       return response;

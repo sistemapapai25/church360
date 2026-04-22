@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import '../providers/financeiro_providers.dart';
 import '../../domain/models/lancamento.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 
 class LancamentosListScreen extends ConsumerStatefulWidget {
   const LancamentosListScreen({super.key});
@@ -152,7 +153,18 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            Text('Erro ao carregar lançamentos: $error'),
+            Text(
+              AppErrorHandler.userMessage(
+                error,
+                feature: 'finance.transactions.load',
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => ref.invalidate(filteredLancamentosProvider),
+              child: const Text('Tentar novamente'),
+            ),
           ],
         ),
       ),
@@ -516,7 +528,12 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
                             );
                           },
                           loading: () => const LinearProgressIndicator(),
-                          error: (e, _) => Text('Erro ao carregar categorias: $e'),
+                          error: (e, _) => Text(
+                            AppErrorHandler.userMessage(
+                              e,
+                              feature: 'finance.categories.load_for_filter',
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 12),
                         OutlinedButton.icon(
@@ -600,8 +617,12 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao pagar lançamento: $e')),
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'finance.transactions.pay',
+          fallbackMessage:
+              'Nao foi possivel marcar como pago. Tente novamente.',
         );
       }
     }

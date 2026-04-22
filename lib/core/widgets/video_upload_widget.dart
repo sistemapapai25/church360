@@ -76,7 +76,7 @@ class _VideoUploadWidgetState extends State<VideoUploadWidget> {
 
   Future<void> _pickVideo() async {
     try {
-      final result = await FilePicker.pickFiles(
+      final result = await FilePicker.platform.pickFiles(
         type: FileType.video,
       );
 
@@ -385,3 +385,4 @@ class _VideoUploadWidgetState extends State<VideoUploadWidget> {
     );
   }
 }
+

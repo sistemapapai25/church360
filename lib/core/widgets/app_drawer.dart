@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../constants/app_branding.dart';
 import 'app_logo.dart';
 import '../../features/permissions/providers/permissions_providers.dart';
 import '../utils/app_exit.dart';
@@ -41,12 +42,27 @@ class AppDrawer extends ConsumerWidget {
                 child: const AppLogo(),
               ),
             ),
-            accountName: Text(
-              'Church 360',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
+            accountName: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  AppBranding.appName,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  AppBranding.organizationName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.9),
+                      ),
+                ),
+              ],
             ),
             accountEmail: Text(
               currentUser?.email ?? 'Não autenticado',
@@ -228,7 +244,7 @@ class AppDrawer extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Text(
-              'Church 360 v1.0.0',
+              AppBranding.versionLabel,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),

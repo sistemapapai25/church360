@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 
 import '../../data/group_meetings_repository.dart';
 import '../providers/meetings_provider.dart';
@@ -122,11 +123,12 @@ class MeetingDetailScreen extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao deletar reunião: $e'),
-            backgroundColor: Colors.red,
-          ),
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'meetings.delete_meeting',
+          fallbackMessage:
+              'Nao foi possivel deletar a reuniao. Tente novamente.',
         );
       }
     }
@@ -701,11 +703,12 @@ class _AddAttendanceDialogState extends ConsumerState<_AddAttendanceDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao registrar presença: $e'),
-            backgroundColor: Colors.red,
-          ),
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'meetings.register_attendance',
+          fallbackMessage:
+              'Nao foi possivel registrar a presenca. Tente novamente.',
         );
       }
     } finally {

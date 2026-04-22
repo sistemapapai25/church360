@@ -1,12 +1,61 @@
+/// Módulo de um plano de leitura
+class ReadingPlanModule {
+  final int order;
+  final String title;
+  final String? reference;
+  final String? content;
+
+  const ReadingPlanModule({
+    required this.order,
+    required this.title,
+    this.reference,
+    this.content,
+  });
+
+  factory ReadingPlanModule.fromJson(
+    Map<String, dynamic> json, {
+    required int fallbackOrder,
+  }) {
+    final rawOrder = json['order'];
+    final parsedOrder = rawOrder is num ? rawOrder.toInt() : fallbackOrder;
+
+    final rawTitle = (json['title'] as String?)?.trim();
+    final rawReference = (json['reference'] as String?)?.trim();
+    final rawContent = (json['content'] as String?)?.trim();
+
+    return ReadingPlanModule(
+      order: parsedOrder < 1 ? fallbackOrder : parsedOrder,
+      title: (rawTitle == null || rawTitle.isEmpty)
+          ? 'Módulo $fallbackOrder'
+          : rawTitle,
+      reference: rawReference == null || rawReference.isEmpty
+          ? null
+          : rawReference,
+      content: rawContent == null || rawContent.isEmpty ? null : rawContent,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'order': order,
+      'title': title,
+      'reference': reference,
+      'content': content,
+    };
+  }
+}
+
 /// Modelo de Plano de Leitura
 class ReadingPlan {
   final String id;
   final String title;
   final String? description;
   final int durationDays; // Duração em dias
+  final List<ReadingPlanModule> modules; // Módulos configurados no dashboard
   final String? imageUrl;
   final String status; // 'active', 'inactive'
-  final String? category; // 'complete_bible', 'new_testament', 'old_testament', 'devotional'
+  final String?
+  category; // 'complete_bible', 'new_testament', 'old_testament', 'devotional'
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -15,6 +64,7 @@ class ReadingPlan {
     required this.title,
     this.description,
     required this.durationDays,
+    this.modules = const [],
     this.imageUrl,
     this.status = 'active',
     this.category,
@@ -24,11 +74,32 @@ class ReadingPlan {
 
   /// Criar a partir de JSON
   factory ReadingPlan.fromJson(Map<String, dynamic> json) {
+    final rawModules = json['modules'];
+    final parsedModules = <ReadingPlanModule>[];
+    if (rawModules is List) {
+      for (var i = 0; i < rawModules.length; i++) {
+        final rawItem = rawModules[i];
+        if (rawItem is Map) {
+          parsedModules.add(
+            ReadingPlanModule.fromJson(
+              Map<String, dynamic>.from(rawItem),
+              fallbackOrder: i + 1,
+            ),
+          );
+        }
+      }
+      parsedModules.sort((a, b) => a.order.compareTo(b.order));
+    }
+
+    final rawDuration = json['duration_days'];
+    final duration = rawDuration is num ? rawDuration.toInt() : 1;
+
     return ReadingPlan(
       id: json['id'] as String,
       title: json['title'] as String,
       description: json['description'] as String?,
-      durationDays: json['duration_days'] as int,
+      durationDays: duration < 1 ? 1 : duration,
+      modules: parsedModules,
       imageUrl: json['image_url'] as String?,
       status: json['status'] as String? ?? 'active',
       category: json['category'] as String?,
@@ -46,6 +117,7 @@ class ReadingPlan {
       'title': title,
       'description': description,
       'duration_days': durationDays,
+      'modules': modules.map((module) => module.toJson()).toList(),
       'image_url': imageUrl,
       'status': status,
       'category': category,
@@ -56,6 +128,11 @@ class ReadingPlan {
 
   /// Propriedades computadas
   bool get isActive => status == 'active';
+  bool get hasModules => modules.isNotEmpty;
+
+  /// Quantidade total de módulos usados para progresso.
+  /// Quando não há módulos configurados, usa `durationDays`.
+  int get totalModules => hasModules ? modules.length : durationDays;
 
   String get durationText {
     if (durationDays == 1) return '1 dia';

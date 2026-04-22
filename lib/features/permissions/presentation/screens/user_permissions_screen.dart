@@ -57,6 +57,7 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
       const _PermissionCategoryOption('banners', 'Banners'),
       const _PermissionCategoryOption('church_info', 'Igreja'),
       const _PermissionCategoryOption('agents', 'Agentes IA'),
+      const _PermissionCategoryOption('live_stream', 'Culto ao vivo'),
     ];
     final selectedCategory = categoryOptions.firstWhere(
       (option) => option.value == _selectedCategory,

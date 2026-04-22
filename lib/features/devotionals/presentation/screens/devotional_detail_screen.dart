@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import '../providers/devotional_provider.dart';
 import '../../../../core/widgets/permission_widget.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 
 /// Tela de detalhes do devocional (leitura)
 class DevotionalDetailScreen extends ConsumerStatefulWidget {
@@ -104,14 +105,14 @@ class _DevotionalDetailScreenState
         });
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao marcar como lido: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!mounted) return;
+      AppErrorHandler.showSnackBar(
+        context,
+        e,
+        feature: 'devotionals.mark_read',
+        fallbackMessage:
+            'Nao foi possivel marcar como lido. Tente novamente mais tarde.',
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -160,13 +161,13 @@ class _DevotionalDetailScreenState
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA), // Community Theme Background
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
         automaticallyImplyLeading: false,
         toolbarHeight: 64,
         elevation: 1,
         shadowColor: Colors.black.withValues(alpha: 0.08),
-        backgroundColor: const Color(0xFFF5F9FD),
+        backgroundColor: CommunityDesign.headerColor(context),
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
@@ -661,7 +662,7 @@ class _DevotionalDetailScreenState
                                         child: Container(
                                           padding: const EdgeInsets.all(18),
                                           decoration:
-                                              CommunityDesign.overlayDecoration(
+                                              CommunityDesign.feedCardDecoration(
                                                 Theme.of(context).colorScheme,
                                               ),
                                           child: Column(
@@ -735,7 +736,7 @@ class _DevotionalDetailScreenState
                                         child: Container(
                                           padding: const EdgeInsets.all(18),
                                           decoration:
-                                              CommunityDesign.overlayDecoration(
+                                              CommunityDesign.feedCardDecoration(
                                                 Theme.of(context).colorScheme,
                                               ),
                                           child: Column(
@@ -818,7 +819,7 @@ class _DevotionalDetailScreenState
                               Expanded(
                                 child: Container(
                                   padding: const EdgeInsets.all(18),
-                                  decoration: CommunityDesign.overlayDecoration(
+                                  decoration: CommunityDesign.feedCardDecoration(
                                     Theme.of(context).colorScheme,
                                   ),
                                   child: Column(
@@ -849,7 +850,7 @@ class _DevotionalDetailScreenState
                               Expanded(
                                 child: Container(
                                   padding: const EdgeInsets.all(18),
-                                  decoration: CommunityDesign.overlayDecoration(
+                                  decoration: CommunityDesign.feedCardDecoration(
                                     Theme.of(context).colorScheme,
                                   ),
                                   child: Column(
@@ -933,7 +934,7 @@ class _DevotionalDetailScreenState
 
                     return Container(
                       margin: const EdgeInsets.only(top: 8),
-                      decoration: CommunityDesign.overlayDecoration(
+                      decoration: CommunityDesign.feedCardDecoration(
                         Theme.of(context).colorScheme,
                       ),
                       padding: const EdgeInsets.all(20),

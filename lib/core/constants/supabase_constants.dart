@@ -13,7 +13,10 @@ class SupabaseConstants {
 
   // ⚠️ NUNCA exponha o service_role key no app!
   // Ele deve ser usado apenas em scripts backend
-  static const String defaultTenantId = 'd8b6be47-f99f-45b8-a3f4-b7ca3cca9645';
+  static const String defaultTenantId = 'd5a1cbee-99f4-4c12-8bd8-55c8c22c2645';
+  static const Set<String> migratedDefaultTenantIds = {
+    'd8b6be47-f99f-45b8-a3f4-b7ca3cca9645',
+  };
   static String currentTenantId = defaultTenantId;
 
   static const String tenantPrefsKey = 'active_tenant_id';
@@ -25,8 +28,24 @@ class SupabaseConstants {
   static Future<void> loadPersistedTenantId() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = (prefs.getString(tenantPrefsKey) ?? '').trim();
-    if (saved.isNotEmpty) currentTenantId = saved;
+    if (saved.isNotEmpty) {
+      if (migratedDefaultTenantIds.contains(saved)) {
+        currentTenantId = defaultTenantId;
+        await prefs.setString(tenantPrefsKey, defaultTenantId);
+      } else {
+        currentTenantId = saved;
+      }
+    }
+
+    // Load Developer Mode User ID
+    if (prefs.getBool('dev_mode_active') ?? false) {
+      devModeUserId = prefs.getString('dev_user_id');
+    } else {
+      devModeUserId = null;
+    }
   }
+
+  static String? devModeUserId;
 
   static Future<void> setTenantId(
     String tenantId, {

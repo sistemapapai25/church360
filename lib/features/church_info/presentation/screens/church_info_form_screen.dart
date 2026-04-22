@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../providers/church_info_provider.dart';
 import '../../domain/models/church_info.dart';
@@ -177,7 +178,13 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
     setState(() => _isLoading = true);
     
     try {
+      final supabase = Supabase.instance.client;
+      SupabaseConstants.applyTenantHeadersToClient(supabase);
+      try {
+        await SupabaseConstants.syncTenantFromServer(supabase, syncJwt: false);
+      } catch (_) {}
       final repo = ref.read(churchInfoRepositoryProvider);
+      final latestInfo = await repo.getChurchInfo();
       
       // Preparar valores
       final values = _valuesControllers
@@ -219,9 +226,9 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
       };
       
       ChurchInfo savedInfo;
-      if (_existingInfo != null) {
+      if (latestInfo != null) {
         // Atualizar
-        savedInfo = await repo.updateChurchInfo(_existingInfo!.id, data);
+        savedInfo = await repo.updateChurchInfo(latestInfo.id, data);
       } else {
         // Criar
         data['created_at'] = DateTime.now().toIso8601String();

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/notification_repository.dart';
+import '../../data/push/push_registration_service.dart';
 import '../../domain/models/notification.dart';
 
 // =====================================================
@@ -9,6 +10,11 @@ import '../../domain/models/notification.dart';
 
 final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
   return NotificationRepository(Supabase.instance.client);
+});
+
+final pushRegistrationServiceProvider = Provider<PushRegistrationService>((ref) {
+  final repository = ref.watch(notificationRepositoryProvider);
+  return PushRegistrationService(repository);
 });
 
 // =====================================================
@@ -211,6 +217,14 @@ class NotificationActions {
     
     // Invalidar provider
     _ref.invalidate(fcmTokensProvider);
+  }
+
+  /// Registrar o dispositivo atual para push via Firebase Messaging
+  Future<PushRegistrationResult> registerCurrentDeviceForPush() async {
+    final service = _ref.read(pushRegistrationServiceProvider);
+    final result = await service.registerCurrentDevice();
+    _ref.invalidate(fcmTokensProvider);
+    return result;
   }
 }
 

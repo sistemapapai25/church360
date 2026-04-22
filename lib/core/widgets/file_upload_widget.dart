@@ -67,7 +67,7 @@ class _FileUploadWidgetState extends State<FileUploadWidget> {
 
   Future<void> _pickFile() async {
     try {
-      final result = await FilePicker.pickFiles(
+      final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: widget.allowedExtensions,
       );
@@ -268,3 +268,4 @@ class _FileUploadWidgetState extends State<FileUploadWidget> {
     );
   }
 }
+

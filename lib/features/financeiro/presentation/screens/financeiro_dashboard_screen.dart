@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import '../providers/financeiro_providers.dart';
 import '../../domain/models/dashboard_data.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 
 class FinanceiroDashboardScreen extends ConsumerStatefulWidget {
   const FinanceiroDashboardScreen({super.key});
@@ -116,7 +117,13 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            Text('Erro ao carregar dashboard: $error'),
+            Text(
+              AppErrorHandler.userMessage(
+                error,
+                feature: 'finance.dashboard.load',
+              ),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => ref.invalidate(dashboardDataProvider),
@@ -510,4 +517,3 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
     );
   }
 }
-

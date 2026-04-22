@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/financeiro_providers.dart';
 import '../../domain/models/categoria.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 
 class CategoriasScreen extends ConsumerWidget {
   const CategoriasScreen({super.key});
@@ -51,7 +52,13 @@ class CategoriasScreen extends ConsumerWidget {
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            Text('Erro ao carregar categorias: $error'),
+            Text(
+              AppErrorHandler.userMessage(
+                error,
+                feature: 'finance.categories.load',
+              ),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -106,4 +113,3 @@ class CategoriasScreen extends ConsumerWidget {
     );
   }
 }
-

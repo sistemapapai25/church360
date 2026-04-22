@@ -192,6 +192,72 @@ class NotificationRepository {
     return AppNotification.fromJson(response);
   }
 
+  /// Disparar notificação de novo evento para o tenant atual
+  Future<int> notifyEventAnnouncement({
+    String? title,
+    String? body,
+    String? eventId,
+    String? route,
+    Map<String, dynamic>? data,
+  }) async {
+    final response = await _supabase.rpc(
+      'notify_event_announcement',
+      params: {
+        'p_title': title,
+        'p_body': body,
+        'p_event_id': eventId,
+        'p_route': route,
+        'p_data': data,
+      },
+    );
+    if (response is int) return response;
+    return 0;
+  }
+
+  /// Disparar notificação de nova reunião para o tenant atual
+  Future<int> notifyMeetingAnnouncement({
+    String? title,
+    String? body,
+    String? eventId,
+    String? route,
+    Map<String, dynamic>? data,
+  }) async {
+    final response = await _supabase.rpc(
+      'notify_meeting_announcement',
+      params: {
+        'p_title': title,
+        'p_body': body,
+        'p_event_id': eventId,
+        'p_route': route,
+        'p_data': data,
+      },
+    );
+    if (response is int) return response;
+    return 0;
+  }
+
+  /// Disparar notificação de novo culto para o tenant atual
+  Future<int> notifyWorshipAnnouncement({
+    String? title,
+    String? body,
+    String? eventId,
+    String? route,
+    Map<String, dynamic>? data,
+  }) async {
+    final response = await _supabase.rpc(
+      'notify_worship_announcement',
+      params: {
+        'p_title': title,
+        'p_body': body,
+        'p_event_id': eventId,
+        'p_route': route,
+        'p_data': data,
+      },
+    );
+    if (response is int) return response;
+    return 0;
+  }
+
   // =====================================================
   // NOTIFICATION PREFERENCES
   // =====================================================

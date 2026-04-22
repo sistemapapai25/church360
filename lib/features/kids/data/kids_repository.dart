@@ -10,6 +10,54 @@ class KidsRepository {
 
   KidsRepository(this._supabase);
 
+  bool _isChildRecord(Map<String, dynamic> row) {
+    final type = (row['member_type'] ?? '').toString().trim().toLowerCase();
+    if (type == 'crianca' || type == 'child') {
+      return true;
+    }
+
+    final birthdateStr = row['birthdate']?.toString();
+    if (birthdateStr == null || birthdateStr.trim().isEmpty) {
+      return false;
+    }
+
+    try {
+      final birth = DateTime.parse(birthdateStr);
+      final now = DateTime.now();
+      var age = now.year - birth.year;
+      if (now.month < birth.month ||
+          (now.month == birth.month && now.day < birth.day)) {
+        age--;
+      }
+      return age <= 12;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Map<String, dynamic> _normalizeChildRecord(
+    Map<String, dynamic> row, {
+    required String source,
+  }) {
+    final child = Map<String, dynamic>.from(row);
+    child['relationship_source'] = source;
+
+    if (child['full_name'] == null) {
+      final firstName = (child['first_name'] ?? '').toString().trim();
+      final lastName = (child['last_name'] ?? '').toString().trim();
+      final computed = '$firstName $lastName'.trim();
+      if (computed.isNotEmpty) {
+        child['full_name'] = computed;
+      }
+    }
+
+    if (child['avatar_url'] == null && child['photo_url'] != null) {
+      child['avatar_url'] = child['photo_url'];
+    }
+
+    return child;
+  }
+
   // ==========================================
   // GESTÃO DE CRIANÇAS (PAIS/GUARDIÕES)
   // ==========================================
@@ -25,11 +73,12 @@ class KidsRepository {
           .select('child:user_account!child_id(*)')
           .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('guardian_id', userId);
-      
+
       final guardianChildren = (guardiansResponse as List).map((row) {
-        final child = Map<String, dynamic>.from(row['child'] as Map<String, dynamic>);
-        child['relationship_source'] = 'guardian';
-        return child;
+        final child = Map<String, dynamic>.from(
+          row['child'] as Map<String, dynamic>,
+        );
+        return _normalizeChildRecord(child, source: 'guardian');
       }).toList();
       allChildren.addAll(guardianChildren);
     } catch (e) {
@@ -45,9 +94,9 @@ class KidsRepository {
           .eq('id', userId)
           .eq('tenant_id', SupabaseConstants.currentTenantId)
           .maybeSingle();
-      
+
       final householdId = userResponse?['household_id'];
-      
+
       if (householdId != null) {
         // Buscar outros membros do household
         final householdResponse = await _supabase
@@ -56,42 +105,43 @@ class KidsRepository {
             .eq('household_id', householdId)
             .eq('tenant_id', SupabaseConstants.currentTenantId)
             .neq('id', userId);
-            
-        final householdChildren = (householdResponse as List).where((m) {
-           // Filtro: tipo 'crianca' OU idade <= 12
-           final type = m['member_type'] ?? '';
-           final birthdateStr = m['birthdate'];
-           int age = 99;
-           if (birthdateStr != null) {
-              try {
-                final birth = DateTime.parse(birthdateStr);
-                final now = DateTime.now();
-                age = now.year - birth.year;
-                if (now.month < birth.month || (now.month == birth.month && now.day < birth.day)) {
-                  age--;
-                }
-              } catch (_) {}
-           }
-           
-           return type == 'crianca' || age <= 12;
-        }).map((m) {
-          final data = Map<String, dynamic>.from(m);
-          data['relationship_source'] = 'household';
-          // Normalizar nome se necessário (member tem first_name, user_account tem full_name)
-          if (data['full_name'] == null) {
-             data['full_name'] = "${data['first_name'] ?? ''} ${data['last_name'] ?? ''}".trim();
-          }
-          // Normalizar avatar
-          if (data['avatar_url'] == null && data['photo_url'] != null) {
-            data['avatar_url'] = data['photo_url'];
-          }
-          return data;
-        }).toList();
-        
+
+        final householdChildren = (householdResponse as List)
+            .map((row) => Map<String, dynamic>.from(row as Map))
+            .where(_isChildRecord)
+            .map((row) => _normalizeChildRecord(row, source: 'household'))
+            .toList();
+
         allChildren.addAll(householdChildren);
       }
     } catch (e) {
       debugPrint('Erro ao buscar household: $e');
+    }
+
+    // 3. Fallback: crianças criadas por este responsável
+    try {
+      final authId = _supabase.auth.currentUser?.id;
+      final creatorIds = <String>{userId};
+      if (authId != null && authId.trim().isNotEmpty) {
+        creatorIds.add(authId.trim());
+      }
+
+      for (final creatorId in creatorIds) {
+        final createdResponse = await _supabase
+            .from('user_account')
+            .select('*')
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .eq('created_by', creatorId);
+
+        final createdChildren = (createdResponse as List)
+            .map((row) => Map<String, dynamic>.from(row as Map))
+            .where(_isChildRecord)
+            .map((row) => _normalizeChildRecord(row, source: 'created_by'))
+            .toList();
+        allChildren.addAll(createdChildren);
+      }
+    } catch (e) {
+      debugPrint('Erro ao buscar crianças por created_by: $e');
     }
 
     // Remover duplicatas por ID
@@ -128,7 +178,9 @@ class KidsRepository {
   }
 
   /// Adicionar guardião
-  Future<KidsAuthorizedGuardian> addGuardian(KidsAuthorizedGuardian guardian) async {
+  Future<KidsAuthorizedGuardian> addGuardian(
+    KidsAuthorizedGuardian guardian,
+  ) async {
     final response = await _supabase
         .from('kids_authorized_guardian')
         .insert({
@@ -137,7 +189,7 @@ class KidsRepository {
         })
         .select()
         .single();
-    
+
     return KidsAuthorizedGuardian.fromJson(response);
   }
 
@@ -163,7 +215,7 @@ class KidsRepository {
     int durationMinutes = 15,
   }) async {
     final expiresAt = DateTime.now().add(Duration(minutes: durationMinutes));
-    
+
     final response = await _supabase
         .from('kids_checkin_token')
         .insert({

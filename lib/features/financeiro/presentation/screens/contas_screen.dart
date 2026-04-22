@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import '../providers/financeiro_providers.dart';
 import '../../domain/models/conta_financeira.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 
 class ContasScreen extends ConsumerWidget {
   const ContasScreen({super.key});
@@ -54,7 +55,13 @@ class ContasScreen extends ConsumerWidget {
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            Text('Erro ao carregar contas: $error'),
+            Text(
+              AppErrorHandler.userMessage(
+                error,
+                feature: 'finance.accounts.load',
+              ),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -139,4 +146,3 @@ class ContasScreen extends ConsumerWidget {
     );
   }
 }
-

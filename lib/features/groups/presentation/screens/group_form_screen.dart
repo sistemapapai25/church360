@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 import '../providers/groups_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../domain/models/group.dart';
@@ -78,11 +79,12 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao carregar grupo: $e'),
-            backgroundColor: Colors.red,
-          ),
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'groups.admin.load_group',
+          fallbackMessage:
+              'Nao foi possivel carregar o grupo. Tente novamente.',
         );
       }
     } finally {
@@ -177,11 +179,12 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao salvar grupo: $e'),
-            backgroundColor: Colors.red,
-          ),
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'groups.admin.save_group',
+          fallbackMessage:
+              'Nao foi possivel salvar o grupo. Revise e tente novamente.',
         );
       }
     } finally {
@@ -422,4 +425,3 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
     );
   }
 }
-

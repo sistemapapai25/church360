@@ -197,8 +197,9 @@ class _BibleShortcutCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return Container(
-      decoration: CommunityDesign.overlayDecoration(cs).copyWith(
-        borderRadius: BorderRadius.circular(14),
+      decoration: CommunityDesign.feedCardDecoration(
+        cs,
+        radiusValue: 14,
       ),
       child: Material(
         color: Colors.transparent,
@@ -364,7 +365,9 @@ class _BookCard extends StatelessWidget {
           context.push('/bible/book/${book.id}');
         },
         child: Container(
-          decoration: CommunityDesign.overlayDecoration(Theme.of(context).colorScheme),
+          decoration: CommunityDesign.feedCardDecoration(
+            Theme.of(context).colorScheme,
+          ),
           padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

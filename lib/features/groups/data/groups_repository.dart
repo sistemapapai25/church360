@@ -217,6 +217,7 @@ class GroupsRepository {
             user_account:user_id (first_name, last_name)
           ''')
           .eq('group_id', groupId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('joined_date');
 
       return (response as List).map((json) {
@@ -247,11 +248,27 @@ class GroupsRepository {
             'group_id': groupId,
             'user_id': memberId,
             'role': role,
+            'tenant_id': SupabaseConstants.currentTenantId,
           })
           .select()
           .single();
 
       return GroupMember.fromJson(response);
+    } on PostgrestException catch (e) {
+      // Duplicidade de vínculo: retorna o vínculo já existente.
+      if (e.code == '23505') {
+        final existing = await _supabase
+            .from('group_member')
+            .select()
+            .eq('group_id', groupId)
+            .eq('user_id', memberId)
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .maybeSingle();
+        if (existing != null) {
+          return GroupMember.fromJson(existing);
+        }
+      }
+      rethrow;
     } catch (e) {
       rethrow;
     }
@@ -264,7 +281,8 @@ class GroupsRepository {
           .from('group_member')
           .delete()
           .eq('group_id', groupId)
-          .eq('user_id', memberId);
+          .eq('user_id', memberId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;
     }

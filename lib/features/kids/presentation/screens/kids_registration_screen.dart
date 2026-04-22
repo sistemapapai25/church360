@@ -10,6 +10,7 @@ import '../../../members/presentation/providers/members_provider.dart';
 import '../../../members/domain/models/member.dart';
 import '../../domain/models/kids_guardian.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 
 /// Tela de Inscrição Kids (Área dos Pais)
 /// Aqui os pais podem:
@@ -194,7 +195,13 @@ class _CheckInTab extends ConsumerWidget {
               children: [
                 const Icon(Icons.error_outline, size: 48, color: Colors.red),
                 const SizedBox(height: 16),
-                Text('Erro ao gerar código: $err'),
+                Text(
+                  AppErrorHandler.userMessage(
+                    err,
+                    feature: 'kids.generate_qr',
+                  ),
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
@@ -464,7 +471,12 @@ class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
                     },
                     loading: () =>
                         const Center(child: CircularProgressIndicator()),
-                    error: (e, s) => Text('Erro ao carregar membros: $e'),
+                    error: (e, s) => Text(
+                      AppErrorHandler.userMessage(
+                        e,
+                        feature: 'kids.load_members',
+                      ),
+                    ),
                   );
                 },
               ),
@@ -606,16 +618,30 @@ class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
                     }
                   } catch (e) {
                     if (mounted) {
-                      String message = 'Erro: $e';
-                      if (e.toString().contains('23505') ||
-                          e.toString().contains('duplicate key')) {
-                        message =
-                            'Este responsável já está vinculado a esta criança.';
-                      } else if (e.toString().contains('42501')) {
-                        message =
-                            'Sem permissão para adicionar responsáveis. Contate o administrador.';
+                      final raw = e.toString().toLowerCase();
+                      String? overrideMessage;
+                      if (raw.contains('23505') ||
+                          raw.contains('duplicate key')) {
+                        overrideMessage =
+                            'Este responsavel ja esta vinculado a esta crianca.';
+                      } else if (raw.contains('42501') ||
+                          raw.contains('insufficient')) {
+                        overrideMessage =
+                            'Sem permissao para adicionar responsaveis. Contate o administrador.';
                       }
-                      messenger.showSnackBar(SnackBar(content: Text(message)));
+
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            overrideMessage ??
+                                AppErrorHandler.userMessage(
+                                  e,
+                                  feature: 'kids.add_guardian',
+                                ),
+                          ),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
                     }
                   } finally {
                     if (mounted) setState(() => _isLoading = false);

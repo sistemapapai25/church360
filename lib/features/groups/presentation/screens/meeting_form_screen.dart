@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 import '../../data/group_meetings_repository.dart';
 import '../providers/meetings_provider.dart';
 import '../providers/groups_provider.dart';
@@ -227,11 +228,12 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao salvar reunião: $e'),
-            backgroundColor: Colors.red,
-          ),
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'meetings.save_meeting',
+          fallbackMessage:
+              'Nao foi possivel salvar a reuniao. Revise e tente novamente.',
         );
       }
     } finally {
@@ -241,4 +243,3 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
     }
   }
 }
-

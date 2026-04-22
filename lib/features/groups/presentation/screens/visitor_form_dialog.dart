@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 import '../providers/groups_provider.dart' as groups;
 
 class _GenderOption {
@@ -99,11 +100,12 @@ class _VisitorFormDialogState extends ConsumerState<VisitorFormDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao cadastrar visitante: $e'),
-            backgroundColor: Colors.red,
-          ),
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'groups.add_visitor',
+          fallbackMessage:
+              'Nao foi possivel cadastrar o visitante. Tente novamente.',
         );
       }
     } finally {

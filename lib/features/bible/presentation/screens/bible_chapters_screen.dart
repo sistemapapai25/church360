@@ -198,7 +198,9 @@ class _ChapterCard extends StatelessWidget {
           context.push('/bible/book/$bookId/chapter/$chapterNumber');
         },
         child: Container(
-          decoration: CommunityDesign.overlayDecoration(Theme.of(context).colorScheme),
+          decoration: CommunityDesign.feedCardDecoration(
+            Theme.of(context).colorScheme,
+          ),
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Column(
