@@ -4,6 +4,14 @@
 
 /// Model: Dados do Dashboard Financeiro
 class DashboardData {
+  // Previsão do mês (previsto vs realizado)
+  final double receitasPrevistas;
+  final double receitasRecebidas;
+  final double despesasPrevistas;
+  final double despesasPagas;
+  final double saldoPrevisto;
+  final double saldoRealizado;
+
   final double totalReceitas;
   final double totalDespesas;
   final double saldo;
@@ -14,6 +22,12 @@ class DashboardData {
   final List<SaldoPorConta> saldosPorConta;
 
   const DashboardData({
+    required this.receitasPrevistas,
+    required this.receitasRecebidas,
+    required this.despesasPrevistas,
+    required this.despesasPagas,
+    required this.saldoPrevisto,
+    required this.saldoRealizado,
     required this.totalReceitas,
     required this.totalDespesas,
     required this.saldo,
@@ -26,6 +40,12 @@ class DashboardData {
 
   factory DashboardData.fromJson(Map<String, dynamic> json) {
     return DashboardData(
+      receitasPrevistas: (json['receitas_previstas'] as num?)?.toDouble() ?? 0.0,
+      receitasRecebidas: (json['receitas_recebidas'] as num?)?.toDouble() ?? 0.0,
+      despesasPrevistas: (json['despesas_previstas'] as num?)?.toDouble() ?? 0.0,
+      despesasPagas: (json['despesas_pagas'] as num?)?.toDouble() ?? 0.0,
+      saldoPrevisto: (json['saldo_previsto'] as num?)?.toDouble() ?? 0.0,
+      saldoRealizado: (json['saldo_realizado'] as num?)?.toDouble() ?? 0.0,
       totalReceitas: (json['total_receitas'] as num?)?.toDouble() ?? 0.0,
       totalDespesas: (json['total_despesas'] as num?)?.toDouble() ?? 0.0,
       saldo: (json['saldo'] as num?)?.toDouble() ?? 0.0,
@@ -51,6 +71,12 @@ class DashboardData {
 
   Map<String, dynamic> toJson() {
     return {
+      'receitas_previstas': receitasPrevistas,
+      'receitas_recebidas': receitasRecebidas,
+      'despesas_previstas': despesasPrevistas,
+      'despesas_pagas': despesasPagas,
+      'saldo_previsto': saldoPrevisto,
+      'saldo_realizado': saldoRealizado,
       'total_receitas': totalReceitas,
       'total_despesas': totalDespesas,
       'saldo': saldo,
@@ -66,6 +92,11 @@ class DashboardData {
   double get percentualDespesas {
     if (totalReceitas == 0) return 0;
     return (totalDespesas / totalReceitas) * 100;
+  }
+
+  double get variacaoPrevistoVsRealizado {
+    if (saldoPrevisto == 0) return 0;
+    return ((saldoRealizado - saldoPrevisto) / saldoPrevisto) * 100;
   }
 
   bool get temSaldoPositivo => saldo > 0;
@@ -162,4 +193,3 @@ class SaldoPorConta {
   bool get temSaldoPositivo => saldo > 0;
   bool get temSaldoNegativo => saldo < 0;
 }
-

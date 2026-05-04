@@ -177,26 +177,68 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     } catch (e) {
       if (mounted) {
         String message = 'Ocorreu um erro ao fazer cadastro.';
-        if (e is AuthApiException &&
-            e.message.toLowerCase().contains('already registered')) {
-          message = 'Este e-mail já está cadastrado. Faça login ou recupere sua senha.';
+        final authRepo = ref.read(authRepositoryProvider);
+        final alreadyRegistered = authRepo.isUserAlreadyRegisteredError(e);
+
+        if (alreadyRegistered) {
+          message =
+              'Este e-mail já está cadastrado. Envie um link para definir/redefinir sua senha e depois faça login.';
         } else if (e is AuthException) {
           message = e.message;
         } else {
           message = e.toString();
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-            action: SnackBarAction(
-              label: 'Fazer Login',
-              onPressed: () => context.pop(),
+        if (alreadyRegistered) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(message),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 6),
+              action: SnackBarAction(
+                label: 'Enviar link',
+                onPressed: () async {
+                  try {
+                    await authRepo.sendPasswordResetEmail(
+                      email: _emailController.text.trim(),
+                    );
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Enviamos um link de redefinição para ${_emailController.text.trim()}.',
+                        ),
+                        backgroundColor: Colors.green,
+                        duration: const Duration(seconds: 4),
+                      ),
+                    );
+                    if (mounted) context.pop();
+                  } catch (err) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Não foi possível enviar o link: $err'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+              ),
             ),
-          ),
-        );
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(message),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+              action: SnackBarAction(
+                label: 'Fazer Login',
+                onPressed: () => context.pop(),
+              ),
+            ),
+          );
+        }
       }
     } finally {
       if (mounted) {

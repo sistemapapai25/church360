@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../domain/models/event.dart';
 import '../providers/events_provider.dart';
@@ -24,6 +26,32 @@ class EventDetailScreen extends ConsumerStatefulWidget {
 class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+
+  bool _isRegistrationShareEnabled(Event event) {
+    return event.requiresRegistration && event.status == 'published' && !event.isPast;
+  }
+
+  String _buildEventRegistrationShareUrl(String eventId) {
+    final registerPath = '/events/$eventId/register';
+    final base = Uri.base;
+
+    if (kIsWeb) {
+      // Flutter web default costuma usar hash (#/...). Se o fragment estiver em uso,
+      // compartilha o link com fragment ajustado.
+      if (base.fragment.startsWith('/')) {
+        return base.replace(fragment: registerPath).toString();
+      }
+      return base.replace(path: registerPath, queryParameters: {}).toString();
+    }
+
+    // Mobile: sem deep-link configurado, compartilhar o caminho (o host fica a cargo do site).
+    return registerPath;
+  }
+
+  void _shareRegistrationLink(Event event) {
+    final url = _buildEventRegistrationShareUrl(event.id);
+    Share.share('Inscreva-se no evento "${event.name}":\n$url');
+  }
 
   void _handleBack(BuildContext context) {
     if (Navigator.of(context).canPop()) {
@@ -137,6 +165,14 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
                 ),
               ],
             ),
+            actions: [
+              if (_isRegistrationShareEnabled(event))
+                IconButton(
+                  tooltip: 'Compartilhar link de inscrição',
+                  icon: const Icon(Icons.share),
+                  onPressed: () => _shareRegistrationLink(event),
+                ),
+            ],
             bottom: TabBar(
               controller: _tabController,
               tabs: [

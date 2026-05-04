@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/design/community_design.dart';
 
 import '../providers/events_provider.dart';
+import '../../domain/models/event.dart';
 import 'event_detail_screen.dart';
 import 'event_form_screen.dart';
 
@@ -26,6 +29,27 @@ class EventsListScreen extends ConsumerStatefulWidget {
 
 class _EventsListScreenState extends ConsumerState<EventsListScreen> {
   String _filter = 'upcoming'; // 'all', 'upcoming', 'active'
+
+  bool _isRegistrationShareEnabled(Event event) {
+    return event.requiresRegistration && event.status == 'published' && !event.isPast;
+  }
+
+  String _buildEventRegistrationShareUrl(String eventId) {
+    final registerPath = '/events/$eventId/register';
+    final base = Uri.base;
+    if (kIsWeb) {
+      if (base.fragment.startsWith('/')) {
+        return base.replace(fragment: registerPath).toString();
+      }
+      return base.replace(path: registerPath, queryParameters: {}).toString();
+    }
+    return registerPath;
+  }
+
+  void _shareRegistrationLink(Event event) {
+    final url = _buildEventRegistrationShareUrl(event.id);
+    Share.share('Inscreva-se no evento "${event.name}":\n$url');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -245,6 +269,14 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                                   ),
                                   const SizedBox(width: 8),
                                   _StatusChip(event: event),
+                                  if (_isRegistrationShareEnabled(event)) ...[
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      tooltip: 'Compartilhar inscrição',
+                                      icon: const Icon(Icons.share, size: 18),
+                                      onPressed: () => _shareRegistrationLink(event),
+                                    ),
+                                  ],
                                 ],
                               ),
 

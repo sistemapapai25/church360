@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/constants/app_branding.dart';
 import '../../../../core/widgets/app_logo.dart';
+import '../../../../core/errors/app_error_handler.dart';
 import '../providers/auth_provider.dart';
 
 /// Tela de Login
@@ -22,6 +23,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _isSendingReset = false;
 
   void _logLogin(String message, {Object? error, StackTrace? stackTrace}) {
     debugPrint('[Login] $message');
@@ -67,10 +69,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         stackTrace: stackTrace,
       );
       if (mounted) {
+        final authRepo = ref.read(authRepositoryProvider);
+        final message = AppErrorHandler.userMessage(
+          e,
+          feature: 'auth.login',
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erro ao fazer login: ${e.toString()}'),
+            content: Text(message),
             backgroundColor: Colors.red,
+            action: authRepo.isInvalidCredentialsError(e)
+                ? SnackBarAction(
+                    label: 'Redefinir senha',
+                    onPressed: _isSendingReset ? null : _handlePasswordReset,
+                  )
+                : null,
           ),
         );
       }
@@ -80,6 +93,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  Future<void> _handlePasswordReset() async {
+    if (_isSendingReset) return;
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe um e-mail válido para redefinir a senha.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSendingReset = true);
+    try {
+      final authRepo = ref.read(authRepositoryProvider);
+      await authRepo.sendPasswordResetEmail(email: email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Enviamos um link de redefinição para $email.'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppErrorHandler.showSnackBar(
+        context,
+        e,
+        feature: 'auth.password_reset',
+        fallbackMessage: 'Não foi possível enviar o link. Tente novamente.',
+      );
+    } finally {
+      if (mounted) setState(() => _isSendingReset = false);
     }
   }
 
@@ -251,7 +303,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 8),
+
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _isLoading || _isSendingReset
+                          ? null
+                          : _handlePasswordReset,
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF0B5FA5),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      child: Text(
+                        _isSendingReset ? 'Enviando...' : 'Esqueci minha senha',
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
 
                   // Botão de Login
                   ElevatedButton(

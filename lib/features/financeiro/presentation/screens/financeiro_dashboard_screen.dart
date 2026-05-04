@@ -23,6 +23,10 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
   static const _financialGreen = Color(0xFF1D6E45);
   final _currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
+  double _saldoTotalAtual(DashboardData dashboard) {
+    return dashboard.saldosPorConta.fold(0.0, (sum, item) => sum + item.saldo);
+  }
+
   void _handleBack() {
     if (context.canPop()) {
       context.pop();
@@ -145,6 +149,10 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
           _buildSummaryCards(dashboard),
           const SizedBox(height: 24),
 
+          // Previsão do mês (ZeroPaper-style: previsto vs realizado)
+          _buildMonthlyForecastCard(dashboard),
+          const SizedBox(height: 24),
+
           // Ações rápidas
           _buildQuickActions(),
           const SizedBox(height: 24),
@@ -167,6 +175,7 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
       builder: (context, constraints) {
         final isDesktop = constraints.maxWidth > 900;
         final crossAxisCount = isDesktop ? 4 : 2;
+        final saldoTotal = _saldoTotalAtual(dashboard);
 
         return GridView.count(
           crossAxisCount: crossAxisCount,
@@ -177,22 +186,22 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
           childAspectRatio: isDesktop ? 1.5 : 1.3,
           children: [
             _buildSummaryCard(
-              title: 'Receitas',
-              value: _currencyFormat.format(dashboard.totalReceitas),
+              title: 'Recebidas',
+              value: _currencyFormat.format(dashboard.receitasRecebidas),
               icon: Icons.arrow_upward,
               color: Colors.green,
             ),
             _buildSummaryCard(
-              title: 'Despesas',
-              value: _currencyFormat.format(dashboard.totalDespesas),
+              title: 'Pagas',
+              value: _currencyFormat.format(dashboard.despesasPagas),
               icon: Icons.arrow_downward,
               color: Colors.red,
             ),
             _buildSummaryCard(
-              title: 'Saldo',
-              value: _currencyFormat.format(dashboard.saldo),
-              icon: dashboard.temSaldoPositivo ? Icons.trending_up : Icons.trending_down,
-              color: dashboard.temSaldoPositivo ? _financialGreen : Colors.orange,
+              title: 'Saldo Atual',
+              value: _currencyFormat.format(saldoTotal),
+              icon: saldoTotal >= 0 ? Icons.trending_up : Icons.trending_down,
+              color: saldoTotal >= 0 ? _financialGreen : Colors.orange,
             ),
             _buildSummaryCard(
               title: 'Em Aberto',
@@ -203,6 +212,99 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
           ],
         );
       },
+    );
+  }
+
+  Widget _buildMonthlyForecastCard(DashboardData dashboard) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      decoration: CommunityDesign.overlayDecoration(colorScheme),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Previsão do mês', style: CommunityDesign.titleStyle(context)),
+              Text(
+                'Previsto: ${_currencyFormat.format(dashboard.saldoPrevisto)}',
+                style: CommunityDesign.metaStyle(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildForecastMini(
+                  title: 'Receitas',
+                  topLabel: 'Previstas',
+                  topValue: dashboard.receitasPrevistas,
+                  bottomLabel: 'Recebidas',
+                  bottomValue: dashboard.receitasRecebidas,
+                  color: Colors.green,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildForecastMini(
+                  title: 'Despesas',
+                  topLabel: 'Previstas',
+                  topValue: dashboard.despesasPrevistas,
+                  bottomLabel: 'Pagas',
+                  bottomValue: dashboard.despesasPagas,
+                  color: Colors.red,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Saldo realizado: ${_currencyFormat.format(dashboard.saldoRealizado)}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              Text(
+                'Variação: ${dashboard.variacaoPrevistoVsRealizado.toStringAsFixed(1)}%',
+                style: CommunityDesign.metaStyle(context),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildForecastMini({
+    required String title,
+    required String topLabel,
+    required double topValue,
+    required String bottomLabel,
+    required double bottomValue,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+        color: color.withValues(alpha: 0.06),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text('$topLabel: ${_currencyFormat.format(topValue)}', style: CommunityDesign.metaStyle(context)),
+          const SizedBox(height: 4),
+          Text('$bottomLabel: ${_currencyFormat.format(bottomValue)}', style: CommunityDesign.metaStyle(context)),
+        ],
+      ),
     );
   }
 

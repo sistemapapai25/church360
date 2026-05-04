@@ -41,6 +41,40 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
           );
         }
 
+        if (!event.requiresRegistration) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Inscrição no Evento')),
+            body: const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'As inscrições para este evento não estão habilitadas.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (event.status != 'published' || event.isPast) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Inscrição no Evento')),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  event.isPast
+                      ? 'Este evento já foi finalizado.'
+                      : 'As inscrições para este evento não estão ativas.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
+          );
+        }
+
         // Se já gerou o ingresso, mostra a tela de sucesso
         if (_generatedTicket != null) {
           return _buildTicketScreen(event, _generatedTicket!);

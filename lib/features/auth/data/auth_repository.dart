@@ -19,6 +19,50 @@ class AuthRepository {
 
   AuthRepository(this._supabase);
 
+  bool isUserAlreadyRegisteredError(Object error) {
+    if (error is AuthApiException) {
+      final code = (error.code ?? '').toLowerCase().trim();
+      final msg = error.message.toLowerCase();
+      return code.contains('user') && (code.contains('exists') || code.contains('registered')) ||
+          msg.contains('already registered') ||
+          msg.contains('user already registered') ||
+          msg.contains('already exists') ||
+          msg.contains('user already exists');
+    }
+    if (error is AuthException) {
+      final msg = error.message.toLowerCase();
+      return msg.contains('already registered') ||
+          msg.contains('already exists') ||
+          msg.contains('user already');
+    }
+    return false;
+  }
+
+  bool isInvalidCredentialsError(Object error) {
+    if (error is AuthApiException) {
+      final code = (error.code ?? '').toLowerCase().trim();
+      final msg = error.message.toLowerCase();
+      return code == 'invalid_credentials' ||
+          msg.contains('invalid login') ||
+          msg.contains('invalid_credentials');
+    }
+    if (error is AuthException) {
+      final msg = error.message.toLowerCase();
+      return msg.contains('invalid login') || msg.contains('invalid_credentials');
+    }
+    return false;
+  }
+
+  Future<void> sendPasswordResetEmail({
+    required String email,
+  }) async {
+    final clean = email.trim();
+    if (clean.isEmpty) {
+      throw const AuthException('Email inválido');
+    }
+    await _supabase.auth.resetPasswordForEmail(clean);
+  }
+
   bool _isMissingColumnError(Object error, Iterable<String> columns) {
     final msg = error.toString().toLowerCase();
     final hasMissingMarker =

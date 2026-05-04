@@ -17,11 +17,22 @@ class ContasRepository {
   /// Buscar todas as contas
   Future<List<ContaFinanceira>> getAllContas() async {
     try {
-      final response = await _supabase
-          .from('contas_financeiras')
-          .select()
-          .eq('tenant_id', SupabaseConstants.currentTenantId)
-          .order('nome', ascending: true);
+      // Preferir view (saldo_atual calculado). Se ainda não existir no ambiente,
+      // cair no fallback para a tabela base.
+      dynamic response;
+      try {
+        response = await _supabase
+            .from('vw_contas_financeiras_saldo')
+            .select()
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .order('nome', ascending: true);
+      } catch (e) {
+        response = await _supabase
+            .from('contas_financeiras')
+            .select()
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .order('nome', ascending: true);
+      }
 
       return (response as List).map((json) => ContaFinanceira.fromJson(json)).toList();
     } catch (e) {
@@ -32,12 +43,22 @@ class ContasRepository {
   /// Buscar conta por ID
   Future<ContaFinanceira?> getContaById(String id) async {
     try {
-      final response = await _supabase
-          .from('contas_financeiras')
-          .select()
-          .eq('id', id)
-          .eq('tenant_id', SupabaseConstants.currentTenantId)
-          .maybeSingle();
+      dynamic response;
+      try {
+        response = await _supabase
+            .from('vw_contas_financeiras_saldo')
+            .select()
+            .eq('id', id)
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .maybeSingle();
+      } catch (e) {
+        response = await _supabase
+            .from('contas_financeiras')
+            .select()
+            .eq('id', id)
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .maybeSingle();
+      }
 
       if (response == null) return null;
       return ContaFinanceira.fromJson(response);
@@ -106,18 +127,21 @@ class ContasRepository {
       final hoje = DateTime.now();
       final inicio = startDate ?? DateTime(hoje.year, hoje.month, 1);
       final fim = endDate ?? DateTime(hoje.year, hoje.month + 1, 0);
+      final hojeDate = DateTime(hoje.year, hoje.month, hoje.day);
 
       // Buscar totais de receitas e despesas
       final lancamentos = await _supabase
           .from('lancamentos')
-          .select('tipo, valor, status, vencimento, categoria_id, categoria:categories(name)')
+          .select('tipo, valor, valor_pago, status, vencimento, categoria_id, categoria:categories(name)')
           .eq('tenant_id', SupabaseConstants.currentTenantId)
           .gte('vencimento', inicio.toIso8601String().split('T')[0])
           .lte('vencimento', fim.toIso8601String().split('T')[0])
           .isFilter('deleted_at', null);
 
-      double totalReceitas = 0;
-      double totalDespesas = 0;
+      double receitasPrevistas = 0;
+      double receitasRecebidas = 0;
+      double despesasPrevistas = 0;
+      double despesasPagas = 0;
       int lancamentosEmAberto = 0;
       int lancamentosVencidos = 0;
       final receitasPorCat = <String, ReceitaPorCategoria>{};
@@ -131,45 +155,68 @@ class ContasRepository {
         final categoriaId = lanc['categoria_id'] as String;
         final categoriaNome = lanc['categoria']?['name'] as String? ?? 'Sem categoria';
 
-        if (tipo == 'RECEITA') {
-          totalReceitas += valor;
-          final key = categoriaId;
-          if (receitasPorCat.containsKey(key)) {
-            final atual = receitasPorCat[key]!;
-            receitasPorCat[key] = ReceitaPorCategoria(
-              categoriaId: categoriaId,
-              categoriaNome: categoriaNome,
-              total: atual.total + valor,
-            );
+        final isCancelado = status == 'CANCELADO';
+        final isPago = status == 'PAGO';
+
+        // Previsto: tudo exceto cancelado
+        if (!isCancelado) {
+          if (tipo == 'RECEITA') {
+            receitasPrevistas += valor;
           } else {
-            receitasPorCat[key] = ReceitaPorCategoria(
-              categoriaId: categoriaId,
-              categoriaNome: categoriaNome,
-              total: valor,
-            );
+            despesasPrevistas += valor;
           }
-        } else {
-          totalDespesas += valor;
-          final key = categoriaId;
-          if (despesasPorCat.containsKey(key)) {
-            final atual = despesasPorCat[key]!;
-            despesasPorCat[key] = DespesaPorCategoria(
-              categoriaId: categoriaId,
-              categoriaNome: categoriaNome,
-              total: atual.total + valor,
-            );
+        }
+
+        // Realizado: apenas pagos
+        if (isPago) {
+          final valorReal = (lanc['valor_pago'] as num?)?.toDouble() ?? valor;
+          if (tipo == 'RECEITA') {
+            receitasRecebidas += valorReal;
           } else {
-            despesasPorCat[key] = DespesaPorCategoria(
-              categoriaId: categoriaId,
-              categoriaNome: categoriaNome,
-              total: valor,
-            );
+            despesasPagas += valorReal;
+          }
+        }
+
+        // Resumo por categoria: usar previsto (não cancelado)
+        if (!isCancelado) {
+          if (tipo == 'RECEITA') {
+            final key = categoriaId;
+            if (receitasPorCat.containsKey(key)) {
+              final atual = receitasPorCat[key]!;
+              receitasPorCat[key] = ReceitaPorCategoria(
+                categoriaId: categoriaId,
+                categoriaNome: categoriaNome,
+                total: atual.total + valor,
+              );
+            } else {
+              receitasPorCat[key] = ReceitaPorCategoria(
+                categoriaId: categoriaId,
+                categoriaNome: categoriaNome,
+                total: valor,
+              );
+            }
+          } else {
+            final key = categoriaId;
+            if (despesasPorCat.containsKey(key)) {
+              final atual = despesasPorCat[key]!;
+              despesasPorCat[key] = DespesaPorCategoria(
+                categoriaId: categoriaId,
+                categoriaNome: categoriaNome,
+                total: atual.total + valor,
+              );
+            } else {
+              despesasPorCat[key] = DespesaPorCategoria(
+                categoriaId: categoriaId,
+                categoriaNome: categoriaNome,
+                total: valor,
+              );
+            }
           }
         }
 
         if (status == 'EM_ABERTO') {
           lancamentosEmAberto++;
-          if (vencimento.isBefore(hoje)) {
+          if (vencimento.isBefore(hojeDate)) {
             lancamentosVencidos++;
           }
         }
@@ -179,8 +226,6 @@ class ContasRepository {
       final contas = await getAllContas();
       final saldosPorConta = <SaldoPorConta>[];
       for (final conta in contas) {
-        // Aqui você pode calcular o saldo real consultando movimentos_financeiros
-        // Por enquanto, vamos usar o saldo_inicial
         saldosPorConta.add(SaldoPorConta(
           contaId: conta.id,
           contaNome: conta.nome,
@@ -188,10 +233,19 @@ class ContasRepository {
         ));
       }
 
+      final saldoPrevisto = receitasPrevistas - despesasPrevistas;
+      final saldoRealizado = receitasRecebidas - despesasPagas;
+
       return DashboardData(
-        totalReceitas: totalReceitas,
-        totalDespesas: totalDespesas,
-        saldo: totalReceitas - totalDespesas,
+        receitasPrevistas: receitasPrevistas,
+        receitasRecebidas: receitasRecebidas,
+        despesasPrevistas: despesasPrevistas,
+        despesasPagas: despesasPagas,
+        saldoPrevisto: saldoPrevisto,
+        saldoRealizado: saldoRealizado,
+        totalReceitas: receitasRecebidas,
+        totalDespesas: despesasPagas,
+        saldo: saldoRealizado,
         lancamentosEmAberto: lancamentosEmAberto,
         lancamentosVencidos: lancamentosVencidos,
         receitasPorCategoria: receitasPorCat.values.toList(),
@@ -203,4 +257,3 @@ class ContasRepository {
     }
   }
 }
-
