@@ -63,6 +63,27 @@ class AuthRepository {
     await _supabase.auth.resetPasswordForEmail(clean);
   }
 
+  Future<String> getSignupStatus({
+    required String email,
+  }) async {
+    final clean = email.trim();
+    if (clean.isEmpty) return 'not_found';
+    try {
+      final res = await _supabase.rpc(
+        'get_signup_status',
+        params: {
+          'p_tenant_id': SupabaseConstants.currentTenantId,
+          'p_email': clean,
+        },
+      );
+      return (res ?? 'not_found').toString();
+    } catch (e) {
+      // fallback silencioso: não bloquear login/signup por falha do helper
+      debugPrint('[Auth] get_signup_status failed: $e');
+      return 'not_found';
+    }
+  }
+
   bool _isMissingColumnError(Object error, Iterable<String> columns) {
     final msg = error.toString().toLowerCase();
     final hasMissingMarker =

@@ -40,6 +40,20 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   Timer? _debounceTimer;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    try {
+      final qp = GoRouterState.of(context).uri.queryParameters;
+      final email = (qp['email'] ?? '').trim();
+      if (email.isNotEmpty && _emailController.text.trim().isEmpty) {
+        _emailController.text = email;
+        // dispara busca de visitante (se aplicável) e feedback
+        _onEmailChanged(email);
+      }
+    } catch (_) {}
+  }
+
+  @override
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
@@ -151,6 +165,27 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
     try {
       final authRepo = ref.read(authRepositoryProvider);
+
+      // Se o usuário já existe e já foi ativado, não tenta signUp (evita erro e melhora UX)
+      final signupStatus = await authRepo.getSignupStatus(
+        email: _emailController.text.trim(),
+      );
+      if (!mounted) return;
+      if (signupStatus == 'already_activated') {
+        await authRepo.sendPasswordResetEmail(email: _emailController.text.trim());
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Este e-mail já tem conta ativa. Enviamos um link de redefinição para ${_emailController.text.trim()}.',
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        context.pop();
+        return;
+      }
       
       await authRepo.signUp(
         email: _emailController.text.trim(),

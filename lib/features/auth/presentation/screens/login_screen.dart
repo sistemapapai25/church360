@@ -74,15 +74,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           e,
           feature: 'auth.login',
         );
+
+        String? altActionLabel;
+        VoidCallback? altAction;
+
+        if (authRepo.isInvalidCredentialsError(e)) {
+          final email = _emailController.text.trim();
+          final status = await authRepo.getSignupStatus(email: email);
+          if (!mounted) return;
+
+          if (status == 'pre_registered') {
+            altActionLabel = 'Criar conta';
+            final uriEmail = Uri.encodeComponent(email);
+            altAction = () => context.push('/signup?email=$uriEmail');
+          } else {
+            altActionLabel = 'Redefinir senha';
+            altAction = _isSendingReset ? null : _handlePasswordReset;
+          }
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
             backgroundColor: Colors.red,
-            action: authRepo.isInvalidCredentialsError(e)
-                ? SnackBarAction(
-                    label: 'Redefinir senha',
-                    onPressed: _isSendingReset ? null : _handlePasswordReset,
-                  )
+            action: altActionLabel != null && altAction != null
+                ? SnackBarAction(label: altActionLabel, onPressed: altAction)
                 : null,
           ),
         );
