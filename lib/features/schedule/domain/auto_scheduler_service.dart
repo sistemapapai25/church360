@@ -151,6 +151,7 @@ class AutoSchedulerService {
         bool exclusiveVoiceRole = false;
         bool exclusiveOther = false;
         final Map<String, List<String>> assignedByFunction = {};
+        final Map<String, List<String>> assignedByFunctionFromMeta = {};
         final List<Map<String, dynamic>> blocks = [];
         final List<Map<String, String>> prohibitedCombos = [];
         final List<Map<String, String>> preferredCombos = [];
@@ -165,7 +166,7 @@ class AutoSchedulerService {
             final meta = c.metadata ?? {};
           final eventReq = meta['event_function_requirements'];
           if (eventReq is Map) {
-            final Map<String, dynamic> reqForType = Map<String, dynamic>.from(eventReq[event.eventType] ?? {});
+            final Map<String, dynamic> reqForType = Map<String, dynamic>.from(eventReq[type] ?? {});
             reqForType.forEach((k, v) {
               final n = v is int ? v : int.tryParse(v.toString()) ?? 0;
               if (n > 0) cfg[norm(k.toString())] = n;
@@ -191,7 +192,11 @@ class AutoSchedulerService {
           assigned.forEach((userId, funcs) {
             for (final f in List<dynamic>.from(funcs ?? const [])) {
               final name = norm(f.toString());
-              assignedByFunction.putIfAbsent(name, () => []).add(userId.toString());
+              assignedByFunctionFromMeta.putIfAbsent(name, () => []);
+              final uid = userId.toString();
+              if (!assignedByFunctionFromMeta[name]!.contains(uid)) {
+                assignedByFunctionFromMeta[name]!.add(uid);
+              }
             }
           });
           final rules = Map<String, dynamic>.from(meta['schedule_rules'] ?? {});
@@ -222,7 +227,7 @@ class AutoSchedulerService {
           final mp = Map<String, dynamic>.from(rules['member_priorities'] ?? {});
           mp.forEach((k, v) => memberPriorities[k] = v);
           final lf = Map<String, dynamic>.from(rules['leaders_by_function'] ?? {});
-          lf.forEach((k, v) => leadersByFunction[k] = v);
+          lf.forEach((k, v) => leadersByFunction[norm(k.toString())] = v);
           final gr = Map<String, dynamic>.from(rules['general_rules'] ?? {});
           int? pInt(dynamic v) => v is int ? v : int.tryParse(v?.toString() ?? '');
           maxPerMonth = pInt(gr['max_per_month']) ?? maxPerMonth;
@@ -235,8 +240,22 @@ class AutoSchedulerService {
         Map<String, List<String>> mfMap = {};
         try {
           mfMap = await ministriesRepo.getMemberFunctionsByMinistry(ministryId);
+        } catch (_) {}
+
+        // Mesclar atribuições: metadata como base, e `member_function` sobrescreve por usuário quando existir
+        assignedByFunction
+          ..clear()
+          ..addAll({
+            for (final entry in assignedByFunctionFromMeta.entries)
+              entry.key: entry.value.toSet().toList(),
+          });
+        if (mfMap.isNotEmpty) {
           for (final entry in mfMap.entries) {
             final uid = entry.key;
+            // `member_function` vira fonte de verdade para esse usuário
+            for (final list in assignedByFunction.values) {
+              list.remove(uid);
+            }
             for (final f in entry.value) {
               final fn = norm(f);
               assignedByFunction.putIfAbsent(fn, () => []);
@@ -245,7 +264,8 @@ class AutoSchedulerService {
               }
             }
           }
-        } catch (_) {}
+          assignedByFunction.removeWhere((_, v) => v.isEmpty);
+        }
 
         // Mapa de categorias permitidas por usuário com base nas funções atribuídas
         final Map<String, Set<String>> allowedCategoriesByUser = {};
@@ -261,11 +281,16 @@ class AutoSchedulerService {
         final Set<String> assignedInstrumentMembers = {};
         final Set<String> assignedVoiceMembers = {};
         final Map<String, List<String>> assignedFunctionsEvent = {};
+        final Map<String, Set<String>> assignedCategoriesByUser = {};
         final Map<String, dynamic> membersById = { for (final m in members) m.memberId : m };
+        final Map<String, Set<String>> seenEventIdsByUser = {};
         final Map<String, List<DateTime>> datesByUser = {};
         for (final s in existingSchedules) {
           if (s.eventStartDate != null) {
-            datesByUser.putIfAbsent(s.memberId, () => []).add(s.eventStartDate!);
+            seenEventIdsByUser.putIfAbsent(s.memberId, () => <String>{});
+            if (seenEventIdsByUser[s.memberId]!.add(s.eventId)) {
+              datesByUser.putIfAbsent(s.memberId, () => []).add(s.eventStartDate!);
+            }
           }
         }
         final existingForEvent = existingSchedules
@@ -293,7 +318,6 @@ class AutoSchedulerService {
             });
           }
         }
-        final Map<String, Set<String>> assignedCategoriesByUser = {};
 
         bool violatesMonth(String uid) {
           if (maxPerMonth == null) return false;
@@ -319,6 +343,26 @@ class AutoSchedulerService {
           if (last == null) return false;
           final diff = event.startDate.difference(last).inDays;
           return diff < minDaysBetween;
+        }
+        int consecutiveGlobalFor(String uid) {
+          final list = List<DateTime>.from(datesByUser[uid] ?? const []);
+          if (list.isEmpty) return 0;
+          list.sort((a, b) => a.compareTo(b));
+          final prevs = list.where((d) => d.isBefore(event.startDate)).toList();
+          if (prevs.isEmpty) return 0;
+          int streak = 1;
+          DateTime last = prevs.last;
+          for (int i = prevs.length - 2; i >= 0; i--) {
+            final d = prevs[i];
+            final diff = last.difference(d).inDays.abs();
+            if (diff <= 9) {
+              streak++;
+              last = d;
+            } else {
+              break;
+            }
+          }
+          return streak;
         }
         bool isExperienced(String uid) {
           final m = membersById[uid];
@@ -455,8 +499,8 @@ class AutoSchedulerService {
           var assignedCandidates = seeds.where((uid) => !isBlocked(uid) && !violatesMonth(uid) && !violatesMinDays(uid)).toList();
           final maxC = maxConsecutive ?? 0;
           if (maxC > 0) {
-            final allowed = assignedCandidates.where((uid) => consecutiveFor(uid) < maxC).toList();
-            final overflow = assignedCandidates.where((uid) => consecutiveFor(uid) >= maxC).toList();
+            final allowed = assignedCandidates.where((uid) => consecutiveGlobalFor(uid) < maxC).toList();
+            final overflow = assignedCandidates.where((uid) => consecutiveGlobalFor(uid) >= maxC).toList();
             assignedCandidates = [...allowed, ...overflow];
           }
           int scheduledCountMonth(String uid) {
@@ -485,15 +529,19 @@ class AutoSchedulerService {
             assignedCandidates.remove(r);
             assignedCandidates.insert(0, r);
           }
-          if (leaderId != null && assignedCandidates.contains(leaderId)) {
+          var insertPos = 0;
+          if (leaderId != null && leaderId.isNotEmpty && assignedCandidates.contains(leaderId)) {
             assignedCandidates.remove(leaderId);
-            assignedCandidates.insert(0, leaderId);
+            assignedCandidates.insert(insertPos, leaderId);
+            insertPos++;
           }
-          for (int i = subs.length - 1; i >= 0; i--) {
-            final sid = subs[i];
+          for (final sid in subs) {
+            if (sid.isEmpty) continue;
+            if (leaderId != null && sid == leaderId) continue;
             if (assignedCandidates.contains(sid)) {
               assignedCandidates.remove(sid);
-              assignedCandidates.insert(0, sid);
+              assignedCandidates.insert(insertPos, sid);
+              insertPos++;
             }
           }
           int idxA = 0;
@@ -519,7 +567,7 @@ class AutoSchedulerService {
             if (violatesProhibited(uid, funcName)) { idxA++; continue; }
             if (violatesMonth(uid)) { idxA++; continue; }
             if (violatesMinDays(uid)) { idxA++; continue; }
-            if (maxC > 0 && consecutiveFor(uid) >= maxC) { idxA++; continue; }
+            if (maxC > 0 && consecutiveGlobalFor(uid) >= maxC) { idxA++; continue; }
             
             final keyById = '$uid|${fid ?? ''}';
             if (existingByFuncId.contains(keyById)) { idxA++; continue; }
@@ -536,6 +584,10 @@ class AutoSchedulerService {
             assignedCategoriesByUser.putIfAbsent(uid, () => <String>{}).add(cat);
             assignedFunctionsEvent.putIfAbsent(uid, () => []).add(funcName);
             datesByUserFunc.putIfAbsent(uid, () => []).add(event.startDate);
+            seenEventIdsByUser.putIfAbsent(uid, () => <String>{});
+            if (seenEventIdsByUser[uid]!.add(event.id)) {
+              datesByUser.putIfAbsent(uid, () => []).add(event.startDate);
+            }
             if (isExperienced(uid)) experiencedCount++;
             idxA++;
             count++;
@@ -578,7 +630,7 @@ class AutoSchedulerService {
                 .where((sid) => !isBlocked(sid))
                 .where((sid) => !violatesMonth(sid))
                 .where((sid) => !violatesMinDays(sid))
-                .where((sid) => !(maxC > 0 && consecutiveFor(sid) >= maxC))
+                .where((sid) => !(maxC > 0 && consecutiveGlobalFor(sid) >= maxC))
                 .toList();
             for (final sid in subsTry) {
               if (count >= needed) break;
@@ -606,6 +658,10 @@ class AutoSchedulerService {
               assignedCategoriesByUser.putIfAbsent(sid, () => <String>{}).add(cat);
               assignedFunctionsEvent.putIfAbsent(sid, () => []).add(funcName);
               datesByUserFunc.putIfAbsent(sid, () => []).add(event.startDate);
+              seenEventIdsByUser.putIfAbsent(sid, () => <String>{});
+              if (seenEventIdsByUser[sid]!.add(event.id)) {
+                datesByUser.putIfAbsent(sid, () => []).add(event.startDate);
+              }
               if (isExperienced(sid)) experiencedCount++;
               count++;
             }
@@ -781,6 +837,7 @@ class AutoSchedulerService {
         bool exclusiveOther = false;
         bool allowMultiMinistries = false;
         final Map<String, List<String>> assignedByFunction = {};
+        final Map<String, List<String>> assignedByFunctionFromMeta = {};
         final List<Map<String, dynamic>> blocks = [];
         final List<Map<String, String>> prohibitedCombos = [];
         final List<Map<String, String>> preferredCombos = [];
@@ -794,10 +851,10 @@ class AutoSchedulerService {
           final meta = c.metadata ?? {};
           final eventReq = meta['event_function_requirements'];
           if (eventReq is Map) {
-            final Map<String, dynamic> reqForType = Map<String, dynamic>.from(eventReq[event.eventType] ?? {});
+            final Map<String, dynamic> reqForType = Map<String, dynamic>.from(eventReq[type] ?? {});
             reqForType.forEach((k, v) {
               final n = v is int ? v : int.tryParse(v.toString()) ?? 0;
-              if (n > 0) cfg[k.toString()] = n;
+              if (n > 0) cfg[norm(k.toString())] = n;
             });
           }
           if (cfg.isEmpty) {
@@ -805,12 +862,12 @@ class AutoSchedulerService {
             if (req is Map) {
               req.forEach((k, v) {
                 final n = v is int ? v : int.tryParse(v.toString()) ?? 0;
-                if (n > 0) cfg[k.toString()] = n;
+                if (n > 0) cfg[norm(k.toString())] = n;
               });
             }
           }
           final catMap = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
-          catMap.forEach((k, v) => funcCategory[k] = v.toString());
+          catMap.forEach((k, v) => funcCategory[norm(k.toString())] = v.toString());
           final restrictions = Map<String, dynamic>.from(meta['category_restrictions'] ?? {});
           exclusiveInstrument = (restrictions['instrument']?['exclusive'] as bool?) ?? exclusiveInstrument;
           exclusiveVoiceRole = (restrictions['voice_role']?['exclusive'] as bool?) ?? exclusiveVoiceRole;
@@ -818,8 +875,12 @@ class AutoSchedulerService {
           final assigned = Map<String, dynamic>.from(meta['assigned_functions'] ?? {});
           assigned.forEach((userId, funcs) {
             for (final f in List<dynamic>.from(funcs ?? const [])) {
-              final name = f.toString();
-              assignedByFunction.putIfAbsent(name, () => []).add(userId.toString());
+              final name = norm(f.toString());
+              assignedByFunctionFromMeta.putIfAbsent(name, () => []);
+              final uid = userId.toString();
+              if (!assignedByFunctionFromMeta[name]!.contains(uid)) {
+                assignedByFunctionFromMeta[name]!.add(uid);
+              }
             }
           });
           final rules = Map<String, dynamic>.from(meta['schedule_rules'] ?? {});
@@ -850,7 +911,7 @@ class AutoSchedulerService {
           final mp = Map<String, dynamic>.from(rules['member_priorities'] ?? {});
           mp.forEach((k, v) => memberPriorities[k] = v);
           final lf = Map<String, dynamic>.from(rules['leaders_by_function'] ?? {});
-          lf.forEach((k, v) => leadersByFunction[k] = v);
+          lf.forEach((k, v) => leadersByFunction[norm(k.toString())] = v);
           final gr = Map<String, dynamic>.from(rules['general_rules'] ?? {});
           int? pInt2(dynamic v) => v is int ? v : int.tryParse(v?.toString() ?? '');
           maxPerMonth = pInt2(gr['max_per_month']) ?? maxPerMonth;
@@ -860,6 +921,37 @@ class AutoSchedulerService {
           final amBool = am is bool ? am : (am?.toString().toLowerCase() == 'true');
           allowMultiMinistries = allowMultiMinistries || (amBool == true);
           final _ = gr['category_priority'];
+        }
+
+        // Completar candidatos por função com vínculos do banco (member_function)
+        Map<String, List<String>> mfMap = {};
+        try {
+          mfMap = await ministriesRepo.getMemberFunctionsByMinistry(ministryId);
+        } catch (_) {}
+
+        // Mesclar atribuições: metadata como base, e `member_function` sobrescreve por usuário quando existir
+        assignedByFunction
+          ..clear()
+          ..addAll({
+            for (final entry in assignedByFunctionFromMeta.entries)
+              entry.key: entry.value.toSet().toList(),
+          });
+        if (mfMap.isNotEmpty) {
+          for (final entry in mfMap.entries) {
+            final uid = entry.key;
+            // `member_function` vira fonte de verdade para esse usuário
+            for (final list in assignedByFunction.values) {
+              list.remove(uid);
+            }
+            for (final f in entry.value) {
+              final fn = norm(f);
+              assignedByFunction.putIfAbsent(fn, () => []);
+              if (!assignedByFunction[fn]!.contains(uid)) {
+                assignedByFunction[fn]!.add(uid);
+              }
+            }
+          }
+          assignedByFunction.removeWhere((_, v) => v.isEmpty);
         }
 
         // Mapa de categorias permitidas por usuário com base nas funções atribuídas (prévia)
@@ -872,29 +964,20 @@ class AutoSchedulerService {
           }
         });
 
-        // Completar candidatos por função com vínculos do banco (member_function)
-        try {
-          final mfMap = await ministriesRepo.getMemberFunctionsByMinistry(ministryId);
-          for (final entry in mfMap.entries) {
-            final uid = entry.key;
-            for (final f in entry.value) {
-              assignedByFunction.putIfAbsent(f, () => []);
-              if (!assignedByFunction[f]!.contains(uid)) {
-                assignedByFunction[f]!.add(uid);
-              }
-            }
-          }
-        } catch (_) {}
-
         final Set<String> assignedMembers = {};
         final Set<String> assignedInstrumentMembers = {};
         final Set<String> assignedVoiceMembers = {};
         final Map<String, List<String>> assignedFunctionsEvent = {};
+        final Map<String, Set<String>> assignedCategoriesByUser = {};
         final Map<String, dynamic> membersById = { for (final m in members) m.memberId : m };
+        final Map<String, Set<String>> seenEventIdsByUser = {};
         final Map<String, List<DateTime>> datesByUser = {};
         for (final s in existingSchedules) {
           if (s.eventStartDate != null) {
-            datesByUser.putIfAbsent(s.memberId, () => []).add(s.eventStartDate!);
+            seenEventIdsByUser.putIfAbsent(s.memberId, () => <String>{});
+            if (seenEventIdsByUser[s.memberId]!.add(s.eventId)) {
+              datesByUser.putIfAbsent(s.memberId, () => []).add(s.eventStartDate!);
+            }
           }
         }
         // Agregar exclusividades por categoria a partir dos contexts
@@ -935,6 +1018,26 @@ class AutoSchedulerService {
           if (last == null) return false;
           final diff = event.startDate.difference(last).inDays;
           return diff < minDaysBetween;
+        }
+        int consecutiveGlobalFor(String uid) {
+          final list = List<DateTime>.from(datesByUser[uid] ?? const []);
+          if (list.isEmpty) return 0;
+          list.sort((a, b) => a.compareTo(b));
+          final prevs = list.where((d) => d.isBefore(event.startDate)).toList();
+          if (prevs.isEmpty) return 0;
+          int streak = 1;
+          DateTime last = prevs.last;
+          for (int i = prevs.length - 2; i >= 0; i--) {
+            final d = prevs[i];
+            final diff = last.difference(d).inDays.abs();
+            if (diff <= 9) {
+              streak++;
+              last = d;
+            } else {
+              break;
+            }
+          }
+          return streak;
         }
         bool isBlocked(String uid) {
           DateTime d = event.startDate;
@@ -1074,8 +1177,8 @@ class AutoSchedulerService {
           var assignedCandidates = seeds.where((uid) => !isBlocked(uid) && !violatesMonth(uid) && !violatesMinDays(uid)).toList();
           final maxC = maxConsecutive ?? 0;
           if (maxC > 0) {
-            final allowed = assignedCandidates.where((uid) => consecutiveFor(uid) < maxC).toList();
-            final overflow = assignedCandidates.where((uid) => consecutiveFor(uid) >= maxC).toList();
+            final allowed = assignedCandidates.where((uid) => consecutiveGlobalFor(uid) < maxC).toList();
+            final overflow = assignedCandidates.where((uid) => consecutiveGlobalFor(uid) >= maxC).toList();
             assignedCandidates = [...allowed, ...overflow];
           }
           assignedCandidates.sort((a, b) => prioFor(a).compareTo(prioFor(b)));
@@ -1087,19 +1190,22 @@ class AutoSchedulerService {
             assignedCandidates.remove(r);
             assignedCandidates.insert(0, r);
           }
-          if (leaderId != null && assignedCandidates.contains(leaderId)) {
+          var insertPos = 0;
+          if (leaderId != null && leaderId.isNotEmpty && assignedCandidates.contains(leaderId)) {
             assignedCandidates.remove(leaderId);
-            assignedCandidates.insert(0, leaderId);
+            assignedCandidates.insert(insertPos, leaderId);
+            insertPos++;
           }
-          for (int i = subs.length - 1; i >= 0; i--) {
-            final sid = subs[i];
+          for (final sid in subs) {
+            if (sid.isEmpty) continue;
+            if (leaderId != null && sid == leaderId) continue;
             if (assignedCandidates.contains(sid)) {
               assignedCandidates.remove(sid);
-              assignedCandidates.insert(0, sid);
+              assignedCandidates.insert(insertPos, sid);
+              insertPos++;
             }
           }
           int idxA = 0;
-          final Map<String, Set<String>> assignedCategoriesByUser = {};
           while (count < needed && idxA < assignedCandidates.length) {
             final uid = assignedCandidates[idxA];
             if (!membersById.containsKey(uid)) { idxA++; continue; }
@@ -1121,8 +1227,8 @@ class AutoSchedulerService {
             if (violatesProhibited(uid, funcName)) { idxA++; continue; }
             if (violatesMonth(uid)) { idxA++; continue; }
             if (violatesMinDays(uid)) { idxA++; continue; }
-            if (maxC > 0 && consecutiveFor(uid) >= maxC) { idxA++; continue; }
-            
+            if (maxC > 0 && consecutiveGlobalFor(uid) >= maxC) { idxA++; continue; }
+             
             proposals.add({'event_id': event.id, 'ministry_id': ministryId, 'user_id': uid, 'notes': funcName, 'function_id': fid ?? ''});
             assignedMembers.add(uid);
             if (cat == 'instrument') assignedInstrumentMembers.add(uid);
@@ -1152,45 +1258,7 @@ class AutoSchedulerService {
                 .where((sid) => !isBlocked(sid))
                 .where((sid) => !violatesMonth(sid))
                 .where((sid) => !violatesMinDays(sid))
-                .where((sid) => !(maxC > 0 && consecutiveFor(sid) >= maxC))
-                .toList();
-            for (final sid in subsTry) {
-              if (count >= needed) break;
-              if (assignedMembers.contains(sid)) continue;
-              final cats = assignedCategoriesByUser[sid] ?? <String>{};
-              if (exclusiveWithinCats.contains(cat) && cats.contains(cat)) continue;
-              if (exclusiveAloneCats.contains(cat) && cats.any((c) => c != cat)) continue;
-              if (cats.any((c) => exclusiveAloneCats.contains(c) && c != cat)) continue;
-              if (cat == 'instrument' && exclusiveInstrument && assignedInstrumentMembers.contains(sid)) continue;
-              if (cat == 'voice_role' && exclusiveVoiceRole && assignedVoiceMembers.contains(sid)) continue;
-              if (cat == 'other' && exclusiveOther) continue;
-              if (violatesProhibited(sid, funcName)) continue;
-              
-              await ministriesRepo.addSchedule({
-                'event_id': event.id,
-                'ministry_id': ministryId,
-                'user_id': sid,
-                'function_id': fid,
-                'notes': funcName,
-              });
-            
-              assignedMembers.add(sid);
-              if (cat == 'instrument') assignedInstrumentMembers.add(sid);
-              if (cat == 'voice_role') assignedVoiceMembers.add(sid);
-              assignedCategoriesByUser.putIfAbsent(sid, () => <String>{}).add(cat);
-              assignedFunctionsEvent.putIfAbsent(sid, () => []).add(funcName);
-              datesByUserFunc.putIfAbsent(sid, () => []).add(event.startDate);
-              count++;
-            }
-          }
-
-          if (count < needed && subs.isNotEmpty) {
-            final List<String> subsTry = subs
-                .where((sid) => membersById.containsKey(sid))
-                .where((sid) => !isBlocked(sid))
-                .where((sid) => !violatesMonth(sid))
-                .where((sid) => !violatesMinDays(sid))
-                .where((sid) => !(maxC > 0 && consecutiveFor(sid) >= maxC))
+                .where((sid) => !(maxC > 0 && consecutiveGlobalFor(sid) >= maxC))
                 .toList();
             for (final sid in subsTry) {
               if (count >= needed) break;
@@ -1206,8 +1274,8 @@ class AutoSchedulerService {
               if (violatesProhibited(sid, funcName)) continue;
               if (violatesMonth(sid)) continue;
               if (violatesMinDays(sid)) continue;
-              if (maxC > 0 && consecutiveFor(sid) >= maxC) continue;
-              
+              if (maxC > 0 && consecutiveGlobalFor(sid) >= maxC) continue;
+               
               proposals.add({'event_id': event.id, 'ministry_id': ministryId, 'user_id': sid, 'notes': funcName, 'function_id': fid ?? ''});
               assignedMembers.add(sid);
               if (cat == 'instrument') assignedInstrumentMembers.add(sid);

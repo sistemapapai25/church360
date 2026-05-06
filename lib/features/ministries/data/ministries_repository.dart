@@ -575,54 +575,52 @@ class MinistriesRepository {
   }
 
   Future<void> setMemberFunctionsByMinistry(String ministryId, Map<String, List<String>> byFunc) async {
-    try {
-      final catalog = await getFunctionsCatalog();
-      String norm(String s) {
-        final t = s.trim().toLowerCase();
-        const repl = {
-          'á':'a','à':'a','â':'a','ã':'a','ä':'a',
-          'é':'e','ê':'e','ë':'e',
-          'í':'i','ï':'i',
-          'ó':'o','ô':'o','õ':'o','ö':'o',
-          'ú':'u','ü':'u',
-          'ç':'c'
-        };
-        final buf = StringBuffer();
-        for (final ch in t.runes) {
-          final c = String.fromCharCode(ch);
-          buf.write(repl[c] ?? c);
-        }
-        return buf.toString();
-      }
-      final nameToId = {
-        for (final e in catalog) (e['name'] ?? '').toString().trim(): (e['id'] ?? '').toString().trim()
+    final catalog = await getFunctionsCatalog();
+    String norm(String s) {
+      final t = s.trim().toLowerCase();
+      const repl = {
+        'á':'a','à':'a','â':'a','ã':'a','ä':'a',
+        'é':'e','ê':'e','ë':'e',
+        'í':'i','ï':'i',
+        'ó':'o','ô':'o','õ':'o','ö':'o',
+        'ú':'u','ü':'u',
+        'ç':'c'
       };
-      final normNameToId = {
-        for (final e in catalog) norm((e['name'] ?? '').toString()): (e['id'] ?? '').toString().trim()
-      };
-      await _supabase
-          .from('member_function')
-          .delete()
-          .eq('ministry_id', ministryId)
-          .eq('tenant_id', SupabaseConstants.currentTenantId);
-      final rows = <Map<String, dynamic>>[];
-      byFunc.forEach((funcName, userIds) {
-        final nameKey = funcName.trim();
-        String? fid = nameToId[nameKey];
-        fid ??= normNameToId[norm(nameKey)];
-        if (fid == null || fid.isEmpty) return;
-        for (final uid in userIds.where((e) => (e).toString().isNotEmpty)) {
-          rows.add({
-            'ministry_id': ministryId,
-            'user_id': uid,
-            'function_id': fid,
-            'tenant_id': SupabaseConstants.currentTenantId,
-          });
-        }
-      });
-      if (rows.isNotEmpty) {
-        await _supabase.from('member_function').insert(rows);
+      final buf = StringBuffer();
+      for (final ch in t.runes) {
+        final c = String.fromCharCode(ch);
+        buf.write(repl[c] ?? c);
       }
-    } catch (_) {}
+      return buf.toString();
+    }
+    final nameToId = {
+      for (final e in catalog) (e['name'] ?? '').toString().trim(): (e['id'] ?? '').toString().trim()
+    };
+    final normNameToId = {
+      for (final e in catalog) norm((e['name'] ?? '').toString()): (e['id'] ?? '').toString().trim()
+    };
+    await _supabase
+        .from('member_function')
+        .delete()
+        .eq('ministry_id', ministryId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
+    final rows = <Map<String, dynamic>>[];
+    byFunc.forEach((funcName, userIds) {
+      final nameKey = funcName.trim();
+      String? fid = nameToId[nameKey];
+      fid ??= normNameToId[norm(nameKey)];
+      if (fid == null || fid.isEmpty) return;
+      for (final uid in userIds.where((e) => (e).toString().isNotEmpty)) {
+        rows.add({
+          'ministry_id': ministryId,
+          'user_id': uid,
+          'function_id': fid,
+          'tenant_id': SupabaseConstants.currentTenantId,
+        });
+      }
+    });
+    if (rows.isNotEmpty) {
+      await _supabase.from('member_function').insert(rows);
+    }
   }
 }

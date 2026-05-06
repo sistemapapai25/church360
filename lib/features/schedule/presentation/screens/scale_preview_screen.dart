@@ -133,7 +133,8 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
         });
         final eventReq = meta['event_function_requirements'];
         if (eventReq is Map) {
-          final Map<String, dynamic> reqForType = Map<String, dynamic>.from(eventReq[(widget.events.isNotEmpty ? widget.events.first.eventType : null)] ?? {});
+          final typeKey = widget.events.isNotEmpty ? (widget.events.first.eventType ?? 'culto_normal') : 'culto_normal';
+          final Map<String, dynamic> reqForType = Map<String, dynamic>.from(eventReq[typeKey] ?? {});
           reqForType.forEach((k, v) {
             final n = v is int ? v : int.tryParse(v.toString()) ?? 0;
             if (n > 0) required[norm(k.toString())] = n;
@@ -306,7 +307,6 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       for (final f in _functions) {
         final need = _requiredByFunction[f] ?? 1;
         final candidates = List<Map<String, String>>.from(byFunc[f] ?? const []);
-        final allowedIds = List<String>.from(_leadersByFunctionCandidates[f] ?? const <String>[]);
         int i = 0;
         while (i < need) {
           Map<String, String> entry;
@@ -319,10 +319,6 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
               'user_id': '',
               'notes': f,
             };
-            if (allowedIds.isNotEmpty) {
-              final pick = allowedIds[i % allowedIds.length];
-              entry['user_id'] = pick;
-            }
           }
           assigns.add(entry);
           i++;
@@ -714,11 +710,27 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
   }
 
   List<String> _allowedForEventFunction(Event e, String func) {
-    final a = (_leadersByFunctionCandidates[func] ?? const <String>[]);
-    final b = (_allowedByFunction[func] ?? const <String>[]);
-    final c = (_linkedByFunction[func] ?? const <String>[]);
-    final set = <String>{...a, ...b, ...c};
-    return set.toList();
+    final leaders = (_leadersByFunctionCandidates[func] ?? const <String>[]);
+    final meta = (_allowedByFunction[func] ?? const <String>[]);
+    final base = <String>{...leaders, ...meta};
+
+    if (_linkedByFunction.isEmpty) {
+      return base.toList();
+    }
+
+    final linkedUsers = <String>{
+      for (final entry in _linkedByFunction.entries) ...entry.value,
+    };
+    final linkedForFunc = (_linkedByFunction[func] ?? const <String>[]).toSet();
+    final out = <String>{};
+    for (final uid in base) {
+      if (linkedUsers.contains(uid)) {
+        if (linkedForFunc.contains(uid)) out.add(uid);
+      } else {
+        out.add(uid);
+      }
+    }
+    return out.toList();
   }
 
   Widget _buildGrid(BuildContext context) {
