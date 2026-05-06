@@ -14,6 +14,7 @@ import '../../domain/models/categoria.dart';
 import '../../domain/models/financial_attachment.dart';
 import '../widgets/comprovante_upload_widget.dart';
 import '../widgets/financeiro_quick_create.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 
@@ -45,6 +46,13 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
   FormaPagamento _formaPagamento = FormaPagamento.pix;
   bool _isLoading = false;
   FinancialAttachment? _attachment;
+  bool _isRecurring = false;
+  String _recurrenceFrequency = 'MONTHLY';
+  int _recurrenceInterval = 1;
+  int? _recurrenceDayOfMonth;
+  DateTime? _recurrenceEndDate;
+  List<int> _notifyDaysBefore = const [1, 0];
+  String? _responsibleUserId;
 
   bool get _isEditMode => widget.lancamentoId != null;
 
@@ -79,6 +87,14 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
           _contaId = lancamento.contaId;
           _vencimento = lancamento.vencimento;
           _formaPagamento = lancamento.formaPagamento ?? FormaPagamento.pix;
+          _isRecurring = lancamento.isRecurring;
+          _recurrenceFrequency =
+              (lancamento.recurrenceFrequency ?? 'MONTHLY').toUpperCase();
+          _recurrenceInterval = lancamento.recurrenceInterval;
+          _recurrenceDayOfMonth = lancamento.recurrenceDayOfMonth;
+          _recurrenceEndDate = lancamento.recurrenceEndDate;
+          _notifyDaysBefore = lancamento.notifyDaysBefore;
+          _responsibleUserId = lancamento.responsibleUserId;
         });
       }
     } catch (e) {
@@ -146,6 +162,8 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
                           _buildVencimentoField(),
                           const SizedBox(height: 16),
                           _buildFormaPagamentoDropdown(),
+                          const SizedBox(height: 16),
+                          _buildRecurringSection(),
                           const SizedBox(height: 16),
                           _buildObservacoesField(),
                           const SizedBox(height: 16),
@@ -551,6 +569,142 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
     );
   }
 
+  Widget _buildRecurringSection() {
+    final membersAsync = ref.watch(activeMembersProvider);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Lançamento fixo (recorrente)'),
+            subtitle: const Text('Habilita lembretes e recorrência mensal/semanal/anual.'),
+            value: _isRecurring,
+            onChanged: (v) => setState(() => _isRecurring = v),
+          ),
+          if (!_isRecurring) const SizedBox.shrink() else ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _recurrenceFrequency,
+                    decoration: const InputDecoration(labelText: 'Frequência'),
+                    items: const [
+                      DropdownMenuItem(value: 'MONTHLY', child: Text('Mensal')),
+                      DropdownMenuItem(value: 'WEEKLY', child: Text('Semanal')),
+                      DropdownMenuItem(value: 'YEARLY', child: Text('Anual')),
+                    ],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() => _recurrenceFrequency = v);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 110,
+                  child: TextFormField(
+                    initialValue: _recurrenceInterval.toString(),
+                    decoration: const InputDecoration(labelText: 'Intervalo'),
+                    keyboardType: TextInputType.number,
+                    onChanged: (v) {
+                      final parsed = int.tryParse(v.trim());
+                      if (parsed == null || parsed < 1) return;
+                      _recurrenceInterval = parsed;
+                    },
+                  ),
+                ),
+              ],
+            ),
+            if (_recurrenceFrequency == 'MONTHLY') ...[
+              const SizedBox(height: 12),
+              TextFormField(
+                initialValue: (_recurrenceDayOfMonth ?? _vencimento.day).toString(),
+                decoration: const InputDecoration(
+                  labelText: 'Dia do mês',
+                  helperText: 'Ex: 10 (se o mês não tiver o dia, cai no último dia do mês)',
+                ),
+                keyboardType: TextInputType.number,
+                onChanged: (v) {
+                  final parsed = int.tryParse(v.trim());
+                  if (parsed == null) return;
+                  _recurrenceDayOfMonth = parsed.clamp(1, 31);
+                },
+              ),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Text('Lembretes:'),
+                const SizedBox(width: 8),
+                _buildNotifyChip(7, '7d'),
+                const SizedBox(width: 6),
+                _buildNotifyChip(3, '3d'),
+                const SizedBox(width: 6),
+                _buildNotifyChip(1, '1d'),
+                const SizedBox(width: 6),
+                _buildNotifyChip(0, 'no dia'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            membersAsync.when(
+              data: (members) {
+                final items = members
+                    .map(
+                      (m) => DropdownMenuItem<String>(
+                        value: m.id,
+                        child: Text(m.displayName),
+                      ),
+                    )
+                    .toList();
+                final initial = items.any((i) => i.value == _responsibleUserId)
+                    ? _responsibleUserId
+                    : null;
+                return DropdownButtonFormField<String>(
+                  initialValue: initial,
+                  decoration: const InputDecoration(
+                    labelText: 'Responsável',
+                    helperText: 'Quem recebe os lembretes/notificações',
+                  ),
+                  items: items,
+                  onChanged: (v) => setState(() => _responsibleUserId = v),
+                );
+              },
+              loading: () => const LinearProgressIndicator(),
+              error: (e, _) => Text('Erro ao carregar responsáveis: $e'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotifyChip(int day, String label) {
+    final selected = _notifyDaysBefore.contains(day);
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (v) {
+        setState(() {
+          final next = [..._notifyDaysBefore];
+          if (v) {
+            if (!next.contains(day)) next.add(day);
+          } else {
+            next.remove(day);
+          }
+          next.sort((a, b) => b.compareTo(a));
+          _notifyDaysBefore = next.isEmpty ? [1, 0] : next;
+        });
+      },
+    );
+  }
+
   Widget _buildObservacoesField() {
     return TextFormField(
       controller: _observacoesController,
@@ -639,6 +793,16 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
         'forma_pagamento': _formaPagamento.value,
         'observacoes': _observacoesController.text.isEmpty ? null : _observacoesController.text,
         'status': StatusLancamento.emAberto.value,
+        'is_recurring': _isRecurring,
+        'recurrence_frequency': _isRecurring ? _recurrenceFrequency : null,
+        'recurrence_interval': _isRecurring ? _recurrenceInterval : 1,
+        'recurrence_day_of_month':
+            _isRecurring && _recurrenceFrequency == 'MONTHLY'
+                ? (_recurrenceDayOfMonth ?? _vencimento.day)
+                : null,
+        'recurrence_end_date': _recurrenceEndDate?.toIso8601String(),
+        'notify_days_before': _isRecurring ? _notifyDaysBefore : null,
+        'responsible_user_id': _isRecurring ? _responsibleUserId : null,
       };
 
       if (_isEditMode) {

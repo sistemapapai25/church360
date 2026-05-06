@@ -88,6 +88,15 @@ class Lancamento {
   final String tenantId;
   final String? createdBy;
 
+  // Recorrência (opcional)
+  final bool isRecurring;
+  final String? recurrenceFrequency; // MONTHLY | WEEKLY | YEARLY
+  final int recurrenceInterval;
+  final int? recurrenceDayOfMonth;
+  final DateTime? recurrenceEndDate;
+  final List<int> notifyDaysBefore;
+  final String? responsibleUserId;
+
   // Campos relacionados (joins)
   final String? beneficiarioNome;
   final String? categoriaNome;
@@ -118,12 +127,30 @@ class Lancamento {
     this.deletedAt,
     required this.tenantId,
     this.createdBy,
+    this.isRecurring = false,
+    this.recurrenceFrequency,
+    this.recurrenceInterval = 1,
+    this.recurrenceDayOfMonth,
+    this.recurrenceEndDate,
+    this.notifyDaysBefore = const [1, 0],
+    this.responsibleUserId,
     this.beneficiarioNome,
     this.categoriaNome,
     this.contaNome,
   });
 
   factory Lancamento.fromJson(Map<String, dynamic> json) {
+    List<int> parseNotifyDays(dynamic value) {
+      if (value == null) return const [1, 0];
+      if (value is List) {
+        return value.map((e) => int.tryParse(e.toString()) ?? 0).toList();
+      }
+      // Postgres array sometimes comes as "{1,0}"
+      final raw = value.toString().replaceAll('{', '').replaceAll('}', '').trim();
+      if (raw.isEmpty) return const [1, 0];
+      return raw.split(',').map((e) => int.tryParse(e.trim()) ?? 0).toList();
+    }
+
     return Lancamento(
       id: json['id'] as String,
       tipo: TipoLancamento.fromValue(json['tipo'] as String),
@@ -159,6 +186,15 @@ class Lancamento {
           : null,
       tenantId: json['tenant_id'] as String,
       createdBy: json['created_by'] as String?,
+      isRecurring: json['is_recurring'] as bool? ?? false,
+      recurrenceFrequency: json['recurrence_frequency'] as String?,
+      recurrenceInterval: json['recurrence_interval'] as int? ?? 1,
+      recurrenceDayOfMonth: json['recurrence_day_of_month'] as int?,
+      recurrenceEndDate: json['recurrence_end_date'] != null
+          ? DateTime.parse(json['recurrence_end_date'] as String)
+          : null,
+      notifyDaysBefore: parseNotifyDays(json['notify_days_before']),
+      responsibleUserId: json['responsible_user_id'] as String?,
       // Campos relacionados (joins)
       beneficiarioNome: json['beneficiario'] != null
           ? json['beneficiario']['name'] as String?
@@ -198,6 +234,13 @@ class Lancamento {
       'deleted_at': deletedAt?.toIso8601String(),
       'tenant_id': tenantId,
       'created_by': createdBy,
+      'is_recurring': isRecurring,
+      'recurrence_frequency': recurrenceFrequency,
+      'recurrence_interval': recurrenceInterval,
+      'recurrence_day_of_month': recurrenceDayOfMonth,
+      'recurrence_end_date': recurrenceEndDate?.toIso8601String().split('T')[0],
+      'notify_days_before': notifyDaysBefore,
+      'responsible_user_id': responsibleUserId,
     };
   }
 
@@ -268,4 +311,3 @@ class Lancamento {
   bool get isDespesa => tipo == TipoLancamento.despesa;
   bool get isReceita => tipo == TipoLancamento.receita;
 }
-

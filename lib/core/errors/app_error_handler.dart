@@ -40,8 +40,23 @@ class AppErrorHandler {
       String userMessage;
       switch (code) {
         case '23505': // unique_violation
-          userMessage =
-              'Esse item ja existe. Verifique os dados e tente novamente.';
+          final msgLower = message.toLowerCase();
+          final detailsLower = (details ?? '').toLowerCase();
+          final haystack = '$msgLower $detailsLower';
+          if (haystack.contains('categories_unique_name')) {
+            userMessage =
+                'Ja existe uma categoria com esse nome. Selecione a existente ou use um nome diferente.';
+          } else if (haystack.contains('beneficiaries_unique_name')) {
+            userMessage =
+                'Ja existe um beneficiario com esse nome. Selecione o existente ou use um nome diferente.';
+          } else if (haystack.contains('contas_financeiras') ||
+              haystack.contains('unique') && haystack.contains('conta')) {
+            userMessage =
+                'Ja existe uma conta com esse nome. Selecione a existente ou use um nome diferente.';
+          } else {
+            userMessage =
+                'Esse item ja existe. Verifique os dados e tente novamente.';
+          }
           break;
         case '23502': // not_null_violation
           userMessage = 'Preencha os campos obrigatorios e tente novamente.';

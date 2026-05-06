@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 
 import '../providers/financeiro_providers.dart';
 import '../../domain/models/lancamento.dart';
+import '../utils/financeiro_exports.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 
@@ -30,6 +31,30 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
   String? _categoriaFilter;
   DateTime? _startDate;
   DateTime? _endDate;
+  bool _appliedInitialParams = false;
+  List<Lancamento> _lastLancamentos = const [];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_appliedInitialParams) return;
+    _appliedInitialParams = true;
+
+    final qp = GoRouterState.of(context).uri.queryParameters;
+    final tipo = (qp['tipo'] ?? '').trim().toUpperCase();
+    final status = (qp['status'] ?? '').trim().toUpperCase();
+    final start = (qp['start'] ?? '').trim();
+    final end = (qp['end'] ?? '').trim();
+    final categoriaId = (qp['categoria_id'] ?? '').trim();
+
+    setState(() {
+      if (tipo.isNotEmpty) _tipoFilter = TipoLancamento.fromValue(tipo);
+      if (status.isNotEmpty) _statusFilter = StatusLancamento.fromValue(status);
+      if (categoriaId.isNotEmpty) _categoriaFilter = categoriaId;
+      if (start.isNotEmpty) _startDate = DateTime.tryParse(start);
+      if (end.isNotEmpty) _endDate = DateTime.tryParse(end);
+    });
+  }
 
   void _handleBack() {
     if (context.canPop()) {
@@ -74,6 +99,34 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
             onPressed: _showFilterDialog,
           ),
           IconButton(
+            tooltip: 'Exportar PDF',
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            onPressed: _lastLancamentos.isEmpty
+                ? null
+                : () => FinanceiroExports.exportLancamentosPdf(
+                      context,
+                      lancamentos: _lastLancamentos,
+                      startDate: _startDate,
+                      endDate: _endDate,
+                      tipo: _tipoFilter,
+                      status: _statusFilter,
+                    ),
+          ),
+          IconButton(
+            tooltip: 'Exportar CSV',
+            icon: const Icon(Icons.table_view_outlined),
+            onPressed: _lastLancamentos.isEmpty
+                ? null
+                : () => FinanceiroExports.exportLancamentosCsv(
+                      context,
+                      lancamentos: _lastLancamentos,
+                      startDate: _startDate,
+                      endDate: _endDate,
+                      tipo: _tipoFilter,
+                      status: _statusFilter,
+                    ),
+          ),
+          IconButton(
             icon: const Icon(Icons.add),
             onPressed: () => context.push('/financial/lancamentos/new'),
           ),
@@ -107,6 +160,42 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
               style: OutlinedButton.styleFrom(
                 shape: const StadiumBorder(),
               ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: OutlinedButton.icon(
+              onPressed: _lastLancamentos.isEmpty
+                  ? null
+                  : () => FinanceiroExports.exportLancamentosPdf(
+                        context,
+                        lancamentos: _lastLancamentos,
+                        startDate: _startDate,
+                        endDate: _endDate,
+                        tipo: _tipoFilter,
+                        status: _statusFilter,
+                      ),
+              icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+              label: const Text('Exportar PDF'),
+              style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: OutlinedButton.icon(
+              onPressed: _lastLancamentos.isEmpty
+                  ? null
+                  : () => FinanceiroExports.exportLancamentosCsv(
+                        context,
+                        lancamentos: _lastLancamentos,
+                        startDate: _startDate,
+                        endDate: _endDate,
+                        tipo: _tipoFilter,
+                        status: _statusFilter,
+                      ),
+              icon: const Icon(Icons.table_view_outlined, size: 18),
+              label: const Text('Exportar CSV'),
+              style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
             ),
           ),
           Padding(
@@ -145,7 +234,10 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
     ));
 
     return lancamentosAsync.when(
-      data: (lancamentos) => _buildLancamentosLoaded(lancamentos),
+      data: (lancamentos) {
+        _lastLancamentos = lancamentos;
+        return _buildLancamentosLoaded(lancamentos);
+      },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(
         child: Column(
