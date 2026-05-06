@@ -22,7 +22,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Flutter Web
-        run: flutter build web
+        run: flutter build web --release
 
       - name: Debug repository files
         run: |
@@ -30,8 +30,10 @@ jobs:
           ls -lah
           echo "---- firebase.json ----"
           cat firebase.json
-          echo "---- build web ----"
+          echo "---- build/web ----"
           ls -lah build/web
+          echo "---- index.html title ----"
+          grep -i "<title>" build/web/index.html || true
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools@13.0.0
