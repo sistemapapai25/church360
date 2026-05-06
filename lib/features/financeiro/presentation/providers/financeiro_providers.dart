@@ -183,6 +183,30 @@ class LancamentosFilter {
     this.beneficiarioId,
     this.contaId,
   });
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other is LancamentosFilter &&
+            other.startDate?.millisecondsSinceEpoch == startDate?.millisecondsSinceEpoch &&
+            other.endDate?.millisecondsSinceEpoch == endDate?.millisecondsSinceEpoch &&
+            other.tipo == tipo &&
+            other.status == status &&
+            other.categoriaId == categoriaId &&
+            other.beneficiarioId == beneficiarioId &&
+            other.contaId == contaId);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        startDate?.millisecondsSinceEpoch,
+        endDate?.millisecondsSinceEpoch,
+        tipo,
+        status,
+        categoriaId,
+        beneficiarioId,
+        contaId,
+      );
 }
 
 /// Filtro para dashboard por período
@@ -194,5 +218,18 @@ class DashboardPeriodFilter {
     this.startDate,
     this.endDate,
   });
-}
 
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other is DashboardPeriodFilter &&
+            other.startDate?.millisecondsSinceEpoch == startDate?.millisecondsSinceEpoch &&
+            other.endDate?.millisecondsSinceEpoch == endDate?.millisecondsSinceEpoch);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        startDate?.millisecondsSinceEpoch,
+        endDate?.millisecondsSinceEpoch,
+      );
+}
