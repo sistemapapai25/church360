@@ -445,16 +445,6 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
           runSpacing: 12,
           children: [
             _buildQuickActionButton(
-              label: 'Lançamentos',
-              icon: Icons.list_alt,
-              onTap: () => context.push('/financial/lancamentos'),
-            ),
-            _buildQuickActionButton(
-              label: 'Categorias',
-              icon: Icons.category,
-              onTap: () => context.push('/financial/categorias'),
-            ),
-            _buildQuickActionButton(
               label: 'Contas',
               icon: Icons.account_balance,
               onTap: () => context.push('/financial/contas'),

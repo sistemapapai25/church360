@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 
 import '../providers/financeiro_providers.dart';
 import '../../domain/models/lancamento.dart';
+import '../utils/financeiro_exports.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 
@@ -26,6 +27,7 @@ class _ExtratoScreenState extends ConsumerState<ExtratoScreen> {
 
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 30));
   DateTime _endDate = DateTime.now();
+  List<Lancamento> _lastLancamentos = const [];
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +47,32 @@ class _ExtratoScreenState extends ConsumerState<ExtratoScreen> {
               }
             },
           ),
+          actions: [
+            IconButton(
+              tooltip: 'Exportar PDF',
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              onPressed: _lastLancamentos.isEmpty
+                  ? null
+                  : () => FinanceiroExports.exportLancamentosPdf(
+                        context,
+                        lancamentos: _lastLancamentos,
+                        startDate: _startDate,
+                        endDate: _endDate,
+                      ),
+            ),
+            IconButton(
+              tooltip: 'Exportar CSV',
+              icon: const Icon(Icons.table_view_outlined),
+              onPressed: _lastLancamentos.isEmpty
+                  ? null
+                  : () => FinanceiroExports.exportLancamentosCsv(
+                        context,
+                        lancamentos: _lastLancamentos,
+                        startDate: _startDate,
+                        endDate: _endDate,
+                      ),
+            ),
+          ],
         ),
         body: _buildBody(),
       ),
@@ -110,7 +138,10 @@ class _ExtratoScreenState extends ConsumerState<ExtratoScreen> {
     ));
 
     return lancamentosAsync.when(
-      data: (lancamentos) => _buildExtratoLoaded(lancamentos),
+      data: (lancamentos) {
+        _lastLancamentos = lancamentos;
+        return _buildExtratoLoaded(lancamentos);
+      },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(
         child: Text(

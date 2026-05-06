@@ -818,13 +818,15 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
                 ? 'Lançamento atualizado com sucesso!'
                 : 'Lançamento criado com sucesso!'),
           ),
-        );
-        ref.invalidate(allLancamentosProvider);
-        ref.invalidate(dashboardDataProvider);
-        context.pop();
-      }
-    } catch (e) {
-      if (mounted) {
+          );
+          ref.invalidate(allLancamentosProvider);
+          ref.invalidate(dashboardDataProvider);
+          ref.invalidate(dashboardDataByPeriodProvider);
+          ref.invalidate(filteredLancamentosProvider);
+          context.pop();
+        }
+      } catch (e) {
+        if (mounted) {
         AppErrorHandler.showSnackBar(
           context,
           e,

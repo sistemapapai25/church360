@@ -706,6 +706,9 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
           const SnackBar(content: Text('Lançamento pago com sucesso!')),
         );
         ref.invalidate(filteredLancamentosProvider);
+        ref.invalidate(allLancamentosProvider);
+        ref.invalidate(dashboardDataProvider);
+        ref.invalidate(dashboardDataByPeriodProvider);
       }
     } catch (e) {
       if (mounted) {

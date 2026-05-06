@@ -165,9 +165,9 @@ class ContasRepository {
       final despesasPorCat = <String, DespesaPorCategoria>{};
 
       for (final lanc in lancamentos) {
-        final tipo = lanc['tipo'] as String;
+        final tipo = (lanc['tipo'] as String).toUpperCase().trim();
         final valor = (lanc['valor'] as num).toDouble();
-        final status = lanc['status'] as String;
+        final status = (lanc['status'] as String).toUpperCase().trim();
         final vencimento = DateTime.parse(lanc['vencimento'] as String);
         final categoriaId = lanc['categoria_id'] as String;
         final categoriaNome = lanc['categoria']?['name'] as String? ?? 'Sem categoria';
