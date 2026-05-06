@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/share_link_utils.dart';
 
 import '../../../../core/design/community_design.dart';
 
@@ -35,20 +36,21 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
   }
 
   String _buildEventRegistrationShareUrl(String eventId) {
-    final registerPath = '/events/$eventId/register';
-    final base = Uri.base;
-    if (kIsWeb) {
-      if (base.fragment.startsWith('/')) {
-        return base.replace(fragment: registerPath).toString();
-      }
-      return base.replace(path: registerPath, queryParameters: {}).toString();
-    }
-    return registerPath;
+    return ShareLinkUtils.buildShareUrl('/events/$eventId/register');
+  }
+
+  String _buildEventDetailShareUrl(String eventId) {
+    return ShareLinkUtils.buildShareUrl('/events/$eventId');
   }
 
   void _shareRegistrationLink(Event event) {
     final url = _buildEventRegistrationShareUrl(event.id);
     Share.share('Inscreva-se no evento "${event.name}":\n$url');
+  }
+
+  void _shareEventInfoLink(Event event) {
+    final url = _buildEventDetailShareUrl(event.id);
+    Share.share('Confira o evento "${event.name}":\n$url');
   }
 
   @override
@@ -269,14 +271,16 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                                   ),
                                   const SizedBox(width: 8),
                                   _StatusChip(event: event),
-                                  if (_isRegistrationShareEnabled(event)) ...[
-                                    const SizedBox(width: 4),
-                                    IconButton(
-                                      tooltip: 'Compartilhar inscrição',
-                                      icon: const Icon(Icons.share, size: 18),
-                                      onPressed: () => _shareRegistrationLink(event),
-                                    ),
-                                  ],
+                                  const SizedBox(width: 4),
+                                  IconButton(
+                                    tooltip: _isRegistrationShareEnabled(event)
+                                        ? 'Compartilhar inscrição'
+                                        : 'Compartilhar evento',
+                                    icon: const Icon(Icons.share, size: 18),
+                                    onPressed: () => _isRegistrationShareEnabled(event)
+                                        ? _shareRegistrationLink(event)
+                                        : _shareEventInfoLink(event),
+                                  ),
                                 ],
                               ),
 

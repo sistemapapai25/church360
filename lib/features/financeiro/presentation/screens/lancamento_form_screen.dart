@@ -13,6 +13,7 @@ import '../../domain/models/lancamento.dart';
 import '../../domain/models/categoria.dart';
 import '../../domain/models/financial_attachment.dart';
 import '../widgets/comprovante_upload_widget.dart';
+import '../widgets/financeiro_quick_create.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 
@@ -265,28 +266,89 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
 
     return categoriasAsync.when(
       data: (categorias) {
-        return DropdownButtonFormField<String>(
-          initialValue: _categoriaId,
-          decoration: const InputDecoration(
-            labelText: 'Categoria',
-          ),
-          items: categorias.map((categoria) {
-            return DropdownMenuItem(
-              value: categoria.id,
-              child: Text(categoria.name),
-            );
-          }).toList(),
-          onChanged: (value) => setState(() => _categoriaId = value),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Campo obrigatório';
-            }
-            return null;
-          },
+        final tipoCategoria =
+            _tipo == TipoLancamento.despesa ? TipoCategoria.despesa : TipoCategoria.receita;
+        final selectedCategoriaId = (categorias.any((c) => c.id == _categoriaId))
+            ? _categoriaId
+            : null;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: selectedCategoriaId,
+                    decoration: const InputDecoration(
+                      labelText: 'Categoria',
+                    ),
+                    items: categorias.map((categoria) {
+                      return DropdownMenuItem(
+                        value: categoria.id,
+                        child: Text(categoria.name),
+                      );
+                    }).toList(),
+                    onChanged: (value) => setState(() => _categoriaId = value),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Campo obrigatório';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Criar categoria',
+                  icon: const Icon(Icons.add_circle_outline),
+                  onPressed: () async {
+                    final created = await FinanceiroQuickCreate.createCategoria(
+                      context,
+                      ref,
+                      tipo: tipoCategoria,
+                    );
+                    if (created == null || !mounted) return;
+                    setState(() {
+                      _categoriaId = created.id;
+                    });
+                  },
+                ),
+                IconButton(
+                  tooltip: 'Editar categorias',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: selectedCategoriaId == null
+                      ? null
+                      : () async {
+                          final current =
+                              categorias.firstWhere((c) => c.id == selectedCategoriaId);
+                          final updated =
+                              await FinanceiroQuickCreate.editCategoria(
+                            context,
+                            ref,
+                            categoria: current,
+                            fixedTipo: tipoCategoria,
+                          );
+                          if (updated == null || !mounted) return;
+                          setState(() => _categoriaId = updated.id);
+                        },
+                ),
+              ],
+            ),
+            if (categorias.isEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Nenhuma categoria cadastrada. Clique em + para criar.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
+          ],
         );
       },
       loading: () => const LinearProgressIndicator(),
-      error: (_, __) => const Text('Erro ao carregar categorias'),
+      error: (e, _) => Text('Erro ao carregar categorias: $e'),
     );
   }
 
@@ -295,22 +357,80 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
 
     return beneficiariosAsync.when(
       data: (beneficiarios) {
-        return DropdownButtonFormField<String>(
-          initialValue: _beneficiarioId,
-          decoration: const InputDecoration(
-            labelText: 'Beneficiário',
-          ),
-          items: beneficiarios.map((beneficiario) {
-            return DropdownMenuItem(
-              value: beneficiario.id,
-              child: Text(beneficiario.name),
-            );
-          }).toList(),
-          onChanged: (value) => setState(() => _beneficiarioId = value),
+        final selectedBeneficiarioId =
+            (beneficiarios.any((b) => b.id == _beneficiarioId))
+                ? _beneficiarioId
+                : null;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: selectedBeneficiarioId,
+                    decoration: const InputDecoration(
+                      labelText: 'Beneficiário',
+                    ),
+                    items: beneficiarios.map((beneficiario) {
+                      return DropdownMenuItem(
+                        value: beneficiario.id,
+                        child: Text(beneficiario.name),
+                      );
+                    }).toList(),
+                    onChanged: (value) => setState(() => _beneficiarioId = value),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Criar beneficiário',
+                  icon: const Icon(Icons.add_circle_outline),
+                  onPressed: () async {
+                    final created = await FinanceiroQuickCreate.createBeneficiario(
+                      context,
+                      ref,
+                    );
+                    if (created == null || !mounted) return;
+                    setState(() {
+                      _beneficiarioId = created.id;
+                    });
+                  },
+                ),
+                IconButton(
+                  tooltip: 'Editar beneficiário',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: selectedBeneficiarioId == null
+                      ? null
+                      : () async {
+                          final current = beneficiarios.firstWhere(
+                            (b) => b.id == selectedBeneficiarioId,
+                          );
+                          final updated =
+                              await FinanceiroQuickCreate.editBeneficiario(
+                            context,
+                            ref,
+                            beneficiario: current,
+                          );
+                          if (updated == null || !mounted) return;
+                          setState(() => _beneficiarioId = updated.id);
+                        },
+                ),
+              ],
+            ),
+            if (beneficiarios.isEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Nenhum beneficiário cadastrado. Clique em + para criar.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
+          ],
         );
       },
       loading: () => const LinearProgressIndicator(),
-      error: (_, __) => const Text('Erro ao carregar beneficiários'),
+      error: (e, _) => Text('Erro ao carregar beneficiários: $e'),
     );
   }
 
@@ -319,22 +439,77 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
 
     return contasAsync.when(
       data: (contas) {
-        return DropdownButtonFormField<String>(
-          initialValue: _contaId,
-          decoration: const InputDecoration(
-            labelText: 'Conta',
-          ),
-          items: contas.map((conta) {
-            return DropdownMenuItem(
-              value: conta.id,
-              child: Text(conta.nome),
-            );
-          }).toList(),
-          onChanged: (value) => setState(() => _contaId = value),
+        final selectedContaId =
+            (contas.any((c) => c.id == _contaId)) ? _contaId : null;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: selectedContaId,
+                    decoration: const InputDecoration(
+                      labelText: 'Conta',
+                    ),
+                    items: contas.map((conta) {
+                      return DropdownMenuItem(
+                        value: conta.id,
+                        child: Text(conta.nome),
+                      );
+                    }).toList(),
+                    onChanged: (value) => setState(() => _contaId = value),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Criar conta',
+                  icon: const Icon(Icons.add_circle_outline),
+                  onPressed: () async {
+                    final created = await FinanceiroQuickCreate.createConta(
+                      context,
+                      ref,
+                    );
+                    if (created == null || !mounted) return;
+                    setState(() {
+                      _contaId = created.id;
+                    });
+                  },
+                ),
+                IconButton(
+                  tooltip: 'Editar conta',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: selectedContaId == null
+                      ? null
+                      : () async {
+                          final current =
+                              contas.firstWhere((c) => c.id == selectedContaId);
+                          final updated =
+                              await FinanceiroQuickCreate.editConta(
+                            context,
+                            ref,
+                            conta: current,
+                          );
+                          if (updated == null || !mounted) return;
+                          setState(() => _contaId = updated.id);
+                        },
+                ),
+              ],
+            ),
+            if (contas.isEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Nenhuma conta cadastrada. Clique em + para criar.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
+          ],
         );
       },
       loading: () => const LinearProgressIndicator(),
-      error: (_, __) => const Text('Erro ao carregar contas'),
+      error: (e, _) => Text('Erro ao carregar contas: $e'),
     );
   }
 
@@ -423,6 +598,27 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
 
   Future<void> _saveLancamento() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    if (_categoriaId == null || _categoriaId!.trim().isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione ou cadastre uma categoria para continuar.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    if (_tipo == TipoLancamento.despesa &&
+        (_beneficiarioId == null || _beneficiarioId!.trim().isEmpty)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione ou cadastre um beneficiário para a despesa.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
 

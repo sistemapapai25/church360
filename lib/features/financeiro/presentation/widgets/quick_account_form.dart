@@ -4,11 +4,15 @@ import 'package:flutter/services.dart';
 class QuickAccountForm extends StatefulWidget {
   final Function(Map<String, dynamic>) onSave;
   final VoidCallback onCancel;
+  final Map<String, dynamic>? initialData;
+  final String title;
 
   const QuickAccountForm({
     super.key,
     required this.onSave,
     required this.onCancel,
+    this.initialData,
+    this.title = 'Nova Conta Financeira',
   });
 
   @override
@@ -27,6 +31,25 @@ class _QuickAccountFormState extends State<QuickAccountForm> {
   String _tipoConta = 'bancaria';
   bool _ativa = true;
   bool _contaPrincipal = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final data = widget.initialData;
+    if (data == null) return;
+    _nomeController.text = (data['nome'] ?? '').toString();
+    _bancoController.text = (data['instituicao'] ?? '').toString();
+    _agenciaController.text = (data['agencia'] ?? '').toString();
+    _contaController.text = (data['numero'] ?? '').toString();
+    final tipo = (data['tipo'] ?? '').toString().trim();
+    if (tipo.isNotEmpty) _tipoConta = tipo;
+    final saldo = data['saldo_inicial'];
+    if (saldo is num) {
+      _saldoInicialController.text = saldo.toStringAsFixed(2).replaceAll('.', ',');
+    } else if (saldo is String && saldo.trim().isNotEmpty) {
+      _saldoInicialController.text = saldo;
+    }
+  }
 
   @override
   void dispose() {
@@ -76,8 +99,8 @@ class _QuickAccountFormState extends State<QuickAccountForm> {
                 children: [
                   const Icon(Icons.account_balance, color: Colors.orange),
                   const SizedBox(width: 12),
-                  const Text(
-                    'Nova Conta Financeira',
+                  Text(
+                    widget.title,
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),

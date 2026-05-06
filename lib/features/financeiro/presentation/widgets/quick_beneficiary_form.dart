@@ -4,11 +4,15 @@ import 'package:flutter/services.dart';
 class QuickBeneficiaryForm extends StatefulWidget {
   final Function(Map<String, dynamic>) onSave;
   final VoidCallback onCancel;
+  final Map<String, dynamic>? initialData;
+  final String title;
 
   const QuickBeneficiaryForm({
     super.key,
     required this.onSave,
     required this.onCancel,
+    this.initialData,
+    this.title = 'Novo Beneficiário',
   });
 
   @override
@@ -29,6 +33,22 @@ class _QuickBeneficiaryFormState extends State<QuickBeneficiaryForm> {
   final _cpfMask = _DigitMaskTextInputFormatter('###.###.###-##');
   final _cnpjMask = _DigitMaskTextInputFormatter('##.###.###/####-##');
   final _telefoneMask = _DigitMaskTextInputFormatter('(##) #####-####');
+
+  @override
+  void initState() {
+    super.initState();
+    final data = widget.initialData;
+    if (data == null) return;
+    _nomeController.text = (data['name'] ?? '').toString();
+    _documentoController.text = (data['documento'] ?? '').toString();
+    _telefoneController.text = (data['phone'] ?? '').toString();
+    _emailController.text = (data['email'] ?? '').toString();
+    _observacoesController.text = (data['observacoes'] ?? '').toString();
+    final tipo = (data['tipo_beneficiario'] ?? '').toString().trim();
+    if (tipo.isNotEmpty) _tipoBeneficiario = tipo;
+    final ativo = data['ativo'];
+    if (ativo is bool) _ativo = ativo;
+  }
 
   @override
   void dispose() {
@@ -71,8 +91,8 @@ class _QuickBeneficiaryFormState extends State<QuickBeneficiaryForm> {
                 children: [
                   const Icon(Icons.person_add, color: Colors.green),
                   const SizedBox(width: 12),
-                  const Text(
-                    'Novo Beneficiário',
+                  Text(
+                    widget.title,
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),

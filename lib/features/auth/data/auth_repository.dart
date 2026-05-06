@@ -360,10 +360,10 @@ class AuthRepository {
       }
     }
 
-    if (selectedId != null && selectedId != desiredId) {
-      row = null;
-      selectedId = null;
-    }
+    // IMPORTANTE: em bases importadas é comum existir um user_account pré-criado
+    // cujo `id` não é igual ao `auth.uid()`, mas que será "vinculado" via
+    // `auth_user_id`. Não devemos descartar essa linha, senão acabamos criando
+    // um segundo user_account com e-mail placeholder (no-email+...).
 
     if (row == null) {
       try {
@@ -444,12 +444,6 @@ class AuthRepository {
     }
 
     var userAccountId = selectedId ?? row?['id']?.toString();
-
-    if (userAccountId != null && userAccountId != desiredId) {
-      row = null;
-      selectedId = null;
-      userAccountId = null;
-    }
 
     if (userAccountId == null) {
       final payload = <String, dynamic>{

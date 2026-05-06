@@ -64,11 +64,19 @@ class BeneficiariosRepository {
   }
 
   /// Criar novo beneficiário
-  Future<Beneficiario> createBeneficiario(Beneficiario beneficiario) async {
+  Future<Beneficiario> createBeneficiario(
+    Beneficiario beneficiario, {
+    bool returnCreatedRow = true,
+  }) async {
     try {
       final data = beneficiario.toJson();
       data['tenant_id'] = SupabaseConstants.currentTenantId;
       data['created_by'] = _supabase.auth.currentUser?.id;
+
+      if (!returnCreatedRow) {
+        await _supabase.from('beneficiaries').insert(data);
+        return beneficiario;
+      }
 
       final response = await _supabase
           .from('beneficiaries')
@@ -78,6 +86,15 @@ class BeneficiariosRepository {
 
       return Beneficiario.fromJson(response);
     } catch (e) {
+      if (e is PostgrestException && (e.code ?? '').trim() == '23505') {
+        final existing = await _supabase
+            .from('beneficiaries')
+            .select()
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .ilike('name', beneficiario.name)
+            .maybeSingle();
+        if (existing != null) return Beneficiario.fromJson(existing);
+      }
       rethrow;
     }
   }
@@ -114,4 +131,3 @@ class BeneficiariosRepository {
     }
   }
 }
-

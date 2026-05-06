@@ -803,6 +803,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentMember = ref.watch(currentMemberProvider).valueOrNull;
+    final isSelfEdit =
+        widget.memberId != null && currentMember?.id == widget.memberId;
     final permission = widget.memberId == null
         ? (_status == 'visitor' ? 'visitors.create' : 'members.create')
         : (_status == 'visitor' ? 'visitors.edit' : 'members.edit');
@@ -841,25 +844,43 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               ),
             )
           else
-            PermissionGate(
-              permission: permission,
-              showLoading: false,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Center(
-                  child: ElevatedButton.icon(
-                    onPressed: _saveMember,
-                    icon: const Icon(Icons.check, size: 18),
-                    label: const Text('Salvar'),
-                    style: CommunityDesign.pillButtonStyle(
-                      context,
-                      Colors.green,
-                      compact: true,
+            // Autoedição: o próprio membro precisa conseguir salvar o perfil,
+            // mesmo sem ter permissões administrativas de members.edit/visitors.edit.
+            (isSelfEdit
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Center(
+                      child: ElevatedButton.icon(
+                        onPressed: _saveMember,
+                        icon: const Icon(Icons.check, size: 18),
+                        label: const Text('Salvar'),
+                        style: CommunityDesign.pillButtonStyle(
+                          context,
+                          Colors.green,
+                          compact: true,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
-            ),
+                  )
+                : PermissionGate(
+                    permission: permission,
+                    showLoading: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Center(
+                        child: ElevatedButton.icon(
+                          onPressed: _saveMember,
+                          icon: const Icon(Icons.check, size: 18),
+                          label: const Text('Salvar'),
+                          style: CommunityDesign.pillButtonStyle(
+                            context,
+                            Colors.green,
+                            compact: true,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )),
         ],
       ),
       body: _isLoading && widget.memberId != null

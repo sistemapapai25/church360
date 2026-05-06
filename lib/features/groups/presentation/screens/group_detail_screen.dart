@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/utils/share_link_utils.dart';
 import '../providers/groups_provider.dart';
 import '../providers/meetings_provider.dart';
 import '../../domain/models/group.dart';
 import '../../domain/models/group_meeting.dart' as meeting_models;
 import '../../../members/presentation/providers/members_provider.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../support_materials/presentation/providers/support_materials_provider.dart';
 import '../../../support_materials/domain/models/support_material.dart';
 import '../../../support_materials/domain/models/support_material_link.dart';
@@ -26,6 +29,12 @@ class GroupDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final groupAsync = ref.watch(groupByIdProvider(groupId));
+    final currentMember = ref.watch(currentMemberProvider).valueOrNull;
+
+    void shareGroupLink() {
+      final url = ShareLinkUtils.buildShareUrl('/groups/$groupId');
+      Share.share('Participe do grupo na igreja:\n$url');
+    }
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -36,17 +45,30 @@ class GroupDetailScreen extends ConsumerWidget {
           color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
         ),
         actions: [
-          // Botão de editar
           IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () {
-              context.push('/groups/$groupId/edit');
-            },
+            tooltip: 'Compartilhar',
+            icon: const Icon(Icons.share),
+            onPressed: shareGroupLink,
+          ),
+          // Botão de editar
+          PermissionGate(
+            permission: 'groups.edit',
+            showLoading: false,
+            fallback: const SizedBox.shrink(),
+            child: IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () => context.push('/groups/$groupId/edit'),
+            ),
           ),
           // Botão de deletar
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: () => _showDeleteDialog(context, ref),
+          PermissionGate(
+            permission: 'groups.delete',
+            showLoading: false,
+            fallback: const SizedBox.shrink(),
+            child: IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: () => _showDeleteDialog(context, ref),
+            ),
           ),
         ],
       ),
@@ -57,7 +79,10 @@ class GroupDetailScreen extends ConsumerWidget {
               child: Text('Grupo não encontrado'),
             );
           }
-          return _GroupDetailContent(group: group);
+          // Se não estiver autenticado, mantém o conteúdo informativo (evangelismo),
+          // mas evita depender de tabs que precisam de dados privados.
+          final isPublicView = currentMember == null;
+          return _GroupDetailContent(group: group, isPublicView: isPublicView);
         },
         loading: () => const Center(
           child: CircularProgressIndicator(),
@@ -149,13 +174,14 @@ class GroupDetailScreen extends ConsumerWidget {
 /// Conteúdo da tela de detalhes
 class _GroupDetailContent extends ConsumerWidget {
   final Group group;
+  final bool isPublicView;
 
-  const _GroupDetailContent({required this.group});
+  const _GroupDetailContent({required this.group, required this.isPublicView});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 4,
+      length: isPublicView ? 1 : 4,
       child: Column(
         children: [
           // Header com informações do grupo
@@ -235,24 +261,32 @@ class _GroupDetailContent extends ConsumerWidget {
 
           // Tabs
           TabBar(
-            tabs: const [
-              Tab(text: 'Informações', icon: Icon(Icons.info_outline)),
-              Tab(text: 'Membros', icon: Icon(Icons.people_outline)),
-              Tab(text: 'Reuniões', icon: Icon(Icons.event_note)),
-              Tab(text: 'Materiais', icon: Icon(Icons.library_books)),
-            ],
+            tabs: isPublicView
+                ? const [
+                    Tab(text: 'Informações', icon: Icon(Icons.info_outline)),
+                  ]
+                : const [
+                    Tab(text: 'Informações', icon: Icon(Icons.info_outline)),
+                    Tab(text: 'Membros', icon: Icon(Icons.people_outline)),
+                    Tab(text: 'Reuniões', icon: Icon(Icons.event_note)),
+                    Tab(text: 'Materiais', icon: Icon(Icons.library_books)),
+                  ],
             labelColor: Theme.of(context).colorScheme.primary,
           ),
 
           // Tab Views
           Expanded(
             child: TabBarView(
-              children: [
-                _InfoTab(group: group),
-                _MembersTab(groupId: group.id),
-                _MeetingsTab(groupId: group.id),
-                _MaterialsTab(groupId: group.id, groupName: group.name),
-              ],
+              children: isPublicView
+                  ? [
+                      _InfoTab(group: group),
+                    ]
+                  : [
+                      _InfoTab(group: group),
+                      _MembersTab(groupId: group.id),
+                      _MeetingsTab(groupId: group.id),
+                      _MaterialsTab(groupId: group.id, groupName: group.name),
+                    ],
             ),
           ),
         ],

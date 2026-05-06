@@ -78,6 +78,25 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
 
   String get _memberId => widget.memberId;
 
+  bool _isPlaceholderEmail(String value) {
+    final t = value.trim();
+    return t.startsWith('no-email+') && t.endsWith('@church360.local');
+  }
+
+  String _effectiveEmail(WidgetRef ref, Member member) {
+    final raw = member.email.trim();
+    if (raw.isNotEmpty && !_isPlaceholderEmail(raw)) return raw;
+
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    final authEmail = (currentUser?.email ?? '').trim();
+    if (authEmail.isNotEmpty && !_isPlaceholderEmail(authEmail)) return authEmail;
+
+    final metaEmail = (currentUser?.userMetadata?['email']?.toString() ?? '').trim();
+    if (metaEmail.isNotEmpty && !_isPlaceholderEmail(metaEmail)) return metaEmail;
+
+    return raw;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -361,7 +380,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   }
 
   Widget _buildLgpdConsentRow(BuildContext context, WidgetRef ref, Member member) {
-    final hasConsent = member.lgpdConsent == true;
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    final metaConsent = currentUser?.userMetadata?['lgpd_consent'];
+    final hasConsent = member.lgpdConsent == true || metaConsent == true;
     final consentAt = member.lgpdConsentAt;
     final statusText = hasConsent
         ? (consentAt != null
@@ -374,9 +395,11 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     final currentMember = ref.watch(currentMemberProvider).valueOrNull;
     final canUpdate = currentMember?.id == member.id;
 
+    // UX: se o consentimento já veio concedido no cadastro, não pedir para "Conceder" aqui.
+    // Para o próprio usuário, quando já houver consentimento, manter apenas "Ver" (política).
     final actionLabel = canUpdate
-        ? (hasConsent ? 'Revogar' : 'Conceder')
-        : 'Ver Política';
+        ? (hasConsent ? 'Ver' : 'Conceder')
+        : 'Ver';
 
     return _buildInfoRowWithAction(
       Icons.verified_user_outlined,
@@ -384,7 +407,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       statusText,
       actionLabel,
       () async {
-        if (!canUpdate) {
+        if (!canUpdate || hasConsent) {
           await _openLgpdPolicy(memberId: member.id);
           return;
         }
@@ -1002,17 +1025,13 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                 const Spacer(),
                 const NotificationBadge(),
                 const SizedBox(width: 4),
-                PermissionGate(
-                  permission: member.status == 'visitor' ? 'visitors.edit' : 'members.edit',
-                  showLoading: false,
-                  child: IconButton(
-                    icon: const Icon(Icons.edit_outlined),
-                    onPressed: () => context.push('/members/$_memberId/edit'),
-                    tooltip: 'Editar Informações',
-                    style: IconButton.styleFrom(
-                      backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
-                      foregroundColor: colorScheme.primary,
-                    ),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () => context.push('/members/$_memberId/edit'),
+                  tooltip: 'Editar Meu Perfil',
+                  style: IconButton.styleFrom(
+                    backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
+                    foregroundColor: colorScheme.primary,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -1376,8 +1395,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     Member member,
   ) {
     final items = <Widget>[];
-    if (_hasValue(member.email)) {
-      items.add(_buildInfoRow(Icons.email, 'Email', member.email));
+    final email = _effectiveEmail(ref, member);
+    if (_hasValue(email)) {
+      items.add(_buildInfoRow(Icons.email, 'Email', email));
     }
     if (_hasValue(member.phone)) {
       items.add(_buildInfoRow(Icons.phone, 'Telefone', member.phone!));
@@ -1415,8 +1435,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     items.add(_buildLgpdConsentRow(context, ref, member));
     items.add(_buildLgpdPolicyRow(context, member));
     items.add(_buildCommitmentTermsRow(context, member));
-    items.add(_buildLgpdRightsRow(context, ref, member));
-    items.add(_buildLgpdRequestsHistoryRow(context, ref, member));
+    // Ocultar direitos do titular e histórico para usuário comum (ficam fora do "Meu Perfil")
     items.add(_buildLgpdAdminQueueRow(context, ref));
 
     if (items.isEmpty) {
@@ -1902,7 +1921,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   ) {
     return Column(
       children: [
-        _buildInfoRow(Icons.email, 'Email', member.email),
+        _buildInfoRow(Icons.email, 'Email', _effectiveEmail(ref, member)),
         _buildInfoRow(Icons.phone, 'Telefone', member.phone ?? 'Não informado'),
         _buildInfoRow(
           Icons.cake,
@@ -1963,8 +1982,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         _buildLgpdConsentRow(context, ref, member),
         _buildLgpdPolicyRow(context, member),
         _buildCommitmentTermsRow(context, member),
-        _buildLgpdRightsRow(context, ref, member),
-        _buildLgpdRequestsHistoryRow(context, ref, member),
+        // Ocultar direitos do titular e histórico para usuário comum (ficam fora do "Meu Perfil")
         _buildLgpdAdminQueueRow(context, ref),
       ],
     );

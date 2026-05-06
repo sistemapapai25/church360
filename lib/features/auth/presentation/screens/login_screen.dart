@@ -70,7 +70,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
       if (mounted) {
         final authRepo = ref.read(authRepositoryProvider);
-        final message = AppErrorHandler.userMessage(
+        var message = AppErrorHandler.userMessage(
           e,
           feature: 'auth.login',
         );
@@ -84,6 +84,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           if (!mounted) return;
 
           if (status == 'pre_registered') {
+            message =
+                'Seu e-mail foi pré-cadastrado pela igreja. Clique em "Criar conta" para definir sua senha e concluir o acesso.';
             altActionLabel = 'Criar conta';
             final uriEmail = Uri.encodeComponent(email);
             altAction = () => context.push('/signup?email=$uriEmail');

@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../providers/study_group_provider.dart';
 import '../../domain/models/study_group.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/utils/share_link_utils.dart';
 
 class StudyGroupDetailScreen extends ConsumerWidget {
   final String groupId;
@@ -53,12 +55,22 @@ class StudyGroupDetailScreen extends ConsumerWidget {
           );
         }
 
+        void shareStudyGroupLink() {
+          final url = ShareLinkUtils.buildShareUrl('/study-groups/$groupId');
+          Share.share('Participe do grupo de estudos "${group.name}":\n$url');
+        }
+
         return DefaultTabController(
           length: 3,
           child: Scaffold(
             appBar: AppBar(
               title: Text(group.name),
               actions: [
+                IconButton(
+                  tooltip: 'Compartilhar',
+                  icon: const Icon(Icons.share),
+                  onPressed: shareStudyGroupLink,
+                ),
                 if (canManageGroupByContext)
                   IconButton(
                     icon: const Icon(Icons.edit),

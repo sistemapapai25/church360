@@ -18,10 +18,10 @@ class CategoriasRepository {
     try {
       dynamic query = _supabase
           .from('categories')
-          .select('''
-            *,
-            parent:categories!parent_id(name)
-          ''')
+          // Evitar joins auto-relacionados aqui: em alguns ambientes o PostgREST
+          // pode não ter o relacionamento self-join em cache e isso derruba o dropdown.
+          // Para listagens simples (dropdown), '*' é suficiente.
+          .select()
           .eq('tenant_id', SupabaseConstants.currentTenantId)
           .isFilter('deleted_at', null);
 
@@ -70,11 +70,7 @@ class CategoriasRepository {
     try {
       final response = await _supabase
           .from('categories')
-          .select('''
-            *,
-            parent:categories!parent_id(name),
-            subcategorias:categories!parent_id(*)
-          ''')
+          .select()
           .eq('id', id)
           .eq('tenant_id', SupabaseConstants.currentTenantId)
           .maybeSingle();
@@ -87,23 +83,39 @@ class CategoriasRepository {
   }
 
   /// Criar nova categoria
-  Future<Categoria> createCategoria(Categoria categoria) async {
+  Future<Categoria> createCategoria(
+    Categoria categoria, {
+    bool returnCreatedRow = true,
+  }) async {
     try {
       final data = categoria.toJson();
       data['tenant_id'] = SupabaseConstants.currentTenantId;
       data['created_by'] = _supabase.auth.currentUser?.id;
 
+      if (!returnCreatedRow) {
+        await _supabase.from('categories').insert(data);
+        return categoria;
+      }
+
       final response = await _supabase
           .from('categories')
           .insert(data)
-          .select('''
-            *,
-            parent:categories!parent_id(name)
-          ''')
+          .select()
           .single();
 
       return Categoria.fromJson(response);
     } catch (e) {
+      if (e is PostgrestException && (e.code ?? '').trim() == '23505') {
+        // Item já existe: retornar o existente para UX melhor (seleciona ao invés de quebrar).
+        final existing = await _supabase
+            .from('categories')
+            .select()
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .eq('tipo', categoria.tipo.value)
+            .ilike('name', categoria.name)
+            .maybeSingle();
+        if (existing != null) return Categoria.fromJson(existing);
+      }
       rethrow;
     }
   }
@@ -118,10 +130,7 @@ class CategoriasRepository {
           .update(data)
           .eq('id', categoria.id)
           .eq('tenant_id', SupabaseConstants.currentTenantId)
-          .select('''
-            *,
-            parent:categories!parent_id(name)
-          ''')
+          .select()
           .single();
 
       return Categoria.fromJson(response);
@@ -158,4 +167,3 @@ class CategoriasRepository {
     }
   }
 }
-

@@ -453,6 +453,26 @@ class EventsRepository {
     await registerMemberInEvent(eventId: eventId, memberId: memberId);
   }
 
+  /// Inscrição pública (visitante sem login) via link compartilhável
+  Future<String> registerGuest({
+    required String eventId,
+    required String guestName,
+    required String guestEmail,
+    String? guestPhone,
+  }) async {
+    final res = await _supabase.rpc(
+      'register_event_guest',
+      params: {
+        'p_tenant_id': SupabaseConstants.currentTenantId,
+        'p_event_id': eventId,
+        'p_guest_name': guestName,
+        'p_guest_email': guestEmail,
+        'p_guest_phone': guestPhone,
+      },
+    );
+    return (res as String?) ?? res.toString();
+  }
+
   /// Cancelar inscrição
   Future<void> cancelRegistration(String eventId, String memberId) async {
     try {

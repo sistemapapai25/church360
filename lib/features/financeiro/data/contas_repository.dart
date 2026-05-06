@@ -68,11 +68,19 @@ class ContasRepository {
   }
 
   /// Criar nova conta
-  Future<ContaFinanceira> createConta(ContaFinanceira conta) async {
+  Future<ContaFinanceira> createConta(
+    ContaFinanceira conta, {
+    bool returnCreatedRow = true,
+  }) async {
     try {
       final data = conta.toJson();
       data['tenant_id'] = SupabaseConstants.currentTenantId;
       data['created_by'] = _supabase.auth.currentUser?.id;
+
+      if (!returnCreatedRow) {
+        await _supabase.from('contas_financeiras').insert(data);
+        return conta;
+      }
 
       final response = await _supabase
           .from('contas_financeiras')
@@ -82,6 +90,15 @@ class ContasRepository {
 
       return ContaFinanceira.fromJson(response);
     } catch (e) {
+      if (e is PostgrestException && (e.code ?? '').trim() == '23505') {
+        final existing = await _supabase
+            .from('contas_financeiras')
+            .select()
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .ilike('nome', conta.nome)
+            .maybeSingle();
+        if (existing != null) return ContaFinanceira.fromJson(existing);
+      }
       rethrow;
     }
   }

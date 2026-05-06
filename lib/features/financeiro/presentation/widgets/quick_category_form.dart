@@ -3,11 +3,17 @@ import 'package:flutter/material.dart';
 class QuickCategoryForm extends StatefulWidget {
   final Function(Map<String, dynamic>) onSave;
   final VoidCallback onCancel;
+  final String? fixedTipo; // 'DESPESA' | 'RECEITA' (quando a tela chama com tipo fixo)
+  final Map<String, dynamic>? initialData;
+  final String title;
 
   const QuickCategoryForm({
     super.key,
     required this.onSave,
     required this.onCancel,
+    this.fixedTipo,
+    this.initialData,
+    this.title = 'Nova Categoria',
   });
 
   @override
@@ -22,6 +28,26 @@ class _QuickCategoryFormState extends State<QuickCategoryForm> {
   String _tipo = 'DESPESA';
   String _grupo = 'administrativa';
   bool _ativa = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialData;
+    if (initial != null) {
+      _nomeController.text = (initial['name'] ?? '').toString();
+      _descricaoController.text = (initial['descricao'] ?? '').toString();
+      final t = (initial['tipo'] ?? '').toString().trim().toUpperCase();
+      if (t == 'DESPESA' || t == 'RECEITA') _tipo = t;
+      final g = (initial['grupo'] ?? '').toString().trim();
+      if (g.isNotEmpty) _grupo = g;
+      final ativa = initial['ativa'];
+      if (ativa is bool) _ativa = ativa;
+    }
+    final fixed = widget.fixedTipo?.trim().toUpperCase();
+    if (fixed == 'DESPESA' || fixed == 'RECEITA') {
+      _tipo = fixed!;
+    }
+  }
 
   @override
   void dispose() {
@@ -59,8 +85,8 @@ class _QuickCategoryFormState extends State<QuickCategoryForm> {
                 children: [
                   const Icon(Icons.category, color: Colors.blue),
                   const SizedBox(width: 12),
-                  const Text(
-                    'Nova Categoria',
+                  Text(
+                    widget.title,
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
@@ -96,22 +122,31 @@ class _QuickCategoryFormState extends State<QuickCategoryForm> {
                       const SizedBox(height: 16),
 
                       // Tipo
-                      DropdownButtonFormField<String>(
-                        initialValue: _tipo,
-                        decoration: const InputDecoration(
-                          labelText: 'Tipo *',
-                          border: OutlineInputBorder(),
+                      if (widget.fixedTipo == null)
+                        DropdownButtonFormField<String>(
+                          initialValue: _tipo,
+                          decoration: const InputDecoration(
+                            labelText: 'Tipo *',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'DESPESA', child: Text('Despesa')),
+                            DropdownMenuItem(value: 'RECEITA', child: Text('Receita')),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _tipo = value!;
+                            });
+                          },
+                        )
+                      else
+                        InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Tipo',
+                            border: OutlineInputBorder(),
+                          ),
+                          child: Text(_tipo == 'RECEITA' ? 'Receita' : 'Despesa'),
                         ),
-                        items: const [
-                          DropdownMenuItem(value: 'DESPESA', child: Text('Despesa')),
-                          DropdownMenuItem(value: 'RECEITA', child: Text('Receita')),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _tipo = value!;
-                          });
-                        },
-                      ),
                       const SizedBox(height: 16),
 
                       // Grupo

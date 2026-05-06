@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/utils/share_link_utils.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 import '../../data/group_meetings_repository.dart';
 import '../providers/meetings_provider.dart';
@@ -26,23 +29,43 @@ class MeetingDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final meetingAsync = ref.watch(meetingByIdProvider(meetingId));
 
+    void shareMeetingLink() {
+      final url = ShareLinkUtils.buildShareUrl('/groups/$groupId/meetings/$meetingId');
+      Share.share('Convite para reunião:\n$url');
+    }
+
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
         backgroundColor: CommunityDesign.headerColor(context),
         title: Text('Detalhes da Reunião', style: CommunityDesign.titleStyle(context)),
         actions: [
-          // Botão de editar
           IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () {
-              context.push('/groups/$groupId/meetings/$meetingId/edit');
-            },
+            tooltip: 'Compartilhar',
+            icon: const Icon(Icons.share),
+            onPressed: shareMeetingLink,
+          ),
+          // Botão de editar
+          PermissionGate(
+            permission: 'groups.edit',
+            showLoading: false,
+            fallback: const SizedBox.shrink(),
+            child: IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () {
+                context.push('/groups/$groupId/meetings/$meetingId/edit');
+              },
+            ),
           ),
           // Botão de deletar
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: () => _showDeleteDialog(context, ref),
+          PermissionGate(
+            permission: 'groups.delete',
+            showLoading: false,
+            fallback: const SizedBox.shrink(),
+            child: IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: () => _showDeleteDialog(context, ref),
+            ),
           ),
         ],
       ),

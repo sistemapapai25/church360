@@ -9,6 +9,7 @@ import '../../../../core/design/community_design.dart';
 import '../../domain/models/event.dart';
 import '../providers/events_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 /// Tela de inscrição em evento (pública para membros)
 class EventRegistrationScreen extends ConsumerStatefulWidget {
@@ -26,11 +27,24 @@ class EventRegistrationScreen extends ConsumerStatefulWidget {
 class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScreen> {
   bool _isRegistering = false;
   EventTicket? _generatedTicket;
+  bool _isGuestRegistering = false;
+  final _guestNameController = TextEditingController();
+  final _guestEmailController = TextEditingController();
+  final _guestPhoneController = TextEditingController();
+
+  @override
+  void dispose() {
+    _guestNameController.dispose();
+    _guestEmailController.dispose();
+    _guestPhoneController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final eventAsync = ref.watch(eventByIdProvider(widget.eventId));
     final currentMemberAsync = ref.watch(currentMemberProvider);
+    final currentUser = ref.watch(currentUserProvider);
 
     return eventAsync.when(
       data: (event) {
@@ -84,19 +98,7 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
         return currentMemberAsync.when(
           data: (member) {
             if (member == null) {
-              return Scaffold(
-                appBar: AppBar(title: const Text('Inscrição no Evento')),
-                body: const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text(
-                      'Você precisa ter um perfil de membro para se inscrever em eventos',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
-                ),
-              );
+              return _buildGuestRegistrationScreen(event);
             }
             return _buildRegistrationScreen(event, member);
           },
@@ -119,6 +121,168 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
         body: Center(child: Text('Erro ao carregar evento: $error')),
       ),
     );
+  }
+
+  Widget _buildGuestRegistrationScreen(Event event) {
+    return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
+      appBar: AppBar(title: const Text('Inscrição no Evento')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Inscreva-se sem precisar de conta',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Você pode concluir a inscrição agora. Depois, se quiser acompanhar novidades e outros convites, crie sua conta no app.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _guestNameController,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'Nome completo *',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _guestEmailController,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'E-mail *',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _guestPhoneController,
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.done,
+              decoration: const InputDecoration(
+                labelText: 'Telefone (opcional)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.phone_outlined),
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _isGuestRegistering
+                  ? null
+                  : () => _registerGuestInEvent(event),
+              icon: _isGuestRegistering
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.check_circle_outline),
+              label: Text(_isGuestRegistering ? 'Enviando...' : 'Concluir inscrição'),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => context.push('/login'),
+                    child: const Text('Já tenho conta'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      final email = Uri.encodeComponent(
+                        _guestEmailController.text.trim(),
+                      );
+                      context.push('/signup?email=$email');
+                    },
+                    child: const Text('Criar conta'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _registerGuestInEvent(Event event) async {
+    final name = _guestNameController.text.trim();
+    final email = _guestEmailController.text.trim();
+    final phone = _guestPhoneController.text.trim();
+    if (name.isEmpty || email.isEmpty || !email.contains('@')) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe um nome e e-mail válidos para concluir a inscrição.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isGuestRegistering = true);
+    try {
+      await ref.read(eventsRepositoryProvider).registerGuest(
+            eventId: event.id,
+            guestName: name,
+            guestEmail: email,
+            guestPhone: phone.isEmpty ? null : phone,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Inscrição registrada com sucesso!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      // Após registrar, incentivar criação de conta no app (email pré-preenchido)
+      final uriEmail = Uri.encodeComponent(email);
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Tudo certo!'),
+          content: const Text(
+            'Sua inscrição foi registrada. Para receber novidades e acessar outros recursos, você pode criar sua conta no app.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Agora não'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                context.push('/signup?email=$uriEmail');
+              },
+              child: const Text('Criar conta'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Não foi possível concluir a inscrição: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isGuestRegistering = false);
+    }
   }
 
   Widget _buildRegistrationScreen(Event event, dynamic member) {

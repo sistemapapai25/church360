@@ -91,6 +91,10 @@ final currentMemberProvider = FutureProvider<Member?>((ref) async {
       if (serverEmail.isNotEmpty) email = serverEmail;
     } catch (_) {}
   }
+  // Evitar usar placeholder interno como email "real"
+  if (email.startsWith('no-email+') && email.endsWith('@church360.local')) {
+    email = '';
+  }
   final String? provisioningEmail = email.isNotEmpty ? email : null;
   final preferredFullName = (currentUser.userMetadata?['full_name']?.toString() ?? '').trim();
   final safeFullName = preferredFullName.isNotEmpty

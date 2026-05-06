@@ -191,6 +191,19 @@ final appRouter = GoRouter(
     final isSignup = state.matchedLocation == '/signup';
     final isPublicEventRegister = state.matchedLocation.startsWith('/events/') &&
         state.matchedLocation.endsWith('/register');
+    final isPublicEventDetail = state.matchedLocation.startsWith('/events/') &&
+        !state.matchedLocation.endsWith('/edit') &&
+        !state.matchedLocation.endsWith('/new') &&
+        !state.matchedLocation.endsWith('/types') &&
+        !isPublicEventRegister;
+    final isPublicGroupDetail =
+        state.matchedLocation.startsWith('/groups/') &&
+        !state.matchedLocation.endsWith('/edit') &&
+        !state.matchedLocation.endsWith('/new');
+    final isPublicStudyGroupDetail =
+        state.matchedLocation.startsWith('/study-groups/') &&
+        !state.matchedLocation.endsWith('/edit') &&
+        !state.matchedLocation.endsWith('/new');
 
     // Se está na splash, deixa passar
     if (isSplash) {
@@ -198,7 +211,13 @@ final appRouter = GoRouter(
     }
 
     // Se não está autenticado e não está no login/signup nem em rota pública, redireciona para login
-    if (!isAuthenticated && !isLogin && !isSignup && !isPublicEventRegister) {
+    if (!isAuthenticated &&
+        !isLogin &&
+        !isSignup &&
+        !isPublicEventRegister &&
+        !isPublicEventDetail &&
+        !isPublicGroupDetail &&
+        !isPublicStudyGroupDetail) {
       return '/login';
     }
 
