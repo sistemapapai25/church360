@@ -23,6 +23,11 @@ class AutoSchedulerService {
     bool relaxMaxConsecutive = false,
     bool relaxMaxPerMonth = false,
     bool fairDistribution = false,
+    // Lote 5 — quando true (default), líder/suplente entram como BOOST no
+    // score (líder +2, suplente +1) por cima da prioridade-por-tipo do membro,
+    // em vez de sobrescrever cegamente o topo da lista. Kill-switch interno
+    // pra reverter ao comportamento antigo sem deploy se algo der errado.
+    bool useLeaderBoostScore = true,
   }) async {
     final ministriesRepo = ref.read(ministriesRepositoryProvider);
 
@@ -781,22 +786,36 @@ class AutoSchedulerService {
           // pelos primeiros eventos do range.
           int scheduledCountTotal(String uid) =>
               (datesByUser[uid] ?? const []).length;
+          // Lote 5: score = prioFor(uid, eventType) + boost(líder=+2,
+          // suplente=+1). Quando useLeaderBoostScore=false, boost zera e o
+          // bloco legado mais abaixo empurra líder/subs pro topo da lista.
+          int boostFor(String uid) {
+            if (!useLeaderBoostScore) return 0;
+            if (leaderId != null &&
+                leaderId.isNotEmpty &&
+                uid == leaderId) {
+              return 2;
+            }
+            if (subs.contains(uid)) return 1;
+            return 0;
+          }
+          int scoreFor(String uid) => prioFor(uid) + boostFor(uid);
           assignedCandidates.sort((a, b) {
-            final pa = prioFor(a);
-            final pb = prioFor(b);
             if ((minExperienced ?? 0) > experiencedCount) {
               final ea = isExperienced(a);
               final eb = isExperienced(b);
               if (ea != eb) return ea ? -1 : 1;
             }
+            final sa = scoreFor(a);
+            final sb = scoreFor(b);
             if (fairDistribution) {
               final ca = scheduledCountTotal(a);
               final cb = scheduledCountTotal(b);
               if (ca != cb) return ca.compareTo(cb); // menos usado primeiro
-              return pb.compareTo(pa); // empate → prioridade DESC
+              return sb.compareTo(sa); // empate → score DESC
             }
-            // Prioridade: 5 (++) é maior prioridade que 1 (--).
-            final cmp = pb.compareTo(pa);
+            // Score: prioridade-por-tipo (1-5) + boost de líder/suplente.
+            final cmp = sb.compareTo(sa);
             if (cmp != 0) return cmp;
             return scheduledCountMonth(a).compareTo(scheduledCountMonth(b));
           });
@@ -808,21 +827,26 @@ class AutoSchedulerService {
             assignedCandidates.remove(r);
             assignedCandidates.insert(0, r);
           }
-          var insertPos = 0;
-          if (leaderId != null &&
-              leaderId.isNotEmpty &&
-              assignedCandidates.contains(leaderId)) {
-            assignedCandidates.remove(leaderId);
-            assignedCandidates.insert(insertPos, leaderId);
-            insertPos++;
-          }
-          for (final sid in subs) {
-            if (sid.isEmpty) continue;
-            if (leaderId != null && sid == leaderId) continue;
-            if (assignedCandidates.contains(sid)) {
-              assignedCandidates.remove(sid);
-              assignedCandidates.insert(insertPos, sid);
+          if (!useLeaderBoostScore) {
+            // Comportamento legado: empurra líder/subs pro topo da lista
+            // independente da prioridade. Mantido como fallback do
+            // kill-switch.
+            var insertPos = 0;
+            if (leaderId != null &&
+                leaderId.isNotEmpty &&
+                assignedCandidates.contains(leaderId)) {
+              assignedCandidates.remove(leaderId);
+              assignedCandidates.insert(insertPos, leaderId);
               insertPos++;
+            }
+            for (final sid in subs) {
+              if (sid.isEmpty) continue;
+              if (leaderId != null && sid == leaderId) continue;
+              if (assignedCandidates.contains(sid)) {
+                assignedCandidates.remove(sid);
+                assignedCandidates.insert(insertPos, sid);
+                insertPos++;
+              }
             }
           }
           // Princípio 1: registrar quais regras foram efetivamente relaxadas
@@ -1215,6 +1239,7 @@ class AutoSchedulerService {
     bool relaxMaxConsecutive = false,
     bool relaxMaxPerMonth = false,
     bool fairDistribution = false,
+    bool useLeaderBoostScore = true,
   }) async {
     final ministriesRepo = ref.read(ministriesRepositoryProvider);
     final proposals = <Map<String, String>>[];
@@ -1889,7 +1914,9 @@ class AutoSchedulerService {
           }
           // Lote 4 / B3: sort sincronizado com o real generator.
           // Ordem: experienced first se minExperienced > experiencedCount →
-          // fairDistribution OR prioFor DESC → scheduledCountMonth ASC (desempate).
+          // fairDistribution OR scoreFor DESC → scheduledCountMonth ASC (desempate).
+          // Lote 5: score = prioFor + boost de líder/suplente — espelho do
+          // generateForEvent. Preview reflete o que a geração real fará.
           int scheduledCountTotal(String uid) =>
               (datesByUser[uid] ?? const []).length;
           int scheduledCountMonth(String uid) {
@@ -1898,19 +1925,32 @@ class AutoSchedulerService {
             final y = event.startDate.year;
             return list.where((d) => d.month == m && d.year == y).length;
           }
+          int boostFor(String uid) {
+            if (!useLeaderBoostScore) return 0;
+            if (leaderId != null &&
+                leaderId.isNotEmpty &&
+                uid == leaderId) {
+              return 2;
+            }
+            if (subs.contains(uid)) return 1;
+            return 0;
+          }
+          int scoreFor(String uid) => prioFor(uid) + boostFor(uid);
           assignedCandidates.sort((a, b) {
             if ((minExperienced ?? 0) > experiencedCount) {
               final ea = isExperienced(a);
               final eb = isExperienced(b);
               if (ea != eb) return ea ? -1 : 1;
             }
+            final sa = scoreFor(a);
+            final sb = scoreFor(b);
             if (fairDistribution) {
               final ca = scheduledCountTotal(a);
               final cb = scheduledCountTotal(b);
               if (ca != cb) return ca.compareTo(cb);
-              return prioFor(b).compareTo(prioFor(a));
+              return sb.compareTo(sa);
             }
-            final cmp = prioFor(b).compareTo(prioFor(a));
+            final cmp = sb.compareTo(sa);
             if (cmp != 0) return cmp;
             return scheduledCountMonth(a).compareTo(scheduledCountMonth(b));
           });
@@ -1922,21 +1962,26 @@ class AutoSchedulerService {
             assignedCandidates.remove(r);
             assignedCandidates.insert(0, r);
           }
-          var insertPos = 0;
-          if (leaderId != null &&
-              leaderId.isNotEmpty &&
-              assignedCandidates.contains(leaderId)) {
-            assignedCandidates.remove(leaderId);
-            assignedCandidates.insert(insertPos, leaderId);
-            insertPos++;
-          }
-          for (final sid in subs) {
-            if (sid.isEmpty) continue;
-            if (leaderId != null && sid == leaderId) continue;
-            if (assignedCandidates.contains(sid)) {
-              assignedCandidates.remove(sid);
-              assignedCandidates.insert(insertPos, sid);
+          if (!useLeaderBoostScore) {
+            // Comportamento legado: empurra líder/subs pro topo da lista
+            // independente da prioridade. Mantido como fallback do
+            // kill-switch.
+            var insertPos = 0;
+            if (leaderId != null &&
+                leaderId.isNotEmpty &&
+                assignedCandidates.contains(leaderId)) {
+              assignedCandidates.remove(leaderId);
+              assignedCandidates.insert(insertPos, leaderId);
               insertPos++;
+            }
+            for (final sid in subs) {
+              if (sid.isEmpty) continue;
+              if (leaderId != null && sid == leaderId) continue;
+              if (assignedCandidates.contains(sid)) {
+                assignedCandidates.remove(sid);
+                assignedCandidates.insert(insertPos, sid);
+                insertPos++;
+              }
             }
           }
           int idxA = 0;

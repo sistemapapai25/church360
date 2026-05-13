@@ -1126,8 +1126,6 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
           List<String> subs = List<dynamic>.from(cfg['subs'] ?? const []).map((e) => e.toString()).toList();
           final allowed = _allowedIdsForFunction(f).toSet();
           final leaderInit = (leader != null && allowed.contains(leader)) ? leader : null;
-          final sub1Init = (subs.isNotEmpty && allowed.contains(subs[0])) ? subs[0] : null;
-          final sub2Init = (subs.length > 1 && allowed.contains(subs[1])) ? subs[1] : null;
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Column(
@@ -1139,13 +1137,13 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                   builder: (context, constraints) {
                     final maxW = constraints.maxWidth;
                     final itemWidth = maxW >= 760 ? 240.0 : (maxW - 12) / 2;
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
+                    return Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
                         SizedBox(
                           width: itemWidth,
-                        child: DropdownButtonFormField<String>(
+                          child: DropdownButtonFormField<String>(
                             initialValue: leaderInit,
                             isExpanded: true,
                             items: _memberDropdownItems(function: f, includeSelected: leaderInit, strict: true),
@@ -1159,42 +1157,68 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                             decoration: const InputDecoration(labelText: 'Líder', border: OutlineInputBorder()),
                           ),
                         ),
+                        // Lote 5: lista dinâmica de suplentes — N entradas em
+                        // vez de 2 fixos. Botão remover por item + "Adicionar
+                        // suplente" no fim. Save filtra vazios e duplicados.
+                        ...List.generate(subs.length, (idx) {
+                          final subVal = subs[idx];
+                          final subInit = (subVal.isNotEmpty && allowed.contains(subVal)) ? subVal : null;
+                          return SizedBox(
+                            width: itemWidth,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: DropdownButtonFormField<String>(
+                                    initialValue: subInit,
+                                    isExpanded: true,
+                                    items: _memberDropdownItems(function: f, includeSelected: subInit, strict: true),
+                                    onChanged: (v) {
+                                      final map = Map<String, dynamic>.from(_rules['leaders_by_function'] ?? {});
+                                      final row = Map<String, dynamic>.from(map[f] ?? {});
+                                      final list = List<String>.from(row['subs'] ?? const []);
+                                      while (list.length <= idx) { list.add(''); }
+                                      list[idx] = v ?? '';
+                                      row['subs'] = list;
+                                      map[f] = row;
+                                      setState(() => _rules['leaders_by_function'] = map);
+                                    },
+                                    decoration: InputDecoration(
+                                      labelText: 'Suplente ${idx + 1}',
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, size: 18),
+                                  tooltip: 'Remover suplente',
+                                  onPressed: () {
+                                    final map = Map<String, dynamic>.from(_rules['leaders_by_function'] ?? {});
+                                    final row = Map<String, dynamic>.from(map[f] ?? {});
+                                    final list = List<String>.from(row['subs'] ?? const []);
+                                    if (idx < list.length) list.removeAt(idx);
+                                    row['subs'] = list;
+                                    map[f] = row;
+                                    setState(() => _rules['leaders_by_function'] = map);
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
                         SizedBox(
                           width: itemWidth,
-                          child: DropdownButtonFormField<String>(
-                            initialValue: sub1Init,
-                            isExpanded: true,
-                            items: _memberDropdownItems(function: f, includeSelected: sub1Init, strict: true),
-                            onChanged: (v) {
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.add),
+                            label: const Text('Adicionar suplente'),
+                            onPressed: () {
                               final map = Map<String, dynamic>.from(_rules['leaders_by_function'] ?? {});
                               final row = Map<String, dynamic>.from(map[f] ?? {});
                               final list = List<String>.from(row['subs'] ?? const []);
-                              if (list.isEmpty) list.add('');
-                              list[0] = v ?? '';
-                              row['subs'] = list.where((e) => e.isNotEmpty).toList();
+                              list.add('');
+                              row['subs'] = list;
                               map[f] = row;
                               setState(() => _rules['leaders_by_function'] = map);
                             },
-                            decoration: const InputDecoration(labelText: 'Suplente 1', border: OutlineInputBorder()),
-                          ),
-                        ),
-                        SizedBox(
-                          width: itemWidth,
-                          child: DropdownButtonFormField<String>(
-                            initialValue: sub2Init,
-                            isExpanded: true,
-                            items: _memberDropdownItems(function: f, includeSelected: sub2Init, strict: true),
-                            onChanged: (v) {
-                              final map = Map<String, dynamic>.from(_rules['leaders_by_function'] ?? {});
-                              final row = Map<String, dynamic>.from(map[f] ?? {});
-                              final list = List<String>.from(row['subs'] ?? const []);
-                              while (list.length < 2) { list.add(''); }
-                              list[1] = v ?? '';
-                              row['subs'] = list.where((e) => e.isNotEmpty).toList();
-                              map[f] = row;
-                              setState(() => _rules['leaders_by_function'] = map);
-                            },
-                            decoration: const InputDecoration(labelText: 'Suplente 2', border: OutlineInputBorder()),
                           ),
                         ),
                       ],
