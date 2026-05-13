@@ -12,6 +12,10 @@ enum DispatchRuleType {
   birthday('birthday', 'Aniversários'),
   event('event', 'Evento'),
   schedule('schedule', 'Escala'),
+  // Lote 9: sumário diário/semanal de pendências de escala em aberto,
+  // enviado por WhatsApp aos líderes/coordenadores. O body é gerado por
+  // função SQL (enqueue_schedule_pending_summary_jobs), não por template.
+  schedulePendingSummary('schedule_pending_summary', 'Pendências de escala'),
   pdf('pdf', 'PDF');
 
   final String value;
@@ -424,6 +428,8 @@ class _DispatchRulesSheetState extends ConsumerState<_DispatchRulesSheet> {
         return Icons.event;
       case DispatchRuleType.schedule:
         return Icons.calendar_month;
+      case DispatchRuleType.schedulePendingSummary:
+        return Icons.assignment_late_outlined;
       case DispatchRuleType.pdf:
         return Icons.picture_as_pdf;
     }
