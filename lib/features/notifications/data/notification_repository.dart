@@ -192,6 +192,40 @@ class NotificationRepository {
     return AppNotification.fromJson(response);
   }
 
+  /// Lote 8: cria uma notificação para um auth user específico (não o
+  /// usuário corrente). Usado pelo gerador de escala quando um líder
+  /// atribui uma pendência a outro coordenador. Falha silenciosamente
+  /// (retorna null) se a inserção falhar — notificação é side effect
+  /// que não pode bloquear a ação principal.
+  Future<AppNotification?> createNotificationForUser({
+    required String targetUserId,
+    required NotificationType type,
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+    String? route,
+  }) async {
+    try {
+      final response = await _supabase
+          .from('notifications')
+          .insert({
+            'user_id': targetUserId,
+            'type': type.value,
+            'title': title,
+            'body': body,
+            'data': data,
+            'route': route,
+            'status': 'pending',
+            'tenant_id': SupabaseConstants.currentTenantId,
+          })
+          .select()
+          .single();
+      return AppNotification.fromJson(response);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Disparar notificação de novo evento para o tenant atual
   Future<int> notifyEventAnnouncement({
     String? title,

@@ -11,6 +11,12 @@ enum NotificationType {
   groupNewMember('group_new_member', 'Novo Membro', '🎉'),
   financialGoalReached('financial_goal_reached', 'Meta Atingida', '💰'),
   birthdayReminder('birthday_reminder', 'Aniversário', '🎂'),
+  // Raízes (Lote 4B do roadmap Ministérios)
+  raizesVisitToday('raizes_visit_today', 'Visita Raízes hoje', '🌱'),
+  raizesVisitOverdue('raizes_visit_overdue', 'Visita Raízes atrasada', '⚠️'),
+  // Escala (Lote 8 do roadmap Gerador)
+  schedulePendingAssigned(
+      'schedule_pending_assigned', 'Pendência atribuída', '📋'),
   general('general', 'Geral', '📢');
 
   const NotificationType(this.value, this.displayName, this.icon);

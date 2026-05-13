@@ -8,6 +8,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/utils/csv_writer.dart';
 import '../../../../core/utils/file_download.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
+import '../../../notifications/domain/models/notification.dart';
+import '../../../notifications/presentation/providers/notification_provider.dart';
 import '../providers/schedule_provider.dart';
 
 /// Lote 4: tela dedicada de pendências de escala. Substitui o diálogo
@@ -280,6 +282,12 @@ class _SchedulePendingScreenState extends ConsumerState<SchedulePendingScreen> {
     if (picked == currentAssigned) return;
     try {
       await repo.assignPending(item['id'].toString(), picked);
+      // Lote 8: dispara notificação para o novo responsável quando há
+      // atribuição (não notifica se foi desatribuído ou se o líder se
+      // auto-atribuiu — neste último caso a pessoa já sabe).
+      if (picked != null && picked.isNotEmpty && picked != _currentUserId) {
+        await _notifyAssignee(picked, item, assignees);
+      }
       messenger.showSnackBar(SnackBar(
         content: Text(picked == null
             ? 'Atribuição removida.'
@@ -289,6 +297,45 @@ class _SchedulePendingScreenState extends ConsumerState<SchedulePendingScreen> {
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Erro: $e')));
     }
+  }
+
+  /// Lote 8: cria registro em `notifications` para o coordenador escolhido,
+  /// linkando rota `/schedule/pending` para deep-link no app. Falha silenciosa
+  /// se a inserção der erro (notificação é side effect, não bloqueia o fluxo).
+  Future<void> _notifyAssignee(
+    String targetAuthUserId,
+    Map<String, dynamic> item,
+    List<Map<String, String>> assignees,
+  ) async {
+    final notifRepo = ref.read(notificationRepositoryProvider);
+    final ev = (item['event'] as Map?)?.cast<String, dynamic>();
+    final mn = (item['ministry'] as Map?)?.cast<String, dynamic>();
+    final eventName = ev?['name']?.toString() ?? 'Evento';
+    final ministryName = mn?['name']?.toString() ?? '';
+    final funcName = item['func_name']?.toString() ?? '';
+    final expected = item['expected'] ?? 0;
+    final inserted = item['inserted'] ?? 0;
+    final body = StringBuffer(
+        'Você foi designado para resolver uma pendência em $eventName');
+    if (ministryName.isNotEmpty) body.write(' · $ministryName');
+    if (funcName.isNotEmpty) {
+      body.write(' — $funcName ($inserted/$expected).');
+    } else {
+      body.write('.');
+    }
+    await notifRepo.createNotificationForUser(
+      targetUserId: targetAuthUserId,
+      type: NotificationType.schedulePendingAssigned,
+      title: 'Pendência de escala atribuída',
+      body: body.toString(),
+      data: {
+        'pending_id': item['id']?.toString(),
+        'event_id': item['event_id']?.toString(),
+        'ministry_id': item['ministry_id']?.toString(),
+        'func_name': funcName,
+      },
+      route: '/schedule/pending',
+    );
   }
 
   @override
