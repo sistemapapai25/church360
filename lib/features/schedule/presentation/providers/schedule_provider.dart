@@ -2,11 +2,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/schedule_repository.dart';
+import '../../data/schedule_audit_repository.dart';
 import '../../../events/domain/models/event.dart';
 
 /// Provider do repository de Schedule
 final scheduleRepositoryProvider = Provider<ScheduleRepository>((ref) {
   return ScheduleRepository(Supabase.instance.client);
+});
+
+/// Lote 3: provider do repository de auditoria/pendências.
+final scheduleAuditRepositoryProvider =
+    Provider<ScheduleAuditRepository>((ref) {
+  return ScheduleAuditRepository(Supabase.instance.client);
 });
 
 /// Provider que retorna os eventos de um mês específico

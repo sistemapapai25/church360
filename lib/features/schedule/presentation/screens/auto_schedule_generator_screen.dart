@@ -14,6 +14,8 @@ import '../../../events/presentation/providers/events_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../domain/auto_scheduler_service.dart';
 import 'scale_preview_screen.dart';
+import 'schedule_audit_history_screen.dart';
+import 'schedule_pending_screen.dart';
 import 'schedule_rules_preferences_screen.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 
@@ -33,6 +35,13 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
   // Evento conjunto
   final Set<String> _selectedMinistryIds = {};
   bool _jointByFunction = false;
+
+  // Princípios 1 e 2 — opt-in pela tela. Regras hard (autorização, bloqueio,
+  // multi-ministério, prohibited) nunca são relaxáveis e não aparecem aqui.
+  bool _relaxMinDays = false;
+  bool _relaxMaxConsecutive = false;
+  bool _relaxMaxPerMonth = false;
+  bool _fairDistribution = false;
 
   @override
   void initState() {
@@ -84,35 +93,58 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
   Future<void> _generate(List<Event> events) async {
     setState(() => _isGenerating = true);
     final service = AutoSchedulerService();
+    final reports = <EventScheduleReport>[];
+    final failures = <String>[];
     try {
       for (final event in events) {
-        final type = event.eventType ?? 'culto_normal';
-        if (type == 'evento_conjunto') {
-          if (_selectedMinistryIds.isEmpty) {
-            _selectedMinistryIds.add(widget.ministryId);
+        // Fix #15: tratar string vazia / whitespace como ausência de tipo
+        // (default = culto_normal) para não cair no ramo errado.
+        final rawType = event.eventType?.trim();
+        final type = (rawType == null || rawType.isEmpty) ? 'culto_normal' : rawType;
+        try {
+          EventScheduleReport report;
+          if (type == 'evento_conjunto') {
+            if (_selectedMinistryIds.isEmpty) {
+              _selectedMinistryIds.add(widget.ministryId);
+            }
+            report = await service.generateForEvent(
+              ref: ref,
+              event: event,
+              ministryIds: _selectedMinistryIds.toList(),
+              byFunction: _jointByFunction,
+              overwriteExisting: _jointByFunction,
+              relaxMinDays: _relaxMinDays,
+              relaxMaxConsecutive: _relaxMaxConsecutive,
+              relaxMaxPerMonth: _relaxMaxPerMonth,
+              fairDistribution: _fairDistribution,
+            );
+          } else if (type == 'reuniao_ministerio' ||
+              type == 'reuniao_externa' ||
+              type == 'lideranca_geral' ||
+              type == 'mutirao') {
+            report = await service.generateForEvent(
+              ref: ref,
+              event: event,
+              ministryIds: [widget.ministryId],
+              byFunction: false,
+            );
+          } else {
+            report = await service.generateForEvent(
+              ref: ref,
+              event: event,
+              ministryIds: [widget.ministryId],
+              byFunction: true,
+              overwriteExisting: true,
+              relaxMinDays: _relaxMinDays,
+              relaxMaxConsecutive: _relaxMaxConsecutive,
+              relaxMaxPerMonth: _relaxMaxPerMonth,
+              fairDistribution: _fairDistribution,
+            );
           }
-          await service.generateForEvent(
-            ref: ref,
-            event: event,
-            ministryIds: _selectedMinistryIds.toList(),
-            byFunction: _jointByFunction,
-            overwriteExisting: _jointByFunction,
-          );
-        } else if (type == 'reuniao_ministerio' || type == 'reuniao_externa' || type == 'lideranca_geral' || type == 'mutirao') {
-          await service.generateForEvent(
-            ref: ref,
-            event: event,
-            ministryIds: [widget.ministryId],
-            byFunction: false,
-          );
-        } else {
-          await service.generateForEvent(
-            ref: ref,
-            event: event,
-            ministryIds: [widget.ministryId],
-            byFunction: true,
-            overwriteExisting: true,
-          );
+          reports.add(report);
+        } catch (e) {
+          // Fix #12 (parcial): falha de um evento não derruba o range inteiro.
+          failures.add('${event.name}: $e');
         }
       }
 
@@ -122,11 +154,28 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
       }
       ref.invalidate(ministrySchedulesProvider(widget.ministryId));
 
+      // Lote 3 (#11, #13): gravar auditoria + pendências.
+      // Tolerante a falhas: se o SQL não foi rodado, registramos no console
+      // e seguimos o fluxo — usuário ainda vê o modal local.
+      try {
+        final auditRepo = ref.read(scheduleAuditRepositoryProvider);
+        for (final r in reports) {
+          try {
+            final auditId = await auditRepo.recordAudit(r);
+            if (auditId != null) {
+              await auditRepo.recordPendings(r, auditId);
+            }
+          } catch (e) {
+            debugPrint(
+                'AutoScheduler: falha ao gravar audit/pending para ${r.eventName}: $e');
+          }
+        }
+      } catch (e) {
+        debugPrint('AutoScheduler: audit repository indisponível: $e');
+      }
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Escala gerada com sucesso')),
-        );
-        _openScalePreview(events);
+        _showGenerationReport(reports, failures, events);
       }
     } catch (e) {
       if (mounted) {
@@ -137,6 +186,236 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
     } finally {
       if (mounted) setState(() => _isGenerating = false);
     }
+  }
+
+  /// Fix #1+#3: modal com status por evento e pendências manuais.
+  void _showGenerationReport(
+    List<EventScheduleReport> reports,
+    List<String> failures,
+    List<Event> events,
+  ) {
+    final ok = reports.where((r) => r.status == ScheduleSlotStatus.ok).length;
+    final partial = reports
+        .where((r) => r.status == ScheduleSlotStatus.partial)
+        .length;
+    final empty = reports
+        .where((r) => r.status == ScheduleSlotStatus.empty)
+        .length;
+
+    Color colorFor(ScheduleSlotStatus s) {
+      switch (s) {
+        case ScheduleSlotStatus.ok:
+          return Colors.green;
+        case ScheduleSlotStatus.partial:
+          return Colors.orange;
+        case ScheduleSlotStatus.empty:
+          return Colors.red;
+      }
+    }
+
+    IconData iconFor(ScheduleSlotStatus s) {
+      switch (s) {
+        case ScheduleSlotStatus.ok:
+          return Icons.check_circle;
+        case ScheduleSlotStatus.partial:
+          return Icons.warning_amber;
+        case ScheduleSlotStatus.empty:
+          return Icons.error_outline;
+      }
+    }
+
+    String labelFor(ScheduleSlotStatus s) {
+      switch (s) {
+        case ScheduleSlotStatus.ok:
+          return 'OK';
+        case ScheduleSlotStatus.partial:
+          return 'Parcial';
+        case ScheduleSlotStatus.empty:
+          return 'Vazio';
+      }
+    }
+
+    // Mostra eventos não-OK + eventos OK com qualquer relaxamento aplicado
+    // (usuário precisa saber quando alguém foi escalado contornando regra).
+    final nonOk = reports
+        .where((r) =>
+            r.status != ScheduleSlotStatus.ok ||
+            r.slots.any((s) => s.hasRelaxation))
+        .toList();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Resultado da geração'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      _statusPill(Colors.green, '$ok OK'),
+                      const SizedBox(width: 6),
+                      _statusPill(Colors.orange, '$partial parciais'),
+                      const SizedBox(width: 6),
+                      _statusPill(Colors.red, '$empty vazios'),
+                      if (failures.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        _statusPill(
+                            Colors.red.shade900, '${failures.length} falhas'),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (failures.isNotEmpty) ...[
+                    const Text('Eventos com erro:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    for (final f in failures)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Text('• $f',
+                            style: const TextStyle(color: Colors.red)),
+                      ),
+                    const Divider(),
+                  ],
+                  if (nonOk.isEmpty)
+                    const Text(
+                        'Todos os eventos foram preenchidos sem pendências.')
+                  else ...[
+                    const Text('Pendências e avisos por evento:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    for (final r in nonOk)
+                      Card(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(iconFor(r.status),
+                                      color: colorFor(r.status), size: 18),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      '${r.eventName} — '
+                                      '${DateFormat('dd/MM HH:mm', 'pt_BR').format(r.eventDate)}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                  Text(labelFor(r.status),
+                                      style: TextStyle(
+                                          color: colorFor(r.status),
+                                          fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              if (r.generalNote != null) ...[
+                                const SizedBox(height: 4),
+                                Text(r.generalNote!,
+                                    style: const TextStyle(fontSize: 12)),
+                              ],
+                              for (final s in r.slots.where((s) =>
+                                  s.status != ScheduleSlotStatus.ok ||
+                                  s.hasRelaxation)) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '• ${s.funcName}: ${s.inserted}/${s.expected}',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                    if (s.hasRelaxation)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber.withValues(
+                                              alpha: 0.2),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: const Text(
+                                          'relaxado',
+                                          style: TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.amber,
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                if (s.reason.isNotEmpty)
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.only(left: 12, top: 2),
+                                    child: Text(
+                                      s.reason,
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey.shade700),
+                                    ),
+                                  ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Fechar'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _openScalePreview(events);
+              },
+              icon: const Icon(Icons.visibility),
+              label: const Text('Ver escala'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Lote 3 (#13): diálogo com pendências persistidas no banco.
+  /// Limita ao ministério atual; permite marcar resolved/dismissed.
+  String _advancedSummary() {
+    final flags = <String>[];
+    if (_relaxMinDays) flags.add('relax min_days');
+    if (_relaxMaxConsecutive) flags.add('relax consecutive');
+    if (_relaxMaxPerMonth) flags.add('relax max_per_month');
+    if (_fairDistribution) flags.add('distribuição justa');
+    return flags.isEmpty
+        ? 'Nada relaxado · regras integrais'
+        : flags.join(' · ');
+  }
+
+  Widget _statusPill(Color color, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        border: Border.all(color: color),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(text,
+          style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+    );
   }
 
   void _openSendPreview(List<Event> events) {
@@ -203,6 +482,10 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
           events: events,
           jointMinistryIds: ids,
           byFunction: true,
+          relaxMinDays: _relaxMinDays,
+          relaxMaxConsecutive: _relaxMaxConsecutive,
+          relaxMaxPerMonth: _relaxMaxPerMonth,
+          fairDistribution: _fairDistribution,
         ),
       ),
     );
@@ -632,6 +915,30 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
         title: const Text('Gerador de escala automática'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.assignment_late_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SchedulePendingScreen(
+                  initialMinistryId: widget.ministryId,
+                ),
+              ),
+            ),
+            tooltip: 'Pendências manuais',
+          ),
+          IconButton(
+            icon: const Icon(Icons.history_edu),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ScheduleAuditHistoryScreen(
+                  initialMinistryId: widget.ministryId,
+                ),
+              ),
+            ),
+            tooltip: 'Histórico de auditorias',
+          ),
+          IconButton(
             icon: const Icon(Icons.settings_input_component),
             onPressed: _openJointConfig,
             tooltip: 'Evento conjunto',
@@ -679,6 +986,76 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
                           label: const Text('Regras para gerar escalas'),
                         );
                       },
+                    ),
+                    const SizedBox(height: 12),
+                    Card(
+                      child: ExpansionTile(
+                        leading: const Icon(Icons.tune),
+                        title: const Text('Opções avançadas'),
+                        subtitle: Text(_advancedSummary()),
+                        childrenPadding: EdgeInsets.zero,
+                        children: [
+                          CheckboxListTile(
+                            value: _relaxMinDays,
+                            title: const Text('Relaxar min_days_between'),
+                            subtitle: const Text(
+                                'Permite escalar mesmo quando a distância para a última escala é menor que o configurado.'),
+                            onChanged: (v) =>
+                                setState(() => _relaxMinDays = v ?? false),
+                          ),
+                          CheckboxListTile(
+                            value: _relaxMaxConsecutive,
+                            title: const Text('Relaxar max_consecutive'),
+                            subtitle: const Text(
+                                'Permite escalar mesmo quando o membro está em streak de cultos seguidos.'),
+                            onChanged: (v) =>
+                                setState(() => _relaxMaxConsecutive = v ?? false),
+                          ),
+                          CheckboxListTile(
+                            value: _relaxMaxPerMonth,
+                            title: const Text('Relaxar max_per_month'),
+                            subtitle: const Text(
+                                'Permite ultrapassar o limite mensal de escalas por membro.'),
+                            onChanged: (v) =>
+                                setState(() => _relaxMaxPerMonth = v ?? false),
+                          ),
+                          SwitchListTile(
+                            value: _fairDistribution,
+                            title: const Text('Distribuição justa (round-robin)'),
+                            subtitle: const Text(
+                                'Prefere quem foi menos escalado no período; prioridade vira critério de desempate.'),
+                            onChanged: (v) =>
+                                setState(() => _fairDistribution = v),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.withValues(alpha: 0.15),
+                                border: Border.all(color: Colors.amber.shade700),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.info_outline,
+                                      size: 16, color: Colors.amber),
+                                  SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'Autorização de função, bloqueios, férias/licença, '
+                                      'conflito no mesmo evento, prohibited combinations e '
+                                      'allow_multi_ministries_per_event NÃO são relaxáveis.',
+                                      style: TextStyle(fontSize: 11),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 12),
                     FilledButton.icon(

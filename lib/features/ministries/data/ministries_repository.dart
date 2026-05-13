@@ -39,10 +39,7 @@ class MinistriesRepository {
           ? (json['ministry_member'] as List).length
           : 0;
 
-      return Ministry.fromJson({
-        ...json,
-        'member_count': memberCount,
-      });
+      return Ministry.fromJson({...json, 'member_count': memberCount});
     }).toList();
   }
 
@@ -63,10 +60,7 @@ class MinistriesRepository {
   Future<Ministry> createMinistry(Map<String, dynamic> data) async {
     final response = await _supabase
         .from('ministry')
-        .insert({
-          ...data,
-          'tenant_id': SupabaseConstants.currentTenantId,
-        })
+        .insert({...data, 'tenant_id': SupabaseConstants.currentTenantId})
         .select()
         .single();
 
@@ -138,7 +132,9 @@ class MinistriesRepository {
       final member = json['user_account'];
       String memberName = '';
       if (member != null) {
-        final nick = (member['nickname'] ?? member['apelido'] ?? '').toString().trim();
+        final nick = (member['nickname'] ?? member['apelido'] ?? '')
+            .toString()
+            .trim();
         if (nick.isNotEmpty) {
           memberName = nick;
         } else {
@@ -148,10 +144,7 @@ class MinistriesRepository {
         }
       }
 
-      return MinistryMember.fromJson({
-        ...json,
-        'member_name': memberName,
-      });
+      return MinistryMember.fromJson({...json, 'member_name': memberName});
     }).toList();
 
     // Fallback: preencher nomes para registros que não retornaram join
@@ -168,7 +161,9 @@ class MinistriesRepository {
         for (final row in (details as List)) {
           final id = row['id'] as String?;
           if (id != null) {
-            final nick = (row['nickname'] ?? row['apelido'] ?? '').toString().trim();
+            final nick = (row['nickname'] ?? row['apelido'] ?? '')
+                .toString()
+                .trim();
             if (nick.isNotEmpty) {
               nameById[id] = nick;
             } else {
@@ -179,9 +174,11 @@ class MinistriesRepository {
           }
         }
         members = members
-            .map((m) => nameById.containsKey(m.memberId)
-                ? m.copyWith(memberName: nameById[m.memberId])
-                : m)
+            .map(
+              (m) => nameById.containsKey(m.memberId)
+                  ? m.copyWith(memberName: nameById[m.memberId])
+                  : m,
+            )
             .toList();
       } catch (_) {}
     }
@@ -196,7 +193,9 @@ class MinistriesRepository {
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('is_active', true);
 
-    final contextList = (contexts as List).map((e) => e as Map<String, dynamic>).toList();
+    final contextList = (contexts as List)
+        .map((e) => e as Map<String, dynamic>)
+        .toList();
     if (contextList.isEmpty) return members;
 
     final contextIds = contextList.map((c) => c['id'] as String).toList();
@@ -206,12 +205,11 @@ class MinistriesRepository {
       try {
         final resp = await _supabase.rpc(
           'get_user_role_contexts',
-          params: {
-            'p_user_id': uid,
-            'p_role_id': null,
-          },
+          params: {'p_user_id': uid, 'p_role_id': null},
         );
-        final items = (resp as List).map((e) => e as Map<String, dynamic>).toList();
+        final items = (resp as List)
+            .map((e) => e as Map<String, dynamic>)
+            .toList();
         final match = items.firstWhere(
           (it) => contextIds.contains(it['context_id'] as String?),
           orElse: () => {},
@@ -249,10 +247,7 @@ class MinistriesRepository {
     final payload = Map<String, dynamic>.from(data);
     final response = await _supabase
         .from('ministry_member')
-        .insert({
-          ...payload,
-          'tenant_id': SupabaseConstants.currentTenantId,
-        })
+        .insert({...payload, 'tenant_id': SupabaseConstants.currentTenantId})
         .select('*')
         .single();
 
@@ -277,10 +272,7 @@ class MinistriesRepository {
       }
     }
 
-    return MinistryMember.fromJson({
-      ...response,
-      'member_name': memberName,
-    });
+    return MinistryMember.fromJson({...response, 'member_name': memberName});
   }
 
   /// Atualizar membro do ministério
@@ -306,7 +298,9 @@ class MinistriesRepository {
     final member = response['user_account'];
     String memberName = '';
     if (member != null) {
-      final nick = (member['nickname'] ?? member['apelido'] ?? '').toString().trim();
+      final nick = (member['nickname'] ?? member['apelido'] ?? '')
+          .toString()
+          .trim();
       if (nick.isNotEmpty) {
         memberName = nick;
       } else {
@@ -316,10 +310,7 @@ class MinistriesRepository {
       }
     }
 
-    return MinistryMember.fromJson({
-      ...response,
-      'member_name': memberName,
-    });
+    return MinistryMember.fromJson({...response, 'member_name': memberName});
   }
 
   /// Remover membro do ministério
@@ -375,13 +366,17 @@ class MinistriesRepository {
         'ministry_name': ministry?['name'] ?? '',
         'member_name': (() {
           if (member == null) return '';
-          final nick = (member['nickname'] ?? member['apelido'] ?? '').toString().trim();
+          final nick = (member['nickname'] ?? member['apelido'] ?? '')
+              .toString()
+              .trim();
           if (nick.isNotEmpty) return nick;
           final fn = (member['first_name'] ?? '').toString();
           final ln = (member['last_name'] ?? '').toString();
           return ('$fn $ln').trim();
         })(),
-        'function_name': func != null ? (func['name'] ?? func['code'] ?? '') : null,
+        'function_name': func != null
+            ? (func['name'] ?? func['code'] ?? '')
+            : null,
       });
     }).toList();
   }
@@ -414,13 +409,17 @@ class MinistriesRepository {
         'ministry_name': ministry?['name'] ?? '',
         'member_name': (() {
           if (member == null) return '';
-          final nick = (member['nickname'] ?? member['apelido'] ?? '').toString().trim();
+          final nick = (member['nickname'] ?? member['apelido'] ?? '')
+              .toString()
+              .trim();
           if (nick.isNotEmpty) return nick;
           final fn = (member['first_name'] ?? '').toString();
           final ln = (member['last_name'] ?? '').toString();
           return ('$fn $ln').trim();
         })(),
-        'function_name': func != null ? (func['name'] ?? func['code'] ?? '') : null,
+        'function_name': func != null
+            ? (func['name'] ?? func['code'] ?? '')
+            : null,
       });
     }).toList();
   }
@@ -435,10 +434,7 @@ class MinistriesRepository {
     }
     final response = await _supabase
         .from('ministry_schedule')
-        .insert({
-          ...payload,
-          'tenant_id': SupabaseConstants.currentTenantId,
-        })
+        .insert({...payload, 'tenant_id': SupabaseConstants.currentTenantId})
         .select('''
           *,
           event!fk_ministry_schedule_event (name),
@@ -460,8 +456,31 @@ class MinistriesRepository {
       'member_name': member != null
           ? '${member['first_name']} ${member['last_name']}'
           : '',
-      'function_name': func != null ? (func['name'] ?? func['code'] ?? '') : null,
+      'function_name': func != null
+          ? (func['name'] ?? func['code'] ?? '')
+          : null,
     });
+  }
+
+  /// Lote 3 (#14): inserção em batch — uma única requisição com array de
+  /// schedules. Reduz N round-trips para 1 e fica em uma única transação
+  /// no Postgres (atomicidade efetiva). Retorna a contagem inserida.
+  Future<int> addSchedulesBatch(List<Map<String, dynamic>> rows) async {
+    if (rows.isEmpty) return 0;
+    final payload = rows.map((r) {
+      final m = Map<String, dynamic>.from(r);
+      if (m.containsKey('member_id') && !m.containsKey('user_id')) {
+        m['user_id'] = m['member_id'];
+        m.remove('member_id');
+      }
+      m['tenant_id'] = SupabaseConstants.currentTenantId;
+      return m;
+    }).toList();
+    final response = await _supabase
+        .from('ministry_schedule')
+        .insert(payload)
+        .select('id');
+    return (response as List).length;
   }
 
   /// Remover escala
@@ -473,7 +492,10 @@ class MinistriesRepository {
         .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
-  Future<void> clearSchedulesForEventMinistry(String eventId, String ministryId) async {
+  Future<void> clearSchedulesForEventMinistry(
+    String eventId,
+    String ministryId,
+  ) async {
     await _supabase
         .from('ministry_schedule')
         .delete()
@@ -482,7 +504,6 @@ class MinistriesRepository {
         .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
-  
   Future<List<Map<String, String>>> getFunctionsCatalog() async {
     try {
       final response = await _supabase
@@ -490,32 +511,40 @@ class MinistriesRepository {
           .select('id,name,code,is_active')
           .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('is_active', true);
-      return (response as List).map((row) {
-        final id = row['id']?.toString() ?? '';
-        final name = (row['name']?.toString() ?? '').trim();
-        final code = (row['code']?.toString() ?? '').trim();
-        return {
-          'id': id,
-          'name': name.isNotEmpty ? name : code,
-        };
-      }).where((e) => (e['id'] ?? '').isNotEmpty && (e['name'] ?? '').isNotEmpty).toList();
+      return (response as List)
+          .map((row) {
+            final id = row['id']?.toString() ?? '';
+            final name = (row['name']?.toString() ?? '').trim();
+            final code = (row['code']?.toString() ?? '').trim();
+            return {'id': id, 'name': name.isNotEmpty ? name : code};
+          })
+          .where(
+            (e) => (e['id'] ?? '').isNotEmpty && (e['name'] ?? '').isNotEmpty,
+          )
+          .toList();
     } catch (_) {
       return [];
     }
   }
 
-  Future<Map<String, List<String>>> getMemberFunctionsByMinistry(String ministryId) async {
+  Future<Map<String, List<String>>> getMemberFunctionsByMinistry(
+    String ministryId,
+  ) async {
     try {
       final response = await _supabase
           .from('member_function')
-          .select('user_id,function_id,ministry_id,ministry_function:function_id(id,name,code)')
+          .select(
+            'user_id,function_id,ministry_id,ministry_function:function_id(id,name,code)',
+          )
           .eq('ministry_id', ministryId)
           .eq('tenant_id', SupabaseConstants.currentTenantId);
       final out = <String, List<String>>{};
       for (final row in (response as List)) {
-        final uid = row['user_id']?.toString() ?? row['member_id']?.toString() ?? '';
+        final uid =
+            row['user_id']?.toString() ?? row['member_id']?.toString() ?? '';
         final fn = row['ministry_function'] as Map<String, dynamic>?;
-        final name = (fn?['name']?.toString() ?? fn?['code']?.toString() ?? '').trim();
+        final name = (fn?['name']?.toString() ?? fn?['code']?.toString() ?? '')
+            .trim();
         if (uid.isEmpty || name.isEmpty) continue;
         out.putIfAbsent(uid, () => []);
         if (!out[uid]!.contains(name)) out[uid]!.add(name);
@@ -538,7 +567,9 @@ class MinistriesRepository {
       for (final row in (response as List)) {
         final id = row['id']?.toString();
         if (id == null) continue;
-        final nick = (row['nickname'] ?? row['apelido'] ?? '').toString().trim();
+        final nick = (row['nickname'] ?? row['apelido'] ?? '')
+            .toString()
+            .trim();
         if (nick.isNotEmpty) {
           out[id] = nick;
         } else {
@@ -574,30 +605,51 @@ class MinistriesRepository {
     }
   }
 
-  Future<void> setMemberFunctionsByMinistry(String ministryId, Map<String, List<String>> byFunc) async {
+  Future<void> setMemberFunctionsByMinistry(
+    String ministryId,
+    Map<String, List<String>> byFunc,
+  ) async {
     final catalog = await getFunctionsCatalog();
     String norm(String s) {
       final t = s.trim().toLowerCase();
       const repl = {
-        'á':'a','à':'a','â':'a','ã':'a','ä':'a',
-        'é':'e','ê':'e','ë':'e',
-        'í':'i','ï':'i',
-        'ó':'o','ô':'o','õ':'o','ö':'o',
-        'ú':'u','ü':'u',
-        'ç':'c'
+        'á': 'a',
+        'à': 'a',
+        'â': 'a',
+        'ã': 'a',
+        'ä': 'a',
+        'é': 'e',
+        'ê': 'e',
+        'ë': 'e',
+        'í': 'i',
+        'ï': 'i',
+        'ó': 'o',
+        'ô': 'o',
+        'õ': 'o',
+        'ö': 'o',
+        'ú': 'u',
+        'ü': 'u',
+        'ç': 'c',
       };
       final buf = StringBuffer();
       for (final ch in t.runes) {
         final c = String.fromCharCode(ch);
         buf.write(repl[c] ?? c);
       }
-      return buf.toString();
+      return buf
+          .toString()
+          .replaceAll(RegExp(r'[_-]+'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
     }
+
     final nameToId = {
-      for (final e in catalog) (e['name'] ?? '').toString().trim(): (e['id'] ?? '').toString().trim()
+      for (final e in catalog)
+        (e['name'] ?? '').toString().trim(): (e['id'] ?? '').toString().trim(),
     };
     final normNameToId = {
-      for (final e in catalog) norm((e['name'] ?? '').toString()): (e['id'] ?? '').toString().trim()
+      for (final e in catalog)
+        norm((e['name'] ?? '').toString()): (e['id'] ?? '').toString().trim(),
     };
     await _supabase
         .from('member_function')

@@ -13,9 +13,17 @@ class ScheduleRepository {
   /// Buscar eventos entre duas datas
   Future<List<Event>> getEventsByDateRange(DateTime start, DateTime end) async {
     try {
-      // Converter para ISO 8601 string para comparação no Supabase
+      // Se `end` chegou no início do dia (00:00:00), expandir para fim do dia
+      // para incluir eventos que acontecem mais tarde no último dia do range.
+      // Caller que passa horário explícito (`getEventsByMonth`, `getEventsByDate`)
+      // não é afetado.
+      final normalizedEnd =
+          (end.hour == 0 && end.minute == 0 && end.second == 0 && end.millisecond == 0)
+              ? DateTime(end.year, end.month, end.day, 23, 59, 59, 999)
+              : end;
+
       final startStr = start.toIso8601String();
-      final endStr = end.toIso8601String();
+      final endStr = normalizedEnd.toIso8601String();
 
       final response = await _supabase
           .from('event')

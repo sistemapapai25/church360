@@ -18,6 +18,12 @@ class ScalePreviewScreen extends ConsumerStatefulWidget {
   final List<Event> events;
   final List<String> jointMinistryIds;
   final bool byFunction;
+  // Lote 3: preview reflete os flags que o usuário marcou na tela de geração.
+  // Default = comportamento conservador (sem relaxamento, sem distribuição justa).
+  final bool relaxMinDays;
+  final bool relaxMaxConsecutive;
+  final bool relaxMaxPerMonth;
+  final bool fairDistribution;
 
   const ScalePreviewScreen({
     super.key,
@@ -25,6 +31,10 @@ class ScalePreviewScreen extends ConsumerStatefulWidget {
     required this.events,
     required this.jointMinistryIds,
     required this.byFunction,
+    this.relaxMinDays = false,
+    this.relaxMaxConsecutive = false,
+    this.relaxMaxPerMonth = false,
+    this.fairDistribution = false,
   });
 
   @override
@@ -43,13 +53,15 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
   bool _exclusiveInstrument = false;
   bool _exclusiveVoiceRole = false;
   final Map<String, List<String>> _missingByEvent = {};
-  
-  final Map<String, List<String>> _allowedByFunction = {}; // func -> userIds from assigned_functions
-  final Map<String, List<String>> _linkedByFunction = {}; // func -> userIds from member_function
-  final Map<String, List<String>> _leadersByFunctionCandidates = {}; // func -> userIds from leaders_by_function
+
+  final Map<String, List<String>> _allowedByFunction =
+      {}; // func -> userIds from assigned_functions
+  final Map<String, List<String>> _linkedByFunction =
+      {}; // func -> userIds from member_function
+  final Map<String, List<String>> _leadersByFunctionCandidates =
+      {}; // func -> userIds from leaders_by_function
   final Set<String> _exclusiveWithinCats = {};
   final Set<String> _exclusiveAloneCats = {};
-  
 
   @override
   void initState() {
@@ -59,7 +71,9 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
 
   Future<void> _buildProposals() async {
     final service = AutoSchedulerService();
-    final ids = widget.jointMinistryIds.isEmpty ? [widget.ministryId] : widget.jointMinistryIds;
+    final ids = widget.jointMinistryIds.isEmpty
+        ? [widget.ministryId]
+        : widget.jointMinistryIds;
     // Mapear nomes dos membros elegíveis (todos dos ministérios selecionados)
     final repo = ref.read(ministriesRepositoryProvider);
     final List<dynamic> allMembers = [];
@@ -73,7 +87,9 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       allMembers.addAll(members);
     }
     try {
-      final photos = await repo.getUserPhotoUrlsByIds(allMemberIds.where((e) => e.isNotEmpty).toList());
+      final photos = await repo.getUserPhotoUrlsByIds(
+        allMemberIds.where((e) => e.isNotEmpty).toList(),
+      );
       _memberPhotoUrls
         ..clear()
         ..addAll(photos);
@@ -84,20 +100,36 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     String norm(String s) {
       final t = s.trim().toLowerCase();
       const repl = {
-        'á':'a','à':'a','â':'a','ã':'a','ä':'a',
-        'é':'e','ê':'e','ë':'e',
-        'í':'i','ï':'i',
-        'ó':'o','ô':'o','õ':'o','ö':'o',
-        'ú':'u','ü':'u',
-        'ç':'c'
+        'á': 'a',
+        'à': 'a',
+        'â': 'a',
+        'ã': 'a',
+        'ä': 'a',
+        'é': 'e',
+        'ê': 'e',
+        'ë': 'e',
+        'í': 'i',
+        'ï': 'i',
+        'ó': 'o',
+        'ô': 'o',
+        'õ': 'o',
+        'ö': 'o',
+        'ú': 'u',
+        'ü': 'u',
+        'ç': 'c',
       };
       final buf = StringBuffer();
       for (final ch in t.runes) {
         final c = String.fromCharCode(ch);
         buf.write(repl[c] ?? c);
       }
-      return buf.toString();
+      return buf
+          .toString()
+          .replaceAll(RegExp(r'[_-]+'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
     }
+
     final Set<String> funcs = {};
     final Map<String, int> required = {};
     final Map<String, String> cat = {};
@@ -105,11 +137,15 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     bool exclVoice = _exclusiveVoiceRole;
     final Map<String, List<String>> allowed = {};
     for (final mid in ids) {
-      final contexts = await ref.read(roleContextsRepositoryProvider).getContextsByMinistry(mid);
+      final contexts = await ref
+          .read(roleContextsRepositoryProvider)
+          .getContextsByMinistry(mid);
       debugPrint('ScalePreview: contexts for $mid: ${contexts.length}');
       for (final c in contexts) {
         final meta = c.metadata ?? {};
-        final catMap = Map<String, dynamic>.from(meta['function_category_by_function'] ?? {});
+        final catMap = Map<String, dynamic>.from(
+          meta['function_category_by_function'] ?? {},
+        );
         for (final k in catMap.keys.map((e) => e.toString())) {
           final canon = norm(k);
           funcs.add(canon);
@@ -122,19 +158,29 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
           funcs.add(canon);
           _funcDisplay.putIfAbsent(canon, () => name);
         }
-        final restrictions = Map<String, dynamic>.from(meta['category_restrictions'] ?? {});
-        exclInst = (restrictions['instrument']?['exclusive'] as bool?) ?? exclInst;
-        exclVoice = (restrictions['voice_role']?['exclusive'] as bool?) ?? exclVoice;
+        final restrictions = Map<String, dynamic>.from(
+          meta['category_restrictions'] ?? {},
+        );
+        exclInst =
+            (restrictions['instrument']?['exclusive'] as bool?) ?? exclInst;
+        exclVoice =
+            (restrictions['voice_role']?['exclusive'] as bool?) ?? exclVoice;
         restrictions.forEach((k, v) {
           if (v is Map) {
-            if ((v['exclusive'] as bool?) == true) _exclusiveWithinCats.add(k.toString());
-            if ((v['alone'] as bool?) == true) _exclusiveAloneCats.add(k.toString());
+            if ((v['exclusive'] as bool?) == true)
+              _exclusiveWithinCats.add(k.toString());
+            if ((v['alone'] as bool?) == true)
+              _exclusiveAloneCats.add(k.toString());
           }
         });
         final eventReq = meta['event_function_requirements'];
         if (eventReq is Map) {
-          final typeKey = widget.events.isNotEmpty ? (widget.events.first.eventType ?? 'culto_normal') : 'culto_normal';
-          final Map<String, dynamic> reqForType = Map<String, dynamic>.from(eventReq[typeKey] ?? {});
+          final typeKey = widget.events.isNotEmpty
+              ? (widget.events.first.eventType ?? 'culto_normal')
+              : 'culto_normal';
+          final Map<String, dynamic> reqForType = Map<String, dynamic>.from(
+            eventReq[typeKey] ?? {},
+          );
           reqForType.forEach((k, v) {
             final n = v is int ? v : int.tryParse(v.toString()) ?? 0;
             if (n > 0) required[norm(k.toString())] = n;
@@ -149,46 +195,56 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
             });
           }
         }
-      final assigned = Map<String, dynamic>.from(meta['assigned_functions'] ?? {});
-      assigned.forEach((userId, funcsList) {
-        for (final f in List<dynamic>.from(funcsList ?? const [])) {
-          final name = f.toString();
-          final canon = norm(name);
-          _funcDisplay.putIfAbsent(canon, () => name);
-          allowed.putIfAbsent(canon, () => []).add(userId.toString());
-          _allowedByFunction.putIfAbsent(canon, () => []);
-          if (!_allowedByFunction[canon]!.contains(userId.toString())) {
-            _allowedByFunction[canon]!.add(userId.toString());
+        final assigned = Map<String, dynamic>.from(
+          meta['assigned_functions'] ?? {},
+        );
+        assigned.forEach((userId, funcsList) {
+          for (final f in List<dynamic>.from(funcsList ?? const [])) {
+            final name = f.toString();
+            final canon = norm(name);
+            _funcDisplay.putIfAbsent(canon, () => name);
+            allowed.putIfAbsent(canon, () => []).add(userId.toString());
+            _allowedByFunction.putIfAbsent(canon, () => []);
+            if (!_allowedByFunction[canon]!.contains(userId.toString())) {
+              _allowedByFunction[canon]!.add(userId.toString());
+            }
           }
-        }
-      });
+        });
 
-      final rules = Map<String, dynamic>.from(meta['schedule_rules'] ?? {});
-      final lf = Map<String, dynamic>.from(rules['leaders_by_function'] ?? {});
-      lf.forEach((funcName, cfg) {
-        final canon = norm(funcName.toString());
-        final leaderId = (cfg is Map) ? cfg['leader']?.toString() : null;
-        final subs = (cfg is Map) ? List<dynamic>.from(cfg['subs'] ?? const []) : const [];
-        debugPrint('ScalePreview: leaders_by_function func=$canon leader=${leaderId ?? ''} subs=${subs.length}');
-        if (leaderId != null && leaderId.isNotEmpty) {
-          allowed.putIfAbsent(canon, () => []);
-          if (!allowed[canon]!.contains(leaderId)) allowed[canon]!.add(leaderId);
-          _funcDisplay.putIfAbsent(canon, () => funcName.toString());
-          _leadersByFunctionCandidates.putIfAbsent(canon, () => []);
-          if (!_leadersByFunctionCandidates[canon]!.contains(leaderId)) {
-            _leadersByFunctionCandidates[canon]!.add(leaderId);
+        final rules = Map<String, dynamic>.from(meta['schedule_rules'] ?? {});
+        final lf = Map<String, dynamic>.from(
+          rules['leaders_by_function'] ?? {},
+        );
+        lf.forEach((funcName, cfg) {
+          final canon = norm(funcName.toString());
+          final leaderId = (cfg is Map) ? cfg['leader']?.toString() : null;
+          final subs = (cfg is Map)
+              ? List<dynamic>.from(cfg['subs'] ?? const [])
+              : const [];
+          debugPrint(
+            'ScalePreview: leaders_by_function func=$canon leader=${leaderId ?? ''} subs=${subs.length}',
+          );
+          if (leaderId != null && leaderId.isNotEmpty) {
+            allowed.putIfAbsent(canon, () => []);
+            if (!allowed[canon]!.contains(leaderId))
+              allowed[canon]!.add(leaderId);
+            _funcDisplay.putIfAbsent(canon, () => funcName.toString());
+            _leadersByFunctionCandidates.putIfAbsent(canon, () => []);
+            if (!_leadersByFunctionCandidates[canon]!.contains(leaderId)) {
+              _leadersByFunctionCandidates[canon]!.add(leaderId);
+            }
           }
-        }
-        for (final s in subs.map((e)=>e.toString()).where((e)=>e.isNotEmpty)) {
-          allowed.putIfAbsent(canon, () => []);
-          if (!allowed[canon]!.contains(s)) allowed[canon]!.add(s);
-          _funcDisplay.putIfAbsent(canon, () => funcName.toString());
-          _leadersByFunctionCandidates.putIfAbsent(canon, () => []);
-          if (!_leadersByFunctionCandidates[canon]!.contains(s)) {
-            _leadersByFunctionCandidates[canon]!.add(s);
+          for (final s
+              in subs.map((e) => e.toString()).where((e) => e.isNotEmpty)) {
+            allowed.putIfAbsent(canon, () => []);
+            if (!allowed[canon]!.contains(s)) allowed[canon]!.add(s);
+            _funcDisplay.putIfAbsent(canon, () => funcName.toString());
+            _leadersByFunctionCandidates.putIfAbsent(canon, () => []);
+            if (!_leadersByFunctionCandidates[canon]!.contains(s)) {
+              _leadersByFunctionCandidates[canon]!.add(s);
+            }
           }
-        }
-      });
+        });
       }
       // Completar funções e permitidos com vínculos do banco (member_function)
       try {
@@ -212,9 +268,16 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     final Set<String> candidateIds = {
       for (final entry in _leadersByFunctionCandidates.entries) ...entry.value,
     };
-    debugPrint('ScalePreview: leaders candidates keys=${_leadersByFunctionCandidates.keys.toList()}');
-    debugPrint('ScalePreview: leaders candidateIds count=${candidateIds.length}');
-    final missingIds = candidateIds.where((uid) => !_memberNames.containsKey(uid)).toSet().toList();
+    debugPrint(
+      'ScalePreview: leaders candidates keys=${_leadersByFunctionCandidates.keys.toList()}',
+    );
+    debugPrint(
+      'ScalePreview: leaders candidateIds count=${candidateIds.length}',
+    );
+    final missingIds = candidateIds
+        .where((uid) => !_memberNames.containsKey(uid))
+        .toSet()
+        .toList();
     if (missingIds.isNotEmpty) {
       try {
         final names = await repo.getUserNamesByIds(missingIds);
@@ -228,26 +291,39 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     // Ordenação por categorias
     List<String> catOrder = ['other'];
     try {
-      final contexts = await ref.read(roleContextsRepositoryProvider).getContextsByMinistry(widget.ministryId);
+      final contexts = await ref
+          .read(roleContextsRepositoryProvider)
+          .getContextsByMinistry(widget.ministryId);
       final orderRaw = contexts
-          .map((c) => List<dynamic>.from((c.metadata ?? {})['category_order'] ?? const []))
+          .map(
+            (c) => List<dynamic>.from(
+              (c.metadata ?? {})['category_order'] ?? const [],
+            ),
+          )
           .firstWhere((l) => l.isNotEmpty, orElse: () => const []);
       final seen = <String>{};
       final parsed = <String>[];
-      for (final o in orderRaw.map((e)=>e.toString())) {
+      for (final o in orderRaw.map((e) => e.toString())) {
         final s = o.trim().toLowerCase();
-        final k = (s.startsWith('inst')) ? 'instrument' : (s == 'voice_role' || s.startsWith('voz') || s.startsWith('back')) ? 'voice_role' : (s == 'other' || s.startsWith('outr')) ? 'other' : o;
+        final k = (s.startsWith('inst'))
+            ? 'instrument'
+            : (s == 'voice_role' || s.startsWith('voz') || s.startsWith('back'))
+            ? 'voice_role'
+            : (s == 'other' || s.startsWith('outr'))
+            ? 'other'
+            : o;
         if (seen.add(k)) parsed.add(k);
       }
       if (parsed.isNotEmpty) catOrder = parsed;
     } catch (_) {}
-    int rank(String f){
+    int rank(String f) {
       final c = cat[f] ?? 'other';
       final idx = catOrder.indexOf(c);
       return idx >= 0 ? idx : catOrder.length;
     }
+
     final orderedFuncs = funcs.toList()
-      ..sort((a,b){
+      ..sort((a, b) {
         final ra = rank(a);
         final rb = rank(b);
         if (ra != rb) return ra.compareTo(rb);
@@ -256,11 +332,13 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     _functions
       ..clear()
       ..addAll(orderedFuncs);
-    debugPrint('ScalePreview: functions loaded count=${_functions.length} values=$_functions');
-    
+    debugPrint(
+      'ScalePreview: functions loaded count=${_functions.length} values=$_functions',
+    );
+
     _requiredByFunction
       ..clear()
-      ..addAll({ for (final f in _functions) f : (required[f] ?? 1) });
+      ..addAll({for (final f in _functions) f: (required[f] ?? 1)});
     _funcCategory
       ..clear()
       ..addAll(cat);
@@ -269,8 +347,11 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     // Permitidos estritamente por atribuições e vínculos
     _allowedByFunction
       ..clear()
-      ..addAll({ for (final entry in allowed.entries) entry.key : entry.value.toSet().toList() });
-    
+      ..addAll({
+        for (final entry in allowed.entries)
+          entry.key: entry.value.toSet().toList(),
+      });
+
     for (final e in widget.events) {
       // Prefill com escala salva, se houver
       final existing = await repo.getEventSchedules(e.id);
@@ -297,6 +378,10 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
         event: e,
         ministryIds: ids,
         byFunction: widget.byFunction,
+        relaxMinDays: widget.relaxMinDays,
+        relaxMaxConsecutive: widget.relaxMaxConsecutive,
+        relaxMaxPerMonth: widget.relaxMaxPerMonth,
+        fairDistribution: widget.fairDistribution,
       );
       final List<Map<String, String>> assigns = [];
       final Map<String, List<Map<String, String>>> byFunc = {};
@@ -306,7 +391,9 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       }
       for (final f in _functions) {
         final need = _requiredByFunction[f] ?? 1;
-        final candidates = List<Map<String, String>>.from(byFunc[f] ?? const []);
+        final candidates = List<Map<String, String>>.from(
+          byFunc[f] ?? const [],
+        );
         int i = 0;
         while (i < need) {
           Map<String, String> entry;
@@ -327,7 +414,9 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       _assignmentsByEvent[e.id] = assigns;
     }
     // Manter funções requeridas na ordem de categoria sem incluir extras
-    _requiredByFunction.addAll({ for (final f in _functions) f : (_requiredByFunction[f] ?? 1) });
+    _requiredByFunction.addAll({
+      for (final f in _functions) f: (_requiredByFunction[f] ?? 1),
+    });
 
     _recomputeMissing();
     if (mounted) setState(() {});
@@ -337,7 +426,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     _missingByEvent.clear();
     for (final e in widget.events) {
       final assigns = _assignmentsByEvent[e.id] ?? const [];
-      final Map<String, int> countByFunc = { for (final f in _functions) f : 0 };
+      final Map<String, int> countByFunc = {for (final f in _functions) f: 0};
       for (final a in assigns) {
         final f = a['notes'] ?? '';
         final uid = a['user_id'] ?? '';
@@ -355,8 +444,6 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     }
   }
 
-  
-
   Future<void> _saveAll() async {
     setState(() => _isSaving = true);
     try {
@@ -365,12 +452,23 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       String norm(String s) {
         final t = s.trim().toLowerCase();
         const repl = {
-          'á':'a','à':'a','â':'a','ã':'a','ä':'a',
-          'é':'e','ê':'e','ë':'e',
-          'í':'i','ï':'i',
-          'ó':'o','ô':'o','õ':'o','ö':'o',
-          'ú':'u','ü':'u',
-          'ç':'c'
+          'á': 'a',
+          'à': 'a',
+          'â': 'a',
+          'ã': 'a',
+          'ä': 'a',
+          'é': 'e',
+          'ê': 'e',
+          'ë': 'e',
+          'í': 'i',
+          'ï': 'i',
+          'ó': 'o',
+          'ô': 'o',
+          'õ': 'o',
+          'ö': 'o',
+          'ú': 'u',
+          'ü': 'u',
+          'ç': 'c',
         };
         final buf = StringBuffer();
         for (final ch in t.runes) {
@@ -379,16 +477,22 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
         }
         return buf.toString();
       }
+
       final Map<String, String> nameToId = {
-        for (final e in catalog) (e['name'] ?? '').toString().trim(): (e['id'] ?? '').toString().trim()
+        for (final e in catalog)
+          (e['name'] ?? '').toString().trim(): (e['id'] ?? '')
+              .toString()
+              .trim(),
       };
       final Map<String, String> normNameToId = {
-        for (final e in catalog) norm((e['name'] ?? '').toString()): (e['id'] ?? '').toString().trim()
+        for (final e in catalog)
+          norm((e['name'] ?? '').toString()): (e['id'] ?? '').toString().trim(),
       };
       String? fidForFunc(String funcName) {
         final key = funcName.trim();
         return nameToId[key] ?? normNameToId[norm(key)];
       }
+
       for (final e in widget.events) {
         final existing = await repo.getEventSchedules(e.id);
         for (final s in existing) {
@@ -397,10 +501,13 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       }
       final Set<String> seen = {};
       for (final entry in _assignmentsByEvent.entries) {
-        for (final a in entry.value.where((it) => ((it['user_id'] ?? '').isNotEmpty))) {
+        for (final a in entry.value.where(
+          (it) => ((it['user_id'] ?? '').isNotEmpty),
+        )) {
           final notes = (a['notes'] ?? '').toString();
           final fid = notes.isNotEmpty ? fidForFunc(notes) : null;
-          final k = '${a['event_id']}|${a['ministry_id']}|${a['user_id']}|${fid ?? ''}';
+          final k =
+              '${a['event_id']}|${a['ministry_id']}|${a['user_id']}|${fid ?? ''}';
           if (seen.add(k)) {
             final data = {
               'event_id': a['event_id'],
@@ -423,8 +530,6 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     }
   }
 
-  
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -439,7 +544,11 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
           FilledButton.icon(
             onPressed: _isSaving ? null : _saveAll,
             icon: _isSaving
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Icon(Icons.save),
             label: const Text('Salvar Escala'),
           ),
@@ -490,14 +599,18 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
 
   Future<void> _exportPeriodPdf() async {
     if (widget.events.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sem eventos no período')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Sem eventos no período')));
       return;
     }
     final doc = pw.Document();
     // Coletar todos os usuários do período para cores consistentes
     final Set<String> periodUserIds = {
-      for (final e in widget.events)
-        ...[for (final a in (_assignmentsByEvent[e.id] ?? const [])) if ((a['user_id'] ?? '').isNotEmpty) a['user_id']!]
+      for (final e in widget.events) ...[
+        for (final a in (_assignmentsByEvent[e.id] ?? const []))
+          if ((a['user_id'] ?? '').isNotEmpty) a['user_id']!,
+      ],
     };
     // Paleta de cores e mapeamento
     final palette = <PdfColor>[
@@ -520,15 +633,21 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     ];
     int idxFor(String s) {
       int h = 0;
-      for (final c in s.codeUnits) { h = (h * 31 + c) & 0x7fffffff; }
+      for (final c in s.codeUnits) {
+        h = (h * 31 + c) & 0x7fffffff;
+      }
       return h % palette.length;
     }
+
     final used = <int>{};
     final colorForUser = <String, PdfColor>{};
     for (final uid in periodUserIds) {
       int i = idxFor(uid);
       int loops = 0;
-      while (used.contains(i) && loops < palette.length) { i = (i + 1) % palette.length; loops++; }
+      while (used.contains(i) && loops < palette.length) {
+        i = (i + 1) % palette.length;
+        loops++;
+      }
       used.add(i);
       colorForUser[uid] = palette[i];
     }
@@ -550,7 +669,8 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       final disp = _funcDisplay[canon] ?? canon;
       final lc = disp.toLowerCase();
       if (lc == 'ministrante') return 'Ministrante';
-      if (lc == 'tecnico de som' || lc == 'técnico de som') return 'Técnico de som';
+      if (lc == 'tecnico de som' || lc == 'técnico de som')
+        return 'Técnico de som';
       return disp.toUpperCase();
     }
 
@@ -563,7 +683,10 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       return pw.Container(
         margin: const pw.EdgeInsets.all(2),
         padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-        decoration: pw.BoxDecoration(color: col, borderRadius: pw.BorderRadius.circular(3)),
+        decoration: pw.BoxDecoration(
+          color: col,
+          borderRadius: pw.BorderRadius.circular(3),
+        ),
         child: pw.FittedBox(
           fit: pw.BoxFit.scaleDown,
           child: pw.Text(
@@ -604,7 +727,10 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
           // Ajuste conservador para funções (largura estimada)
           const funcInnerW = 100.0;
           for (final f in funcs) {
-            headerFontSize = math.min(headerFontSize, fontFor(labelForFunc(f), funcInnerW, maxLines: 1));
+            headerFontSize = math.min(
+              headerFontSize,
+              fontFor(labelForFunc(f), funcInnerW, maxLines: 1),
+            );
           }
 
           final rows = <pw.TableRow>[];
@@ -612,8 +738,32 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
             pw.TableRow(
               decoration: pw.BoxDecoration(color: PdfColors.black),
               children: [
-                pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Align(alignment: pw.Alignment.center, child: pw.Text('DATA', style: pw.TextStyle(color: PdfColors.white, fontSize: headerFontSize)))),
-                pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Align(alignment: pw.Alignment.center, child: pw.Text('DIA', style: pw.TextStyle(color: PdfColors.white, fontSize: headerFontSize)))),
+                pw.Padding(
+                  padding: const pw.EdgeInsets.all(4),
+                  child: pw.Align(
+                    alignment: pw.Alignment.center,
+                    child: pw.Text(
+                      'DATA',
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: headerFontSize,
+                      ),
+                    ),
+                  ),
+                ),
+                pw.Padding(
+                  padding: const pw.EdgeInsets.all(4),
+                  child: pw.Align(
+                    alignment: pw.Alignment.center,
+                    child: pw.Text(
+                      'DIA',
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: headerFontSize,
+                      ),
+                    ),
+                  ),
+                ),
                 for (final f in funcs)
                   pw.Padding(
                     padding: const pw.EdgeInsets.all(4),
@@ -623,7 +773,10 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
                         fit: pw.BoxFit.scaleDown,
                         child: pw.Text(
                           labelForFunc(f),
-                          style: pw.TextStyle(color: PdfColors.white, fontSize: headerFontSize),
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: headerFontSize,
+                          ),
                           maxLines: 1,
                           textAlign: pw.TextAlign.center,
                         ),
@@ -634,7 +787,9 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
             ),
           );
           for (final e in widget.events) {
-            final assigns = List<Map<String, String>>.from(_assignmentsByEvent[e.id] ?? const []);
+            final assigns = List<Map<String, String>>.from(
+              _assignmentsByEvent[e.id] ?? const [],
+            );
             final byFunc = {for (final f in funcs) f: <Map<String, String>>[]};
             for (final a in assigns) {
               final uid = a['user_id'] ?? '';
@@ -645,8 +800,28 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
             rows.add(
               pw.TableRow(
                 children: [
-                  pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Align(alignment: pw.Alignment.center, child: pw.Text(DateFormat('dd/MM').format(e.startDate), maxLines: 1, textAlign: pw.TextAlign.center))),
-                  pw.Padding(padding: const pw.EdgeInsets.all(4), child: pw.Align(alignment: pw.Alignment.center, child: pw.Text(dowAbbrevPt(e.startDate), maxLines: 1, textAlign: pw.TextAlign.center))),
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.all(4),
+                    child: pw.Align(
+                      alignment: pw.Alignment.center,
+                      child: pw.Text(
+                        DateFormat('dd/MM').format(e.startDate),
+                        maxLines: 1,
+                        textAlign: pw.TextAlign.center,
+                      ),
+                    ),
+                  ),
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.all(4),
+                    child: pw.Align(
+                      alignment: pw.Alignment.center,
+                      child: pw.Text(
+                        dowAbbrevPt(e.startDate),
+                        maxLines: 1,
+                        textAlign: pw.TextAlign.center,
+                      ),
+                    ),
+                  ),
                   for (final f in funcs)
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(4),
@@ -654,7 +829,8 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
                         spacing: 2,
                         runSpacing: 2,
                         children: [
-                          for (final u in byFunc[f] ?? const <Map<String, String>>[])
+                          for (final u
+                              in byFunc[f] ?? const <Map<String, String>>[])
                             chip(u['id'] ?? '', u['name'] ?? ''),
                         ],
                       ),
@@ -670,7 +846,8 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
               columnWidths: {
                 0: pw.FixedColumnWidth(dataColW),
                 1: pw.FixedColumnWidth(diaColW),
-                for (int i = 0; i < funcs.length; i++) 2 + i: const pw.FlexColumnWidth(1),
+                for (int i = 0; i < funcs.length; i++)
+                  2 + i: const pw.FlexColumnWidth(1),
               },
               children: rows,
             ),
@@ -683,15 +860,22 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       if (kIsWeb) {
         downloadFile('escala_periodo.pdf', bytes);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF baixado')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('PDF baixado')));
         }
       } else {
-        await Printing.sharePdf(bytes: bytes, filename: 'escala_periodo.pdf').catchError((_) async {
+        await Printing.sharePdf(
+          bytes: bytes,
+          filename: 'escala_periodo.pdf',
+        ).catchError((_) async {
           await Printing.layoutPdf(onLayout: (format) async => bytes);
           return true;
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF do período gerado')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('PDF do período gerado')),
+          );
         }
       }
     } catch (err) {
@@ -699,11 +883,17 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
         final bytes = await doc.save();
         await Printing.layoutPdf(onLayout: (format) async => bytes);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Visualização/Impressão do PDF aberta')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Visualização/Impressão do PDF aberta'),
+            ),
+          );
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao gerar PDF: $e')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Erro ao gerar PDF: $e')));
         }
       }
     }
@@ -712,18 +902,23 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
   List<String> _allowedForEventFunction(Event e, String func) {
     final leaders = (_leadersByFunctionCandidates[func] ?? const <String>[]);
     final meta = (_allowedByFunction[func] ?? const <String>[]);
-    final base = <String>{...leaders, ...meta};
+    final linked = (_linkedByFunction[func] ?? const <String>[]);
+    final leadersSet = leaders.toSet();
+    final metaSet = meta.toSet();
+    final linkedSet = linked.toSet();
 
     if (_linkedByFunction.isEmpty) {
-      return base.toList();
+      return <String>{...leadersSet, ...metaSet}.toList();
     }
 
     final linkedUsers = <String>{
       for (final entry in _linkedByFunction.entries) ...entry.value,
     };
     final linkedForFunc = (_linkedByFunction[func] ?? const <String>[]).toSet();
-    final out = <String>{};
-    for (final uid in base) {
+    // Se houver vínculos no banco (member_function), eles são a fonte de verdade.
+    // Ainda assim, mantemos os líderes/suplentes como candidatos prioritários.
+    final out = <String>{...leadersSet, ...linkedSet};
+    for (final uid in metaSet) {
       if (linkedUsers.contains(uid)) {
         if (linkedForFunc.contains(uid)) out.add(uid);
       } else {
@@ -761,13 +956,17 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     final header = [
       const DataColumn(label: Text('DATA')),
       const DataColumn(label: Text('DIA')),
-      ..._functions.map((f) => DataColumn(label: Text((_funcDisplay[f] ?? f).toUpperCase()))),
+      ..._functions.map(
+        (f) => DataColumn(label: Text((_funcDisplay[f] ?? f).toUpperCase())),
+      ),
     ];
     final rows = widget.events.map((e) {
       final assigns = _assignmentsByEvent[e.id] ?? const [];
       List<DataCell> cells = [
         DataCell(Text(DateFormat('dd/MM/yy').format(e.startDate))),
-        DataCell(Text(DateFormat('EEE', 'pt_BR').format(e.startDate).toUpperCase())),
+        DataCell(
+          Text(DateFormat('EEE', 'pt_BR').format(e.startDate).toUpperCase()),
+        ),
         ..._functions.map((f) {
           final need = _requiredByFunction[f] ?? 1;
           final indices = <int>[];
@@ -778,74 +977,99 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
           for (int j = 0; j < need; j++) {
             final idx = j < indices.length ? indices[j] : -1;
             final current = idx >= 0 ? assigns[idx] : null;
-            final allowedLocal = _allowedForEventFunction(e, f).toSet().toList();
-            final allowedKey = allowedLocal.isEmpty ? 'empty' : allowedLocal.join('|').hashCode.toString();
-            widgets.add(Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: SizedBox(
-                width: 200,
-                child: DropdownButtonFormField<String>(
-                  key: ValueKey('${e.id}-$f-$j-$allowedKey'),
-                  initialValue: (() {
-                    final uid = current?['user_id'];
-                    return (uid != null && allowedLocal.contains(uid)) ? uid : null;
-                  })(),
-                  items: allowedLocal
-                      .toSet()
-                      .map(
-                        (uid) => DropdownMenuItem(
-                          value: uid,
-                          child: Row(
-                            children: [
-                              avatarFor(uid),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  _memberNames[uid] ?? uid,
-                                  overflow: TextOverflow.ellipsis,
+            final allowedLocal = _allowedForEventFunction(
+              e,
+              f,
+            ).toSet().toList();
+            final allowedKey = allowedLocal.isEmpty
+                ? 'empty'
+                : allowedLocal.join('|').hashCode.toString();
+            widgets.add(
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: SizedBox(
+                  width: 200,
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey('${e.id}-$f-$j-$allowedKey'),
+                    initialValue: (() {
+                      final uid = current?['user_id'];
+                      return (uid != null && allowedLocal.contains(uid))
+                          ? uid
+                          : null;
+                    })(),
+                    items: allowedLocal
+                        .toSet()
+                        .map(
+                          (uid) => DropdownMenuItem(
+                            value: uid,
+                            child: Row(
+                              children: [
+                                avatarFor(uid),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    _memberNames[uid] ?? uid,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      )
-                      .toList(),
-                  isExpanded: true,
-                  onChanged: allowedLocal.isEmpty ? null : (uid) {
-                    setState(() {
-                      if (idx >= 0) {
-                        assigns[idx]['user_id'] = uid ?? '';
-                      } else if (uid != null) {
-                        assigns.add({'event_id': e.id, 'ministry_id': widget.ministryId, 'user_id': uid, 'notes': f});
-                      }
-                      _assignmentsByEvent[e.id] = assigns;
-                      _recomputeMissing();
-                    });
-                  },
-                  decoration: InputDecoration(
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                    hintText: allowedLocal.isEmpty ? 'Sem candidatos' : null,
+                        )
+                        .toList(),
+                    isExpanded: true,
+                    onChanged: allowedLocal.isEmpty
+                        ? null
+                        : (uid) {
+                            setState(() {
+                              if (idx >= 0) {
+                                assigns[idx]['user_id'] = uid ?? '';
+                              } else if (uid != null) {
+                                assigns.add({
+                                  'event_id': e.id,
+                                  'ministry_id': widget.ministryId,
+                                  'user_id': uid,
+                                  'notes': f,
+                                });
+                              }
+                              _assignmentsByEvent[e.id] = assigns;
+                              _recomputeMissing();
+                            });
+                          },
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                      hintText: allowedLocal.isEmpty ? 'Sem candidatos' : null,
+                    ),
                   ),
                 ),
               ),
-            ));
+            );
           }
           final missing = (_missingByEvent[e.id] ?? const []).contains(f);
           return DataCell(
             Container(
               decoration: missing
                   ? BoxDecoration(
-                      border: Border.all(color: Theme.of(context).colorScheme.error),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                       borderRadius: BorderRadius.circular(6),
                     )
                   : null,
               padding: const EdgeInsets.all(4),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 200, maxWidth: 220, minHeight: 56),
+                constraints: const BoxConstraints(
+                  minWidth: 200,
+                  maxWidth: 220,
+                  minHeight: 56,
+                ),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.vertical,
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: widgets),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: widgets,
+                  ),
                 ),
               ),
             ),
