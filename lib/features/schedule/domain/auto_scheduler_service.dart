@@ -4,6 +4,12 @@ import '../../events/domain/models/event.dart';
 import '../../ministries/presentation/providers/ministries_provider.dart';
 import '../../permissions/providers/permissions_providers.dart';
 
+/// Lote 6 / B8: tolerância em dias entre dois "serviços consecutivos".
+/// Eventos semanais têm gap=7; o slack para 9 cobre deslizes (feriado moveu
+/// o culto, evento extra no meio da semana). Acima disso, considera-se que
+/// o streak quebrou.
+const int _consecutiveGapDays = 9;
+
 class AutoSchedulerService {
   /// Gera escalas para um evento específico, aplicando regras por tipo.
   /// Retorna um [EventScheduleReport] descrevendo o resultado por função/ramo
@@ -567,13 +573,13 @@ class AutoSchedulerService {
           // Se o último serviço não for "consecutivo" ao evento atual, zera o streak.
           // Isso evita bloquear para sempre quando `max_consecutive` é baixo (ex.: 1).
           final diffToCurrent = dayDiff(event.startDate, prevs.last).abs();
-          if (diffToCurrent > 9) return 0;
+          if (diffToCurrent > _consecutiveGapDays) return 0;
           int streak = 1;
           DateTime last = prevs.last;
           for (int i = prevs.length - 2; i >= 0; i--) {
             final d = prevs[i];
             final diff = dayDiff(last, d).abs();
-            if (diff <= 9) {
+            if (diff <= _consecutiveGapDays) {
               streak++;
               last = d;
             } else {
@@ -712,29 +718,8 @@ class AutoSchedulerService {
                   .add(s.eventStartDate!);
             }
           }
-          int consecutiveFor(String uid) {
-            final list = List<DateTime>.from(datesByUserFunc[uid] ?? const []);
-            if (list.isEmpty) return 0;
-            list.sort((a, b) => a.compareTo(b));
-            // percorre de trás pra frente até antes do evento atual
-            final prevs = list
-                .where((d) => d.isBefore(event.startDate))
-                .toList();
-            if (prevs.isEmpty) return 0;
-            int streak = 1;
-            DateTime last = prevs.last;
-            for (int i = prevs.length - 2; i >= 0; i--) {
-              final d = prevs[i];
-              final diff = dayDiff(last, d).abs();
-              if (diff <= 9) {
-                streak++;
-                last = d;
-              } else {
-                break;
-              }
-            }
-            return streak;
-          }
+          // Lote 6 / B9: removida `consecutiveFor` por-função — só
+          // `consecutiveGlobalFor` é usada no fluxo de decisão.
 
           final Map<String, List<String>> reservedByFunction = {};
 
@@ -852,9 +837,18 @@ class AutoSchedulerService {
           // Princípio 1: registrar quais regras foram efetivamente relaxadas
           // para preencher esta função (vai pro relatório como aviso).
           final Set<String> slotRelaxedRules = {};
+          // Lote 6 / B7: parceiros proibidos do escolhido viram BAN em vez
+          // de removeWhere mid-loop. removeWhere shifta a lista pra esquerda
+          // e, se o banido estava em índice < idxA, a próxima iteração pulava
+          // um candidato válido. Set é O(1) e não mexe na lista.
+          final Set<String> banned = <String>{};
           int idxA = 0;
           while (count < needed && idxA < assignedCandidates.length) {
             final uid = assignedCandidates[idxA];
+            if (banned.contains(uid)) {
+              idxA++;
+              continue;
+            }
             if (!membersById.containsKey(uid)) {
               idxA++;
               continue;
@@ -999,88 +993,26 @@ class AutoSchedulerService {
                 final af = (p['a_func'] ?? '*').toString();
                 final bf = (p['b_func'] ?? '*').toString();
                 bool eq(String x, String y) => norm(x) == norm(y);
-                // Bloquear parceiro apenas se a restrição envolver a função atual
+                // Bloquear parceiro apenas se a restrição envolver a função atual.
+                // Lote 6 / B7: banir em vez de removeWhere mid-loop.
                 if (uid == a &&
                     (af == '*' || eq(af, funcName)) &&
                     (bf == '*' || eq(bf, funcName))) {
-                  assignedCandidates.removeWhere((x) => x == b);
+                  if (b != null) banned.add(b);
                 } else if (uid == b &&
                     (bf == '*' || eq(bf, funcName)) &&
                     (af == '*' || eq(af, funcName))) {
-                  assignedCandidates.removeWhere((x) => x == a);
+                  if (a != null) banned.add(a);
                 }
               }
             }
           }
 
-          if (count < needed && subs.isNotEmpty) {
-            final List<String> subsTry = subs
-                .where((sid) => membersById.containsKey(sid))
-                .where((sid) => !isBlocked(sid))
-                .where((sid) => !violatesMonth(sid))
-                .where((sid) => !violatesMinDays(sid))
-                .where((sid) => !violatesConsecutive(sid))
-                .toList();
-            for (final sid in subsTry) {
-              if (count >= needed) break;
-              if (assignedMembers.contains(sid)) continue;
-              final cats = assignedCategoriesByUser[sid] ?? <String>{};
-              if (exclusiveWithinCats.contains(cat) && cats.contains(cat))
-                continue;
-              if (exclusiveAloneCats.contains(cat) && cats.any((c) => c != cat))
-                continue;
-              if (cats.any((c) => exclusiveAloneCats.contains(c) && c != cat))
-                continue;
-              if (cat == 'instrument' &&
-                  exclusiveInstrument &&
-                  assignedInstrumentMembers.contains(sid))
-                continue;
-              if (cat == 'voice_role' &&
-                  exclusiveVoiceRole &&
-                  assignedVoiceMembers.contains(sid))
-                continue;
-              if (cat == 'other' && exclusiveOther) continue;
-              if (violatesProhibited(sid, funcName)) continue;
-              // Fix #11: regra dura multi-ministério (não relaxável).
-              if (!allowMultiMinistries && globalAssignedMembers.contains(sid))
-                continue;
-              final keyById = '$sid|${funcKey(fid, funcName)}';
-              if (existingByFuncId.contains(keyById)) continue;
-              // Princípio 1: registrar regras relaxadas para o substituto.
-              if (relaxMinDays && violatesMinDaysStrict(sid)) {
-                slotRelaxedRules.add('min_days_between');
-              }
-              if (relaxMaxConsecutive && violatesConsecutiveStrict(sid)) {
-                slotRelaxedRules.add('max_consecutive');
-              }
-              if (relaxMaxPerMonth && violatesMonthStrict(sid)) {
-                slotRelaxedRules.add('max_per_month');
-              }
-              pendingInserts.add({
-                'event_id': event.id,
-                'ministry_id': ministryId,
-                'user_id': sid,
-                'function_id': fid,
-                'notes': funcName,
-              });
-              inserted++;
-              assignedMembers.add(sid);
-              globalAssignedMembers.add(sid); // Fix #11
-              if (cat == 'instrument') assignedInstrumentMembers.add(sid);
-              if (cat == 'voice_role') assignedVoiceMembers.add(sid);
-              assignedCategoriesByUser
-                  .putIfAbsent(sid, () => <String>{})
-                  .add(cat);
-              assignedFunctionsEvent.putIfAbsent(sid, () => []).add(funcName);
-              datesByUserFunc.putIfAbsent(sid, () => []).add(event.startDate);
-              seenEventIdsByUser.putIfAbsent(sid, () => <String>{});
-              if (seenEventIdsByUser[sid]!.add(event.id)) {
-                datesByUser.putIfAbsent(sid, () => []).add(event.startDate);
-              }
-              if (isExperienced(sid)) experiencedCount++;
-              count++;
-            }
-          }
+          // Lote 6 / B9: removido fallback de suplentes. Subs já estão em
+          // `seeds` (linhas acima) → entram no `assignedCandidates` e passam
+          // pelo while primário. O fallback aplicava os MESMOS filtros, então
+          // era dead code: tudo que ele rejeitava o primário já tinha rejeitado,
+          // e tudo que ele aceitava o primário já tinha aceitado.
 
           // Fix #1+#3: registrar resultado desta função no relatório.
           final seedsCount = seeds.length;
@@ -1686,13 +1618,13 @@ class AutoSchedulerService {
           final prevs = list.where((d) => d.isBefore(event.startDate)).toList();
           if (prevs.isEmpty) return 0;
           final diffToCurrent = dayDiff(event.startDate, prevs.last).abs();
-          if (diffToCurrent > 9) return 0;
+          if (diffToCurrent > _consecutiveGapDays) return 0;
           int streak = 1;
           DateTime last = prevs.last;
           for (int i = prevs.length - 2; i >= 0; i--) {
             final d = prevs[i];
             final diff = dayDiff(last, d).abs();
-            if (diff <= 9) {
+            if (diff <= _consecutiveGapDays) {
               streak++;
               last = d;
             } else {
@@ -1856,28 +1788,8 @@ class AutoSchedulerService {
                   .add(s.eventStartDate!);
             }
           }
-          int consecutiveFor(String uid) {
-            final list = List<DateTime>.from(datesByUserFunc[uid] ?? const []);
-            if (list.isEmpty) return 0;
-            list.sort((a, b) => a.compareTo(b));
-            final prevs = list
-                .where((d) => d.isBefore(event.startDate))
-                .toList();
-            if (prevs.isEmpty) return 0;
-            int streak = 1;
-            DateTime last = prevs.last;
-            for (int i = prevs.length - 2; i >= 0; i--) {
-              final d = prevs[i];
-              final diff = dayDiff(last, d).abs();
-              if (diff <= 9) {
-                streak++;
-                last = d;
-              } else {
-                break;
-              }
-            }
-            return streak;
-          }
+          // Lote 6 / B9: removida `consecutiveFor` por-função — só
+          // `consecutiveGlobalFor` é usada.
 
           final assignedCandidates0 = List<String>.from(
             assignedByFunction[funcName] ?? const [],
@@ -2066,12 +1978,27 @@ class AutoSchedulerService {
               continue;
             }
 
+            // Lote 6 / B11: tag por uid das regras que tiveram que ser
+            // relaxadas para escalar este candidato. Preview consome
+            // 'relaxed_rules' para sinalizar visualmente. Vazio quando nada
+            // foi relaxado.
+            final relaxedForUid = <String>{};
+            if (relaxMinDays && violatesMinDaysStrict(uid)) {
+              relaxedForUid.add('min_days_between');
+            }
+            if (relaxMaxConsecutive && violatesConsecutiveStrict(uid)) {
+              relaxedForUid.add('max_consecutive');
+            }
+            if (relaxMaxPerMonth && violatesMonthStrict(uid)) {
+              relaxedForUid.add('max_per_month');
+            }
             proposals.add({
               'event_id': event.id,
               'ministry_id': ministryId,
               'user_id': uid,
               'notes': funcName,
               'function_id': fid ?? '',
+              'relaxed_rules': relaxedForUid.join(','),
             });
             assignedMembers.add(uid);
             globalAssignedMembers.add(uid); // Fix #11 espelhado
@@ -2113,70 +2040,9 @@ class AutoSchedulerService {
             count++;
           }
 
-          if (count < needed && subs.isNotEmpty) {
-            final List<String> subsTry = subs
-                .where((sid) => membersById.containsKey(sid))
-                .where((sid) => !isBlocked(sid))
-                .where((sid) => !violatesMonth(sid))
-                .where((sid) => !violatesMinDays(sid))
-                .where((sid) => !violatesConsecutive(sid))
-                .toList();
-            for (final sid in subsTry) {
-              if (count >= needed) break;
-              if (assignedMembers.contains(sid)) continue;
-              final cats = assignedCategoriesByUser[sid] ?? <String>{};
-              if (exclusiveWithinCats.contains(cat) && cats.contains(cat))
-                continue;
-              if (exclusiveAloneCats.contains(cat) && cats.any((c) => c != cat))
-                continue;
-              if (cats.any((c) => exclusiveAloneCats.contains(c) && c != cat))
-                continue;
-              if (cat == 'instrument' &&
-                  exclusiveInstrument &&
-                  assignedInstrumentMembers.contains(sid))
-                continue;
-              if (cat == 'voice_role' &&
-                  exclusiveVoiceRole &&
-                  assignedVoiceMembers.contains(sid))
-                continue;
-              if (cat == 'other' && exclusiveOther) continue;
-              if (isBlocked(sid)) continue;
-              if (violatesProhibited(sid, funcName)) continue;
-              if (violatesMonth(sid)) continue;
-              if (violatesMinDays(sid)) continue;
-              if (violatesConsecutive(sid)) continue;
-              // Fix #11 (espelhado no proposal).
-              if (!allowMultiMinistries && globalAssignedMembers.contains(sid))
-                continue;
-              // Lote 4 / B2: existingByFuncId no proposal.
-              final keyById = '$sid|${funcKey(fid, funcName)}';
-              if (existingByFuncId.contains(keyById)) continue;
-
-              proposals.add({
-                'event_id': event.id,
-                'ministry_id': ministryId,
-                'user_id': sid,
-                'notes': funcName,
-                'function_id': fid ?? '',
-              });
-              assignedMembers.add(sid);
-              globalAssignedMembers.add(sid); // Fix #11 espelhado
-              if (cat == 'instrument') assignedInstrumentMembers.add(sid);
-              if (cat == 'voice_role') assignedVoiceMembers.add(sid);
-              assignedCategoriesByUser
-                  .putIfAbsent(sid, () => <String>{})
-                  .add(cat);
-              assignedFunctionsEvent.putIfAbsent(sid, () => []).add(funcName);
-              // Lote 4 / B5: atualizar state maps no fallback de subs também.
-              datesByUserFunc.putIfAbsent(sid, () => []).add(event.startDate);
-              seenEventIdsByUser.putIfAbsent(sid, () => <String>{});
-              if (seenEventIdsByUser[sid]!.add(event.id)) {
-                datesByUser.putIfAbsent(sid, () => []).add(event.startDate);
-              }
-              if (isExperienced(sid)) experiencedCount++;
-              count++;
-            }
-          }
+          // Lote 6 / B9: removido fallback de suplentes do proposal — subs
+          // já estão em `seeds` → entram no while primário com os mesmos
+          // filtros. Mantém preview alinhado com o real generator.
         }
       }
       return proposals;

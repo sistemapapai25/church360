@@ -422,6 +422,28 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     if (mounted) setState(() {});
   }
 
+  /// Lote 6 / B11: coleta os códigos de regras de frequência que foram
+  /// relaxadas em qualquer assignment ativo do preview. Vazio = nenhum slot
+  /// precisou contornar regra. Usado pelo banner amarelo no topo da tela.
+  Set<String> _collectRelaxedRules() {
+    final result = <String>{};
+    for (final assigns in _assignmentsByEvent.values) {
+      for (final a in assigns) {
+        final raw = a['relaxed_rules'] ?? '';
+        if (raw.isEmpty) continue;
+        // Só conta se o assignment ainda está atribuído a alguém (user_id
+        // não vazio). Se o usuário editou e tirou a pessoa, o aviso
+        // perde o sentido.
+        if ((a['user_id'] ?? '').isEmpty) continue;
+        for (final r in raw.split(',')) {
+          final t = r.trim();
+          if (t.isNotEmpty) result.add(t);
+        }
+      }
+    }
+    return result;
+  }
+
   void _recomputeMissing() {
     _missingByEvent.clear();
     for (final e in widget.events) {
@@ -569,6 +591,29 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
                   Expanded(
                     child: Text(
                       'Existem funções com pessoas faltando. Ajuste manual.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // Lote 6 / B11: banner de relaxamento aplicado.
+          if (_collectRelaxedRules().isNotEmpty)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.shade700),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber, color: Colors.amber.shade900),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Algumas escalas foram preenchidas contornando regras de frequência: ${_collectRelaxedRules().join(", ")}. Revise antes de salvar.',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
@@ -1024,6 +1069,10 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
                             setState(() {
                               if (idx >= 0) {
                                 assigns[idx]['user_id'] = uid ?? '';
+                                // Lote 6 / B11: edição manual invalida a tag
+                                // de relaxamento — ela foi calculada pro
+                                // candidato original.
+                                assigns[idx]['relaxed_rules'] = '';
                               } else if (uid != null) {
                                 assigns.add({
                                   'event_id': e.id,
