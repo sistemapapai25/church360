@@ -167,10 +167,12 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
             (restrictions['voice_role']?['exclusive'] as bool?) ?? exclVoice;
         restrictions.forEach((k, v) {
           if (v is Map) {
-            if ((v['exclusive'] as bool?) == true)
+            if ((v['exclusive'] as bool?) == true) {
               _exclusiveWithinCats.add(k.toString());
-            if ((v['alone'] as bool?) == true)
+            }
+            if ((v['alone'] as bool?) == true) {
               _exclusiveAloneCats.add(k.toString());
+            }
           }
         });
         final eventReq = meta['event_function_requirements'];
@@ -226,8 +228,9 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
           );
           if (leaderId != null && leaderId.isNotEmpty) {
             allowed.putIfAbsent(canon, () => []);
-            if (!allowed[canon]!.contains(leaderId))
+            if (!allowed[canon]!.contains(leaderId)) {
               allowed[canon]!.add(leaderId);
+            }
             _funcDisplay.putIfAbsent(canon, () => funcName.toString());
             _leadersByFunctionCandidates.putIfAbsent(canon, () => []);
             if (!_leadersByFunctionCandidates[canon]!.contains(leaderId)) {
@@ -714,8 +717,9 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       final disp = _funcDisplay[canon] ?? canon;
       final lc = disp.toLowerCase();
       if (lc == 'ministrante') return 'Ministrante';
-      if (lc == 'tecnico de som' || lc == 'técnico de som')
+      if (lc == 'tecnico de som' || lc == 'técnico de som') {
         return 'Técnico de som';
+      }
       return disp.toUpperCase();
     }
 

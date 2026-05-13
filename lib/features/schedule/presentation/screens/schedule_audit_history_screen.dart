@@ -1,7 +1,11 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/utils/csv_writer.dart';
+import '../../../../core/utils/file_download.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../providers/schedule_provider.dart';
 
@@ -102,6 +106,63 @@ class _ScheduleAuditHistoryScreenState
     }
   }
 
+  /// Lote 7.1: exporta auditorias filtradas atuais como CSV. Slots ficam
+  /// agregados ("func: inserted/expected; ...") para caber numa linha.
+  Future<void> _exportCsv() async {
+    final csv = CsvWriter([
+      'Gerada em',
+      'Evento',
+      'Ministério',
+      'Status',
+      'Total esperado',
+      'Total inserido',
+      'Regras relaxadas (audit)',
+      'Slots',
+      'Nota geral',
+    ]);
+    final dtFmt = DateFormat('dd/MM/yyyy HH:mm', 'pt_BR');
+    for (final a in _items) {
+      final genRaw = a['generated_at']?.toString();
+      final gen = genRaw != null ? DateTime.tryParse(genRaw) : null;
+      final ev = (a['event'] as Map?)?.cast<String, dynamic>();
+      final mn = (a['ministry'] as Map?)?.cast<String, dynamic>();
+      final relaxed =
+          (a['relaxed_rules'] as List?)?.cast<dynamic>() ?? const [];
+      final slots = (a['slots'] as List?)?.cast<dynamic>() ?? const [];
+      final slotsTxt = slots.map((s) {
+        final m = (s as Map).cast<String, dynamic>();
+        final func = m['func_name']?.toString() ?? '';
+        final exp = m['expected'] ?? 0;
+        final ins = m['inserted'] ?? 0;
+        return '$func: $ins/$exp';
+      }).join('; ');
+      csv.addRow([
+        gen != null ? dtFmt.format(gen) : '',
+        ev?['name']?.toString() ?? '',
+        mn?['name']?.toString() ?? '',
+        a['status']?.toString() ?? '',
+        a['total_expected'] ?? 0,
+        a['total_inserted'] ?? 0,
+        relaxed.join(', '),
+        slotsTxt,
+        a['general_note']?.toString() ?? '',
+      ]);
+    }
+    final filename =
+        'auditorias_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.csv';
+    final messenger = ScaffoldMessenger.of(context);
+    final body = csv.build();
+    if (kIsWeb) {
+      downloadCsv(filename, body);
+      messenger.showSnackBar(SnackBar(content: Text('CSV baixado: $filename')));
+    } else {
+      await Clipboard.setData(ClipboardData(text: body));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('CSV copiado para a área de transferência.')),
+      );
+    }
+  }
+
   Future<void> _pickRange() async {
     final now = DateTime.now();
     final picked = await showDateRangePicker(
@@ -128,6 +189,12 @@ class _ScheduleAuditHistoryScreenState
       appBar: AppBar(
         title: const Text('Histórico de auditorias'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.download),
+            tooltip: 'Exportar CSV',
+            onPressed:
+                (_loading || _items.isEmpty) ? null : _exportCsv,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loading ? null : _refresh,

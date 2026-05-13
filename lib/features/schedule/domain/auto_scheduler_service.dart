@@ -94,8 +94,9 @@ class AutoSchedulerService {
         for (final m in members) {
           if (existingForEvent.contains(m.memberId)) continue;
           if (!allowMultiMinistries &&
-              globalAssignedMembers.contains(m.memberId))
+              globalAssignedMembers.contains(m.memberId)) {
             continue;
+          }
           presencaBatch.add({
             'event_id': event.id,
             'ministry_id': ministryId,
@@ -132,8 +133,9 @@ class AutoSchedulerService {
         )) {
           if (existingForEvent.contains(m.memberId)) continue;
           if (!allowMultiMinistries &&
-              globalAssignedMembers.contains(m.memberId))
+              globalAssignedMembers.contains(m.memberId)) {
             continue;
+          }
           liderancaBatch.add({
             'event_id': event.id,
             'ministry_id': ministryId,
@@ -168,8 +170,9 @@ class AutoSchedulerService {
         for (final m in members) {
           if (existingForEvent.contains(m.memberId)) continue;
           if (!allowMultiMinistries &&
-              globalAssignedMembers.contains(m.memberId))
+              globalAssignedMembers.contains(m.memberId)) {
             continue;
+          }
           mutiraoBatch.add({
             'event_id': event.id,
             'ministry_id': ministryId,
@@ -352,13 +355,14 @@ class AutoSchedulerService {
               final b = p['b']?.toString() ?? '';
               final af = p['a_func']?.toString() ?? '*';
               final bf = p['b_func']?.toString() ?? '*';
-              if (a.isNotEmpty && b.isNotEmpty)
+              if (a.isNotEmpty && b.isNotEmpty) {
                 prohibitedCombos.add({
                   'a': a,
                   'b': b,
                   'a_func': af,
                   'b_func': bf,
                 });
+              }
             }
           }
           final pr = List<dynamic>.from(
@@ -370,13 +374,14 @@ class AutoSchedulerService {
               final b = p['b']?.toString() ?? '';
               final af = p['a_func']?.toString() ?? '*';
               final bf = p['b_func']?.toString() ?? '*';
-              if (a.isNotEmpty && b.isNotEmpty)
+              if (a.isNotEmpty && b.isNotEmpty) {
                 preferredCombos.add({
                   'a': a,
                   'b': b,
                   'a_func': af,
                   'b_func': bf,
                 });
+              }
             }
           }
           final mp = Map<String, dynamic>.from(
@@ -522,10 +527,12 @@ class AutoSchedulerService {
             );
             restrictions.forEach((k, v) {
               if (v is Map) {
-                if ((v['exclusive'] as bool?) == true)
+                if ((v['exclusive'] as bool?) == true) {
                   exclusiveWithinCats.add(k.toString());
-                if ((v['alone'] as bool?) == true)
+                }
+                if ((v['alone'] as bool?) == true) {
                   exclusiveAloneCats.add(k.toString());
+                }
               }
             });
           }
@@ -618,11 +625,13 @@ class AutoSchedulerService {
               if (sd != null &&
                   sd.year == d.year &&
                   sd.month == d.month &&
-                  sd.day == d.day)
+                  sd.day == d.day) {
                 return true;
+              }
             } else {
-              if (sd != null && ed != null && !d.isBefore(sd) && !d.isAfter(ed))
+              if (sd != null && ed != null && !d.isBefore(sd) && !d.isAfter(ed)) {
                 return true;
+              }
               if (sd != null && ed == null && !d.isBefore(sd)) return true;
               if (sd == null && ed != null && !d.isAfter(ed)) return true;
             }
@@ -1395,13 +1404,14 @@ class AutoSchedulerService {
               final b = p['b']?.toString() ?? '';
               final af = p['a_func']?.toString() ?? '*';
               final bf = p['b_func']?.toString() ?? '*';
-              if (a.isNotEmpty && b.isNotEmpty)
+              if (a.isNotEmpty && b.isNotEmpty) {
                 prohibitedCombos.add({
                   'a': a,
                   'b': b,
                   'a_func': af,
                   'b_func': bf,
                 });
+              }
             }
           }
           final pr = List<dynamic>.from(
@@ -1413,13 +1423,14 @@ class AutoSchedulerService {
               final b = p['b']?.toString() ?? '';
               final af = p['a_func']?.toString() ?? '*';
               final bf = p['b_func']?.toString() ?? '*';
-              if (a.isNotEmpty && b.isNotEmpty)
+              if (a.isNotEmpty && b.isNotEmpty) {
                 preferredCombos.add({
                   'a': a,
                   'b': b,
                   'a_func': af,
                   'b_func': bf,
                 });
+              }
             }
           }
           final mp = Map<String, dynamic>.from(
@@ -1576,10 +1587,12 @@ class AutoSchedulerService {
           );
           restrictions.forEach((k, v) {
             if (v is Map) {
-              if ((v['exclusive'] as bool?) == true)
+              if ((v['exclusive'] as bool?) == true) {
                 exclusiveWithinCats.add(k.toString());
-              if ((v['alone'] as bool?) == true)
+              }
+              if ((v['alone'] as bool?) == true) {
                 exclusiveAloneCats.add(k.toString());
+              }
             }
           });
         }
@@ -1655,11 +1668,13 @@ class AutoSchedulerService {
               if (sd != null &&
                   sd.year == d.year &&
                   sd.month == d.month &&
-                  sd.day == d.day)
+                  sd.day == d.day) {
                 return true;
+              }
             } else {
-              if (sd != null && ed != null && !d.isBefore(sd) && !d.isAfter(ed))
+              if (sd != null && ed != null && !d.isBefore(sd) && !d.isAfter(ed)) {
                 return true;
+              }
               if (sd != null && ed == null && !d.isBefore(sd)) return true;
               if (sd == null && ed != null && !d.isAfter(ed)) return true;
             }

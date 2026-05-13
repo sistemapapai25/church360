@@ -1,8 +1,12 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/utils/csv_writer.dart';
+import '../../../../core/utils/file_download.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../providers/schedule_provider.dart';
 
@@ -152,6 +156,68 @@ class _SchedulePendingScreenState extends ConsumerState<SchedulePendingScreen> {
     }
   }
 
+  /// Lote 7.1: exporta as pendências filtradas atuais como CSV.
+  /// Na web baixa direto via data URL; em outras plataformas copia o CSV
+  /// pra área de transferência (fallback simples).
+  Future<void> _exportCsv() async {
+    final csv = CsvWriter([
+      'Data evento',
+      'Evento',
+      'Ministério',
+      'Função',
+      'Esperado',
+      'Inseridos',
+      'Motivo',
+      'Status',
+      'Responsável',
+      'Criada em',
+      'Resolvida em',
+      'Nota de resolução',
+    ]);
+    final dtFmt = DateFormat('dd/MM/yyyy HH:mm', 'pt_BR');
+    for (final p in _items) {
+      final ev = (p['event'] as Map?)?.cast<String, dynamic>();
+      final evStart = ev?['start_date']?.toString();
+      final evDate = evStart != null ? DateTime.tryParse(evStart) : null;
+      final mn = (p['ministry'] as Map?)?.cast<String, dynamic>();
+      final aid = p['assigned_to']?.toString();
+      final createdRaw = p['created_at']?.toString();
+      final created = createdRaw != null ? DateTime.tryParse(createdRaw) : null;
+      final resolvedRaw = p['resolved_at']?.toString();
+      final resolved =
+          resolvedRaw != null ? DateTime.tryParse(resolvedRaw) : null;
+      csv.addRow([
+        evDate != null ? dtFmt.format(evDate) : '',
+        ev?['name']?.toString() ?? '',
+        mn?['name']?.toString() ?? '',
+        p['func_name']?.toString() ?? '',
+        p['expected'] ?? 0,
+        p['inserted'] ?? 0,
+        p['reason']?.toString() ?? '',
+        p['status']?.toString() ?? '',
+        aid == null || aid.isEmpty
+            ? ''
+            : (_assigneeNames[aid] ?? aid),
+        created != null ? dtFmt.format(created) : '',
+        resolved != null ? dtFmt.format(resolved) : '',
+        p['resolution_note']?.toString() ?? '',
+      ]);
+    }
+    final filename =
+        'pendencias_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.csv';
+    final messenger = ScaffoldMessenger.of(context);
+    final body = csv.build();
+    if (kIsWeb) {
+      downloadCsv(filename, body);
+      messenger.showSnackBar(SnackBar(content: Text('CSV baixado: $filename')));
+    } else {
+      await Clipboard.setData(ClipboardData(text: body));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('CSV copiado para a área de transferência.')),
+      );
+    }
+  }
+
   /// Lote 7: abre diálogo com líderes/coordenadores do ministério da
   /// pendência e atribui a pendência ao escolhido. Passando `null` (limpar)
   /// remove a atribuição.
@@ -232,6 +298,12 @@ class _SchedulePendingScreenState extends ConsumerState<SchedulePendingScreen> {
       appBar: AppBar(
         title: const Text('Pendências de escala'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.download),
+            tooltip: 'Exportar CSV',
+            onPressed:
+                (_loading || _items.isEmpty) ? null : _exportCsv,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Atualizar',

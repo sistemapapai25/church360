@@ -6,3 +6,9 @@ void downloadFile(String filename, Uint8List bytes) {
   // or logic for mobile download/share should be handled by caller or another utility.
   throw UnimplementedError('Web download is not supported on this platform.');
 }
+
+/// Lote 7.1: stub para CSV. No mobile/desktop o caller deve compartilhar
+/// ou salvar via outro caminho (printing.sharePdf não serve para CSV).
+void downloadCsv(String filename, String csv) {
+  throw UnimplementedError('CSV download is not supported on this platform.');
+}
