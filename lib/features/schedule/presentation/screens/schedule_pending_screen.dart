@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../providers/schedule_provider.dart';
@@ -23,12 +24,16 @@ class _SchedulePendingScreenState extends ConsumerState<SchedulePendingScreen> {
   /// mais frequente: revisar pendências em aberto).
   String? _status = 'open';
   String? _ministryId;
+  /// Lote 7: filtro de atribuição. null = todos, '__mine__' = pendências
+  /// atribuídas ao usuário atual, '__unassigned__' = sem responsável.
+  String? _assignedFilter;
   final TextEditingController _funcCtrl = TextEditingController();
   DateTime? _fromDate;
   DateTime? _toDate;
 
   bool _loading = false;
   List<Map<String, dynamic>> _items = const [];
+  Map<String, String> _assigneeNames = const {};
   Object? _error;
 
   @override
@@ -44,6 +49,18 @@ class _SchedulePendingScreenState extends ConsumerState<SchedulePendingScreen> {
     super.dispose();
   }
 
+  String? get _currentUserId =>
+      Supabase.instance.client.auth.currentUser?.id;
+
+  /// Traduz `_assignedFilter` em string aceita pela repo. '__mine__' vira
+  /// o auth uid do usuário atual; '__unassigned__' passa direto.
+  String? _resolvedAssignedFilter() {
+    if (_assignedFilter == '__mine__') {
+      return _currentUserId;
+    }
+    return _assignedFilter;
+  }
+
   Future<void> _refresh() async {
     setState(() {
       _loading = true;
@@ -55,12 +72,24 @@ class _SchedulePendingScreenState extends ConsumerState<SchedulePendingScreen> {
         status: _status,
         ministryId: _ministryId,
         funcName: _funcCtrl.text.trim().isEmpty ? null : _funcCtrl.text.trim(),
+        assignedTo: _resolvedAssignedFilter(),
         fromDate: _fromDate,
         toDate: _toDate,
       );
+      // Pre-load nomes dos responsáveis para mostrar nos cards.
+      final assigneeIds = items
+          .map((p) => p['assigned_to']?.toString())
+          .where((v) => v != null && v.isNotEmpty)
+          .cast<String>()
+          .toSet()
+          .toList();
+      final names = assigneeIds.isEmpty
+          ? const <String, String>{}
+          : await repo.getUserNamesByAuthIds(assigneeIds);
       if (!mounted) return;
       setState(() {
         _items = items;
+        _assigneeNames = names;
         _loading = false;
       });
     } catch (e) {
@@ -117,6 +146,79 @@ class _SchedulePendingScreenState extends ConsumerState<SchedulePendingScreen> {
     try {
       await repo.markDismissed(id);
       messenger.showSnackBar(const SnackBar(content: Text('Descartada.')));
+      await _refresh();
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Erro: $e')));
+    }
+  }
+
+  /// Lote 7: abre diálogo com líderes/coordenadores do ministério da
+  /// pendência e atribui a pendência ao escolhido. Passando `null` (limpar)
+  /// remove a atribuição.
+  Future<void> _assignPending(Map<String, dynamic> item) async {
+    final ministryId = item['ministry_id']?.toString();
+    if (ministryId == null || ministryId.isEmpty) return;
+    final repo = ref.read(scheduleAuditRepositoryProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    List<Map<String, String>> assignees;
+    try {
+      assignees = await repo.listMinistryAssignees(ministryId);
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Erro ao listar líderes: $e')));
+      return;
+    }
+    if (!mounted) return;
+    final currentAssigned = item['assigned_to']?.toString();
+    final picked = await showDialog<String?>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Atribuir pendência'),
+          content: SizedBox(
+            width: 320,
+            child: assignees.isEmpty
+                ? const Text(
+                    'Ministério sem líderes/coordenadores com conta de acesso.')
+                : ListView(
+                    shrinkWrap: true,
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.person_off_outlined),
+                        title: const Text('Sem responsável'),
+                        selected: currentAssigned == null,
+                        onTap: () => Navigator.pop<String?>(ctx, null),
+                      ),
+                      const Divider(height: 1),
+                      for (final a in assignees)
+                        ListTile(
+                          leading: const Icon(Icons.person),
+                          title: Text(a['name'] ?? ''),
+                          selected: a['auth_user_id'] == currentAssigned,
+                          onTap: () =>
+                              Navigator.pop<String?>(ctx, a['auth_user_id']),
+                        ),
+                    ],
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop<String?>(ctx, currentAssigned),
+              child: const Text('Cancelar'),
+            ),
+          ],
+        );
+      },
+    );
+    // Convenção: se o usuário cancelar (currentAssigned voltou igual),
+    // não persiste. Se trocou (incluindo "Sem responsável"), persiste.
+    if (picked == currentAssigned) return;
+    try {
+      await repo.assignPending(item['id'].toString(), picked);
+      messenger.showSnackBar(SnackBar(
+        content: Text(picked == null
+            ? 'Atribuição removida.'
+            : 'Pendência atribuída.'),
+      ));
       await _refresh();
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Erro: $e')));
@@ -223,6 +325,46 @@ class _SchedulePendingScreenState extends ConsumerState<SchedulePendingScreen> {
             error: (e, _) => Text('Erro ao carregar ministérios: $e'),
           ),
           const SizedBox(height: 8),
+          // Lote 7: filtros de atribuição.
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Responsável:',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              ChoiceChip(
+                label: const Text('Todas'),
+                selected: _assignedFilter == null,
+                onSelected: (_) {
+                  setState(() => _assignedFilter = null);
+                  _refresh();
+                },
+              ),
+              ChoiceChip(
+                label: const Text('Minhas'),
+                selected: _assignedFilter == '__mine__',
+                onSelected: _currentUserId == null
+                    ? null
+                    : (_) {
+                        setState(() => _assignedFilter = '__mine__');
+                        _refresh();
+                      },
+              ),
+              ChoiceChip(
+                label: const Text('Sem responsável'),
+                selected: _assignedFilter == '__unassigned__',
+                onSelected: (_) {
+                  setState(() => _assignedFilter = '__unassigned__');
+                  _refresh();
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           TextField(
             controller: _funcCtrl,
             decoration: InputDecoration(
@@ -279,6 +421,11 @@ class _SchedulePendingScreenState extends ConsumerState<SchedulePendingScreen> {
     if (_ministryId != null) parts.add('1 ministério');
     final func = _funcCtrl.text.trim();
     if (func.isNotEmpty) parts.add('função: $func');
+    if (_assignedFilter == '__mine__') {
+      parts.add('minhas');
+    } else if (_assignedFilter == '__unassigned__') {
+      parts.add('sem responsável');
+    }
     if (_fromDate != null) {
       parts.add(
           '${DateFormat('dd/MM').format(_fromDate!)}→${DateFormat('dd/MM').format(_toDate!)}');
@@ -330,11 +477,20 @@ class _SchedulePendingScreenState extends ConsumerState<SchedulePendingScreen> {
         padding: const EdgeInsets.all(12),
         itemCount: _items.length,
         separatorBuilder: (_, __) => const SizedBox(height: 8),
-        itemBuilder: (_, i) => _PendingCard(
-          item: _items[i],
-          onResolved: () => _markResolved(_items[i]['id'].toString()),
-          onDismissed: () => _markDismissed(_items[i]['id'].toString()),
-        ),
+        itemBuilder: (_, i) {
+          final p = _items[i];
+          final aid = p['assigned_to']?.toString();
+          final assigneeName = (aid != null && aid.isNotEmpty)
+              ? (_assigneeNames[aid] ?? aid)
+              : null;
+          return _PendingCard(
+            item: p,
+            assigneeName: assigneeName,
+            onResolved: () => _markResolved(p['id'].toString()),
+            onDismissed: () => _markDismissed(p['id'].toString()),
+            onAssign: () => _assignPending(p),
+          );
+        },
       ),
     );
   }
@@ -342,12 +498,18 @@ class _SchedulePendingScreenState extends ConsumerState<SchedulePendingScreen> {
 
 class _PendingCard extends StatelessWidget {
   final Map<String, dynamic> item;
+  /// Nome do responsável já resolvido pelo state da tela (null = sem
+  /// responsável atribuído).
+  final String? assigneeName;
   final VoidCallback onResolved;
   final VoidCallback onDismissed;
+  final VoidCallback onAssign;
   const _PendingCard({
     required this.item,
+    required this.assigneeName,
     required this.onResolved,
     required this.onDismissed,
+    required this.onAssign,
   });
 
   @override
@@ -396,6 +558,36 @@ class _PendingCard extends StatelessWidget {
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
               ),
             const SizedBox(height: 6),
+            // Lote 7: badge do responsável (ou "Sem responsável").
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  Icon(
+                    assigneeName != null
+                        ? Icons.person
+                        : Icons.person_off_outlined,
+                    size: 14,
+                    color: assigneeName != null
+                        ? Colors.blue.shade700
+                        : Colors.grey.shade500,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    assigneeName ?? 'Sem responsável',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: assigneeName != null
+                          ? Colors.blue.shade700
+                          : Colors.grey.shade600,
+                      fontWeight: assigneeName != null
+                          ? FontWeight.w500
+                          : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             Text('$funcName: $inserted/$expected',
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
             if (reason.isNotEmpty)
@@ -416,18 +608,26 @@ class _PendingCard extends StatelessWidget {
               ),
             if (status == 'open') ...[
               const SizedBox(height: 8),
-              Row(
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
                 children: [
                   TextButton.icon(
                     onPressed: onResolved,
                     icon: const Icon(Icons.check, size: 16),
                     label: const Text('Resolvi manualmente'),
                   ),
-                  const SizedBox(width: 4),
                   TextButton.icon(
                     onPressed: onDismissed,
                     icon: const Icon(Icons.close, size: 16),
                     label: const Text('Descartar'),
+                  ),
+                  // Lote 7: atribuir/reatribuir responsável.
+                  TextButton.icon(
+                    onPressed: onAssign,
+                    icon: const Icon(Icons.person_add_alt_1, size: 16),
+                    label: Text(
+                        assigneeName == null ? 'Atribuir' : 'Reatribuir'),
                   ),
                 ],
               ),

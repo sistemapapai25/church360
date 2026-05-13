@@ -110,13 +110,16 @@ class ScheduleAuditRepository {
     return (response as List).cast<Map<String, dynamic>>();
   }
 
-  /// Lote 4: listagem de pendências com filtros completos para a tela
+  /// Lote 4/7: listagem de pendências com filtros completos para a tela
   /// dedicada. `status` aceita 'open' | 'resolved' | 'dismissed' | null (todos).
-  /// Funções e datas são filtradas server-side quando possível.
+  /// `assignedTo` aceita um user UUID ou a string sentinel '__unassigned__'
+  /// para listar pendências sem responsável. Funções e datas são filtradas
+  /// server-side quando possível.
   Future<List<Map<String, dynamic>>> listPendings({
     String? status,
     String? ministryId,
     String? funcName,
+    String? assignedTo,
     DateTime? fromDate,
     DateTime? toDate,
   }) async {
@@ -128,6 +131,13 @@ class ScheduleAuditRepository {
     if (ministryId != null) query = query.eq('ministry_id', ministryId);
     if (funcName != null && funcName.isNotEmpty) {
       query = query.eq('func_name', funcName);
+    }
+    if (assignedTo != null) {
+      if (assignedTo == '__unassigned__') {
+        query = query.isFilter('assigned_to', null);
+      } else {
+        query = query.eq('assigned_to', assignedTo);
+      }
     }
     final response = await query.order('created_at', ascending: false);
     var list = (response as List).cast<Map<String, dynamic>>();
@@ -212,5 +222,99 @@ class ScheduleAuditRepository {
           'resolution_note': note,
         })
         .eq('id', pendingId);
+  }
+
+  /// Lote 7: delega a resolução da pendência a outro coordenador.
+  /// `assignedUserId == null` remove a atribuição.
+  Future<void> assignPending(String pendingId, String? assignedUserId) async {
+    await _supabase
+        .from('schedule_pending')
+        .update({'assigned_to': assignedUserId})
+        .eq('id', pendingId);
+  }
+
+  /// Lote 7: resolve nomes amigáveis para uma lista de `auth.users.id`.
+  /// Faz lookup via `user_account.auth_user_id`. Retorna apelido > "first
+  /// last" > id como fallback. IDs não encontrados ficam fora do map.
+  Future<Map<String, String>> getUserNamesByAuthIds(
+    List<String> authIds,
+  ) async {
+    if (authIds.isEmpty) return const {};
+    final response = await _supabase
+        .from('user_account')
+        .select('auth_user_id, first_name, last_name, nickname')
+        .inFilter('auth_user_id', authIds);
+    final list = (response as List).cast<Map<String, dynamic>>();
+    final result = <String, String>{};
+    for (final row in list) {
+      final aid = row['auth_user_id']?.toString();
+      if (aid == null || aid.isEmpty) continue;
+      final nick = (row['nickname'] ?? '').toString().trim();
+      String name;
+      if (nick.isNotEmpty) {
+        name = nick;
+      } else {
+        final fn = (row['first_name'] ?? '').toString().trim();
+        final ln = (row['last_name'] ?? '').toString().trim();
+        name = ('$fn $ln').trim();
+      }
+      if (name.isEmpty) name = aid;
+      result[aid] = name;
+    }
+    return result;
+  }
+
+  /// Lote 7: lista coordenadores/líderes de um ministério que tenham conta
+  /// auth (podem receber pendências atribuídas). Retorna pares
+  /// {auth_user_id, displayName}.
+  Future<List<Map<String, String>>> listMinistryAssignees(
+    String ministryId,
+  ) async {
+    final response = await _supabase
+        .from('ministry_member')
+        .select('''
+          role,
+          user_account:user_id (
+            auth_user_id,
+            first_name,
+            last_name,
+            nickname
+          )
+        ''')
+        .eq('ministry_id', ministryId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .inFilter('role', ['leader', 'coordinator']);
+    final list = (response as List).cast<Map<String, dynamic>>();
+    final result = <Map<String, String>>[];
+    for (final row in list) {
+      final acc = (row['user_account'] as Map?)?.cast<String, dynamic>();
+      final aid = acc?['auth_user_id']?.toString();
+      if (aid == null || aid.isEmpty) continue;
+      final nick = (acc?['nickname'] ?? '').toString().trim();
+      String name;
+      if (nick.isNotEmpty) {
+        name = nick;
+      } else {
+        final fn = (acc?['first_name'] ?? '').toString().trim();
+        final ln = (acc?['last_name'] ?? '').toString().trim();
+        name = ('$fn $ln').trim();
+      }
+      if (name.isEmpty) name = aid;
+      result.add({'auth_user_id': aid, 'name': name});
+    }
+    // dedupe by auth_user_id mantendo o primeiro nome encontrado
+    final seen = <String>{};
+    return result.where((e) => seen.add(e['auth_user_id']!)).toList();
+  }
+
+  /// Lote 7: detalhe de uma auditoria específica para o drill-down.
+  Future<Map<String, dynamic>?> getAuditById(String auditId) async {
+    final response = await _supabase
+        .from('schedule_audit')
+        .select(
+            '*, event:event_id(name, start_date), ministry:ministry_id(name)')
+        .eq('id', auditId)
+        .maybeSingle();
+    return response == null ? null : Map<String, dynamic>.from(response);
   }
 }
