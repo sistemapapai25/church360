@@ -9,6 +9,7 @@ import '../../../permissions/providers/permissions_providers.dart';
 import '../../domain/models/ministry.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../notifications/presentation/screens/ministry_notification_config_screen.dart';
 
 /// Tela de detalhes do ministério
 class MinistryDetailScreen extends ConsumerWidget {
@@ -173,6 +174,51 @@ class _MinistryDetailContent extends ConsumerWidget {
               ],
             ),
           ),
+
+          // Atalho para o submódulo especializado do ministério (Raízes, Diaconato).
+          // Aparece apenas para tipos com tela própria (Lote 4A do roadmap Ministérios).
+          if (ministry.specializedRoute() != null) ...[
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _SpecializedModuleCta(ministry: ministry, color: color),
+            ),
+          ],
+
+          // Lote 11.5 — atalho pra config de notificações in-app de mudanças
+          // na agenda. Só aparece pra quem tem permissão de editar o ministério.
+          const SizedBox(height: 20),
+          PermissionBuilder(
+            permission: 'ministries.edit',
+            builder: (context, hasPermission) {
+              if (!hasPermission) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.notifications_active_outlined),
+                    title: const Text('Notificações de mudança'),
+                    subtitle: const Text(
+                      'Quem é avisado quando algo muda na agenda do ministério',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => MinistryNotificationConfigScreen(
+                            ministryId: ministry.id,
+                            ministryName: ministry.name,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
+            loadingWidget: const SizedBox.shrink(),
+          ),
+
           const SizedBox(height: 32),
 
           // Seção de membros
@@ -923,6 +969,7 @@ class _MemberCard extends ConsumerWidget {
 
         // Sincronizar cargo (permissions) com a função escolhida
         bool persistedOk = true;
+        bool userRoleSynced = true;
         try {
           final matchedRole = chosenRole;
 
@@ -933,16 +980,6 @@ class _MemberCard extends ConsumerWidget {
           final contextsForMinistry = await contextsRepo.getContextsByMinistry(
             ministryId,
           );
-
-          // Remove atribuições antigas do contexto deste ministério
-          for (final ctx in contextsForMinistry) {
-            await ref
-                .read(userRolesRepositoryProvider)
-                .removeUserRoleByContext(
-                  userId: member.memberId,
-                  contextId: ctx.id,
-                );
-          }
 
           // Seleciona ou cria contexto para o cargo escolhido
           final filtered = contextsForMinistry
@@ -961,18 +998,7 @@ class _MemberCard extends ConsumerWidget {
             contextId = filtered.first.id;
           }
 
-          await contextsRepo.getContextById(contextId);
-
-          await ref
-              .read(userRolesRepositoryProvider)
-              .assignRoleToUser(
-                userId: member.memberId,
-                roleId: matchedRole.id,
-                contextId: contextId,
-                notes: 'Atualizado via ministério',
-              );
-
-          // Persistir funções atribuídas por usuário no metadata
+          // Persistir funções atribuídas por usuário no metadata do contexto
           final updatedCtx = await contextsRepo.getContextById(contextId);
           final updatedMeta = Map<String, dynamic>.from(
             updatedCtx?.metadata ?? {},
@@ -987,7 +1013,9 @@ class _MemberCard extends ConsumerWidget {
             metadata: updatedMeta,
           );
 
-          // Persistir também em member_function (fonte para regras/geração de escala)
+          // Persistir em member_function (fonte para regras/geração de escala).
+          // Esta é a etapa crítica — preserva a seleção de funções do membro
+          // mesmo quando o vínculo com auth.users não puder ser sincronizado.
           try {
             final currentMapByUser = await repository
                 .getMemberFunctionsByMinistry(ministryId);
@@ -1015,6 +1043,40 @@ class _MemberCard extends ConsumerWidget {
             debugPrint('Falha ao persistir member_function: $e');
             rethrow;
           }
+
+          // Sincronizar com user_roles (sistema de permissões).
+          // user_roles.user_id referencia auth.users(id), então só funciona
+          // para membros que possuem conta de acesso (auth_user_id).
+          try {
+            final authUserId = await _resolveAuthUserId(member.memberId);
+            if (authUserId == null) {
+              userRoleSynced = false;
+              debugPrint(
+                'Membro ${member.memberName} não possui conta de acesso '
+                '(auth_user_id nulo) — sincronização com user_roles pulada.',
+              );
+            } else {
+              for (final ctx in contextsForMinistry) {
+                await ref
+                    .read(userRolesRepositoryProvider)
+                    .removeUserRoleByContext(
+                      userId: authUserId,
+                      contextId: ctx.id,
+                    );
+              }
+              await ref
+                  .read(userRolesRepositoryProvider)
+                  .assignRoleToUser(
+                    userId: authUserId,
+                    roleId: matchedRole.id,
+                    contextId: contextId,
+                    notes: 'Atualizado via ministério',
+                  );
+            }
+          } catch (e) {
+            userRoleSynced = false;
+            debugPrint('Aviso: não foi possível sincronizar user_roles: $e');
+          }
         } catch (e) {
           persistedOk = false;
           debugPrint('Falha ao sincronizar cargo com função: $e');
@@ -1023,9 +1085,13 @@ class _MemberCard extends ConsumerWidget {
         ref.invalidate(ministryMembersProvider(ministryId));
         if (context.mounted && persistedOk) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Função atualizada com sucesso!'),
-              backgroundColor: Colors.green,
+            SnackBar(
+              content: Text(
+                userRoleSynced
+                    ? 'Função atualizada com sucesso!'
+                    : 'Função atualizada. Permissões não sincronizadas: membro sem conta de acesso.',
+              ),
+              backgroundColor: userRoleSynced ? Colors.green : Colors.orange,
             ),
           );
         }
@@ -1069,18 +1135,23 @@ class _MemberCard extends ConsumerWidget {
         final repository = ref.read(ministriesRepositoryProvider);
         await repository.removeMinistryMember(member.id);
 
-        // Remover cargos vinculados ao contexto deste ministério
+        // Remover cargos vinculados ao contexto deste ministério.
+        // user_roles é indexada por auth.users.id, então traduzimos o
+        // user_account.id do membro para o auth_user_id correspondente.
         try {
-          final contexts = await ref
-              .read(roleContextsRepositoryProvider)
-              .getContextsByMinistry(ministryId);
-          for (final ctx in contexts) {
-            await ref
-                .read(userRolesRepositoryProvider)
-                .removeUserRoleByContext(
-                  userId: member.memberId,
-                  contextId: ctx.id,
-                );
+          final authUserId = await _resolveAuthUserId(member.memberId);
+          if (authUserId != null) {
+            final contexts = await ref
+                .read(roleContextsRepositoryProvider)
+                .getContextsByMinistry(ministryId);
+            for (final ctx in contexts) {
+              await ref
+                  .read(userRolesRepositoryProvider)
+                  .removeUserRoleByContext(
+                    userId: authUserId,
+                    contextId: ctx.id,
+                  );
+            }
           }
         } catch (e) {
           debugPrint('Falha ao remover cargos do contexto: $e');
@@ -1106,6 +1177,27 @@ class _MemberCard extends ConsumerWidget {
           );
         }
       }
+    }
+  }
+
+  /// Resolve o auth.users.id correspondente a um user_account.id.
+  /// Retorna null se o membro não possuir conta de acesso (auth_user_id).
+  /// user_roles.user_id referencia auth.users(id), então essa conversão
+  /// é necessária antes de gravar em user_roles para evitar FK violation.
+  Future<String?> _resolveAuthUserId(String userAccountId) async {
+    try {
+      final row = await Supabase.instance.client
+          .from('user_account')
+          .select('auth_user_id')
+          .eq('id', userAccountId)
+          .maybeSingle();
+      final v = row?['auth_user_id'];
+      if (v == null) return null;
+      final s = v.toString();
+      return s.isEmpty ? null : s;
+    } catch (e) {
+      debugPrint('Erro ao resolver auth_user_id de $userAccountId: $e');
+      return null;
     }
   }
 }
@@ -1585,16 +1677,7 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
                 .updateContext(contextId: contextId, metadata: meta);
           }
 
-          await ref
-              .read(userRolesRepositoryProvider)
-              .assignRoleToUser(
-                userId: _selectedMemberId!,
-                roleId: _selectedRoleId!,
-                contextId: contextId,
-                notes: 'Auto-atribuído via ministério',
-              );
-
-          // Persistir funções atribuídas por usuário no metadata do contexto
+          // Persistir funções atribuídas no metadata do contexto
           final updatedCtx = await ref
               .read(roleContextsRepositoryProvider)
               .getContextById(contextId);
@@ -1609,6 +1692,54 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
           await ref
               .read(roleContextsRepositoryProvider)
               .updateContext(contextId: contextId, metadata: updatedMeta);
+
+          // Persistir member_function (fonte para regras/geração de escala)
+          try {
+            final repo = ref.read(ministriesRepositoryProvider);
+            final currentMapByUser = await repo
+                .getMemberFunctionsByMinistry(widget.ministryId);
+            final byFunc = <String, List<String>>{};
+            currentMapByUser.forEach((uid, fnList) {
+              for (final f in fnList) {
+                byFunc.putIfAbsent(f, () => []);
+                if (!byFunc[f]!.contains(uid)) byFunc[f]!.add(uid);
+              }
+            });
+            for (final f in _availableFunctions) {
+              final list = byFunc.putIfAbsent(f, () => []);
+              final has = list.contains(_selectedMemberId);
+              final sel = _selectedFunctions.contains(f);
+              if (sel && !has) {
+                list.add(_selectedMemberId!);
+              } else if (!sel && has) {
+                list.remove(_selectedMemberId);
+              }
+            }
+            await repo.setMemberFunctionsByMinistry(widget.ministryId, byFunc);
+          } catch (e) {
+            debugPrint('Falha ao persistir member_function: $e');
+          }
+
+          // Sincronizar com user_roles — só funciona para membros com auth_user_id
+          try {
+            final authUserId = await _lookupAuthUserId(_selectedMemberId!);
+            if (authUserId == null) {
+              debugPrint(
+                'Membro sem conta de acesso — sincronização com user_roles pulada.',
+              );
+            } else {
+              await ref
+                  .read(userRolesRepositoryProvider)
+                  .assignRoleToUser(
+                    userId: authUserId,
+                    roleId: _selectedRoleId!,
+                    contextId: contextId,
+                    notes: 'Auto-atribuído via ministério',
+                  );
+            }
+          } catch (e) {
+            debugPrint('Aviso: não foi possível sincronizar user_roles: $e');
+          }
         } catch (e) {
           debugPrint('Falha ao atribuir cargo de ministério: $e');
         }
@@ -1677,6 +1808,24 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
         _selectedFunctions.clear();
         _functionCategory.clear();
       });
+    }
+  }
+
+  /// Resolve auth.users.id de um user_account.id — null se membro sem conta auth.
+  Future<String?> _lookupAuthUserId(String userAccountId) async {
+    try {
+      final row = await Supabase.instance.client
+          .from('user_account')
+          .select('auth_user_id')
+          .eq('id', userAccountId)
+          .maybeSingle();
+      final v = row?['auth_user_id'];
+      if (v == null) return null;
+      final s = v.toString();
+      return s.isEmpty ? null : s;
+    } catch (e) {
+      debugPrint('Erro ao resolver auth_user_id de $userAccountId: $e');
+      return null;
     }
   }
 }
@@ -1811,5 +1960,95 @@ class _SchedulesList extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+/// CTA que abre o submódulo especializado do ministério (Raízes, Diaconato, ...).
+/// Renderizado apenas quando `ministry.specializedRoute()` é não-nulo.
+class _SpecializedModuleCta extends StatelessWidget {
+  final Ministry ministry;
+  final Color color;
+
+  const _SpecializedModuleCta({required this.ministry, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final route = ministry.specializedRoute();
+    if (route == null) return const SizedBox.shrink();
+
+    final (label, description, icon) = _copyFor(ministry.ministryType);
+
+    return InkWell(
+      onTap: () => context.push(route),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: CommunityDesign.titleStyle(context).copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    description,
+                    style: CommunityDesign.metaStyle(context),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward, color: color),
+          ],
+        ),
+      ),
+    );
+  }
+
+  (String, String, IconData) _copyFor(MinistryType type) {
+    switch (type) {
+      case MinistryType.raizes:
+        return (
+          'Abrir módulo Raízes',
+          'Dashboard de visitantes, novas decisões e demandas de contato.',
+          Icons.eco_outlined,
+        );
+      case MinistryType.diaconato:
+        return (
+          'Abrir módulo Diaconato',
+          'Checklist de presença, ausentes e entregas de ceia.',
+          Icons.volunteer_activism_outlined,
+        );
+      case MinistryType.generic:
+      case MinistryType.kids:
+      case MinistryType.louvor:
+      case MinistryType.midia:
+        return (
+          'Abrir módulo',
+          'Tela especializada deste ministério.',
+          Icons.dashboard_outlined,
+        );
+    }
   }
 }

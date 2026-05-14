@@ -593,6 +593,17 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
   final Map<String, ({String name, String? phone})> _multiSelected = {};
   String? _selectedMinistryId;
 
+  // Lote 11.3 — Plano B: parâmetros do digest do grupo (visíveis só quando
+  // scope=ministry + recipient_mode=group). Defaults batem com a edge function.
+  int _groupHorizonDays = 14;
+  String _memberFormat = 'nickname_or_first';
+  final _groupBodyPrefixController = TextEditingController();
+  // Lote 11.6: quando true, omite os jobs WhatsApp individuais pros membros
+  // (mudanças vão via notifs in-app dos triggers do 11.4).
+  bool _skipIndividualJobs = false;
+  static const _allowedMemberFormats = ['nickname_or_first', 'full_name', 'count'];
+  static const _allowedHorizonDays = [7, 14, 21, 30, 45, 60];
+
   @override
   void initState() {
     super.initState();
@@ -622,6 +633,28 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
       _selectedMinistryId = (cfg['group_ministry_id'] ?? '').toString().isEmpty
           ? null
           : (cfg['group_ministry_id'] ?? '').toString();
+
+      // Lote 11.3 — hidrar parâmetros do digest. Saneamento: valores fora do
+      // domínio caem nos defaults pra evitar dropdown órfão no rebuild.
+      final ghdRaw = cfg['group_horizon_days'];
+      final ghd = ghdRaw is int
+          ? ghdRaw
+          : ghdRaw is num
+              ? ghdRaw.toInt()
+              : ghdRaw is String
+                  ? int.tryParse(ghdRaw) ?? 14
+                  : 14;
+      _groupHorizonDays = _allowedHorizonDays.contains(ghd) ? ghd : 14;
+      final mf = (cfg['member_format'] ?? 'nickname_or_first').toString();
+      _memberFormat = _allowedMemberFormats.contains(mf) ? mf : 'nickname_or_first';
+      _groupBodyPrefixController.text = (cfg['group_body_prefix'] ?? '').toString();
+      final sij = cfg['skip_individual_jobs'];
+      _skipIndividualJobs = sij is bool
+          ? sij
+          : sij is String
+              ? sij.toLowerCase() == 'true'
+              : false;
+
       final nl = cfg['notify_leader'];
       _notifyLeader = nl is bool ? nl : (nl is String ? nl.toLowerCase() == 'true' : false);
       if ((_type == DispatchRuleType.birthday) && _recipientMode == DispatchRecipientMode.multi) {
@@ -674,6 +707,7 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
     _templateContentController.dispose();
     _singleQueryController.dispose();
     _multiQueryController.dispose();
+    _groupBodyPrefixController.dispose();
     super.dispose();
   }
 
@@ -847,6 +881,86 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
                       border: OutlineInputBorder(),
                     ),
                   ),
+                  if (_scope == DispatchTargetScope.ministry) ...[
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Digest da agenda',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'O grupo recebe um resumo da agenda do ministério em vez do template padrão.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<int>(
+                      initialValue: _groupHorizonDays,
+                      items: const [
+                        DropdownMenuItem(value: 7,  child: Text('Próximos 7 dias')),
+                        DropdownMenuItem(value: 14, child: Text('Próximos 14 dias')),
+                        DropdownMenuItem(value: 21, child: Text('Próximos 21 dias')),
+                        DropdownMenuItem(value: 30, child: Text('Próximos 30 dias')),
+                        DropdownMenuItem(value: 45, child: Text('Próximos 45 dias')),
+                        DropdownMenuItem(value: 60, child: Text('Próximos 60 dias')),
+                      ],
+                      onChanged: (v) => setState(() => _groupHorizonDays = v ?? 14),
+                      decoration: const InputDecoration(
+                        labelText: 'Horizonte',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      initialValue: _memberFormat,
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'nickname_or_first',
+                          child: Text('Apelido (ou primeiro nome)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'full_name',
+                          child: Text('Nome completo'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'count',
+                          child: Text('Só a contagem (ex.: "5 escalados")'),
+                        ),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _memberFormat = v ?? 'nickname_or_first'),
+                      decoration: const InputDecoration(
+                        labelText: 'Formato dos membros',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _groupBodyPrefixController,
+                      maxLines: 3,
+                      maxLength: 280,
+                      decoration: const InputDecoration(
+                        labelText: 'Texto antes do digest (opcional)',
+                        hintText: 'Ex.: "Bom dia! Segue a agenda da semana."',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Não enviar WhatsApp individual'),
+                      subtitle: const Text(
+                          'Mudanças na escala vão só pelo grupo + notificações no app. Evita disparo 1-a-1 pra cada membro.'),
+                      value: _skipIndividualJobs,
+                      onChanged: (v) => setState(() => _skipIndividualJobs = v),
+                    ),
+                  ],
                 ],
               ),
             if (_recipientMode == DispatchRecipientMode.multi) ...[
@@ -1291,6 +1405,27 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
           break;
         }
       }
+    }
+
+    // Lote 11.3 + 11.6 — só persiste parâmetros do digest quando o combo
+    // scope=ministry + recipient_mode=group está ativo. Caso contrário,
+    // limpa pra evitar lixo no JSON em regras com outros perfis.
+    if (_scope == DispatchTargetScope.ministry &&
+        _recipientMode == DispatchRecipientMode.group) {
+      cfg['group_horizon_days'] = _groupHorizonDays;
+      cfg['member_format'] = _memberFormat;
+      cfg['skip_individual_jobs'] = _skipIndividualJobs;
+      final prefix = _groupBodyPrefixController.text.trim();
+      if (prefix.isNotEmpty) {
+        cfg['group_body_prefix'] = prefix;
+      } else {
+        cfg.remove('group_body_prefix');
+      }
+    } else {
+      cfg.remove('group_horizon_days');
+      cfg.remove('member_format');
+      cfg.remove('group_body_prefix');
+      cfg.remove('skip_individual_jobs');
     }
 
     if (_recipientMode == DispatchRecipientMode.single && _singleSelected.isNotEmpty) {
