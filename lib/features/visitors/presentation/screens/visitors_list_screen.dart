@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/visitors_provider.dart';
 import '../../domain/models/visitor.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/date_period_filter.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de visitantes
@@ -17,7 +18,45 @@ class VisitorsListScreen extends ConsumerStatefulWidget {
 
 class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
   String _searchQuery = '';
+  bool _showFilters = false;
+  DatePeriodSelection _firstVisitFilter = const DatePeriodSelection();
+  DatePeriodSelection _salvationFilter = const DatePeriodSelection();
+  final Set<String> _followUpStatuses = <String>{};
+  bool _onlyWantsContact = false;
+  RangeValues? _ageRange; // null = sem filtro
+  static const double _ageMin = 0;
+  static const double _ageMax = 100;
   final _searchController = TextEditingController();
+
+  int _activeFilterCount() {
+    var count = 0;
+    if (_firstVisitFilter.period != DatePeriod.all) count++;
+    if (_salvationFilter.period != DatePeriod.all) count++;
+    if (_followUpStatuses.isNotEmpty) count++;
+    if (_onlyWantsContact) count++;
+    if (_ageRange != null) count++;
+    return count;
+  }
+
+  bool _matchesFilters(Visitor v) {
+    if (!_firstVisitFilter.matches(v.firstVisitDate)) return false;
+    if (_salvationFilter.period != DatePeriod.all) {
+      if (!_salvationFilter.matches(v.salvationDate)) return false;
+    }
+    if (_followUpStatuses.isNotEmpty &&
+        !_followUpStatuses.contains(v.followUpStatus)) {
+      return false;
+    }
+    if (_onlyWantsContact && !v.wantsContact) return false;
+    if (_ageRange != null) {
+      final age = v.age;
+      if (age == null) return false;
+      if (age < _ageRange!.start.round() || age > _ageRange!.end.round()) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   @override
   void dispose() {
@@ -169,6 +208,83 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () =>
+                            setState(() => _showFilters = !_showFilters),
+                        icon: Icon(
+                          _showFilters
+                              ? Icons.expand_less
+                              : Icons.filter_alt_outlined,
+                          size: 18,
+                        ),
+                        label: Text(
+                          _showFilters
+                              ? 'Ocultar filtros'
+                              : (_activeFilterCount() == 0
+                                    ? 'Mais filtros'
+                                    : 'Filtros (${_activeFilterCount()})'),
+                        ),
+                      ),
+                    ),
+                    if (_showFilters) ...[
+                      const SizedBox(height: 8),
+                      DatePeriodFilter(
+                        label: 'Primeira visita',
+                        icon: Icons.door_front_door,
+                        selection: _firstVisitFilter,
+                        onChanged: (sel) =>
+                            setState(() => _firstVisitFilter = sel),
+                      ),
+                      const SizedBox(height: 16),
+                      DatePeriodFilter(
+                        label: 'Decisão / salvação',
+                        icon: Icons.favorite,
+                        selection: _salvationFilter,
+                        onChanged: (sel) =>
+                            setState(() => _salvationFilter = sel),
+                      ),
+                      const SizedBox(height: 16),
+                      _FollowUpFilter(
+                        selected: _followUpStatuses,
+                        onToggle: (status) {
+                          setState(() {
+                            if (_followUpStatuses.contains(status)) {
+                              _followUpStatuses.remove(status);
+                            } else {
+                              _followUpStatuses.add(status);
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Switch(
+                            value: _onlyWantsContact,
+                            onChanged: (v) =>
+                                setState(() => _onlyWantsContact = v),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Somente quem deseja contato',
+                              style: CommunityDesign.metaStyle(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _AgeRangeFilter(
+                        range: _ageRange,
+                        min: _ageMin,
+                        max: _ageMax,
+                        onChanged: (range) =>
+                            setState(() => _ageRange = range),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -190,6 +306,10 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
                             false);
                   }).toList();
                 }
+
+                // Filtros adicionais (Raízes)
+                filteredVisitors =
+                    filteredVisitors.where(_matchesFilters).toList();
 
                 return _buildVisitorsList(context, filteredVisitors);
               },
@@ -456,6 +576,125 @@ class _VisitorCard extends ConsumerWidget {
         ),
         const SizedBox(width: 8),
         Text(text, style: CommunityDesign.metaStyle(context)),
+      ],
+    );
+  }
+}
+
+class _FollowUpFilter extends StatelessWidget {
+  final Set<String> selected;
+  final ValueChanged<String> onToggle;
+
+  const _FollowUpFilter({required this.selected, required this.onToggle});
+
+  static const _options = <_FollowUpOption>[
+    _FollowUpOption('pending', 'Pendente'),
+    _FollowUpOption('in_progress', 'Em andamento'),
+    _FollowUpOption('completed', 'Concluído'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.flag_outlined, size: 18, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              'Acompanhamento',
+              style: CommunityDesign.titleStyle(context).copyWith(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _options
+              .map(
+                (opt) => FilterChip(
+                  label: Text(opt.label),
+                  selected: selected.contains(opt.value),
+                  onSelected: (_) => onToggle(opt.value),
+                ),
+              )
+              .toList(),
+        ),
+      ],
+    );
+  }
+}
+
+class _FollowUpOption {
+  final String value;
+  final String label;
+  const _FollowUpOption(this.value, this.label);
+}
+
+class _AgeRangeFilter extends StatelessWidget {
+  final RangeValues? range;
+  final double min;
+  final double max;
+  final ValueChanged<RangeValues?> onChanged;
+
+  const _AgeRangeFilter({
+    required this.range,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final current = range ?? RangeValues(min, max);
+    final isActive = range != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.cake_outlined, size: 18, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              'Faixa etária',
+              style: CommunityDesign.titleStyle(context).copyWith(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            if (isActive)
+              TextButton(
+                onPressed: () => onChanged(null),
+                child: const Text('Limpar'),
+              ),
+          ],
+        ),
+        Text(
+          isActive
+              ? '${current.start.round()} a ${current.end.round()} anos'
+              : 'Todas as idades',
+          style: CommunityDesign.metaStyle(context),
+        ),
+        RangeSlider(
+          values: current,
+          min: min,
+          max: max,
+          divisions: (max - min).round(),
+          labels: RangeLabels(
+            current.start.round().toString(),
+            current.end.round().toString(),
+          ),
+          onChanged: (values) => onChanged(values),
+        ),
       ],
     );
   }

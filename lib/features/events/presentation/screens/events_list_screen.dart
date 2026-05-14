@@ -53,6 +53,56 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
     Share.share('Confira o evento "${event.name}":\n$url');
   }
 
+  Future<void> _confirmDeleteEvent(Event event) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excluir evento'),
+        content: Text(
+          'Deseja realmente excluir "${event.name}"?\n\n'
+          'Inscrições, escalas e demais dados vinculados serão removidos.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ref.read(eventsRepositoryProvider).deleteEvent(event.id);
+      ref.invalidate(allEventsProvider);
+      ref.invalidate(activeEventsProvider);
+      ref.invalidate(upcomingEventsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Evento excluído com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao excluir evento: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final eventsAsync = _filter == 'upcoming'
@@ -281,6 +331,67 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                                         ? _shareRegistrationLink(event)
                                         : _shareEventInfoLink(event),
                                   ),
+                                  if (widget.enableCrud)
+                                    PopupMenuButton<String>(
+                                      tooltip: 'Mais opções',
+                                      icon: const Icon(
+                                        Icons.more_vert,
+                                        size: 18,
+                                      ),
+                                      onSelected: (value) {
+                                        switch (value) {
+                                          case 'edit':
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    EventFormScreen(
+                                                  eventId: event.id,
+                                                ),
+                                              ),
+                                            ).then((_) {
+                                              ref.invalidate(allEventsProvider);
+                                              ref.invalidate(activeEventsProvider);
+                                              ref.invalidate(upcomingEventsProvider);
+                                            });
+                                            break;
+                                          case 'delete':
+                                            _confirmDeleteEvent(event);
+                                            break;
+                                        }
+                                      },
+                                      itemBuilder: (context) => const [
+                                        PopupMenuItem(
+                                          value: 'edit',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.edit, size: 18),
+                                              SizedBox(width: 8),
+                                              Text('Editar'),
+                                            ],
+                                          ),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'delete',
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.delete,
+                                                size: 18,
+                                                color: Colors.red,
+                                              ),
+                                              SizedBox(width: 8),
+                                              Text(
+                                                'Excluir',
+                                                style: TextStyle(
+                                                  color: Colors.red,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                 ],
                               ),
 

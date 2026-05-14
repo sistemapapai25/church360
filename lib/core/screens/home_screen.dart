@@ -1473,6 +1473,14 @@ class _MoreTab extends ConsumerWidget {
           ),
           _buildMenuCard(
             context,
+            Icons.church_outlined,
+            'Ministérios',
+            '/ministries',
+            color: Colors.teal,
+          ),
+          const SizedBox(height: 12),
+          _buildMenuCard(
+            context,
             Icons.child_care_outlined,
             'Inscrição Kids',
             '/kids-registration',

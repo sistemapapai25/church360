@@ -64,6 +64,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   DateTime? _membershipDate;
   DateTime? _conversionDate;
   DateTime? _baptismDate;
+  DateTime? _firstVisitDate;
+  bool? _wantsContact;
 
   bool _isLoading = false;
   bool _isSearchingCep = false;
@@ -404,6 +406,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           _membershipDate = member.membershipDate;
           _conversionDate = member.conversionDate;
           _baptismDate = member.baptismDate;
+          _firstVisitDate = member.firstVisitDate;
+          _wantsContact = member.wantsContact;
         });
 
         final rawProfession = member.profession;
@@ -630,6 +634,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
             'T',
           )[0];
         }
+        if (_firstVisitDate != null) {
+          memberData['first_visit_date'] = _firstVisitDate!
+              .toIso8601String()
+              .split('T')[0];
+        }
+        if (_wantsContact != null) {
+          memberData['wants_contact'] = _wantsContact;
+        }
         if (_addressController.text.trim().isNotEmpty) {
           memberData['address'] = _addressController.text.trim();
         }
@@ -730,6 +742,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           membershipDate: _membershipDate,
           conversionDate: _conversionDate,
           baptismDate: _baptismDate,
+          firstVisitDate: _firstVisitDate,
+          wantsContact: _wantsContact,
           address: _addressController.text.trim().isEmpty
               ? null
               : _addressController.text.trim(),
@@ -1401,6 +1415,70 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                           ),
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Data de Primeira Visita (relevante para visitantes / Raízes)
+                    if (_status == 'visitor' ||
+                        _status == 'new_convert' ||
+                        _firstVisitDate != null) ...[
+                      InkWell(
+                        onTap: () =>
+                            _selectDate(context, _firstVisitDate, (date) {
+                          setState(() {
+                            _firstVisitDate = date;
+                          });
+                        }),
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'Data da Primeira Visita',
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.door_front_door),
+                            suffixIcon: _firstVisitDate != null
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 18),
+                                    tooltip: 'Limpar',
+                                    onPressed: () => setState(
+                                      () => _firstVisitDate = null,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          child: Text(
+                            _firstVisitDate != null
+                                ? DateFormat(
+                                    'dd/MM/yyyy',
+                                  ).format(_firstVisitDate!)
+                                : 'Selecione a data',
+                            style: TextStyle(
+                              color:
+                                  _firstVisitDate != null ? null : Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Deseja contato (default true quando ainda não foi tocado)
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Deseja receber contato'),
+                      subtitle: Text(
+                        _wantsContact == null
+                            ? 'Não informado'
+                            : (_wantsContact!
+                                ? 'Pode receber contato (ligações, mensagens)'
+                                : 'Não deseja contato no momento'),
+                        style: CommunityDesign.metaStyle(context),
+                      ),
+                      secondary: const Icon(Icons.contact_phone),
+                      value: _wantsContact ?? true,
+                      onChanged: (v) => setState(() => _wantsContact = v),
                     ),
                     const SizedBox(height: 16),
 

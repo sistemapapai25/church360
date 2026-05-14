@@ -1,3 +1,27 @@
+/// Tipo de ministério usado para roteamento de submódulos especializados.
+///
+/// O valor `generic` é o default no banco para todo registro novo. Tipos
+/// reconhecidos pelo app habilitam telas específicas (ex.: Raízes, Diaconato).
+enum MinistryType {
+  generic('generic'),
+  raizes('raizes'),
+  diaconato('diaconato'),
+  kids('kids'),
+  louvor('louvor'),
+  midia('midia');
+
+  final String value;
+  const MinistryType(this.value);
+
+  static MinistryType fromValue(String? value) {
+    if (value == null) return MinistryType.generic;
+    return MinistryType.values.firstWhere(
+      (t) => t.value == value,
+      orElse: () => MinistryType.generic,
+    );
+  }
+}
+
 /// Modelo de Ministério
 class Ministry {
   final String id;
@@ -9,6 +33,11 @@ class Ministry {
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  // Categorização e configuração (Lote 2 do roadmap Ministérios)
+  final String? slug;
+  final MinistryType ministryType;
+  final Map<String, dynamic> settings;
 
   // Dados do líder (quando incluído na query)
   final String? leaderName;
@@ -28,13 +57,39 @@ class Ministry {
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
+    this.slug,
+    this.ministryType = MinistryType.generic,
+    this.settings = const {},
     this.leaderName,
     this.leaderPhoto,
     this.memberCount,
     this.whatsappGroupNumber,
   });
 
+  /// Rota do submódulo específico deste ministério, quando aplicável.
+  /// Retorna `null` para tipos genéricos.
+  String? specializedRoute() {
+    switch (ministryType) {
+      case MinistryType.raizes:
+        return '/ministries/$id/raizes';
+      case MinistryType.diaconato:
+        return '/ministries/$id/diaconato';
+      case MinistryType.generic:
+      case MinistryType.kids:
+      case MinistryType.louvor:
+      case MinistryType.midia:
+        return null;
+    }
+  }
+
   factory Ministry.fromJson(Map<String, dynamic> json) {
+    final rawSettings = json['settings'];
+    final settings = rawSettings is Map<String, dynamic>
+        ? rawSettings
+        : (rawSettings is Map
+            ? Map<String, dynamic>.from(rawSettings)
+            : const <String, dynamic>{});
+
     return Ministry(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -45,6 +100,9 @@ class Ministry {
       isActive: json['is_active'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      slug: json['slug'] as String?,
+      ministryType: MinistryType.fromValue(json['ministry_type'] as String?),
+      settings: settings,
       leaderName: json['leader_name'] as String?,
       leaderPhoto: json['leader_photo'] as String?,
       memberCount: json['member_count'] as int?,
@@ -63,6 +121,9 @@ class Ministry {
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'slug': slug,
+      'ministry_type': ministryType.value,
+      'settings': settings,
       'whatsapp_group_number': whatsappGroupNumber,
     };
   }
@@ -77,6 +138,9 @@ class Ministry {
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? slug,
+    MinistryType? ministryType,
+    Map<String, dynamic>? settings,
     String? leaderName,
     String? leaderPhoto,
     int? memberCount,
@@ -92,6 +156,9 @@ class Ministry {
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      slug: slug ?? this.slug,
+      ministryType: ministryType ?? this.ministryType,
+      settings: settings ?? this.settings,
       leaderName: leaderName ?? this.leaderName,
       leaderPhoto: leaderPhoto ?? this.leaderPhoto,
       memberCount: memberCount ?? this.memberCount,

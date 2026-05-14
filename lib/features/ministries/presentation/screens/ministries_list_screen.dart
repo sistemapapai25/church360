@@ -30,16 +30,10 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
   @override
   Widget build(BuildContext context) {
     final canCreateAsync = ref.watch(currentUserHasPermissionProvider('ministries.create'));
-    final canEditAsync = ref.watch(currentUserHasPermissionProvider('ministries.edit'));
-    final canDeleteAsync = ref.watch(currentUserHasPermissionProvider('ministries.delete'));
+    final canSeeAllAsync = ref.watch(ministriesCanSeeAllProvider);
+    final canSeeAll = canSeeAllAsync.maybeWhen(data: (v) => v, orElse: () => false);
 
-    final canSeeAll = canCreateAsync.maybeWhen(data: (v) => v, orElse: () => false) ||
-        canEditAsync.maybeWhen(data: (v) => v, orElse: () => false) ||
-        canDeleteAsync.maybeWhen(data: (v) => v, orElse: () => false);
-
-    final ministriesAsync = canSeeAll
-        ? ref.watch(allMinistriesProvider)
-        : ref.watch(currentMemberMinistriesProvider);
+    final ministriesAsync = ref.watch(visibleMinistriesProvider);
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -308,6 +302,8 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
                         onPressed: () {
+                          ref.invalidate(visibleMinistriesProvider);
+                          ref.invalidate(currentMemberMinistriesProvider);
                           ref.invalidate(allMinistriesProvider);
                         },
                         icon: const Icon(Icons.refresh, size: 18),

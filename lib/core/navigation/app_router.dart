@@ -18,6 +18,9 @@ import '../../features/groups/presentation/screens/meeting_detail_screen.dart';
 import '../../features/ministries/presentation/screens/ministries_list_screen.dart';
 import '../../features/ministries/presentation/screens/ministry_detail_screen.dart';
 import '../../features/ministries/presentation/screens/ministry_form_screen.dart';
+import '../../features/ministries/raizes/presentation/screens/raizes_home_screen.dart';
+import '../../features/ministries/raizes/presentation/screens/raizes_visits_screen.dart';
+import '../../features/ministries/diaconato/presentation/screens/diaconato_home_screen.dart';
 // DEPRECATED: Old financial screens - replaced by native Flutter implementation
 // import '../../features/financial/presentation/screens/financial_screen.dart';
 // import '../../features/financeiro_papai/presentation/screens/financeiro_papai_screen.dart';
@@ -436,6 +439,27 @@ final appRouter = GoRouter(
           permission: 'ministries.manage_schedule',
           child: ScaleHistoryScreen(ministryId: id),
         );
+      },
+    ),
+    GoRoute(
+      path: '/ministries/:id/raizes',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return RaizesHomeScreen(ministryId: id);
+      },
+    ),
+    GoRoute(
+      path: '/ministries/:id/raizes/visits',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return RaizesVisitsScreen(ministryId: id);
+      },
+    ),
+    GoRoute(
+      path: '/ministries/:id/diaconato',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return DiaconatoHomeScreen(ministryId: id);
       },
     ),
     // =====================================================

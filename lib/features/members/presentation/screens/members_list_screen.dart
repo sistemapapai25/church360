@@ -8,6 +8,7 @@ import '../../domain/models/member.dart';
 import '../../../tags/presentation/providers/tags_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/date_period_filter.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de membros
@@ -23,6 +24,8 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
   bool _showInactive = false; // Toggle para mostrar inativos/desligados
   String? _selectedTagId; // null = sem filtro de tag
   String? _expandedMemberId; // controla qual card está expandido
+  DatePeriodSelection _conversionFilter = const DatePeriodSelection();
+  bool _showFilters = false;
   final _searchController = TextEditingController();
 
   @override
@@ -208,6 +211,37 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () =>
+                            setState(() => _showFilters = !_showFilters),
+                        icon: Icon(
+                          _showFilters
+                              ? Icons.expand_less
+                              : Icons.filter_alt_outlined,
+                          size: 18,
+                        ),
+                        label: Text(
+                          _showFilters
+                              ? 'Ocultar filtros'
+                              : (_conversionFilter.period == DatePeriod.all
+                                    ? 'Mais filtros'
+                                    : 'Filtros (1)'),
+                        ),
+                      ),
+                    ),
+                    if (_showFilters) ...[
+                      const SizedBox(height: 8),
+                      DatePeriodFilter(
+                        label: 'Data de conversão',
+                        icon: Icons.auto_awesome,
+                        selection: _conversionFilter,
+                        onChanged: (sel) =>
+                            setState(() => _conversionFilter = sel),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -239,6 +273,13 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                         (member.nickname?.toLowerCase().contains(query) ??
                             false);
                   }).toList();
+                }
+
+                // Filtrar por data de conversão
+                if (_conversionFilter.period != DatePeriod.all) {
+                  filteredMembers = filteredMembers
+                      .where((m) => _conversionFilter.matches(m.conversionDate))
+                      .toList();
                 }
 
                 // Filtrar por tag (se selecionada)
