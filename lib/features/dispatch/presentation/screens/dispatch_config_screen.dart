@@ -604,6 +604,18 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
   static const _allowedMemberFormats = ['nickname_or_first', 'full_name', 'count'];
   static const _allowedHorizonDays = [7, 14, 21, 30, 45, 60];
 
+  // Lote 12.3 — Destinatários extras pra regras tipo birthday (100% manual).
+  // Substitui o toggle `notify_leader` (que usava assigned_mentor_id = mentor de
+  // discipulado, não líder do ministério). Persiste em `cfg.extra_recipients`
+  // e `cfg.extra_template_id`, lidos pela RPC enqueue_birthday_jobs (Lote 12.0).
+  final Map<String, String> _extraUserSelected = {}; // id -> display name
+  final List<String> _extraPhones = [];
+  final _extraQueryController = TextEditingController();
+  String _extraQuery = '';
+  final _extraPhoneController = TextEditingController();
+  String? _extraTemplateId;
+  bool _hadLegacyNotifyLeader = false;
+
   @override
   void initState() {
     super.initState();
@@ -661,6 +673,27 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
         _recipientMode = DispatchRecipientMode.birthday;
       }
 
+      // Lote 12.3 — hidrata destinatários extras + template extra.
+      final extras = cfg['extra_recipients'];
+      if (extras is Map) {
+        final uids = List<String>.from(extras['user_ids'] ?? const []);
+        final unames = Map<String, dynamic>.from(extras['user_names'] ?? const {});
+        _extraUserSelected
+          ..clear()
+          ..addAll({for (final id in uids) id: (unames[id] ?? id).toString()});
+        _extraPhones
+          ..clear()
+          ..addAll(List<String>.from(extras['phones'] ?? const []));
+      }
+      final etid = (cfg['extra_template_id'] ?? '').toString();
+      _extraTemplateId = etid.isEmpty ? null : etid;
+      // Banner pra regras legadas: tinha notify_leader=true mas nenhum extra
+      // foi configurado ainda no novo modelo → pede reconfiguração.
+      _hadLegacyNotifyLeader = _type == DispatchRuleType.birthday &&
+          _notifyLeader &&
+          _extraUserSelected.isEmpty &&
+          _extraPhones.isEmpty;
+
       final recipientIds = List<String>.from(cfg['recipient_ids'] ?? const []);
       final recipientNames = Map<String, String>.from(cfg['recipient_names'] ?? const {});
       final recipientPhones = Map<String, String>.from(cfg['recipient_phones'] ?? const {});
@@ -708,6 +741,8 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
     _singleQueryController.dispose();
     _multiQueryController.dispose();
     _groupBodyPrefixController.dispose();
+    _extraQueryController.dispose();
+    _extraPhoneController.dispose();
     super.dispose();
   }
 
@@ -782,13 +817,7 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
               ),
             ),
             const SizedBox(height: 8),
-            if (_type == DispatchRuleType.birthday)
-              SwitchListTile(
-                value: _notifyLeader,
-                onChanged: (v) => setState(() => _notifyLeader = v),
-                title: const Text('Enviar também para líder/mentor'),
-                subtitle: const Text('Se habilitado, o líder/mentor recebe a mesma mensagem.'),
-              ),
+            if (_type == DispatchRuleType.birthday) _buildBirthdayExtrasSection(context),
             const SizedBox(height: 12),
             if (_recipientMode == DispatchRecipientMode.single)
               Column(
@@ -1176,6 +1205,9 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
       'member_nickname': 'Apelido do destinatário.',
       'member_phone': 'Telefone do destinatário.',
       'birthday_date': 'Dia e mês do aniversário no formato dd/MM.',
+      'birthday_person_full_name': 'Nome completo do aniversariante (útil em mensagens para destinatários extras).',
+      'birthday_person_nickname': 'Apelido do aniversariante (cai no primeiro nome se vazio).',
+      'birthday_person_first_name': 'Primeiro nome do aniversariante.',
       'church_name': 'Nome da igreja.',
       'church_address': 'Endereço da igreja.',
       'event_name': 'Nome do evento.',
@@ -1198,8 +1230,11 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
       DispatchRuleType.birthday: [
         'member_full_name',
         'member_nickname',
-        'birthday_date',
         'member_phone',
+        'birthday_date',
+        'birthday_person_full_name',
+        'birthday_person_nickname',
+        'birthday_person_first_name',
         'church_name',
         'church_address',
       ],
@@ -1376,6 +1411,211 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
     );
   }
 
+  // Lote 12.3 — Seção "Destinatários extras" para regras tipo birthday.
+  // Substitui o antigo SwitchListTile `notify_leader`. Picker de membros reusa
+  // _MemberSearchList. Phones avulsos são saneados pra dígitos no save().
+  // Template extra é opcional — quando null, a RPC cai no template principal.
+  Widget _buildBirthdayExtrasSection(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_hadLegacyNotifyLeader)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  border: Border.all(color: Colors.amber.shade400),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'O modo automático "avisar mentor" foi descontinuado. '
+                        'Reconfigure os destinatários extras manualmente abaixo.',
+                        style: textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Row(
+              children: [
+                Icon(Icons.cake_outlined, size: 20, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text('Destinatários extras (opcional)', style: textTheme.titleSmall),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Quem mais recebe uma mensagem quando alguém faz aniversário. '
+              'Configuração 100% manual — escolha membros e/ou telefones avulsos.',
+              style: textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+
+            // Membros adicionais
+            Text('Membros adicionais', style: textTheme.labelLarge),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _extraQueryController,
+              decoration: InputDecoration(
+                labelText: 'Buscar membro (mín. 3 letras)',
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _extraQuery.trim().isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() {
+                            _extraQueryController.clear();
+                            _extraQuery = '';
+                          });
+                        },
+                      )
+                    : null,
+              ),
+              onChanged: (v) => setState(() => _extraQuery = v.trim().toLowerCase()),
+            ),
+            const SizedBox(height: 8),
+            if (_extraUserSelected.isNotEmpty)
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final entry in _extraUserSelected.entries)
+                    InputChip(
+                      label: Text(entry.value),
+                      onDeleted: () => setState(() => _extraUserSelected.remove(entry.key)),
+                    ),
+                ],
+              ),
+            if (_extraQuery.length >= 3)
+              _MemberSearchList(
+                query: _extraQuery,
+                onSelect: (id, name, _) {
+                  setState(() {
+                    _extraUserSelected[id] = name;
+                  });
+                },
+              ),
+            const SizedBox(height: 16),
+
+            // Telefones avulsos
+            Text('Telefones avulsos', style: textTheme.labelLarge),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _extraPhoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Ex.: +55 11 99999-0000',
+                      border: OutlineInputBorder(),
+                    ),
+                    onSubmitted: (_) => _addExtraPhone(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.tonalIcon(
+                  onPressed: _addExtraPhone,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Adicionar'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_extraPhones.isNotEmpty)
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final phone in _extraPhones)
+                    InputChip(
+                      label: Text(phone),
+                      onDeleted: () => setState(() => _extraPhones.remove(phone)),
+                    ),
+                ],
+              ),
+            const SizedBox(height: 16),
+
+            // Template extra
+            Text('Template da mensagem dos extras', style: textTheme.labelLarge),
+            const SizedBox(height: 6),
+            ref.watch(allMessageTemplatesProvider).when(
+                  data: (list) {
+                    final active = list.where((t) => t.isActive).toList()
+                      ..sort((a, b) => a.name.compareTo(b.name));
+                    // Saneamento: se o template salvo não existe mais, derruba
+                    // a referência local pra evitar dropdown órfão.
+                    final stillExists = _extraTemplateId == null ||
+                        active.any((t) => t.id == _extraTemplateId);
+                    if (!stillExists) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) setState(() => _extraTemplateId = null);
+                      });
+                    }
+                    return DropdownButtonFormField<String?>(
+                      initialValue: stillExists ? _extraTemplateId : null,
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('— Usar o mesmo template do aniversariante —'),
+                        ),
+                        for (final t in active)
+                          DropdownMenuItem<String?>(value: t.id, child: Text(t.name)),
+                      ],
+                      onChanged: (v) => setState(() => _extraTemplateId = v),
+                      decoration: const InputDecoration(
+                        labelText: 'Template para os extras',
+                        border: OutlineInputBorder(),
+                      ),
+                    );
+                  },
+                  loading: () => const LinearProgressIndicator(),
+                  error: (_, __) => const Text('Erro ao carregar templates.'),
+                ),
+            const SizedBox(height: 6),
+            Text(
+              'Use {birthday_person_first_name} ou {birthday_person_full_name} '
+              'para citar o aniversariante no texto. {member_full_name} '
+              'resolve o nome do próprio destinatário extra.',
+              style: textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _addExtraPhone() {
+    final raw = _extraPhoneController.text.trim();
+    if (raw.isEmpty) return;
+    final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return;
+    if (_extraPhones.contains(digits)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Telefone já adicionado.')),
+      );
+      return;
+    }
+    setState(() {
+      _extraPhones.add(digits);
+      _extraPhoneController.clear();
+    });
+  }
+
   Future<void> _save() async {
     final title = _titleController.text.trim();
     final recipients = _multiSelected.values
@@ -1392,7 +1632,29 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
     cfg['single_phone'] = _singlePhoneController.text.trim();
     cfg['group_phone'] = _groupPhoneController.text.trim();
     cfg['manual_numbers'] = recipients;
-    cfg['notify_leader'] = _notifyLeader;
+
+    // Lote 12.3 — persistência dos extras + descontinuação do notify_leader.
+    // Forma esperada pela RPC enqueue_birthday_jobs (Lote 12.0):
+    //   { extra_template_id: <uuid|null>,
+    //     extra_recipients: { user_ids: [...], phones: [...] } }
+    // user_names é guardado pra reidratar a UI sem refetch (cosmético).
+    if (_type == DispatchRuleType.birthday) {
+      cfg['extra_recipients'] = {
+        'user_ids': _extraUserSelected.keys.toList(),
+        'user_names': _extraUserSelected,
+        'phones': _extraPhones,
+      };
+      if (_extraTemplateId != null && _extraTemplateId!.isNotEmpty) {
+        cfg['extra_template_id'] = _extraTemplateId;
+      } else {
+        cfg.remove('extra_template_id');
+      }
+      cfg.remove('notify_leader');
+    } else {
+      cfg['notify_leader'] = _notifyLeader;
+      cfg.remove('extra_recipients');
+      cfg.remove('extra_template_id');
+    }
     if (_selectedMinistryId != null) {
       cfg['group_ministry_id'] = _selectedMinistryId;
       final mins = ref.read(activeMinistriesProvider).maybeWhen(

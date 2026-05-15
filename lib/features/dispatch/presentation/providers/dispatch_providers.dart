@@ -263,6 +263,9 @@ class VariableRegistry {
         'member_nickname': _memberNickname,
         'event_date': _eventDate,
         'birthday_date': _birthdayDate,
+        'birthday_person_full_name': _birthdayPersonFullName,
+        'birthday_person_nickname': _birthdayPersonNickname,
+        'birthday_person_first_name': _birthdayPersonFirstName,
         'event_name': _eventName,
         'ministry_name': _ministryName,
         'member_phone': _memberPhone,
@@ -455,7 +458,10 @@ class VariableRegistry {
   }
 
   Future<String?> _birthdayDate(RenderContext ctx) async {
-    final uid = (ctx.payload['recipient_user_id'] ?? '').toString();
+    // Lote 12.2: prefere birthday_user_id quando presente (jobs 'witness' onde
+    // o destinatário é diferente do aniversariante); cai pra recipient_user_id
+    // pra manter compat com jobs antigos do tipo birthday.
+    final uid = (ctx.payload['birthday_user_id'] ?? ctx.payload['recipient_user_id'] ?? '').toString();
     if (uid.isEmpty) return null;
     try {
       final res = await _supabase
@@ -471,6 +477,64 @@ class VariableRegistry {
       final dd = parts[2].padLeft(2, '0');
       final mm = parts[1].padLeft(2, '0');
       return '$dd/$mm';
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _resolveBirthdayUid(RenderContext ctx) {
+    return (ctx.payload['birthday_user_id'] ?? ctx.payload['recipient_user_id'] ?? '').toString();
+  }
+
+  Future<String?> _birthdayPersonFullName(RenderContext ctx) async {
+    final uid = _resolveBirthdayUid(ctx);
+    if (uid.isEmpty) return null;
+    try {
+      final res = await _supabase
+          .from('user_account')
+          .select('first_name,last_name')
+          .eq('id', uid)
+          .maybeSingle();
+      if (res == null) return null;
+      final first = (res['first_name'] ?? '').toString();
+      final last = (res['last_name'] ?? '').toString();
+      final name = [first, last].where((e) => e.isNotEmpty).join(' ');
+      return name.isEmpty ? null : name;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> _birthdayPersonNickname(RenderContext ctx) async {
+    final uid = _resolveBirthdayUid(ctx);
+    if (uid.isEmpty) return null;
+    try {
+      final res = await _supabase
+          .from('user_account')
+          .select('nickname,first_name')
+          .eq('id', uid)
+          .maybeSingle();
+      if (res == null) return null;
+      final nick = (res['nickname'] ?? '').toString();
+      if (nick.isNotEmpty) return nick;
+      final first = (res['first_name'] ?? '').toString();
+      return first.isEmpty ? null : first;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> _birthdayPersonFirstName(RenderContext ctx) async {
+    final uid = _resolveBirthdayUid(ctx);
+    if (uid.isEmpty) return null;
+    try {
+      final res = await _supabase
+          .from('user_account')
+          .select('first_name')
+          .eq('id', uid)
+          .maybeSingle();
+      final v = res?['first_name']?.toString();
+      return (v == null || v.isEmpty) ? null : v;
     } catch (_) {
       return null;
     }
@@ -874,87 +938,25 @@ class DispatchSchedulerRepository {
     final groupMinistryId = (cfg['group_ministry_id'] ?? '').toString();
     final manualNumbers = List<String>.from(cfg['manual_numbers'] ?? const []);
     final recipients = <({String userId, String? phone})>[];
-    final notifyLeader = (() {
-      final v = cfg['notify_leader'];
-      if (v is bool) return v;
-      if (v is String) return v.toLowerCase() == 'true';
-      return false;
-    })();
 
     if ((rule.templateId ?? '').isEmpty) {
       throw Exception('Template não vinculado à regra');
     }
 
+    // Lote 12.4 — Delegação total à RPC enqueue_birthday_jobs (Lote 12.0).
+    // A lógica DD/MM (TZ America/Sao_Paulo), os destinatários extras manuais
+    // (config.extra_recipients), o template extra (config.extra_template_id)
+    // e a idempotência por dia vivem no banco — o cron auto-scheduler (Lote
+    // 12.1) e este botão "Executar agora" chamam exatamente a mesma RPC.
+    // assigned_mentor_id / notify_leader foram descontinuados no Lote 12.3.
     if (rule.type == DispatchRuleType.birthday) {
-      List<dynamic> users;
-      try {
-        users = await _supabase
-            .from('user_account')
-            .select('id,phone,birthdate,status,assigned_mentor_id')
-            .not('birthdate', 'is', null);
-      } catch (e) {
-        throw Exception('Erro ao buscar aniversariantes: $e');
-      }
-      final now = DateTime.now();
-      final todays = <({String userId, String? phone})>[];
-      final mentorByUser = <String, String>{};
-      final leaderIds = <String>{};
-      for (final u in users) {
-        final id = (u['id'] ?? '').toString();
-        final phone = u['phone']?.toString();
-        final bdStr = u['birthdate']?.toString();
-        if (bdStr == null || bdStr.isEmpty) continue;
-        final d = bdStr.contains('T') ? bdStr.split('T').first : bdStr;
-        final parts = d.split('-');
-        if (parts.length < 3) continue;
-        final mm = int.tryParse(parts[1]);
-        final dd = int.tryParse(parts[2]);
-        if (mm == null || dd == null) continue;
-        if (mm == now.month && dd == now.day) {
-          todays.add((userId: id, phone: phone));
-          if (notifyLeader) {
-            final mentorId = (u['assigned_mentor_id'] ?? '').toString();
-            if (mentorId.isNotEmpty) {
-              mentorByUser[id] = mentorId;
-              leaderIds.add(mentorId);
-            }
-          }
-        }
-      }
-      if (todays.isEmpty) return 0;
-      var recipientsList = List<({String userId, String? phone})>.from(todays);
-      if (notifyLeader && leaderIds.isNotEmpty) {
-        List<dynamic> accounts = const [];
-        try {
-          accounts = await _supabase
-              .from('user_account')
-              .select('id,phone')
-              .inFilter('id', leaderIds.toList());
-        } catch (_) {}
-        final byId = <String, String?>{};
-        for (final a in accounts) {
-          final lid = (a['id'] ?? '').toString();
-          final lphone = a['phone']?.toString();
-          byId[lid] = lphone;
-        }
-        for (final entry in mentorByUser.entries) {
-          final userId = entry.key;
-          final leaderId = entry.value;
-          final phone = (byId[leaderId] ?? '').toString();
-          if (phone.trim().isNotEmpty) {
-            recipientsList.add((userId: userId, phone: phone));
-          }
-        }
-      }
-      final unique = <({String userId, String? phone})>[];
-      final seen = <String>{};
-      for (final r in recipientsList) {
-        final k = '${r.userId}::${(r.phone ?? '').trim()}';
-        if (k.endsWith('::')) continue;
-        if (seen.add(k)) unique.add(r);
-      }
-      await _createJobsForRecipients(rule, 'birthday', null, unique);
-      return unique.length;
+      final res = await _supabase.rpc(
+        'enqueue_birthday_jobs',
+        params: {'_rule_id': rule.id},
+      );
+      if (res is int) return res;
+      if (res is num) return res.toInt();
+      return int.tryParse(res?.toString() ?? '0') ?? 0;
     }
 
     if (scope == 'event_type' && eventTypes.isEmpty) {
