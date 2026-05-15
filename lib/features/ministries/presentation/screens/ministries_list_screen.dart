@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 
 import '../providers/ministries_provider.dart';
+import '../utils/ministry_visuals.dart';
 import '../../domain/models/ministry.dart';
 
 /// Tela de listagem de ministérios
@@ -333,14 +333,9 @@ class _MinistryCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Converter cor hexadecimal para Color
-    final colorHex = ministry.color.replaceAll('#', '');
-    final colorValue = int.tryParse('FF$colorHex', radix: 16) ?? 0xFF2196F3;
-    final color = Color(colorValue);
+    final color = ministryColor(ministry.color);
     final membersAsync = ref.watch(ministryMembersProvider(ministry.id));
-
-    // Mapear ícone Font Awesome
-    final icon = _getIconData(ministry.icon);
+    final icon = ministryIconData(ministry.icon);
 
     return Container(
       decoration: CommunityDesign.overlayDecoration(
@@ -485,52 +480,4 @@ class _MinistryCard extends ConsumerWidget {
     );
   }
 
-  /// Mapear nome do ícone para IconData do Font Awesome
-  IconData _getIconData(String? iconName) {
-    if (iconName == null) return FontAwesomeIcons.church;
-
-    final iconMap = {
-      // ADORAÇÃO & ENSINO
-      'music': FontAwesomeIcons.music,
-      'hands-praying': FontAwesomeIcons.handsPraying,
-      'book-bible': FontAwesomeIcons.bookBible,
-      'book-open': FontAwesomeIcons.bookOpen,
-      'people-arrows': FontAwesomeIcons.peopleArrows,
-      'masks-theater': FontAwesomeIcons.masksTheater,
-      'person-running': FontAwesomeIcons.personRunning,
-
-      // EVANGELISMO & MISSÕES
-      'bullhorn': FontAwesomeIcons.bullhorn,
-      'earth-americas': FontAwesomeIcons.earthAmericas,
-      'house-heart': FontAwesomeIcons.house,
-      'house-user': FontAwesomeIcons.houseUser,
-      'people-group': FontAwesomeIcons.peopleGroup,
-
-      // FAIXAS ETÁRIAS
-      'child': FontAwesomeIcons.child,
-      'child-reaching': FontAwesomeIcons.child,
-      'person-cane': FontAwesomeIcons.personCane,
-
-      // GRUPOS ESPECÍFICOS
-      'user-graduate': FontAwesomeIcons.userGraduate,
-      'users-between-lines': FontAwesomeIcons.users,
-      'users-rays': FontAwesomeIcons.users,
-      'users': FontAwesomeIcons.users,
-      'heart': FontAwesomeIcons.heart,
-      'person': FontAwesomeIcons.person,
-      'person-dress': FontAwesomeIcons.personDress,
-
-      // SERVIÇOS & APOIO
-      'hand-holding-heart': FontAwesomeIcons.handHoldingHeart,
-      'handshake': FontAwesomeIcons.handshake,
-      'video': FontAwesomeIcons.video,
-      'comments': FontAwesomeIcons.comments,
-      'shield-halved': FontAwesomeIcons.shieldHalved,
-      'car': FontAwesomeIcons.car,
-      'broom': FontAwesomeIcons.broom,
-      'utensils': FontAwesomeIcons.utensils,
-    };
-
-    return iconMap[iconName] ?? FontAwesomeIcons.church;
-  }
 }

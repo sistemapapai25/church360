@@ -21,6 +21,9 @@ import '../../features/ministries/presentation/screens/ministry_form_screen.dart
 import '../../features/ministries/raizes/presentation/screens/raizes_home_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_visits_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_home_screen.dart';
+import '../../features/ministries/diaconato/presentation/screens/diaconato_checklist_screen.dart';
+import '../../features/ministries/diaconato/presentation/screens/diaconato_absentees_screen.dart';
+import '../../features/ministries/diaconato/presentation/screens/diaconato_communion_batch_screen.dart';
 // DEPRECATED: Old financial screens - replaced by native Flutter implementation
 // import '../../features/financial/presentation/screens/financial_screen.dart';
 // import '../../features/financeiro_papai/presentation/screens/financeiro_papai_screen.dart';
@@ -460,6 +463,39 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         return DiaconatoHomeScreen(ministryId: id);
+      },
+    ),
+    GoRoute(
+      path: '/ministries/:id/diaconato/checklist/:eventId',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        final eventId = state.pathParameters['eventId']!;
+        return DiaconatoChecklistScreen(
+          ministryId: id,
+          worshipServiceId: eventId,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/ministries/:id/diaconato/absentees/:eventId',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        final eventId = state.pathParameters['eventId']!;
+        return DiaconatoAbsenteesScreen(
+          ministryId: id,
+          worshipServiceId: eventId,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/ministries/:id/diaconato/communion-batches/:eventId',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        final eventId = state.pathParameters['eventId']!;
+        return DiaconatoCommunionBatchScreen(
+          ministryId: id,
+          worshipServiceId: eventId,
+        );
       },
     ),
     // =====================================================

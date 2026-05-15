@@ -1,6 +1,20 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/user_role.dart';
+
+/// Lançada quando uma operação que escreve em `user_roles` é solicitada
+/// para um membro que não possui conta de acesso (`auth_user_id` nulo).
+/// `user_roles.user_id` referencia `auth.users(id)`, então não há como
+/// gravar permissões para membros sem login.
+class MemberWithoutAccountException implements Exception {
+  final String userAccountId;
+  const MemberWithoutAccountException(this.userAccountId);
+
+  @override
+  String toString() =>
+      'MemberWithoutAccountException: user_account $userAccountId não possui auth_user_id';
+}
 
 /// Repository: UserRoles
 /// Gerencia atribuições de cargos a usuários
@@ -26,6 +40,34 @@ class UserRolesRepository {
     return user.id;
   }
 
+  /// Resolve o `auth.users.id` correspondente a um `user_account.id`.
+  /// Se o valor recebido já é um `auth.users.id` (nenhum row em
+  /// `user_account` com esse id como PK), assume que é o próprio auth id
+  /// e retorna ele de volta — isso preserva compatibilidade com chamadas
+  /// internas que já passam o auth id.
+  /// Retorna null somente se o `user_account` existe mas não tem
+  /// `auth_user_id` (membro sem conta de acesso).
+  Future<String?> _resolveAuthUserId(String userIdOrAccountId) async {
+    try {
+      final row = await _supabase
+          .from('user_account')
+          .select('auth_user_id')
+          .eq('id', userIdOrAccountId)
+          .maybeSingle();
+      if (row == null) {
+        // Não achou em user_account.id — assume que já é um auth.users.id.
+        return userIdOrAccountId;
+      }
+      final v = row['auth_user_id'];
+      if (v == null) return null;
+      final s = v.toString();
+      return s.isEmpty ? null : s;
+    } catch (e) {
+      debugPrint('Erro ao resolver auth_user_id de $userIdOrAccountId: $e');
+      return userIdOrAccountId;
+    }
+  }
+
   // =====================================================
   // ATRIBUIÇÕES DE CARGOS
   // =====================================================
@@ -47,8 +89,11 @@ class UserRolesRepository {
     return await _withUserData(items);
   }
 
-  /// Buscar cargos de um usuário
+  /// Buscar cargos de um usuário.
+  /// Aceita tanto `user_account.id` (UI) quanto `auth.users.id` (uso interno).
   Future<List<UserRole>> getUserRoles(String userId) async {
+    final authUserId = await _resolveAuthUserId(userId);
+    if (authUserId == null) return [];
     final response = await _supabase
         .from('user_roles')
         .select('''
@@ -56,7 +101,7 @@ class UserRolesRepository {
           role:roles(*),
           role_context:role_contexts(*)
         ''')
-        .eq('user_id', userId)
+        .eq('user_id', authUserId)
         .eq('is_active', true)
         .or('expires_at.is.null,expires_at.gt.${DateTime.now().toIso8601String()}')
         .order('created_at', ascending: false);
@@ -121,7 +166,10 @@ class UserRolesRepository {
     }).toList();
   }
 
-  /// Atribuir cargo a usuário
+  /// Atribuir cargo a usuário.
+  /// Aceita `user_account.id` (UI) ou `auth.users.id` (interno) — resolve
+  /// internamente para o `auth.users.id` exigido por `user_roles.user_id`.
+  /// Lança [MemberWithoutAccountException] se o membro não tiver conta de acesso.
   Future<String> assignRoleToUser({
     required String userId,
     required String roleId,
@@ -129,11 +177,15 @@ class UserRolesRepository {
     DateTime? expiresAt,
     String? notes,
   }) async {
+    final authUserId = await _resolveAuthUserId(userId);
+    if (authUserId == null) {
+      throw MemberWithoutAccountException(userId);
+    }
     final actorId = await _effectiveUserId();
     final response = await _supabase.rpc(
       'assign_role_to_user',
       params: {
-        'p_user_id': userId,
+        'p_user_id': authUserId,
         'p_role_id': roleId,
         'p_context_id': contextId,
         'p_assigned_by': actorId,
@@ -201,15 +253,18 @@ class UserRolesRepository {
   // CONTEXTOS DO USUÁRIO
   // =====================================================
 
-  /// Buscar contextos de um usuário para um cargo específico
+  /// Buscar contextos de um usuário para um cargo específico.
+  /// Aceita `user_account.id` (UI) ou `auth.users.id` (interno).
   Future<List<Map<String, dynamic>>> getUserRoleContexts({
     required String userId,
     String? roleId,
   }) async {
+    final authUserId = await _resolveAuthUserId(userId);
+    if (authUserId == null) return [];
     final response = await _supabase.rpc(
       'get_user_role_contexts',
       params: {
-        'p_user_id': userId,
+        'p_user_id': authUserId,
         'p_role_id': roleId,
       },
     );
@@ -228,10 +283,12 @@ class UserRolesRepository {
     required String userId,
     required String roleId,
   }) async {
+    final authUserId = await _resolveAuthUserId(userId);
+    if (authUserId == null) return false;
     final response = await _supabase
         .from('user_roles')
         .select('id')
-        .eq('user_id', userId)
+        .eq('user_id', authUserId)
         .eq('role_id', roleId)
         .eq('is_active', true)
         .or('expires_at.is.null,expires_at.gt.${DateTime.now().toIso8601String()}')
@@ -246,10 +303,12 @@ class UserRolesRepository {
     required String roleId,
     required String contextId,
   }) async {
+    final authUserId = await _resolveAuthUserId(userId);
+    if (authUserId == null) return false;
     final response = await _supabase
         .from('user_roles')
         .select('id')
-        .eq('user_id', userId)
+        .eq('user_id', authUserId)
         .eq('role_id', roleId)
         .eq('role_context_id', contextId)
         .eq('is_active', true)
@@ -264,10 +323,12 @@ class UserRolesRepository {
     required String userId,
     required String contextId,
   }) async {
+    final authUserId = await _resolveAuthUserId(userId);
+    if (authUserId == null) return;
     await _supabase
         .from('user_roles')
         .delete()
-        .eq('user_id', userId)
+        .eq('user_id', authUserId)
         .eq('role_context_id', contextId);
   }
 

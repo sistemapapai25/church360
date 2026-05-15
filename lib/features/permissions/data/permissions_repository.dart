@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../../support_chat/data/support_agents_data.dart';
 import '../domain/models/permission.dart';
 import '../domain/models/user_effective_permission.dart';
+import 'user_roles_repository.dart' show MemberWithoutAccountException;
 
 /// Repository: Permissions
 /// Gerencia operações de permissões
@@ -28,6 +30,30 @@ class PermissionsRepository {
       } catch (_) {}
     }
     return user.id;
+  }
+
+  /// Resolve o `auth.users.id` correspondente a um `user_account.id`.
+  /// Tabelas como `user_custom_permissions` e `user_roles` referenciam
+  /// `auth.users(id)`, mas a UI passa `user_account.id` (= `member.id`).
+  /// Se o id não existir em `user_account.id`, assume que já é um auth id.
+  /// Retorna null somente quando o `user_account` existe mas não tem
+  /// `auth_user_id` (membro sem conta de acesso).
+  Future<String?> _resolveAuthUserId(String userIdOrAccountId) async {
+    try {
+      final row = await _supabase
+          .from('user_account')
+          .select('auth_user_id')
+          .eq('id', userIdOrAccountId)
+          .maybeSingle();
+      if (row == null) return userIdOrAccountId;
+      final v = row['auth_user_id'];
+      if (v == null) return null;
+      final s = v.toString();
+      return s.isEmpty ? null : s;
+    } catch (e) {
+      debugPrint('Erro ao resolver auth_user_id de $userIdOrAccountId: $e');
+      return userIdOrAccountId;
+    }
   }
 
   // =====================================================
@@ -342,11 +368,14 @@ class PermissionsRepository {
   // PERMISSÕES EFETIVAS DO USUÁRIO
   // =====================================================
 
-  /// Buscar permissões efetivas de um usuário
+  /// Buscar permissões efetivas de um usuário.
+  /// Aceita `user_account.id` (UI) ou `auth.users.id` (interno).
   Future<List<UserEffectivePermission>> getUserEffectivePermissions(String userId) async {
     await _ensureCorePermissions();
+    final authUserId = await _resolveAuthUserId(userId);
+    if (authUserId == null) return [];
     final response = await _supabase
-        .rpc('get_user_effective_permissions', params: {'p_user_id': userId});
+        .rpc('get_user_effective_permissions', params: {'p_user_id': authUserId});
 
     return (response as List)
         .map((json) => UserEffectivePermission.fromJson(json as Map<String, dynamic>))
@@ -359,10 +388,12 @@ class PermissionsRepository {
     required String permissionCode,
   }) async {
     await _ensureCorePermissions();
+    final authUserId = await _resolveAuthUserId(userId);
+    if (authUserId == null) return false;
     final response = await _supabase.rpc(
       'check_user_permission',
       params: {
-        'p_user_id': userId,
+        'p_user_id': authUserId,
         'p_permission_code': permissionCode,
       },
     );
@@ -381,9 +412,11 @@ class PermissionsRepository {
     } catch (_) {}
 
     try {
+      final authUserId = await _resolveAuthUserId(userId);
+      if (authUserId == null) return false;
       final response = await _supabase.rpc(
         'can_access_dashboard',
-        params: {'p_user_id': userId},
+        params: {'p_user_id': authUserId},
       );
 
       return response as bool;
@@ -396,7 +429,9 @@ class PermissionsRepository {
   // PERMISSÕES CUSTOMIZADAS
   // =====================================================
 
-  /// Atribuir permissão customizada a um usuário
+  /// Atribuir permissão customizada a um usuário.
+  /// Aceita `user_account.id` (UI) ou `auth.users.id` (interno).
+  /// Lança [MemberWithoutAccountException] se o membro não tiver conta de acesso.
   Future<void> assignCustomPermission({
     required String userId,
     required String permissionId,
@@ -404,11 +439,15 @@ class PermissionsRepository {
     DateTime? expiresAt,
     String? reason,
   }) async {
+    final authUserId = await _resolveAuthUserId(userId);
+    if (authUserId == null) {
+      throw MemberWithoutAccountException(userId);
+    }
     final actorId = await _effectiveUserId();
     await _supabase
         .from('user_custom_permissions')
         .upsert({
-          'user_id': userId,
+          'user_id': authUserId,
           'permission_id': permissionId,
           'is_granted': isGranted,
           'expires_at': expiresAt?.toIso8601String(),
@@ -422,10 +461,12 @@ class PermissionsRepository {
     required String userId,
     required String permissionId,
   }) async {
+    final authUserId = await _resolveAuthUserId(userId);
+    if (authUserId == null) return;
     await _supabase
         .from('user_custom_permissions')
         .delete()
-        .eq('user_id', userId)
+        .eq('user_id', authUserId)
         .eq('permission_id', permissionId);
   }
 }

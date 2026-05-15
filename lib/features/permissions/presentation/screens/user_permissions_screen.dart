@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import '../../data/user_roles_repository.dart' show MemberWithoutAccountException;
 import '../../providers/permissions_providers.dart';
 import '../../domain/models/permission.dart';
 import '../../domain/models/user_effective_permission.dart';
@@ -282,10 +283,11 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
                                     value: isGranted,
                                     onChanged: (v) async {
                                       if (_isSaving) return;
+                                      final messenger = ScaffoldMessenger.of(context);
                                       setState(() => _isSaving = true);
                                       try {
                                         final repo = ref.read(permissionsRepositoryProvider);
-                                        
+
                                         if (v) {
                                           // Quer habilitar
                                           if (roleGranted) {
@@ -320,6 +322,24 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
                                           }
                                         }
                                         ref.invalidate(userEffectivePermissionsProvider(widget.userId));
+                                      } on MemberWithoutAccountException {
+                                        messenger.showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Este membro não possui conta de acesso. '
+                                              'Crie uma conta para ele antes de editar permissões.',
+                                            ),
+                                            backgroundColor: Colors.orange,
+                                            duration: Duration(seconds: 5),
+                                          ),
+                                        );
+                                      } catch (e) {
+                                        messenger.showSnackBar(
+                                          SnackBar(
+                                            content: Text('Erro ao alterar permissão: $e'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
                                       } finally {
                                         if (mounted) setState(() => _isSaving = false);
                                       }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../data/user_roles_repository.dart';
+import '../../domain/models/user_role.dart';
 import '../../providers/permissions_providers.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../members/domain/models/member.dart';
@@ -175,7 +177,18 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
   }
 
   Widget _buildUserCard(BuildContext context, Member member) {
-    final rolesAsync = ref.watch(userRoleContextsProvider(member.id));
+    // Usa userRolesByUserProvider (consulta direta a user_roles) em vez de
+    // userRoleContextsProvider, pois o RPC get_user_role_contexts filtra
+    // `rc.id IS NOT NULL` e ignora cargos sem role_context_id.
+    final rolesAsync = ref.watch(userRolesByUserProvider(member.id));
+    final rolesRepoAsync = ref.watch(allRolesProvider);
+    final roleNameById = <String, String>{};
+    rolesRepoAsync.whenData((roles) {
+      for (final r in roles) {
+        roleNameById[r.id] = r.name;
+      }
+    });
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
@@ -192,14 +205,8 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
         ),
         subtitle: rolesAsync.when(
           data: (items) {
-            final seenKeys = <String>{};
-            for (final it in items) {
-              final roleId = (it['role_id'] as String?)?.trim();
-              final roleName = (it['role_name'] as String? ?? '').trim().toLowerCase();
-              final key = (roleId != null && roleId.isNotEmpty) ? roleId : 'name:$roleName';
-              seenKeys.add(key);
-            }
-            return Text('${seenKeys.length} cargo(s) atribuído(s)');
+            final uniqueRoleIds = items.map((ur) => ur.roleId).toSet();
+            return Text('${uniqueRoleIds.length} cargo(s) atribuído(s)');
           },
           loading: () => const Text('Carregando cargos...'),
           error: (e, _) => const Text('Erro ao carregar cargos'),
@@ -232,17 +239,15 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
           ),
           rolesAsync.when(
             data: (items) {
-              final uniqueByRole = <String, Map<String, dynamic>>{};
-              for (final it in items) {
-                final roleId = (it['role_id'] as String?)?.trim();
-                final roleNameKey = (it['role_name'] as String? ?? '').trim().toLowerCase();
-                final key = (roleId != null && roleId.isNotEmpty) ? roleId : 'name:$roleNameKey';
-                uniqueByRole.putIfAbsent(key, () => it);
+              final uniqueByRole = <String, UserRole>{};
+              for (final ur in items) {
+                uniqueByRole.putIfAbsent(ur.roleId, () => ur);
               }
 
-              final filtered = uniqueByRole.values.where((it) {
-                final roleName = (it['role_name'] as String? ?? '').toLowerCase();
-                return _searchQuery.isEmpty || roleName.contains(_searchQuery);
+              final filtered = uniqueByRole.values.where((ur) {
+                if (_searchQuery.isEmpty) return true;
+                final name = (ur.role?.name ?? roleNameById[ur.roleId] ?? '').toLowerCase();
+                return name.contains(_searchQuery);
               }).toList();
 
               if (filtered.isEmpty) {
@@ -255,8 +260,8 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
                 );
               }
               return Column(
-                children: filtered.map((it) {
-                  final roleName = it['role_name'] as String? ?? 'Cargo';
+                children: filtered.map((ur) {
+                  final roleName = ur.role?.name ?? roleNameById[ur.roleId] ?? 'Cargo';
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
                     leading: Icon(
@@ -264,6 +269,11 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
                       color: Theme.of(context).colorScheme.primary,
                     ),
                     title: Text(roleName),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      tooltip: 'Remover cargo',
+                      onPressed: () => _confirmRemoveRole(context, member, ur, roleName),
+                    ),
                   );
                 }).toList(),
               );
@@ -280,6 +290,36 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _confirmRemoveRole(
+    BuildContext context,
+    Member member,
+    UserRole userRole,
+    String roleName,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remover cargo'),
+        content: Text('Remover "$roleName" de ${member.displayName}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Remover')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await ref.read(userRolesRepositoryProvider).removeUserRole(userRole.id);
+      ref.invalidate(userRolesByUserProvider(member.id));
+      ref.invalidate(userRolesProvider);
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Erro ao remover cargo: $e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
 
@@ -391,9 +431,21 @@ class _AssignRoleToUserDialogState extends ConsumerState<_AssignRoleToUserDialog
       );
 
       ref.invalidate(userRolesByUserProvider(widget.userId));
+      ref.invalidate(userRoleContextsProvider(widget.userId));
       ref.invalidate(userRolesProvider);
 
       if (mounted) nav.pop();
+    } on MemberWithoutAccountException {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não é possível atribuir cargo: este membro não possui conta de acesso. '
+            'Crie uma conta para ele antes de atribuir permissões.',
+          ),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 5),
+        ),
+      );
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text('Erro ao atribuir cargo: $e'), backgroundColor: Colors.red),
