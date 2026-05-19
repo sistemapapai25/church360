@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../core/design/community_design.dart';
+import '../../../../../core/utils/whatsapp_launcher.dart';
 import '../../../../worship/domain/models/worship_service.dart';
 import '../../../../worship/presentation/providers/worship_provider.dart';
 import '../../../domain/models/ministry.dart';
@@ -184,6 +185,68 @@ class _CommunionBatchContentState
     }
   }
 
+  Future<void> _sendWhatsApp(CommunionDeliveryItem item) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final person = _peopleById[item.userId];
+    final phone = person?.phone;
+    if (phone == null || phone.trim().isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Pessoa sem telefone cadastrado.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final greet = person == null ? 'Olá' : 'Olá ${person.firstName}';
+    final message =
+        '$greet! Sou da igreja. Tenho a ceia pra te entregar — quando posso passar?';
+
+    final result = await launchWhatsAppMessage(phone: phone, message: message);
+    if (!mounted) return;
+
+    switch (result) {
+      case WhatsAppLaunchResult.launched:
+        try {
+          final repo = ref.read(diaconatoAttendanceRepositoryProvider);
+          final updated =
+              await repo.markCommunionItemWhatsappReminderSent(item.id);
+          if (!mounted) return;
+          setState(() {
+            _items = [
+              for (final i in _items) if (i.id == item.id) updated else i,
+            ];
+          });
+        } catch (_) {
+          // Falha ao marcar é silenciosa — o WhatsApp já foi aberto.
+        }
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('WhatsApp aberto. Lembrete marcado como enviado.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        break;
+      case WhatsAppLaunchResult.invalidPhone:
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Telefone inválido.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        break;
+      case WhatsAppLaunchResult.cannotLaunch:
+        messenger.showSnackBar(
+          SnackBar(
+            content: const Text('Não foi possível abrir o WhatsApp.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+        break;
+    }
+  }
+
   Future<void> _changeStatus(
     CommunionDeliveryItem item,
     CommunionDeliveryStatus status,
@@ -319,6 +382,7 @@ class _CommunionBatchContentState
                     batchClosed: batch.status == CommunionBatchStatus.closed,
                     onAssign: (m) => _assignItem(item, m),
                     onStatus: (s) => _changeStatus(item, s),
+                    onSendWhatsApp: () => _sendWhatsApp(item),
                   );
                 }),
             ],
@@ -557,6 +621,7 @@ class _ItemTile extends ConsumerWidget {
   final bool batchClosed;
   final ValueChanged<MinistryMember?> onAssign;
   final ValueChanged<CommunionDeliveryStatus> onStatus;
+  final VoidCallback onSendWhatsApp;
 
   const _ItemTile({
     required this.item,
@@ -565,6 +630,7 @@ class _ItemTile extends ConsumerWidget {
     required this.batchClosed,
     required this.onAssign,
     required this.onStatus,
+    required this.onSendWhatsApp,
   });
 
   @override
@@ -667,6 +733,13 @@ class _ItemTile extends ConsumerWidget {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          _WhatsAppItemRow(
+            phone: person?.phone,
+            sentAt: item.reminderWhatsappSentAt,
+            enabled: !batchClosed,
+            onPressed: onSendWhatsApp,
+          ),
         ],
       ),
     );
@@ -685,6 +758,74 @@ class _ItemTile extends ConsumerWidget {
       case CommunionDeliveryStatus.cancelled:
         return cs.onSurface.withValues(alpha: 0.2);
     }
+  }
+}
+
+class _WhatsAppItemRow extends StatelessWidget {
+  final String? phone;
+  final DateTime? sentAt;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  const _WhatsAppItemRow({
+    required this.phone,
+    required this.sentAt,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhone = (phone ?? '').trim().isNotEmpty;
+    final wasSent = sentAt != null;
+    return Row(
+      children: [
+        OutlinedButton.icon(
+          onPressed: (enabled && hasPhone) ? onPressed : null,
+          icon: const Icon(Icons.chat_bubble_outline, size: 14),
+          label: Text(
+            wasSent ? 'Reenviar WhatsApp' : 'Enviar WhatsApp',
+            style: const TextStyle(fontSize: 12),
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF25D366),
+            side: BorderSide(
+              color: hasPhone
+                  ? const Color(0xFF25D366).withValues(alpha: 0.6)
+                  : Colors.grey.withValues(alpha: 0.3),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            visualDensity: VisualDensity.compact,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
+        const SizedBox(width: 8),
+        if (!hasPhone)
+          Expanded(
+            child: Text(
+              'Sem telefone',
+              style: CommunityDesign.metaStyle(context).copyWith(
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          )
+        else if (wasSent)
+          Expanded(
+            child: Text(
+              'Enviado em ${_formatSentAt(sentAt!)}',
+              style: CommunityDesign.metaStyle(context).copyWith(fontSize: 11),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+    );
+  }
+
+  String _formatSentAt(DateTime t) {
+    return '${t.day.toString().padLeft(2, '0')}/'
+        '${t.month.toString().padLeft(2, '0')} '
+        '${t.hour.toString().padLeft(2, '0')}:'
+        '${t.minute.toString().padLeft(2, '0')}';
   }
 }
 

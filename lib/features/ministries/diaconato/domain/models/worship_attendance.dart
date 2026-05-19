@@ -159,6 +159,7 @@ class DiaconatoEligiblePerson {
   final String firstName;
   final String? lastName;
   final String? photoUrl;
+  final String? phone;
   final DiaconatoPersonType personType;
 
   const DiaconatoEligiblePerson({
@@ -166,6 +167,7 @@ class DiaconatoEligiblePerson {
     required this.firstName,
     this.lastName,
     this.photoUrl,
+    this.phone,
     required this.personType,
   });
 
@@ -195,6 +197,9 @@ class DiaconatoEligiblePerson {
           : 'Sem nome',
       lastName: json['last_name'] as String?,
       photoUrl: json['photo_url'] as String?,
+      phone: (json['phone'] as String?)?.trim().isNotEmpty == true
+          ? (json['phone'] as String).trim()
+          : null,
       personType: type,
     );
   }

@@ -90,7 +90,7 @@ class DiaconatoAttendanceRepository {
   Future<List<DiaconatoEligiblePerson>> getEligiblePeople() async {
     final response = await _supabase
         .from('user_account')
-        .select('id, first_name, last_name, photo_url, status')
+        .select('id, first_name, last_name, photo_url, phone, status')
         .eq('tenant_id', _tenantId)
         .inFilter('status', const ['member_active', 'visitor', 'new_convert'])
         .order('first_name', ascending: true);
@@ -499,6 +499,22 @@ class DiaconatoAttendanceRepository {
     if (response is int) return response;
     if (response is num) return response.toInt();
     return 0;
+  }
+
+  /// Marca `reminder_whatsapp_sent_at = now()` num item de ceia. Chamado
+  /// pela UI após o usuário disparar o WhatsApp via wa.me launcher
+  /// (Lote MD.4.6). Idempotente.
+  Future<CommunionDeliveryItem> markCommunionItemWhatsappReminderSent(
+    String itemId,
+  ) async {
+    final response = await _supabase
+        .from('communion_delivery_item')
+        .update({'reminder_whatsapp_sent_at': DateTime.now().toIso8601String()})
+        .eq('id', itemId)
+        .eq('tenant_id', _tenantId)
+        .select()
+        .single();
+    return CommunionDeliveryItem.fromJson(response);
   }
 
   /// Reabre um lote fechado (status volta para `open`, `closed_at` zerado).

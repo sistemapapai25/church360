@@ -28,7 +28,6 @@ class RaizesHomeScreen extends ConsumerWidget {
     );
   }
 }
-
 class _RaizesContent extends ConsumerStatefulWidget {
   final String ministryId;
 
@@ -138,18 +137,25 @@ class _RaizesContentState extends ConsumerState<_RaizesContent> {
                   '/members/new?status=visitor&type=visitante'),
               color: colorScheme.tertiary,
             ),
-            const SizedBox(height: 24),
-            Text(
-              'Em breve',
-              style: CommunityDesign.titleStyle(context)
-                  .copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+            const SizedBox(height: 12),
+            _PrimaryActionCard(
+              icon: Icons.diversity_3_outlined,
+              title: 'Cadastro de padrinhos',
+              description:
+                  'Cadastre membros do ministério como padrinho/madrinha com critérios para alimentar o algoritmo de indicações.',
+              onTap: () =>
+                  context.push('/ministries/$ministryId/raizes/sponsors'),
+              color: Colors.teal,
             ),
             const SizedBox(height: 12),
-            const _PlaceholderCard(
+            _PrimaryActionCard(
               icon: Icons.recommend_outlined,
-              title: 'Indicações e padrinhos',
+              title: 'Indicações de padrinhos',
               description:
-                  'Sugestões sociais por perfil, padrinhos do Raízes e WhatsApp via /dispatch-config. Lote 4C.',
+                  'Sugestões automáticas de padrinho/madrinha por perfil. Aceitar marca o mentor do visitante.',
+              onTap: () => context.push(
+                  '/ministries/$ministryId/raizes/recommendations'),
+              color: Colors.amber.shade800,
             ),
           ],
         ),
@@ -409,56 +415,6 @@ class _PrimaryActionCard extends StatelessWidget {
               ),
             ),
             const Icon(Icons.chevron_right, color: Colors.grey),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PlaceholderCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-
-  const _PlaceholderCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(
-        Theme.of(context).colorScheme,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 28, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: CommunityDesign.titleStyle(context).copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: CommunityDesign.metaStyle(context),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),

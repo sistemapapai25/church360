@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../core/design/community_design.dart';
+import '../../../../../core/utils/whatsapp_launcher.dart';
 import '../../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
@@ -100,6 +101,7 @@ class _VisitsContentState extends ConsumerState<_VisitsContent> {
                           visit: visits[i],
                           onChangeStatus: (status) =>
                               _changeStatus(visits[i], status),
+                          onSendWhatsApp: () => _sendWhatsApp(visits[i]),
                         ),
                       ),
                 loading: () =>
@@ -127,6 +129,71 @@ class _VisitsContentState extends ConsumerState<_VisitsContent> {
         RaizesVisitsArgs(ministryId: widget.ministryId, filter: _filter),
       ));
       ref.invalidate(raizesDashboardStatsProvider(widget.ministryId));
+    }
+  }
+
+  Future<void> _sendWhatsApp(RaizesVisit visit) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final phone = visit.visitorPhone;
+    if (phone == null || phone.trim().isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Visitante sem telefone cadastrado.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final firstName = (visit.visitorName ?? '').trim().split(' ').first;
+    final dd = visit.scheduledDate.day.toString().padLeft(2, '0');
+    final mm = visit.scheduledDate.month.toString().padLeft(2, '0');
+    final timePart = visit.scheduledTime != null
+        ? ' às ${visit.scheduledTime!.split(':').take(2).join(':')}'
+        : (visit.period != null ? ' (${visit.period!.label.toLowerCase()})' : '');
+    final greet = firstName.isEmpty ? 'Olá' : 'Olá $firstName';
+    final message =
+        '$greet! Sou da igreja e gostaria de te visitar no dia $dd/$mm$timePart. '
+        'Combina pra você?';
+
+    final result = await launchWhatsAppMessage(phone: phone, message: message);
+    if (!mounted) return;
+
+    switch (result) {
+      case WhatsAppLaunchResult.launched:
+        try {
+          final repo = ref.read(raizesRepositoryProvider);
+          await repo.markVisitWhatsappReminderSent(visit.id);
+          if (!mounted) return;
+          ref.invalidate(raizesVisitsProvider(
+            RaizesVisitsArgs(ministryId: widget.ministryId, filter: _filter),
+          ));
+        } catch (_) {
+          // Falha ao marcar é silenciosa — o WhatsApp já foi aberto.
+        }
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('WhatsApp aberto. Lembrete marcado como enviado.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        break;
+      case WhatsAppLaunchResult.invalidPhone:
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Telefone inválido.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        break;
+      case WhatsAppLaunchResult.cannotLaunch:
+        messenger.showSnackBar(
+          SnackBar(
+            content: const Text('Não foi possível abrir o WhatsApp.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+        break;
     }
   }
 
@@ -199,8 +266,13 @@ class _FilterBar extends StatelessWidget {
 class _VisitCard extends StatelessWidget {
   final RaizesVisit visit;
   final ValueChanged<RaizesVisitStatus> onChangeStatus;
+  final VoidCallback onSendWhatsApp;
 
-  const _VisitCard({required this.visit, required this.onChangeStatus});
+  const _VisitCard({
+    required this.visit,
+    required this.onChangeStatus,
+    required this.onSendWhatsApp,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -276,6 +348,12 @@ class _VisitCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 10),
+          _WhatsAppRow(
+            phone: visit.visitorPhone,
+            sentAt: visit.reminderWhatsappSentAt,
+            onPressed: onSendWhatsApp,
+          ),
+          const SizedBox(height: 8),
           PermissionGate(
             permission: 'raizes.manage_visits',
             showLoading: false,
@@ -317,6 +395,63 @@ class _VisitCard extends StatelessWidget {
     final parts = raw.split(':');
     if (parts.length >= 2) return '${parts[0]}:${parts[1]}';
     return raw;
+  }
+}
+
+class _WhatsAppRow extends StatelessWidget {
+  final String? phone;
+  final DateTime? sentAt;
+  final VoidCallback onPressed;
+
+  const _WhatsAppRow({
+    required this.phone,
+    required this.sentAt,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhone = (phone ?? '').trim().isNotEmpty;
+    final wasSent = sentAt != null;
+
+    return Row(
+      children: [
+        OutlinedButton.icon(
+          onPressed: hasPhone ? onPressed : null,
+          icon: const Icon(Icons.chat_bubble_outline, size: 16),
+          label: Text(wasSent ? 'Reenviar WhatsApp' : 'Enviar WhatsApp'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF25D366),
+            side: BorderSide(
+              color: hasPhone
+                  ? const Color(0xFF25D366).withValues(alpha: 0.6)
+                  : Colors.grey.withValues(alpha: 0.3),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          ),
+        ),
+        const SizedBox(width: 8),
+        if (!hasPhone)
+          Text(
+            'Sem telefone',
+            style: CommunityDesign.metaStyle(context).copyWith(
+              fontStyle: FontStyle.italic,
+            ),
+          )
+        else if (wasSent)
+          Text(
+            'Enviado em ${_formatSentAt(sentAt!)}',
+            style: CommunityDesign.metaStyle(context),
+          ),
+      ],
+    );
+  }
+
+  String _formatSentAt(DateTime t) {
+    return '${t.day.toString().padLeft(2, '0')}/'
+        '${t.month.toString().padLeft(2, '0')} '
+        '${t.hour.toString().padLeft(2, '0')}:'
+        '${t.minute.toString().padLeft(2, '0')}';
   }
 }
 

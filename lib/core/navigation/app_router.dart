@@ -20,6 +20,8 @@ import '../../features/ministries/presentation/screens/ministry_detail_screen.da
 import '../../features/ministries/presentation/screens/ministry_form_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_home_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_visits_screen.dart';
+import '../../features/ministries/raizes/presentation/screens/raizes_recommendations_screen.dart';
+import '../../features/ministries/raizes/presentation/screens/raizes_sponsors_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_home_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_checklist_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_absentees_screen.dart';
@@ -456,6 +458,20 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         return RaizesVisitsScreen(ministryId: id);
+      },
+    ),
+    GoRoute(
+      path: '/ministries/:id/raizes/recommendations',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return RaizesRecommendationsScreen(ministryId: id);
+      },
+    ),
+    GoRoute(
+      path: '/ministries/:id/raizes/sponsors',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return RaizesSponsorsScreen(ministryId: id);
       },
     ),
     GoRoute(

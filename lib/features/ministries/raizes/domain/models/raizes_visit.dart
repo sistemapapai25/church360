@@ -67,6 +67,7 @@ class RaizesVisit {
 
   // Campos derivados (preenchidos pelo repository via embed):
   final String? visitorName;
+  final String? visitorPhone;
   final String? assignedToName;
 
   const RaizesVisit({
@@ -86,6 +87,7 @@ class RaizesVisit {
     required this.createdAt,
     required this.updatedAt,
     this.visitorName,
+    this.visitorPhone,
     this.assignedToName,
   });
 
@@ -96,6 +98,14 @@ class RaizesVisit {
         final last = (embed['last_name'] as String?)?.trim() ?? '';
         final full = '$first $last'.trim();
         return full.isEmpty ? null : full;
+      }
+      return null;
+    }
+
+    String? extractPhone(dynamic embed) {
+      if (embed is Map<String, dynamic>) {
+        final raw = (embed['phone'] as String?)?.trim();
+        return (raw == null || raw.isEmpty) ? null : raw;
       }
       return null;
     }
@@ -121,6 +131,7 @@ class RaizesVisit {
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       visitorName: extractName(json['visitor']),
+      visitorPhone: extractPhone(json['visitor']),
       assignedToName: extractName(json['assignee']),
     );
   }

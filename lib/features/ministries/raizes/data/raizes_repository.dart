@@ -2,7 +2,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/supabase_constants.dart';
 import '../domain/models/raizes_dashboard_stats.dart';
+import '../domain/models/raizes_sponsor_profile.dart';
 import '../domain/models/raizes_visit.dart';
+import '../domain/models/visitor_recommendation.dart';
 
 /// Filtro temporal usado pela tela de Agenda de Visitas.
 enum RaizesVisitsFilter {
@@ -148,7 +150,7 @@ class RaizesRepository {
         .from('raizes_visit_schedule')
         .select(
           '*,'
-          'visitor:visitor_id(first_name, last_name),'
+          'visitor:visitor_id(first_name, last_name, phone),'
           'assignee:assigned_to(first_name, last_name)',
         )
         .eq('tenant_id', tenantId)
@@ -215,7 +217,7 @@ class RaizesRepository {
         .insert(payload)
         .select(
           '*,'
-          'visitor:visitor_id(first_name, last_name),'
+          'visitor:visitor_id(first_name, last_name, phone),'
           'assignee:assigned_to(first_name, last_name)',
         )
         .single();
@@ -241,7 +243,7 @@ class RaizesRepository {
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .select(
           '*,'
-          'visitor:visitor_id(first_name, last_name),'
+          'visitor:visitor_id(first_name, last_name, phone),'
           'assignee:assigned_to(first_name, last_name)',
         )
         .single();
@@ -270,6 +272,24 @@ class RaizesRepository {
     if (response is int) return response;
     if (response is num) return response.toInt();
     return 0;
+  }
+
+  /// Marca `reminder_whatsapp_sent_at = now()` na visita. Chamado pela UI
+  /// **após** o usuário disparar o WhatsApp via wa.me launcher (Lote MR4C.4).
+  /// Idempotente — re-chamar sobrescreve o timestamp.
+  Future<RaizesVisit> markVisitWhatsappReminderSent(String visitId) async {
+    final response = await _supabase
+        .from('raizes_visit_schedule')
+        .update({'reminder_whatsapp_sent_at': DateTime.now().toIso8601String()})
+        .eq('id', visitId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .select(
+          '*,'
+          'visitor:visitor_id(first_name, last_name, phone),'
+          'assignee:assigned_to(first_name, last_name)',
+        )
+        .single();
+    return RaizesVisit.fromJson(response);
   }
 
   // =====================================================
@@ -324,6 +344,295 @@ class RaizesRepository {
     }
     out.sort((a, b) => a['name']!.compareTo(b['name']!));
     return out;
+  }
+
+  // =====================================================
+  // INDICAÇÕES DE PADRINHO (MR4C.1)
+  // =====================================================
+
+  /// Dispara a RPC `generate_visitor_recommendations` para o ministério.
+  /// Retorna a quantidade de pares (visitante, sponsor) avaliados com score > 0.
+  /// Idempotente — re-chamar não duplica e preserva decisões aceitas/recusadas.
+  Future<int> generateRecommendations(String ministryId) async {
+    final response = await _supabase.rpc(
+      'generate_visitor_recommendations',
+      params: {'p_ministry_id': ministryId},
+    );
+    if (response is int) return response;
+    if (response is num) return response.toInt();
+    return 0;
+  }
+
+  /// Lista de recomendações de um ministério com info joined de visitor +
+  /// sponsor (nome, foto). Filtra por status e ordena por (score DESC, generated_at DESC).
+  Future<List<VisitorRecommendation>> getRecommendations({
+    required String ministryId,
+    VisitorRecommendationStatus? status,
+  }) async {
+    final query = _supabase
+        .from('visitor_recommendation')
+        .select(
+          '*,'
+          'visitor:visitor_id(first_name, last_name, photo_url, birthdate, gender, marital_status, interests),'
+          'sponsor_profile:sponsor_profile_id('
+          '  id, user_id,'
+          '  user:user_id(first_name, last_name, photo_url)'
+          ')',
+        )
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('ministry_id', ministryId);
+
+    final filtered = status == null ? query : query.eq('status', status.value);
+
+    final response = await filtered
+        .order('score', ascending: false)
+        .order('generated_at', ascending: false);
+
+    return (response as List)
+        .map((j) => VisitorRecommendation.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Aceita uma recomendação via RPC transacional: marca status=accepted,
+  /// seta `user_account.assigned_mentor_id` no visitante, arquiva outras
+  /// pendências do mesmo visitante.
+  Future<bool> acceptRecommendation(String recommendationId) async {
+    final response = await _supabase.rpc(
+      'accept_visitor_recommendation',
+      params: {'p_recommendation_id': recommendationId},
+    );
+    return response == true;
+  }
+
+  /// Recusa uma recomendação. `notes` opcional para registrar motivo.
+  /// Não toca em `user_account.assigned_mentor_id`.
+  Future<VisitorRecommendation> rejectRecommendation({
+    required String recommendationId,
+    String? notes,
+  }) async {
+    final decidedBy = await _resolveCurrentUserAccountId();
+    final payload = <String, dynamic>{
+      'status': VisitorRecommendationStatus.rejected.value,
+      'decided_by': decidedBy,
+      'decided_at': DateTime.now().toIso8601String(),
+      if (notes != null) 'notes': notes,
+    };
+
+    final response = await _supabase
+        .from('visitor_recommendation')
+        .update(payload)
+        .eq('id', recommendationId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .select(
+          '*,'
+          'visitor:visitor_id(first_name, last_name, photo_url, birthdate, gender, marital_status, interests),'
+          'sponsor_profile:sponsor_profile_id('
+          '  id, user_id,'
+          '  user:user_id(first_name, last_name, photo_url)'
+          ')',
+        )
+        .single();
+    return VisitorRecommendation.fromJson(response);
+  }
+
+  /// Arquiva uma recomendação (esconde da fila sem marcar accept/reject).
+  Future<VisitorRecommendation> archiveRecommendation(
+    String recommendationId,
+  ) async {
+    final decidedBy = await _resolveCurrentUserAccountId();
+    final payload = <String, dynamic>{
+      'status': VisitorRecommendationStatus.archived.value,
+      'decided_by': decidedBy,
+      'decided_at': DateTime.now().toIso8601String(),
+    };
+
+    final response = await _supabase
+        .from('visitor_recommendation')
+        .update(payload)
+        .eq('id', recommendationId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .select(
+          '*,'
+          'visitor:visitor_id(first_name, last_name, photo_url, birthdate, gender, marital_status, interests),'
+          'sponsor_profile:sponsor_profile_id('
+          '  id, user_id,'
+          '  user:user_id(first_name, last_name, photo_url)'
+          ')',
+        )
+        .single();
+    return VisitorRecommendation.fromJson(response);
+  }
+
+  // =====================================================
+  // PERFIS DE PADRINHO (MR4C.3)
+  // =====================================================
+
+  /// Lista de padrinhos cadastrados no ministério, com info joined do
+  /// `user_account` (first_name, last_name, photo_url) para render direto.
+  /// Ordem: ativos primeiro, depois alfabético por nome.
+  Future<List<RaizesSponsorProfile>> getSponsorProfiles(
+    String ministryId,
+  ) async {
+    final response = await _supabase
+        .from('raizes_sponsor_profile')
+        .select(
+          '*,'
+          'user:user_id(first_name, last_name, photo_url)',
+        )
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('ministry_id', ministryId)
+        .order('is_active', ascending: false);
+
+    final list = (response as List)
+        .map((j) => RaizesSponsorProfile.fromJson(j as Map<String, dynamic>))
+        .toList();
+
+    list.sort((a, b) {
+      if (a.isActive != b.isActive) return a.isActive ? -1 : 1;
+      return a.displayName.toLowerCase().compareTo(
+            b.displayName.toLowerCase(),
+          );
+    });
+    return list;
+  }
+
+  /// Membros do ministério ainda não cadastrados como padrinho. Útil pro
+  /// dropdown de "criar novo padrinho".
+  Future<List<Map<String, String>>> getEligibleSponsorCandidates(
+    String ministryId,
+  ) async {
+    final members = await getEligibleAssignees(ministryId);
+    final existing = await _supabase
+        .from('raizes_sponsor_profile')
+        .select('user_id')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('ministry_id', ministryId);
+    final existingUserIds = (existing as List)
+        .map((row) => (row as Map)['user_id'] as String?)
+        .whereType<String>()
+        .toSet();
+    return members.where((m) => !existingUserIds.contains(m['id'])).toList();
+  }
+
+  /// Cria um novo perfil de padrinho. Idempotente via UNIQUE
+  /// (tenant, ministry, user) — re-chamadas com o mesmo par falham com erro
+  /// PostgREST 23505. Cabe ao caller mostrar a mensagem amigável.
+  Future<RaizesSponsorProfile> createSponsorProfile({
+    required String ministryId,
+    required String userId,
+    int? minAge,
+    int? maxAge,
+    required List<String> maritalStatuses,
+    required List<String> genders,
+    required List<String> lifeStages,
+    required List<String> interests,
+    bool isActive = true,
+    String? notes,
+  }) async {
+    final createdBy = await _resolveCurrentUserAccountId();
+    final payload = <String, dynamic>{
+      'tenant_id': SupabaseConstants.currentTenantId,
+      'ministry_id': ministryId,
+      'user_id': userId,
+      'min_age': minAge,
+      'max_age': maxAge,
+      'marital_statuses': maritalStatuses,
+      'genders': genders,
+      'life_stages': lifeStages,
+      'interests': interests,
+      'is_active': isActive,
+      'notes': notes,
+      'created_by': createdBy,
+    };
+    payload.removeWhere((_, v) => v == null);
+
+    final response = await _supabase
+        .from('raizes_sponsor_profile')
+        .insert(payload)
+        .select(
+          '*,'
+          'user:user_id(first_name, last_name, photo_url)',
+        )
+        .single();
+    return RaizesSponsorProfile.fromJson(response);
+  }
+
+  /// Atualiza critérios de um perfil de padrinho. `user_id` e `ministry_id`
+  /// são imutáveis (definidos na criação).
+  Future<RaizesSponsorProfile> updateSponsorProfile({
+    required String id,
+    int? minAge,
+    int? maxAge,
+    List<String>? maritalStatuses,
+    List<String>? genders,
+    List<String>? lifeStages,
+    List<String>? interests,
+    bool? isActive,
+    String? notes,
+  }) async {
+    final payload = <String, dynamic>{
+      if (minAge != null) 'min_age': minAge,
+      if (maxAge != null) 'max_age': maxAge,
+      if (maritalStatuses != null) 'marital_statuses': maritalStatuses,
+      if (genders != null) 'genders': genders,
+      if (lifeStages != null) 'life_stages': lifeStages,
+      if (interests != null) 'interests': interests,
+      if (isActive != null) 'is_active': isActive,
+      if (notes != null) 'notes': notes,
+    };
+
+    final response = await _supabase
+        .from('raizes_sponsor_profile')
+        .update(payload)
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .select(
+          '*,'
+          'user:user_id(first_name, last_name, photo_url)',
+        )
+        .single();
+    return RaizesSponsorProfile.fromJson(response);
+  }
+
+  /// Para campos que precisam de UPDATE com NULL explícito (ex.: limpar
+  /// `min_age` ou `max_age`), use este método com o map completo.
+  Future<RaizesSponsorProfile> patchSponsorProfile({
+    required String id,
+    required Map<String, dynamic> payload,
+  }) async {
+    final response = await _supabase
+        .from('raizes_sponsor_profile')
+        .update(payload)
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .select(
+          '*,'
+          'user:user_id(first_name, last_name, photo_url)',
+        )
+        .single();
+    return RaizesSponsorProfile.fromJson(response);
+  }
+
+  /// Remove um perfil de padrinho. Hard delete — não há histórico.
+  /// Cascade da migration deleta `visitor_recommendation` relacionadas.
+  Future<void> deleteSponsorProfile(String id) async {
+    await _supabase
+        .from('raizes_sponsor_profile')
+        .delete()
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
+  }
+
+  Future<String?> _resolveCurrentUserAccountId() async {
+    final currentAuthId = _supabase.auth.currentUser?.id;
+    if (currentAuthId == null) return null;
+    final me = await _supabase
+        .from('user_account')
+        .select('id')
+        .eq('auth_user_id', currentAuthId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .maybeSingle();
+    return me?['id'] as String?;
   }
 
   // =====================================================
