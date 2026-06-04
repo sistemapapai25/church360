@@ -233,6 +233,7 @@ class CommunityRepository {
         .from('community_posts')
         .select('*, author:user_account!community_posts_author_id_fkey(full_name, avatar_url, nickname)')
         .eq('status', 'pending_approval')
+        .isFilter('deleted_at', null)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: true);
 
