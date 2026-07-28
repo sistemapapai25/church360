@@ -429,7 +429,10 @@ class MembersRepository {
         raw.remove('membership_date');
         raw.remove('baptism_date');
         raw.remove('conversion_date');
-        raw.remove('email');
+        // 'email' é permitido: membro comum só chega aqui editando o
+        // próprio cadastro (editar terceiros já lançou exceção acima),
+        // e a troca do email de login (Supabase Auth) é feita à parte
+        // em MemberFormScreen._saveMember via auth.updateUser().
       }
 
       final payload = <String, dynamic>{};

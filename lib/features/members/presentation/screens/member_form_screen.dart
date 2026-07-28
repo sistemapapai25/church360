@@ -552,6 +552,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
     setState(() => _isLoading = true);
 
+    String? pendingLoginEmailConfirmation;
+    String? loginEmailUpdateError;
+
     try {
       final repo = ref.read(membersRepositoryProvider);
 
@@ -770,6 +773,28 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         );
 
         await repo.updateMember(member);
+
+        // Se a pessoa está editando o PRÓPRIO cadastro e trocou o email,
+        // dispara também a troca do email de login no Supabase Auth.
+        // auth.updateUser() só afeta a sessão atualmente logada, então só
+        // pode ser chamado quando widget.memberId é o próprio usuário —
+        // nunca ao editar o cadastro de outro membro.
+        final authUser = Supabase.instance.client.auth.currentUser;
+        final isSelfEdit = authUser != null && authUser.id == widget.memberId;
+        final emailChanged =
+            effectiveEmail.isNotEmpty &&
+            effectiveEmail.toLowerCase() != existingEmail.toLowerCase();
+
+        if (isSelfEdit && emailChanged) {
+          try {
+            await Supabase.instance.client.auth.updateUser(
+              UserAttributes(email: effectiveEmail),
+            );
+            pendingLoginEmailConfirmation = effectiveEmail;
+          } on AuthException catch (e) {
+            loginEmailUpdateError = e.message;
+          }
+        }
       }
 
       if (mounted) {
@@ -785,16 +810,41 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           }
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              widget.memberId == null
-                  ? 'Membro criado com sucesso!'
-                  : 'Membro atualizado com sucesso!',
+        if (pendingLoginEmailConfirmation != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Cadastro atualizado! Para confirmar o novo email de login, '
+                'abra o link enviado para $pendingLoginEmailConfirmation. '
+                'Até lá, continue entrando com o email antigo.',
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 6),
             ),
-            backgroundColor: Colors.green,
-          ),
-        );
+          );
+        } else if (loginEmailUpdateError != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Cadastro atualizado, mas não foi possível atualizar o email '
+                'de login: $loginEmailUpdateError',
+              ),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 6),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                widget.memberId == null
+                    ? 'Membro criado com sucesso!'
+                    : 'Membro atualizado com sucesso!',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
 
         context.pop();
       }
