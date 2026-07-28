@@ -47,5 +47,9 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Precisamos do microfone para enviar mensagens de áudio no chat.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Precisamos da câmera para tirar a foto do seu perfil.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Precisamos acessar suas fotos para escolher a imagem do seu perfil.</string>
 </dict>
 </plist>

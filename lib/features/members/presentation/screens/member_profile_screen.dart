@@ -1,6 +1,10 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -75,8 +79,128 @@ class MemberProfileScreen extends ConsumerStatefulWidget {
 
 class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   late final ScrollController _scrollController;
+  bool _isUploadingPhoto = false;
 
   String get _memberId => widget.memberId;
+
+  /// Mostra as opções de escolha de foto (Câmera ou Galeria)
+  Future<void> _showPhotoOptions(BuildContext context, String memberId) async {
+    final ImagePicker picker = ImagePicker();
+
+    await showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Escolher da Galeria'),
+              onTap: () async {
+                Navigator.pop(context);
+                final XFile? image = await picker.pickImage(
+                  source: ImageSource.gallery,
+                  maxWidth: 1024,
+                  maxHeight: 1024,
+                  imageQuality: 85,
+                );
+                if (image != null && mounted) {
+                  await _uploadPhoto(image, memberId);
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Tirar Foto'),
+              onTap: () async {
+                Navigator.pop(context);
+                final XFile? image = await picker.pickImage(
+                  source: ImageSource.camera,
+                  maxWidth: 1024,
+                  maxHeight: 1024,
+                  imageQuality: 85,
+                );
+                if (image != null && mounted) {
+                  await _uploadPhoto(image, memberId);
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.cancel),
+              title: const Text('Cancelar'),
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Faz upload da foto para o Supabase Storage e atualiza o membro
+  Future<void> _uploadPhoto(XFile image, String memberId) async {
+    setState(() {
+      _isUploadingPhoto = true;
+    });
+
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Usuário não autenticado');
+
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final extension = image.name.split('.').last;
+      final fileName = 'member_${memberId}_$timestamp.$extension';
+
+      if (kIsWeb) {
+        final bytes = await image.readAsBytes();
+        await supabase.storage
+            .from('member-photos')
+            .uploadBinary(fileName, bytes);
+      } else {
+        final imageFile = File(image.path);
+        await supabase.storage
+            .from('member-photos')
+            .upload(fileName, imageFile);
+      }
+
+      final publicUrl = supabase.storage
+          .from('member-photos')
+          .getPublicUrl(fileName);
+
+      await supabase
+          .from('user_account')
+          .update({'photo_url': publicUrl})
+          .eq('id', memberId);
+
+      ref.invalidate(currentMemberProvider);
+      ref.invalidate(memberByIdProvider(memberId));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Foto atualizada com sucesso!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar foto: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingPhoto = false;
+        });
+      }
+    }
+  }
 
   bool _isPlaceholderEmail(String value) {
     final t = value.trim();
@@ -1090,45 +1214,82 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   Widget _buildHeaderAvatar(BuildContext context, Member member) {
     final colorScheme = Theme.of(context).colorScheme;
     final resolvedUrl = _resolvePhotoUrl(member);
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: colorScheme.primary.withValues(alpha: 0.15),
-          width: 2,
-        ),
-      ),
-      child: CircleAvatar(
-        radius: 26,
-        backgroundColor: colorScheme.primaryContainer,
-        child: resolvedUrl != null
-            ? ClipOval(
-                child: Image.network(
-                  resolvedUrl,
-                  width: 52,
-                  height: 52,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Text(
+    return GestureDetector(
+      onTap: _isUploadingPhoto
+          ? null
+          : () => _showPhotoOptions(context, member.id),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: colorScheme.primary.withValues(alpha: 0.15),
+                width: 2,
+              ),
+            ),
+            child: CircleAvatar(
+              radius: 26,
+              backgroundColor: colorScheme.primaryContainer,
+              child: _isUploadingPhoto
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : resolvedUrl != null
+                  ? ClipOval(
+                      child: Image.network(
+                        resolvedUrl,
+                        width: 52,
+                        height: 52,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Text(
+                            member.initials,
+                            style: CommunityDesign.titleStyle(context)
+                                .copyWith(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.primary,
+                                ),
+                          );
+                        },
+                      ),
+                    )
+                  : Text(
                       member.initials,
                       style: CommunityDesign.titleStyle(context).copyWith(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: colorScheme.primary,
                       ),
-                    );
-                  },
-                ),
-              )
-            : Text(
-                member.initials,
-                style: CommunityDesign.titleStyle(context).copyWith(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.primary,
+                    ),
+            ),
+          ),
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colorScheme.primary,
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.surface,
+                  width: 2,
                 ),
               ),
+              child: Icon(
+                Icons.camera_alt,
+                size: 12,
+                color: colorScheme.onPrimary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
