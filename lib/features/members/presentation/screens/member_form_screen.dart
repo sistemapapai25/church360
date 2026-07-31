@@ -1222,12 +1222,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       const SizedBox(height: 16),
                     ],
 
-                    // ProfissÆo
+                    // Profissão
                     TextFormField(
                       controller: _professionController,
                       focusNode: _professionFocusNode,
                       decoration: InputDecoration(
-                        labelText: 'ProfissÆo',
+                        labelText: 'Profissão',
                         filled: true,
                         fillColor: Theme.of(
                           context,

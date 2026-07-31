@@ -74,7 +74,8 @@ class MemberProfileScreen extends ConsumerStatefulWidget {
   const MemberProfileScreen({super.key, required this.memberId, this.title});
 
   @override
-  ConsumerState<MemberProfileScreen> createState() => _MemberProfileScreenState();
+  ConsumerState<MemberProfileScreen> createState() =>
+      _MemberProfileScreenState();
 }
 
 class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
@@ -213,10 +214,13 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
 
     final currentUser = Supabase.instance.client.auth.currentUser;
     final authEmail = (currentUser?.email ?? '').trim();
-    if (authEmail.isNotEmpty && !_isPlaceholderEmail(authEmail)) return authEmail;
+    if (authEmail.isNotEmpty && !_isPlaceholderEmail(authEmail))
+      return authEmail;
 
-    final metaEmail = (currentUser?.userMetadata?['email']?.toString() ?? '').trim();
-    if (metaEmail.isNotEmpty && !_isPlaceholderEmail(metaEmail)) return metaEmail;
+    final metaEmail = (currentUser?.userMetadata?['email']?.toString() ?? '')
+        .trim();
+    if (metaEmail.isNotEmpty && !_isPlaceholderEmail(metaEmail))
+      return metaEmail;
 
     return raw;
   }
@@ -381,7 +385,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             icon: Icons.warning_amber,
             title: 'Pendências do Cadastro',
             iconColor: Theme.of(context).colorScheme.onSurfaceVariant,
-            iconBackgroundColor: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.1),
+            iconBackgroundColor: Theme.of(
+              context,
+            ).colorScheme.onSurfaceVariant.withValues(alpha: 0.1),
             titleColor: Theme.of(context).colorScheme.onSurface,
             child: _buildCompletionStatus(context, member),
           ),
@@ -419,7 +425,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     final streakAsync = ref.watch(currentUserReadingStreakProvider);
     final totalAsync = ref.watch(currentUserTotalReadingsProvider);
     final readingsAsync = ref.watch(currentUserReadingsWithDevotionalProvider);
-    final journeyItems = _buildJourneyItems(readingsAsync.value ?? const <Map<String, dynamic>>[]);
+    final journeyItems = _buildJourneyItems(
+      readingsAsync.value ?? const <Map<String, dynamic>>[],
+    );
     final canShowLeadership = _shouldShowLeadership(member);
 
     return ListView(
@@ -503,7 +511,11 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     );
   }
 
-  Widget _buildLgpdConsentRow(BuildContext context, WidgetRef ref, Member member) {
+  Widget _buildLgpdConsentRow(
+    BuildContext context,
+    WidgetRef ref,
+    Member member,
+  ) {
     final currentUser = Supabase.instance.client.auth.currentUser;
     final metaConsent = currentUser?.userMetadata?['lgpd_consent'];
     final hasConsent = member.lgpdConsent == true || metaConsent == true;
@@ -515,15 +527,15 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         : 'Não concedido';
     final primary = Theme.of(context).colorScheme.primary;
     final statusColor = hasConsent ? Colors.green : Colors.orange;
-    final statusIcon = hasConsent ? Icons.check_circle_outline : Icons.info_outline;
+    final statusIcon = hasConsent
+        ? Icons.check_circle_outline
+        : Icons.info_outline;
     final currentMember = ref.watch(currentMemberProvider).valueOrNull;
     final canUpdate = currentMember?.id == member.id;
 
     // UX: se o consentimento já veio concedido no cadastro, não pedir para "Conceder" aqui.
     // Para o próprio usuário, quando já houver consentimento, manter apenas "Ver" (política).
-    final actionLabel = canUpdate
-        ? (hasConsent ? 'Ver' : 'Conceder')
-        : 'Ver';
+    final actionLabel = canUpdate ? (hasConsent ? 'Ver' : 'Conceder') : 'Ver';
 
     return _buildInfoRowWithAction(
       Icons.verified_user_outlined,
@@ -573,7 +585,11 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     );
   }
 
-  Widget _buildLgpdRightsRow(BuildContext context, WidgetRef ref, Member member) {
+  Widget _buildLgpdRightsRow(
+    BuildContext context,
+    WidgetRef ref,
+    Member member,
+  ) {
     final currentMember = ref.watch(currentMemberProvider).valueOrNull;
     final canRequest = currentMember?.id == member.id;
     return _buildInfoRowWithAction(
@@ -594,7 +610,11 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     );
   }
 
-  Widget _buildLgpdRequestsHistoryRow(BuildContext context, WidgetRef ref, Member member) {
+  Widget _buildLgpdRequestsHistoryRow(
+    BuildContext context,
+    WidgetRef ref,
+    Member member,
+  ) {
     final currentMember = ref.watch(currentMemberProvider).valueOrNull;
     final canOpen = currentMember?.id == member.id;
     return _buildInfoRowWithAction(
@@ -630,7 +650,10 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     );
   }
 
-  Future<void> _openLgpdRightsRequestDialog(BuildContext context, WidgetRef ref) async {
+  Future<void> _openLgpdRightsRequestDialog(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final option = await showModalBottomSheet<_LgpdRequestOption>(
       context: context,
       showDragHandle: true,
@@ -680,7 +703,8 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                     maxLines: 3,
                     decoration: const InputDecoration(
                       labelText: 'Detalhes (opcional)',
-                      hintText: 'Descreva qualquer contexto para esta solicitação',
+                      hintText:
+                          'Descreva qualquer contexto para esta solicitação',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -733,7 +757,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       final repo = ref.read(membersRepositoryProvider);
       await repo.submitLgpdDataRequest(
         requestType: option.type,
-        reason: reasonController.text.trim().isEmpty ? null : reasonController.text.trim(),
+        reason: reasonController.text.trim().isEmpty
+            ? null
+            : reasonController.text.trim(),
         retentionUntil: retentionUntil,
       );
 
@@ -757,7 +783,10 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     }
   }
 
-  Future<void> _openLgpdRequestsHistory(BuildContext context, WidgetRef ref) async {
+  Future<void> _openLgpdRequestsHistory(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     try {
       final repo = ref.read(membersRepositoryProvider);
       final requests = await repo.getMyLgpdDataRequests(limit: 30);
@@ -781,30 +810,40 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                   Expanded(
                     child: requests.isEmpty
                         ? const Center(
-                            child: Text('Você ainda não enviou solicitações LGPD.'),
+                            child: Text(
+                              'Você ainda não enviou solicitações LGPD.',
+                            ),
                           )
                         : ListView.separated(
                             itemCount: requests.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 1),
                             itemBuilder: (itemContext, index) {
                               final request = requests[index];
-                              final requestedAtText = request.requestedAt == null
+                              final requestedAtText =
+                                  request.requestedAt == null
                                   ? 'Data não informada'
                                   : _formatShortDate(request.requestedAt!);
                               final resolvedAtText = request.resolvedAt == null
                                   ? null
                                   : _formatShortDate(request.resolvedAt!);
-                              final resolutionNotes = (request.resolutionNotes ?? '').trim();
-                              final hasResolutionNotes = resolutionNotes.isNotEmpty;
+                              final resolutionNotes =
+                                  (request.resolutionNotes ?? '').trim();
+                              final hasResolutionNotes =
+                                  resolutionNotes.isNotEmpty;
                               return ListTile(
                                 leading: const Icon(Icons.privacy_tip_outlined),
-                                title: Text(lgpdRequestTypeLabel(request.requestType)),
+                                title: Text(
+                                  lgpdRequestTypeLabel(request.requestType),
+                                ),
                                 subtitle: Text(
                                   [
                                     'Status: ${lgpdStatusLabel(request.status)}',
                                     'Solicitado em: $requestedAtText',
-                                    if (resolvedAtText != null) 'Resolvido em: $resolvedAtText',
-                                    if (hasResolutionNotes) 'Observação: $resolutionNotes',
+                                    if (resolvedAtText != null)
+                                      'Resolvido em: $resolvedAtText',
+                                    if (hasResolutionNotes)
+                                      'Observação: $resolutionNotes',
                                   ].join('\n'),
                                 ),
                                 isThreeLine: true,
@@ -836,7 +875,10 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
 
     Future<List<LgpdDataRequest>> loadRequests() {
       final status = selectedStatus == 'all' ? null : selectedStatus;
-      return repository.getLgpdDataRequestsForProcessing(status: status, limit: 50);
+      return repository.getLgpdDataRequestsForProcessing(
+        status: status,
+        limit: 50,
+      );
     }
 
     if (!context.mounted) return;
@@ -855,7 +897,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                     ListTile(
                       leading: const Icon(Icons.admin_panel_settings_outlined),
                       title: const Text('Painel de solicitações LGPD'),
-                      subtitle: Text('Filtro atual: ${lgpdStatusLabel(selectedStatus)}'),
+                      subtitle: Text(
+                        'Filtro atual: ${lgpdStatusLabel(selectedStatus)}',
+                      ),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -894,8 +938,11 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                         key: ValueKey(refreshTick),
                         future: loadRequests(),
                         builder: (builderContext, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator());
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
                           }
                           if (snapshot.hasError) {
                             return Center(
@@ -911,20 +958,26 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                           final requests = snapshot.data ?? <LgpdDataRequest>[];
                           if (requests.isEmpty) {
                             return const Center(
-                              child: Text('Nenhuma solicitação para o filtro selecionado.'),
+                              child: Text(
+                                'Nenhuma solicitação para o filtro selecionado.',
+                              ),
                             );
                           }
                           return ListView.separated(
                             itemCount: requests.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 1),
                             itemBuilder: (itemContext, index) {
                               final request = requests[index];
-                              final requestedAtText = request.requestedAt == null
+                              final requestedAtText =
+                                  request.requestedAt == null
                                   ? 'Data não informada'
                                   : _formatShortDate(request.requestedAt!);
                               return ListTile(
                                 leading: const Icon(Icons.privacy_tip_outlined),
-                                title: Text(lgpdRequestTypeLabel(request.requestType)),
+                                title: Text(
+                                  lgpdRequestTypeLabel(request.requestType),
+                                ),
                                 subtitle: Text(
                                   'Status: ${lgpdStatusLabel(request.status)}\n'
                                   'Solicitado em: $requestedAtText\n'
@@ -934,10 +987,11 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                                 trailing: PopupMenuButton<String>(
                                   tooltip: 'Alterar status',
                                   onSelected: (nextStatus) async {
-                                    final resolutionNotes = await _askLgpdResolutionNotes(
-                                      innerContext,
-                                      nextStatus: nextStatus,
-                                    );
+                                    final resolutionNotes =
+                                        await _askLgpdResolutionNotes(
+                                          innerContext,
+                                          nextStatus: nextStatus,
+                                        );
                                     if (resolutionNotes == null) return;
 
                                     try {
@@ -947,18 +1001,26 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                                         resolutionNotes: resolutionNotes,
                                       );
                                       if (!innerContext.mounted) return;
-                                      ScaffoldMessenger.of(innerContext).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        innerContext,
+                                      ).showSnackBar(
                                         const SnackBar(
-                                          content: Text('Solicitação atualizada com sucesso.'),
+                                          content: Text(
+                                            'Solicitação atualizada com sucesso.',
+                                          ),
                                           backgroundColor: Colors.green,
                                         ),
                                       );
                                       setInnerState(() => refreshTick++);
                                     } catch (e) {
                                       if (!innerContext.mounted) return;
-                                      ScaffoldMessenger.of(innerContext).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        innerContext,
+                                      ).showSnackBar(
                                         SnackBar(
-                                          content: Text('Falha ao atualizar solicitação: $e'),
+                                          content: Text(
+                                            'Falha ao atualizar solicitação: $e',
+                                          ),
                                           backgroundColor: Colors.red,
                                         ),
                                       );
@@ -1031,7 +1093,8 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
             child: const Text('Confirmar'),
           ),
         ],
@@ -1042,16 +1105,16 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   }
 
   Future<void> _openLgpdPolicy({required String memberId}) async {
-    final url = Uri.parse('https://www.gov.br/anpd/pt-br/assuntos/protecao-de-dados-pessoais').replace(
-      queryParameters: {'member_id': memberId},
-    );
+    final url = Uri.parse(
+      'https://www.gov.br/anpd/pt-br/assuntos/protecao-de-dados-pessoais',
+    ).replace(queryParameters: {'member_id': memberId});
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
   Future<void> _openCommitmentTerms({required String memberId}) async {
-    final url = Uri.parse('https://church360.app/legal/termos-de-compromisso').replace(
-      queryParameters: {'member_id': memberId},
-    );
+    final url = Uri.parse(
+      'https://church360.app/legal/termos-de-compromisso',
+    ).replace(queryParameters: {'member_id': memberId});
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
@@ -1066,7 +1129,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text(nextConsent ? 'Conceder consentimento' : 'Revogar consentimento'),
+          title: Text(
+            nextConsent ? 'Conceder consentimento' : 'Revogar consentimento',
+          ),
           content: Text(
             nextConsent
                 ? 'Deseja registrar seu consentimento LGPD agora?'
@@ -1142,7 +1207,8 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                   icon: const Icon(Icons.arrow_back),
                   onPressed: () => context.pop(),
                   style: IconButton.styleFrom(
-                    backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+                    backgroundColor: colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.7),
                     foregroundColor: colorScheme.onSurface,
                   ),
                 ),
@@ -1154,13 +1220,17 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                   onPressed: () => context.push('/members/$_memberId/edit'),
                   tooltip: 'Editar Meu Perfil',
                   style: IconButton.styleFrom(
-                    backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
+                    backgroundColor: colorScheme.primary.withValues(
+                      alpha: 0.12,
+                    ),
                     foregroundColor: colorScheme.primary,
                   ),
                 ),
                 const SizedBox(width: 4),
                 PermissionGate(
-                  permission: member.status == 'visitor' ? 'visitors.delete' : 'members.delete',
+                  permission: member.status == 'visitor'
+                      ? 'visitors.delete'
+                      : 'members.delete',
                   showLoading: false,
                   child: IconButton(
                     icon: const Icon(Icons.delete_outline),
@@ -1185,10 +1255,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                     children: [
                       Text(
                         member.displayName,
-                        style: CommunityDesign.titleStyle(context).copyWith(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
+                        style: CommunityDesign.titleStyle(
+                          context,
+                        ).copyWith(fontSize: 18, fontWeight: FontWeight.w800),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1197,7 +1266,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                         'Membro da igreja',
                         style: CommunityDesign.metaStyle(context).copyWith(
                           fontSize: 12,
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.75,
+                          ),
                         ),
                       ),
                     ],
@@ -1249,12 +1320,11 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                         errorBuilder: (context, error, stackTrace) {
                           return Text(
                             member.initials,
-                            style: CommunityDesign.titleStyle(context)
-                                .copyWith(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.primary,
-                                ),
+                            style: CommunityDesign.titleStyle(context).copyWith(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.primary,
+                            ),
                           );
                         },
                       ),
@@ -1297,9 +1367,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   Widget _buildPendingBanner(BuildContext context, int completion) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      decoration: CommunityDesign.overlayDecoration(colorScheme).copyWith(
-        borderRadius: BorderRadius.circular(_cardRadius),
-      ),
+      decoration: CommunityDesign.overlayDecoration(
+        colorScheme,
+      ).copyWith(borderRadius: BorderRadius.circular(_cardRadius)),
       padding: const EdgeInsets.all(_cardPadding),
       child: Row(
         children: [
@@ -1354,17 +1424,17 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       ),
       error: (_, __) => Text(
         'Não foi possível carregar sua caminhada agora.',
-        style: CommunityDesign.metaStyle(context).copyWith(
-          color: colorScheme.error,
-        ),
+        style: CommunityDesign.metaStyle(
+          context,
+        ).copyWith(color: colorScheme.error),
       ),
     );
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: _pagePadding),
-      decoration: CommunityDesign.overlayDecoration(colorScheme).copyWith(
-        borderRadius: BorderRadius.circular(_cardRadius),
-      ),
+      decoration: CommunityDesign.overlayDecoration(
+        colorScheme,
+      ).copyWith(borderRadius: BorderRadius.circular(_cardRadius)),
       padding: const EdgeInsets.all(_cardPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1378,15 +1448,18 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                   color: colorScheme.primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.timeline_outlined, size: 18, color: colorScheme.primary),
+                child: Icon(
+                  Icons.timeline_outlined,
+                  size: 18,
+                  color: colorScheme.primary,
+                ),
               ),
               const SizedBox(width: 12),
               Text(
                 'Minha Caminhada',
-                style: CommunityDesign.titleStyle(context).copyWith(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: CommunityDesign.titleStyle(
+                  context,
+                ).copyWith(fontSize: 16, fontWeight: FontWeight.w800),
               ),
               const Spacer(),
               Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
@@ -1438,7 +1511,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: const StadiumBorder(),
-                side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.4)),
+                side: BorderSide(
+                  color: colorScheme.outline.withValues(alpha: 0.4),
+                ),
               ),
               child: const Text(
                 'Ver toda minha jornada',
@@ -1465,7 +1540,8 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     for (final item in items) {
       final group = DateTime(item.when.year, item.when.month);
       final lastGroup = currentGroup;
-      final isNewGroup = lastGroup == null ||
+      final isNewGroup =
+          lastGroup == null ||
           lastGroup.year != group.year ||
           lastGroup.month != group.month;
 
@@ -1506,7 +1582,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(_cardRadius),
-        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1527,16 +1605,12 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               children: [
                 Text(
                   item.title,
-                  style: CommunityDesign.titleStyle(context).copyWith(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontSize: 14, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  item.subtitle,
-                  style: CommunityDesign.metaStyle(context),
-                ),
+                Text(item.subtitle, style: CommunityDesign.metaStyle(context)),
               ],
             ),
           ),
@@ -1576,11 +1650,19 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       items.add(
         Builder(
           builder: (_) {
-            final labelAsync = ref.watch(professionLabelProvider(member.profession!));
+            final labelAsync = ref.watch(
+              professionLabelProvider(member.profession!),
+            );
             return labelAsync.when(
-              data: (label) => _buildInfoRow(Icons.work, 'Profissão', label ?? member.profession!),
-              loading: () => _buildInfoRow(Icons.work, 'Profissão', member.profession!),
-              error: (_, __) => _buildInfoRow(Icons.work, 'Profissão', member.profession!),
+              data: (label) => _buildInfoRow(
+                Icons.work,
+                'Profissão',
+                label ?? member.profession!,
+              ),
+              loading: () =>
+                  _buildInfoRow(Icons.work, 'Profissão', member.profession!),
+              error: (_, __) =>
+                  _buildInfoRow(Icons.work, 'Profissão', member.profession!),
             );
           },
         ),
@@ -1618,7 +1700,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       items.add(_buildInfoRow(Icons.location_on, 'Endereço', member.address!));
     }
     if (_hasValue(member.addressComplement)) {
-      items.add(_buildInfoRow(Icons.home, 'Complemento', member.addressComplement!));
+      items.add(
+        _buildInfoRow(Icons.home, 'Complemento', member.addressComplement!),
+      );
     }
     if (_hasValue(member.neighborhood)) {
       items.add(_buildInfoRow(Icons.map, 'Bairro', member.neighborhood!));
@@ -1628,10 +1712,15 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         if (_hasValue(member.city)) member.city!,
         if (_hasValue(member.state)) member.state!,
       ].join(' - ');
-      items.add(_buildInfoRow(Icons.location_city, 'Cidade / Estado', cityState));
+      items.add(
+        _buildInfoRow(Icons.location_city, 'Cidade / Estado', cityState),
+      );
     }
 
-    final hasFullAddress = _hasValue(member.address) && _hasValue(member.city) && _hasValue(member.state);
+    final hasFullAddress =
+        _hasValue(member.address) &&
+        _hasValue(member.city) &&
+        _hasValue(member.state);
     if (hasFullAddress) {
       items.add(
         Align(
@@ -1664,7 +1753,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               shape: const StadiumBorder(),
-              backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.08),
             ),
           ),
         ),
@@ -1681,8 +1772,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     return Column(children: items);
   }
 
-  bool _hasValue(String? value) =>
-      value != null && value.trim().isNotEmpty;
+  bool _hasValue(String? value) => value != null && value.trim().isNotEmpty;
 
   String? _genderLabel(String? gender) {
     if (!_hasValue(gender)) return null;
@@ -1722,7 +1812,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   }
 
   int _completionPercentage(Member member) {
-    int totalFields = 23;
+    // "Notas/observações" é um campo livre, não um dado cadastral, e não
+    // entra na conta de completude.
+    int totalFields = 21;
     int filledFields = 0;
 
     if (_hasValue(member.firstName)) filledFields++;
@@ -1741,14 +1833,18 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     if (_hasValue(member.city)) filledFields++;
     if (_hasValue(member.state)) filledFields++;
     if (_hasValue(member.zipCode)) filledFields++;
-    if (member.memberType != null) filledFields++;
+    if (_hasValue(member.memberType)) filledFields++;
     if (member.membershipDate != null) filledFields++;
     if (member.conversionDate != null) filledFields++;
     if (member.baptismDate != null) filledFields++;
     if (_hasValue(member.photoUrl)) filledFields++;
-    if (_hasValue(member.notes)) filledFields++;
-    if (member.marriageDate != null && member.maritalStatus == 'married') {
-      filledFields++;
+
+    // "Data de casamento" só faz sentido pra quem é casado: para os demais
+    // estados civis o campo não se aplica e não deve contar contra a
+    // completude do cadastro (nem no total, nem nos preenchidos).
+    if (member.maritalStatus == 'married') {
+      totalFields++;
+      if (member.marriageDate != null) filledFields++;
     }
 
     return ((filledFields / totalFields) * 100).round();
@@ -1761,7 +1857,8 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
 
   List<_JourneyItem> _buildJourneyItems(List<Map<String, dynamic>> readings) {
     final items = readings.map((row) {
-      final readAt = _parseDateTime(row['read_at']) ??
+      final readAt =
+          _parseDateTime(row['read_at']) ??
           _parseDateTime(row['created_at']) ??
           DateTime.now();
       final devotional = row['devotionals'];
@@ -1853,28 +1950,36 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                   icon: const Icon(Icons.arrow_back),
                   onPressed: () => context.pop(),
                   style: IconButton.styleFrom(
-                    backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+                    backgroundColor: colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.7),
                     foregroundColor: colorScheme.onSurface,
                   ),
                 ),
                 Row(
                   children: [
                     PermissionGate(
-                      permission: member.status == 'visitor' ? 'visitors.edit' : 'members.edit',
+                      permission: member.status == 'visitor'
+                          ? 'visitors.edit'
+                          : 'members.edit',
                       showLoading: false,
                       child: IconButton(
                         icon: const Icon(Icons.edit_outlined),
-                        onPressed: () => context.push('/members/$_memberId/edit'),
+                        onPressed: () =>
+                            context.push('/members/$_memberId/edit'),
                         tooltip: 'Editar Informações',
                         style: IconButton.styleFrom(
-                          backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
+                          backgroundColor: colorScheme.primary.withValues(
+                            alpha: 0.12,
+                          ),
                           foregroundColor: colorScheme.primary,
                         ),
                       ),
                     ),
                     const SizedBox(width: 4),
                     PermissionGate(
-                      permission: member.status == 'visitor' ? 'visitors.delete' : 'members.delete',
+                      permission: member.status == 'visitor'
+                          ? 'visitors.delete'
+                          : 'members.delete',
                       showLoading: false,
                       child: IconButton(
                         icon: const Icon(Icons.delete_outline),
@@ -1937,7 +2042,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                   _getStatusLabel(member.status),
                   _getStatusColor(member.status),
                 ),
-                if (member.memberType != null)
+                if (_hasValue(member.memberType))
                   _buildHeaderBadge(
                     context,
                     _getMemberTypeLabel(member.memberType!),
@@ -2029,9 +2134,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: _pagePadding),
       padding: const EdgeInsets.all(_cardPadding),
-      decoration: CommunityDesign.overlayDecoration(colorScheme).copyWith(
-        borderRadius: BorderRadius.circular(_cardRadius),
-      ),
+      decoration: CommunityDesign.overlayDecoration(
+        colorScheme,
+      ).copyWith(borderRadius: BorderRadius.circular(_cardRadius)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2135,11 +2240,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         if (member.credentialDate != null)
           _buildCredentialRow(context, member.credentialDate!)
         else
-          _buildInfoRow(
-            Icons.badge,
-            'Credencial',
-            'Não informada',
-          ),
+          _buildInfoRow(Icons.badge, 'Credencial', 'Não informada'),
         _buildLgpdConsentRow(context, ref, member),
         _buildLgpdPolicyRow(context, member),
         _buildCommitmentTermsRow(context, member),
@@ -2205,9 +2306,14 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                 ),
               ),
               style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 shape: const StadiumBorder(),
-                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -2336,7 +2442,11 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                       color: colorScheme.primary.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.groups, color: colorScheme.primary, size: 16),
+                    child: Icon(
+                      Icons.groups,
+                      color: colorScheme.primary,
+                      size: 16,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -2345,10 +2455,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                       children: [
                         Text(
                           ministry.name,
-                          style: CommunityDesign.titleStyle(context).copyWith(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
+                          style: CommunityDesign.titleStyle(
+                            context,
+                          ).copyWith(fontSize: 14, fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -2365,13 +2474,12 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (error, stack) => Text(
-            'Erro ao carregar departamentos: $error',
-            style: CommunityDesign.contentStyle(
-              context,
-            ).copyWith(color: Theme.of(context).colorScheme.error),
-          ),
+      error: (error, stack) => Text(
+        'Erro ao carregar departamentos: $error',
+        style: CommunityDesign.contentStyle(
+          context,
+        ).copyWith(color: Theme.of(context).colorScheme.error),
+      ),
     );
   }
 
@@ -2380,10 +2488,14 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(_cardRadius),
           border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.2),
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.2),
           ),
         ),
         child: Column(
@@ -2436,11 +2548,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                   color: colorScheme.primary.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  icon,
-                  size: 18,
-                  color: colorScheme.primary,
-                ),
+                child: Icon(icon, size: 18, color: colorScheme.primary),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -2477,8 +2585,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     String label,
     String value,
     String actionLabel,
-    VoidCallback onAction,
-    {
+    VoidCallback onAction, {
     IconData valueIcon = Icons.check_circle_outline,
     Color? valueColor,
     Color? actionColor,
@@ -2516,11 +2623,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(
-                          valueIcon,
-                          size: 14,
-                          color: effectiveValueColor,
-                        ),
+                        Icon(valueIcon, size: 14, color: effectiveValueColor),
                         const SizedBox(width: 4),
                         Text(
                           value,
@@ -2535,12 +2638,19 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                           onTap: onAction,
                           borderRadius: BorderRadius.circular(999),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: effectiveActionColor.withValues(alpha: 0.12),
+                              color: effectiveActionColor.withValues(
+                                alpha: 0.12,
+                              ),
                               borderRadius: BorderRadius.circular(999),
                               border: Border.all(
-                                color: effectiveActionColor.withValues(alpha: 0.28),
+                                color: effectiveActionColor.withValues(
+                                  alpha: 0.28,
+                                ),
                               ),
                             ),
                             child: Text(
@@ -2565,11 +2675,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     );
   }
 
-  Widget _buildHeaderBadge(
-    BuildContext context,
-    String label,
-    Color color,
-  ) {
+  Widget _buildHeaderBadge(BuildContext context, String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -2648,11 +2754,16 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         final v = type.trim();
         var s = v.replaceAll(RegExp(r'[_-]+'), ' ').trim();
         if (s.isEmpty) return v;
-        final words = s.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+        final words = s
+            .split(RegExp(r'\s+'))
+            .where((w) => w.isNotEmpty)
+            .toList();
         final normalized = words
-            .map((w) => w.length == 1
-                ? w.toUpperCase()
-                : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+            .map(
+              (w) => w.length == 1
+                  ? w.toUpperCase()
+                  : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}',
+            )
             .join(' ');
         return normalized.isNotEmpty ? normalized : v;
     }
@@ -2693,7 +2804,9 @@ class _JourneyMiniStat extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2710,10 +2823,9 @@ class _JourneyMiniStat extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             value,
-            style: CommunityDesign.titleStyle(context).copyWith(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-            ),
+            style: CommunityDesign.titleStyle(
+              context,
+            ).copyWith(fontSize: 14, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 2),
           Text(
