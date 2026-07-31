@@ -12,12 +12,19 @@ class AppErrorInfo {
   final String? details;
   final String? hint;
 
+  /// true quando [userMessage] já é uma mensagem específica e confiável
+  /// (violação conhecida, sessão expirada, exceção de domínio escrita à mão
+  /// etc.). Quando false, [userMessage] é só o texto genérico de último
+  /// recurso e telas podem preferir seu próprio `fallbackMessage`.
+  final bool specific;
+
   const AppErrorInfo({
     required this.userMessage,
     required this.debugMessage,
     this.code,
     this.details,
     this.hint,
+    this.specific = false,
   });
 }
 
@@ -27,10 +34,7 @@ class AppErrorInfo {
 ///
 /// Objetivo: nunca exibir SQL/stack bruto no app.
 class AppErrorHandler {
-  static AppErrorInfo map(
-    Object error, {
-    String? feature,
-  }) {
+  static AppErrorInfo map(Object error, {String? feature}) {
     if (error is PostgrestException) {
       final code = (error.code ?? '').trim();
       final message = error.message.trim();
@@ -38,6 +42,7 @@ class AppErrorHandler {
       final hint = error.hint?.toString().trim();
 
       String userMessage;
+      bool specific = true;
       switch (code) {
         case '23505': // unique_violation
           final msgLower = message.toLowerCase();
@@ -76,11 +81,11 @@ class AppErrorHandler {
               'O sistema esta em atualizacao. Tente novamente em instantes.';
           break;
         case 'PGRST116': // single() requested but returned 0+ rows
-          userMessage =
-              'Nao foi possivel carregar os dados. Tente novamente.';
+          userMessage = 'Nao foi possivel carregar os dados. Tente novamente.';
           break;
         default:
           userMessage = 'Ocorreu um erro. Tente novamente.';
+          specific = false;
       }
 
       return AppErrorInfo(
@@ -89,6 +94,7 @@ class AppErrorHandler {
         code: code.isEmpty ? null : code,
         details: details?.isEmpty == true ? null : details,
         hint: hint?.isEmpty == true ? null : hint,
+        specific: specific,
       );
     }
 
@@ -98,7 +104,8 @@ class AppErrorHandler {
       final userMessage = switch (normalized) {
         _ when normalized.contains('jwt') && normalized.contains('expired') =>
           'Sessao expirada. Faca login novamente.',
-        _ when normalized.contains('invalid login') ||
+        _
+            when normalized.contains('invalid login') ||
                 normalized.contains('invalid_credentials') =>
           'Credenciais invalidas. Verifique e tente novamente.',
         _ => 'Falha de autenticacao. Tente novamente.',
@@ -107,6 +114,7 @@ class AppErrorHandler {
       return AppErrorInfo(
         userMessage: userMessage,
         debugMessage: msg,
+        specific: true,
       );
     }
 
@@ -114,6 +122,7 @@ class AppErrorHandler {
       return const AppErrorInfo(
         userMessage: 'Tempo esgotado. Tente novamente.',
         debugMessage: 'TimeoutException',
+        specific: true,
       );
     }
 
@@ -121,7 +130,24 @@ class AppErrorHandler {
       return AppErrorInfo(
         userMessage: 'Dados invalidos. Revise e tente novamente.',
         debugMessage: error.message,
+        specific: true,
       );
+    }
+
+    if (error is Exception) {
+      // Exceções de domínio lançadas à mão nos repositórios (ex.: "Sem
+      // permissão para editar este membro") já trazem uma mensagem em
+      // português pronta para o usuário — preservar em vez de mascarar.
+      final raw = error.toString();
+      const prefix = 'Exception: ';
+      final msg = raw.startsWith(prefix) ? raw.substring(prefix.length) : raw;
+      if (msg.trim().isNotEmpty) {
+        return AppErrorInfo(
+          userMessage: msg.trim(),
+          debugMessage: msg.trim(),
+          specific: true,
+        );
+      }
     }
 
     return AppErrorInfo(
@@ -186,18 +212,19 @@ class AppErrorHandler {
     final info = map(error, feature: feature);
     log(error, feature: feature);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(fallbackMessage ?? info.userMessage),
-        backgroundColor: Colors.red,
-      ),
-    );
+    // Mensagens especificas (violacao de unicidade, RLS/permissao, sessao
+    // expirada, excecoes de dominio, etc.) sempre prevalecem: o
+    // fallbackMessage generico da tela so e usado quando o erro nao pode
+    // ser identificado, para nao mascarar a causa real do problema.
+    final text = info.specific
+        ? info.userMessage
+        : (fallbackMessage ?? info.userMessage);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(text), backgroundColor: Colors.red));
   }
 
-  static String userMessage(
-    Object error, {
-    String? feature,
-  }) {
+  static String userMessage(Object error, {String? feature}) {
     return map(error, feature: feature).userMessage;
   }
 }

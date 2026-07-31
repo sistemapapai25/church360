@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/services/viacep_service.dart';
@@ -789,10 +790,16 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           try {
             await Supabase.instance.client.auth.updateUser(
               UserAttributes(email: effectiveEmail),
+              emailRedirectTo: SupabaseConstants.authRedirectUrl,
             );
             pendingLoginEmailConfirmation = effectiveEmail;
           } on AuthException catch (e) {
             loginEmailUpdateError = e.message;
+          } catch (e) {
+            // O cadastro já foi salvo com sucesso acima; uma falha aqui é só
+            // na sincronização do email de login e não pode ser reportada
+            // como falha ao salvar o cadastro.
+            loginEmailUpdateError = e.toString();
           }
         }
       }
@@ -1475,10 +1482,10 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       InkWell(
                         onTap: () =>
                             _selectDate(context, _firstVisitDate, (date) {
-                          setState(() {
-                            _firstVisitDate = date;
-                          });
-                        }),
+                              setState(() {
+                                _firstVisitDate = date;
+                              });
+                            }),
                         child: InputDecorator(
                           decoration: InputDecoration(
                             labelText: 'Data da Primeira Visita',
@@ -1492,9 +1499,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                 ? IconButton(
                                     icon: const Icon(Icons.clear, size: 18),
                                     tooltip: 'Limpar',
-                                    onPressed: () => setState(
-                                      () => _firstVisitDate = null,
-                                    ),
+                                    onPressed: () =>
+                                        setState(() => _firstVisitDate = null),
                                   )
                                 : null,
                           ),
@@ -1505,8 +1511,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                   ).format(_firstVisitDate!)
                                 : 'Selecione a data',
                             style: TextStyle(
-                              color:
-                                  _firstVisitDate != null ? null : Colors.grey,
+                              color: _firstVisitDate != null
+                                  ? null
+                                  : Colors.grey,
                             ),
                           ),
                         ),
@@ -1522,8 +1529,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         _wantsContact == null
                             ? 'Não informado'
                             : (_wantsContact!
-                                ? 'Pode receber contato (ligações, mensagens)'
-                                : 'Não deseja contato no momento'),
+                                  ? 'Pode receber contato (ligações, mensagens)'
+                                  : 'Não deseja contato no momento'),
                         style: CommunityDesign.metaStyle(context),
                       ),
                       secondary: const Icon(Icons.contact_phone),
