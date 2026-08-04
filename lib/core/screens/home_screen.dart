@@ -1694,7 +1694,7 @@ class _ChurchHomeTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final eventsAsync = ref.watch(upcomingEventsProvider);
-    final newsAsync = ref.watch(allEventsProvider);
+    final newsAsync = ref.watch(upcomingEventsProvider);
     final churchInfoAsync = ref.watch(churchInfoProvider);
     final cs = Theme.of(context).colorScheme;
     final today = DateTime.now();
@@ -1758,7 +1758,7 @@ class _ChurchHomeTab extends ConsumerWidget {
                   );
                 }
 
-                final sorted = [...events]..sort((a, b) => b.startDate.compareTo(a.startDate));
+                final sorted = [...events]..sort((a, b) => a.startDate.compareTo(b.startDate));
 
                 return ListView.separated(
                   shrinkWrap: true,

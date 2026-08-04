@@ -13,7 +13,7 @@ class NewsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final eventsAsync = ref.watch(allEventsProvider);
+    final eventsAsync = ref.watch(upcomingEventsProvider);
 
     return PopScope(
       canPop: true,
@@ -120,13 +120,13 @@ class NewsScreen extends ConsumerWidget {
               );
             }
 
-            // Ordenar eventos por data (mais recentes primeiro)
+            // Ordenar eventos por data (de hoje em diante, mais próximos primeiro)
             final sortedEvents = [...events]
-              ..sort((a, b) => b.startDate.compareTo(a.startDate));
+              ..sort((a, b) => a.startDate.compareTo(b.startDate));
 
             return RefreshIndicator(
               onRefresh: () async {
-                ref.invalidate(allEventsProvider);
+                ref.invalidate(upcomingEventsProvider);
               },
               child: ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
@@ -189,7 +189,7 @@ class NewsScreen extends ConsumerWidget {
                         const SizedBox(height: 24),
                         FilledButton.icon(
                           onPressed: () {
-                            ref.invalidate(allEventsProvider);
+                            ref.invalidate(upcomingEventsProvider);
                           },
                           icon: const Icon(Icons.refresh),
                           label: const Text('Tentar novamente'),
