@@ -410,7 +410,9 @@ class MembersRepository {
                   roleGlobal == 'admin' ||
                   roleGlobal == 'leader'));
 
-      if (!isElevated && currentMemberId != member.id) {
+      final isSelfEdit =
+          currentMemberId == member.id || currentAuthId == member.authUserId;
+      if (!isElevated && !isSelfEdit) {
         throw Exception('Sem permissão para editar este membro');
       }
 
