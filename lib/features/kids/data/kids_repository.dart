@@ -144,6 +144,50 @@ class KidsRepository {
       debugPrint('Erro ao buscar crianças por created_by: $e');
     }
 
+    // 4. Buscar crianças via vínculo familiar formal (relacionamentos_familiares)
+    // Fonte da verdade para "quem é responsável por essa criança": cobre tanto
+    // o vínculo direto (eu -> filho/tutelado) quanto o inverso, gravado quando
+    // a relação é criada (ver FamilyRelationshipsRepository._addRelationshipCore).
+    try {
+      final asParentDirect = await _supabase
+          .from('relacionamentos_familiares')
+          .select('parente_id')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .eq('membro_id', userId)
+          .inFilter('tipo_relacionamento', ['filho', 'filha', 'tutelado', 'tutelada']);
+
+      final asParentReverse = await _supabase
+          .from('relacionamentos_familiares')
+          .select('membro_id')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .eq('parente_id', userId)
+          .inFilter('tipo_relacionamento', ['pai', 'mae', 'tutor', 'tutora']);
+
+      final childIds = <String>{
+        ...(asParentDirect as List).map((r) => r['parente_id'] as String),
+        ...(asParentReverse as List).map((r) => r['membro_id'] as String),
+      };
+
+      if (childIds.isNotEmpty) {
+        final childrenResponse = await _supabase
+            .from('user_account')
+            .select('*')
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .inFilter('id', childIds.toList());
+
+        final relationshipChildren = (childrenResponse as List)
+            .map((row) => Map<String, dynamic>.from(row as Map))
+            .map(
+              (row) =>
+                  _normalizeChildRecord(row, source: 'family_relationship'),
+            )
+            .toList();
+        allChildren.addAll(relationshipChildren);
+      }
+    } catch (e) {
+      debugPrint('Erro ao buscar crianças via relacionamentos_familiares: $e');
+    }
+
     // Remover duplicatas por ID
     final Map<String, Map<String, dynamic>> uniqueChildren = {};
     for (var child in allChildren) {

@@ -157,6 +157,7 @@ final currentMemberProvider = FutureProvider<Member?>((ref) async {
     debugPrint('❌ [currentMemberProvider] Nenhum dado encontrado para id/email: ${currentUser.id} / ${currentUser.email}');
   } else {
     debugPrint('✅ [currentMemberProvider] Dados encontrados: ${member.firstName} ${member.lastName}');
+    debugPrint('🔎 [currentMemberProvider] DIAG auth.uid()=${currentUser.id} member.id=${member.id} member.authUserId=${member.authUserId} member.householdId=${member.householdId}');
   }
 
   return member;

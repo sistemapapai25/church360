@@ -372,6 +372,65 @@ class MembersRepository {
     }
   }
 
+  /// Verifica se [childId] é uma criança vinculada a [currentMemberId]/
+  /// [currentAuthId] (pai/mãe/tutor), via `created_by` ou
+  /// `relacionamentos_familiares` (mesma fonte da verdade usada por
+  /// KidsRepository.getManagedChildren e pela política de RLS
+  /// `is_linked_child()` no backend). Usado para permitir que um
+  /// responsável comum edite o cadastro do próprio filho.
+  Future<bool> _isLinkedChild(
+    String childId,
+    String? currentMemberId,
+    String? currentAuthId,
+  ) async {
+    final candidateIds = <String>{
+      if (currentMemberId != null) currentMemberId,
+      if (currentAuthId != null) currentAuthId,
+    };
+    if (candidateIds.isEmpty) return false;
+
+    try {
+      final child = await _supabase
+          .from('user_account')
+          .select('created_by, member_type')
+          .eq('id', childId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .maybeSingle();
+      if (child == null || child['member_type'] != 'crianca') return false;
+      if (candidateIds.contains(child['created_by'])) return true;
+
+      for (final parentId in candidateIds) {
+        final direct = await _supabase
+            .from('relacionamentos_familiares')
+            .select('id')
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .eq('membro_id', parentId)
+            .eq('parente_id', childId)
+            .inFilter('tipo_relacionamento', [
+              'filho',
+              'filha',
+              'tutelado',
+              'tutelada',
+            ])
+            .maybeSingle();
+        if (direct != null) return true;
+
+        final reverse = await _supabase
+            .from('relacionamentos_familiares')
+            .select('id')
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .eq('parente_id', parentId)
+            .eq('membro_id', childId)
+            .inFilter('tipo_relacionamento', ['pai', 'mae', 'tutor', 'tutora'])
+            .maybeSingle();
+        if (reverse != null) return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Atualizar membro
   Future<Member> updateMember(Member member) async {
     try {
@@ -412,7 +471,17 @@ class MembersRepository {
 
       final isSelfEdit =
           currentMemberId == member.id || currentAuthId == member.authUserId;
+
+      var isLinkedChildEdit = false;
       if (!isElevated && !isSelfEdit) {
+        isLinkedChildEdit = await _isLinkedChild(
+          member.id,
+          currentMemberId,
+          currentAuthId,
+        );
+      }
+
+      if (!isElevated && !isSelfEdit && !isLinkedChildEdit) {
         throw Exception('Sem permissão para editar este membro');
       }
 

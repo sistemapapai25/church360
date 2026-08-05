@@ -12,8 +12,10 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/services/viacep_service.dart';
 import '../providers/members_provider.dart';
+import '../../data/members_repository.dart';
 import '../../domain/models/member.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../kids/presentation/providers/kids_providers.dart';
 
 /// Tela de formulário de membro (criar/editar)
 class MemberFormScreen extends ConsumerStatefulWidget {
@@ -68,6 +70,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   DateTime? _firstVisitDate;
   bool? _wantsContact;
 
+  // Responsável (pai/mãe/tutor) — obrigatório ao cadastrar/editar um menor
+  // pela tela administrativa de membros (fora do fluxo Kids de autocadastro).
+  static const int _minorGuardianAgeThresholdYears = 12;
+  Member? _selectedGuardianMember;
+  String _guardianRelationshipLabel = 'Pai';
+  bool _guardianLinkTouched = false;
+
   bool _isLoading = false;
   bool _isSearchingCep = false;
   Member? _existingMember;
@@ -104,6 +113,41 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   }
 
   bool get _isEmailRequired => !_isKidsFlowType;
+
+  int? get _computedAgeYears {
+    final birth = _birthdate;
+    if (birth == null) return null;
+    final now = DateTime.now();
+    var age = now.year - birth.year;
+    if (now.month < birth.month ||
+        (now.month == birth.month && now.day < birth.day)) {
+      age--;
+    }
+    return age;
+  }
+
+  // O fluxo Kids já vincula a criança ao próprio responsável que a cadastrou
+  // (ver _saveMember), então só exigimos a seleção manual do responsável
+  // quando o cadastro é feito pela tela administrativa de membros.
+  bool get _requiresGuardianLink {
+    if (_isKidsFlowType) return false;
+    final age = _computedAgeYears;
+    return age != null && age <= _minorGuardianAgeThresholdYears;
+  }
+
+  String get _guardianRelationshipTypeCode {
+    final isFemaleGuardian =
+        (_selectedGuardianMember?.gender ?? '').toLowerCase() == 'female';
+    switch (_guardianRelationshipLabel) {
+      case 'Mãe':
+        return 'mae';
+      case 'Tutor(a)':
+        return isFemaleGuardian ? 'tutora' : 'tutor';
+      case 'Pai':
+      default:
+        return 'pai';
+    }
+  }
 
   @override
   void initState() {
@@ -421,6 +465,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           });
           _professionController.text = label ?? rawProfession;
         }
+
+        await _loadExistingGuardianLink(repo);
       }
     } catch (e) {
       if (mounted) {
@@ -436,6 +482,34 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  /// Carrega o vínculo de responsável (pai/mãe/tutor) já existente para este
+  /// membro, se houver, para preencher o seletor ao editar um menor.
+  Future<void> _loadExistingGuardianLink(MembersRepository repo) async {
+    if (widget.memberId == null) return;
+    try {
+      final familyRepo = ref.read(familyRelationshipsRepositoryProvider);
+      final relationships = await familyRepo.getByMember(widget.memberId!);
+      const guardianTypes = {'pai', 'mae', 'tutor', 'tutora'};
+      for (final rel in relationships) {
+        if (!guardianTypes.contains(rel.tipo)) continue;
+        final guardianMember = await repo.getMemberById(rel.parenteId);
+        if (guardianMember != null && mounted) {
+          setState(() {
+            _selectedGuardianMember = guardianMember;
+            _guardianRelationshipLabel = switch (rel.tipo) {
+              'mae' => 'Mãe',
+              'tutor' || 'tutora' => 'Tutor(a)',
+              _ => 'Pai',
+            };
+          });
+        }
+        break;
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar vínculo de responsável existente: $e');
     }
   }
 
@@ -551,10 +625,26 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       return;
     }
 
+    if (_requiresGuardianLink && _selectedGuardianMember == null) {
+      setState(() => _guardianLinkTouched = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Selecione o responsável (pai, mãe ou tutor) antes de salvar — '
+            'obrigatório para menores de $_minorGuardianAgeThresholdYears anos.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     String? pendingLoginEmailConfirmation;
     String? loginEmailUpdateError;
+
+    String? savedMemberId;
 
     try {
       final repo = ref.read(membersRepositoryProvider);
@@ -689,7 +779,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         if (authId != null && authId.isNotEmpty) {
           memberData['created_by'] = memberData['created_by'] ?? authId;
         }
-        await repo.createMemberFromJson(memberData);
+        final createdMember = await repo.createMemberFromJson(memberData);
+        savedMemberId = createdMember.id;
       } else {
         // Atualizar existente
         // No fluxo infantil (tipo 'crianca'), email pode ficar vazio.
@@ -775,6 +866,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         );
 
         await repo.updateMember(member);
+        savedMemberId = widget.memberId;
 
         // Se a pessoa está editando o PRÓPRIO cadastro e trocou o email,
         // dispara também a troca do email de login no Supabase Auth.
@@ -805,11 +897,45 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         }
       }
 
+      // Vincula o responsável em relacionamentos_familiares — fonte da
+      // verdade para "quem é responsável por essa criança" usada pela tela
+      // Kids (ver kids_repository.dart: getManagedChildren). No fluxo Kids
+      // de autocadastro, o vínculo é automático com quem criou o cadastro;
+      // na tela administrativa, usa o responsável selecionado no formulário.
+      if (savedMemberId != null) {
+        try {
+          final familyRepo = ref.read(familyRelationshipsRepositoryProvider);
+          if (_isKidsFlowType && widget.memberId == null) {
+            final creator = await ref.read(currentMemberProvider.future);
+            if (creator != null) {
+              final creatorIsFemale =
+                  (creator.gender ?? '').toLowerCase() == 'female';
+              await familyRepo.addRelationship(
+                savedMemberId,
+                creator.id,
+                creatorIsFemale ? 'mae' : 'pai',
+              );
+            }
+          } else if (_requiresGuardianLink && _selectedGuardianMember != null) {
+            await familyRepo.addRelationship(
+              savedMemberId,
+              _selectedGuardianMember!.id,
+              _guardianRelationshipTypeCode,
+            );
+          }
+        } catch (e) {
+          // Não bloquear o salvamento do cadastro por falha ao gravar o
+          // vínculo familiar (ex: RLS, duplicidade já existente).
+          debugPrint('Erro ao vincular responsável: $e');
+        }
+      }
+
       if (mounted) {
         // Invalida os providers para atualizar as listas
         ref.invalidate(allMembersProvider);
         ref.invalidate(activeMembersProvider);
         ref.invalidate(visitorsProvider);
+        ref.invalidate(managedChildrenProvider);
         if (widget.memberId != null) {
           ref.invalidate(memberByIdProvider(widget.memberId!));
           final currentUserId = Supabase.instance.client.auth.currentUser?.id;
@@ -873,11 +999,175 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     }
   }
 
+  Widget _buildGuardianLinkSection(BuildContext context) {
+    final showError = _guardianLinkTouched && _selectedGuardianMember == null;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        border: showError ? Border.all(color: Colors.red) : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.family_restroom, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Responsável (obrigatório para menores de '
+                  '$_minorGuardianAgeThresholdYears anos)',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_selectedGuardianMember == null)
+            Consumer(
+              builder: (context, ref, child) {
+                final membersAsync = ref.watch(allMembersProvider);
+                return membersAsync.when(
+                  data: (members) {
+                    final filteredList = members
+                        .where((m) => m.id != widget.memberId)
+                        .toList();
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Autocomplete<Member>(
+                          optionsBuilder: (TextEditingValue textEditingValue) {
+                            final text = textEditingValue.text.trim();
+                            if (text.length < 3) {
+                              return const Iterable<Member>.empty();
+                            }
+                            final q = text.toLowerCase();
+                            return filteredList.where(
+                              (m) =>
+                                  m.displayName.toLowerCase().contains(q) ||
+                                  (m.nickname?.toLowerCase().contains(q) ??
+                                      false) ||
+                                  m.email.toLowerCase().contains(q),
+                            );
+                          },
+                          displayStringForOption: (m) => m.displayName,
+                          onSelected: (Member selection) {
+                            setState(() {
+                              _selectedGuardianMember = selection;
+                              _guardianLinkTouched = false;
+                            });
+                          },
+                          fieldViewBuilder:
+                              (
+                                context,
+                                fieldController,
+                                fieldFocusNode,
+                                onFieldSubmitted,
+                              ) {
+                                return TextFormField(
+                                  controller: fieldController,
+                                  focusNode: fieldFocusNode,
+                                  decoration: const InputDecoration(
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    border: OutlineInputBorder(),
+                                    labelText: 'Buscar responsável',
+                                    prefixIcon: Icon(Icons.search),
+                                    helperText:
+                                        'Digite 3 letras ou mais para buscar',
+                                  ),
+                                );
+                              },
+                          optionsViewBuilder: (context, onSelected, options) {
+                            return Align(
+                              alignment: Alignment.topLeft,
+                              child: Material(
+                                elevation: 4.0,
+                                child: SizedBox(
+                                  width: constraints.maxWidth,
+                                  child: ListView.builder(
+                                    padding: EdgeInsets.zero,
+                                    shrinkWrap: true,
+                                    itemCount: options.length,
+                                    itemBuilder: (context, index) {
+                                      final option = options.elementAt(index);
+                                      return ListTile(
+                                        title: Text(option.displayName),
+                                        subtitle: Text(option.email),
+                                        onTap: () => onSelected(option),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (e, s) => Text('Erro ao carregar membros: $e'),
+                );
+              },
+            )
+          else
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(_selectedGuardianMember!.displayName),
+              subtitle: Text(_selectedGuardianMember!.email),
+              trailing: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () =>
+                    setState(() => _selectedGuardianMember = null),
+              ),
+            ),
+          if (_selectedGuardianMember != null) ...[
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              initialValue: _guardianRelationshipLabel,
+              decoration: const InputDecoration(
+                labelText: 'Parentesco',
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(),
+              ),
+              items: const ['Pai', 'Mãe', 'Tutor(a)']
+                  .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _guardianRelationshipLabel = value);
+                }
+              },
+            ),
+          ],
+          if (showError) ...[
+            const SizedBox(height: 4),
+            const Text(
+              'Selecione o responsável antes de salvar.',
+              style: TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentMember = ref.watch(currentMemberProvider).valueOrNull;
     final isSelfEdit =
         widget.memberId != null && currentMember?.id == widget.memberId;
+    // Autocadastro Kids: o responsável logado precisa conseguir salvar o
+    // cadastro do próprio filho, mesmo sem permissões administrativas de
+    // members.create/visitors.create (essas permissões são pensadas para
+    // staff cadastrando visitantes/membros, não para pais no fluxo Kids).
+    final isSelfChildCreation =
+        widget.memberId == null && _isKidsFlowType && currentMember != null;
+    final canBypassPermissionGate = isSelfEdit || isSelfChildCreation;
     final permission = widget.memberId == null
         ? (_status == 'visitor' ? 'visitors.create' : 'members.create')
         : (_status == 'visitor' ? 'visitors.edit' : 'members.edit');
@@ -916,9 +1206,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               ),
             )
           else
-            // Autoedição: o próprio membro precisa conseguir salvar o perfil,
-            // mesmo sem ter permissões administrativas de members.edit/visitors.edit.
-            (isSelfEdit
+            // Autoedição / autocadastro Kids: ver comentários acima.
+            (canBypassPermissionGate
                 ? Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Center(
@@ -1102,6 +1391,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
+
+                    // Responsável (obrigatório para menores)
+                    if (_requiresGuardianLink) ...[
+                      _buildGuardianLinkSection(context),
+                      const SizedBox(height: 16),
+                    ],
 
                     // Gênero
                     DropdownButtonFormField<String>(
