@@ -148,6 +148,22 @@ class MembersRepository {
     return user.id;
   }
 
+  /// Como [_currentMemberId], mas resolve o `user_account.id` real (via
+  /// `auth_user_id`) em vez do `auth.uid()` cru. Necessario para qualquer
+  /// coluna `created_by` que referencie `user_account(id)` (a maioria das
+  /// tabelas do schema) - usar o auth.uid() cru quebra
+  /// user_account_created_by_fkey (e equivalentes) para contas
+  /// legadas/reaproveitadas por email, onde id != auth.uid().
+  Future<String?> _currentAccountId() async {
+    final authId = await _currentMemberId();
+    if (authId == null) return null;
+    try {
+      final resolved = await getMemberByAuthUserId(authId);
+      if (resolved != null) return resolved.id;
+    } catch (_) {}
+    return authId;
+  }
+
   /// Buscar todos os membros (incluindo visitantes)
   Future<List<Member>> getAllMembers() async {
     try {
@@ -337,7 +353,7 @@ class MembersRepository {
   /// Criar novo membro a partir de JSON (sem ID)
   Future<Member> createMemberFromJson(Map<String, dynamic> data) async {
     try {
-      final creatorId = await _currentMemberId();
+      final creatorId = await _currentAccountId();
       final nicknameValue = (data['nickname'] as String?)?.trim();
       final firstNameValue = (data['first_name'] as String?)?.trim();
       final fullNameValue = (data['full_name'] as String?)?.trim();
@@ -387,6 +403,24 @@ class MembersRepository {
       if (currentMemberId != null) currentMemberId,
       if (currentAuthId != null) currentAuthId,
     };
+
+    // currentMemberId/currentAuthId acima sao auth.uid() (ver
+    // _currentMemberId() e _supabase.auth.currentUser?.id). Mas
+    // created_by/relacionamentos_familiares guardam o user_account.id
+    // real, que pode divergir do auth.uid() para linhas pre-existentes ou
+    // reaproveitadas por email (ensure_my_account "prefer existing" -
+    // mesmo padrao ja documentado para isSelfEdit/authUserId acima, so
+    // que sem coluna auth_user_id equivalente do lado do filho pra
+    // resolver de graca). Resolve o id real via auth_user_id antes de
+    // comparar, espelhando currentMemberProvider no client e
+    // my_user_account_id() no backend.
+    if (currentAuthId != null) {
+      try {
+        final resolved = await getMemberByAuthUserId(currentAuthId);
+        if (resolved != null) candidateIds.add(resolved.id);
+      } catch (_) {}
+    }
+
     if (candidateIds.isEmpty) return false;
 
     try {
@@ -451,11 +485,17 @@ class MembersRepository {
 
         if (currentAuthId != null) {
           try {
+            // id = auth.uid() cobre contas novas; auth_user_id cobre
+            // linhas legadas/reaproveitadas por email onde user_account.id
+            // diverge do auth.uid() atual (mesmo padrao de
+            // my_user_account_id() no backend) - sem isso, um admin nessa
+            // situacao seria incorretamente tratado como nao-elevado.
             final rg = await _supabase
                 .from('user_account')
                 .select('role_global')
-                .eq('id', currentAuthId)
+                .or('id.eq.$currentAuthId,auth_user_id.eq.$currentAuthId')
                 .eq('tenant_id', SupabaseConstants.currentTenantId)
+                .limit(1)
                 .maybeSingle();
             roleGlobal = rg?['role_global'] as String?;
           } catch (_) {}
@@ -489,13 +529,15 @@ class MembersRepository {
       raw.remove('created_at');
       raw.remove('id');
 
-      // currentMemberId vem de auth.uid() e pode nao corresponder ao
-      // user_account.id de quem esta editando (ensure_my_account preserva
-      // o id original de linhas pre-existentes/reaproveitadas por email).
-      // Num self-edit, member.id e sempre um user_account.id valido (e a
-      // propria linha sendo atualizada), entao usa ele como fallback em
-      // vez de currentMemberId para nao violar a FK created_by.
-      raw['created_by'] ??= isSelfEdit ? member.id : currentMemberId;
+      // created_by e imutavel apos a criacao e nao deve ser tocado num
+      // update. O Member montado em MemberFormScreen nunca preenche
+      // createdBy, entao um fallback aqui sempre disparava - e o valor
+      // (currentMemberId = auth.uid() cru) viola user_account_created_by_fkey
+      // (que referencia user_account.id, nao auth.users.id) sempre que o
+      // editor logado for uma conta legada com id != auth.uid() (ex.: editar
+      // o cadastro de um filho vinculado). Preserva o valor ja existente na
+      // linha em vez de sobrescrever.
+      raw.remove('created_by');
       if ((raw['email'] as String?)?.trim().isEmpty ?? false) {
         raw.remove('email');
       }
@@ -699,6 +741,21 @@ class MembersRepository {
   /// Deletar membro
   Future<void> deleteMember(String id) async {
     try {
+      // relacionamentos_familiares.membro_id/parente_id sao NOT NULL, mas a
+      // FK real no banco e ON DELETE SET NULL - sem essa limpeza previa, o
+      // DELETE em user_account tenta zerar essas colunas em cascata e
+      // viola o NOT NULL (23502). So remove os vinculos onde o usuario
+      // atual e uma das partes (RLS bloqueia o resto silenciosamente, sem
+      // lancar erro) - cobre o caso comum (vinculo direto pai/filho).
+      try {
+        await _supabase
+            .from('relacionamentos_familiares')
+            .delete()
+            .or('membro_id.eq.$id,parente_id.eq.$id');
+      } catch (_) {
+        // Nao bloquear a exclusao do membro por falha ao limpar vinculos.
+      }
+
       await _supabase
           .from('user_account')
           .delete()

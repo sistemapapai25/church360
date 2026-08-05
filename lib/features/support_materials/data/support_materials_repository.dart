@@ -10,6 +10,10 @@ class SupportMaterialsRepository {
 
   SupportMaterialsRepository(this._supabase);
 
+  /// Resolve o `user_account.id` real do usuario logado (via `auth_user_id`),
+  /// nao o `auth.uid()` cru. `support_material(_module|_link).created_by`
+  /// referencia `user_account(id)` - usar auth.uid() cru quebra essa FK para
+  /// contas legadas/reaproveitadas por email, onde id != auth.uid().
   Future<String?> _effectiveUserId() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return null;
@@ -24,6 +28,17 @@ class SupportMaterialsRepository {
         });
       } catch (_) {}
     }
+    try {
+      final resolved = await _supabase
+          .from('user_account')
+          .select('id')
+          .or('id.eq.${user.id},auth_user_id.eq.${user.id}')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .limit(1)
+          .maybeSingle();
+      final resolvedId = resolved?['id'] as String?;
+      if (resolvedId != null && resolvedId.trim().isNotEmpty) return resolvedId;
+    } catch (_) {}
     return user.id;
   }
 

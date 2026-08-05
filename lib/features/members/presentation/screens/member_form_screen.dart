@@ -759,14 +759,18 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           memberData['notes'] = _notesController.text.trim();
         }
 
+        // currentMember.id e o user_account.id real de quem esta criando
+        // (ja resolvido por currentMemberProvider via ensure_my_account/
+        // getMemberByAuthUserId). Usar o authId (auth.uid()) cru aqui violaria
+        // user_account_created_by_fkey (que referencia user_account.id, nao
+        // auth.users.id) sempre que o criador for uma conta legada/
+        // reaproveitada por email com id != auth.uid().
+        final currentMember = await ref.read(currentMemberProvider.future);
+
         if (_isKidsFlowType) {
-          final currentMember = await ref.read(currentMemberProvider.future);
           final householdId = currentMember?.householdId ?? currentMember?.id;
           if (householdId != null && householdId.trim().isNotEmpty) {
             memberData['household_id'] = householdId.trim();
-          }
-          if (currentMember != null && currentMember.id.trim().isNotEmpty) {
-            memberData['created_by'] = currentMember.id.trim();
           }
         }
 
@@ -776,8 +780,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
             authEmail.isNotEmpty &&
             authEmail == email.trim().toLowerCase();
         memberData['id'] = shouldBindToAuth ? authId : const Uuid().v4();
-        if (authId != null && authId.isNotEmpty) {
-          memberData['created_by'] = memberData['created_by'] ?? authId;
+        if (currentMember != null && currentMember.id.trim().isNotEmpty) {
+          memberData['created_by'] =
+              memberData['created_by'] ?? currentMember.id.trim();
         }
         final createdMember = await repo.createMemberFromJson(memberData);
         savedMemberId = createdMember.id;
@@ -1167,7 +1172,18 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     // staff cadastrando visitantes/membros, não para pais no fluxo Kids).
     final isSelfChildCreation =
         widget.memberId == null && _isKidsFlowType && currentMember != null;
-    final canBypassPermissionGate = isSelfEdit || isSelfChildCreation;
+    // Pai/mãe/tutor editando o cadastro do próprio filho vinculado (tela
+    // "Meus Filhos" -> editar): também sem permissões administrativas de
+    // members.edit, então precisa do mesmo bypass acima.
+    final isLinkedChildEdit =
+        widget.memberId != null &&
+        (ref
+                .watch(managedChildrenProvider)
+                .valueOrNull
+                ?.any((child) => child['id'] == widget.memberId) ??
+            false);
+    final canBypassPermissionGate =
+        isSelfEdit || isSelfChildCreation || isLinkedChildEdit;
     final permission = widget.memberId == null
         ? (_status == 'visitor' ? 'visitors.create' : 'members.create')
         : (_status == 'visitor' ? 'visitors.edit' : 'members.edit');
