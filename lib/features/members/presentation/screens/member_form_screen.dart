@@ -725,6 +725,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
         final member = Member(
           id: widget.memberId!,
+          authUserId: _existingMember?.authUserId,
           email: effectiveEmail,
           fullName: finalFullName,
           firstName: firstName.isEmpty ? null : firstName,
