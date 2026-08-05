@@ -420,7 +420,13 @@ class MembersRepository {
       raw.remove('created_at');
       raw.remove('id');
 
-      raw['created_by'] ??= currentMemberId;
+      // currentMemberId vem de auth.uid() e pode nao corresponder ao
+      // user_account.id de quem esta editando (ensure_my_account preserva
+      // o id original de linhas pre-existentes/reaproveitadas por email).
+      // Num self-edit, member.id e sempre um user_account.id valido (e a
+      // propria linha sendo atualizada), entao usa ele como fallback em
+      // vez de currentMemberId para nao violar a FK created_by.
+      raw['created_by'] ??= isSelfEdit ? member.id : currentMemberId;
       if ((raw['email'] as String?)?.trim().isEmpty ?? false) {
         raw.remove('email');
       }
