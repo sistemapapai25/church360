@@ -61,6 +61,26 @@ class MembersRepository {
     ['privacy_consent', 'privacy_consent_at'],
   ];
 
+  /// Campos de texto que o MemberFormScreen expõe como editáveis e que o
+  /// usuário pode legitimamente apagar (deixar em branco). Só esses podem
+  /// ser enviados como null no update - qualquer outro campo null vindo de
+  /// Member.toJson() é apenas "não tocado por este formulário" e deve ser
+  /// preservado como está no banco.
+  static const Set<String> _clearableMemberFields = {
+    'first_name',
+    'last_name',
+    'phone',
+    'cpf',
+    'profession',
+    'address',
+    'address_complement',
+    'neighborhood',
+    'city',
+    'state',
+    'zip_code',
+    'notes',
+  };
+
   bool _isMissingColumnError(Object error, [Iterable<String>? columns]) {
     final msg = error.toString().toLowerCase();
     final hasMissingMarker =
@@ -545,9 +565,10 @@ class MembersRepository {
       if (!isElevated) {
         raw.remove('status');
         raw.remove('member_type');
-        raw.remove('membership_date');
-        raw.remove('baptism_date');
-        raw.remove('conversion_date');
+        raw.remove('first_visit_date');
+        // Datas de conversão/batismo/membresia e "deseja contato" são
+        // editáveis pela própria pessoa - só status, tipo de membro e
+        // primeira visita são decisão exclusiva de líder/pastor.
         // 'email' é permitido: membro comum só chega aqui editando o
         // próprio cadastro (editar terceiros já lançou exceção acima),
         // e a troca do email de login (Supabase Auth) é feita à parte
@@ -558,7 +579,15 @@ class MembersRepository {
       for (final entry in raw.entries) {
         final key = entry.key;
         final value = entry.value;
-        if (value == null) continue;
+        // MemberFormScreen constrói o Member de update só com os campos que
+        // o formulário realmente edita; todos os outros (jornada do
+        // visitante, discipulado, mentoria, etc.) chegam aqui como null só
+        // por não terem sido tocados, e nunca devem sobrescrever o que já
+        // está salvo. Já os campos de texto abaixo são editáveis nesse
+        // formulário e podem ser legitimamente apagados pelo usuário -
+        // nesses, um valor null representa uma limpeza intencional e precisa
+        // ser enviado, senão o campo nunca fica vazio no banco.
+        if (value == null && !_clearableMemberFields.contains(key)) continue;
         payload[key] = value;
       }
 

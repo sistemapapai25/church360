@@ -16,6 +16,7 @@ import '../../data/members_repository.dart';
 import '../../domain/models/member.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../kids/presentation/providers/kids_providers.dart';
+import '../../../access_levels/presentation/providers/access_level_provider.dart';
 
 /// Tela de formulário de membro (criar/editar)
 class MemberFormScreen extends ConsumerStatefulWidget {
@@ -1184,6 +1185,19 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
             false);
     final canBypassPermissionGate =
         isSelfEdit || isSelfChildCreation || isLinkedChildEdit;
+    // Dentro de "Informações Eclesiásticas", só Status, Tipo de Membro e
+    // Data da Primeira Visita são decisão pastoral/administrativa — a
+    // própria pessoa não pode alterá-los no próprio cadastro (as demais
+    // datas e "deseja contato" continuam editáveis por ela). O backend
+    // (members_repository.updateMember) já descarta esses três campos
+    // silenciosamente num UPDATE quando quem edita não é líder/coordenador/
+    // admin; aqui escondemos os mesmos campos na UI para não dar a falsa
+    // impressão de que a alteração será salva. Na criação (memberId ==
+    // null) o backend não restringe esses campos (é preciso definir
+    // status/tipo iniciais), então eles continuam visíveis normalmente.
+    final canEditEcclesiasticalInfo =
+        widget.memberId == null ||
+        (ref.watch(isLeaderOrAboveProvider).valueOrNull ?? false);
     final permission = widget.memberId == null
         ? (_status == 'visitor' ? 'visitors.create' : 'members.create')
         : (_status == 'visitor' ? 'visitors.edit' : 'members.edit');
@@ -1699,61 +1713,67 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Seção: Informações Eclesiásticas
+                    // Seção: Informações Eclesiásticas — a maioria dos campos
+                    // é editável pela própria pessoa; Status, Tipo de Membro
+                    // e Data da Primeira Visita são decisão exclusiva de
+                    // líder/pastor/admin (ver canEditEcclesiasticalInfo
+                    // acima) e ficam ocultos no autocadastro.
                     _buildSectionTitle('Informações Eclesiásticas'),
                     const SizedBox(height: 16),
 
-                    // Status
-                    DropdownButtonFormField<String>(
-                      initialValue: _status,
-                      decoration: InputDecoration(
-                        labelText: 'Status *',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.info),
+                    // Status — apenas líder/pastor/admin
+                    if (canEditEcclesiasticalInfo) ...[
+                      DropdownButtonFormField<String>(
+                        initialValue: _status,
+                        decoration: InputDecoration(
+                          labelText: 'Status *',
+                          filled: true,
+                          fillColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.info),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'visitor',
+                            child: Text('Visitante'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'new_convert',
+                            child: Text('Novo Convertido'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'member_active',
+                            child: Text('Membro Ativo'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'member_inactive',
+                            child: Text('Membro Inativo'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'transferred',
+                            child: Text('Transferido'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'deceased',
+                            child: Text('Falecido'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _status = value!;
+                          });
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Campo obrigatório';
+                          }
+                          return null;
+                        },
                       ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'visitor',
-                          child: Text('Visitante'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'new_convert',
-                          child: Text('Novo Convertido'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'member_active',
-                          child: Text('Membro Ativo'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'member_inactive',
-                          child: Text('Membro Inativo'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'transferred',
-                          child: Text('Transferido'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'deceased',
-                          child: Text('Falecido'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _status = value!;
-                        });
-                      },
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Campo obrigatório';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 16),
+                    ],
 
                     // Data de Conversão
                     InkWell(
@@ -1787,10 +1807,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Data de Primeira Visita (relevante para visitantes / Raízes)
-                    if (_status == 'visitor' ||
-                        _status == 'new_convert' ||
-                        _firstVisitDate != null) ...[
+                    // Data de Primeira Visita — apenas líder/pastor/admin
+                    // (relevante para visitantes / Raízes)
+                    if (canEditEcclesiasticalInfo &&
+                        (_status == 'visitor' ||
+                            _status == 'new_convert' ||
+                            _firstVisitDate != null)) ...[
                       InkWell(
                         onTap: () =>
                             _selectDate(context, _firstVisitDate, (date) {
@@ -1912,25 +1934,27 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Tipo de Membro
-                    DropdownButtonFormField<String>(
-                      key: ValueKey(_memberType),
-                      initialValue: _memberType,
-                      decoration: InputDecoration(
-                        labelText: 'Tipo de Membro',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.person_outline),
+                    // Tipo de Membro — apenas líder/pastor/admin
+                    if (canEditEcclesiasticalInfo) ...[
+                      DropdownButtonFormField<String>(
+                        key: ValueKey(_memberType),
+                        initialValue: _memberType,
+                        decoration: InputDecoration(
+                          labelText: 'Tipo de Membro',
+                          filled: true,
+                          fillColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.person_outline),
+                        ),
+                        items: _buildMemberTypeItems(),
+                        onChanged: (value) {
+                          _handleMemberTypeChanged(value);
+                        },
                       ),
-                      items: _buildMemberTypeItems(),
-                      onChanged: (value) {
-                        _handleMemberTypeChanged(value);
-                      },
-                    ),
-                    const SizedBox(height: 24),
+                      const SizedBox(height: 24),
+                    ],
 
                     // Seção: Observações
                     _buildSectionTitle('Observações'),
