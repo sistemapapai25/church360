@@ -38,6 +38,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   String? _imageUrl;
 
   List<Map<String, String>> _eventTypeOptions = [];
+  List<String> _locationOptions = [];
   String? _managingError;
 
   bool _isLoading = false;
@@ -58,6 +59,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
       _loadEvent();
     }
     _loadEventTypes();
+    _loadEventLocations();
   }
 
   @override
@@ -314,6 +316,143 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
       },
     );
     return result;
+  }
+
+  Future<void> _loadEventLocations() async {
+    try {
+      final repo = ref.read(eventsRepositoryProvider);
+      var catalog = await repo.getEventLocationsCatalog();
+      if (catalog.isEmpty) {
+        try {
+          await repo.syncEventLocationsFromExistingEvents();
+          catalog = await repo.getEventLocationsCatalog();
+        } catch (_) {}
+      }
+      if (mounted) setState(() => _locationOptions = catalog);
+    } catch (_) {
+      if (mounted) setState(() => _locationOptions = []);
+    }
+  }
+
+  Future<void> _manageEventLocations() async {
+    final newNameController = TextEditingController();
+    String? added;
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Gerenciar Locais'),
+              content: SizedBox(
+                width: 500,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_managingError != null && _managingError!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          _managingError!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: newNameController,
+                            decoration: InputDecoration(
+                              labelText: 'Nome do local',
+                              filled: true,
+                              fillColor: Theme.of(context).cardColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () async {
+                            final name = newNameController.text.trim();
+                            if (name.isEmpty) {
+                              setStateDialog(
+                                () => _managingError =
+                                    'Informe o nome do local.',
+                              );
+                              return;
+                            }
+                            try {
+                              final repo = ref.read(eventsRepositoryProvider);
+                              await repo.upsertEventLocation(name);
+                              await _loadEventLocations();
+                              setStateDialog(() => _managingError = '');
+                              added = name;
+                              newNameController.clear();
+                            } catch (e) {
+                              setStateDialog(
+                                () => _managingError = 'Erro ao incluir: $e',
+                              );
+                            }
+                          },
+                          child: const Text('Incluir'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _locationOptions.length,
+                        itemBuilder: (context, index) {
+                          final name = _locationOptions[index];
+                          return ListTile(
+                            title: Text(name),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () async {
+                                try {
+                                  final repo = ref.read(
+                                    eventsRepositoryProvider,
+                                  );
+                                  final used = await repo
+                                      .getEventsCountByLocation(name);
+                                  if (used > 0) {
+                                    setStateDialog(
+                                      () => _managingError =
+                                          'Local em uso por $used evento(s).',
+                                    );
+                                    return;
+                                  }
+                                  await repo.deleteEventLocation(name);
+                                  await _loadEventLocations();
+                                  setStateDialog(() => _managingError = '');
+                                } catch (e) {
+                                  setStateDialog(
+                                    () => _managingError = 'Erro ao excluir: $e',
+                                  );
+                                }
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Fechar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (added != null && added!.isNotEmpty) {
+      setState(() => _locationController.text = added!);
+    }
   }
 
   Future<void> _loadEvent() async {
@@ -875,15 +1014,55 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                       const SizedBox(height: 16),
 
                     // Local
-                    TextFormField(
-                      controller: _locationController,
-                      decoration: const InputDecoration(
-                        labelText: 'Local',
-                        prefixIcon: Icon(Icons.location_on),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(),
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Autocomplete<String>(
+                            key: ValueKey(
+                              'evt-location-${_locationController.text}',
+                            ),
+                            initialValue: TextEditingValue(
+                              text: _locationController.text,
+                            ),
+                            optionsBuilder: (TextEditingValue value) {
+                              if (value.text.trim().isEmpty) {
+                                return _locationOptions;
+                              }
+                              final query = value.text.toLowerCase();
+                              return _locationOptions.where(
+                                (option) =>
+                                    option.toLowerCase().contains(query),
+                              );
+                            },
+                            onSelected: (selection) {
+                              _locationController.text = selection;
+                            },
+                            fieldViewBuilder:
+                                (context, controller, focusNode, _) {
+                                  return TextFormField(
+                                    controller: controller,
+                                    focusNode: focusNode,
+                                    onChanged: (value) =>
+                                        _locationController.text = value,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Local',
+                                      prefixIcon: Icon(Icons.location_on),
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  );
+                                },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          tooltip: 'Gerenciar locais',
+                          onPressed: _manageEventLocations,
+                          icon: const Icon(Icons.edit_location_alt_outlined),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
 
@@ -1128,6 +1307,15 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         'status': _status,
         'image_url': _imageUrl,
       };
+
+      final locationText = _locationController.text.trim();
+      if (locationText.isNotEmpty) {
+        try {
+          await ref
+              .read(eventsRepositoryProvider)
+              .upsertEventLocation(locationText);
+        } catch (_) {}
+      }
 
       if (_isFixed) {
         if (_fixedWeekdays.isEmpty) {
