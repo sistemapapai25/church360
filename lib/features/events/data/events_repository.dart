@@ -444,6 +444,51 @@ class EventsRepository {
     }
   }
 
+  /// Deletar múltiplos eventos selecionados manualmente
+  Future<void> deleteEvents(List<String> ids) async {
+    if (ids.isEmpty) return;
+    try {
+      await _supabase
+          .from('event')
+          .delete()
+          .inFilter('id', ids)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Buscar todos os eventos de uma mesma leva (lançamento fixo/recorrente)
+  Future<List<Event>> getEventsByBatch(String batchId) async {
+    try {
+      final response = await _supabase
+          .from('event')
+          .select()
+          .eq('batch_id', batchId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .order('start_date');
+
+      return (response as List)
+          .map((json) => Event.fromJson(Map<String, dynamic>.from(json)))
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Deletar toda a série de eventos gerada no mesmo lançamento fixo/recorrente
+  Future<void> deleteEventsByBatch(String batchId) async {
+    try {
+      await _supabase
+          .from('event')
+          .delete()
+          .eq('batch_id', batchId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Contar total de eventos
   Future<int> getTotalEventsCount() async {
     try {

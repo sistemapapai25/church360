@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../providers/events_provider.dart';
@@ -1329,6 +1330,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         }
 
         final repo = ref.read(eventsRepositoryProvider);
+        final batchId = const Uuid().v4();
         int count = 0;
         final from = DateTime.now();
         final until = DateTime(
@@ -1355,6 +1357,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                 fixedData['start_date'] = fixedStart.toIso8601String();
                 fixedData['end_date'] = null;
                 fixedData['status'] = 'published';
+                fixedData['batch_id'] = batchId;
                 await repo.createEvent(fixedData);
                 count++;
               }
@@ -1376,6 +1379,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
               fixedData['start_date'] = cursor.toIso8601String();
               fixedData['end_date'] = null;
               fixedData['status'] = 'published';
+              fixedData['batch_id'] = batchId;
               await repo.createEvent(fixedData);
               count++;
               cursor = cursor.add(Duration(days: 7 * _intervalWeeks));
@@ -1400,6 +1404,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                 fixedData['start_date'] = fixedStart.toIso8601String();
                 fixedData['end_date'] = null;
                 fixedData['status'] = 'published';
+                fixedData['batch_id'] = batchId;
                 await repo.createEvent(fixedData);
                 count++;
               }
