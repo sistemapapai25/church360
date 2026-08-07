@@ -408,7 +408,12 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             context,
             icon: Icons.family_restroom,
             title: 'Vínculos Familiares',
-            child: _buildFamilyRelationships(context, ref, member),
+            child: _buildFamilyRelationships(
+              context,
+              ref,
+              member,
+              isOwnProfile: false,
+            ),
           ),
           const SizedBox(height: _sectionGap),
           // Endereço
@@ -503,7 +508,12 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           context,
           icon: Icons.family_restroom,
           title: 'Vínculos Familiares',
-          child: _buildFamilyRelationships(context, ref, member),
+          child: _buildFamilyRelationships(
+            context,
+            ref,
+            member,
+            isOwnProfile: true,
+          ),
         ),
         const SizedBox(height: _sectionGap),
         _buildSection(
@@ -1822,11 +1832,29 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   String _familyEditPermission(Member member) =>
       member.status == 'visitor' ? 'visitors.edit' : 'members.edit';
 
+  Widget _familyEditGate({
+    required bool isOwnProfile,
+    required Member member,
+    required Widget child,
+  }) {
+    // No próprio perfil, editar (incluindo vínculos familiares) é sempre
+    // permitido — mesma regra do lápis de edição no cabeçalho do "Meu
+    // Perfil". Em perfil de terceiros, exige a permissão administrativa.
+    if (isOwnProfile) return child;
+    return PermissionGate(
+      permission: _familyEditPermission(member),
+      showLoading: false,
+      fallback: const SizedBox.shrink(),
+      child: child,
+    );
+  }
+
   Widget _buildFamilyRelationships(
     BuildContext context,
     WidgetRef ref,
-    Member member,
-  ) {
+    Member member, {
+    required bool isOwnProfile,
+  }) {
     final relsAsync = ref.watch(familyRelationshipsStreamProvider(member.id));
 
     return relsAsync.when(
@@ -1841,13 +1869,18 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               )
             else
               ...rels.map(
-                (rel) => _buildFamilyRelationRow(context, ref, member, rel),
+                (rel) => _buildFamilyRelationRow(
+                  context,
+                  ref,
+                  member,
+                  rel,
+                  isOwnProfile: isOwnProfile,
+                ),
               ),
             const SizedBox(height: 8),
-            PermissionGate(
-              permission: _familyEditPermission(member),
-              showLoading: false,
-              fallback: const SizedBox.shrink(),
+            _familyEditGate(
+              isOwnProfile: isOwnProfile,
+              member: member,
               child: SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -1880,8 +1913,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     BuildContext context,
     WidgetRef ref,
     Member member,
-    FamilyRelationship rel,
-  ) {
+    FamilyRelationship rel, {
+    required bool isOwnProfile,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     final name = (rel.parenteNome?.trim().isNotEmpty ?? false)
         ? rel.parenteNome!.trim()
@@ -1918,10 +1952,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               ],
             ),
           ),
-          PermissionGate(
-            permission: _familyEditPermission(member),
-            showLoading: false,
-            fallback: const SizedBox.shrink(),
+          _familyEditGate(
+            isOwnProfile: isOwnProfile,
+            member: member,
             child: IconButton(
               icon: const Icon(Icons.link_off, size: 18),
               tooltip: 'Remover vínculo',
