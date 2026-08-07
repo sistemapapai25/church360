@@ -13,6 +13,7 @@ import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/services/viacep_service.dart';
 import '../providers/members_provider.dart';
 import '../../data/members_repository.dart';
+import '../../data/family_relationships_repository.dart';
 import '../../domain/models/member.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../kids/presentation/providers/kids_providers.dart';
@@ -1587,6 +1588,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       ),
                     ],
                     const SizedBox(height: 24),
+                    // Seção: Vínculos Familiares (só é possível vincular
+                    // parentes depois que o membro já existe)
+                    if (widget.memberId != null) ...[
+                      _buildSectionTitle('Vínculos Familiares'),
+                      const SizedBox(height: 16),
+                      _buildFamilyRelationshipsSection(context),
+                      const SizedBox(height: 24),
+                    ],
                     // Seção: Endereço
                     _buildSectionTitle('Endereço'),
                     const SizedBox(height: 16),
@@ -1979,6 +1988,333 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildFamilyRelationshipsSection(BuildContext context) {
+    final memberId = widget.memberId!;
+    final relsAsync = ref.watch(familyRelationshipsStreamProvider(memberId));
+
+    return relsAsync.when(
+      data: (rels) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (rels.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Nenhum vínculo familiar cadastrado.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              )
+            else
+              ...rels.map((rel) => _buildFamilyRelationRow(context, rel)),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () =>
+                    _showAddFamilyRelationshipDialog(context, memberId),
+                icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+                label: const Text('Vincular parente'),
+              ),
+            ),
+          ],
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Text('Não foi possível carregar os vínculos: $e'),
+    );
+  }
+
+  Widget _buildFamilyRelationRow(BuildContext context, FamilyRelationship rel) {
+    final name = (rel.parenteNome?.trim().isNotEmpty ?? false)
+        ? rel.parenteNome!.trim()
+        : 'Membro não encontrado';
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.person),
+      title: Text(name),
+      subtitle: Text(familyRelationshipLabel(rel.tipo)),
+      trailing: IconButton(
+        icon: const Icon(Icons.link_off, size: 18),
+        tooltip: 'Remover vínculo',
+        color: Colors.red,
+        onPressed: () => _confirmRemoveFamilyRelationship(context, rel),
+      ),
+    );
+  }
+
+  Future<void> _confirmRemoveFamilyRelationship(
+    BuildContext context,
+    FamilyRelationship rel,
+  ) async {
+    final name = (rel.parenteNome?.trim().isNotEmpty ?? false)
+        ? rel.parenteNome!.trim()
+        : 'este parente';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remover vínculo'),
+        content: Text('Deseja remover o vínculo familiar com $name?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Remover'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final repo = ref.read(familyRelationshipsRepositoryProvider);
+      await repo.removeRelationship(rel);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vínculo familiar removido.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Não foi possível remover o vínculo: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _showAddFamilyRelationshipDialog(
+    BuildContext context,
+    String memberId,
+  ) async {
+    Member? selectedMember;
+    String selectedType = 'pai';
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (innerContext, setInnerState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 4,
+                bottom: MediaQuery.of(innerContext).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.family_restroom),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Vincular parente',
+                        style: Theme.of(innerContext).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Consumer(
+                    builder: (consumerContext, consumerRef, _) {
+                      final membersAsync = consumerRef.watch(
+                        allMembersProvider,
+                      );
+                      return membersAsync.when(
+                        data: (members) {
+                          final filtered = members
+                              .where((m) => m.id != memberId)
+                              .toList();
+                          return LayoutBuilder(
+                            builder: (context, constraints) {
+                              return Autocomplete<Member>(
+                                optionsBuilder: (TextEditingValue value) {
+                                  final text = value.text.trim();
+                                  if (text.length < 3) {
+                                    return const Iterable<Member>.empty();
+                                  }
+                                  final q = text.toLowerCase();
+                                  return filtered.where(
+                                    (m) =>
+                                        m.displayName.toLowerCase().contains(
+                                          q,
+                                        ) ||
+                                        (m.nickname?.toLowerCase().contains(
+                                              q,
+                                            ) ??
+                                            false) ||
+                                        m.email.toLowerCase().contains(q),
+                                  );
+                                },
+                                displayStringForOption: (m) => m.displayName,
+                                onSelected: (Member selection) {
+                                  setInnerState(
+                                    () => selectedMember = selection,
+                                  );
+                                },
+                                fieldViewBuilder:
+                                    (
+                                      fieldContext,
+                                      fieldController,
+                                      fieldFocusNode,
+                                      onFieldSubmitted,
+                                    ) {
+                                      return TextFormField(
+                                        controller: fieldController,
+                                        focusNode: fieldFocusNode,
+                                        decoration: const InputDecoration(
+                                          border: OutlineInputBorder(),
+                                          labelText: 'Buscar pessoa',
+                                          prefixIcon: Icon(Icons.search),
+                                          helperText:
+                                              'Digite 3 letras ou mais para buscar',
+                                        ),
+                                      );
+                                    },
+                                optionsViewBuilder: (optContext, onSelected, options) {
+                                  return Align(
+                                    alignment: Alignment.topLeft,
+                                    child: Material(
+                                      elevation: 4.0,
+                                      child: SizedBox(
+                                        width: constraints.maxWidth,
+                                        child: ListView.builder(
+                                          padding: EdgeInsets.zero,
+                                          shrinkWrap: true,
+                                          itemCount: options.length,
+                                          itemBuilder: (itemContext, index) {
+                                            final option = options.elementAt(
+                                              index,
+                                            );
+                                            return ListTile(
+                                              title: Text(option.displayName),
+                                              subtitle: Text(option.email),
+                                              onTap: () => onSelected(option),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                        loading: () =>
+                            const Center(child: CircularProgressIndicator()),
+                        error: (e, _) => Text('Erro ao carregar membros: $e'),
+                      );
+                    },
+                  ),
+                  if (selectedMember != null) ...[
+                    const SizedBox(height: 8),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.person),
+                      title: Text(selectedMember!.displayName),
+                      subtitle: Text(selectedMember!.email),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () =>
+                            setInnerState(() => selectedMember = null),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedType,
+                    decoration: const InputDecoration(
+                      labelText: 'Parentesco',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: familyRelationshipTypeLabels.entries
+                        .map(
+                          (e) => DropdownMenuItem(
+                            value: e.key,
+                            child: Text(e.value),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setInnerState(() => selectedType = value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: selectedMember == null
+                          ? null
+                          : () async {
+                              final navigator = Navigator.of(sheetContext);
+                              try {
+                                final repo = ref.read(
+                                  familyRelationshipsRepositoryProvider,
+                                );
+                                await repo.addRelationship(
+                                  memberId,
+                                  selectedMember!.id,
+                                  selectedType,
+                                );
+                                navigator.pop();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Vínculo familiar adicionado com sucesso!',
+                                      ),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (innerContext.mounted) {
+                                  ScaffoldMessenger.of(
+                                    innerContext,
+                                  ).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Não foi possível adicionar o vínculo: $e',
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                      icon: const Icon(Icons.check),
+                      label: const Text('Salvar vínculo'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

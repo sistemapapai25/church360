@@ -40,37 +40,6 @@ class _LgpdRequestOption {
   });
 }
 
-const Map<String, String> _familyRelationshipTypeLabels = {
-  'pai': 'Pai',
-  'mae': 'Mãe',
-  'filho': 'Filho',
-  'filha': 'Filha',
-  'irmao': 'Irmão',
-  'irma': 'Irmã',
-  'conjuge': 'Cônjuge',
-  'genro': 'Genro',
-  'nora': 'Nora',
-  'sogro': 'Sogro',
-  'sogra': 'Sogra',
-  'neto': 'Neto',
-  'neta': 'Neta',
-  'avo': 'Avô',
-  'ava': 'Avó',
-  'sobrinho': 'Sobrinho',
-  'sobrinha': 'Sobrinha',
-  'tio': 'Tio',
-  'tia': 'Tia',
-  'primo': 'Primo',
-  'prima': 'Prima',
-  'tutor': 'Tutor',
-  'tutora': 'Tutora',
-  'tutelado': 'Tutelado',
-  'tutelada': 'Tutelada',
-};
-
-String _familyRelationshipLabel(String tipo) =>
-    _familyRelationshipTypeLabels[tipo] ?? tipo;
-
 const List<_LgpdRequestOption> _lgpdRequestOptions = [
   _LgpdRequestOption(
     type: 'export',
@@ -408,12 +377,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             context,
             icon: Icons.family_restroom,
             title: 'Vínculos Familiares',
-            child: _buildFamilyRelationships(
-              context,
-              ref,
-              member,
-              isOwnProfile: false,
-            ),
+            child: _buildFamilyRelationships(context, ref, member),
           ),
           const SizedBox(height: _sectionGap),
           // Endereço
@@ -508,12 +472,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           context,
           icon: Icons.family_restroom,
           title: 'Vínculos Familiares',
-          child: _buildFamilyRelationships(
-            context,
-            ref,
-            member,
-            isOwnProfile: true,
-          ),
+          child: _buildFamilyRelationships(context, ref, member),
         ),
         const SizedBox(height: _sectionGap),
         _buildSection(
@@ -1829,73 +1788,28 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     return Column(children: items);
   }
 
-  String _familyEditPermission(Member member) =>
-      member.status == 'visitor' ? 'visitors.edit' : 'members.edit';
-
-  Widget _familyEditGate({
-    required bool isOwnProfile,
-    required Member member,
-    required Widget child,
-  }) {
-    // No próprio perfil, editar (incluindo vínculos familiares) é sempre
-    // permitido — mesma regra do lápis de edição no cabeçalho do "Meu
-    // Perfil". Em perfil de terceiros, exige a permissão administrativa.
-    if (isOwnProfile) return child;
-    return PermissionGate(
-      permission: _familyEditPermission(member),
-      showLoading: false,
-      fallback: const SizedBox.shrink(),
-      child: child,
-    );
-  }
-
+  /// Somente leitura: gerenciar (adicionar/remover) vínculos é feito na
+  /// tela de edição do membro, não aqui no perfil.
   Widget _buildFamilyRelationships(
     BuildContext context,
     WidgetRef ref,
-    Member member, {
-    required bool isOwnProfile,
-  }) {
+    Member member,
+  ) {
     final relsAsync = ref.watch(familyRelationshipsStreamProvider(member.id));
 
     return relsAsync.when(
       data: (rels) {
+        if (rels.isEmpty) {
+          return Text(
+            'Nenhum vínculo familiar cadastrado.',
+            style: CommunityDesign.metaStyle(context),
+          );
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (rels.isEmpty)
-              Text(
-                'Nenhum vínculo familiar cadastrado.',
-                style: CommunityDesign.metaStyle(context),
-              )
-            else
-              ...rels.map(
-                (rel) => _buildFamilyRelationRow(
-                  context,
-                  ref,
-                  member,
-                  rel,
-                  isOwnProfile: isOwnProfile,
-                ),
-              ),
-            const SizedBox(height: 8),
-            _familyEditGate(
-              isOwnProfile: isOwnProfile,
-              member: member,
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () =>
-                      _showAddFamilyRelationshipDialog(context, ref, member),
-                  icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
-                  label: const Text('Vincular parente'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: const StadiumBorder(),
-                  ),
-                ),
-              ),
-            ),
-          ],
+          children: rels
+              .map((rel) => _buildFamilyRelationRow(context, rel))
+              .toList(),
         );
       },
       loading: () => const Padding(
@@ -1909,13 +1823,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     );
   }
 
-  Widget _buildFamilyRelationRow(
-    BuildContext context,
-    WidgetRef ref,
-    Member member,
-    FamilyRelationship rel, {
-    required bool isOwnProfile,
-  }) {
+  Widget _buildFamilyRelationRow(BuildContext context, FamilyRelationship rel) {
     final colorScheme = Theme.of(context).colorScheme;
     final name = (rel.parenteNome?.trim().isNotEmpty ?? false)
         ? rel.parenteNome!.trim()
@@ -1946,300 +1854,14 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                   ).copyWith(fontSize: 14, fontWeight: FontWeight.w700),
                 ),
                 Text(
-                  _familyRelationshipLabel(rel.tipo),
+                  familyRelationshipLabel(rel.tipo),
                   style: CommunityDesign.metaStyle(context),
                 ),
               ],
             ),
           ),
-          _familyEditGate(
-            isOwnProfile: isOwnProfile,
-            member: member,
-            child: IconButton(
-              icon: const Icon(Icons.link_off, size: 18),
-              tooltip: 'Remover vínculo',
-              color: Colors.red,
-              onPressed: () =>
-                  _confirmRemoveFamilyRelationship(context, ref, rel),
-            ),
-          ),
         ],
       ),
-    );
-  }
-
-  Future<void> _confirmRemoveFamilyRelationship(
-    BuildContext context,
-    WidgetRef ref,
-    FamilyRelationship rel,
-  ) async {
-    final name = (rel.parenteNome?.trim().isNotEmpty ?? false)
-        ? rel.parenteNome!.trim()
-        : 'este parente';
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Remover vínculo'),
-        content: Text('Deseja remover o vínculo familiar com $name?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Remover'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    try {
-      final repo = ref.read(familyRelationshipsRepositoryProvider);
-      await repo.removeRelationship(rel);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vínculo familiar removido.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Não foi possível remover o vínculo: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _showAddFamilyRelationshipDialog(
-    BuildContext context,
-    WidgetRef ref,
-    Member member,
-  ) async {
-    Member? selectedMember;
-    String selectedType = 'pai';
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (innerContext, setInnerState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 4,
-                bottom: MediaQuery.of(innerContext).viewInsets.bottom + 16,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.family_restroom),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Vincular parente',
-                        style: CommunityDesign.titleStyle(
-                          innerContext,
-                        ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Consumer(
-                    builder: (consumerContext, consumerRef, _) {
-                      final membersAsync = consumerRef.watch(
-                        allMembersProvider,
-                      );
-                      return membersAsync.when(
-                        data: (members) {
-                          final filtered = members
-                              .where((m) => m.id != member.id)
-                              .toList();
-                          return LayoutBuilder(
-                            builder: (context, constraints) {
-                              return Autocomplete<Member>(
-                                optionsBuilder: (TextEditingValue value) {
-                                  final text = value.text.trim();
-                                  if (text.length < 3) {
-                                    return const Iterable<Member>.empty();
-                                  }
-                                  final q = text.toLowerCase();
-                                  return filtered.where(
-                                    (m) =>
-                                        m.displayName.toLowerCase().contains(
-                                          q,
-                                        ) ||
-                                        (m.nickname?.toLowerCase().contains(
-                                              q,
-                                            ) ??
-                                            false) ||
-                                        m.email.toLowerCase().contains(q),
-                                  );
-                                },
-                                displayStringForOption: (m) => m.displayName,
-                                onSelected: (Member selection) {
-                                  setInnerState(
-                                    () => selectedMember = selection,
-                                  );
-                                },
-                                fieldViewBuilder:
-                                    (
-                                      fieldContext,
-                                      fieldController,
-                                      fieldFocusNode,
-                                      onFieldSubmitted,
-                                    ) {
-                                      return TextFormField(
-                                        controller: fieldController,
-                                        focusNode: fieldFocusNode,
-                                        decoration: const InputDecoration(
-                                          border: OutlineInputBorder(),
-                                          labelText: 'Buscar pessoa',
-                                          prefixIcon: Icon(Icons.search),
-                                          helperText:
-                                              'Digite 3 letras ou mais para buscar',
-                                        ),
-                                      );
-                                    },
-                                optionsViewBuilder: (optContext, onSelected, options) {
-                                  return Align(
-                                    alignment: Alignment.topLeft,
-                                    child: Material(
-                                      elevation: 4.0,
-                                      child: SizedBox(
-                                        width: constraints.maxWidth,
-                                        child: ListView.builder(
-                                          padding: EdgeInsets.zero,
-                                          shrinkWrap: true,
-                                          itemCount: options.length,
-                                          itemBuilder: (itemContext, index) {
-                                            final option = options.elementAt(
-                                              index,
-                                            );
-                                            return ListTile(
-                                              title: Text(option.displayName),
-                                              subtitle: Text(option.email),
-                                              onTap: () => onSelected(option),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          );
-                        },
-                        loading: () =>
-                            const Center(child: CircularProgressIndicator()),
-                        error: (e, _) => Text('Erro ao carregar membros: $e'),
-                      );
-                    },
-                  ),
-                  if (selectedMember != null) ...[
-                    const SizedBox(height: 8),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.person),
-                      title: Text(selectedMember!.displayName),
-                      subtitle: Text(selectedMember!.email),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () =>
-                            setInnerState(() => selectedMember = null),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedType,
-                    decoration: const InputDecoration(
-                      labelText: 'Parentesco',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: _familyRelationshipTypeLabels.entries
-                        .map(
-                          (e) => DropdownMenuItem(
-                            value: e.key,
-                            child: Text(e.value),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setInnerState(() => selectedType = value);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: selectedMember == null
-                          ? null
-                          : () async {
-                              final navigator = Navigator.of(sheetContext);
-                              try {
-                                final repo = ref.read(
-                                  familyRelationshipsRepositoryProvider,
-                                );
-                                await repo.addRelationship(
-                                  member.id,
-                                  selectedMember!.id,
-                                  selectedType,
-                                );
-                                navigator.pop();
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(
-                                    context,
-                                  ).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Vínculo familiar adicionado com sucesso!',
-                                      ),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                }
-                              } catch (e) {
-                                if (innerContext.mounted) {
-                                  ScaffoldMessenger.of(
-                                    innerContext,
-                                  ).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Não foi possível adicionar o vínculo: $e',
-                                      ),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                      icon: const Icon(Icons.check),
-                      label: const Text('Salvar vínculo'),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-              ),
-            );
-          },
-        );
-      },
     );
   }
 

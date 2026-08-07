@@ -1,5 +1,36 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+const Map<String, String> familyRelationshipTypeLabels = {
+  'pai': 'Pai',
+  'mae': 'Mãe',
+  'filho': 'Filho',
+  'filha': 'Filha',
+  'irmao': 'Irmão',
+  'irma': 'Irmã',
+  'conjuge': 'Cônjuge',
+  'genro': 'Genro',
+  'nora': 'Nora',
+  'sogro': 'Sogro',
+  'sogra': 'Sogra',
+  'neto': 'Neto',
+  'neta': 'Neta',
+  'avo': 'Avô',
+  'ava': 'Avó',
+  'sobrinho': 'Sobrinho',
+  'sobrinha': 'Sobrinha',
+  'tio': 'Tio',
+  'tia': 'Tia',
+  'primo': 'Primo',
+  'prima': 'Prima',
+  'tutor': 'Tutor',
+  'tutora': 'Tutora',
+  'tutelado': 'Tutelado',
+  'tutelada': 'Tutelada',
+};
+
+String familyRelationshipLabel(String tipo) =>
+    familyRelationshipTypeLabels[tipo] ?? tipo;
+
 class FamilyRelationship {
   final String id;
   final String membroId;
