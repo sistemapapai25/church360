@@ -204,18 +204,45 @@ class KidsRepository {
   // ==========================================
 
   /// Listar guardiões de uma criança
+  ///
+  /// Resolve nome/foto do guardião via RPC (get_tenant_member_directory) em
+  /// vez de embed direto em user_account: a RLS de user_account só libera
+  /// leitura de terceiros para papéis elevados, então o embed retornava nulo
+  /// para um membro comum mesmo com o vínculo correto no banco.
   Future<List<KidsAuthorizedGuardian>> getGuardians(String childId) async {
     final response = await _supabase
         .from('kids_authorized_guardian')
-        .select('*, guardian:user_account!guardian_id(full_name, avatar_url)')
+        .select()
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('child_id', childId);
 
-    return (response as List).map((json) {
-      final data = Map<String, dynamic>.from(json);
-      if (data['guardian'] != null) {
-        data['guardian_name'] = data['guardian']['full_name'];
-        data['guardian_photo'] = data['guardian']['avatar_url'];
+    final rows = (response as List)
+        .map((json) => Map<String, dynamic>.from(json))
+        .toList();
+
+    if (rows.isEmpty) return [];
+
+    Map<String, dynamic> directoryById = {};
+    try {
+      final guardianIds =
+          rows.map((r) => r['guardian_id'] as String).toSet().toList();
+      final directory = await _supabase.rpc(
+        'get_tenant_member_directory',
+        params: {'p_ids': guardianIds},
+      );
+      directoryById = {
+        for (final entry in (directory as List))
+          (entry as Map)['id'] as String: entry,
+      };
+    } catch (e) {
+      debugPrint('Erro ao buscar diretório de membros: $e');
+    }
+
+    return rows.map((data) {
+      final guardian = directoryById[data['guardian_id']];
+      if (guardian != null) {
+        data['guardian_name'] = guardian['full_name'];
+        data['guardian_photo'] = guardian['avatar_url'];
       }
       return KidsAuthorizedGuardian.fromJson(data);
     }).toList();

@@ -22,6 +22,29 @@ class FamilyRelationshipsRepository {
   final SupabaseClient _supabase;
   FamilyRelationshipsRepository(this._supabase);
 
+  /// Resolve nome/gênero de um conjunto de ids via RPC
+  /// get_tenant_member_directory: a RLS de user_account só libera leitura de
+  /// terceiros para papéis elevados, então um SELECT direto na tabela
+  /// retorna vazio para um membro comum consultando cônjuge/parente.
+  Future<Map<String, Map<String, dynamic>>> _directoryByIds(
+    Iterable<String> ids,
+  ) async {
+    final idList = ids.toSet().toList();
+    if (idList.isEmpty) return {};
+    try {
+      final response = await _supabase.rpc(
+        'get_tenant_member_directory',
+        params: {'p_ids': idList},
+      );
+      return {
+        for (final entry in (response as List))
+          (entry as Map)['id'] as String: Map<String, dynamic>.from(entry),
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
   Future<List<FamilyRelationship>> getByMember(String memberId) async {
     final dirRes = await _supabase
         .from('relacionamentos_familiares')
@@ -47,19 +70,14 @@ class FamilyRelationshipsRepository {
       ...dirList.map((e) => e.membroId),
       ...dirList.map((e) => e.parenteId),
       ...revRaw.map((r) => r['membro_id'] as String),
-    }.toList();
+    };
 
-    final cond = ids.map((id) => 'id.eq.$id').join(',');
-    final users = await _supabase
-        .from('user_account')
-        .select('id, full_name, gender')
-        .or(cond);
+    final directory = await _directoryByIds(ids);
     final nameMap = <String, String>{};
     final genderMap = <String, String?>{};
-    for (final u in (users as List<dynamic>)) {
-      final uid = u['id'] as String;
-      nameMap[uid] = (u['full_name'] as String?) ?? '';
-      genderMap[uid] = u['gender'] as String?;
+    for (final entry in directory.entries) {
+      nameMap[entry.key] = (entry.value['full_name'] as String?) ?? '';
+      genderMap[entry.key] = entry.value['gender'] as String?;
     }
 
     final revList = revRaw.map((r) {
@@ -123,16 +141,8 @@ class FamilyRelationshipsRepository {
     if (existing != null) return;
 
     // Buscar gêneros de AMBOS
-    final members = await _supabase
-        .from('user_account')
-        .select('id, gender')
-        .or('id.eq.$memberId,id.eq.$parenteId');
-
-    String? genderParente;
-
-    for (final m in (members as List<dynamic>)) {
-      if (m['id'] == parenteId) genderParente = m['gender'];
-    }
+    final directory = await _directoryByIds([memberId, parenteId]);
+    final genderParente = directory[parenteId]?['gender'] as String?;
 
     // Inserir direto
     await _supabase.from('relacionamentos_familiares').insert({
@@ -177,12 +187,8 @@ class FamilyRelationshipsRepository {
     // memberId -> parenteId (type)
 
     // Precisamos do gênero do memberId para definir se ele entra como Avô ou Avó
-    final mRes = await _supabase
-        .from('user_account')
-        .select('gender')
-        .eq('id', memberId)
-        .maybeSingle();
-    final memberGender = _toSexo(mRes?['gender'] as String?);
+    final mDirectory = await _directoryByIds([memberId]);
+    final memberGender = _toSexo(mDirectory[memberId]?['gender'] as String?);
     final isMemberMale = memberGender == 'M';
 
     // Se estamos adicionando um PAI ou MÃE (memberId é pai/mãe de parenteId)
@@ -241,12 +247,8 @@ class FamilyRelationshipsRepository {
        // 2. Verificar se o FILHO (memberId) tem FILHOS (Netos do parenteId)
        // Se o memberId já tem filhos, o parenteId vira Avô/Avó deles.
        // Precisamos saber o gênero do parenteId.
-       final pRes = await _supabase
-          .from('user_account')
-          .select('gender')
-          .eq('id', parenteId)
-          .maybeSingle();
-       final parentGender = _toSexo(pRes?['gender'] as String?);
+       final pDirectory = await _directoryByIds([parenteId]);
+       final parentGender = _toSexo(pDirectory[parenteId]?['gender'] as String?);
        final isParentMale = parentGender == 'M';
 
        final memberRelations = await getByMember(memberId);

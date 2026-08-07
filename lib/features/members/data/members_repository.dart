@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/constants/supabase_constants.dart';
 
 import '../domain/models/member.dart';
+import '../domain/models/member_directory_entry.dart';
 
 class LgpdDataRequest {
   final String id;
@@ -194,6 +195,24 @@ class MembersRepository {
           .order('first_name', ascending: true);
 
       return (response as List).map((json) => Member.fromJson(json)).toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Diretório limitado de membros do tenant (nome, apelido, foto, gênero).
+  /// Usa o RPC get_tenant_member_directory, que contorna com segurança a RLS
+  /// restritiva de user_account (usuários comuns só veem a própria linha),
+  /// expondo só o mínimo necessário para buscas de pessoa (ex: adicionar
+  /// responsável na área Kids, resolver nome de parente/cônjuge).
+  Future<List<MemberDirectoryEntry>> getMemberDirectory() async {
+    try {
+      final response = await _supabase.rpc('get_tenant_member_directory');
+      return (response as List)
+          .map((json) => MemberDirectoryEntry.fromJson(
+                Map<String, dynamic>.from(json),
+              ))
+          .toList();
     } catch (e) {
       rethrow;
     }
