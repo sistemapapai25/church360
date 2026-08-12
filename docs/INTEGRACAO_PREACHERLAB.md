@@ -2,6 +2,7 @@
 
 **Status:** Desenho fechado (exploração), implementação adiada para v2 pós-lançamento.
 **Última atualização:** 2026-08-12
+**Localização:** repositório `app/` (GitHub `sistemapapai25/church360`), branch `main`.
 
 ## Contexto
 
