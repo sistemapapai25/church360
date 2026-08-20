@@ -26,9 +26,6 @@ import '../../features/church_info/domain/models/church_info.dart';
 import '../../features/church_info/presentation/providers/church_info_provider.dart';
 import '../../features/home_content/presentation/providers/banners_provider.dart';
 import '../../features/members/presentation/providers/members_provider.dart';
-import '../../features/ministries/domain/models/ministry.dart';
-import '../../features/ministries/presentation/providers/ministries_provider.dart';
-import '../../features/ministries/presentation/utils/ministry_visuals.dart';
 import '../../features/study_groups/domain/models/study_group.dart';
 import '../../features/study_groups/presentation/providers/study_group_provider.dart';
 import '../../features/contribution/presentation/screens/contribution_info_screen.dart';
@@ -1295,20 +1292,6 @@ double _homeGridAspectRatio(BuildContext context) {
 // =====================================================
 
 /// Tab "Mais" - Menu com todas as opções (versão mobile)
-/// Ordena ministérios da seção "Meus Ministérios" da aba Mais:
-/// tipos especializados primeiro pela ordem do enum [MinistryType]
-/// (raizes → diaconato → kids → louvor → midia); `generic` por último,
-/// alfabético por `name`.
-int _compareMyMinistries(Ministry a, Ministry b) {
-  final aGeneric = a.ministryType == MinistryType.generic;
-  final bGeneric = b.ministryType == MinistryType.generic;
-  if (aGeneric != bGeneric) return aGeneric ? 1 : -1;
-  if (aGeneric && bGeneric) {
-    return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-  }
-  return a.ministryType.index.compareTo(b.ministryType.index);
-}
-
 class _MoreTab extends ConsumerWidget {
   const _MoreTab();
 
@@ -1490,31 +1473,6 @@ class _MoreTab extends ConsumerWidget {
                 ],
               );
             },
-          ),
-          ref.watch(currentMemberMinistriesProvider).maybeWhen(
-            data: (ministries) {
-              if (ministries.isEmpty) return const SizedBox.shrink();
-              final sorted = [...ministries]..sort(_compareMyMinistries);
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final m in sorted) ...[
-                    _buildMenuCard(
-                      context,
-                      ministryIconData(
-                        m.icon,
-                        fallback: Icons.church_outlined,
-                      ),
-                      m.name,
-                      m.specializedRoute() ?? '/ministries/${m.id}',
-                      color: ministryColor(m.color),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                ],
-              );
-            },
-            orElse: () => const SizedBox.shrink(),
           ),
           _buildMenuCard(
             context,
