@@ -61,6 +61,16 @@ final currentMemberMinistriesProvider = FutureProvider<List<Ministry>>((ref) asy
   return repo.getMemberMinistries(member.id);
 });
 
+/// Indica se o usuário atual é `coordinator` (líder direto do departamento,
+/// CHU-302) em pelo menos um ministério. Usado para liberar cards do
+/// Dashboard que exigem esse papel, como a Agenda completa.
+final currentUserIsMinistryCoordinatorProvider = FutureProvider<bool>((ref) async {
+  final repo = ref.watch(ministriesRepositoryProvider);
+  final member = await ref.watch(currentMemberProvider.future);
+  if (member == null) return false;
+  return repo.isCoordinatorOfAnyMinistry(member.id);
+});
+
 /// Provider de escalas de um evento
 final eventSchedulesProvider = FutureProvider.family<List<MinistrySchedule>, String>((ref, eventId) async {
   final repo = ref.watch(ministriesRepositoryProvider);
