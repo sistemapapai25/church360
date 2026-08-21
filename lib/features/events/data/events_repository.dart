@@ -554,7 +554,9 @@ class EventsRepository {
     required String memberId,
   }) async {
     try {
-      // Usar upsert para evitar problemas com constraints
+      // `onConflict` é obrigatório: sem ele o PostgREST infere a PK (`id`), que
+      // o app não envia, e o upsert vira INSERT puro — reinscrever alguém já
+      // inscrito derrubaria a UNIQUE (event_id, user_id) com 409.
       final response = await _supabase
           .from('event_registration')
           .upsert({
@@ -562,7 +564,7 @@ class EventsRepository {
             'user_id': memberId,
             'registered_at': DateTime.now().toIso8601String(),
             'tenant_id': SupabaseConstants.currentTenantId,
-          })
+          }, onConflict: 'event_id,user_id')
           .select()
           .single();
 

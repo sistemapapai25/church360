@@ -314,7 +314,7 @@ class NotificationRepository {
           .upsert({
             'user_id': userId,
             'tenant_id': SupabaseConstants.currentTenantId,
-          })
+          }, onConflict: 'user_id')
           .select()
           .single();
       return NotificationPreferences.fromJson(created);
@@ -356,13 +356,17 @@ class NotificationRepository {
     if (quietHoursStart != null) updates['quiet_hours_start'] = quietHoursStart;
     if (quietHoursEnd != null) updates['quiet_hours_end'] = quietHoursEnd;
 
+    // A UNIQUE em produção é (user_id), sem o tenant. Sem `onConflict` o
+    // PostgREST infere a PK (`id`) e o upsert vira INSERT puro: quem já tem
+    // preferências gravadas leva 409 ao salvar de novo.
+    // A falta do tenant na constraint é problema à parte — ver CHU-324.
     final response = await _supabase
         .from('notification_preferences')
         .upsert({
           'user_id': userId,
           ...updates,
           'tenant_id': SupabaseConstants.currentTenantId,
-        })
+        }, onConflict: 'user_id')
         .select()
         .single();
 
@@ -383,6 +387,9 @@ class NotificationRepository {
     final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
 
+    // UNIQUE (user_id, device_id) — sem `onConflict` o PostgREST infere a PK
+    // (`id`) e re-registrar o mesmo aparelho estoura 409. Enquanto o chamador
+    // não mandar `deviceId`, o NULL impede a deduplicação (ver CHU-323).
     final response = await _supabase
         .from('fcm_tokens')
         .upsert({
@@ -394,7 +401,7 @@ class NotificationRepository {
           'is_active': true,
           'last_used_at': DateTime.now().toIso8601String(),
           'tenant_id': SupabaseConstants.currentTenantId,
-        })
+        }, onConflict: 'user_id,device_id')
         .select()
         .single();
 
