@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../../support_chat/data/support_agents_data.dart';
+import '../domain/custom_permission_plan.dart';
 import '../domain/models/permission.dart';
 import '../domain/models/user_effective_permission.dart';
 import 'user_roles_repository.dart' show MemberWithoutAccountException;
@@ -514,5 +515,51 @@ class PermissionsRepository {
         .delete()
         .eq('user_id', authUserId)
         .eq('permission_id', permissionId);
+  }
+
+  /// Aplicar vários overrides de uma vez (CHU-317).
+  ///
+  /// Um upsert com todos os grants/denies e um delete com todos os clears —
+  /// duas requisições no máximo, independentemente do tamanho da categoria
+  /// (marcar `ministries` item a item eram 19 round-trips sequenciais).
+  /// Lança [MemberWithoutAccountException] se o membro não tiver conta de
+  /// acesso, igual ao caminho de uma permissão só.
+  Future<void> applyCustomPermissions({
+    required String userId,
+    required CustomPermissionPlan plan,
+  }) async {
+    if (plan.isEmpty) return;
+
+    final authUserId = await _resolveAuthUserId(userId);
+    if (authUserId == null) {
+      throw MemberWithoutAccountException(userId);
+    }
+
+    final rows = <Map<String, dynamic>>[];
+    for (final permissionId in plan.grantIds) {
+      rows.add({'permission_id': permissionId, 'is_granted': true});
+    }
+    for (final permissionId in plan.denyIds) {
+      rows.add({'permission_id': permissionId, 'is_granted': false});
+    }
+
+    if (rows.isNotEmpty) {
+      final actorId = await _effectiveUserId();
+      for (final row in rows) {
+        row['user_id'] = authUserId;
+        row['expires_at'] = null;
+        row['reason'] = null;
+        row['granted_by'] = actorId;
+      }
+      await _supabase.from('user_custom_permissions').upsert(rows);
+    }
+
+    if (plan.clearIds.isNotEmpty) {
+      await _supabase
+          .from('user_custom_permissions')
+          .delete()
+          .eq('user_id', authUserId)
+          .inFilter('permission_id', plan.clearIds);
+    }
   }
 }

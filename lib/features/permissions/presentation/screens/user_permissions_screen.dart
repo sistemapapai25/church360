@@ -1,24 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../data/user_roles_repository.dart' show MemberWithoutAccountException;
 import '../../providers/permissions_providers.dart';
+import '../../domain/custom_permission_plan.dart';
 import '../../domain/models/permission.dart';
 import '../../domain/models/user_effective_permission.dart';
-
-class _PermissionCategoryOption {
-  const _PermissionCategoryOption(this.value, this.label);
-
-  final String? value;
-  final String label;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _PermissionCategoryOption && other.value == value;
-
-  @override
-  int get hashCode => value.hashCode;
-}
+import '../permission_category_display.dart';
 
 class UserPermissionsScreen extends ConsumerStatefulWidget {
   final String userId;
@@ -34,10 +24,139 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
   bool _isSaving = false;
   final _searchController = TextEditingController();
 
+  /// Categorias abertas manualmente (CHU-316). Guardado aqui e não no
+  /// `ExpansionTile` porque a `ListView.builder` descarta os cards que saem da
+  /// tela — e porque a busca abre tudo temporariamente sem apagar a escolha
+  /// do usuário.
+  final Set<String> _expandedCategories = {};
+
+  Timer? _searchDebounce;
+
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  bool get _isSearching => _searchQuery.isNotEmpty;
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
+      setState(() => _searchQuery = value.trim().toLowerCase());
+    });
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    setState(() {
+      _searchController.clear();
+      _searchQuery = '';
+    });
+  }
+
+  UserPermissionState _stateFor(
+    Permission permission,
+    Map<String, List<UserEffectivePermission>> effectiveMap,
+  ) {
+    final entries = effectiveMap[permission.code] ?? const [];
+    final custom = entries.where((e) => e.source == 'custom').firstOrNull;
+    final role = entries.where((e) => e.source == 'role').firstOrNull;
+    return UserPermissionState(
+      permissionId: permission.id,
+      roleGranted: role?.isGranted ?? false,
+      customGranted: custom?.isGranted,
+    );
+  }
+
+  /// Caminho único de gravação: um toque no switch e o "marcar todas" do card
+  /// passam pelo mesmo plano, então o resultado em lote bate exatamente com o
+  /// que marcar item a item produziria (CHU-317).
+  Future<void> _applyPlan(CustomPermissionPlan plan, {String? successMessage}) async {
+    if (_isSaving || plan.isEmpty) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(permissionsRepositoryProvider).applyCustomPermissions(
+            userId: widget.userId,
+            plan: plan,
+          );
+      if (successMessage != null) {
+        messenger.showSnackBar(SnackBar(content: Text(successMessage)));
+      }
+    } on MemberWithoutAccountException {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Este membro não possui conta de acesso. '
+            'Crie uma conta para ele antes de editar permissões.',
+          ),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 5),
+        ),
+      );
+    } catch (e) {
+      // O plano pode ter aplicado os grants e falhado nos clears (ou o
+      // contrário): invalidamos sempre, para a tela mostrar o que de fato
+      // ficou gravado.
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Erro ao alterar permissões: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      ref.invalidate(userEffectivePermissionsProvider(widget.userId));
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _toggleCategory({
+    required String category,
+    required List<UserPermissionState> states,
+    required bool isGranted,
+  }) async {
+    if (_isSaving) return;
+
+    final plan = CustomPermissionPlan.forTarget(
+      permissions: states,
+      isGranted: isGranted,
+    );
+    if (plan.isEmpty) return;
+
+    final label = PermissionCategoryDisplay.label(category);
+    // Aqui não existe botão SALVAR para desfazer — a gravação é imediata.
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(isGranted ? 'Habilitar categoria?' : 'Desabilitar categoria?'),
+        content: Text(
+          'Isso vai ${isGranted ? 'habilitar' : 'desabilitar'} '
+          '${plan.affectedCount} ${plan.affectedCount == 1 ? 'permissão' : 'permissões'} '
+          'de "$label" para este usuário. A alteração é salva imediatamente.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('CANCELAR'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(isGranted ? 'HABILITAR' : 'DESABILITAR'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    await _applyPlan(
+      plan,
+      successMessage: '$label: ${plan.affectedCount} '
+          '${plan.affectedCount == 1 ? 'permissão atualizada' : 'permissões atualizadas'}',
+    );
   }
 
   @override
@@ -45,21 +164,12 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
     final memberAsync = ref.watch(memberByIdProvider(widget.userId));
     final permissionsAsync = ref.watch(permissionsProvider);
     final effectiveAsync = ref.watch(userEffectivePermissionsProvider(widget.userId));
-    final categoryOptions = <_PermissionCategoryOption>[
-      const _PermissionCategoryOption(null, 'Todas categorias'),
-      const _PermissionCategoryOption('dashboard', 'Dashboard'),
-      const _PermissionCategoryOption('ministries', 'Minist‚rios'),
-      const _PermissionCategoryOption('events', 'Eventos'),
-      const _PermissionCategoryOption('financial', 'Financeiro'),
-      const _PermissionCategoryOption('settings', 'Configura‡äes'),
-      const _PermissionCategoryOption('members', 'Membros'),
-      const _PermissionCategoryOption('groups', 'Grupos'),
-      const _PermissionCategoryOption('news', 'Not¡cias'),
-      const _PermissionCategoryOption('banners', 'Banners'),
-      const _PermissionCategoryOption('church_info', 'Igreja'),
-      const _PermissionCategoryOption('agents', 'Agentes IA'),
-      const _PermissionCategoryOption('live_stream', 'Culto ao vivo'),
-    ];
+
+    // Categorias vindas dos dados: a lista hardcoded tinha 13 itens e o tenant
+    // tem 28, então 15 categorias não eram filtráveis (CHU-318).
+    final categoryOptions = PermissionCategoryDisplay.optionsFrom(
+      (permissionsAsync.valueOrNull ?? const <Permission>[]).map((p) => p.category),
+    );
     final selectedCategory = categoryOptions.firstWhere(
       (option) => option.value == _selectedCategory,
       orElse: () => categoryOptions.first,
@@ -116,52 +226,49 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
           ),
 
           Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Column(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Buscar permissão...',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                setState(() {
-                                  _searchController.clear();
-                                  _searchQuery = '';
-                                });
-                              },
-                            )
-                          : null,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      filled: true,
+                TextField(
+                  key: const Key('busca-permissoes'),
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Buscar permissão...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: _clearSearch,
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    onChanged: (value) {
-                      setState(() => _searchQuery = value.trim().toLowerCase());
-                    },
+                    filled: true,
                   ),
+                  onChanged: _onSearchChanged,
                 ),
-                const SizedBox(width: 12),
-
-                DropdownMenu<_PermissionCategoryOption>(
+                const SizedBox(height: 12),
+                DropdownMenu<PermissionCategoryOption>(
+                  // As opções chegam junto com os dados; sem a key o
+                  // DropdownMenu mantém a lista antiga do primeiro build.
+                  key: ValueKey('categorias-${categoryOptions.length}'),
                   initialSelection: selectedCategory,
                   label: const Text('Categoria'),
+                  expandedInsets: EdgeInsets.zero,
                   dropdownMenuEntries: categoryOptions
-                    .map((option) => DropdownMenuEntry<_PermissionCategoryOption>(
-                      value: option,
-                      label: option.label,
-                    ))
-                    .toList(),
+                      .map((option) => DropdownMenuEntry<PermissionCategoryOption>(
+                            value: option,
+                            label: option.label,
+                          ))
+                      .toList(),
                   onSelected: (option) => setState(() => _selectedCategory = option?.value),
                 ),
               ],
             ),
           ),
+
+          if (_isSaving) const LinearProgressIndicator(),
 
           Expanded(
             child: effectiveAsync.when(
@@ -176,7 +283,10 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
                 return permissionsAsync.when(
                   data: (perms) {
                     final filtered = perms.where((p) {
-                      final matchesSearch = _searchQuery.isEmpty || p.name.toLowerCase().contains(_searchQuery) || p.code.toLowerCase().contains(_searchQuery);
+                      final matchesSearch = _searchQuery.isEmpty ||
+                          p.name.toLowerCase().contains(_searchQuery) ||
+                          p.code.toLowerCase().contains(_searchQuery) ||
+                          (p.description?.toLowerCase().contains(_searchQuery) ?? false);
                       final matchesCat = _selectedCategory == null || p.category == _selectedCategory;
                       return matchesSearch && matchesCat;
                     }).toList();
@@ -209,149 +319,38 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
                       );
                     }
 
-                    final categories = byCategory.keys.toList()..sort();
+                    final categories = byCategory.keys.toList()
+                      ..sort((a, b) => PermissionCategoryDisplay.label(a)
+                          .compareTo(PermissionCategoryDisplay.label(b)));
 
-                    return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: categories.length,
-                      itemBuilder: (context, i) {
-                        final cat = categories[i];
-                        final catPerms = byCategory[cat]!;
-                        catPerms.sort((a, b) => a.name.compareTo(b.name));
-                        
-                        // Contar quantos estão habilitados
-                        int grantedCount = 0;
-                        for (final p in catPerms) {
-                          final entries = effectiveMap[p.code] ?? [];
-                          final custom = entries.where((e) => e.source == 'custom').firstOrNull;
-                          final role = entries.where((e) => e.source == 'role').firstOrNull;
-                          final isGranted = custom?.isGranted ?? role?.isGranted ?? false;
-                          if (isGranted) grantedCount++;
-                        }
-
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          child: Column(
-                            children: [
-                              ListTile(
-                                leading: const Icon(Icons.security),
-                                title: Text(cat),
-                                subtitle: Text('$grantedCount/${catPerms.length} selecionadas'),
+                    return Column(
+                      children: [
+                        if (_isSearching || _selectedCategory != null)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                _resultsLabel(filtered.length),
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                ),
                               ),
-                              const Divider(height: 1),
-                              ...catPerms.map((p) {
-                                final entries = effectiveMap[p.code] ?? [];
-                                final custom = entries.where((e) => e.source == 'custom').firstOrNull;
-                                final role = entries.where((e) => e.source == 'role').firstOrNull;
-                                
-                                final roleGranted = role?.isGranted ?? false;
-                                final customGranted = custom?.isGranted; // pode ser null, true ou false
-                                
-                                // O valor final é o custom (se existir) ou o role
-                                final isGranted = customGranted ?? roleGranted;
-                                
-                                // Indicadores visuais
-                                final isOverridden = customGranted != null;
-                                
-                                return ListTile(
-                                  leading: Icon(
-                                    isGranted ? Icons.check_circle : Icons.cancel, 
-                                    color: isGranted ? Colors.green : (isOverridden && !isGranted ? Colors.red : Colors.grey)
-                                  ),
-                                  title: Text(p.name),
-                                  subtitle: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(p.code, style: const TextStyle(fontSize: 12)),
-                                      if (isOverridden)
-                                        Text(
-                                          isGranted ? 'Habilitado manualmente' : 'Desabilitado manualmente',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: isGranted ? Colors.green : Colors.red,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        )
-                                      else if (roleGranted)
-                                        const Text(
-                                          'Habilitado pelo cargo',
-                                          style: TextStyle(fontSize: 11, color: Colors.blue),
-                                        ),
-                                    ],
-                                  ),
-                                  trailing: Switch(
-                                    value: isGranted,
-                                    onChanged: (v) async {
-                                      if (_isSaving) return;
-                                      final messenger = ScaffoldMessenger.of(context);
-                                      setState(() => _isSaving = true);
-                                      try {
-                                        final repo = ref.read(permissionsRepositoryProvider);
-
-                                        if (v) {
-                                          // Quer habilitar
-                                          if (roleGranted) {
-                                            // Se o cargo já habilita, removemos qualquer bloqueio manual
-                                            await repo.removeCustomPermission(
-                                              userId: widget.userId,
-                                              permissionId: p.id,
-                                            );
-                                          } else {
-                                            // Se o cargo não habilita, forçamos true
-                                            await repo.assignCustomPermission(
-                                              userId: widget.userId,
-                                              permissionId: p.id,
-                                              isGranted: true,
-                                            );
-                                          }
-                                        } else {
-                                          // Quer desabilitar
-                                          if (roleGranted) {
-                                            // Se o cargo habilita, precisamos bloquear manualmente
-                                            await repo.assignCustomPermission(
-                                              userId: widget.userId,
-                                              permissionId: p.id,
-                                              isGranted: false,
-                                            );
-                                          } else {
-                                            // Se o cargo já não habilita, removemos qualquer override (volta ao padrão false)
-                                            await repo.removeCustomPermission(
-                                              userId: widget.userId,
-                                              permissionId: p.id,
-                                            );
-                                          }
-                                        }
-                                        ref.invalidate(userEffectivePermissionsProvider(widget.userId));
-                                      } on MemberWithoutAccountException {
-                                        messenger.showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Este membro não possui conta de acesso. '
-                                              'Crie uma conta para ele antes de editar permissões.',
-                                            ),
-                                            backgroundColor: Colors.orange,
-                                            duration: Duration(seconds: 5),
-                                          ),
-                                        );
-                                      } catch (e) {
-                                        messenger.showSnackBar(
-                                          SnackBar(
-                                            content: Text('Erro ao alterar permissão: $e'),
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        );
-                                      } finally {
-                                        if (mounted) setState(() => _isSaving = false);
-                                      }
-                                    },
-                                  ),
-                                  contentPadding: const EdgeInsets.only(left: 16, right: 16),
-                                );
-                              }),
-                            ],
+                            ),
                           ),
-                        );
-                      },
+                        Expanded(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: categories.length,
+                            itemBuilder: (context, i) {
+                              final cat = categories[i];
+                              final catPerms = byCategory[cat]!
+                                ..sort((a, b) => a.name.compareTo(b.name));
+                              return _buildCategoryCard(context, cat, catPerms, effectiveMap);
+                            },
+                          ),
+                        ),
+                      ],
                     );
                   },
                   loading: () => const Center(child: CircularProgressIndicator()),
@@ -362,6 +361,120 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
               error: (e, _) => Center(child: Text('Erro ao carregar efetivas: $e')),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  String _resultsLabel(int count) =>
+      count == 1 ? '1 permissão encontrada' : '$count permissões encontradas';
+
+  Widget _buildCategoryCard(
+    BuildContext context,
+    String category,
+    List<Permission> permissions,
+    Map<String, List<UserEffectivePermission>> effectiveMap,
+  ) {
+    final states = [
+      for (final p in permissions) _stateFor(p, effectiveMap),
+    ];
+    final grantedCount = states.where((s) => s.isGranted).length;
+    final allGranted = grantedCount == states.length;
+    final noneGranted = grantedCount == 0;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        // A key muda quando a busca liga/desliga para o tile reavaliar o
+        // `initiallyExpanded` — é o que abre as categorias com resultado e
+        // devolve o estado anterior quando a busca é limpa.
+        key: PageStorageKey('user-perm-$category-${_isSearching ? 'busca' : 'lista'}'),
+        initiallyExpanded: _isSearching || _expandedCategories.contains(category),
+        onExpansionChanged: (expanded) {
+          // Durante a busca a expansão é automática; não sobrescreve a escolha
+          // manual do usuário.
+          if (_isSearching) return;
+          setState(() {
+            if (expanded) {
+              _expandedCategories.add(category);
+            } else {
+              _expandedCategories.remove(category);
+            }
+          });
+        },
+        leading: Checkbox(
+          tristate: true,
+          value: allGranted ? true : (noneGranted ? false : null),
+          onChanged: _isSaving
+              ? null
+              : (_) => _toggleCategory(
+                    category: category,
+                    states: states,
+                    isGranted: !allGranted,
+                  ),
+        ),
+        title: Text(
+          PermissionCategoryDisplay.label(category),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          '$grantedCount/${permissions.length} selecionadas',
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+        ),
+        children: [
+          const Divider(height: 1),
+          ...List.generate(permissions.length, (index) {
+            final p = permissions[index];
+            final state = states[index];
+            final isGranted = state.isGranted;
+            final isOverridden = state.isOverridden;
+
+            return ListTile(
+              leading: Icon(
+                isGranted ? Icons.check_circle : Icons.cancel,
+                color: isGranted
+                    ? Colors.green
+                    : (isOverridden ? Colors.red : Colors.grey),
+              ),
+              title: Text(p.name),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(p.code, style: const TextStyle(fontSize: 12)),
+                  if (isOverridden)
+                    Text(
+                      isGranted ? 'Habilitado manualmente' : 'Desabilitado manualmente',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isGranted ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  else if (state.roleGranted)
+                    const Text(
+                      'Habilitado pelo cargo',
+                      style: TextStyle(fontSize: 11, color: Colors.blue),
+                    ),
+                ],
+              ),
+              trailing: Switch(
+                value: isGranted,
+                onChanged: _isSaving
+                    ? null
+                    : (v) => _applyPlan(
+                          CustomPermissionPlan.forTarget(
+                            permissions: [state],
+                            isGranted: v,
+                          ),
+                        ),
+              ),
+              contentPadding: const EdgeInsets.only(left: 16, right: 16),
+            );
+          }),
         ],
       ),
     );
