@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/permissions_providers.dart';
 import '../../domain/models/permission.dart';
+import '../permission_category_display.dart';
 
 /// Tela de Catálogo de Permissões
 /// Exibe todas as permissões disponíveis no sistema
@@ -139,7 +140,9 @@ class _PermissionsCatalogScreenState extends ConsumerState<PermissionsCatalogScr
                   );
                 }
 
-                final categories = permissionsByCategory.keys.toList()..sort();
+                final categories = permissionsByCategory.keys.toList()
+                  ..sort((a, b) => PermissionCategoryDisplay.label(a)
+                      .compareTo(PermissionCategoryDisplay.label(b)));
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
@@ -211,13 +214,13 @@ class _PermissionsCatalogScreenState extends ConsumerState<PermissionsCatalogScr
             child: Row(
               children: [
                 Icon(
-                  _getCategoryIcon(category),
+                  PermissionCategoryDisplay.icon(category),
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    _formatCategoryName(category),
+                    PermissionCategoryDisplay.label(category),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).colorScheme.primary,
@@ -291,36 +294,4 @@ class _PermissionsCatalogScreenState extends ConsumerState<PermissionsCatalogScr
     );
   }
 
-  String _formatCategoryName(String category) {
-    if (category == 'live_stream') return 'Culto ao vivo';
-    final words = category.split('_');
-    return words.map((w) => w[0].toUpperCase() + w.substring(1)).join(' ');
-  }
-
-  IconData _getCategoryIcon(String category) {
-    switch (category) {
-      case 'members': return Icons.people;
-      case 'groups': return Icons.group;
-      case 'events': return Icons.event;
-      case 'financial': return Icons.attach_money;
-      case 'visitors': return Icons.person_add;
-      case 'ministries': return Icons.church;
-      case 'worship': return Icons.music_note;
-      case 'reports': return Icons.assessment;
-      case 'devotionals': return Icons.book;
-      case 'prayer_requests': return Icons.favorite;
-      case 'testimonies': return Icons.record_voice_over;
-      case 'study_groups': return Icons.school;
-      case 'courses': return Icons.class_;
-      case 'support_materials': return Icons.folder;
-      case 'banners': return Icons.image;
-      case 'news': return Icons.article;
-      case 'church_info': return Icons.info;
-      case 'settings': return Icons.settings;
-      case 'dashboard': return Icons.dashboard;
-      case 'tags': return Icons.label;
-      case 'live_stream': return Icons.live_tv;
-      default: return Icons.security;
-    }
-  }
 }

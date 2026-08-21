@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/permissions_providers.dart';
 import '../../domain/models/permission.dart';
+import '../permission_category_display.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 
 /// Tela de Permissões do Cargo
@@ -21,14 +24,45 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
   bool _isLoading = false;
   bool _hasChanges = false;
   String _searchQuery = '';
+  String? _selectedCategory;
   int? _baseLevelParam;
   final _searchController = TextEditingController();
 
+  /// Categorias abertas manualmente (CHU-316). Guardado aqui e não no
+  /// `ExpansionTile` porque a `ListView.builder` descarta os cards que saem da
+  /// tela — e porque a busca abre tudo temporariamente sem apagar a escolha
+  /// do usuário.
+  final Set<String> _expandedCategories = {};
+
+  Timer? _searchDebounce;
+
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
+
+  bool get _isSearching => _searchQuery.isNotEmpty;
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
+      setState(() => _searchQuery = value.trim().toLowerCase());
+    });
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    setState(() {
+      _searchController.clear();
+      _searchQuery = '';
+    });
+  }
+
+  String _resultsLabel(int count) =>
+      count == 1 ? '1 permissão encontrada' : '$count permissões encontradas';
 
   @override
   Widget build(BuildContext context) {
@@ -110,35 +144,62 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
             ),
           ),
 
-          // Barra de busca
+          // Barra de busca + filtro de categoria (paridade com a tela de
+          // Usuário — CHU-318)
           Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Buscar permissão...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          setState(() {
-                            _searchController.clear();
-                            _searchQuery = '';
-                          });
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Column(
+              children: [
+                TextField(
+                  key: const Key('busca-permissoes'),
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Buscar permissão...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: _clearSearch,
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                  ),
+                  onChanged: _onSearchChanged,
                 ),
-                filled: true,
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value.toLowerCase();
-                });
-              },
+                const SizedBox(height: 12),
+                Builder(
+                  builder: (context) {
+                    final options = PermissionCategoryDisplay.optionsFrom(
+                      (allPermissionsAsync.valueOrNull ?? const <Permission>[])
+                          .map((p) => p.category),
+                    );
+                    final selected = options.firstWhere(
+                      (option) => option.value == _selectedCategory,
+                      orElse: () => options.first,
+                    );
+                    return DropdownMenu<PermissionCategoryOption>(
+                      // As opções chegam junto com os dados; sem a key o
+                      // DropdownMenu mantém a lista antiga do primeiro build.
+                      key: ValueKey('categorias-${options.length}'),
+                      initialSelection: selected,
+                      label: const Text('Categoria'),
+                      expandedInsets: EdgeInsets.zero,
+                      dropdownMenuEntries: options
+                          .map((option) =>
+                              DropdownMenuEntry<PermissionCategoryOption>(
+                                value: option,
+                                label: option.label,
+                              ))
+                          .toList(),
+                      onSelected: (option) =>
+                          setState(() => _selectedCategory = option?.value),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
 
@@ -161,13 +222,17 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
 
                     // Agrupar por categoria
                     final permissionsByCategory = <String, List<Permission>>{};
+                    var filteredCount = 0;
                     for (final perm in allPermissions) {
+                      final matchesCategory = _selectedCategory == null ||
+                          perm.category == _selectedCategory;
                       final matchesSearch = _searchQuery.isEmpty ||
                           perm.name.toLowerCase().contains(_searchQuery) ||
                           perm.code.toLowerCase().contains(_searchQuery) ||
                           (perm.description?.toLowerCase().contains(_searchQuery) ?? false);
                       
-                      if (matchesSearch) {
+                      if (matchesSearch && matchesCategory) {
+                        filteredCount++;
                         permissionsByCategory.putIfAbsent(perm.category, () => []);
                         permissionsByCategory[perm.category]!.add(perm);
                       }
@@ -195,26 +260,50 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
                       );
                     }
 
-                    final categories = permissionsByCategory.keys.toList()..sort();
+                    final categories = permissionsByCategory.keys.toList()
+                      ..sort((a, b) => PermissionCategoryDisplay.label(a)
+                          .compareTo(PermissionCategoryDisplay.label(b)));
 
-                    return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: categories.length + 3,
-                      itemBuilder: (context, index) {
-                        if (index < categories.length) {
-                          final category = categories[index];
-                          final permissions = permissionsByCategory[category]!;
-                          permissions.sort((a, b) => a.name.compareTo(b.name));
-                          return _buildCategoryCard(context, category, permissions);
-                        }
-                        if (index == categories.length) {
-                          return _buildCategoriesCatalogCard(context);
-                        }
-                        if (index == categories.length + 1) {
-                          return _buildFunctionCategoriesCard(context);
-                        }
-                        return _buildScheduleRulesCard(context);
-                      },
+                    return Column(
+                      children: [
+                        if (_isSearching || _selectedCategory != null)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                _resultsLabel(filteredCount),
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withValues(alpha: 0.6),
+                                ),
+                              ),
+                            ),
+                          ),
+                        Expanded(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: categories.length + 3,
+                            itemBuilder: (context, index) {
+                              if (index < categories.length) {
+                                final category = categories[index];
+                                final permissions = permissionsByCategory[category]!;
+                                permissions.sort((a, b) => a.name.compareTo(b.name));
+                                return _buildCategoryCard(context, category, permissions);
+                              }
+                              if (index == categories.length) {
+                                return _buildCategoriesCatalogCard(context);
+                              }
+                              if (index == categories.length + 1) {
+                                return _buildFunctionCategoriesCard(context);
+                              }
+                              return _buildScheduleRulesCard(context);
+                            },
+                          ),
+                        ),
+                      ],
                     );
                   },
                   loading: () => const Center(child: CircularProgressIndicator()),
@@ -327,44 +416,72 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
   }
 
   Widget _buildCategoryCard(BuildContext context, String category, List<Permission> permissions) {
-    final allSelected = permissions.every((p) => _selectedPermissions[p.id] == true);
-    final someSelected = permissions.any((p) => _selectedPermissions[p.id] == true);
+    final selectedCount =
+        permissions.where((p) => _selectedPermissions[p.id] == true).length;
+    final allSelected = selectedCount == permissions.length;
+    final someSelected = selectedCount > 0;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        children: [
-          // Header da categoria com checkbox "selecionar todos"
-          CheckboxListTile(
-            value: allSelected,
-            tristate: true,
-            onChanged: (value) {
-              setState(() {
-                final newValue = value ?? false;
-                for (final perm in permissions) {
-                  _selectedPermissions[perm.id] = newValue;
-                }
-                _hasChanges = true;
-              });
-            },
-            title: Text(
-              _formatCategoryName(category),
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Text(
-              '${permissions.where((p) => _selectedPermissions[p.id] == true).length}/${permissions.length} selecionadas',
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-            secondary: Icon(
-              _getCategoryIcon(category),
-              color: someSelected 
-                  ? Theme.of(context).colorScheme.primary 
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        // A key muda quando a busca liga/desliga para o tile reavaliar o
+        // `initiallyExpanded` — é o que abre as categorias com resultado e
+        // devolve o estado anterior quando a busca é limpa.
+        key: PageStorageKey('role-perm-$category-${_isSearching ? 'busca' : 'lista'}'),
+        initiallyExpanded: _isSearching || _expandedCategories.contains(category),
+        onExpansionChanged: (expanded) {
+          // Durante a busca a expansão é automática; não sobrescreve a escolha
+          // manual do usuário.
+          if (_isSearching) return;
+          setState(() {
+            if (expanded) {
+              _expandedCategories.add(category);
+            } else {
+              _expandedCategories.remove(category);
+            }
+          });
+        },
+        // Header da categoria com checkbox "selecionar todos"
+        leading: Checkbox(
+          tristate: true,
+          value: allSelected ? true : (someSelected ? null : false),
+          onChanged: (_) {
+            setState(() {
+              final newValue = !allSelected;
+              for (final perm in permissions) {
+                _selectedPermissions[perm.id] = newValue;
+              }
+              _hasChanges = true;
+            });
+          },
+        ),
+        title: Row(
+          children: [
+            Icon(
+              PermissionCategoryDisplay.icon(category),
+              size: 20,
+              color: someSelected
+                  ? Theme.of(context).colorScheme.primary
                   : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
             ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                PermissionCategoryDisplay.label(category),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        subtitle: Text(
+          '$selectedCount/${permissions.length} selecionadas',
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
           ),
+        ),
+        children: [
           const Divider(height: 1),
           // Lista de permissões da categoria
           ...permissions.map((permission) {
@@ -406,71 +523,6 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
         ],
       ),
     );
-  }
-
-  String _formatCategoryName(String category) {
-    final labels = {
-      'church_info': 'Igreja',
-      'courses': 'Cursos',
-      'ministries': 'Ministérios',
-      'events': 'Eventos',
-      'financial': 'Financeiro',
-      'members': 'Membros',
-      'groups': 'Grupos',
-      'visitors': 'Visitantes',
-      'worship': 'Cultos',
-      'reports': 'Relatórios',
-      'devotionals': 'Devocionais',
-      'prayer_requests': 'Pedidos de Oração',
-      'testimonies': 'Testemunhos',
-      'study_groups': 'Grupos de Estudo',
-      'courses_lessons': 'Aulas do Curso',
-      'support_materials': 'Materiais de Apoio',
-      'banners': 'Banners',
-      'news': 'Notícias',
-      'church_schedule': 'Agenda da Igreja',
-      'dashboard': 'Dashboard',
-      'tags': 'Tags',
-      'analytics': 'Analytics',
-      'reading_plans': 'Planos de Leitura',
-      'live_stream': 'Culto ao vivo',
-    };
-    final label = labels[category];
-    if (label != null) return label;
-    final words = category.split('_');
-    return words.map((w) => w.isEmpty ? '' : (w[0].toUpperCase() + w.substring(1))).join(' ');
-  }
-
-  IconData _getCategoryIcon(String category) {
-    switch (category) {
-      case 'members': return Icons.people;
-      case 'groups': return Icons.group;
-      case 'events': return Icons.event;
-      case 'financial': return Icons.attach_money;
-      case 'visitors': return Icons.person_add;
-      case 'ministries': return Icons.church;
-      case 'worship': return Icons.church_outlined;
-      case 'reports': return Icons.assessment;
-      case 'devotionals': return Icons.menu_book;
-      case 'prayer_requests': return Icons.volunteer_activism;
-      case 'testimonies': return Icons.record_voice_over;
-      case 'study_groups': return Icons.school;
-      case 'courses': return Icons.class_;
-      case 'courses_lessons': return Icons.library_books;
-      case 'support_materials': return Icons.folder;
-      case 'banners': return Icons.image;
-      case 'news': return Icons.article;
-      case 'church_info': return Icons.info;
-      case 'church_schedule': return Icons.event_note;
-      case 'reading_plans': return Icons.menu_book_outlined;
-      case 'bible': return Icons.menu_book_rounded;
-      case 'analytics': return Icons.insights;
-      case 'settings': return Icons.settings;
-      case 'dashboard': return Icons.dashboard;
-      case 'tags': return Icons.label;
-      case 'live_stream': return Icons.live_tv;
-      default: return Icons.security;
-    }
   }
 
   Widget _buildCategoriesCatalogCard(BuildContext context) {
@@ -821,7 +873,10 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
                                     border: OutlineInputBorder(),
                                   ),
                                   items: availableCategories
-                                      .map((c) => DropdownMenuItem(value: c, child: Text(_formatCategoryName(c))))
+                                      .map((c) => DropdownMenuItem(
+                                            value: c,
+                                            child: Text(PermissionCategoryDisplay.label(c)),
+                                          ))
                                       .toList(),
                                   onChanged: availableCategories.isEmpty
                                       ? null
