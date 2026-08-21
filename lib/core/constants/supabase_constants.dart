@@ -156,6 +156,21 @@ class SupabaseConstants {
     return null;
   }
 
+  static String _chosenUnitKey(String userId) => 'chosen_active_unit_$userId';
+
+  /// Se o usuário já passou pelo seletor de unidade (CHU-300) alguma vez —
+  /// ou nunca precisou porque só tem 1 unidade. Guardado por `userId`, então
+  /// não precisa reset no logout (usuário diferente = chave diferente).
+  static Future<bool> hasChosenActiveUnit(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_chosenUnitKey(userId)) ?? false;
+  }
+
+  static Future<void> markChosenActiveUnit(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_chosenUnitKey(userId), true);
+  }
+
   static Future<void> syncTenantFromServer(
     SupabaseClient client, {
     bool persist = true,

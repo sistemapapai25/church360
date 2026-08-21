@@ -108,13 +108,14 @@ class PermissionsRepository {
           'subcategory': 'access',
           'is_active': true,
           'requires_context': false,
+          'tenant_id': tenantId,
         });
       }
 
       if (rows.isNotEmpty) {
         await _supabase.from('permissions').upsert(
           rows,
-          onConflict: 'code',
+          onConflict: 'code,tenant_id',
         );
       }
 
@@ -127,6 +128,7 @@ class PermissionsRepository {
   Future<void> _ensureCorePermissions() async {
     if (_corePermissionsEnsured) return;
     try {
+      final tenantId = SupabaseConstants.currentTenantId;
       final rows = <Map<String, dynamic>>[
         {
           'code': 'dispatch.configure',
@@ -210,10 +212,13 @@ class PermissionsRepository {
           'requires_context': false,
         },
       ];
+      for (final row in rows) {
+        row['tenant_id'] = tenantId;
+      }
 
       await _supabase.from('permissions').upsert(
         rows,
-        onConflict: 'code',
+        onConflict: 'code,tenant_id',
       );
     } catch (_) {
     } finally {
@@ -420,6 +425,24 @@ class PermissionsRepository {
       );
 
       return response as bool;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Verificar se o `user_account` (por id de member/user_account, não auth
+  /// id) tem `role_global == 'owner'`. Usado para gates fora do sistema de
+  /// permissões RBAC (ex.: menu de Configurações de Desenvolvedor).
+  Future<bool> isOwnerByMemberId(String memberId) async {
+    try {
+      final row = await _supabase
+          .from('user_account')
+          .select('role_global')
+          .eq('id', memberId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .maybeSingle();
+      final role = (row?['role_global']?.toString() ?? '').trim().toLowerCase();
+      return role == 'owner';
     } catch (_) {
       return false;
     }

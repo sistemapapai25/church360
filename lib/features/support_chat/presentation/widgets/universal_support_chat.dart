@@ -72,6 +72,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   late Color _accentColor;
   late String _localHistoryKey;
   List<Map<String, dynamic>> _pendingTransferCandidates = const [];
+  final Set<String> _resolvedContactProposalIds = {};
   bool _hasText = false;
   bool _showQuickActions = false;
 
@@ -1053,6 +1054,44 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     };
   }
 
+  Map<String, dynamic> _parseContactUpdateProposal(String reply) {
+    const marker = '[[CONTACT_UPDATE_PROPOSAL]]';
+    final lines = reply.split('\n');
+    final idx = lines.lastIndexWhere((l) => l.trimLeft().startsWith(marker));
+    if (idx < 0) {
+      return {'text': reply, 'proposal': null};
+    }
+
+    final line = lines[idx].trim();
+    final jsonPart = line.substring(marker.length).trim();
+    final cleanText = lines.take(idx).join('\n').trimRight();
+
+    try {
+      final decoded = jsonDecode(jsonPart);
+      if (decoded is Map) {
+        final proposalId = decoded['proposalId']?.toString() ?? '';
+        final changesRaw = decoded['changes'];
+        if (proposalId.isNotEmpty && changesRaw is List) {
+          final changes = changesRaw
+              .whereType<Map>()
+              .map((c) => {
+                    'field': c['field']?.toString() ?? '',
+                    'label': c['label']?.toString() ?? '',
+                    'from': c['from']?.toString() ?? '',
+                    'to': c['to']?.toString() ?? '',
+                  })
+              .toList();
+          return {
+            'text': cleanText,
+            'proposal': {'proposalId': proposalId, 'changes': changes},
+          };
+        }
+      }
+    } catch (_) {}
+
+    return {'text': cleanText, 'proposal': null};
+  }
+
   String _buildTransferSummary() {
     final recent = _messages
         .where((m) => m['role'] == 'user' || m['role'] == 'assistant')
@@ -1378,9 +1417,11 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         await _saveThread(newThreadId);
       }
 
-      final parsed = _parseTransferSuggest(replyRaw);
+      final contactParsed = _parseContactUpdateProposal(replyRaw);
+      final parsed = _parseTransferSuggest((contactParsed['text'] ?? '').toString());
       final reply = (parsed['text'] ?? '').toString().trim();
       final candidates = (parsed['candidates'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+      final contactProposal = contactParsed['proposal'] as Map<String, dynamic>?;
 
       if (mounted) {
         setState(() {
@@ -1390,6 +1431,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
             'time': DateTime.now(),
             'agent': _agent,
             if (candidates.isNotEmpty) 'transferCandidates': candidates,
+            if (contactProposal != null) 'contactUpdateProposal': contactProposal,
           });
           _pendingTransferCandidates = candidates;
         });
@@ -1402,6 +1444,60 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           _messages.add({
             'role': 'system',
             'content': 'Erro ao enviar mensagem: $e',
+            'time': DateTime.now(),
+            'isError': true,
+          });
+        });
+        _scrollToBottom();
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _confirmContactProposal(String proposalId) =>
+      _resolveContactProposal(proposalId: proposalId, confirm: true);
+
+  Future<void> _cancelContactProposal(String proposalId) =>
+      _resolveContactProposal(proposalId: proposalId, confirm: false);
+
+  Future<void> _resolveContactProposal({required String proposalId, required bool confirm}) async {
+    setState(() {
+      _isLoading = true;
+      _resolvedContactProposalIds.add(proposalId);
+    });
+
+    try {
+      final data = await _sendToBackend(
+        message: '',
+        files: const [],
+        extraContext: confirm
+            ? {'confirmProposalId': proposalId}
+            : {'cancelProposalId': proposalId},
+      );
+      final replyRaw = (data['reply'] ?? '').toString();
+      if (mounted) {
+        setState(() {
+          _messages.add({
+            'role': 'assistant',
+            'content': replyRaw.isEmpty ? 'Ok.' : replyRaw,
+            'time': DateTime.now(),
+            'agent': _agent,
+          });
+        });
+        await _saveLocalHistorySafely();
+        _scrollToBottom();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _messages.add({
+            'role': 'system',
+            'content': 'Erro ao processar confirmação: $e',
             'time': DateTime.now(),
             'isError': true,
           });
@@ -1670,6 +1766,9 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     final transferCandidates = (!isUser && msg['transferCandidates'] is List)
         ? (msg['transferCandidates'] as List).cast<Map<String, dynamic>>()
         : const <Map<String, dynamic>>[];
+    final contactProposal = (!isUser && msg['contactUpdateProposal'] is Map)
+        ? Map<String, dynamic>.from(msg['contactUpdateProposal'] as Map)
+        : null;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -1821,6 +1920,77 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                               ),
                             );
                           }).toList(),
+                        ),
+                      ],
+                      if (!isUser && contactProposal != null) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFBEB),
+                            border: Border.all(color: const Color(0xFFFDE68A)),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Confirme a alteração:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF92400E),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              ...((contactProposal['changes'] as List?)?.cast<Map<String, dynamic>>() ?? const [])
+                                  .map((c) {
+                                final label = (c['label'] ?? c['field'] ?? '').toString();
+                                final from = (c['from'] ?? '').toString();
+                                final to = (c['to'] ?? '').toString();
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 2),
+                                  child: Text(
+                                    '$label: ${from.isEmpty ? '(vazio)' : from} → $to',
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF1F2937)),
+                                  ),
+                                );
+                              }),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ElevatedButton(
+                                    onPressed: (_isLoading ||
+                                            _resolvedContactProposalIds
+                                                .contains(contactProposal['proposalId']?.toString()))
+                                        ? null
+                                        : () => _confirmContactProposal(contactProposal['proposalId'].toString()),
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      visualDensity: VisualDensity.compact,
+                                      textStyle: const TextStyle(fontSize: 12),
+                                    ),
+                                    child: const Text('Confirmar'),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  OutlinedButton(
+                                    onPressed: (_isLoading ||
+                                            _resolvedContactProposalIds
+                                                .contains(contactProposal['proposalId']?.toString()))
+                                        ? null
+                                        : () => _cancelContactProposal(contactProposal['proposalId'].toString()),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      visualDensity: VisualDensity.compact,
+                                      textStyle: const TextStyle(fontSize: 12),
+                                    ),
+                                    child: const Text('Cancelar'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ],

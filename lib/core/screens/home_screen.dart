@@ -29,6 +29,7 @@ import '../../features/members/presentation/providers/members_provider.dart';
 import '../../features/study_groups/domain/models/study_group.dart';
 import '../../features/study_groups/presentation/providers/study_group_provider.dart';
 import '../../features/contribution/presentation/screens/contribution_info_screen.dart';
+import '../../features/church_selector/presentation/providers/church_selector_provider.dart';
 import '../design/community_design.dart';
 import '../widgets/navigation/custom_bottom_nav_bar.dart';
 import '../../features/home/presentation/widgets/home_content_card.dart';
@@ -1488,6 +1489,31 @@ class _MoreTab extends ConsumerWidget {
             'A Igreja',
             '/church-info',
             color: Colors.purple,
+          ),
+
+          // "Trocar de igreja" (CHU-300) — só aparece pra quem tem vínculo
+          // em mais de uma unidade da rede (matriz/filial).
+          Consumer(
+            builder: (context, ref, _) {
+              final hasMultipleAsync = ref.watch(hasMultipleUnitsProvider);
+              return hasMultipleAsync.maybeWhen(
+                data: (hasMultiple) => hasMultiple
+                    ? Column(
+                        children: [
+                          const SizedBox(height: 12),
+                          _buildMenuCard(
+                            context,
+                            Icons.swap_horiz_outlined,
+                            'Trocar de igreja',
+                            '/select-church',
+                            color: Colors.teal,
+                          ),
+                        ],
+                      )
+                    : const SizedBox.shrink(),
+                orElse: () => const SizedBox.shrink(),
+              );
+            },
           ),
 
           const SizedBox(height: 32),

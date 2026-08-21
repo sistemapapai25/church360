@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../constants/app_branding.dart';
+import '../navigation/church_selection_gate.dart';
 import '../widgets/app_logo.dart';
 
 /// Tela de Splash - Primeira tela do app
@@ -25,7 +26,7 @@ class _SplashScreenState extends State<SplashScreen> {
     _redirectTimer = Timer(const Duration(seconds: 2), _checkAuth);
   }
 
-  void _checkAuth() {
+  Future<void> _checkAuth() async {
     if (!mounted) return;
 
     try {
@@ -33,12 +34,13 @@ class _SplashScreenState extends State<SplashScreen> {
       final session = supabase.auth.currentSession;
 
       if (session != null) {
-        context.go('/home');
+        final route = await ChurchSelectionGate.resolveNextRoute(supabase);
+        if (mounted) context.go(route);
       } else {
         context.go('/login');
       }
     } catch (_) {
-      context.go('/login');
+      if (mounted) context.go('/login');
     }
   }
 

@@ -84,6 +84,48 @@ final enabledDashboardWidgetsProvider = FutureProvider<List<DashboardWidget>>((r
       .toList();
 });
 
+/// Preferências efetivas do usuário atual via RPC `get_user_dashboard_widgets`
+/// (CHU-309): `widget_key -> is_visible`, já restrito aos widgets que ele tem
+/// permissão RBAC de ver. Base da tela de gerenciamento pessoal (CHU-308).
+final myEffectiveDashboardWidgetPreferencesProvider = FutureProvider<Map<String, bool>>((ref) async {
+  final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return {};
+  final repository = ref.watch(userDashboardWidgetRepositoryProvider);
+  return repository.getEffectivePreferences(userId);
+});
+
+/// Widgets que o usuário atual pode gerenciar na tela pessoal (CHU-308):
+/// metadados do widget ([DashboardWidget]) cruzados com a visibilidade
+/// efetiva ([myEffectiveDashboardWidgetPreferencesProvider]). Nunca inclui
+/// widget que o usuário não tem permissão de ver.
+final myDashboardWidgetSettingsProvider = FutureProvider<List<(DashboardWidget widget, bool isVisible)>>((ref) async {
+  final tenantWidgets = await ref.watch(tenantEnabledDashboardWidgetsProvider.future);
+  final preferences = await ref.watch(myEffectiveDashboardWidgetPreferencesProvider.future);
+
+  final settings = tenantWidgets
+      .where((widget) => preferences.containsKey(widget.widgetKey))
+      .map((widget) => (widget, preferences[widget.widgetKey]!))
+      .toList();
+  settings.sort((a, b) => a.$1.displayOrder.compareTo(b.$1.displayOrder));
+  return settings;
+});
+
+/// Atualiza a visibilidade pessoal de um widget (CHU-308/309) e invalida os
+/// providers dependentes, para refletir a mudança tanto na tela de
+/// gerenciamento pessoal quanto no Dashboard.
+final setMyDashboardWidgetVisibilityProvider = Provider<Future<void> Function({
+  required String widgetKey,
+  required bool isVisible,
+})>((ref) {
+  return ({required String widgetKey, required bool isVisible}) async {
+    final repository = ref.read(userDashboardWidgetRepositoryProvider);
+    await repository.setVisibility(widgetKey: widgetKey, isVisible: isVisible);
+    ref.invalidate(myEffectiveDashboardWidgetPreferencesProvider);
+    ref.invalidate(currentUserDashboardWidgetPreferencesProvider);
+    ref.invalidate(enabledDashboardWidgetsProvider);
+  };
+});
+
 /// Provider para buscar widget por key
 final dashboardWidgetByKeyProvider = FutureProvider.family<DashboardWidget?, String>((ref, widgetKey) async {
   final repository = ref.watch(dashboardWidgetRepositoryProvider);

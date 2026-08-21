@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
@@ -75,7 +77,7 @@ class AuthRepository {
           'p_tenant_id': SupabaseConstants.currentTenantId,
           'p_email': clean,
         },
-      );
+      ).timeout(const Duration(seconds: 8));
       return (res ?? 'not_found').toString();
     } catch (e) {
       // fallback silencioso: não bloquear login/signup por falha do helper
@@ -618,8 +620,13 @@ class AuthRepository {
         password: password,
       );
       try {
-        await SupabaseConstants.syncTenantFromServer(_supabase);
-      } catch (_) {}
+        await SupabaseConstants.syncTenantFromServer(_supabase)
+            .timeout(const Duration(seconds: 8));
+      } catch (e) {
+        debugPrint(
+          '❌ [AuthRepository.signInWithPassword] syncTenantFromServer falhou/timeout: $e',
+        );
+      }
       try {
         await _supabase.rpc(
           'ensure_my_account',
@@ -629,19 +636,19 @@ class AuthRepository {
             '_full_name': userFullNameFromEmail(email),
             '_nickname': userFullNameFromEmail(email),
           },
-        );
+        ).timeout(const Duration(seconds: 8));
       } catch (e) {
         debugPrint(
-          '❌ [AuthRepository.signInWithPassword] ensure_my_account falhou: $e',
+          '❌ [AuthRepository.signInWithPassword] ensure_my_account falhou/timeout: $e',
         );
       }
       try {
         await ensureUserAccountForSession(
           preferredFullName: userFullNameFromEmail(email),
-        );
+        ).timeout(const Duration(seconds: 8));
       } catch (e) {
         debugPrint(
-          '❌ [AuthRepository.signInWithPassword] ensureUserAccountForSession falhou: $e',
+          '❌ [AuthRepository.signInWithPassword] ensureUserAccountForSession falhou/timeout: $e',
         );
       }
       return response;

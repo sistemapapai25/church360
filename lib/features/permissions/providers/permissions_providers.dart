@@ -285,6 +285,16 @@ final currentUserHasPermissionProvider = FutureProvider.family<bool, String>((
   );
 });
 
+/// Provider: Verificar se usuário atual é `owner` do tenant (`role_global`).
+/// Gate fora do sistema de permissões RBAC — hoje usado só para liberar o
+/// menu "Configurações de Desenvolvedor".
+final currentUserIsOwnerProvider = FutureProvider<bool>((ref) async {
+  final member = await ref.watch(currentMemberProvider.future);
+  if (member == null) return false;
+  final repository = ref.watch(permissionsRepositoryProvider);
+  return repository.isOwnerByMemberId(member.id);
+});
+
 // =====================================================
 // PROVIDERS DE AUDITORIA
 // =====================================================

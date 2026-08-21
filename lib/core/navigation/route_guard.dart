@@ -12,6 +12,7 @@ import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../core/constants/supabase_constants.dart';
 import '../../features/permissions/providers/permissions_providers.dart'
     hide supabaseClientProvider;
+import '../../features/branches/presentation/providers/branches_provider.dart';
 
 /// Tela de acesso negado
 class AccessDeniedScreen extends StatelessWidget {
@@ -372,6 +373,42 @@ class OwnerOnlyRoute extends ConsumerWidget {
           requiredLevel: AccessLevelType.admin,
         );
       },
+    );
+  }
+}
+
+/// Widget que protege uma rota apenas para admins de igreja matriz
+/// (`tenant.kind == 'matriz'` + `access_level_number >= 5`, CHU-289).
+class MatrizAdminOnlyRoute extends ConsumerWidget {
+  final Widget child;
+
+  const MatrizAdminOnlyRoute({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isMatrizAdminAsync = ref.watch(isMatrizAdminProvider);
+
+    return isMatrizAdminAsync.when(
+      data: (isMatrizAdmin) {
+        if (isMatrizAdmin) {
+          return child;
+        }
+        return const AccessDeniedScreen(requiredLevel: AccessLevelType.admin);
+      },
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (error, _) => Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text('Erro ao verificar permissões: $error'),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

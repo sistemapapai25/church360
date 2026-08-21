@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../../../../core/constants/app_branding.dart';
+import '../../../../core/navigation/church_selection_gate.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../providers/auth_provider.dart';
@@ -44,6 +46,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return;
     }
 
+    // Limpa qualquer SnackBar de uma tentativa anterior (ex: "credenciais
+    // inválidas") antes de tentar de novo. Sem isso, se o usuário errar mais
+    // de uma vez, o ScaffoldMessenger enfileira as mensagens e elas continuam
+    // aparecendo uma a uma mesmo depois do login bem-sucedido e da navegação
+    // para /home.
+    ScaffoldMessenger.of(context).clearSnackBars();
+
     setState(() {
       _isLoading = true;
     });
@@ -58,9 +67,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
 
       if (mounted) {
-        _logLogin('login success, redirect to /home');
-        // Login bem-sucedido, redireciona para home
-        context.go('/home');
+        final route = await ChurchSelectionGate.resolveNextRoute(
+          Supabase.instance.client,
+        );
+        _logLogin('login success, redirect to $route');
+        if (mounted) context.go(route);
       }
     } catch (e, stackTrace) {
       _logLogin(

@@ -125,6 +125,7 @@ import '../screens/reports/member_growth_report.dart';
 import '../screens/reports/events_analysis_report.dart';
 import '../screens/reports/active_groups_report.dart';
 import '../screens/dashboard_settings_screen.dart';
+import '../screens/user_dashboard_settings_screen.dart';
 import '../screens/developer_settings_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
@@ -139,6 +140,9 @@ import '../../features/permissions/presentation/screens/contexts_list_screen.dar
 import '../../features/permissions/presentation/screens/context_form_screen.dart';
 import '../../features/permissions/presentation/screens/user_roles_list_screen.dart';
 import '../../features/permissions/presentation/screens/assign_role_screen.dart';
+import '../../features/branches/presentation/screens/branches_list_screen.dart';
+import '../../features/branches/presentation/screens/branch_form_screen.dart';
+import '../../features/church_selector/presentation/screens/church_selector_screen.dart';
 import '../../features/permissions/presentation/screens/audit_log_screen.dart';
 import '../../features/permissions/presentation/screens/permissions_catalog_screen.dart';
 import '../../features/permissions/presentation/screens/user_permissions_screen.dart';
@@ -241,6 +245,11 @@ final appRouter = GoRouter(
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
     GoRoute(path: '/signup', builder: (context, state) => const SignUpScreen()),
     GoRoute(path: '/home', builder: (context, state) => HomeScreen()),
+    // Seletor de unidade da rede (matriz/filial, CHU-300)
+    GoRoute(
+      path: '/select-church',
+      builder: (context, state) => const ChurchSelectorScreen(),
+    ),
     GoRoute(
       path: '/community',
       builder: (context, state) => const CommunityScreen(),
@@ -1418,6 +1427,15 @@ final appRouter = GoRouter(
         child: DashboardSettingsScreen(),
       ),
     ),
+    // CHU-308: versão pessoal de '/dashboard-settings' — qualquer usuário
+    // com acesso ao Dashboard pode ligar/desligar seus próprios cards,
+    // dentre os que tem permissão de ver (ver DashboardAccessGate).
+    GoRoute(
+      path: '/dashboard-settings/personal',
+      builder: (context, state) => const DashboardAccessGate(
+        child: UserDashboardSettingsScreen(),
+      ),
+    ),
 
     GoRoute(
       path: '/developer-settings',
@@ -1493,6 +1511,19 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/permissions/catalog',
       builder: (context, state) => const PermissionsCatalogScreen(),
+    ),
+    // Rotas de gestão de filiais (matriz/filial, CHU-289)
+    GoRoute(
+      path: '/branches',
+      builder: (context, state) => const DashboardAccessGate(
+        child: MatrizAdminOnlyRoute(child: BranchesListScreen()),
+      ),
+    ),
+    GoRoute(
+      path: '/branches/new',
+      builder: (context, state) => const DashboardAccessGate(
+        child: MatrizAdminOnlyRoute(child: BranchFormScreen()),
+      ),
     ),
 
     // =====================================================

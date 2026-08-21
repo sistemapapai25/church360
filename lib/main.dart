@@ -12,6 +12,7 @@ import 'core/constants/supabase_constants.dart';
 import 'core/navigation/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/app_logo.dart';
+import 'core/widgets/app_restart_scope.dart';
 import 'features/support_chat/domain/models/support_agent.dart';
 import 'features/support_chat/presentation/providers/agents_providers.dart';
 import 'features/support_chat/presentation/widgets/support_chat_container.dart';
@@ -39,8 +40,10 @@ void main() {
       };
 
       runApp(
-        const ProviderScope(
-          child: AppBootstrap(),
+        const AppRestartScope(
+          child: ProviderScope(
+            child: AppBootstrap(),
+          ),
         ),
       );
     },
