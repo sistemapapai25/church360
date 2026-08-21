@@ -10,8 +10,10 @@ import 'user_roles_repository.dart' show MemberWithoutAccountException;
 /// Gerencia operações de permissões
 class PermissionsRepository {
   final SupabaseClient _supabase;
-  bool _agentPermissionsEnsured = false;
-  bool _corePermissionsEnsured = false;
+  // Guardamos o tenant para o qual o seed já rodou (e não um bool): ao trocar
+  // de igreja o catálogo do novo tenant também precisa ser semeado (CHU-313).
+  String? _agentPermissionsEnsuredFor;
+  String? _corePermissionsEnsuredFor;
 
   PermissionsRepository(this._supabase);
 
@@ -61,10 +63,11 @@ class PermissionsRepository {
   // =====================================================
 
   Future<void> _ensureAgentPermissions() async {
-    if (_agentPermissionsEnsured) return;
+    final currentTenant = SupabaseConstants.currentTenantId.trim();
+    if (_agentPermissionsEnsuredFor == currentTenant) return;
 
     try {
-      final tenantId = SupabaseConstants.currentTenantId.trim();
+      final tenantId = currentTenant;
       final runtimeConfigs = await _supabase
           .from('agent_config')
           .select('tenant_id, key, display_name')
@@ -92,7 +95,7 @@ class PermissionsRepository {
       }
 
       if (expected.isEmpty) {
-        _agentPermissionsEnsured = true;
+        _agentPermissionsEnsuredFor = currentTenant;
         return;
       }
 
@@ -119,16 +122,17 @@ class PermissionsRepository {
         );
       }
 
-      _agentPermissionsEnsured = true;
+      _agentPermissionsEnsuredFor = currentTenant;
     } catch (_) {
-      _agentPermissionsEnsured = true;
+      _agentPermissionsEnsuredFor = currentTenant;
     }
   }
 
   Future<void> _ensureCorePermissions() async {
-    if (_corePermissionsEnsured) return;
+    final currentTenant = SupabaseConstants.currentTenantId.trim();
+    if (_corePermissionsEnsuredFor == currentTenant) return;
     try {
-      final tenantId = SupabaseConstants.currentTenantId;
+      final tenantId = currentTenant;
       final rows = <Map<String, dynamic>>[
         {
           'code': 'dispatch.configure',
@@ -222,17 +226,23 @@ class PermissionsRepository {
       );
     } catch (_) {
     } finally {
-      _corePermissionsEnsured = true;
+      _corePermissionsEnsuredFor = currentTenant;
     }
   }
 
   /// Buscar todas as permissões
+  ///
+  /// O catálogo é multi-tenant (`permissions` é `tenant_id NOT NULL` e a
+  /// UNIQUE real é `(tenant_id, code)`), então o mesmo `code` existe uma vez
+  /// por igreja. Sem o filtro de tenant a tela listava o catálogo de todas as
+  /// igrejas do sistema (CHU-313).
   Future<List<Permission>> getPermissions() async {
     await _ensureAgentPermissions();
     await _ensureCorePermissions();
     final response = await _supabase
         .from('permissions')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('is_active', true)
         .order('category')
         .order('name');
@@ -249,6 +259,7 @@ class PermissionsRepository {
     final response = await _supabase
         .from('permissions')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('category', category)
         .eq('is_active', true)
         .order('name');
@@ -259,12 +270,18 @@ class PermissionsRepository {
   }
 
   /// Buscar permissão por código
+  ///
+  /// Usa `limit(1)` antes do `maybeSingle()`: mesmo com o filtro de tenant,
+  /// uma linha duplicada residual faria o `maybeSingle()` estourar erro em vez
+  /// de degradar (CHU-313).
   Future<Permission?> getPermissionByCode(String code) async {
     await _ensureCorePermissions();
     final response = await _supabase
         .from('permissions')
         .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('code', code)
+        .limit(1)
         .maybeSingle();
 
     if (response == null) return null;
@@ -277,6 +294,7 @@ class PermissionsRepository {
     final response = await _supabase
         .from('permissions')
         .select('category')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('is_active', true);
 
     final categories = (response as List)
@@ -301,8 +319,13 @@ class PermissionsRepository {
         .eq('role_id', roleId)
         .eq('is_granted', true);
 
+    // O embed vem `null` quando o `permission_id` aponta para uma linha que o
+    // RLS de tenant não deixa ver (vínculos cruzados legados — CHU-314).
+    // Ignorar em vez de estourar cast nulo.
     return (response as List)
-        .map((item) => Permission.fromJson(item['permissions'] as Map<String, dynamic>))
+        .map((item) => item['permissions'])
+        .whereType<Map<String, dynamic>>()
+        .map(Permission.fromJson)
         .toList();
   }
 
