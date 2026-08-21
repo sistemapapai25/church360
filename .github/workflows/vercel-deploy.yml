@@ -1,0 +1,43 @@
+name: Deploy Flutter Web to Vercel
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.38.3'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Flutter Web
+        run: flutter build web --release
+
+      - name: Write Vercel rewrites config
+        run: |
+          cat > build/web/vercel.json << 'EOF'
+          { "rewrites": [ { "source": "/(.*)", "destination": "/index.html" } ] }
+          EOF
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel
+        working-directory: build/web
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: vercel deploy --prod --yes --token=$VERCEL_TOKEN
