@@ -7,6 +7,19 @@ import '../domain/models/permission.dart';
 import '../domain/models/user_effective_permission.dart';
 import 'user_roles_repository.dart' show MemberWithoutAccountException;
 
+/// Lançada quando um `permission_id` de outra igreja chega a um caminho de
+/// escrita (CHU-314).
+class CrossTenantPermissionException implements Exception {
+  final List<String> permissionIds;
+  final String tenantId;
+  const CrossTenantPermissionException(this.permissionIds, this.tenantId);
+
+  @override
+  String toString() =>
+      'CrossTenantPermissionException: ${permissionIds.length} permissão(ões) '
+      'não pertencem ao tenant $tenantId: ${permissionIds.join(', ')}';
+}
+
 /// Repository: Permissions
 /// Gerencia operações de permissões
 class PermissionsRepository {
@@ -307,6 +320,37 @@ class PermissionsRepository {
     return categories;
   }
 
+  /// Recusa `permission_id` que não pertence ao tenant atual (CHU-314).
+  ///
+  /// O banco já barra isso pelas FKs compostas `ucp_permission_same_tenant_fk`
+  /// e `rp_permission_same_tenant_fk` (migration `20260821000008`). A guarda
+  /// aqui existe para falhar **antes** da escrita, com os ids na mensagem, em
+  /// vez de deixar vazar um erro de constraint cru para a tela.
+  ///
+  /// Importa principalmente em [updateRolePermissions], que apaga tudo antes de
+  /// inserir: sem a checagem prévia, um id inválido derrubava a FK no meio do
+  /// caminho e deixava o cargo sem nenhuma permissão.
+  Future<void> _assertPermissionsInTenant(Iterable<String> permissionIds) async {
+    final ids = permissionIds.toSet();
+    if (ids.isEmpty) return;
+
+    final tenantId = SupabaseConstants.currentTenantId;
+    final response = await _supabase
+        .from('permissions')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .inFilter('id', ids.toList());
+
+    final doTenant = (response as List)
+        .map((row) => (row as Map<String, dynamic>)['id'] as String)
+        .toSet();
+
+    final forasteiros = ids.difference(doTenant).toList()..sort();
+    if (forasteiros.isNotEmpty) {
+      throw CrossTenantPermissionException(forasteiros, tenantId);
+    }
+  }
+
   // =====================================================
   // PERMISSÕES DE CARGOS
   // =====================================================
@@ -336,15 +380,22 @@ class PermissionsRepository {
     required String permissionId,
     bool isGranted = true,
   }) async {
+    await _assertPermissionsInTenant([permissionId]);
     final actorId = await _effectiveUserId();
     await _supabase
         .from('role_permissions')
-        .upsert({
-          'role_id': roleId,
-          'permission_id': permissionId,
-          'is_granted': isGranted,
-          'created_by': actorId,
-        });
+        .upsert(
+          {
+            'role_id': roleId,
+            'permission_id': permissionId,
+            'is_granted': isGranted,
+            'created_by': actorId,
+          },
+          // Sem `onConflict` o PostgREST infere a PK (`id`), que nunca colide
+          // porque não a enviamos — o upsert virava INSERT puro e batia na
+          // UNIQUE `role_permissions_role_id_permission_id_key`.
+          onConflict: 'role_id,permission_id',
+        );
   }
 
   /// Remover permissão de um cargo
@@ -364,6 +415,10 @@ class PermissionsRepository {
     required String roleId,
     required List<String> permissionIds,
   }) async {
+    // Valida ANTES do delete: este método zera o cargo para depois reinserir,
+    // então falhar no insert deixaria o cargo sem permissão nenhuma (CHU-314).
+    await _assertPermissionsInTenant(permissionIds);
+
     // Remove todas as permissões atuais
     await _supabase
         .from('role_permissions')
@@ -490,17 +545,21 @@ class PermissionsRepository {
     if (authUserId == null) {
       throw MemberWithoutAccountException(userId);
     }
+    await _assertPermissionsInTenant([permissionId]);
     final actorId = await _effectiveUserId();
     await _supabase
         .from('user_custom_permissions')
-        .upsert({
-          'user_id': authUserId,
-          'permission_id': permissionId,
-          'is_granted': isGranted,
-          'expires_at': expiresAt?.toIso8601String(),
-          'reason': reason,
-          'granted_by': actorId,
-        });
+        .upsert(
+          {
+            'user_id': authUserId,
+            'permission_id': permissionId,
+            'is_granted': isGranted,
+            'expires_at': expiresAt?.toIso8601String(),
+            'reason': reason,
+            'granted_by': actorId,
+          },
+          onConflict: 'user_id,permission_id',
+        );
   }
 
   /// Remover permissão customizada
@@ -535,6 +594,10 @@ class PermissionsRepository {
       throw MemberWithoutAccountException(userId);
     }
 
+    // Só os ids que serão gravados: apagar um vínculo cruzado legado é
+    // desejável, então `clearIds` não passa pela guarda.
+    await _assertPermissionsInTenant([...plan.grantIds, ...plan.denyIds]);
+
     final rows = <Map<String, dynamic>>[];
     for (final permissionId in plan.grantIds) {
       rows.add({'permission_id': permissionId, 'is_granted': true});
@@ -551,7 +614,15 @@ class PermissionsRepository {
         row['reason'] = null;
         row['granted_by'] = actorId;
       }
-      await _supabase.from('user_custom_permissions').upsert(rows);
+      // `onConflict` obrigatório: a permissão pode já ter um override gravado
+      // (o caso de virar um "permitido" em "negado"). Sem ele o PostgREST
+      // infere a PK, o upsert vira INSERT e a UNIQUE
+      // `user_custom_permissions_user_id_permission_id_key` derruba o lote
+      // inteiro com 409.
+      await _supabase.from('user_custom_permissions').upsert(
+            rows,
+            onConflict: 'user_id,permission_id',
+          );
     }
 
     if (plan.clearIds.isNotEmpty) {
