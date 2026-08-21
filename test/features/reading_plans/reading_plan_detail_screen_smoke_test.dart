@@ -13,7 +13,15 @@ class _FakeReadingPlansRepository extends ReadingPlansRepository {
   final ReadingPlan plan;
 
   _FakeReadingPlansRepository(this.plan)
-      : super(SupabaseClient('http://localhost', 'test-key'));
+      : super(SupabaseClient(
+          'http://localhost',
+          'test-key',
+          // Sem isso o GoTrue deixa um `Timer.periodic` de auto-refresh vivo e
+          // o flutter_test falha o teste por timer pendente (CHU-321).
+          // `dispose()` no tearDown não resolve: trava esperando o realtime
+          // desconectar de um host que não existe.
+          authOptions: const AuthClientOptions(autoRefreshToken: false),
+        ));
 
   @override
   Future<ReadingPlan?> getPlanById(String id) async {
