@@ -7,7 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../providers/kids_providers.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
-import '../../../members/domain/models/member.dart';
+import '../../../members/domain/models/member_directory_entry.dart';
 import '../../domain/models/kids_guardian.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
@@ -343,7 +343,7 @@ class _AddGuardianDialog extends ConsumerStatefulWidget {
 }
 
 class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
-  Member? _selectedMember;
+  MemberDirectoryEntry? _selectedMember;
   String _relationship = 'Tio(a)';
   bool _isLoading = false;
 
@@ -359,7 +359,7 @@ class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
             if (_selectedMember == null) ...[
               Consumer(
                 builder: (context, ref, child) {
-                  final membersAsync = ref.watch(allMembersProvider);
+                  final membersAsync = ref.watch(memberDirectoryProvider);
 
                   return membersAsync.when(
                     data: (members) {
@@ -370,12 +370,12 @@ class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
 
                       return LayoutBuilder(
                         builder: (context, constraints) {
-                          return Autocomplete<Member>(
+                          return Autocomplete<MemberDirectoryEntry>(
                             optionsBuilder:
                                 (TextEditingValue textEditingValue) {
                                   final text = textEditingValue.text.trim();
                                   if (text.length < 3) {
-                                    return const Iterable<Member>.empty();
+                                    return const Iterable<MemberDirectoryEntry>.empty();
                                   }
                                   final q = text.toLowerCase();
                                   return filteredList.where(
@@ -386,12 +386,11 @@ class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
                                         (m.nickname?.toLowerCase().contains(
                                               q,
                                             ) ??
-                                            false) ||
-                                        m.email.toLowerCase().contains(q),
+                                            false),
                                   );
                                 },
                             displayStringForOption: (m) => m.displayName,
-                            onSelected: (Member selection) {
+                            onSelected: (MemberDirectoryEntry selection) {
                               setState(() {
                                 _selectedMember = selection;
                               });
@@ -441,22 +440,24 @@ class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
                                       itemCount: options.length,
                                       itemBuilder:
                                           (BuildContext context, int index) {
-                                            final Member option = options
-                                                .elementAt(index);
+                                            final MemberDirectoryEntry option =
+                                                options.elementAt(index);
                                             return ListTile(
                                               leading: CircleAvatar(
                                                 backgroundImage:
-                                                    option.photoUrl != null
+                                                    option.avatarUrl != null
                                                     ? NetworkImage(
-                                                        option.photoUrl!,
+                                                        option.avatarUrl!,
                                                       )
                                                     : null,
-                                                child: option.photoUrl == null
+                                                child: option.avatarUrl == null
                                                     ? Text(option.initials)
                                                     : null,
                                               ),
                                               title: Text(option.displayName),
-                                              subtitle: Text(option.email),
+                                              subtitle: option.nickname != null
+                                                  ? Text(option.nickname!)
+                                                  : null,
                                               onTap: () => onSelected(option),
                                             );
                                           },
@@ -483,15 +484,17 @@ class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
             ] else ...[
               ListTile(
                 leading: CircleAvatar(
-                  backgroundImage: _selectedMember!.photoUrl != null
-                      ? NetworkImage(_selectedMember!.photoUrl!)
+                  backgroundImage: _selectedMember!.avatarUrl != null
+                      ? NetworkImage(_selectedMember!.avatarUrl!)
                       : null,
-                  child: _selectedMember!.photoUrl == null
+                  child: _selectedMember!.avatarUrl == null
                       ? Text(_selectedMember!.initials)
                       : null,
                 ),
                 title: Text(_selectedMember!.displayName),
-                subtitle: Text(_selectedMember!.email),
+                subtitle: _selectedMember!.nickname != null
+                    ? Text(_selectedMember!.nickname!)
+                    : null,
                 trailing: IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () {

@@ -30,6 +30,8 @@ class EventsListScreen extends ConsumerStatefulWidget {
 
 class _EventsListScreenState extends ConsumerState<EventsListScreen> {
   String _filter = 'upcoming'; // 'all', 'upcoming', 'active'
+  bool _selectionMode = false;
+  final Set<String> _selectedIds = {};
 
   bool _isRegistrationShareEnabled(Event event) {
     return event.requiresRegistration && event.status == 'published' && !event.isPast;
@@ -96,6 +98,163 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erro ao excluir evento: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _selectionMode = !_selectionMode;
+      if (!_selectionMode) _selectedIds.clear();
+    });
+  }
+
+  void _toggleSelected(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  Future<void> _confirmDeleteSelected() async {
+    if (_selectedIds.isEmpty) return;
+    final count = _selectedIds.length;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excluir eventos selecionados'),
+        content: Text(
+          'Deseja realmente excluir $count evento(s) selecionado(s)?\n\n'
+          'Inscrições, escalas e demais dados vinculados serão removidos. '
+          'Essa ação não pode ser desfeita.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: Text('Excluir $count'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ref
+          .read(eventsRepositoryProvider)
+          .deleteEvents(_selectedIds.toList());
+      ref.invalidate(allEventsProvider);
+      ref.invalidate(activeEventsProvider);
+      ref.invalidate(upcomingEventsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$count eventos excluídos com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        setState(() {
+          _selectionMode = false;
+          _selectedIds.clear();
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao excluir eventos: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteBatch(Event event) async {
+    final batchId = event.batchId;
+    if (batchId == null) return;
+
+    List<Event> batchEvents;
+    try {
+      batchEvents =
+          await ref.read(eventsRepositoryProvider).getEventsByBatch(batchId);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao buscar série do evento: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+    if (batchEvents.isEmpty) batchEvents = [event];
+
+    final dateFormat = DateFormat('dd/MM/yyyy');
+    final first = batchEvents.first.startDate;
+    final last = batchEvents.last.startDate;
+
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excluir toda a série'),
+        content: Text(
+          'Esta ação vai excluir ${batchEvents.length} evento(s) de '
+          '"${event.name}", gerados no mesmo lançamento '
+          '(de ${dateFormat.format(first)} até ${dateFormat.format(last)}).\n\n'
+          'Inscrições, escalas e demais dados vinculados a esses eventos '
+          'também serão removidos. Essa ação não pode ser desfeita.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: Text('Excluir ${batchEvents.length}'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ref.read(eventsRepositoryProvider).deleteEventsByBatch(batchId);
+      ref.invalidate(allEventsProvider);
+      ref.invalidate(activeEventsProvider);
+      ref.invalidate(upcomingEventsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${batchEvents.length} eventos excluídos com sucesso!',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao excluir série: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -194,27 +353,58 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                 ),
               ),
               actions: [
-                PopupMenuButton<String>(
-                  initialValue: _filter,
-                  onSelected: (value) {
-                    setState(() => _filter = value);
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'upcoming',
-                      child: Text('Próximos'),
+                if (widget.enableCrud && _selectionMode) ...[
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Text(
+                        '${_selectedIds.length} selecionado(s)',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
-                    const PopupMenuItem(value: 'active', child: Text('Ativos')),
-                    const PopupMenuItem(value: 'all', child: Text('Todos')),
-                  ],
-                ),
-                IconButton(
-                  tooltip: 'Gerenciar Tipos',
-                  icon: const Icon(Icons.category),
-                  onPressed: () {
-                    context.push('/events/types');
-                  },
-                ),
+                  ),
+                  IconButton(
+                    tooltip: 'Excluir selecionados',
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: _selectedIds.isEmpty
+                        ? null
+                        : _confirmDeleteSelected,
+                  ),
+                ],
+                if (widget.enableCrud)
+                  IconButton(
+                    tooltip: _selectionMode
+                        ? 'Cancelar seleção'
+                        : 'Selecionar vários',
+                    icon: Icon(_selectionMode ? Icons.close : Icons.checklist),
+                    onPressed: _toggleSelectionMode,
+                  ),
+                if (!_selectionMode) ...[
+                  PopupMenuButton<String>(
+                    initialValue: _filter,
+                    onSelected: (value) {
+                      setState(() => _filter = value);
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'upcoming',
+                        child: Text('Próximos'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'active',
+                        child: Text('Ativos'),
+                      ),
+                      const PopupMenuItem(value: 'all', child: Text('Todos')),
+                    ],
+                  ),
+                  IconButton(
+                    tooltip: 'Gerenciar Tipos',
+                    icon: const Icon(Icons.category),
+                    onPressed: () {
+                      context.push('/events/types');
+                    },
+                  ),
+                ],
               ],
             )
           : null,
@@ -295,6 +485,10 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: () {
+                          if (_selectionMode) {
+                            _toggleSelected(event.id);
+                            return;
+                          }
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -303,6 +497,16 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                             ),
                           );
                         },
+                        onLongPress: widget.enableCrud
+                            ? () {
+                                if (!_selectionMode) {
+                                  setState(() {
+                                    _selectionMode = true;
+                                    _selectedIds.add(event.id);
+                                  });
+                                }
+                              }
+                            : null,
                         child: Padding(
                           padding: const EdgeInsets.all(20),
                           child: Column(
@@ -311,6 +515,19 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                               // Header com nome e status
                               Row(
                                 children: [
+                                  if (_selectionMode && widget.enableCrud)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        right: 4,
+                                      ),
+                                      child: Checkbox(
+                                        value: _selectedIds.contains(
+                                          event.id,
+                                        ),
+                                        onChanged: (_) =>
+                                            _toggleSelected(event.id),
+                                      ),
+                                    ),
                                   Expanded(
                                     child: Text(
                                       event.name,
@@ -321,77 +538,102 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                                   ),
                                   const SizedBox(width: 8),
                                   _StatusChip(event: event),
-                                  const SizedBox(width: 4),
-                                  IconButton(
-                                    tooltip: _isRegistrationShareEnabled(event)
-                                        ? 'Compartilhar inscrição'
-                                        : 'Compartilhar evento',
-                                    icon: const Icon(Icons.share, size: 18),
-                                    onPressed: () => _isRegistrationShareEnabled(event)
-                                        ? _shareRegistrationLink(event)
-                                        : _shareEventInfoLink(event),
-                                  ),
-                                  if (widget.enableCrud)
-                                    PopupMenuButton<String>(
-                                      tooltip: 'Mais opções',
-                                      icon: const Icon(
-                                        Icons.more_vert,
-                                        size: 18,
-                                      ),
-                                      onSelected: (value) {
-                                        switch (value) {
-                                          case 'edit':
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) =>
-                                                    EventFormScreen(
-                                                  eventId: event.id,
-                                                ),
-                                              ),
-                                            ).then((_) {
-                                              ref.invalidate(allEventsProvider);
-                                              ref.invalidate(activeEventsProvider);
-                                              ref.invalidate(upcomingEventsProvider);
-                                            });
-                                            break;
-                                          case 'delete':
-                                            _confirmDeleteEvent(event);
-                                            break;
-                                        }
-                                      },
-                                      itemBuilder: (context) => const [
-                                        PopupMenuItem(
-                                          value: 'edit',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.edit, size: 18),
-                                              SizedBox(width: 8),
-                                              Text('Editar'),
-                                            ],
-                                          ),
+                                  if (!_selectionMode) ...[
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      tooltip: _isRegistrationShareEnabled(event)
+                                          ? 'Compartilhar inscrição'
+                                          : 'Compartilhar evento',
+                                      icon: const Icon(Icons.share, size: 18),
+                                      onPressed: () => _isRegistrationShareEnabled(event)
+                                          ? _shareRegistrationLink(event)
+                                          : _shareEventInfoLink(event),
+                                    ),
+                                    if (widget.enableCrud)
+                                      PopupMenuButton<String>(
+                                        tooltip: 'Mais opções',
+                                        icon: const Icon(
+                                          Icons.more_vert,
+                                          size: 18,
                                         ),
-                                        PopupMenuItem(
-                                          value: 'delete',
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.delete,
-                                                size: 18,
-                                                color: Colors.red,
-                                              ),
-                                              SizedBox(width: 8),
-                                              Text(
-                                                'Excluir',
-                                                style: TextStyle(
+                                        onSelected: (value) {
+                                          switch (value) {
+                                            case 'edit':
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      EventFormScreen(
+                                                    eventId: event.id,
+                                                  ),
+                                                ),
+                                              ).then((_) {
+                                                ref.invalidate(allEventsProvider);
+                                                ref.invalidate(activeEventsProvider);
+                                                ref.invalidate(upcomingEventsProvider);
+                                              });
+                                              break;
+                                            case 'delete':
+                                              _confirmDeleteEvent(event);
+                                              break;
+                                            case 'delete_batch':
+                                              _confirmDeleteBatch(event);
+                                              break;
+                                          }
+                                        },
+                                        itemBuilder: (context) => [
+                                          const PopupMenuItem(
+                                            value: 'edit',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.edit, size: 18),
+                                                SizedBox(width: 8),
+                                                Text('Editar'),
+                                              ],
+                                            ),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'delete',
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.delete,
+                                                  size: 18,
                                                   color: Colors.red,
                                                 ),
-                                              ),
-                                            ],
+                                                SizedBox(width: 8),
+                                                Text(
+                                                  'Excluir',
+                                                  style: TextStyle(
+                                                    color: Colors.red,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
+                                          if (event.batchId != null)
+                                            const PopupMenuItem(
+                                              value: 'delete_batch',
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.delete_sweep,
+                                                    size: 18,
+                                                    color: Colors.red,
+                                                  ),
+                                                  SizedBox(width: 8),
+                                                  Text(
+                                                    'Excluir toda a série',
+                                                    style: TextStyle(
+                                                      color: Colors.red,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                  ],
                                 ],
                               ),
 

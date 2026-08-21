@@ -125,6 +125,85 @@ class EventsRepository {
     }
   }
 
+  /// Buscar catálogo de locais de eventos já utilizados
+  Future<List<String>> getEventLocationsCatalog() async {
+    try {
+      final response = await _supabase
+          .from('event_location')
+          .select()
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .order('name');
+
+      return (response as List)
+          .map((json) => (json['name'] ?? '').toString())
+          .where((v) => v.isNotEmpty)
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> upsertEventLocation(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    try {
+      await _supabase.from('event_location').upsert({
+        'name': trimmed,
+        'tenant_id': SupabaseConstants.currentTenantId,
+      }, onConflict: 'tenant_id,name');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> deleteEventLocation(String name) async {
+    try {
+      await _supabase
+          .from('event_location')
+          .delete()
+          .eq('name', name)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<int> getEventsCountByLocation(String name) async {
+    try {
+      final response = await _supabase
+          .from('event')
+          .select()
+          .eq('location', name)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .count();
+      return response.count;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Preenche o catálogo de locais a partir dos locais já digitados em
+  /// eventos existentes (útil na primeira vez que o catálogo está vazio)
+  Future<void> syncEventLocationsFromExistingEvents() async {
+    try {
+      final distinct = await _supabase
+          .from('event')
+          .select('location')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .order('location');
+      final names = (distinct as List)
+          .map((j) => (j['location'] ?? '').toString().trim())
+          .where((s) => s.isNotEmpty)
+          .toSet()
+          .toList();
+      for (final name in names) {
+        await upsertEventLocation(name);
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Buscar todos os eventos
   Future<List<Event>> getAllEvents() async {
     try {
@@ -359,6 +438,51 @@ class EventsRepository {
           .from('event')
           .delete()
           .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Deletar múltiplos eventos selecionados manualmente
+  Future<void> deleteEvents(List<String> ids) async {
+    if (ids.isEmpty) return;
+    try {
+      await _supabase
+          .from('event')
+          .delete()
+          .inFilter('id', ids)
+          .eq('tenant_id', SupabaseConstants.currentTenantId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Buscar todos os eventos de uma mesma leva (lançamento fixo/recorrente)
+  Future<List<Event>> getEventsByBatch(String batchId) async {
+    try {
+      final response = await _supabase
+          .from('event')
+          .select()
+          .eq('batch_id', batchId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .order('start_date');
+
+      return (response as List)
+          .map((json) => Event.fromJson(Map<String, dynamic>.from(json)))
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Deletar toda a série de eventos gerada no mesmo lançamento fixo/recorrente
+  Future<void> deleteEventsByBatch(String batchId) async {
+    try {
+      await _supabase
+          .from('event')
+          .delete()
+          .eq('batch_id', batchId)
           .eq('tenant_id', SupabaseConstants.currentTenantId);
     } catch (e) {
       rethrow;

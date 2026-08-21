@@ -7,12 +7,17 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/services/viacep_service.dart';
 import '../providers/members_provider.dart';
+import '../../data/members_repository.dart';
+import '../../data/family_relationships_repository.dart';
 import '../../domain/models/member.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../kids/presentation/providers/kids_providers.dart';
+import '../../../access_levels/presentation/providers/access_level_provider.dart';
 
 /// Tela de formulário de membro (criar/editar)
 class MemberFormScreen extends ConsumerStatefulWidget {
@@ -67,6 +72,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   DateTime? _firstVisitDate;
   bool? _wantsContact;
 
+  // Responsável (pai/mãe/tutor) — obrigatório ao cadastrar/editar um menor
+  // pela tela administrativa de membros (fora do fluxo Kids de autocadastro).
+  static const int _minorGuardianAgeThresholdYears = 12;
+  Member? _selectedGuardianMember;
+  String _guardianRelationshipLabel = 'Pai';
+  bool _guardianLinkTouched = false;
+
   bool _isLoading = false;
   bool _isSearchingCep = false;
   Member? _existingMember;
@@ -103,6 +115,41 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   }
 
   bool get _isEmailRequired => !_isKidsFlowType;
+
+  int? get _computedAgeYears {
+    final birth = _birthdate;
+    if (birth == null) return null;
+    final now = DateTime.now();
+    var age = now.year - birth.year;
+    if (now.month < birth.month ||
+        (now.month == birth.month && now.day < birth.day)) {
+      age--;
+    }
+    return age;
+  }
+
+  // O fluxo Kids já vincula a criança ao próprio responsável que a cadastrou
+  // (ver _saveMember), então só exigimos a seleção manual do responsável
+  // quando o cadastro é feito pela tela administrativa de membros.
+  bool get _requiresGuardianLink {
+    if (_isKidsFlowType) return false;
+    final age = _computedAgeYears;
+    return age != null && age <= _minorGuardianAgeThresholdYears;
+  }
+
+  String get _guardianRelationshipTypeCode {
+    final isFemaleGuardian =
+        (_selectedGuardianMember?.gender ?? '').toLowerCase() == 'female';
+    switch (_guardianRelationshipLabel) {
+      case 'Mãe':
+        return 'mae';
+      case 'Tutor(a)':
+        return isFemaleGuardian ? 'tutora' : 'tutor';
+      case 'Pai':
+      default:
+        return 'pai';
+    }
+  }
 
   @override
   void initState() {
@@ -420,6 +467,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           });
           _professionController.text = label ?? rawProfession;
         }
+
+        await _loadExistingGuardianLink(repo);
       }
     } catch (e) {
       if (mounted) {
@@ -435,6 +484,34 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  /// Carrega o vínculo de responsável (pai/mãe/tutor) já existente para este
+  /// membro, se houver, para preencher o seletor ao editar um menor.
+  Future<void> _loadExistingGuardianLink(MembersRepository repo) async {
+    if (widget.memberId == null) return;
+    try {
+      final familyRepo = ref.read(familyRelationshipsRepositoryProvider);
+      final relationships = await familyRepo.getByMember(widget.memberId!);
+      const guardianTypes = {'pai', 'mae', 'tutor', 'tutora'};
+      for (final rel in relationships) {
+        if (!guardianTypes.contains(rel.tipo)) continue;
+        final guardianMember = await repo.getMemberById(rel.parenteId);
+        if (guardianMember != null && mounted) {
+          setState(() {
+            _selectedGuardianMember = guardianMember;
+            _guardianRelationshipLabel = switch (rel.tipo) {
+              'mae' => 'Mãe',
+              'tutor' || 'tutora' => 'Tutor(a)',
+              _ => 'Pai',
+            };
+          });
+        }
+        break;
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar vínculo de responsável existente: $e');
     }
   }
 
@@ -550,7 +627,26 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       return;
     }
 
+    if (_requiresGuardianLink && _selectedGuardianMember == null) {
+      setState(() => _guardianLinkTouched = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Selecione o responsável (pai, mãe ou tutor) antes de salvar — '
+            'obrigatório para menores de $_minorGuardianAgeThresholdYears anos.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
+
+    String? pendingLoginEmailConfirmation;
+    String? loginEmailUpdateError;
+
+    String? savedMemberId;
 
     try {
       final repo = ref.read(membersRepositoryProvider);
@@ -665,14 +761,18 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           memberData['notes'] = _notesController.text.trim();
         }
 
+        // currentMember.id e o user_account.id real de quem esta criando
+        // (ja resolvido por currentMemberProvider via ensure_my_account/
+        // getMemberByAuthUserId). Usar o authId (auth.uid()) cru aqui violaria
+        // user_account_created_by_fkey (que referencia user_account.id, nao
+        // auth.users.id) sempre que o criador for uma conta legada/
+        // reaproveitada por email com id != auth.uid().
+        final currentMember = await ref.read(currentMemberProvider.future);
+
         if (_isKidsFlowType) {
-          final currentMember = await ref.read(currentMemberProvider.future);
           final householdId = currentMember?.householdId ?? currentMember?.id;
           if (householdId != null && householdId.trim().isNotEmpty) {
             memberData['household_id'] = householdId.trim();
-          }
-          if (currentMember != null && currentMember.id.trim().isNotEmpty) {
-            memberData['created_by'] = currentMember.id.trim();
           }
         }
 
@@ -682,10 +782,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
             authEmail.isNotEmpty &&
             authEmail == email.trim().toLowerCase();
         memberData['id'] = shouldBindToAuth ? authId : const Uuid().v4();
-        if (authId != null && authId.isNotEmpty) {
-          memberData['created_by'] = memberData['created_by'] ?? authId;
+        if (currentMember != null && currentMember.id.trim().isNotEmpty) {
+          memberData['created_by'] =
+              memberData['created_by'] ?? currentMember.id.trim();
         }
-        await repo.createMemberFromJson(memberData);
+        final createdMember = await repo.createMemberFromJson(memberData);
+        savedMemberId = createdMember.id;
       } else {
         // Atualizar existente
         // No fluxo infantil (tipo 'crianca'), email pode ficar vazio.
@@ -721,6 +823,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
         final member = Member(
           id: widget.memberId!,
+          authUserId: _existingMember?.authUserId,
           email: effectiveEmail,
           fullName: finalFullName,
           firstName: firstName.isEmpty ? null : firstName,
@@ -770,6 +873,68 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         );
 
         await repo.updateMember(member);
+        savedMemberId = widget.memberId;
+
+        // Se a pessoa está editando o PRÓPRIO cadastro e trocou o email,
+        // dispara também a troca do email de login no Supabase Auth.
+        // auth.updateUser() só afeta a sessão atualmente logada, então só
+        // pode ser chamado quando widget.memberId é o próprio usuário —
+        // nunca ao editar o cadastro de outro membro.
+        final authUser = Supabase.instance.client.auth.currentUser;
+        final isSelfEdit = authUser != null && authUser.id == widget.memberId;
+        final emailChanged =
+            effectiveEmail.isNotEmpty &&
+            effectiveEmail.toLowerCase() != existingEmail.toLowerCase();
+
+        if (isSelfEdit && emailChanged) {
+          try {
+            await Supabase.instance.client.auth.updateUser(
+              UserAttributes(email: effectiveEmail),
+              emailRedirectTo: SupabaseConstants.authRedirectUrl,
+            );
+            pendingLoginEmailConfirmation = effectiveEmail;
+          } on AuthException catch (e) {
+            loginEmailUpdateError = e.message;
+          } catch (e) {
+            // O cadastro já foi salvo com sucesso acima; uma falha aqui é só
+            // na sincronização do email de login e não pode ser reportada
+            // como falha ao salvar o cadastro.
+            loginEmailUpdateError = e.toString();
+          }
+        }
+      }
+
+      // Vincula o responsável em relacionamentos_familiares — fonte da
+      // verdade para "quem é responsável por essa criança" usada pela tela
+      // Kids (ver kids_repository.dart: getManagedChildren). No fluxo Kids
+      // de autocadastro, o vínculo é automático com quem criou o cadastro;
+      // na tela administrativa, usa o responsável selecionado no formulário.
+      if (savedMemberId != null) {
+        try {
+          final familyRepo = ref.read(familyRelationshipsRepositoryProvider);
+          if (_isKidsFlowType && widget.memberId == null) {
+            final creator = await ref.read(currentMemberProvider.future);
+            if (creator != null) {
+              final creatorIsFemale =
+                  (creator.gender ?? '').toLowerCase() == 'female';
+              await familyRepo.addRelationship(
+                savedMemberId,
+                creator.id,
+                creatorIsFemale ? 'mae' : 'pai',
+              );
+            }
+          } else if (_requiresGuardianLink && _selectedGuardianMember != null) {
+            await familyRepo.addRelationship(
+              savedMemberId,
+              _selectedGuardianMember!.id,
+              _guardianRelationshipTypeCode,
+            );
+          }
+        } catch (e) {
+          // Não bloquear o salvamento do cadastro por falha ao gravar o
+          // vínculo familiar (ex: RLS, duplicidade já existente).
+          debugPrint('Erro ao vincular responsável: $e');
+        }
       }
 
       if (mounted) {
@@ -777,6 +942,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         ref.invalidate(allMembersProvider);
         ref.invalidate(activeMembersProvider);
         ref.invalidate(visitorsProvider);
+        ref.invalidate(managedChildrenProvider);
         if (widget.memberId != null) {
           ref.invalidate(memberByIdProvider(widget.memberId!));
           final currentUserId = Supabase.instance.client.auth.currentUser?.id;
@@ -785,16 +951,41 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           }
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              widget.memberId == null
-                  ? 'Membro criado com sucesso!'
-                  : 'Membro atualizado com sucesso!',
+        if (pendingLoginEmailConfirmation != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Cadastro atualizado! Para confirmar o novo email de login, '
+                'abra o link enviado para $pendingLoginEmailConfirmation. '
+                'Até lá, continue entrando com o email antigo.',
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 6),
             ),
-            backgroundColor: Colors.green,
-          ),
-        );
+          );
+        } else if (loginEmailUpdateError != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Cadastro atualizado, mas não foi possível atualizar o email '
+                'de login: $loginEmailUpdateError',
+              ),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 6),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                widget.memberId == null
+                    ? 'Membro criado com sucesso!'
+                    : 'Membro atualizado com sucesso!',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
 
         context.pop();
       }
@@ -815,11 +1006,199 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     }
   }
 
+  Widget _buildGuardianLinkSection(BuildContext context) {
+    final showError = _guardianLinkTouched && _selectedGuardianMember == null;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        border: showError ? Border.all(color: Colors.red) : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.family_restroom, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Responsável (obrigatório para menores de '
+                  '$_minorGuardianAgeThresholdYears anos)',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_selectedGuardianMember == null)
+            Consumer(
+              builder: (context, ref, child) {
+                final membersAsync = ref.watch(allMembersProvider);
+                return membersAsync.when(
+                  data: (members) {
+                    final filteredList = members
+                        .where((m) => m.id != widget.memberId)
+                        .toList();
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Autocomplete<Member>(
+                          optionsBuilder: (TextEditingValue textEditingValue) {
+                            final text = textEditingValue.text.trim();
+                            if (text.length < 3) {
+                              return const Iterable<Member>.empty();
+                            }
+                            final q = text.toLowerCase();
+                            return filteredList.where(
+                              (m) =>
+                                  m.displayName.toLowerCase().contains(q) ||
+                                  (m.nickname?.toLowerCase().contains(q) ??
+                                      false) ||
+                                  m.email.toLowerCase().contains(q),
+                            );
+                          },
+                          displayStringForOption: (m) => m.displayName,
+                          onSelected: (Member selection) {
+                            setState(() {
+                              _selectedGuardianMember = selection;
+                              _guardianLinkTouched = false;
+                            });
+                          },
+                          fieldViewBuilder:
+                              (
+                                context,
+                                fieldController,
+                                fieldFocusNode,
+                                onFieldSubmitted,
+                              ) {
+                                return TextFormField(
+                                  controller: fieldController,
+                                  focusNode: fieldFocusNode,
+                                  decoration: const InputDecoration(
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    border: OutlineInputBorder(),
+                                    labelText: 'Buscar responsável',
+                                    prefixIcon: Icon(Icons.search),
+                                    helperText:
+                                        'Digite 3 letras ou mais para buscar',
+                                  ),
+                                );
+                              },
+                          optionsViewBuilder: (context, onSelected, options) {
+                            return Align(
+                              alignment: Alignment.topLeft,
+                              child: Material(
+                                elevation: 4.0,
+                                child: SizedBox(
+                                  width: constraints.maxWidth,
+                                  child: ListView.builder(
+                                    padding: EdgeInsets.zero,
+                                    shrinkWrap: true,
+                                    itemCount: options.length,
+                                    itemBuilder: (context, index) {
+                                      final option = options.elementAt(index);
+                                      return ListTile(
+                                        title: Text(option.displayName),
+                                        subtitle: Text(option.email),
+                                        onTap: () => onSelected(option),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (e, s) => Text('Erro ao carregar membros: $e'),
+                );
+              },
+            )
+          else
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(_selectedGuardianMember!.displayName),
+              subtitle: Text(_selectedGuardianMember!.email),
+              trailing: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () =>
+                    setState(() => _selectedGuardianMember = null),
+              ),
+            ),
+          if (_selectedGuardianMember != null) ...[
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              initialValue: _guardianRelationshipLabel,
+              decoration: const InputDecoration(
+                labelText: 'Parentesco',
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(),
+              ),
+              items: const ['Pai', 'Mãe', 'Tutor(a)']
+                  .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _guardianRelationshipLabel = value);
+                }
+              },
+            ),
+          ],
+          if (showError) ...[
+            const SizedBox(height: 4),
+            const Text(
+              'Selecione o responsável antes de salvar.',
+              style: TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentMember = ref.watch(currentMemberProvider).valueOrNull;
     final isSelfEdit =
         widget.memberId != null && currentMember?.id == widget.memberId;
+    // Autocadastro Kids: o responsável logado precisa conseguir salvar o
+    // cadastro do próprio filho, mesmo sem permissões administrativas de
+    // members.create/visitors.create (essas permissões são pensadas para
+    // staff cadastrando visitantes/membros, não para pais no fluxo Kids).
+    final isSelfChildCreation =
+        widget.memberId == null && _isKidsFlowType && currentMember != null;
+    // Pai/mãe/tutor editando o cadastro do próprio filho vinculado (tela
+    // "Meus Filhos" -> editar): também sem permissões administrativas de
+    // members.edit, então precisa do mesmo bypass acima.
+    final isLinkedChildEdit =
+        widget.memberId != null &&
+        (ref
+                .watch(managedChildrenProvider)
+                .valueOrNull
+                ?.any((child) => child['id'] == widget.memberId) ??
+            false);
+    final canBypassPermissionGate =
+        isSelfEdit || isSelfChildCreation || isLinkedChildEdit;
+    // Dentro de "Informações Eclesiásticas", só Status, Tipo de Membro e
+    // Data da Primeira Visita são decisão pastoral/administrativa — a
+    // própria pessoa não pode alterá-los no próprio cadastro (as demais
+    // datas e "deseja contato" continuam editáveis por ela). O backend
+    // (members_repository.updateMember) já descarta esses três campos
+    // silenciosamente num UPDATE quando quem edita não é líder/coordenador/
+    // admin; aqui escondemos os mesmos campos na UI para não dar a falsa
+    // impressão de que a alteração será salva. Na criação (memberId ==
+    // null) o backend não restringe esses campos (é preciso definir
+    // status/tipo iniciais), então eles continuam visíveis normalmente.
+    final canEditEcclesiasticalInfo =
+        widget.memberId == null ||
+        (ref.watch(isLeaderOrAboveProvider).valueOrNull ?? false);
     final permission = widget.memberId == null
         ? (_status == 'visitor' ? 'visitors.create' : 'members.create')
         : (_status == 'visitor' ? 'visitors.edit' : 'members.edit');
@@ -858,9 +1237,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               ),
             )
           else
-            // Autoedição: o próprio membro precisa conseguir salvar o perfil,
-            // mesmo sem ter permissões administrativas de members.edit/visitors.edit.
-            (isSelfEdit
+            // Autoedição / autocadastro Kids: ver comentários acima.
+            (canBypassPermissionGate
                 ? Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Center(
@@ -1045,6 +1423,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     ),
                     const SizedBox(height: 16),
 
+                    // Responsável (obrigatório para menores)
+                    if (_requiresGuardianLink) ...[
+                      _buildGuardianLinkSection(context),
+                      const SizedBox(height: 16),
+                    ],
+
                     // Gênero
                     DropdownButtonFormField<String>(
                       initialValue: _gender,
@@ -1165,12 +1549,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       const SizedBox(height: 16),
                     ],
 
-                    // ProfissÆo
+                    // Profissão
                     TextFormField(
                       controller: _professionController,
                       focusNode: _professionFocusNode,
                       decoration: InputDecoration(
-                        labelText: 'ProfissÆo',
+                        labelText: 'Profissão',
                         filled: true,
                         fillColor: Theme.of(
                           context,
@@ -1204,6 +1588,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       ),
                     ],
                     const SizedBox(height: 24),
+                    // Seção: Vínculos Familiares (só é possível vincular
+                    // parentes depois que o membro já existe)
+                    if (widget.memberId != null) ...[
+                      _buildSectionTitle('Vínculos Familiares'),
+                      const SizedBox(height: 16),
+                      _buildFamilyRelationshipsSection(context),
+                      const SizedBox(height: 24),
+                    ],
                     // Seção: Endereço
                     _buildSectionTitle('Endereço'),
                     const SizedBox(height: 16),
@@ -1330,61 +1722,67 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Seção: Informações Eclesiásticas
+                    // Seção: Informações Eclesiásticas — a maioria dos campos
+                    // é editável pela própria pessoa; Status, Tipo de Membro
+                    // e Data da Primeira Visita são decisão exclusiva de
+                    // líder/pastor/admin (ver canEditEcclesiasticalInfo
+                    // acima) e ficam ocultos no autocadastro.
                     _buildSectionTitle('Informações Eclesiásticas'),
                     const SizedBox(height: 16),
 
-                    // Status
-                    DropdownButtonFormField<String>(
-                      initialValue: _status,
-                      decoration: InputDecoration(
-                        labelText: 'Status *',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.info),
+                    // Status — apenas líder/pastor/admin
+                    if (canEditEcclesiasticalInfo) ...[
+                      DropdownButtonFormField<String>(
+                        initialValue: _status,
+                        decoration: InputDecoration(
+                          labelText: 'Status *',
+                          filled: true,
+                          fillColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.info),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'visitor',
+                            child: Text('Visitante'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'new_convert',
+                            child: Text('Novo Convertido'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'member_active',
+                            child: Text('Membro Ativo'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'member_inactive',
+                            child: Text('Membro Inativo'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'transferred',
+                            child: Text('Transferido'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'deceased',
+                            child: Text('Falecido'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _status = value!;
+                          });
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Campo obrigatório';
+                          }
+                          return null;
+                        },
                       ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'visitor',
-                          child: Text('Visitante'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'new_convert',
-                          child: Text('Novo Convertido'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'member_active',
-                          child: Text('Membro Ativo'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'member_inactive',
-                          child: Text('Membro Inativo'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'transferred',
-                          child: Text('Transferido'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'deceased',
-                          child: Text('Falecido'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _status = value!;
-                        });
-                      },
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Campo obrigatório';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 16),
+                    ],
 
                     // Data de Conversão
                     InkWell(
@@ -1418,17 +1816,19 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Data de Primeira Visita (relevante para visitantes / Raízes)
-                    if (_status == 'visitor' ||
-                        _status == 'new_convert' ||
-                        _firstVisitDate != null) ...[
+                    // Data de Primeira Visita — apenas líder/pastor/admin
+                    // (relevante para visitantes / Raízes)
+                    if (canEditEcclesiasticalInfo &&
+                        (_status == 'visitor' ||
+                            _status == 'new_convert' ||
+                            _firstVisitDate != null)) ...[
                       InkWell(
                         onTap: () =>
                             _selectDate(context, _firstVisitDate, (date) {
-                          setState(() {
-                            _firstVisitDate = date;
-                          });
-                        }),
+                              setState(() {
+                                _firstVisitDate = date;
+                              });
+                            }),
                         child: InputDecorator(
                           decoration: InputDecoration(
                             labelText: 'Data da Primeira Visita',
@@ -1442,9 +1842,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                 ? IconButton(
                                     icon: const Icon(Icons.clear, size: 18),
                                     tooltip: 'Limpar',
-                                    onPressed: () => setState(
-                                      () => _firstVisitDate = null,
-                                    ),
+                                    onPressed: () =>
+                                        setState(() => _firstVisitDate = null),
                                   )
                                 : null,
                           ),
@@ -1455,8 +1854,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                   ).format(_firstVisitDate!)
                                 : 'Selecione a data',
                             style: TextStyle(
-                              color:
-                                  _firstVisitDate != null ? null : Colors.grey,
+                              color: _firstVisitDate != null
+                                  ? null
+                                  : Colors.grey,
                             ),
                           ),
                         ),
@@ -1472,8 +1872,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         _wantsContact == null
                             ? 'Não informado'
                             : (_wantsContact!
-                                ? 'Pode receber contato (ligações, mensagens)'
-                                : 'Não deseja contato no momento'),
+                                  ? 'Pode receber contato (ligações, mensagens)'
+                                  : 'Não deseja contato no momento'),
                         style: CommunityDesign.metaStyle(context),
                       ),
                       secondary: const Icon(Icons.contact_phone),
@@ -1543,25 +1943,27 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Tipo de Membro
-                    DropdownButtonFormField<String>(
-                      key: ValueKey(_memberType),
-                      initialValue: _memberType,
-                      decoration: InputDecoration(
-                        labelText: 'Tipo de Membro',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.person_outline),
+                    // Tipo de Membro — apenas líder/pastor/admin
+                    if (canEditEcclesiasticalInfo) ...[
+                      DropdownButtonFormField<String>(
+                        key: ValueKey(_memberType),
+                        initialValue: _memberType,
+                        decoration: InputDecoration(
+                          labelText: 'Tipo de Membro',
+                          filled: true,
+                          fillColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.person_outline),
+                        ),
+                        items: _buildMemberTypeItems(),
+                        onChanged: (value) {
+                          _handleMemberTypeChanged(value);
+                        },
                       ),
-                      items: _buildMemberTypeItems(),
-                      onChanged: (value) {
-                        _handleMemberTypeChanged(value);
-                      },
-                    ),
-                    const SizedBox(height: 24),
+                      const SizedBox(height: 24),
+                    ],
 
                     // Seção: Observações
                     _buildSectionTitle('Observações'),
@@ -1586,6 +1988,333 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildFamilyRelationshipsSection(BuildContext context) {
+    final memberId = widget.memberId!;
+    final relsAsync = ref.watch(familyRelationshipsStreamProvider(memberId));
+
+    return relsAsync.when(
+      data: (rels) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (rels.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Nenhum vínculo familiar cadastrado.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              )
+            else
+              ...rels.map((rel) => _buildFamilyRelationRow(context, rel)),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () =>
+                    _showAddFamilyRelationshipDialog(context, memberId),
+                icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+                label: const Text('Vincular parente'),
+              ),
+            ),
+          ],
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Text('Não foi possível carregar os vínculos: $e'),
+    );
+  }
+
+  Widget _buildFamilyRelationRow(BuildContext context, FamilyRelationship rel) {
+    final name = (rel.parenteNome?.trim().isNotEmpty ?? false)
+        ? rel.parenteNome!.trim()
+        : 'Membro não encontrado';
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.person),
+      title: Text(name),
+      subtitle: Text(familyRelationshipLabel(rel.tipo)),
+      trailing: IconButton(
+        icon: const Icon(Icons.link_off, size: 18),
+        tooltip: 'Remover vínculo',
+        color: Colors.red,
+        onPressed: () => _confirmRemoveFamilyRelationship(context, rel),
+      ),
+    );
+  }
+
+  Future<void> _confirmRemoveFamilyRelationship(
+    BuildContext context,
+    FamilyRelationship rel,
+  ) async {
+    final name = (rel.parenteNome?.trim().isNotEmpty ?? false)
+        ? rel.parenteNome!.trim()
+        : 'este parente';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remover vínculo'),
+        content: Text('Deseja remover o vínculo familiar com $name?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Remover'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final repo = ref.read(familyRelationshipsRepositoryProvider);
+      await repo.removeRelationship(rel);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vínculo familiar removido.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Não foi possível remover o vínculo: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _showAddFamilyRelationshipDialog(
+    BuildContext context,
+    String memberId,
+  ) async {
+    Member? selectedMember;
+    String selectedType = 'pai';
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (innerContext, setInnerState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 4,
+                bottom: MediaQuery.of(innerContext).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.family_restroom),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Vincular parente',
+                        style: Theme.of(innerContext).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Consumer(
+                    builder: (consumerContext, consumerRef, _) {
+                      final membersAsync = consumerRef.watch(
+                        allMembersProvider,
+                      );
+                      return membersAsync.when(
+                        data: (members) {
+                          final filtered = members
+                              .where((m) => m.id != memberId)
+                              .toList();
+                          return LayoutBuilder(
+                            builder: (context, constraints) {
+                              return Autocomplete<Member>(
+                                optionsBuilder: (TextEditingValue value) {
+                                  final text = value.text.trim();
+                                  if (text.length < 3) {
+                                    return const Iterable<Member>.empty();
+                                  }
+                                  final q = text.toLowerCase();
+                                  return filtered.where(
+                                    (m) =>
+                                        m.displayName.toLowerCase().contains(
+                                          q,
+                                        ) ||
+                                        (m.nickname?.toLowerCase().contains(
+                                              q,
+                                            ) ??
+                                            false) ||
+                                        m.email.toLowerCase().contains(q),
+                                  );
+                                },
+                                displayStringForOption: (m) => m.displayName,
+                                onSelected: (Member selection) {
+                                  setInnerState(
+                                    () => selectedMember = selection,
+                                  );
+                                },
+                                fieldViewBuilder:
+                                    (
+                                      fieldContext,
+                                      fieldController,
+                                      fieldFocusNode,
+                                      onFieldSubmitted,
+                                    ) {
+                                      return TextFormField(
+                                        controller: fieldController,
+                                        focusNode: fieldFocusNode,
+                                        decoration: const InputDecoration(
+                                          border: OutlineInputBorder(),
+                                          labelText: 'Buscar pessoa',
+                                          prefixIcon: Icon(Icons.search),
+                                          helperText:
+                                              'Digite 3 letras ou mais para buscar',
+                                        ),
+                                      );
+                                    },
+                                optionsViewBuilder: (optContext, onSelected, options) {
+                                  return Align(
+                                    alignment: Alignment.topLeft,
+                                    child: Material(
+                                      elevation: 4.0,
+                                      child: SizedBox(
+                                        width: constraints.maxWidth,
+                                        child: ListView.builder(
+                                          padding: EdgeInsets.zero,
+                                          shrinkWrap: true,
+                                          itemCount: options.length,
+                                          itemBuilder: (itemContext, index) {
+                                            final option = options.elementAt(
+                                              index,
+                                            );
+                                            return ListTile(
+                                              title: Text(option.displayName),
+                                              subtitle: Text(option.email),
+                                              onTap: () => onSelected(option),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                        loading: () =>
+                            const Center(child: CircularProgressIndicator()),
+                        error: (e, _) => Text('Erro ao carregar membros: $e'),
+                      );
+                    },
+                  ),
+                  if (selectedMember != null) ...[
+                    const SizedBox(height: 8),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.person),
+                      title: Text(selectedMember!.displayName),
+                      subtitle: Text(selectedMember!.email),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () =>
+                            setInnerState(() => selectedMember = null),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedType,
+                    decoration: const InputDecoration(
+                      labelText: 'Parentesco',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: familyRelationshipTypeLabels.entries
+                        .map(
+                          (e) => DropdownMenuItem(
+                            value: e.key,
+                            child: Text(e.value),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setInnerState(() => selectedType = value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: selectedMember == null
+                          ? null
+                          : () async {
+                              final navigator = Navigator.of(sheetContext);
+                              try {
+                                final repo = ref.read(
+                                  familyRelationshipsRepositoryProvider,
+                                );
+                                await repo.addRelationship(
+                                  memberId,
+                                  selectedMember!.id,
+                                  selectedType,
+                                );
+                                navigator.pop();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Vínculo familiar adicionado com sucesso!',
+                                      ),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (innerContext.mounted) {
+                                  ScaffoldMessenger.of(
+                                    innerContext,
+                                  ).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Não foi possível adicionar o vínculo: $e',
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                      icon: const Icon(Icons.check),
+                      label: const Text('Salvar vínculo'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

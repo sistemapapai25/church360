@@ -1,20 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../members/presentation/providers/members_provider.dart';
 import '../providers/kids_providers.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
-
-/// Provider para buscar crianças gerenciadas pelo usuário logado
-final managedChildrenProvider =
-    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-      final currentMember = await ref.watch(currentMemberProvider.future);
-      if (currentMember == null) return [];
-
-      final repository = ref.watch(kidsRepositoryProvider);
-      return repository.getManagedChildren(currentMember.id);
-    });
 
 /// Tela para selecionar qual criança gerenciar
 /// Acessada via /kids-registration (botão do menu principal)
@@ -170,7 +160,28 @@ class KidsSelectChildScreen extends ConsumerWidget {
                     subtitle,
                     style: CommunityDesign.contentStyle(context),
                   ),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        tooltip: 'Editar Dados',
+                        onPressed: () =>
+                            context.push('/members/${child['id']}/edit'),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.delete_outline,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        tooltip: 'Excluir',
+                        onPressed: () =>
+                            _confirmDelete(context, ref, child['id'] as String, name),
+                      ),
+                      const Icon(Icons.arrow_forward_ios, size: 16),
+                    ],
+                  ),
                   onTap: () {
                     context.push(
                       '/kids/${child['id']}/registration?name=${Uri.encodeComponent(name)}',
@@ -193,5 +204,70 @@ class KidsSelectChildScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  void _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    String childId,
+    String name,
+  ) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Excluir Criança'),
+        content: Text(
+          'Tem certeza que deseja excluir o cadastro de "$name"?\n\n'
+          'Esta ação não pode ser desfeita.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              await _deleteChild(context, ref, childId);
+            },
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteChild(
+    BuildContext context,
+    WidgetRef ref,
+    String childId,
+  ) async {
+    try {
+      final repo = ref.read(membersRepositoryProvider);
+      await repo.deleteMember(childId);
+
+      ref.invalidate(managedChildrenProvider);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Criança excluída com sucesso.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppErrorHandler.userMessage(e, feature: 'kids.delete_child'),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

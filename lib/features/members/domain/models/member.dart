@@ -3,6 +3,7 @@
 class Member {
   // Campos de autenticação (user_account)
   final String id;
+  final String? authUserId;
   final String email;
   final String? fullName; // Mantido para compatibilidade com auth
   final String? avatarUrl;
@@ -87,6 +88,7 @@ class Member {
   Member({
     // Autenticação
     required this.id,
+    this.authUserId,
     required this.email,
     this.fullName,
     this.avatarUrl,
@@ -248,6 +250,7 @@ class Member {
     return Member(
       // Autenticação
       id: json['id'] as String,
+      authUserId: json['auth_user_id'] is String ? json['auth_user_id'] as String : null,
       email: json['email'] is String ? json['email'] as String : '',
       fullName: json['full_name'] is String ? json['full_name'] as String : null,
       avatarUrl: json['avatar_url'] is String ? json['avatar_url'] as String : null,

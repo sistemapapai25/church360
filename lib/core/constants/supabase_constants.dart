@@ -11,6 +11,11 @@ class SupabaseConstants {
   static const String supabaseAnonKey =
       'sb_publishable_LfPOQeLcfniZohiBvmesnw_sgRWht18';
 
+  // URL do build web (Flutter Web) publicado, usada como destino de links de
+  // confirmação de auth (troca de email, etc). Usar o domínio da Vercel em vez
+  // de app.church360.com.br enquanto o CNAME desse subdomínio não propaga.
+  static const String authRedirectUrl = 'https://church360-app.vercel.app/';
+
   // ⚠️ NUNCA exponha o service_role key no app!
   // Ele deve ser usado apenas em scripts backend
   static const String defaultTenantId = 'd5a1cbee-99f4-4c12-8bd8-55c8c22c2645';

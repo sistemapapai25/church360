@@ -16,6 +16,7 @@ class Event {
   final String? imageUrl;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final String? batchId; // Agrupa eventos gerados no mesmo lançamento fixo/recorrente
 
   // Campos computados do join
   final int? registrationCount;
@@ -37,6 +38,7 @@ class Event {
     this.imageUrl,
     required this.createdAt,
     this.updatedAt,
+    this.batchId,
     this.registrationCount,
   });
 
@@ -63,6 +65,7 @@ class Event {
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
           : null,
+      batchId: json['batch_id'] as String?,
       registrationCount: json['registration_count'] as int?,
     );
   }
@@ -86,6 +89,7 @@ class Event {
       'image_url': imageUrl,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
+      'batch_id': batchId,
     };
   }
 

@@ -7,6 +7,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/members_repository.dart';
 import '../../data/family_relationships_repository.dart';
 import '../../domain/models/member.dart';
+import '../../domain/models/member_directory_entry.dart';
 import '../../../../core/constants/supabase_constants.dart';
 
 /// Provider do MembersRepository
@@ -19,6 +20,16 @@ final membersRepositoryProvider = Provider<MembersRepository>((ref) {
 final allMembersProvider = FutureProvider<List<Member>>((ref) async {
   final repo = ref.watch(membersRepositoryProvider);
   return repo.getAllMembers();
+});
+
+/// Diretório limitado de membros do tenant (nome/apelido/foto/gênero),
+/// visível a qualquer usuário autenticado do tenant independente de papel.
+/// Usar em telas de busca de pessoa (ex: adicionar responsável na área Kids)
+/// em vez de allMembersProvider, que depende de RLS que bloqueia membros
+/// comuns de ver terceiros.
+final memberDirectoryProvider = FutureProvider<List<MemberDirectoryEntry>>((ref) async {
+  final repo = ref.watch(membersRepositoryProvider);
+  return repo.getMemberDirectory();
 });
 
 /// Provider para buscar membros ativos
@@ -157,6 +168,7 @@ final currentMemberProvider = FutureProvider<Member?>((ref) async {
     debugPrint('❌ [currentMemberProvider] Nenhum dado encontrado para id/email: ${currentUser.id} / ${currentUser.email}');
   } else {
     debugPrint('✅ [currentMemberProvider] Dados encontrados: ${member.firstName} ${member.lastName}');
+    debugPrint('🔎 [currentMemberProvider] DIAG auth.uid()=${currentUser.id} member.id=${member.id} member.authUserId=${member.authUserId} member.householdId=${member.householdId}');
   }
 
   return member;

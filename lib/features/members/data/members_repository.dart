@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/constants/supabase_constants.dart';
 
 import '../domain/models/member.dart';
+import '../domain/models/member_directory_entry.dart';
 
 class LgpdDataRequest {
   final String id;
@@ -60,6 +61,26 @@ class MembersRepository {
     ['consentimento_lgpd', 'consentimento_lgpd_at'],
     ['privacy_consent', 'privacy_consent_at'],
   ];
+
+  /// Campos de texto que o MemberFormScreen expõe como editáveis e que o
+  /// usuário pode legitimamente apagar (deixar em branco). Só esses podem
+  /// ser enviados como null no update - qualquer outro campo null vindo de
+  /// Member.toJson() é apenas "não tocado por este formulário" e deve ser
+  /// preservado como está no banco.
+  static const Set<String> _clearableMemberFields = {
+    'first_name',
+    'last_name',
+    'phone',
+    'cpf',
+    'profession',
+    'address',
+    'address_complement',
+    'neighborhood',
+    'city',
+    'state',
+    'zip_code',
+    'notes',
+  };
 
   bool _isMissingColumnError(Object error, [Iterable<String>? columns]) {
     final msg = error.toString().toLowerCase();
@@ -148,6 +169,22 @@ class MembersRepository {
     return user.id;
   }
 
+  /// Como [_currentMemberId], mas resolve o `user_account.id` real (via
+  /// `auth_user_id`) em vez do `auth.uid()` cru. Necessario para qualquer
+  /// coluna `created_by` que referencie `user_account(id)` (a maioria das
+  /// tabelas do schema) - usar o auth.uid() cru quebra
+  /// user_account_created_by_fkey (e equivalentes) para contas
+  /// legadas/reaproveitadas por email, onde id != auth.uid().
+  Future<String?> _currentAccountId() async {
+    final authId = await _currentMemberId();
+    if (authId == null) return null;
+    try {
+      final resolved = await getMemberByAuthUserId(authId);
+      if (resolved != null) return resolved.id;
+    } catch (_) {}
+    return authId;
+  }
+
   /// Buscar todos os membros (incluindo visitantes)
   Future<List<Member>> getAllMembers() async {
     try {
@@ -158,6 +195,24 @@ class MembersRepository {
           .order('first_name', ascending: true);
 
       return (response as List).map((json) => Member.fromJson(json)).toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Diretório limitado de membros do tenant (nome, apelido, foto, gênero).
+  /// Usa o RPC get_tenant_member_directory, que contorna com segurança a RLS
+  /// restritiva de user_account (usuários comuns só veem a própria linha),
+  /// expondo só o mínimo necessário para buscas de pessoa (ex: adicionar
+  /// responsável na área Kids, resolver nome de parente/cônjuge).
+  Future<List<MemberDirectoryEntry>> getMemberDirectory() async {
+    try {
+      final response = await _supabase.rpc('get_tenant_member_directory');
+      return (response as List)
+          .map((json) => MemberDirectoryEntry.fromJson(
+                Map<String, dynamic>.from(json),
+              ))
+          .toList();
     } catch (e) {
       rethrow;
     }
@@ -337,7 +392,7 @@ class MembersRepository {
   /// Criar novo membro a partir de JSON (sem ID)
   Future<Member> createMemberFromJson(Map<String, dynamic> data) async {
     try {
-      final creatorId = await _currentMemberId();
+      final creatorId = await _currentAccountId();
       final nicknameValue = (data['nickname'] as String?)?.trim();
       final firstNameValue = (data['first_name'] as String?)?.trim();
       final fullNameValue = (data['full_name'] as String?)?.trim();
@@ -372,6 +427,83 @@ class MembersRepository {
     }
   }
 
+  /// Verifica se [childId] é uma criança vinculada a [currentMemberId]/
+  /// [currentAuthId] (pai/mãe/tutor), via `created_by` ou
+  /// `relacionamentos_familiares` (mesma fonte da verdade usada por
+  /// KidsRepository.getManagedChildren e pela política de RLS
+  /// `is_linked_child()` no backend). Usado para permitir que um
+  /// responsável comum edite o cadastro do próprio filho.
+  Future<bool> _isLinkedChild(
+    String childId,
+    String? currentMemberId,
+    String? currentAuthId,
+  ) async {
+    final candidateIds = <String>{
+      if (currentMemberId != null) currentMemberId,
+      if (currentAuthId != null) currentAuthId,
+    };
+
+    // currentMemberId/currentAuthId acima sao auth.uid() (ver
+    // _currentMemberId() e _supabase.auth.currentUser?.id). Mas
+    // created_by/relacionamentos_familiares guardam o user_account.id
+    // real, que pode divergir do auth.uid() para linhas pre-existentes ou
+    // reaproveitadas por email (ensure_my_account "prefer existing" -
+    // mesmo padrao ja documentado para isSelfEdit/authUserId acima, so
+    // que sem coluna auth_user_id equivalente do lado do filho pra
+    // resolver de graca). Resolve o id real via auth_user_id antes de
+    // comparar, espelhando currentMemberProvider no client e
+    // my_user_account_id() no backend.
+    if (currentAuthId != null) {
+      try {
+        final resolved = await getMemberByAuthUserId(currentAuthId);
+        if (resolved != null) candidateIds.add(resolved.id);
+      } catch (_) {}
+    }
+
+    if (candidateIds.isEmpty) return false;
+
+    try {
+      final child = await _supabase
+          .from('user_account')
+          .select('created_by, member_type')
+          .eq('id', childId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .maybeSingle();
+      if (child == null || child['member_type'] != 'crianca') return false;
+      if (candidateIds.contains(child['created_by'])) return true;
+
+      for (final parentId in candidateIds) {
+        final direct = await _supabase
+            .from('relacionamentos_familiares')
+            .select('id')
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .eq('membro_id', parentId)
+            .eq('parente_id', childId)
+            .inFilter('tipo_relacionamento', [
+              'filho',
+              'filha',
+              'tutelado',
+              'tutelada',
+            ])
+            .maybeSingle();
+        if (direct != null) return true;
+
+        final reverse = await _supabase
+            .from('relacionamentos_familiares')
+            .select('id')
+            .eq('tenant_id', SupabaseConstants.currentTenantId)
+            .eq('parente_id', parentId)
+            .eq('membro_id', childId)
+            .inFilter('tipo_relacionamento', ['pai', 'mae', 'tutor', 'tutora'])
+            .maybeSingle();
+        if (reverse != null) return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Atualizar membro
   Future<Member> updateMember(Member member) async {
     try {
@@ -392,11 +524,17 @@ class MembersRepository {
 
         if (currentAuthId != null) {
           try {
+            // id = auth.uid() cobre contas novas; auth_user_id cobre
+            // linhas legadas/reaproveitadas por email onde user_account.id
+            // diverge do auth.uid() atual (mesmo padrao de
+            // my_user_account_id() no backend) - sem isso, um admin nessa
+            // situacao seria incorretamente tratado como nao-elevado.
             final rg = await _supabase
                 .from('user_account')
                 .select('role_global')
-                .eq('id', currentAuthId)
+                .or('id.eq.$currentAuthId,auth_user_id.eq.$currentAuthId')
                 .eq('tenant_id', SupabaseConstants.currentTenantId)
+                .limit(1)
                 .maybeSingle();
             roleGlobal = rg?['role_global'] as String?;
           } catch (_) {}
@@ -410,7 +548,19 @@ class MembersRepository {
                   roleGlobal == 'admin' ||
                   roleGlobal == 'leader'));
 
-      if (!isElevated && currentMemberId != member.id) {
+      final isSelfEdit =
+          currentMemberId == member.id || currentAuthId == member.authUserId;
+
+      var isLinkedChildEdit = false;
+      if (!isElevated && !isSelfEdit) {
+        isLinkedChildEdit = await _isLinkedChild(
+          member.id,
+          currentMemberId,
+          currentAuthId,
+        );
+      }
+
+      if (!isElevated && !isSelfEdit && !isLinkedChildEdit) {
         throw Exception('Sem permissão para editar este membro');
       }
 
@@ -418,7 +568,15 @@ class MembersRepository {
       raw.remove('created_at');
       raw.remove('id');
 
-      raw['created_by'] ??= currentMemberId;
+      // created_by e imutavel apos a criacao e nao deve ser tocado num
+      // update. O Member montado em MemberFormScreen nunca preenche
+      // createdBy, entao um fallback aqui sempre disparava - e o valor
+      // (currentMemberId = auth.uid() cru) viola user_account_created_by_fkey
+      // (que referencia user_account.id, nao auth.users.id) sempre que o
+      // editor logado for uma conta legada com id != auth.uid() (ex.: editar
+      // o cadastro de um filho vinculado). Preserva o valor ja existente na
+      // linha em vez de sobrescrever.
+      raw.remove('created_by');
       if ((raw['email'] as String?)?.trim().isEmpty ?? false) {
         raw.remove('email');
       }
@@ -426,17 +584,29 @@ class MembersRepository {
       if (!isElevated) {
         raw.remove('status');
         raw.remove('member_type');
-        raw.remove('membership_date');
-        raw.remove('baptism_date');
-        raw.remove('conversion_date');
-        raw.remove('email');
+        raw.remove('first_visit_date');
+        // Datas de conversão/batismo/membresia e "deseja contato" são
+        // editáveis pela própria pessoa - só status, tipo de membro e
+        // primeira visita são decisão exclusiva de líder/pastor.
+        // 'email' é permitido: membro comum só chega aqui editando o
+        // próprio cadastro (editar terceiros já lançou exceção acima),
+        // e a troca do email de login (Supabase Auth) é feita à parte
+        // em MemberFormScreen._saveMember via auth.updateUser().
       }
 
       final payload = <String, dynamic>{};
       for (final entry in raw.entries) {
         final key = entry.key;
         final value = entry.value;
-        if (value == null) continue;
+        // MemberFormScreen constrói o Member de update só com os campos que
+        // o formulário realmente edita; todos os outros (jornada do
+        // visitante, discipulado, mentoria, etc.) chegam aqui como null só
+        // por não terem sido tocados, e nunca devem sobrescrever o que já
+        // está salvo. Já os campos de texto abaixo são editáveis nesse
+        // formulário e podem ser legitimamente apagados pelo usuário -
+        // nesses, um valor null representa uma limpeza intencional e precisa
+        // ser enviado, senão o campo nunca fica vazio no banco.
+        if (value == null && !_clearableMemberFields.contains(key)) continue;
         payload[key] = value;
       }
 
@@ -619,6 +789,21 @@ class MembersRepository {
   /// Deletar membro
   Future<void> deleteMember(String id) async {
     try {
+      // relacionamentos_familiares.membro_id/parente_id sao NOT NULL, mas a
+      // FK real no banco e ON DELETE SET NULL - sem essa limpeza previa, o
+      // DELETE em user_account tenta zerar essas colunas em cascata e
+      // viola o NOT NULL (23502). So remove os vinculos onde o usuario
+      // atual e uma das partes (RLS bloqueia o resto silenciosamente, sem
+      // lancar erro) - cobre o caso comum (vinculo direto pai/filho).
+      try {
+        await _supabase
+            .from('relacionamentos_familiares')
+            .delete()
+            .or('membro_id.eq.$id,parente_id.eq.$id');
+      } catch (_) {
+        // Nao bloquear a exclusao do membro por falha ao limpar vinculos.
+      }
+
       await _supabase
           .from('user_account')
           .delete()

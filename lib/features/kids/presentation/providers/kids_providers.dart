@@ -3,11 +3,23 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/kids_repository.dart';
 import '../../domain/models/kids_guardian.dart';
 import '../../domain/models/kids_token.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 
 /// Provider do repositório Kids
 final kidsRepositoryProvider = Provider<KidsRepository>((ref) {
   return KidsRepository(Supabase.instance.client);
 });
+
+/// Provider para buscar crianças gerenciadas pelo usuário logado
+/// (alimenta a lista "Meus Filhos" em KidsSelectChildScreen)
+final managedChildrenProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+      final currentMember = await ref.watch(currentMemberProvider.future);
+      if (currentMember == null) return [];
+
+      final repository = ref.watch(kidsRepositoryProvider);
+      return repository.getManagedChildren(currentMember.id);
+    });
 
 /// Provider para listar guardiões de uma criança
 final kidsGuardiansProvider = FutureProvider.family<List<KidsAuthorizedGuardian>, String>((ref, childId) async {
