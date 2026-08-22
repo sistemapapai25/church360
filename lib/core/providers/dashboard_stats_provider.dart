@@ -211,13 +211,13 @@ final birthdaysThisMonthProvider = FutureProvider<List<Map<String, dynamic>>>((r
   final now = DateTime.now();
   final currentMonth = now.month;
 
-  // Buscar TODOS os usuários com data de nascimento
-  final response = await supabase
-      .from('user_account')
-      .select('id, first_name, last_name, photo_url, status, birthdate')
-      .eq('tenant_id', SupabaseConstants.currentTenantId)
-      .not('birthdate', 'is', null)
-      .order('birthdate', ascending: true);
+  // Busca via RPC (CHU: dashboard birthdays) em vez de ler user_account
+  // direto: o RLS da tabela só libera SELECT de outras linhas pra usuários
+  // "elevados" (owner/admin/leader ou cargo chamado exatamente admin/pastor/
+  // lider), o que deixava esse card vazio pra cargos como "Líder de
+  // Departamento". A RPC é SECURITY DEFINER e materializa a decisão CHU-302
+  // de que este widget é sempre visível a quem acessa o Dashboard.
+  final response = await supabase.rpc('get_birthdays_this_month');
 
   final allBirthdays = (response as List).where((user) {
     final birthdateStr = user['birthdate'] as String?;
