@@ -124,7 +124,7 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
         ),
       ),
       floatingActionButton: PermissionGate(
-        permission: 'groups.manage_all',
+        permission: 'groups.create',
         showLoading: false,
         child: FloatingActionButton(
           onPressed: () {

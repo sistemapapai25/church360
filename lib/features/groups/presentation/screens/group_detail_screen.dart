@@ -391,10 +391,14 @@ class _MembersTab extends ConsumerWidget {
                         ),
                   ),
                   const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: () => _showAddMemberDialog(context, ref, groupId),
-                    icon: const Icon(Icons.person_add),
-                    label: const Text('Adicionar Primeiro Membro'),
+                  PermissionGate(
+                    permission: 'groups.manage_members',
+                    showLoading: false,
+                    child: FilledButton.icon(
+                      onPressed: () => _showAddMemberDialog(context, ref, groupId),
+                      icon: const Icon(Icons.person_add),
+                      label: const Text('Adicionar Primeiro Membro'),
+                    ),
                   ),
                 ],
               ),
@@ -461,10 +465,14 @@ class _MembersTab extends ConsumerWidget {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddMemberDialog(context, ref, groupId),
-        icon: const Icon(Icons.person_add),
-        label: const Text('Adicionar Membro'),
+      floatingActionButton: PermissionGate(
+        permission: 'groups.manage_members',
+        showLoading: false,
+        child: FloatingActionButton.extended(
+          onPressed: () => _showAddMemberDialog(context, ref, groupId),
+          icon: const Icon(Icons.person_add),
+          label: const Text('Adicionar Membro'),
+        ),
       ),
     );
   }
@@ -781,12 +789,16 @@ class _MeetingsTab extends ConsumerWidget {
                       ),
                 ),
                 const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    context.push('/groups/$groupId/meetings/new');
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Registrar Primeira Reunião'),
+                PermissionGate(
+                  permission: 'groups.manage_meetings',
+                  showLoading: false,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      context.push('/groups/$groupId/meetings/new');
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Registrar Primeira Reunião'),
+                  ),
                 ),
               ],
             ),
@@ -806,11 +818,15 @@ class _MeetingsTab extends ConsumerWidget {
             Positioned(
               right: 16,
               bottom: 16,
-              child: FloatingActionButton(
-                onPressed: () {
-                  context.push('/groups/$groupId/meetings/new');
-                },
-                child: const Icon(Icons.add),
+              child: PermissionGate(
+                permission: 'groups.manage_meetings',
+                showLoading: false,
+                child: FloatingActionButton(
+                  onPressed: () {
+                    context.push('/groups/$groupId/meetings/new');
+                  },
+                  child: const Icon(Icons.add),
+                ),
               ),
             ),
           ],

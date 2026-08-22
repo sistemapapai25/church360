@@ -7,6 +7,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/utils/share_link_utils.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 
 import '../../data/group_meetings_repository.dart';
 import '../providers/meetings_provider.dart';
@@ -354,15 +355,19 @@ class _AttendanceList extends ConsumerWidget {
                           ),
                     ),
                     const Spacer(),
-                    TextButton.icon(
-                      onPressed: () => _showAddAttendanceDialog(
-                        context,
-                        ref,
-                        groupMembers.map((gm) => gm.memberId).toList(),
-                        attendances.map((a) => a.memberId).toList(),
+                    PermissionGate(
+                      permission: 'groups.manage_meetings',
+                      showLoading: false,
+                      child: TextButton.icon(
+                        onPressed: () => _showAddAttendanceDialog(
+                          context,
+                          ref,
+                          groupMembers.map((gm) => gm.memberId).toList(),
+                          attendances.map((a) => a.memberId).toList(),
+                        ),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Adicionar'),
                       ),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Adicionar'),
                     ),
                   ],
                 ),
@@ -443,6 +448,10 @@ class _AttendanceCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final canManageMeetings = ref
+        .watch(currentUserHasPermissionProvider('groups.manage_meetings'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
@@ -459,45 +468,60 @@ class _AttendanceCard extends ConsumerWidget {
         subtitle: attendance.notes != null && attendance.notes!.isNotEmpty
             ? Text(attendance.notes!)
             : null,
-        trailing: PopupMenuButton(
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'toggle',
-              child: Row(
-                children: [
-                  Icon(
-                    attendance.wasPresent ? Icons.close : Icons.check,
-                    size: 20,
+        trailing: canManageMeetings
+            ? PopupMenuButton(
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'toggle',
+                    child: Row(
+                      children: [
+                        Icon(
+                          attendance.wasPresent ? Icons.close : Icons.check,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(attendance.wasPresent ? 'Marcar Falta' : 'Marcar Presença'),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  Text(attendance.wasPresent ? 'Marcar Falta' : 'Marcar Presença'),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, size: 20, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Remover', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
                 ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  Icon(Icons.delete, size: 20, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text('Remover', style: TextStyle(color: Colors.red)),
-                ],
-              ),
-            ),
-          ],
-          onSelected: (value) async {
-            if (value == 'toggle') {
-              await _toggleAttendance(context, ref);
-            } else if (value == 'delete') {
-              await _deleteAttendance(context, ref);
-            }
-          },
-        ),
+                onSelected: (value) async {
+                  if (!canManageMeetings) return;
+                  if (value == 'toggle') {
+                    await _toggleAttendance(context, ref);
+                  } else if (value == 'delete') {
+                    await _deleteAttendance(context, ref);
+                  }
+                },
+              )
+            : null,
       ),
     );
   }
 
   Future<void> _toggleAttendance(BuildContext context, WidgetRef ref) async {
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('groups.manage_meetings').future,
+    );
+    if (!hasPermission) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
+      return;
+    }
+
     try {
       final repository = ref.read(groupMeetingsRepositoryProvider);
       await repository.updateAttendance(
@@ -522,6 +546,18 @@ class _AttendanceCard extends ConsumerWidget {
   }
 
   Future<void> _deleteAttendance(BuildContext context, WidgetRef ref) async {
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('groups.manage_meetings').future,
+    );
+    if (!hasPermission) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
+      return;
+    }
+
     try {
       final repository = ref.read(groupMeetingsRepositoryProvider);
       await repository.deleteAttendance(attendance.id);

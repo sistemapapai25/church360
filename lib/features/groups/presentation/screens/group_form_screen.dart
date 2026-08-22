@@ -7,6 +7,8 @@ import '../../../../core/errors/app_error_handler.dart';
 import '../providers/groups_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../domain/models/group.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de formulário de grupo (criar/editar)
 class GroupFormScreen extends ConsumerStatefulWidget {
@@ -104,6 +106,20 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
 
   Future<void> _saveGroup() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    final requiredPermission =
+        widget.groupId == null ? 'groups.create' : 'groups.edit';
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider(requiredPermission).future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
       return;
     }
 
@@ -405,19 +421,24 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                   const SizedBox(height: 24),
                   
                   // Botão de salvar
-                  FilledButton.icon(
-                    onPressed: _isLoading ? null : _saveGroup,
-                    icon: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.save),
-                    label: Text(widget.groupId == null ? 'Criar Grupo' : 'Salvar Alterações'),
+                  DisabledByPermission(
+                    permission:
+                        widget.groupId == null ? 'groups.create' : 'groups.edit',
+                    disabledTooltip: 'Você não tem permissão para esta ação',
+                    child: FilledButton.icon(
+                      onPressed: _isLoading ? null : _saveGroup,
+                      icon: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.save),
+                      label: Text(widget.groupId == null ? 'Criar Grupo' : 'Salvar Alterações'),
+                    ),
                   ),
                 ],
               ),
