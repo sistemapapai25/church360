@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
 import '../../../events/presentation/providers/events_provider.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 class NewsFormScreen extends ConsumerStatefulWidget {
   final String? newsId;
@@ -98,6 +100,21 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final requiredPermission = _isEditing ? 'news.edit' : 'news.create';
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider(requiredPermission).future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Você não tem permissão para esta ação'),
+          ),
+        );
+      }
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
       final repo = ref.read(eventsRepositoryProvider);
@@ -185,10 +202,16 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
               ),
             )
           else
-            IconButton(
-              icon: const Icon(Icons.save),
-              onPressed: _save,
-              tooltip: 'Salvar',
+            DisabledByPermission(
+              permission: _isEditing ? 'news.edit' : 'news.create',
+              disabledTooltip: _isEditing
+                  ? 'Você não tem permissão para editar notícias'
+                  : 'Você não tem permissão para criar notícias',
+              child: IconButton(
+                icon: const Icon(Icons.save),
+                onPressed: _save,
+                tooltip: 'Salvar',
+              ),
             ),
         ],
       ),
@@ -268,10 +291,18 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    FilledButton.icon(
-                      onPressed: _isSaving ? null : _save,
-                      icon: const Icon(Icons.save),
-                      label: Text(_isEditing ? 'Salvar alterações' : 'Criar notícia'),
+                    DisabledByPermission(
+                      permission: _isEditing ? 'news.edit' : 'news.create',
+                      disabledTooltip: _isEditing
+                          ? 'Você não tem permissão para editar notícias'
+                          : 'Você não tem permissão para criar notícias',
+                      child: FilledButton.icon(
+                        onPressed: _isSaving ? null : _save,
+                        icon: const Icon(Icons.save),
+                        label: Text(
+                          _isEditing ? 'Salvar alterações' : 'Criar notícia',
+                        ),
+                      ),
                     ),
                   ],
                 ),

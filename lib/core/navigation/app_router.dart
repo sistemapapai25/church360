@@ -1203,19 +1203,26 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/news/admin',
-      builder: (context, state) =>
-          const DashboardAccessGate(child: ManageNewsScreen()),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'news.view',
+        child: ManageNewsScreen(),
+      ),
     ),
     GoRoute(
       path: '/news/admin/new',
-      builder: (context, state) =>
-          const DashboardAccessGate(child: NewsFormScreen()),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'news.create',
+        child: NewsFormScreen(),
+      ),
     ),
     GoRoute(
       path: '/news/admin/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return DashboardAccessGate(child: NewsFormScreen(newsId: id));
+        return PermissionOnlyRoute(
+          permission: 'news.edit',
+          child: NewsFormScreen(newsId: id),
+        );
       },
     ),
     GoRoute(path: '/news', builder: (context, state) => const NewsScreen()),

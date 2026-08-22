@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../events/presentation/providers/events_provider.dart';
 import '../../../events/domain/models/event.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 class ManageNewsScreen extends ConsumerWidget {
   const ManageNewsScreen({super.key});
@@ -13,6 +15,16 @@ class ManageNewsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final eventsAsync = ref.watch(allEventsProvider);
+
+    final canCreate = ref
+        .watch(currentUserHasPermissionProvider('news.create'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+    final canEdit = ref
+        .watch(currentUserHasPermissionProvider('news.edit'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+    final canDelete = ref
+        .watch(currentUserHasPermissionProvider('news.delete'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -28,10 +40,13 @@ class ManageNewsScreen extends ConsumerWidget {
         elevation: 0,
         centerTitle: false,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => context.push('/news/admin/new'),
-            tooltip: 'Nova notícia',
+          PermissionGate(
+            permission: 'news.create',
+            child: IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () => context.push('/news/admin/new'),
+              tooltip: 'Nova notícia',
+            ),
           ),
         ],
       ),
@@ -71,11 +86,12 @@ class ManageNewsScreen extends ConsumerWidget {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: () => context.push('/news/admin/new'),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Criar primeira notícia'),
-                    ),
+                    if (canCreate)
+                      ElevatedButton.icon(
+                        onPressed: () => context.push('/news/admin/new'),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Criar primeira notícia'),
+                      ),
                   ],
                 ),
               ),
@@ -199,74 +215,79 @@ class ManageNewsScreen extends ConsumerWidget {
                             }
                           },
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.edit, size: 20),
-                          tooltip: 'Editar',
-                          onPressed: () {
-                            context.push('/news/admin/${item.id}/edit');
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 20),
-                          tooltip: 'Excluir',
-                          onPressed: () async {
-                            final confirmed = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Confirmar exclusão'),
-                                content: Text(
-                                  'Deseja realmente excluir a notícia "${item.name}"?',
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, false),
-                                    child: const Text('Cancelar'),
+                        if (canEdit)
+                          IconButton(
+                            icon: const Icon(Icons.edit, size: 20),
+                            tooltip: 'Editar',
+                            onPressed: () {
+                              context.push('/news/admin/${item.id}/edit');
+                            },
+                          ),
+                        if (canDelete)
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 20),
+                            tooltip: 'Excluir',
+                            onPressed: () async {
+                              if (!canDelete) return;
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Confirmar exclusão'),
+                                  content: Text(
+                                    'Deseja realmente excluir a notícia "${item.name}"?',
                                   ),
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, true),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: Theme.of(
-                                        context,
-                                      ).colorScheme.error,
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
+                                      child: const Text('Cancelar'),
                                     ),
-                                    child: const Text('Excluir'),
-                                  ),
-                                ],
-                              ),
-                            );
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, true),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: Theme.of(
+                                          context,
+                                        ).colorScheme.error,
+                                      ),
+                                      child: const Text('Excluir'),
+                                    ),
+                                  ],
+                                ),
+                              );
 
-                            if (confirmed != true) return;
+                              if (confirmed != true) return;
 
-                            final repo = ref.read(eventsRepositoryProvider);
-                            try {
-                              await repo.deleteEvent(item.id);
-                              ref.invalidate(allEventsProvider);
-                              ref.invalidate(activeEventsProvider);
-                              ref.invalidate(upcomingEventsProvider);
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Notícia excluída!'),
-                                  ),
-                                );
+                              final repo = ref.read(eventsRepositoryProvider);
+                              try {
+                                await repo.deleteEvent(item.id);
+                                ref.invalidate(allEventsProvider);
+                                ref.invalidate(activeEventsProvider);
+                                ref.invalidate(upcomingEventsProvider);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Notícia excluída!'),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Erro ao excluir: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
                               }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Erro ao excluir: $e'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                        ),
+                            },
+                          ),
                       ],
                     ),
-                    onTap: () => context.push('/news/admin/${item.id}/edit'),
+                    onTap: canEdit
+                        ? () => context.push('/news/admin/${item.id}/edit')
+                        : null,
                   ),
                 );
               },
