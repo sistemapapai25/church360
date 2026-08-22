@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/support_materials_provider.dart';
 import '../../domain/models/support_material.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 
 /// Tela de listagem de materiais de apoio
 class SupportMaterialsScreen extends ConsumerWidget {
@@ -136,6 +137,10 @@ class _MaterialCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final canDelete = ref
+        .watch(currentUserHasPermissionProvider('support_materials.delete'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -234,16 +239,17 @@ class _MaterialCard extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete, size: 20, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Excluir', style: TextStyle(color: Colors.red)),
-                          ],
+                      if (canDelete)
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete, size: 20, color: Colors.red),
+                              SizedBox(width: 8),
+                              Text('Excluir', style: TextStyle(color: Colors.red)),
+                            ],
+                          ),
                         ),
-                      ),
                     ],
                     onSelected: (value) {
                       if (value == 'modules') {
@@ -251,6 +257,7 @@ class _MaterialCard extends ConsumerWidget {
                       } else if (value == 'edit') {
                         context.push('/support-materials/${material.id}/edit');
                       } else if (value == 'delete') {
+                        if (!canDelete) return;
                         _showDeleteDialog(context, ref);
                       }
                     },
@@ -334,6 +341,18 @@ class _MaterialCard extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () async {
+              final hasPermission = await ref.read(
+                currentUserHasPermissionProvider('support_materials.delete').future,
+              );
+              if (!hasPermission) {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Você não tem permissão para esta ação')),
+                  );
+                }
+                return;
+              }
               final repository = ref.read(supportMaterialsRepositoryProvider);
               try {
                 await repository.deleteMaterial(material.id);
