@@ -7,6 +7,8 @@ import 'dart:io';
 
 import '../../../../core/design/community_design.dart';
 import '../providers/quick_news_provider.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de formulário para criar/editar avisos rápidos
 class QuickNewsFormScreen extends ConsumerStatefulWidget {
@@ -122,6 +124,20 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final requiredPermission =
+        widget.newsId == null ? 'quick_news.create' : 'quick_news.edit';
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider(requiredPermission).future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -227,10 +243,16 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
               ),
             )
           else
-            IconButton(
-              onPressed: _save,
-              icon: const Icon(Icons.check),
-              tooltip: 'Salvar',
+            DisabledByPermission(
+              permission: widget.newsId == null
+                  ? 'quick_news.create'
+                  : 'quick_news.edit',
+              disabledTooltip: 'Você não tem permissão para esta ação',
+              child: IconButton(
+                onPressed: _save,
+                icon: const Icon(Icons.check),
+                tooltip: 'Salvar',
+              ),
             ),
         ],
       ),
