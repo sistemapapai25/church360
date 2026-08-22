@@ -8,6 +8,7 @@ import '../../../../core/utils/share_link_utils.dart';
 
 import '../../../../core/design/community_design.dart';
 
+import '../../../permissions/providers/permissions_providers.dart';
 import '../providers/events_provider.dart';
 import '../../domain/models/event.dart';
 import 'event_detail_screen.dart';
@@ -270,6 +271,17 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
         ? ref.watch(activeEventsProvider)
         : ref.watch(allEventsProvider);
 
+    final canCreate = ref
+        .watch(currentUserHasPermissionProvider('events.create'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+    final canEdit = ref
+        .watch(currentUserHasPermissionProvider('events.edit'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+    final canDelete = ref
+        .watch(currentUserHasPermissionProvider('events.delete'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+    final canCrud = widget.enableCrud;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F9FD),
       appBar: widget.showAppBar
@@ -353,7 +365,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                 ),
               ),
               actions: [
-                if (widget.enableCrud && _selectionMode) ...[
+                if (canCrud && canDelete && _selectionMode) ...[
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.only(right: 4),
@@ -371,7 +383,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                         : _confirmDeleteSelected,
                   ),
                 ],
-                if (widget.enableCrud)
+                if (canCrud && canDelete)
                   IconButton(
                     tooltip: _selectionMode
                         ? 'Cancelar seleção'
@@ -397,13 +409,14 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                       const PopupMenuItem(value: 'all', child: Text('Todos')),
                     ],
                   ),
-                  IconButton(
-                    tooltip: 'Gerenciar Tipos',
-                    icon: const Icon(Icons.category),
-                    onPressed: () {
-                      context.push('/events/types');
-                    },
-                  ),
+                  if (canCrud && (canCreate || canEdit))
+                    IconButton(
+                      tooltip: 'Gerenciar Tipos',
+                      icon: const Icon(Icons.category),
+                      onPressed: () {
+                        context.push('/events/types');
+                      },
+                    ),
                 ],
               ],
             )
@@ -440,7 +453,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                         'Nenhum evento encontrado',
                         style: CommunityDesign.titleStyle(context),
                       ),
-                      if (widget.enableCrud) ...[
+                      if (canCrud && canCreate) ...[
                         const SizedBox(height: 16),
                         FilledButton.icon(
                           onPressed: () {
@@ -497,7 +510,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                             ),
                           );
                         },
-                        onLongPress: widget.enableCrud
+                        onLongPress: (canCrud && canDelete)
                             ? () {
                                 if (!_selectionMode) {
                                   setState(() {
@@ -515,7 +528,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                               // Header com nome e status
                               Row(
                                 children: [
-                                  if (_selectionMode && widget.enableCrud)
+                                  if (_selectionMode && canCrud && canDelete)
                                     Padding(
                                       padding: const EdgeInsets.only(
                                         right: 4,
@@ -549,7 +562,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                                           ? _shareRegistrationLink(event)
                                           : _shareEventInfoLink(event),
                                     ),
-                                    if (widget.enableCrud)
+                                    if (canCrud && (canEdit || canDelete))
                                       PopupMenuButton<String>(
                                         tooltip: 'Mais opções',
                                         icon: const Icon(
@@ -559,6 +572,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                                         onSelected: (value) {
                                           switch (value) {
                                             case 'edit':
+                                              if (!canEdit) return;
                                               Navigator.push(
                                                 context,
                                                 MaterialPageRoute(
@@ -574,44 +588,48 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                                               });
                                               break;
                                             case 'delete':
+                                              if (!canDelete) return;
                                               _confirmDeleteEvent(event);
                                               break;
                                             case 'delete_batch':
+                                              if (!canDelete) return;
                                               _confirmDeleteBatch(event);
                                               break;
                                           }
                                         },
                                         itemBuilder: (context) => [
-                                          const PopupMenuItem(
-                                            value: 'edit',
-                                            child: Row(
-                                              children: [
-                                                Icon(Icons.edit, size: 18),
-                                                SizedBox(width: 8),
-                                                Text('Editar'),
-                                              ],
+                                          if (canEdit)
+                                            const PopupMenuItem(
+                                              value: 'edit',
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.edit, size: 18),
+                                                  SizedBox(width: 8),
+                                                  Text('Editar'),
+                                                ],
+                                              ),
                                             ),
-                                          ),
-                                          const PopupMenuItem(
-                                            value: 'delete',
-                                            child: Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.delete,
-                                                  size: 18,
-                                                  color: Colors.red,
-                                                ),
-                                                SizedBox(width: 8),
-                                                Text(
-                                                  'Excluir',
-                                                  style: TextStyle(
+                                          if (canDelete)
+                                            const PopupMenuItem(
+                                              value: 'delete',
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.delete,
+                                                    size: 18,
                                                     color: Colors.red,
                                                   ),
-                                                ),
-                                              ],
+                                                  SizedBox(width: 8),
+                                                  Text(
+                                                    'Excluir',
+                                                    style: TextStyle(
+                                                      color: Colors.red,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
-                                          ),
-                                          if (event.batchId != null)
+                                          if (canDelete && event.batchId != null)
                                             const PopupMenuItem(
                                               value: 'delete_batch',
                                               child: Row(
@@ -777,7 +795,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
           ),
         ),
       ),
-      floatingActionButton: widget.enableCrud
+      floatingActionButton: (canCrud && canCreate)
           ? FloatingActionButton.extended(
               onPressed: () {
                 Navigator.push(
