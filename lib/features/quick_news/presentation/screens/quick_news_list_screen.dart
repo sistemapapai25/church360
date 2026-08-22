@@ -7,6 +7,8 @@ import '../providers/quick_news_provider.dart';
 import '../../domain/models/quick_news.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem e gerenciamento de avisos rápidos (Fique por Dentro)
 class QuickNewsListScreen extends ConsumerWidget {
@@ -29,10 +31,13 @@ class QuickNewsListScreen extends ConsumerWidget {
         title: const Text('Fique por Dentro'),
         centerTitle: true,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/home/quick-news/new'),
-        icon: const Icon(Icons.add),
-        label: const Text('Novo Aviso'),
+      floatingActionButton: PermissionGate(
+        permission: 'quick_news.create',
+        child: FloatingActionButton.extended(
+          onPressed: () => context.push('/home/quick-news/new'),
+          icon: const Icon(Icons.add),
+          label: const Text('Novo Aviso'),
+        ),
       ),
       body: newsAsync.when(
         data: (newsList) {
@@ -122,12 +127,20 @@ class _NewsCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+    final canEdit = ref
+        .watch(currentUserHasPermissionProvider('quick_news.edit'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+    final canDelete = ref
+        .watch(currentUserHasPermissionProvider('quick_news.delete'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: CommunityDesign.overlayDecoration(Theme.of(context).colorScheme),
       child: InkWell(
-        onTap: () => context.push('/home/quick-news/${news.id}/edit'),
+        onTap: canEdit
+            ? () => context.push('/home/quick-news/${news.id}/edit')
+            : null,
         borderRadius: BorderRadius.circular(CommunityDesign.radius),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -228,22 +241,25 @@ class _NewsCard extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   // Botão Editar
-                  TextButton.icon(
-                    onPressed: () => context.push('/home/quick-news/${news.id}/edit'),
-                    icon: const Icon(Icons.edit, size: 18),
-                    label: const Text('Editar'),
-                  ),
-                  const SizedBox(width: 8),
+                  if (canEdit) ...[
+                    TextButton.icon(
+                      onPressed: () => context.push('/home/quick-news/${news.id}/edit'),
+                      icon: const Icon(Icons.edit, size: 18),
+                      label: const Text('Editar'),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
 
                   // Botão Deletar
-                  TextButton.icon(
-                    onPressed: () => _showDeleteDialog(context, ref),
-                    icon: const Icon(Icons.delete, size: 18),
-                    label: const Text('Excluir'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.red,
+                  if (canDelete)
+                    TextButton.icon(
+                      onPressed: () => _showDeleteDialog(context, ref),
+                      icon: const Icon(Icons.delete, size: 18),
+                      label: const Text('Excluir'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ],
@@ -266,6 +282,18 @@ class _NewsCard extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () async {
+              final hasPermission = await ref.read(
+                currentUserHasPermissionProvider('quick_news.delete').future,
+              );
+              if (!hasPermission) {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Você não tem permissão para esta ação')),
+                  );
+                }
+                return;
+              }
               try {
                 final repo = ref.read(quickNewsRepositoryProvider);
                 await repo.deleteNews(news.id);

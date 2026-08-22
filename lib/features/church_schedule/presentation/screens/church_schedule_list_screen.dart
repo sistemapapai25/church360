@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import '../../domain/models/church_schedule.dart';
 import '../providers/church_schedule_provider.dart';
 import 'church_schedule_form_screen.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de agendas da igreja
 class ChurchScheduleListScreen extends ConsumerStatefulWidget {
@@ -22,6 +24,12 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
     final schedulesAsync = _showInactive
         ? ref.watch(allChurchSchedulesProvider)
         : ref.watch(activeChurchSchedulesProvider);
+    final canEdit = ref
+        .watch(currentUserHasPermissionProvider('church_schedule.edit'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+    final canDelete = ref
+        .watch(currentUserHasPermissionProvider('church_schedule.delete'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
 
     return Scaffold(
       appBar: AppBar(
@@ -82,14 +90,18 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
                 final schedule = schedules[index];
                 return _ScheduleCard(
                   schedule: schedule,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ChurchScheduleFormScreen(scheduleId: schedule.id),
-                      ),
-                    );
-                  },
+                  canEdit: canEdit,
+                  canDelete: canDelete,
+                  onTap: canEdit
+                      ? () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ChurchScheduleFormScreen(scheduleId: schedule.id),
+                            ),
+                          );
+                        }
+                      : null,
                   onDelete: () => _confirmDelete(context, schedule),
                   onToggleActive: () => _toggleActive(schedule),
                 );
@@ -117,22 +129,38 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const ChurchScheduleFormScreen(),
-            ),
-          );
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Nova Agenda'),
+      floatingActionButton: PermissionGate(
+        permission: 'church_schedule.create',
+        child: FloatingActionButton.extended(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ChurchScheduleFormScreen(),
+              ),
+            );
+          },
+          icon: const Icon(Icons.add),
+          label: const Text('Nova Agenda'),
+        ),
       ),
     );
   }
 
   Future<void> _confirmDelete(BuildContext context, ChurchSchedule schedule) async {
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('church_schedule.delete').future,
+    );
+    if (!hasPermission) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -173,6 +201,18 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
   }
 
   Future<void> _toggleActive(ChurchSchedule schedule) async {
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('church_schedule.edit').future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
+      return;
+    }
+
     try {
       await ref.read(toggleChurchScheduleActiveProvider)(
         schedule.id,
@@ -202,12 +242,16 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
 /// Card de agenda
 class _ScheduleCard extends StatelessWidget {
   final ChurchSchedule schedule;
-  final VoidCallback onTap;
+  final bool canEdit;
+  final bool canDelete;
+  final VoidCallback? onTap;
   final VoidCallback onDelete;
   final VoidCallback onToggleActive;
 
   const _ScheduleCard({
     required this.schedule,
+    required this.canEdit,
+    required this.canDelete,
     required this.onTap,
     required this.onDelete,
     required this.onToggleActive,
@@ -318,23 +362,26 @@ class _ScheduleCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton.icon(
-                    onPressed: onToggleActive,
-                    icon: Icon(
-                      schedule.isActive ? Icons.visibility_off : Icons.visibility,
-                      size: 18,
+                  if (canEdit) ...[
+                    TextButton.icon(
+                      onPressed: onToggleActive,
+                      icon: Icon(
+                        schedule.isActive ? Icons.visibility_off : Icons.visibility,
+                        size: 18,
+                      ),
+                      label: Text(schedule.isActive ? 'Desativar' : 'Ativar'),
                     ),
-                    label: Text(schedule.isActive ? 'Desativar' : 'Ativar'),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton.icon(
-                    onPressed: onDelete,
-                    icon: const Icon(Icons.delete, size: 18),
-                    label: const Text('Excluir'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.red,
+                    const SizedBox(width: 8),
+                  ],
+                  if (canDelete)
+                    TextButton.icon(
+                      onPressed: onDelete,
+                      icon: const Icon(Icons.delete, size: 18),
+                      label: const Text('Excluir'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ],

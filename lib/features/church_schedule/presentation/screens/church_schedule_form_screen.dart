@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import '../../domain/models/church_schedule.dart';
 import '../providers/church_schedule_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 class _ResponsibleOption {
   const _ResponsibleOption(this.value, this.label);
@@ -324,15 +326,21 @@ class _ChurchScheduleFormScreenState extends ConsumerState<ChurchScheduleFormScr
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: FilledButton(
-                    onPressed: _isLoading ? null : _saveSchedule,
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Salvar'),
+                  child: DisabledByPermission(
+                    permission: widget.scheduleId == null
+                        ? 'church_schedule.create'
+                        : 'church_schedule.edit',
+                    disabledTooltip: 'Você não tem permissão para esta ação',
+                    child: FilledButton(
+                      onPressed: _isLoading ? null : _saveSchedule,
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Salvar'),
+                    ),
                   ),
                 ),
               ],
@@ -396,6 +404,21 @@ class _ChurchScheduleFormScreenState extends ConsumerState<ChurchScheduleFormScr
 
   Future<void> _saveSchedule() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final requiredPermission = widget.scheduleId == null
+        ? 'church_schedule.create'
+        : 'church_schedule.edit';
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider(requiredPermission).future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
+      return;
+    }
 
     setState(() => _isLoading = true);
 

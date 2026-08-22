@@ -1050,13 +1050,19 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/church-schedule/new',
-      builder: (context, state) => const ChurchScheduleFormScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'church_schedule.create',
+        child: ChurchScheduleFormScreen(),
+      ),
     ),
     GoRoute(
       path: '/church-schedule/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return ChurchScheduleFormScreen(scheduleId: id);
+        return PermissionOnlyRoute(
+          permission: 'church_schedule.edit',
+          child: ChurchScheduleFormScreen(scheduleId: id),
+        );
       },
     ),
 
@@ -1290,13 +1296,19 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/home/quick-news/new',
-      builder: (context, state) => const QuickNewsFormScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'quick_news.create',
+        child: QuickNewsFormScreen(),
+      ),
     ),
     GoRoute(
       path: '/home/quick-news/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return QuickNewsFormScreen(newsId: id);
+        return PermissionOnlyRoute(
+          permission: 'quick_news.edit',
+          child: QuickNewsFormScreen(newsId: id),
+        );
       },
     ),
 
