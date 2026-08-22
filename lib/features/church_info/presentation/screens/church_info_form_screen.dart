@@ -8,6 +8,8 @@ import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../providers/church_info_provider.dart';
 import '../../domain/models/church_info.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de formulário para editar informações da igreja
 class ChurchInfoFormScreen extends ConsumerStatefulWidget {
@@ -174,7 +176,19 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('church_info.edit').future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
     
     try {
@@ -320,10 +334,14 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
               ),
             )
           else
-            IconButton(
-              icon: const Icon(Icons.check),
-              onPressed: _submit,
-              tooltip: 'Salvar',
+            DisabledByPermission(
+              permission: 'church_info.edit',
+              disabledTooltip: 'Você não tem permissão para esta ação',
+              child: IconButton(
+                icon: const Icon(Icons.check),
+                onPressed: _submit,
+                tooltip: 'Salvar',
+              ),
             ),
         ],
       ),
@@ -502,20 +520,24 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
             const SizedBox(height: 32),
 
             // Save Button
-            FilledButton.icon(
-              onPressed: _isLoading ? null : _submit,
-              icon: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.save),
-              label: Text(_existingInfo != null ? 'Salvar Alterações' : 'Cadastrar Igreja'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.all(16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            DisabledByPermission(
+              permission: 'church_info.edit',
+              disabledTooltip: 'Você não tem permissão para esta ação',
+              child: FilledButton.icon(
+                onPressed: _isLoading ? null : _submit,
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.save),
+                label: Text(_existingInfo != null ? 'Salvar Alterações' : 'Cadastrar Igreja'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.all(16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
