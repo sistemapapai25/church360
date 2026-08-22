@@ -7,6 +7,8 @@ import '../../../../core/widgets/image_upload_widget.dart';
 import '../../../events/presentation/providers/events_provider.dart';
 import '../../../reading_plans/presentation/providers/reading_plans_provider.dart';
 import '../../../courses/presentation/providers/courses_provider.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de formulário para criar/editar banner
 class BannerFormScreen extends ConsumerStatefulWidget {
@@ -91,6 +93,19 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Por favor, selecione uma imagem')),
       );
+      return;
+    }
+
+    final requiredPermission = _isEditing ? 'banners.edit' : 'banners.create';
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider(requiredPermission).future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
       return;
     }
 
@@ -270,10 +285,16 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
               ),
             )
           else
-            IconButton(
-              icon: const Icon(Icons.check),
-              onPressed: _saveBanner,
-              tooltip: 'Salvar',
+            DisabledByPermission(
+              permission: _isEditing ? 'banners.edit' : 'banners.create',
+              disabledTooltip: _isEditing
+                  ? 'Você não tem permissão para editar banners'
+                  : 'Você não tem permissão para criar banners',
+              child: IconButton(
+                icon: const Icon(Icons.check),
+                onPressed: _saveBanner,
+                tooltip: 'Salvar',
+              ),
             ),
         ],
       ),
@@ -415,18 +436,24 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
                     const SizedBox(height: 24),
 
                     // Botão Salvar
-                    ElevatedButton.icon(
-                      onPressed: _isSaving ? null : _saveBanner,
-                      icon: _isSaving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.save),
-                      label: Text(_isEditing ? 'Atualizar Banner' : 'Criar Banner'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.all(16),
+                    DisabledByPermission(
+                      permission: _isEditing ? 'banners.edit' : 'banners.create',
+                      disabledTooltip: _isEditing
+                          ? 'Você não tem permissão para editar banners'
+                          : 'Você não tem permissão para criar banners',
+                      child: ElevatedButton.icon(
+                        onPressed: _isSaving ? null : _saveBanner,
+                        icon: _isSaving
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.save),
+                        label: Text(_isEditing ? 'Atualizar Banner' : 'Criar Banner'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.all(16),
+                        ),
                       ),
                     ),
                   ],
