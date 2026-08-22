@@ -586,39 +586,46 @@ class _MemberCard extends ConsumerWidget {
             ],
           ),
         ),
-        trailing: PopupMenuButton(
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              child: const Row(
-                children: [
-                  Icon(Icons.edit),
-                  SizedBox(width: 8),
-                  Text('Editar Função'),
-                ],
-              ),
-              onTap: () {
-                Future.microtask(() {
-                  if (!context.mounted) return;
-                  _showEditRoleDialog(context, ref);
-                });
-              },
-            ),
-            PopupMenuItem(
-              child: const Row(
-                children: [
-                  Icon(Icons.delete, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text('Remover', style: TextStyle(color: Colors.red)),
-                ],
-              ),
-              onTap: () {
-                Future.microtask(() {
-                  if (!context.mounted) return;
-                  _confirmRemove(context, ref);
-                });
-              },
-            ),
-          ],
+        trailing: PermissionBuilder(
+          permission: 'ministries.manage_members',
+          builder: (context, hasPermission) {
+            if (!hasPermission) return const SizedBox.shrink();
+            return PopupMenuButton(
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  child: const Row(
+                    children: [
+                      Icon(Icons.edit),
+                      SizedBox(width: 8),
+                      Text('Editar Função'),
+                    ],
+                  ),
+                  onTap: () {
+                    Future.microtask(() {
+                      if (!context.mounted) return;
+                      _showEditRoleDialog(context, ref);
+                    });
+                  },
+                ),
+                PopupMenuItem(
+                  child: const Row(
+                    children: [
+                      Icon(Icons.delete, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Remover', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                  onTap: () {
+                    Future.microtask(() {
+                      if (!context.mounted) return;
+                      _confirmRemove(context, ref);
+                    });
+                  },
+                ),
+              ],
+            );
+          },
+          loadingWidget: const SizedBox.shrink(),
         ),
       ),
     );
@@ -651,6 +658,19 @@ class _MemberCard extends ConsumerWidget {
   }
 
   Future<void> _showEditRoleDialog(BuildContext context, WidgetRef ref) async {
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('ministries.manage_members').future,
+    );
+    if (!hasPermission) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+
     String? selectedRoleId;
     final Set<String> selectedFunctions = {};
     List<String> availableFunctions = [];
@@ -1109,6 +1129,19 @@ class _MemberCard extends ConsumerWidget {
   }
 
   Future<void> _confirmRemove(BuildContext context, WidgetRef ref) async {
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('ministries.manage_members').future,
+    );
+    if (!hasPermission) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
