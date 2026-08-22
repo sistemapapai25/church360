@@ -8,6 +8,8 @@ import '../../../../core/errors/app_error_handler.dart';
 import '../../data/group_meetings_repository.dart';
 import '../providers/meetings_provider.dart';
 import '../providers/groups_provider.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de formulário de reunião
 class MeetingFormScreen extends ConsumerStatefulWidget {
@@ -134,18 +136,22 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
                 const SizedBox(height: 24),
 
                 // Botão de salvar
-                FilledButton.icon(
-                  onPressed: _isLoading ? null : _saveMeeting,
-                  icon: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.save),
-                  label: Text(isEditing ? 'Salvar Alterações' : 'Criar Reunião'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.all(16),
+                DisabledByPermission(
+                  permission: 'groups.manage_meetings',
+                  disabledTooltip: 'Você não tem permissão para esta ação',
+                  child: FilledButton.icon(
+                    onPressed: _isLoading ? null : _saveMeeting,
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save),
+                    label: Text(isEditing ? 'Salvar Alterações' : 'Criar Reunião'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.all(16),
+                    ),
                   ),
                 ),
               ],
@@ -175,6 +181,18 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
 
   Future<void> _saveMeeting() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('groups.manage_meetings').future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
+      return;
+    }
 
     setState(() => _isLoading = true);
 

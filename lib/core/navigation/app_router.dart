@@ -343,13 +343,19 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/groups/new',
-      builder: (context, state) => const GroupFormScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'groups.create',
+        child: GroupFormScreen(),
+      ),
     ),
     GoRoute(
       path: '/groups/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return GroupFormScreen(groupId: id);
+        return PermissionOnlyRoute(
+          permission: 'groups.edit',
+          child: GroupFormScreen(groupId: id),
+        );
       },
     ),
     GoRoute(
@@ -364,7 +370,10 @@ final appRouter = GoRouter(
       path: '/groups/:groupId/meetings/new',
       builder: (context, state) {
         final groupId = state.pathParameters['groupId']!;
-        return MeetingFormScreen(groupId: groupId);
+        return PermissionOnlyRoute(
+          permission: 'groups.manage_meetings',
+          child: MeetingFormScreen(groupId: groupId),
+        );
       },
     ),
     GoRoute(
@@ -372,7 +381,10 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final groupId = state.pathParameters['groupId']!;
         final meetingId = state.pathParameters['meetingId']!;
-        return MeetingFormScreen(groupId: groupId, meetingId: meetingId);
+        return PermissionOnlyRoute(
+          permission: 'groups.manage_meetings',
+          child: MeetingFormScreen(groupId: groupId, meetingId: meetingId),
+        );
       },
     ),
     GoRoute(
