@@ -5,6 +5,8 @@ import '../../../../core/design/community_design.dart';
 import '../providers/worship_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../members/domain/models/member.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de presença/check-in de um culto
 class WorshipAttendanceScreen extends ConsumerStatefulWidget {
@@ -262,6 +264,18 @@ class _MemberCheckInTileState extends ConsumerState<_MemberCheckInTile> {
   bool _isLoading = false;
 
   Future<void> _toggleAttendance() async {
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('worship.attendance').future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
@@ -312,6 +326,10 @@ class _MemberCheckInTileState extends ConsumerState<_MemberCheckInTile> {
 
   @override
   Widget build(BuildContext context) {
+    final canToggleAttendance = ref
+        .watch(currentUserHasPermissionProvider('worship.attendance'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: widget.isPresent ? 2 : 0,
@@ -344,14 +362,18 @@ class _MemberCheckInTileState extends ConsumerState<_MemberCheckInTile> {
                 height: 24,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : IconButton(
-                icon: Icon(
-                  widget.isPresent ? Icons.check_circle : Icons.circle_outlined,
-                  color: widget.isPresent ? Colors.green : Colors.grey,
+            : DisabledByPermission(
+                permission: 'worship.attendance',
+                disabledTooltip: 'Você não tem permissão para esta ação',
+                child: IconButton(
+                  icon: Icon(
+                    widget.isPresent ? Icons.check_circle : Icons.circle_outlined,
+                    color: widget.isPresent ? Colors.green : Colors.grey,
+                  ),
+                  onPressed: _toggleAttendance,
                 ),
-                onPressed: _toggleAttendance,
               ),
-        onTap: _isLoading ? null : _toggleAttendance,
+        onTap: (_isLoading || !canToggleAttendance) ? null : _toggleAttendance,
       ),
     );
   }

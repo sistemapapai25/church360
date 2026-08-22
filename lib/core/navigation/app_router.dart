@@ -669,29 +669,44 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/worship-services',
-      builder: (context, state) => const WorshipServicesScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'worship.view',
+        child: WorshipServicesScreen(),
+      ),
     ),
     GoRoute(
       path: '/worship-services/:id/attendance',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return WorshipAttendanceScreen(worshipServiceId: id);
+        return PermissionOnlyRoute(
+          permission: 'worship.attendance',
+          child: WorshipAttendanceScreen(worshipServiceId: id),
+        );
       },
     ),
     GoRoute(
       path: '/worship-services/new',
-      builder: (context, state) => const WorshipServiceFormScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'worship.create',
+        child: WorshipServiceFormScreen(),
+      ),
     ),
     GoRoute(
       path: '/worship-services/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return WorshipServiceFormScreen(worshipServiceId: id);
+        return PermissionOnlyRoute(
+          permission: 'worship.edit',
+          child: WorshipServiceFormScreen(worshipServiceId: id),
+        );
       },
     ),
     GoRoute(
       path: '/worship-statistics',
-      builder: (context, state) => const WorshipStatisticsScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'worship.view_statistics',
+        child: WorshipStatisticsScreen(),
+      ),
     ),
     GoRoute(
       path: '/visitors',

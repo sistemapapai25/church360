@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/design/community_design.dart';
 import '../providers/worship_provider.dart';
 import '../../domain/models/worship_service.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de cultos
 class WorshipServicesScreen extends ConsumerWidget {
@@ -91,12 +93,15 @@ class WorshipServicesScreen extends ConsumerWidget {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          context.push('/worship-services/new');
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Novo Culto'),
+      floatingActionButton: PermissionGate(
+        permission: 'worship.create',
+        child: FloatingActionButton.extended(
+          onPressed: () {
+            context.push('/worship-services/new');
+          },
+          icon: const Icon(Icons.add),
+          label: const Text('Novo Culto'),
+        ),
       ),
     );
   }
@@ -113,6 +118,19 @@ class _WorshipServiceCard extends ConsumerWidget {
   }
 
   Future<void> _deleteService(BuildContext context, WidgetRef ref) async {
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('worship.delete').future,
+    );
+    if (!hasPermission) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -160,6 +178,13 @@ class _WorshipServiceCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final canEdit = ref
+        .watch(currentUserHasPermissionProvider('worship.edit'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+    final canDelete = ref
+        .watch(currentUserHasPermissionProvider('worship.delete'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -239,38 +264,41 @@ class _WorshipServiceCard extends ConsumerWidget {
                       ),
                     ),
                   // Menu de opções
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert),
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        context.push('/worship-services/${service.id}/edit');
-                      } else if (value == 'delete') {
-                        _deleteService(context, ref);
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit, size: 20),
-                            SizedBox(width: 8),
-                            Text('Editar'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete, size: 20, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Excluir', style: TextStyle(color: Colors.red)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                  if (canEdit || canDelete)
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert),
+                      onSelected: (value) {
+                        if (value == 'edit' && canEdit) {
+                          context.push('/worship-services/${service.id}/edit');
+                        } else if (value == 'delete' && canDelete) {
+                          _deleteService(context, ref);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        if (canEdit)
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit, size: 20),
+                                SizedBox(width: 8),
+                                Text('Editar'),
+                              ],
+                            ),
+                          ),
+                        if (canDelete)
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, size: 20, color: Colors.red),
+                                SizedBox(width: 8),
+                                Text('Excluir', style: TextStyle(color: Colors.red)),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
                 ],
               ),
               
