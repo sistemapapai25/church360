@@ -187,7 +187,9 @@ final topTagsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
 
   final tags = (response as List).map((tag) {
     final memberTagData = tag['member_tag'];
-    final count = memberTagData is List ? memberTagData.length : 0;
+    final count = (memberTagData is List && memberTagData.isNotEmpty)
+        ? (memberTagData.first['count'] as int? ?? 0)
+        : 0;
 
     return {
       'id': tag['id'],
@@ -212,7 +214,7 @@ final birthdaysThisMonthProvider = FutureProvider<List<Map<String, dynamic>>>((r
   // Buscar TODOS os usuários com data de nascimento
   final response = await supabase
       .from('user_account')
-      .select('id, first_name, last_name, photo_url, status')
+      .select('id, first_name, last_name, photo_url, status, birthdate')
       .eq('tenant_id', SupabaseConstants.currentTenantId)
       .not('birthdate', 'is', null)
       .order('birthdate', ascending: true);
@@ -354,6 +356,7 @@ final annualMemberGrowthProvider = FutureProvider<List<Map<String, dynamic>>>((r
   final response = await supabase
       .from('user_account')
       .select('created_at, status')
+      .eq('tenant_id', SupabaseConstants.currentTenantId)
       .inFilter('status', ['member_active', 'member_inactive']) // Apenas membros
       .order('created_at', ascending: true);
 
