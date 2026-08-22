@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 
 import '../providers/prayer_request_provider.dart';
 import '../../domain/models/prayer_request.dart';
@@ -59,6 +60,26 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
   }
 
   Future<void> _deletePrayerRequest() async {
+    final currentMemberId = ref.read(currentMemberProvider).value?.id;
+    final prayerRequest =
+        ref.read(prayerRequestByIdProvider(widget.prayerRequestId)).value;
+    final isAuthor = prayerRequest?.authorId == currentMemberId;
+    final canDelete = await ref.read(
+      currentUserHasPermissionProvider('prayer_requests.delete').future,
+    );
+    final canModerate = await ref.read(
+      currentUserHasPermissionProvider('prayer_requests.moderate').future,
+    );
+    if (!isAuthor && !canDelete && !canModerate) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -116,6 +137,15 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
     final statsAsync = ref.watch(prayerRequestStatsProvider(widget.prayerRequestId));
     final hasUserPrayedAsync = ref.watch(hasUserPrayedProvider(widget.prayerRequestId));
     final currentMemberId = ref.watch(currentMemberProvider).value?.id;
+    final canEditPermission = ref
+        .watch(currentUserHasPermissionProvider('prayer_requests.edit'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+    final canDeletePermission = ref
+        .watch(currentUserHasPermissionProvider('prayer_requests.delete'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+    final canModerate = ref
+        .watch(currentUserHasPermissionProvider('prayer_requests.moderate'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
 
     return Scaffold(
       appBar: AppBar(
@@ -124,25 +154,31 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
           prayerRequestAsync.when(
             data: (prayerRequest) {
               if (prayerRequest == null) return const SizedBox.shrink();
-              
-              // Apenas o autor pode editar/deletar
-              if (prayerRequest.authorId != currentMemberId) {
+
+              // Autor sempre pode agir sobre o próprio pedido; além disso,
+              // quem tem a permissão de edição/exclusão/moderação também
+              // pode agir sobre pedidos de qualquer pessoa.
+              final isAuthor = prayerRequest.authorId == currentMemberId;
+              final canEdit = isAuthor || canEditPermission || canModerate;
+              final canDelete = isAuthor || canDeletePermission || canModerate;
+              if (!canEdit && !canDelete) {
                 return const SizedBox.shrink();
               }
 
               return PopupMenuButton(
                 itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit),
-                        SizedBox(width: 8),
-                        Text('Editar'),
-                      ],
+                  if (canEdit)
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit),
+                          SizedBox(width: 8),
+                          Text('Editar'),
+                        ],
+                      ),
                     ),
-                  ),
-                  if (prayerRequest.status != PrayerStatus.answered)
+                  if (canEdit && prayerRequest.status != PrayerStatus.answered)
                     const PopupMenuItem(
                       value: 'mark_answered',
                       child: Row(
@@ -153,21 +189,24 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
                         ],
                       ),
                     ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('Deletar'),
-                      ],
+                  if (canDelete)
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Deletar'),
+                        ],
+                      ),
                     ),
-                  ),
                 ],
                 onSelected: (value) async {
                   if (value == 'edit') {
+                    if (!canEdit) return;
                     context.push('/prayer-requests/${widget.prayerRequestId}/edit');
                   } else if (value == 'mark_answered') {
+                    if (!canEdit) return;
                     final actions = ref.read(prayerRequestActionsProvider);
                     await actions.markAsAnswered(widget.prayerRequestId);
                     if (!context.mounted) return;
@@ -178,6 +217,7 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
                         ),
                       );
                   } else if (value == 'delete') {
+                    if (!canDelete) return;
                     _deletePrayerRequest();
                   }
                 },
