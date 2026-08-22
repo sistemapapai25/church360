@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/prayer_request_provider.dart';
 import '../../domain/models/prayer_request.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de pedidos de oração
 class PrayerRequestsListScreen extends ConsumerStatefulWidget {
@@ -174,20 +175,25 @@ class _PrayerRequestsListScreenState
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          context.push('/prayer-requests/new');
-        },
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        icon: const Icon(Icons.add),
-        label: Text(
-          'Novo Pedido'.toUpperCase(),
-          style: const TextStyle(
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.5,
+      floatingActionButton: PermissionGate(
+        permission: 'prayer_requests.create',
+        child: FloatingActionButton.extended(
+          onPressed: () {
+            context.push('/prayer-requests/new');
+          },
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Colors.white,
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          icon: const Icon(Icons.add),
+          label: Text(
+            'Novo Pedido'.toUpperCase(),
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
+            ),
           ),
         ),
       ),

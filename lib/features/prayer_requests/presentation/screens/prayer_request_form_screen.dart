@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/prayer_request_provider.dart';
 import '../../domain/models/prayer_request.dart';
+import '../../../members/presentation/providers/members_provider.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 
 /// Tela de formulário para criar/editar pedido de oração
 class PrayerRequestFormScreen extends ConsumerStatefulWidget {
@@ -38,6 +40,40 @@ class _PrayerRequestFormScreenState extends ConsumerState<PrayerRequestFormScree
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_isEditing) {
+      final currentMemberId = ref.read(currentMemberProvider).value?.id;
+      final prayerRequest = ref
+          .read(prayerRequestByIdProvider(widget.prayerRequestId!))
+          .value;
+      final isAuthor = prayerRequest?.authorId == currentMemberId;
+      final canEdit = await ref.read(
+        currentUserHasPermissionProvider('prayer_requests.edit').future,
+      );
+      final canModerate = await ref.read(
+        currentUserHasPermissionProvider('prayer_requests.moderate').future,
+      );
+      if (!isAuthor && !canEdit && !canModerate) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Você não tem permissão para esta ação')),
+          );
+        }
+        return;
+      }
+    } else {
+      final hasPermission = await ref.read(
+        currentUserHasPermissionProvider('prayer_requests.create').future,
+      );
+      if (!hasPermission) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Você não tem permissão para esta ação')),
+          );
+        }
+        return;
+      }
+    }
 
     setState(() {
       _isLoading = true;
