@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../providers/visitors_provider.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de formulário para follow-up
 class VisitorFollowupFormScreen extends ConsumerStatefulWidget {
@@ -80,6 +82,20 @@ class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormS
 
   Future<void> _saveFollowup() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('visitors.followup').future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Você não tem permissão para esta ação'),
+          ),
+        );
+      }
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -252,18 +268,23 @@ class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormS
                 const SizedBox(height: 24),
 
                 // Botão Salvar
-                FilledButton.icon(
-                  onPressed: _isLoading ? null : _saveFollowup,
-                  icon: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.save),
-                  label: Text(_isEditMode ? 'Atualizar Follow-up' : 'Criar Follow-up'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.all(16),
+                DisabledByPermission(
+                  permission: 'visitors.followup',
+                  disabledTooltip:
+                      'Você não tem permissão para registrar follow-ups',
+                  child: FilledButton.icon(
+                    onPressed: _isLoading ? null : _saveFollowup,
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save),
+                    label: Text(_isEditMode ? 'Atualizar Follow-up' : 'Criar Follow-up'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.all(16),
+                    ),
                   ),
                 ),
               ],

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/visitors_provider.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de formulário para registrar visita
 class VisitorVisitFormScreen extends ConsumerStatefulWidget {
@@ -49,6 +51,20 @@ class _VisitorVisitFormScreenState extends ConsumerState<VisitorVisitFormScreen>
 
   Future<void> _saveVisit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('visitors.followup').future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Você não tem permissão para esta ação'),
+          ),
+        );
+      }
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -199,18 +215,23 @@ class _VisitorVisitFormScreenState extends ConsumerState<VisitorVisitFormScreen>
                 const SizedBox(height: 24),
 
                 // Botão Salvar
-                FilledButton.icon(
-                  onPressed: _isLoading ? null : _saveVisit,
-                  icon: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.save),
-                  label: const Text('Registrar Visita'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.all(16),
+                DisabledByPermission(
+                  permission: 'visitors.followup',
+                  disabledTooltip:
+                      'Você não tem permissão para registrar visitas',
+                  child: FilledButton.icon(
+                    onPressed: _isLoading ? null : _saveVisit,
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save),
+                    label: const Text('Registrar Visita'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.all(16),
+                    ),
                   ),
                 ),
               ],
