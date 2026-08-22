@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../domain/models/custom_report.dart';
 import '../providers/custom_report_providers.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 
 /// Tela de listagem de relatórios customizados
 class CustomReportsListScreen extends ConsumerStatefulWidget {
@@ -53,8 +54,16 @@ class _CustomReportsListScreenState extends ConsumerState<CustomReportsListScree
               itemCount: reports.length,
               itemBuilder: (context, index) {
                 final report = reports[index];
+                final canDuplicate = ref
+                    .watch(currentUserHasPermissionProvider('reports.create'))
+                    .maybeWhen(data: (v) => v, orElse: () => false);
+                final canDelete = ref
+                    .watch(currentUserHasPermissionProvider('reports.delete'))
+                    .maybeWhen(data: (v) => v, orElse: () => false);
                 return _ReportCard(
                   report: report,
+                  canDuplicate: canDuplicate,
+                  canDelete: canDelete,
                   onTap: () {
                     context.push('/custom-reports/${report.id}/view');
                   },
@@ -139,6 +148,17 @@ class _CustomReportsListScreenState extends ConsumerState<CustomReportsListScree
   }
 
   Future<void> _duplicateReport(CustomReport report) async {
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('reports.create').future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
+      return;
+    }
     try {
       final duplicate = ref.read(duplicateCustomReportProvider);
       await duplicate(report.id);
@@ -184,6 +204,17 @@ class _CustomReportsListScreenState extends ConsumerState<CustomReportsListScree
     );
 
     if (confirmed == true && context.mounted) {
+      final hasPermission = await ref.read(
+        currentUserHasPermissionProvider('reports.delete').future,
+      );
+      if (!hasPermission) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Você não tem permissão para esta ação')),
+          );
+        }
+        return;
+      }
       try {
         final delete = ref.read(deleteCustomReportProvider);
         await delete(report.id);
@@ -213,6 +244,8 @@ class _CustomReportsListScreenState extends ConsumerState<CustomReportsListScree
 /// Card de relatório
 class _ReportCard extends StatelessWidget {
   final CustomReport report;
+  final bool canDuplicate;
+  final bool canDelete;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDuplicate;
@@ -220,6 +253,8 @@ class _ReportCard extends StatelessWidget {
 
   const _ReportCard({
     required this.report,
+    required this.canDuplicate,
+    required this.canDelete,
     required this.onTap,
     required this.onEdit,
     required this.onDuplicate,
@@ -297,21 +332,25 @@ class _ReportCard extends StatelessWidget {
                     icon: const Icon(Icons.edit, size: 18),
                     label: const Text('Editar'),
                   ),
-                  const SizedBox(width: 8),
-                  TextButton.icon(
-                    onPressed: onDuplicate,
-                    icon: const Icon(Icons.copy, size: 18),
-                    label: const Text('Duplicar'),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton.icon(
-                    onPressed: onDelete,
-                    icon: const Icon(Icons.delete, size: 18),
-                    label: const Text('Excluir'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.red,
+                  if (canDuplicate) ...[
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: onDuplicate,
+                      icon: const Icon(Icons.copy, size: 18),
+                      label: const Text('Duplicar'),
                     ),
-                  ),
+                  ],
+                  if (canDelete) ...[
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: onDelete,
+                      icon: const Icon(Icons.delete, size: 18),
+                      label: const Text('Excluir'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ],
