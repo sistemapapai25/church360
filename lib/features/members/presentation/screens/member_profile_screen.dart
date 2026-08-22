@@ -88,6 +88,12 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   /// se o usuário abriu enquanto a tela estiver montada.
   final Set<String> _expandedSections = {};
 
+  /// Subgrupos de campos dentro de um card (ex.: "Dados Pessoais" e
+  /// "Dados Eclesiásticos" dentro de "Informações Pessoais") — mesmo
+  /// mecanismo de agrupar/desagrupar do CHU-316, aplicado em um nível mais
+  /// granular.
+  final Set<String> _expandedFieldGroups = {};
+
   String get _memberId => widget.memberId;
 
   /// Mostra as opções de escolha de foto (Câmera ou Galeria)
@@ -1669,25 +1675,27 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     WidgetRef ref,
     Member member,
   ) {
-    final items = <Widget>[];
+    final personalItems = <Widget>[];
     final email = _effectiveEmail(ref, member);
     if (_hasValue(email)) {
-      items.add(_buildInfoRow(Icons.email, 'Email', email));
+      personalItems.add(_buildInfoRow(Icons.email, 'Email', email));
     }
     if (_hasValue(member.phone)) {
-      items.add(_buildInfoRow(Icons.phone, 'Telefone', member.phone!));
+      personalItems.add(_buildInfoRow(Icons.phone, 'Telefone', member.phone!));
     }
     if (member.birthdate != null) {
       final date = _formatShortDate(member.birthdate!);
       final age = member.age != null ? ' (${member.age} anos)' : '';
-      items.add(_buildInfoRow(Icons.cake, 'Data de Nascimento', '$date$age'));
+      personalItems.add(
+        _buildInfoRow(Icons.cake, 'Data de Nascimento', '$date$age'),
+      );
     }
     final genderLabel = _genderLabel(member.gender);
     if (genderLabel != null) {
-      items.add(_buildInfoRow(Icons.person, 'Gênero', genderLabel));
+      personalItems.add(_buildInfoRow(Icons.person, 'Gênero', genderLabel));
     }
     if (_hasValue(member.profession)) {
-      items.add(
+      personalItems.add(
         Builder(
           builder: (_) {
             final labelAsync = ref.watch(
@@ -1710,25 +1718,101 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     }
     final maritalLabel = _maritalStatusLabelOrNull(member.maritalStatus);
     if (maritalLabel != null) {
-      items.add(_buildInfoRow(Icons.favorite, 'Estado Civil', maritalLabel));
+      personalItems.add(
+        _buildInfoRow(Icons.favorite, 'Estado Civil', maritalLabel),
+      );
+    }
+    if (member.maritalStatus == 'married' && member.marriageDate != null) {
+      personalItems.add(
+        _buildInfoRow(
+          Icons.calendar_today,
+          'Data de Casamento',
+          _formatShortDate(member.marriageDate!),
+        ),
+      );
+    }
+
+    final churchItems = <Widget>[];
+    if (_hasValue(member.memberType)) {
+      churchItems.add(
+        _buildInfoRow(
+          Icons.person_outline,
+          'Tipo de Membro',
+          _getMemberTypeLabel(member.memberType!),
+        ),
+      );
+    }
+    if (member.conversionDate != null) {
+      churchItems.add(
+        _buildInfoRow(
+          Icons.church,
+          'Data de Conversão',
+          _formatShortDate(member.conversionDate!),
+        ),
+      );
+    }
+    if (member.baptismDate != null) {
+      churchItems.add(
+        _buildInfoRow(
+          Icons.water_drop,
+          'Data de Batismo',
+          _formatShortDate(member.baptismDate!),
+        ),
+      );
+    }
+    if (member.membershipDate != null) {
+      churchItems.add(
+        _buildInfoRow(
+          Icons.card_membership,
+          'Data de Membresia',
+          _formatShortDate(member.membershipDate!),
+        ),
+      );
     }
     if (member.credentialDate != null) {
-      items.add(_buildCredentialRow(context, member.credentialDate!));
+      churchItems.add(_buildCredentialRow(context, member.credentialDate!));
     }
-    items.add(_buildLgpdConsentRow(context, ref, member));
-    items.add(_buildLgpdPolicyRow(context, member));
-    items.add(_buildCommitmentTermsRow(context, member));
-    // Ocultar direitos do titular e histórico para usuário comum (ficam fora do "Meu Perfil")
-    items.add(_buildLgpdAdminQueueRow(context, ref));
 
-    if (items.isEmpty) {
+    final privacyItems = <Widget>[
+      _buildLgpdConsentRow(context, ref, member),
+      _buildLgpdPolicyRow(context, member),
+      _buildCommitmentTermsRow(context, member),
+      // Ocultar direitos do titular e histórico para usuário comum (ficam fora do "Meu Perfil")
+      _buildLgpdAdminQueueRow(context, ref),
+    ];
+
+    final groups = [
+      _buildFieldGroup(
+        context,
+        icon: Icons.badge_outlined,
+        title: 'Dados Pessoais',
+        groupKey: 'personal_info.personal',
+        children: personalItems,
+      ),
+      _buildFieldGroup(
+        context,
+        icon: Icons.church,
+        title: 'Dados Eclesiásticos',
+        groupKey: 'personal_info.church',
+        children: churchItems,
+      ),
+      _buildFieldGroup(
+        context,
+        icon: Icons.privacy_tip_outlined,
+        title: 'Privacidade e Termos',
+        groupKey: 'personal_info.privacy',
+        children: privacyItems,
+      ),
+    ];
+
+    if (personalItems.isEmpty && churchItems.isEmpty && privacyItems.isEmpty) {
       return Text(
         'Nenhuma informação disponível.',
         style: CommunityDesign.metaStyle(context),
       );
     }
 
-    return Column(children: items);
+    return Column(children: groups);
   }
 
   Widget _buildAddressInfoNew(BuildContext context, Member member) {
@@ -2328,6 +2412,95 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     );
   }
 
+  /// Subgrupo de campos recolhível dentro de um card (ex.: "Dados Pessoais",
+  /// "Dados Eclesiásticos") — mesma lógica de expandir/recolher do
+  /// `_buildSection`, só que mais compacto para caber aninhado num card.
+  Widget _buildFieldGroup(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String groupKey,
+    required List<Widget> children,
+  }) {
+    if (children.isEmpty) return const SizedBox.shrink();
+    final colorScheme = Theme.of(context).colorScheme;
+    final isExpanded = _expandedFieldGroups.contains(groupKey);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(_cardRadius),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () => setState(() {
+              if (isExpanded) {
+                _expandedFieldGroups.remove(groupKey);
+              } else {
+                _expandedFieldGroups.add(groupKey);
+              }
+            }),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Icon(icon, size: 18, color: colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: CommunityDesign.titleStyle(context).copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '${children.length}',
+                    style: CommunityDesign.metaStyle(context).copyWith(
+                      fontSize: 11,
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 20,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Column(children: children),
+            ),
+            crossFadeState: isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
+            sizeCurve: Curves.easeInOut,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSection(
     BuildContext context, {
     required IconData icon,
@@ -2436,67 +2609,121 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     WidgetRef ref,
     Member member,
   ) {
+    final personalItems = <Widget>[
+      _buildInfoRow(Icons.email, 'Email', _effectiveEmail(ref, member)),
+      _buildInfoRow(Icons.phone, 'Telefone', member.phone ?? 'Não informado'),
+      _buildInfoRow(
+        Icons.cake,
+        'Data de Nascimento',
+        member.birthdate != null
+            ? '${member.birthdate!.day.toString().padLeft(2, '0')}/${member.birthdate!.month.toString().padLeft(2, '0')}/${member.birthdate!.year}${member.age != null ? ' (${member.age} anos)' : ''}'
+            : 'Não informado',
+      ),
+      _buildInfoRow(
+        Icons.person,
+        'Gênero',
+        member.gender == 'male'
+            ? 'Masculino'
+            : member.gender == 'female'
+            ? 'Feminino'
+            : 'Não informado',
+      ),
+      Builder(
+        builder: (_) {
+          if (member.profession == null) {
+            return _buildInfoRow(Icons.work, 'Profissão', 'Não informado');
+          }
+          final labelAsync = ref.watch(
+            professionLabelProvider(member.profession!),
+          );
+          return labelAsync.when(
+            data: (label) => _buildInfoRow(
+              Icons.work,
+              'Profissão',
+              label ?? member.profession!,
+            ),
+            loading: () =>
+                _buildInfoRow(Icons.work, 'Profissão', 'Carregando...'),
+            error: (_, __) =>
+                _buildInfoRow(Icons.work, 'Profissão', member.profession!),
+          );
+        },
+      ),
+      _buildInfoRow(
+        Icons.favorite,
+        'Estado Civil',
+        _getMaritalStatusLabel(member.maritalStatus),
+      ),
+      if (member.maritalStatus == 'married' && member.marriageDate != null)
+        _buildInfoRow(
+          Icons.calendar_today,
+          'Data de Casamento',
+          '${member.marriageDate!.day.toString().padLeft(2, '0')}/${member.marriageDate!.month.toString().padLeft(2, '0')}/${member.marriageDate!.year}',
+        ),
+    ];
+
+    final churchItems = <Widget>[
+      if (_hasValue(member.memberType))
+        _buildInfoRow(
+          Icons.person_outline,
+          'Tipo de Membro',
+          _getMemberTypeLabel(member.memberType!),
+        ),
+      if (member.conversionDate != null)
+        _buildInfoRow(
+          Icons.church,
+          'Data de Conversão',
+          _formatShortDate(member.conversionDate!),
+        ),
+      if (member.baptismDate != null)
+        _buildInfoRow(
+          Icons.water_drop,
+          'Data de Batismo',
+          _formatShortDate(member.baptismDate!),
+        ),
+      if (member.membershipDate != null)
+        _buildInfoRow(
+          Icons.card_membership,
+          'Data de Membresia',
+          _formatShortDate(member.membershipDate!),
+        ),
+      if (member.credentialDate != null)
+        _buildCredentialRow(context, member.credentialDate!)
+      else
+        _buildInfoRow(Icons.badge, 'Credencial', 'Não informada'),
+    ];
+
+    final privacyItems = <Widget>[
+      _buildLgpdConsentRow(context, ref, member),
+      _buildLgpdPolicyRow(context, member),
+      _buildCommitmentTermsRow(context, member),
+      // Ocultar direitos do titular e histórico para usuário comum (ficam fora do "Meu Perfil")
+      _buildLgpdAdminQueueRow(context, ref),
+    ];
+
     return Column(
       children: [
-        _buildInfoRow(Icons.email, 'Email', _effectiveEmail(ref, member)),
-        _buildInfoRow(Icons.phone, 'Telefone', member.phone ?? 'Não informado'),
-        _buildInfoRow(
-          Icons.cake,
-          'Data de Nascimento',
-          member.birthdate != null
-              ? '${member.birthdate!.day.toString().padLeft(2, '0')}/${member.birthdate!.month.toString().padLeft(2, '0')}/${member.birthdate!.year}${member.age != null ? ' (${member.age} anos)' : ''}'
-              : 'Não informado',
+        _buildFieldGroup(
+          context,
+          icon: Icons.badge_outlined,
+          title: 'Dados Pessoais',
+          groupKey: 'personal_info.personal',
+          children: personalItems,
         ),
-        _buildInfoRow(
-          Icons.person,
-          'Gênero',
-          member.gender == 'male'
-              ? 'Masculino'
-              : member.gender == 'female'
-              ? 'Feminino'
-              : 'Não informado',
+        _buildFieldGroup(
+          context,
+          icon: Icons.church,
+          title: 'Dados Eclesiásticos',
+          groupKey: 'personal_info.church',
+          children: churchItems,
         ),
-        Builder(
-          builder: (_) {
-            if (member.profession == null) {
-              return _buildInfoRow(Icons.work, 'Profissão', 'Não informado');
-            }
-            final labelAsync = ref.watch(
-              professionLabelProvider(member.profession!),
-            );
-            return labelAsync.when(
-              data: (label) => _buildInfoRow(
-                Icons.work,
-                'Profissão',
-                label ?? member.profession!,
-              ),
-              loading: () =>
-                  _buildInfoRow(Icons.work, 'Profissão', 'Carregando...'),
-              error: (_, __) =>
-                  _buildInfoRow(Icons.work, 'Profissão', member.profession!),
-            );
-          },
+        _buildFieldGroup(
+          context,
+          icon: Icons.privacy_tip_outlined,
+          title: 'Privacidade e Termos',
+          groupKey: 'personal_info.privacy',
+          children: privacyItems,
         ),
-        _buildInfoRow(
-          Icons.favorite,
-          'Estado Civil',
-          _getMaritalStatusLabel(member.maritalStatus),
-        ),
-        if (member.maritalStatus == 'married' && member.marriageDate != null)
-          _buildInfoRow(
-            Icons.calendar_today,
-            'Data de Casamento',
-            '${member.marriageDate!.day.toString().padLeft(2, '0')}/${member.marriageDate!.month.toString().padLeft(2, '0')}/${member.marriageDate!.year}',
-          ),
-        if (member.credentialDate != null)
-          _buildCredentialRow(context, member.credentialDate!)
-        else
-          _buildInfoRow(Icons.badge, 'Credencial', 'Não informada'),
-        _buildLgpdConsentRow(context, ref, member),
-        _buildLgpdPolicyRow(context, member),
-        _buildCommitmentTermsRow(context, member),
-        // Ocultar direitos do titular e histórico para usuário comum (ficam fora do "Meu Perfil")
-        _buildLgpdAdminQueueRow(context, ref),
       ],
     );
   }
