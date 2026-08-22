@@ -5,6 +5,7 @@ import '../../providers/community_providers.dart';
 import '../../../domain/models/community_post.dart';
 import '../../../domain/models/classified.dart';
 import '../../../../../core/design/community_design.dart';
+import '../../../../permissions/providers/permissions_providers.dart';
 
 class CommunityAdminScreen extends ConsumerStatefulWidget {
   const CommunityAdminScreen({super.key});
@@ -182,6 +183,10 @@ class _PendingPostsList extends ConsumerWidget {
   }
 
   Future<void> _approvePost(BuildContext context, WidgetRef ref, String id) async {
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('community.moderate').future,
+    );
+    if (!hasPermission) return;
     try {
       await ref.read(communityRepositoryProvider).updatePostStatus(id, 'approved');
       ref.invalidate(pendingPostsProvider);
@@ -201,6 +206,10 @@ class _PendingPostsList extends ConsumerWidget {
   }
 
   Future<void> _rejectPost(BuildContext context, WidgetRef ref, String id) async {
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('community.moderate').future,
+    );
+    if (!hasPermission) return;
     try {
       await ref.read(communityRepositoryProvider).updatePostStatus(id, 'rejected');
       ref.invalidate(pendingPostsProvider);
@@ -330,6 +339,10 @@ class _PendingClassifiedsList extends ConsumerWidget {
   }
 
   Future<void> _approveClassified(BuildContext context, WidgetRef ref, String id) async {
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('community.moderate').future,
+    );
+    if (!hasPermission) return;
     try {
       await ref.read(communityRepositoryProvider).updateClassifiedStatus(id, 'approved');
       ref.invalidate(pendingClassifiedsProvider);
@@ -349,6 +362,10 @@ class _PendingClassifiedsList extends ConsumerWidget {
   }
 
   Future<void> _rejectClassified(BuildContext context, WidgetRef ref, String id) async {
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('community.moderate').future,
+    );
+    if (!hasPermission) return;
     try {
       await ref.read(communityRepositoryProvider).updateClassifiedStatus(id, 'rejected');
       ref.invalidate(pendingClassifiedsProvider);
