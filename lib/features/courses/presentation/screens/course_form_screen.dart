@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 import '../../domain/models/course.dart';
 import '../providers/courses_provider.dart';
 
@@ -240,6 +241,11 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
       );
     }
 
+    final canDeleteAsync = ref.watch(
+      currentUserHasPermissionProvider('courses.delete'),
+    );
+    final canDelete = canDeleteAsync.maybeWhen(data: (v) => v, orElse: () => false);
+
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
@@ -249,7 +255,7 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
           style: CommunityDesign.titleStyle(context),
         ),
         actions: [
-          if (_isEditMode && widget.courseId != null)
+          if (_isEditMode && widget.courseId != null && canDelete)
             IconButton(
               icon: const Icon(Icons.delete),
               onPressed: () => _showDeleteDialog(),
@@ -614,6 +620,20 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
     );
 
     if (confirmed == true && mounted) {
+      final canDelete = await ref.read(
+        currentUserHasPermissionProvider('courses.delete').future,
+      );
+      if (!canDelete) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Você não tem permissão para excluir cursos.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
       try {
         setState(() => _isLoading = true);
         final actions = ref.read(coursesActionsProvider);
