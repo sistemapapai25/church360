@@ -83,6 +83,11 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   late final ScrollController _scrollController;
   bool _isUploadingPhoto = false;
 
+  /// Seções (cards) abertas manualmente nesta tela — mesmo mecanismo do
+  /// CHU-316 (Permissões do Cargo): recolhidas por padrão, cada uma lembra
+  /// se o usuário abriu enquanto a tela estiver montada.
+  final Set<String> _expandedSections = {};
+
   String get _memberId => widget.memberId;
 
   /// Mostra as opções de escolha de foto (Câmera ou Galeria)
@@ -369,6 +374,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             context,
             icon: Icons.person,
             title: 'Informações Pessoais',
+            sectionKey: 'personal_info',
             child: _buildPersonalInfo(context, ref, member),
           ),
           const SizedBox(height: _sectionGap),
@@ -377,6 +383,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             context,
             icon: Icons.family_restroom,
             title: 'Vínculos Familiares',
+            sectionKey: 'family',
             child: _buildFamilyRelationships(context, ref, member),
           ),
           const SizedBox(height: _sectionGap),
@@ -385,6 +392,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             context,
             icon: Icons.location_on,
             title: 'Endereço',
+            sectionKey: 'address',
             child: _buildAddressInfo(context, member),
           ),
           const SizedBox(height: _sectionGap),
@@ -393,6 +401,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             context,
             icon: Icons.warning_amber,
             title: 'Pendências do Cadastro',
+            sectionKey: 'pendencias',
             iconColor: Theme.of(context).colorScheme.onSurfaceVariant,
             iconBackgroundColor: Theme.of(
               context,
@@ -407,6 +416,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               context,
               icon: Icons.groups,
               title: 'Liderança',
+              sectionKey: 'leadership',
               child: _buildLeadershipInfo(context, member, ref),
             ),
             const SizedBox(height: _sectionGap),
@@ -416,6 +426,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             context,
             icon: Icons.qr_code,
             title: 'QR Code do Membro',
+            sectionKey: 'qrcode',
             child: _buildQRCode(context, member),
           ),
           const SizedBox(height: 24),
@@ -448,7 +459,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           const SizedBox(height: _sectionGap),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
-            child: _buildPendingBanner(context, completion),
+            child: _buildPendingBanner(context, completion, member),
           ),
         ],
         const SizedBox(height: _sectionGap),
@@ -465,6 +476,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           context,
           icon: Icons.person,
           title: 'Informações Pessoais',
+          sectionKey: 'personal_info',
           child: _buildPersonalInfoNew(context, ref, member),
         ),
         const SizedBox(height: _sectionGap),
@@ -472,6 +484,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           context,
           icon: Icons.family_restroom,
           title: 'Vínculos Familiares',
+          sectionKey: 'family',
           child: _buildFamilyRelationships(context, ref, member),
         ),
         const SizedBox(height: _sectionGap),
@@ -479,6 +492,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           context,
           icon: Icons.location_on,
           title: 'Endereço',
+          sectionKey: 'address',
           child: _buildAddressInfoNew(context, member),
         ),
         if (canShowLeadership) ...[
@@ -487,6 +501,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             context,
             icon: Icons.groups,
             title: 'Liderança',
+            sectionKey: 'leadership',
             child: _buildLeadershipInfo(context, member, ref),
           ),
         ],
@@ -495,6 +510,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           context,
           icon: Icons.qr_code,
           title: 'QR Code do Membro',
+          sectionKey: 'qrcode',
           child: _buildQRCode(context, member),
         ),
         const SizedBox(height: _sectionGap),
@@ -1380,40 +1396,48 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     );
   }
 
-  Widget _buildPendingBanner(BuildContext context, int completion) {
+  Widget _buildPendingBanner(BuildContext context, int completion, Member member) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(
-        colorScheme,
-      ).copyWith(borderRadius: BorderRadius.circular(_cardRadius)),
-      padding: const EdgeInsets.all(_cardPadding),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE67E22).withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.warning_amber,
-              color: Color(0xFFE67E22),
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Cadastro incompleto • $completion% preenchido',
-              style: CommunityDesign.titleStyle(context).copyWith(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFFE67E22),
+    return InkWell(
+      borderRadius: BorderRadius.circular(_cardRadius),
+      onTap: () => _showMissingFieldsSheet(context, member),
+      child: Container(
+        decoration: CommunityDesign.overlayDecoration(
+          colorScheme,
+        ).copyWith(borderRadius: BorderRadius.circular(_cardRadius)),
+        padding: const EdgeInsets.all(_cardPadding),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE67E22).withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.warning_amber,
+                color: Color(0xFFE67E22),
+                size: 18,
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Cadastro incompleto • $completion% preenchido',
+                style: CommunityDesign.titleStyle(context).copyWith(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFFE67E22),
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: const Color(0xFFE67E22).withValues(alpha: 0.7),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1904,43 +1928,133 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     );
   }
 
-  int _completionPercentage(Member member) {
-    // "Notas/observações" é um campo livre, não um dado cadastral, e não
-    // entra na conta de completude.
-    int totalFields = 21;
-    int filledFields = 0;
-
-    if (_hasValue(member.firstName)) filledFields++;
-    if (_hasValue(member.lastName)) filledFields++;
-    if (_hasValue(member.nickname)) filledFields++;
-    if (_hasValue(member.email)) filledFields++;
-    if (_hasValue(member.phone)) filledFields++;
-    if (_hasValue(member.cpf)) filledFields++;
-    if (member.birthdate != null) filledFields++;
-    if (_hasValue(member.gender)) filledFields++;
-    if (_hasValue(member.maritalStatus)) filledFields++;
-    if (_hasValue(member.profession)) filledFields++;
-    if (_hasValue(member.address)) filledFields++;
-    if (_hasValue(member.addressComplement)) filledFields++;
-    if (_hasValue(member.neighborhood)) filledFields++;
-    if (_hasValue(member.city)) filledFields++;
-    if (_hasValue(member.state)) filledFields++;
-    if (_hasValue(member.zipCode)) filledFields++;
-    if (_hasValue(member.memberType)) filledFields++;
-    if (member.membershipDate != null) filledFields++;
-    if (member.conversionDate != null) filledFields++;
-    if (member.baptismDate != null) filledFields++;
-    if (_hasValue(member.photoUrl)) filledFields++;
+  /// Campos que entram na conta de completude do cadastro, com rótulo
+  /// legível e se estão preenchidos. "Notas/observações" é um campo livre,
+  /// não um dado cadastral, e não entra aqui.
+  List<MapEntry<String, bool>> _completionFields(Member member) {
+    final fields = <MapEntry<String, bool>>[
+      MapEntry('Nome', _hasValue(member.firstName)),
+      MapEntry('Sobrenome', _hasValue(member.lastName)),
+      MapEntry('Apelido', _hasValue(member.nickname)),
+      MapEntry('E-mail', _hasValue(member.email)),
+      MapEntry('Telefone', _hasValue(member.phone)),
+      MapEntry('CPF', _hasValue(member.cpf)),
+      MapEntry('Data de Nascimento', member.birthdate != null),
+      MapEntry('Gênero', _hasValue(member.gender)),
+      MapEntry('Estado Civil', _hasValue(member.maritalStatus)),
+      MapEntry('Profissão', _hasValue(member.profession)),
+      MapEntry('Endereço', _hasValue(member.address)),
+      MapEntry('Complemento do Endereço', _hasValue(member.addressComplement)),
+      MapEntry('Bairro', _hasValue(member.neighborhood)),
+      MapEntry('Cidade', _hasValue(member.city)),
+      MapEntry('Estado', _hasValue(member.state)),
+      MapEntry('CEP', _hasValue(member.zipCode)),
+      MapEntry('Tipo de Membro', _hasValue(member.memberType)),
+      MapEntry('Data de Membresia', member.membershipDate != null),
+      MapEntry('Data de Conversão', member.conversionDate != null),
+      MapEntry('Data de Batismo', member.baptismDate != null),
+      MapEntry('Foto de Perfil', _hasValue(member.photoUrl)),
+    ];
 
     // "Data de casamento" só faz sentido pra quem é casado: para os demais
     // estados civis o campo não se aplica e não deve contar contra a
-    // completude do cadastro (nem no total, nem nos preenchidos).
+    // completude do cadastro.
     if (member.maritalStatus == 'married') {
-      totalFields++;
-      if (member.marriageDate != null) filledFields++;
+      fields.add(MapEntry('Data de Casamento', member.marriageDate != null));
     }
 
-    return ((filledFields / totalFields) * 100).round();
+    return fields;
+  }
+
+  int _completionPercentage(Member member) {
+    final fields = _completionFields(member);
+    final filledCount = fields.where((f) => f.value).length;
+    return ((filledCount / fields.length) * 100).round();
+  }
+
+  /// Rótulos dos campos que ainda faltam preencher, na ordem do formulário.
+  List<String> _missingFieldLabels(Member member) {
+    return _completionFields(
+      member,
+    ).where((f) => !f.value).map((f) => f.key).toList();
+  }
+
+  void _showMissingFieldsSheet(BuildContext context, Member member) {
+    final missing = _missingFieldLabels(member);
+    final colorScheme = Theme.of(context).colorScheme;
+    final currentMember = ref.read(currentMemberProvider).valueOrNull;
+    final canEdit = currentMember?.id == member.id;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.warning_amber, color: Color(0xFFE67E22)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        missing.isEmpty
+                            ? 'Cadastro completo'
+                            : 'Faltam ${missing.length} ${missing.length == 1 ? 'dado' : 'dados'}',
+                        style: CommunityDesign.titleStyle(sheetContext)
+                            .copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (missing.isEmpty)
+                  const Text('Todas as informações obrigatórias foram preenchidas.')
+                else
+                  ...missing.map(
+                    (label) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.radio_button_unchecked,
+                            size: 18,
+                            color: colorScheme.outline,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(label, style: const TextStyle(fontSize: 15)),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (missing.isNotEmpty && canEdit) ...[
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.pop(sheetContext);
+                        context.push('/members/$_memberId/edit');
+                      },
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text('Completar Cadastro'),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   bool _shouldShowLeadership(Member member) {
@@ -2219,55 +2333,99 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     required IconData icon,
     required String title,
     required Widget child,
+    required String sectionKey,
     Color? iconColor,
     Color? iconBackgroundColor,
     Color? titleColor,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isExpanded = _expandedSections.contains(sectionKey);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: _pagePadding),
-      padding: const EdgeInsets.all(_cardPadding),
       decoration: CommunityDesign.overlayDecoration(
         colorScheme,
       ).copyWith(borderRadius: BorderRadius.circular(_cardRadius)),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: _iconBubbleSize,
-                height: _iconBubbleSize,
-                decoration: BoxDecoration(
-                  color:
-                      iconBackgroundColor ??
-                      colorScheme.primary.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: iconColor ?? colorScheme.primary,
-                ),
+          InkWell(
+            onTap: () => setState(() {
+              if (isExpanded) {
+                _expandedSections.remove(sectionKey);
+              } else {
+                _expandedSections.add(sectionKey);
+              }
+            }),
+            child: Padding(
+              padding: const EdgeInsets.all(_cardPadding),
+              child: Row(
+                children: [
+                  Container(
+                    width: _iconBubbleSize,
+                    height: _iconBubbleSize,
+                    decoration: BoxDecoration(
+                      color:
+                          iconBackgroundColor ??
+                          colorScheme.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      icon,
+                      size: 20,
+                      color: iconColor ?? colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: CommunityDesign.titleStyle(context).copyWith(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: titleColor,
+                      ),
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.keyboard_arrow_down,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: CommunityDesign.titleStyle(context).copyWith(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: titleColor,
-                ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                _cardPadding,
+                0,
+                _cardPadding,
+                _cardPadding,
               ),
-            ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Divider(
+                    height: 1,
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+                  ),
+                  const SizedBox(height: 12),
+                  child,
+                ],
+              ),
+            ),
+            crossFadeState: isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
+            sizeCurve: Curves.easeInOut,
           ),
-          const SizedBox(height: 12),
-          Divider(
-            height: 1,
-            color: colorScheme.outlineVariant.withValues(alpha: 0.2),
-          ),
-          const SizedBox(height: 12),
-          child,
         ],
       ),
     );
@@ -2422,34 +2580,42 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     return Column(
       children: [
         if (!isComplete) ...[
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE67E22).withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(_cardRadius),
-              border: Border.all(
-                color: const Color(0xFFE67E22).withValues(alpha: 0.25),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.warning_amber,
-                  color: Color(0xFFE67E22), // Laranja forte
-                  size: 20,
+          InkWell(
+            borderRadius: BorderRadius.circular(_cardRadius),
+            onTap: () => _showMissingFieldsSheet(context, member),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE67E22).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(_cardRadius),
+                border: Border.all(
+                  color: const Color(0xFFE67E22).withValues(alpha: 0.25),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Cadastro Incompleto',
-                    style: CommunityDesign.titleStyle(context).copyWith(
-                      color: const Color(0xFFE67E22),
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.warning_amber,
+                    color: Color(0xFFE67E22), // Laranja forte
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Cadastro Incompleto',
+                      style: CommunityDesign.titleStyle(context).copyWith(
+                        color: const Color(0xFFE67E22),
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                  Icon(
+                    Icons.chevron_right,
+                    color: const Color(0xFFE67E22).withValues(alpha: 0.7),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),
