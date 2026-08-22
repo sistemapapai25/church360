@@ -1600,18 +1600,27 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/kids-registration',
-      builder: (context, state) => const KidsSelectChildScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'kids.manage',
+        child: KidsSelectChildScreen(),
+      ),
     ),
     GoRoute(
       path: '/kids',
-      builder: (context, state) => const KidsAdminDashboardScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'kids.manage',
+        child: KidsAdminDashboardScreen(),
+      ),
     ),
     GoRoute(
       path: '/kids/:childId/registration',
       builder: (context, state) {
         final childId = state.pathParameters['childId']!;
         final childName = state.uri.queryParameters['name'] ?? 'Criança';
-        return KidsRegistrationScreen(childId: childId, childName: childName);
+        return PermissionOnlyRoute(
+          permission: 'kids.manage',
+          child: KidsRegistrationScreen(childId: childId, childName: childName),
+        );
       },
     ),
 
