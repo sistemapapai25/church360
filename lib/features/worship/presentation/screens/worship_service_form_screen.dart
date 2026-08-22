@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../domain/models/worship_service.dart';
 import '../providers/worship_provider.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 class WorshipServiceFormScreen extends ConsumerStatefulWidget {
   final String? worshipServiceId;
@@ -110,6 +112,20 @@ class _WorshipServiceFormScreenState
 
   Future<void> _saveWorshipService() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    final requiredPermission =
+        widget.worshipServiceId != null ? 'worship.edit' : 'worship.create';
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider(requiredPermission).future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
       return;
     }
 
@@ -348,27 +364,33 @@ class _WorshipServiceFormScreenState
             const SizedBox(height: 24),
 
             // Botão Salvar
-            FilledButton.icon(
-              onPressed: _isLoading ? null : _saveWorshipService,
-              icon: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.save),
-              label: Text(
-                _isLoading
-                    ? 'Salvando...'
-                    : (widget.worshipServiceId != null
-                        ? 'Atualizar Culto'
-                        : 'Cadastrar Culto'),
-              ),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.all(16),
+            DisabledByPermission(
+              permission: widget.worshipServiceId != null
+                  ? 'worship.edit'
+                  : 'worship.create',
+              disabledTooltip: 'Você não tem permissão para esta ação',
+              child: FilledButton.icon(
+                onPressed: _isLoading ? null : _saveWorshipService,
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.save),
+                label: Text(
+                  _isLoading
+                      ? 'Salvando...'
+                      : (widget.worshipServiceId != null
+                          ? 'Atualizar Culto'
+                          : 'Cadastrar Culto'),
+                ),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.all(16),
+                ),
               ),
             ),
           ],
