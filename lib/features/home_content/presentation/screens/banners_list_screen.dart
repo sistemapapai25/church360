@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/banners_provider.dart';
 import '../../domain/models/banner.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de banners da Home
 class BannersListScreen extends ConsumerStatefulWidget {
@@ -17,17 +19,26 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
   @override
   Widget build(BuildContext context) {
     final bannersAsync = ref.watch(allBannersProvider);
+    final canEdit = ref
+        .watch(currentUserHasPermissionProvider('banners.edit'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+    final canDelete = ref
+        .watch(currentUserHasPermissionProvider('banners.delete'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Banners da Home'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              context.push('/home/banners/new');
-            },
-            tooltip: 'Adicionar Banner',
+          PermissionGate(
+            permission: 'banners.create',
+            child: IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () {
+                context.push('/home/banners/new');
+              },
+              tooltip: 'Adicionar Banner',
+            ),
           ),
         ],
       ),
@@ -36,7 +47,7 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
           if (banners.isEmpty) {
             return _buildEmptyState();
           }
-          return _buildBannersList(banners);
+          return _buildBannersList(banners, canEdit: canEdit, canDelete: canDelete);
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(
@@ -82,19 +93,26 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              context.push('/home/banners/new');
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Adicionar Primeiro Banner'),
+          PermissionGate(
+            permission: 'banners.create',
+            child: ElevatedButton.icon(
+              onPressed: () {
+                context.push('/home/banners/new');
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Adicionar Primeiro Banner'),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBannersList(List<HomeBanner> banners) {
+  Widget _buildBannersList(
+    List<HomeBanner> banners, {
+    required bool canEdit,
+    required bool canDelete,
+  }) {
     return ReorderableListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: banners.length,
@@ -106,9 +124,17 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
         return _BannerCard(
           key: ValueKey(banner.id),
           banner: banner,
+          canEdit: canEdit,
+          canDelete: canDelete,
           onToggleActive: () => _toggleBannerActive(banner),
-          onEdit: () => context.push('/home/banners/${banner.id}/edit'),
-          onDelete: () => _deleteBanner(banner),
+          onEdit: () {
+            if (!canEdit) return;
+            context.push('/home/banners/${banner.id}/edit');
+          },
+          onDelete: () {
+            if (!canDelete) return;
+            _deleteBanner(banner);
+          },
         );
       },
     );
@@ -177,6 +203,19 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
   }
 
   Future<void> _deleteBanner(HomeBanner banner) async {
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider('banners.delete').future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -225,6 +264,8 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
 /// Card de banner individual
 class _BannerCard extends StatelessWidget {
   final HomeBanner banner;
+  final bool canEdit;
+  final bool canDelete;
   final VoidCallback onToggleActive;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -232,6 +273,8 @@ class _BannerCard extends StatelessWidget {
   const _BannerCard({
     super.key,
     required this.banner,
+    required this.canEdit,
+    required this.canDelete,
     required this.onToggleActive,
     required this.onEdit,
     required this.onDelete,
@@ -369,26 +412,28 @@ class _BannerCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit, size: 20),
-                      SizedBox(width: 12),
-                      Text('Editar'),
-                    ],
+                if (canEdit)
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 20),
+                        SizedBox(width: 12),
+                        Text('Editar'),
+                      ],
+                    ),
                   ),
-                ),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, size: 20, color: Colors.red),
-                      const SizedBox(width: 12),
-                      Text('Excluir', style: TextStyle(color: Colors.red)),
-                    ],
+                if (canDelete)
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, size: 20, color: Colors.red),
+                        const SizedBox(width: 12),
+                        Text('Excluir', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
           ],

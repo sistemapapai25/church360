@@ -1267,17 +1267,26 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/home/banners',
-      builder: (context, state) => const BannersListScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'banners.view',
+        child: BannersListScreen(),
+      ),
     ),
     GoRoute(
       path: '/home/banners/new',
-      builder: (context, state) => const BannerFormScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'banners.create',
+        child: BannerFormScreen(),
+      ),
     ),
     GoRoute(
       path: '/home/banners/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return BannerFormScreen(bannerId: id);
+        return PermissionOnlyRoute(
+          permission: 'banners.edit',
+          child: BannerFormScreen(bannerId: id),
+        );
       },
     ),
 
