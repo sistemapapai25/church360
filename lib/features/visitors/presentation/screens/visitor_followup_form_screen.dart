@@ -87,7 +87,7 @@ class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormS
 
     try {
       final data = {
-        'visitor_id': widget.visitorId,
+        'user_id': widget.visitorId,
         'followup_date': _followupDate.toIso8601String().split('T')[0],
         'followup_type': _followupTypeController.text.trim().isEmpty ? null : _followupTypeController.text.trim(),
         'description': _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),

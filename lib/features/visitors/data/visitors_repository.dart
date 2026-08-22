@@ -223,9 +223,9 @@ class VisitorsRepository {
   /// Buscar visitas de um visitante
   Future<List<VisitorVisit>> getVisitorVisits(String visitorId) async {
     final response = await _supabase
-        .from('visitor_visit')
+        .from('user_visit')
         .select()
-        .eq('visitor_id', visitorId)
+        .eq('user_id', visitorId)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('visit_date', ascending: false);
 
@@ -237,7 +237,7 @@ class VisitorsRepository {
   /// Registrar nova visita
   Future<VisitorVisit> createVisit(Map<String, dynamic> data) async {
     final response = await _supabase
-        .from('visitor_visit')
+        .from('user_visit')
         .insert({
           ...data,
           'tenant_id': SupabaseConstants.currentTenantId,
@@ -251,7 +251,7 @@ class VisitorsRepository {
   /// Atualizar visita
   Future<VisitorVisit> updateVisit(String id, Map<String, dynamic> data) async {
     final response = await _supabase
-        .from('visitor_visit')
+        .from('user_visit')
         .update(data)
         .eq('id', id)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
@@ -264,7 +264,7 @@ class VisitorsRepository {
   /// Deletar visita
   Future<void> deleteVisit(String id) async {
     await _supabase
-        .from('visitor_visit')
+        .from('user_visit')
         .delete()
         .eq('id', id)
         .eq('tenant_id', SupabaseConstants.currentTenantId);
@@ -276,7 +276,7 @@ class VisitorsRepository {
     String contactNotes,
   ) async {
     final response = await _supabase
-        .from('visitor_visit')
+        .from('user_visit')
         .update({
           'was_contacted': true,
           'contact_date': DateTime.now().toIso8601String().split('T')[0],
@@ -295,9 +295,9 @@ class VisitorsRepository {
   /// Buscar follow-ups de um visitante
   Future<List<VisitorFollowup>> getVisitorFollowups(String visitorId) async {
     final response = await _supabase
-        .from('visitor_followup')
+        .from('user_followup')
         .select()
-        .eq('visitor_id', visitorId)
+        .eq('user_id', visitorId)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('followup_date', ascending: true);
 
@@ -309,7 +309,7 @@ class VisitorsRepository {
   /// Buscar follow-ups pendentes
   Future<List<VisitorFollowup>> getPendingFollowups() async {
     final response = await _supabase
-        .from('visitor_followup')
+        .from('user_followup')
         .select()
         .eq('completed', false)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
@@ -323,7 +323,7 @@ class VisitorsRepository {
   /// Criar follow-up
   Future<VisitorFollowup> createFollowup(Map<String, dynamic> data) async {
     final response = await _supabase
-        .from('visitor_followup')
+        .from('user_followup')
         .insert({
           ...data,
           'tenant_id': SupabaseConstants.currentTenantId,
@@ -340,7 +340,7 @@ class VisitorsRepository {
     Map<String, dynamic> data,
   ) async {
     final response = await _supabase
-        .from('visitor_followup')
+        .from('user_followup')
         .update(data)
         .eq('id', id)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
@@ -353,7 +353,7 @@ class VisitorsRepository {
   /// Deletar follow-up
   Future<void> deleteFollowup(String id) async {
     await _supabase
-        .from('visitor_followup')
+        .from('user_followup')
         .delete()
         .eq('id', id)
         .eq('tenant_id', SupabaseConstants.currentTenantId);
@@ -362,7 +362,7 @@ class VisitorsRepository {
   /// Marcar follow-up como completo
   Future<VisitorFollowup> completeFollowup(String id) async {
     final response = await _supabase
-        .from('visitor_followup')
+        .from('user_followup')
         .update({
           'completed': true,
           'completed_at': DateTime.now().toIso8601String(),
@@ -380,7 +380,7 @@ class VisitorsRepository {
     final today = DateTime.now().toIso8601String().split('T')[0];
 
     final response = await _supabase
-        .from('visitor_followup')
+        .from('user_followup')
         .select()
         .eq('followup_date', today)
         .eq('completed', false)
