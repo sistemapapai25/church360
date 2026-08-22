@@ -7,6 +7,8 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/design/community_design.dart';
 import '../providers/events_provider.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de formulário de evento (criar/editar)
 class EventFormScreen extends ConsumerStatefulWidget {
@@ -1156,14 +1158,20 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                     const SizedBox(height: 32),
 
                     // Botão salvar
-                    FilledButton.icon(
-                      onPressed: _saveEvent,
-                      icon: const Icon(Icons.save),
-                      label: Text(
-                        _isEditMode ? 'Salvar Alterações' : 'Criar Evento',
-                      ),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.all(16),
+                    DisabledByPermission(
+                      permission: _isEditMode ? 'events.edit' : 'events.create',
+                      disabledTooltip: _isEditMode
+                          ? 'Você não tem permissão para editar eventos'
+                          : 'Você não tem permissão para criar eventos',
+                      child: FilledButton.icon(
+                        onPressed: _saveEvent,
+                        icon: const Icon(Icons.save),
+                        label: Text(
+                          _isEditMode ? 'Salvar Alterações' : 'Criar Evento',
+                        ),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.all(16),
+                        ),
                       ),
                     ),
                   ],
@@ -1223,6 +1231,21 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
 
   Future<void> _saveEvent() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    final requiredPermission = _isEditMode ? 'events.edit' : 'events.create';
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider(requiredPermission).future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Você não tem permissão para esta ação'),
+          ),
+        );
+      }
       return;
     }
 
