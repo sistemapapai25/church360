@@ -256,8 +256,10 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/community/admin',
-      builder: (context, state) =>
-          const DashboardAccessGate(child: CommunityAdminScreen()),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'community.moderate',
+        child: CommunityAdminScreen(),
+      ),
     ),
     GoRoute(
       path: '/dashboard',

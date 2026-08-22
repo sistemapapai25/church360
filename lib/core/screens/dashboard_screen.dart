@@ -472,6 +472,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               icon: Icons.phone_android,
               title: 'CONTEÚDO DO APP',
               permissions: const [
+                'community.moderate',
                 'testimonies.moderate',
                 'prayer_requests.moderate',
                 'devotionals.edit',
@@ -480,10 +481,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 'financial.view',
               ],
               children: [
-                // Comunidade (Testemunhos, Pedidos, Classificados)
-                MultiPermissionGate(
-                  permissions: const ['testimonies.moderate', 'prayer_requests.moderate'],
-                  requireAll: false,
+                // Comunidade (moderação de posts e classificados)
+                PermissionGate(
+                  permission: 'community.moderate',
                   child: const _DrawerMenuItem(
                     icon: Icons.people_outline,
                     title: 'Comunidade',
