@@ -11,6 +11,8 @@ import '../../../members/domain/models/member_directory_entry.dart';
 import '../../domain/models/kids_guardian.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de Inscrição Kids (Área dos Pais)
 /// Aqui os pais podem:
@@ -227,18 +229,24 @@ class _GuardiansTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final guardiansAsync = ref.watch(kidsGuardiansProvider(childId));
+    final canManage = ref
+        .watch(currentUserHasPermissionProvider('kids.manage'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) => _AddGuardianDialog(childId: childId),
-          );
-        },
-        label: const Text('Adicionar responsável'),
-        icon: const Icon(Icons.add),
+      floatingActionButton: PermissionGate(
+        permission: 'kids.manage',
+        child: FloatingActionButton.extended(
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (context) => _AddGuardianDialog(childId: childId),
+            );
+          },
+          label: const Text('Adicionar responsável'),
+          icon: const Icon(Icons.add),
+        ),
       ),
       body: guardiansAsync.when(
         data: (guardians) {
@@ -282,7 +290,8 @@ class _GuardiansTab extends ConsumerWidget {
                   ),
                   title: Text(guardian.guardianName ?? 'Nome não disponível'),
                   subtitle: Text(guardian.relationship),
-                  trailing: IconButton(
+                  trailing: canManage
+                      ? IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),
                     onPressed: () async {
                       // Confirmar e deletar
@@ -314,13 +323,18 @@ class _GuardiansTab extends ConsumerWidget {
                       );
 
                       if (confirm == true) {
+                        final hasPermission = await ref.read(
+                          currentUserHasPermissionProvider('kids.manage').future,
+                        );
+                        if (!hasPermission) return;
                         await ref
                             .read(kidsRepositoryProvider)
                             .removeGuardian(guardian.id);
                         ref.invalidate(kidsGuardiansProvider(childId));
                       }
                     },
-                  ),
+                  )
+                      : null,
                 ),
               );
             },
@@ -546,6 +560,10 @@ class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
               : () async {
                   final messenger = ScaffoldMessenger.of(context);
                   final navigator = Navigator.of(context);
+                  final hasPermission = await ref.read(
+                    currentUserHasPermissionProvider('kids.manage').future,
+                  );
+                  if (!hasPermission) return;
                   setState(() => _isLoading = true);
                   try {
                     final guardian = KidsAuthorizedGuardian(
