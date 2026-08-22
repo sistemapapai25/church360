@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/testimony_provider.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de formulário de testemunho (criar/editar)
 class TestimonyFormScreen extends ConsumerStatefulWidget {
@@ -60,6 +62,20 @@ class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
 
   Future<void> _saveTestimony() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final isEditMode = widget.testimonyId != null;
+    final requiredPermission = isEditMode ? 'testimonies.edit' : 'testimonies.create';
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider(requiredPermission).future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+        );
+      }
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -210,25 +226,29 @@ class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
             const SizedBox(height: 32),
 
             // Botão Salvar
-            FilledButton.icon(
-              onPressed: _isLoading ? null : _saveTestimony,
-              icon: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.save),
-              label: Text(
-                _isLoading
-                    ? 'Salvando...'
-                    : (isEditing ? 'Atualizar Testemunho' : 'Criar Testemunho'),
-              ),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.all(16),
+            DisabledByPermission(
+              permission: isEditing ? 'testimonies.edit' : 'testimonies.create',
+              disabledTooltip: 'Você não tem permissão para esta ação',
+              child: FilledButton.icon(
+                onPressed: _isLoading ? null : _saveTestimony,
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.save),
+                label: Text(
+                  _isLoading
+                      ? 'Salvando...'
+                      : (isEditing ? 'Atualizar Testemunho' : 'Criar Testemunho'),
+                ),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.all(16),
+                ),
               ),
             ),
           ],

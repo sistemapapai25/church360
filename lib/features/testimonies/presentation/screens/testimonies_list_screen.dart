@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 
 import '../providers/testimony_provider.dart';
 import '../../domain/models/testimony.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem e gerenciamento de testemunhos (ADMIN)
 class TestimoniesListScreen extends ConsumerWidget {
@@ -19,10 +21,13 @@ class TestimoniesListScreen extends ConsumerWidget {
         title: const Text('Testemunhos'),
         centerTitle: true,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/home/testimonies/new'),
-        icon: const Icon(Icons.add),
-        label: const Text('Novo Testemunho'),
+      floatingActionButton: PermissionGate(
+        permission: 'testimonies.create',
+        child: FloatingActionButton.extended(
+          onPressed: () => context.push('/home/testimonies/new'),
+          icon: const Icon(Icons.add),
+          label: const Text('Novo Testemunho'),
+        ),
       ),
       body: testimoniesAsync.when(
         data: (testimonies) {
@@ -112,11 +117,19 @@ class _TestimonyCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+    final hasEditPermission = ref
+        .watch(currentUserHasPermissionProvider('testimonies.edit'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+    final hasDeletePermission = ref
+        .watch(currentUserHasPermissionProvider('testimonies.delete'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
-        onTap: () => context.push('/home/testimonies/${testimony.id}/edit'),
+        onTap: hasEditPermission
+            ? () => context.push('/home/testimonies/${testimony.id}/edit')
+            : null,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -200,22 +213,25 @@ class _TestimonyCard extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   // Botão Editar
-                  TextButton.icon(
-                    onPressed: () => context.push('/home/testimonies/${testimony.id}/edit'),
-                    icon: const Icon(Icons.edit, size: 18),
-                    label: const Text('Editar'),
-                  ),
-                  const SizedBox(width: 8),
+                  if (hasEditPermission) ...[
+                    TextButton.icon(
+                      onPressed: () => context.push('/home/testimonies/${testimony.id}/edit'),
+                      icon: const Icon(Icons.edit, size: 18),
+                      label: const Text('Editar'),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
 
                   // Botão Deletar
-                  TextButton.icon(
-                    onPressed: () => _showDeleteDialog(context, ref),
-                    icon: const Icon(Icons.delete, size: 18),
-                    label: const Text('Excluir'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.red,
+                  if (hasDeletePermission)
+                    TextButton.icon(
+                      onPressed: () => _showDeleteDialog(context, ref),
+                      icon: const Icon(Icons.delete, size: 18),
+                      label: const Text('Excluir'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ],
@@ -238,6 +254,18 @@ class _TestimonyCard extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () async {
+              final hasPermission = await ref.read(
+                currentUserHasPermissionProvider('testimonies.delete').future,
+              );
+              if (!hasPermission) {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Você não tem permissão para esta ação')),
+                  );
+                }
+                return;
+              }
               try {
                 final repo = ref.read(testimonyRepositoryProvider);
                 await repo.deleteTestimony(testimony.id);
