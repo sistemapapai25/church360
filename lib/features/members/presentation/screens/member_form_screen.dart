@@ -43,6 +43,11 @@ class MemberFormScreen extends ConsumerStatefulWidget {
 class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   final _formKey = GlobalKey<FormState>();
 
+  /// Seções do formulário abertas manualmente — mesmo mecanismo do CHU-316
+  /// (Permissões do Cargo): recolhidas por padrão, cada uma lembra se o
+  /// usuário abriu enquanto a tela estiver montada.
+  final Set<String> _expandedFormSections = {};
+
   // Controllers
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -1127,8 +1132,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               subtitle: Text(_selectedGuardianMember!.email),
               trailing: IconButton(
                 icon: const Icon(Icons.close),
-                onPressed: () =>
-                    setState(() => _selectedGuardianMember = null),
+                onPressed: () => setState(() => _selectedGuardianMember = null),
               ),
             ),
           if (_selectedGuardianMember != null) ...[
@@ -1141,9 +1145,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 fillColor: Colors.white,
                 border: OutlineInputBorder(),
               ),
-              items: const ['Pai', 'Mãe', 'Tutor(a)']
-                  .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                  .toList(),
+              items: const [
+                'Pai',
+                'Mãe',
+                'Tutor(a)',
+              ].map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
               onChanged: (value) {
                 if (value != null) {
                   setState(() => _guardianRelationshipLabel = value);
@@ -1285,440 +1291,457 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Seção: Dados Pessoais
-                    _buildSectionTitle('Dados Pessoais'),
-                    const SizedBox(height: 16),
-
-                    TextFormField(
-                      controller: _firstNameController,
-                      decoration: InputDecoration(
-                        labelText: 'Primeiro Nome *',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.person),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Campo obrigatório';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    TextFormField(
-                      controller: _lastNameController,
-                      decoration: InputDecoration(
-                        labelText: 'Sobrenome *',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.person_outline),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Campo obrigatório';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Apelido
-                    TextFormField(
-                      controller: _nicknameController,
-                      decoration: InputDecoration(
-                        labelText: 'Apelido',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.badge),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    TextFormField(
-                      controller: _emailController,
-                      decoration: InputDecoration(
-                        labelText: _isEmailRequired
-                            ? 'Email *'
-                            : 'Email (opcional)',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.email),
-                        // Mostrar hint se o campo está bloqueado
-                        helperText: widget.initialEmail != null
-                            ? 'Email vinculado à sua conta (não editável)'
-                            : null,
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      // Bloquear edição se foi fornecido um email inicial
-                      readOnly: widget.initialEmail != null,
-                      enabled: widget.initialEmail == null,
-                      validator: (value) {
-                        final trimmed = value?.trim() ?? '';
-                        if (trimmed.isEmpty) {
-                          if (!_isEmailRequired) return null;
-                          return 'Email é obrigatório';
-                        }
-                        // Validação básica de email
-                        if (!trimmed.contains('@')) {
-                          return 'Email inválido';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    TextFormField(
-                      controller: _phoneController,
-                      decoration: InputDecoration(
-                        labelText: 'Telefone',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.phone),
-                      ),
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Data de Nascimento
-                    InkWell(
-                      onTap: () => _selectDate(context, _birthdate, (date) {
-                        setState(() {
-                          _birthdate = date;
-                        });
-                      }),
-                      child: InputDecorator(
-                        decoration: InputDecoration(
-                          labelText: 'Data de Nascimento',
-                          filled: true,
-                          fillColor: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          border: const OutlineInputBorder(),
-                          prefixIcon: const Icon(Icons.cake),
-                        ),
-                        child: Text(
-                          _birthdate != null
-                              ? DateFormat('dd/MM/yyyy').format(_birthdate!)
-                              : 'Selecione a data',
-                          style: TextStyle(
-                            color: _birthdate != null ? null : Colors.grey,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Responsável (obrigatório para menores)
-                    if (_requiresGuardianLink) ...[
-                      _buildGuardianLinkSection(context),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // Gênero
-                    DropdownButtonFormField<String>(
-                      initialValue: _gender,
-                      decoration: InputDecoration(
-                        labelText: 'Gênero',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.wc),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'male',
-                          child: Text('Masculino'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'female',
-                          child: Text('Feminino'),
-                        ),
-                        DropdownMenuItem(value: 'other', child: Text('Outro')),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _gender = value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // CPF
-                    TextFormField(
-                      controller: _cpfController,
-                      decoration: InputDecoration(
-                        labelText: 'CPF',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.credit_card),
-                        hintText: '000.000.000-00',
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Estado Civil
-                    DropdownButtonFormField<String>(
-                      initialValue: _maritalStatus,
-                      decoration: InputDecoration(
-                        labelText: 'Estado Civil',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.favorite),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'single',
-                          child: Text('Solteiro(a)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'married',
-                          child: Text('Casado(a)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'divorced',
-                          child: Text('Divorciado(a)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'widowed',
-                          child: Text('Viúvo(a)'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _maritalStatus = value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Data de Casamento (só aparece se casado)
-                    if (_maritalStatus == 'married') ...[
-                      InkWell(
-                        onTap: () =>
-                            _selectDate(context, _marriageDate, (date) {
-                              setState(() {
-                                _marriageDate = date;
-                              });
-                            }),
-                        child: InputDecorator(
+                    _buildCollapsibleSection(
+                      'Dados Pessoais',
+                      sectionKey: 'personal',
+                      icon: Icons.badge_outlined,
+                      children: [
+                        TextFormField(
+                          controller: _firstNameController,
                           decoration: InputDecoration(
-                            labelText: 'Data de Casamento',
+                            labelText: 'Primeiro Nome *',
                             filled: true,
                             fillColor: Theme.of(
                               context,
                             ).colorScheme.surfaceContainerHighest,
                             border: const OutlineInputBorder(),
-                            prefixIcon: const Icon(Icons.favorite_border),
+                            prefixIcon: const Icon(Icons.person),
                           ),
-                          child: Text(
-                            _marriageDate != null
-                                ? DateFormat(
-                                    'dd/MM/yyyy',
-                                  ).format(_marriageDate!)
-                                : 'Selecione a data',
-                            style: TextStyle(
-                              color: _marriageDate != null ? null : Colors.grey,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Campo obrigatório';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        TextFormField(
+                          controller: _lastNameController,
+                          decoration: InputDecoration(
+                            labelText: 'Sobrenome *',
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.person_outline),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Campo obrigatório';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Apelido
+                        TextFormField(
+                          controller: _nicknameController,
+                          decoration: InputDecoration(
+                            labelText: 'Apelido',
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.badge),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        TextFormField(
+                          controller: _emailController,
+                          decoration: InputDecoration(
+                            labelText: _isEmailRequired
+                                ? 'Email *'
+                                : 'Email (opcional)',
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.email),
+                            // Mostrar hint se o campo está bloqueado
+                            helperText: widget.initialEmail != null
+                                ? 'Email vinculado à sua conta (não editável)'
+                                : null,
+                          ),
+                          keyboardType: TextInputType.emailAddress,
+                          // Bloquear edição se foi fornecido um email inicial
+                          readOnly: widget.initialEmail != null,
+                          enabled: widget.initialEmail == null,
+                          validator: (value) {
+                            final trimmed = value?.trim() ?? '';
+                            if (trimmed.isEmpty) {
+                              if (!_isEmailRequired) return null;
+                              return 'Email é obrigatório';
+                            }
+                            // Validação básica de email
+                            if (!trimmed.contains('@')) {
+                              return 'Email inválido';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        TextFormField(
+                          controller: _phoneController,
+                          decoration: InputDecoration(
+                            labelText: 'Telefone',
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.phone),
+                          ),
+                          keyboardType: TextInputType.phone,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Data de Nascimento
+                        InkWell(
+                          onTap: () => _selectDate(context, _birthdate, (date) {
+                            setState(() {
+                              _birthdate = date;
+                            });
+                          }),
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: 'Data de Nascimento',
+                              filled: true,
+                              fillColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.cake),
+                            ),
+                            child: Text(
+                              _birthdate != null
+                                  ? DateFormat('dd/MM/yyyy').format(_birthdate!)
+                                  : 'Selecione a data',
+                              style: TextStyle(
+                                color: _birthdate != null ? null : Colors.grey,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
+                        const SizedBox(height: 16),
 
-                    // Profissão
-                    TextFormField(
-                      controller: _professionController,
-                      focusNode: _professionFocusNode,
-                      decoration: InputDecoration(
-                        labelText: 'Profissão',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.work),
-                      ),
-                    ),
-                    if (showProfessionOptions) ...[
-                      const SizedBox(height: 8),
-                      Material(
-                        elevation: 4,
-                        borderRadius: BorderRadius.circular(8),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxHeight: 240),
-                          child: ListView.builder(
-                            padding: EdgeInsets.zero,
-                            shrinkWrap: true,
-                            primary: false,
-                            itemCount: _professionOptions.length,
-                            itemBuilder: (context, index) {
-                              final option = _professionOptions[index];
-                              return ListTile(
-                                dense: true,
-                                title: Text(option.label),
-                                onTap: () => _selectProfessionOption(option),
-                              );
-                            },
+                        // Responsável (obrigatório para menores)
+                        if (_requiresGuardianLink) ...[
+                          _buildGuardianLinkSection(context),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Gênero
+                        DropdownButtonFormField<String>(
+                          initialValue: _gender,
+                          decoration: InputDecoration(
+                            labelText: 'Gênero',
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.wc),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'male',
+                              child: Text('Masculino'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'female',
+                              child: Text('Feminino'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'other',
+                              child: Text('Outro'),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _gender = value;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // CPF
+                        TextFormField(
+                          controller: _cpfController,
+                          decoration: InputDecoration(
+                            labelText: 'CPF',
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.credit_card),
+                            hintText: '000.000.000-00',
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Estado Civil
+                        DropdownButtonFormField<String>(
+                          initialValue: _maritalStatus,
+                          decoration: InputDecoration(
+                            labelText: 'Estado Civil',
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.favorite),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'single',
+                              child: Text('Solteiro(a)'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'married',
+                              child: Text('Casado(a)'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'divorced',
+                              child: Text('Divorciado(a)'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'widowed',
+                              child: Text('Viúvo(a)'),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _maritalStatus = value;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Data de Casamento (só aparece se casado)
+                        if (_maritalStatus == 'married') ...[
+                          InkWell(
+                            onTap: () =>
+                                _selectDate(context, _marriageDate, (date) {
+                                  setState(() {
+                                    _marriageDate = date;
+                                  });
+                                }),
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: 'Data de Casamento',
+                                filled: true,
+                                fillColor: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
+                                border: const OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.favorite_border),
+                              ),
+                              child: Text(
+                                _marriageDate != null
+                                    ? DateFormat(
+                                        'dd/MM/yyyy',
+                                      ).format(_marriageDate!)
+                                    : 'Selecione a data',
+                                style: TextStyle(
+                                  color: _marriageDate != null
+                                      ? null
+                                      : Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Profissão
+                        TextFormField(
+                          controller: _professionController,
+                          focusNode: _professionFocusNode,
+                          decoration: InputDecoration(
+                            labelText: 'Profissão',
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.work),
                           ),
                         ),
-                      ),
-                    ],
+                        if (showProfessionOptions) ...[
+                          const SizedBox(height: 8),
+                          Material(
+                            elevation: 4,
+                            borderRadius: BorderRadius.circular(8),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 240),
+                              child: ListView.builder(
+                                padding: EdgeInsets.zero,
+                                shrinkWrap: true,
+                                primary: false,
+                                itemCount: _professionOptions.length,
+                                itemBuilder: (context, index) {
+                                  final option = _professionOptions[index];
+                                  return ListTile(
+                                    dense: true,
+                                    title: Text(option.label),
+                                    onTap: () =>
+                                        _selectProfessionOption(option),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                     const SizedBox(height: 24),
                     // Seção: Vínculos Familiares (só é possível vincular
                     // parentes depois que o membro já existe)
                     if (widget.memberId != null) ...[
-                      _buildSectionTitle('Vínculos Familiares'),
-                      const SizedBox(height: 16),
-                      _buildFamilyRelationshipsSection(context),
+                      _buildCollapsibleSection(
+                        'Vínculos Familiares',
+                        sectionKey: 'family',
+                        icon: Icons.family_restroom,
+                        children: [_buildFamilyRelationshipsSection(context)],
+                      ),
                       const SizedBox(height: 24),
                     ],
                     // Seção: Endereço
-                    _buildSectionTitle('Endereço'),
-                    const SizedBox(height: 16),
-
-                    // CEP
-                    TextFormField(
-                      controller: _zipCodeController,
-                      decoration: InputDecoration(
-                        labelText: 'CEP',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.pin_drop),
-                        hintText: '00000-000',
-                        suffixIcon: _isSearchingCep
-                            ? const Padding(
-                                padding: EdgeInsets.all(12.0),
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+                    _buildCollapsibleSection(
+                      'Endereço',
+                      sectionKey: 'address',
+                      icon: Icons.location_on_outlined,
+                      children: [
+                        // CEP
+                        TextFormField(
+                          controller: _zipCodeController,
+                          decoration: InputDecoration(
+                            labelText: 'CEP',
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.pin_drop),
+                            hintText: '00000-000',
+                            suffixIcon: _isSearchingCep
+                                ? const Padding(
+                                    padding: EdgeInsets.all(12.0),
+                                    child: SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  )
+                                : IconButton(
+                                    icon: const Icon(Icons.search),
+                                    tooltip: 'Buscar CEP',
+                                    onPressed: _searchCep,
                                   ),
-                                ),
-                              )
-                            : IconButton(
-                                icon: const Icon(Icons.search),
-                                tooltip: 'Buscar CEP',
-                                onPressed: _searchCep,
-                              ),
-                      ),
-                      keyboardType: TextInputType.number,
-                      onChanged: (value) {
-                        // Auto-buscar quando digitar 8 dígitos
-                        final cleanCep = value.replaceAll(
-                          RegExp(r'[^0-9]'),
-                          '',
-                        );
-                        if (cleanCep.length == 8 && !_isSearchingCep) {
-                          _searchCep();
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
+                          ),
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) {
+                            // Auto-buscar quando digitar 8 dígitos
+                            final cleanCep = value.replaceAll(
+                              RegExp(r'[^0-9]'),
+                              '',
+                            );
+                            if (cleanCep.length == 8 && !_isSearchingCep) {
+                              _searchCep();
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 16),
 
-                    // Complemento
-                    TextFormField(
-                      controller: _addressComplementController,
-                      decoration: InputDecoration(
-                        labelText: 'Complemento',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.apartment),
-                        hintText: 'Apto, Bloco, etc',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                        // Complemento
+                        TextFormField(
+                          controller: _addressComplementController,
+                          decoration: InputDecoration(
+                            labelText: 'Complemento',
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.apartment),
+                            hintText: 'Apto, Bloco, etc',
+                          ),
+                        ),
+                        const SizedBox(height: 16),
 
-                    // Endereço
-                    TextFormField(
-                      controller: _addressController,
-                      decoration: InputDecoration(
-                        labelText: 'Endereço',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.home),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                        // Endereço
+                        TextFormField(
+                          controller: _addressController,
+                          decoration: InputDecoration(
+                            labelText: 'Endereço',
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.home),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
 
-                    // Bairro
-                    TextFormField(
-                      controller: _neighborhoodController,
-                      decoration: InputDecoration(
-                        labelText: 'Bairro',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.location_on),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                        // Bairro
+                        TextFormField(
+                          controller: _neighborhoodController,
+                          decoration: InputDecoration(
+                            labelText: 'Bairro',
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.location_on),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
 
-                    // Cidade
-                    TextFormField(
-                      controller: _cityController,
-                      decoration: InputDecoration(
-                        labelText: 'Cidade',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.location_city),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                        // Cidade
+                        TextFormField(
+                          controller: _cityController,
+                          decoration: InputDecoration(
+                            labelText: 'Cidade',
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.location_city),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
 
-                    // Estado
-                    TextFormField(
-                      controller: _stateController,
-                      decoration: InputDecoration(
-                        labelText: 'Estado',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.map),
-                        hintText: 'UF',
-                      ),
-                      textCapitalization: TextCapitalization.characters,
-                      maxLength: 2,
+                        // Estado
+                        TextFormField(
+                          controller: _stateController,
+                          decoration: InputDecoration(
+                            labelText: 'Estado',
+                            filled: true,
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.map),
+                            hintText: 'UF',
+                          ),
+                          textCapitalization: TextCapitalization.characters,
+                          maxLength: 2,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 24),
 
@@ -1727,261 +1750,283 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     // e Data da Primeira Visita são decisão exclusiva de
                     // líder/pastor/admin (ver canEditEcclesiasticalInfo
                     // acima) e ficam ocultos no autocadastro.
-                    _buildSectionTitle('Informações Eclesiásticas'),
-                    const SizedBox(height: 16),
+                    _buildCollapsibleSection(
+                      'Informações Eclesiásticas',
+                      sectionKey: 'church',
+                      icon: Icons.church,
+                      children: [
+                        const SizedBox(height: 16),
 
-                    // Status — apenas líder/pastor/admin
-                    if (canEditEcclesiasticalInfo) ...[
-                      DropdownButtonFormField<String>(
-                        initialValue: _status,
-                        decoration: InputDecoration(
-                          labelText: 'Status *',
-                          filled: true,
-                          fillColor: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          border: const OutlineInputBorder(),
-                          prefixIcon: const Icon(Icons.info),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'visitor',
-                            child: Text('Visitante'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'new_convert',
-                            child: Text('Novo Convertido'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'member_active',
-                            child: Text('Membro Ativo'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'member_inactive',
-                            child: Text('Membro Inativo'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'transferred',
-                            child: Text('Transferido'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'deceased',
-                            child: Text('Falecido'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _status = value!;
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Campo obrigatório';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // Data de Conversão
-                    InkWell(
-                      onTap: () =>
-                          _selectDate(context, _conversionDate, (date) {
-                            setState(() {
-                              _conversionDate = date;
-                            });
-                          }),
-                      child: InputDecorator(
-                        decoration: InputDecoration(
-                          labelText: 'Data de Conversão',
-                          filled: true,
-                          fillColor: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          border: const OutlineInputBorder(),
-                          prefixIcon: const Icon(Icons.church),
-                        ),
-                        child: Text(
-                          _conversionDate != null
-                              ? DateFormat(
-                                  'dd/MM/yyyy',
-                                ).format(_conversionDate!)
-                              : 'Selecione a data',
-                          style: TextStyle(
-                            color: _conversionDate != null ? null : Colors.grey,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Data de Primeira Visita — apenas líder/pastor/admin
-                    // (relevante para visitantes / Raízes)
-                    if (canEditEcclesiasticalInfo &&
-                        (_status == 'visitor' ||
-                            _status == 'new_convert' ||
-                            _firstVisitDate != null)) ...[
-                      InkWell(
-                        onTap: () =>
-                            _selectDate(context, _firstVisitDate, (date) {
+                        // Status — apenas líder/pastor/admin
+                        if (canEditEcclesiasticalInfo) ...[
+                          DropdownButtonFormField<String>(
+                            initialValue: _status,
+                            decoration: InputDecoration(
+                              labelText: 'Status *',
+                              filled: true,
+                              fillColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.info),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'visitor',
+                                child: Text('Visitante'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'new_convert',
+                                child: Text('Novo Convertido'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'member_active',
+                                child: Text('Membro Ativo'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'member_inactive',
+                                child: Text('Membro Inativo'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'transferred',
+                                child: Text('Transferido'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'deceased',
+                                child: Text('Falecido'),
+                              ),
+                            ],
+                            onChanged: (value) {
                               setState(() {
-                                _firstVisitDate = date;
+                                _status = value!;
                               });
-                            }),
-                        child: InputDecorator(
+                            },
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Campo obrigatório';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Data de Conversão
+                        InkWell(
+                          onTap: () =>
+                              _selectDate(context, _conversionDate, (date) {
+                                setState(() {
+                                  _conversionDate = date;
+                                });
+                              }),
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: 'Data de Conversão',
+                              filled: true,
+                              fillColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.church),
+                            ),
+                            child: Text(
+                              _conversionDate != null
+                                  ? DateFormat(
+                                      'dd/MM/yyyy',
+                                    ).format(_conversionDate!)
+                                  : 'Selecione a data',
+                              style: TextStyle(
+                                color: _conversionDate != null
+                                    ? null
+                                    : Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Data de Primeira Visita — apenas líder/pastor/admin
+                        // (relevante para visitantes / Raízes)
+                        if (canEditEcclesiasticalInfo &&
+                            (_status == 'visitor' ||
+                                _status == 'new_convert' ||
+                                _firstVisitDate != null)) ...[
+                          InkWell(
+                            onTap: () =>
+                                _selectDate(context, _firstVisitDate, (date) {
+                                  setState(() {
+                                    _firstVisitDate = date;
+                                  });
+                                }),
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: 'Data da Primeira Visita',
+                                filled: true,
+                                fillColor: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
+                                border: const OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.door_front_door),
+                                suffixIcon: _firstVisitDate != null
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, size: 18),
+                                        tooltip: 'Limpar',
+                                        onPressed: () => setState(
+                                          () => _firstVisitDate = null,
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                              child: Text(
+                                _firstVisitDate != null
+                                    ? DateFormat(
+                                        'dd/MM/yyyy',
+                                      ).format(_firstVisitDate!)
+                                    : 'Selecione a data',
+                                style: TextStyle(
+                                  color: _firstVisitDate != null
+                                      ? null
+                                      : Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Deseja contato (default true quando ainda não foi tocado)
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Deseja receber contato'),
+                          subtitle: Text(
+                            _wantsContact == null
+                                ? 'Não informado'
+                                : (_wantsContact!
+                                      ? 'Pode receber contato (ligações, mensagens)'
+                                      : 'Não deseja contato no momento'),
+                            style: CommunityDesign.metaStyle(context),
+                          ),
+                          secondary: const Icon(Icons.contact_phone),
+                          value: _wantsContact ?? true,
+                          onChanged: (v) => setState(() => _wantsContact = v),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Data de Batismo
+                        InkWell(
+                          onTap: () =>
+                              _selectDate(context, _baptismDate, (date) {
+                                setState(() {
+                                  _baptismDate = date;
+                                });
+                              }),
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: 'Data de Batismo',
+                              filled: true,
+                              fillColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.water_drop),
+                            ),
+                            child: Text(
+                              _baptismDate != null
+                                  ? DateFormat(
+                                      'dd/MM/yyyy',
+                                    ).format(_baptismDate!)
+                                  : 'Selecione a data',
+                              style: TextStyle(
+                                color: _baptismDate != null
+                                    ? null
+                                    : Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Data de Membresia
+                        InkWell(
+                          onTap: () =>
+                              _selectDate(context, _membershipDate, (date) {
+                                setState(() {
+                                  _membershipDate = date;
+                                });
+                              }),
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: 'Data de Membresia',
+                              filled: true,
+                              fillColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.card_membership),
+                            ),
+                            child: Text(
+                              _membershipDate != null
+                                  ? DateFormat(
+                                      'dd/MM/yyyy',
+                                    ).format(_membershipDate!)
+                                  : 'Selecione a data',
+                              style: TextStyle(
+                                color: _membershipDate != null
+                                    ? null
+                                    : Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Tipo de Membro — apenas líder/pastor/admin
+                        if (canEditEcclesiasticalInfo) ...[
+                          DropdownButtonFormField<String>(
+                            key: ValueKey(_memberType),
+                            initialValue: _memberType,
+                            decoration: InputDecoration(
+                              labelText: 'Tipo de Membro',
+                              filled: true,
+                              fillColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.person_outline),
+                            ),
+                            items: _buildMemberTypeItems(),
+                            onChanged: (value) {
+                              _handleMemberTypeChanged(value);
+                            },
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                      ],
+                    ),
+
+                    // Seção: Observações
+                    _buildCollapsibleSection(
+                      'Observações',
+                      sectionKey: 'notes',
+                      icon: Icons.note_outlined,
+                      children: [
+                        const SizedBox(height: 16),
+
+                        TextFormField(
+                          controller: _notesController,
                           decoration: InputDecoration(
-                            labelText: 'Data da Primeira Visita',
+                            labelText: 'Notas',
                             filled: true,
                             fillColor: Theme.of(
                               context,
                             ).colorScheme.surfaceContainerHighest,
                             border: const OutlineInputBorder(),
-                            prefixIcon: const Icon(Icons.door_front_door),
-                            suffixIcon: _firstVisitDate != null
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear, size: 18),
-                                    tooltip: 'Limpar',
-                                    onPressed: () =>
-                                        setState(() => _firstVisitDate = null),
-                                  )
-                                : null,
+                            prefixIcon: const Icon(Icons.note),
+                            alignLabelWithHint: true,
                           ),
-                          child: Text(
-                            _firstVisitDate != null
-                                ? DateFormat(
-                                    'dd/MM/yyyy',
-                                  ).format(_firstVisitDate!)
-                                : 'Selecione a data',
-                            style: TextStyle(
-                              color: _firstVisitDate != null
-                                  ? null
-                                  : Colors.grey,
-                            ),
-                          ),
+                          maxLines: 4,
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // Deseja contato (default true quando ainda não foi tocado)
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Deseja receber contato'),
-                      subtitle: Text(
-                        _wantsContact == null
-                            ? 'Não informado'
-                            : (_wantsContact!
-                                  ? 'Pode receber contato (ligações, mensagens)'
-                                  : 'Não deseja contato no momento'),
-                        style: CommunityDesign.metaStyle(context),
-                      ),
-                      secondary: const Icon(Icons.contact_phone),
-                      value: _wantsContact ?? true,
-                      onChanged: (v) => setState(() => _wantsContact = v),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Data de Batismo
-                    InkWell(
-                      onTap: () => _selectDate(context, _baptismDate, (date) {
-                        setState(() {
-                          _baptismDate = date;
-                        });
-                      }),
-                      child: InputDecorator(
-                        decoration: InputDecoration(
-                          labelText: 'Data de Batismo',
-                          filled: true,
-                          fillColor: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          border: const OutlineInputBorder(),
-                          prefixIcon: const Icon(Icons.water_drop),
-                        ),
-                        child: Text(
-                          _baptismDate != null
-                              ? DateFormat('dd/MM/yyyy').format(_baptismDate!)
-                              : 'Selecione a data',
-                          style: TextStyle(
-                            color: _baptismDate != null ? null : Colors.grey,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Data de Membresia
-                    InkWell(
-                      onTap: () =>
-                          _selectDate(context, _membershipDate, (date) {
-                            setState(() {
-                              _membershipDate = date;
-                            });
-                          }),
-                      child: InputDecorator(
-                        decoration: InputDecoration(
-                          labelText: 'Data de Membresia',
-                          filled: true,
-                          fillColor: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          border: const OutlineInputBorder(),
-                          prefixIcon: const Icon(Icons.card_membership),
-                        ),
-                        child: Text(
-                          _membershipDate != null
-                              ? DateFormat(
-                                  'dd/MM/yyyy',
-                                ).format(_membershipDate!)
-                              : 'Selecione a data',
-                          style: TextStyle(
-                            color: _membershipDate != null ? null : Colors.grey,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Tipo de Membro — apenas líder/pastor/admin
-                    if (canEditEcclesiasticalInfo) ...[
-                      DropdownButtonFormField<String>(
-                        key: ValueKey(_memberType),
-                        initialValue: _memberType,
-                        decoration: InputDecoration(
-                          labelText: 'Tipo de Membro',
-                          filled: true,
-                          fillColor: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          border: const OutlineInputBorder(),
-                          prefixIcon: const Icon(Icons.person_outline),
-                        ),
-                        items: _buildMemberTypeItems(),
-                        onChanged: (value) {
-                          _handleMemberTypeChanged(value);
-                        },
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-
-                    // Seção: Observações
-                    _buildSectionTitle('Observações'),
-                    const SizedBox(height: 16),
-
-                    TextFormField(
-                      controller: _notesController,
-                      decoration: InputDecoration(
-                        labelText: 'Notas',
-                        filled: true,
-                        fillColor: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.note),
-                        alignLabelWithHint: true,
-                      ),
-                      maxLines: 4,
+                      ],
                     ),
                     const SizedBox(height: 32),
                   ],
@@ -2190,32 +2235,38 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                         ),
                                       );
                                     },
-                                optionsViewBuilder: (optContext, onSelected, options) {
-                                  return Align(
-                                    alignment: Alignment.topLeft,
-                                    child: Material(
-                                      elevation: 4.0,
-                                      child: SizedBox(
-                                        width: constraints.maxWidth,
-                                        child: ListView.builder(
-                                          padding: EdgeInsets.zero,
-                                          shrinkWrap: true,
-                                          itemCount: options.length,
-                                          itemBuilder: (itemContext, index) {
-                                            final option = options.elementAt(
-                                              index,
-                                            );
-                                            return ListTile(
-                                              title: Text(option.displayName),
-                                              subtitle: Text(option.email),
-                                              onTap: () => onSelected(option),
-                                            );
-                                          },
+                                optionsViewBuilder:
+                                    (optContext, onSelected, options) {
+                                      return Align(
+                                        alignment: Alignment.topLeft,
+                                        child: Material(
+                                          elevation: 4.0,
+                                          child: SizedBox(
+                                            width: constraints.maxWidth,
+                                            child: ListView.builder(
+                                              padding: EdgeInsets.zero,
+                                              shrinkWrap: true,
+                                              itemCount: options.length,
+                                              itemBuilder:
+                                                  (itemContext, index) {
+                                                    final option = options
+                                                        .elementAt(index);
+                                                    return ListTile(
+                                                      title: Text(
+                                                        option.displayName,
+                                                      ),
+                                                      subtitle: Text(
+                                                        option.email,
+                                                      ),
+                                                      onTap: () =>
+                                                          onSelected(option),
+                                                    );
+                                                  },
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                  );
-                                },
+                                      );
+                                    },
                               );
                             },
                           );
@@ -2324,6 +2375,80 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       style: Theme.of(context).textTheme.titleLarge?.copyWith(
         fontWeight: FontWeight.bold,
         color: Theme.of(context).colorScheme.primary,
+      ),
+    );
+  }
+
+  /// Card recolhível para cada seção do formulário (Dados Pessoais, Vínculos
+  /// Familiares, Endereço, Informações Eclesiásticas, Observações) — mesmo
+  /// mecanismo de expandir/recolher do CHU-316 (Permissões do Cargo):
+  /// recolhida por padrão, cada uma lembra se o usuário abriu enquanto a
+  /// tela estiver montada. Os campos continuam montados dentro do
+  /// `AnimatedCrossFade` mesmo com a seção fechada, então a validação do
+  /// Form continua funcionando normalmente.
+  Widget _buildCollapsibleSection(
+    String title, {
+    required String sectionKey,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isExpanded = _expandedFormSections.contains(sectionKey);
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () => setState(() {
+              if (isExpanded) {
+                _expandedFormSections.remove(sectionKey);
+              } else {
+                _expandedFormSections.add(sectionKey);
+              }
+            }),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(icon, color: colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildSectionTitle(title)),
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.keyboard_arrow_down,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children,
+              ),
+            ),
+            crossFadeState: isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
+            sizeCurve: Curves.easeInOut,
+          ),
+        ],
       ),
     );
   }
