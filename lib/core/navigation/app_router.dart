@@ -1204,7 +1204,10 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/church-info/manage',
-      builder: (context, state) => const ChurchInfoFormScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'church_info.edit',
+        child: ChurchInfoFormScreen(),
+      ),
     ),
 
     // =====================================================
