@@ -1245,19 +1245,26 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/reading-plans/admin',
-      builder: (context, state) =>
-          const DashboardAccessGate(child: ManageReadingPlansScreen()),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'reading_plans.manage',
+        child: ManageReadingPlansScreen(),
+      ),
     ),
     GoRoute(
       path: '/reading-plans/admin/new',
-      builder: (context, state) =>
-          const DashboardAccessGate(child: ReadingPlanFormScreen()),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'reading_plans.manage',
+        child: ReadingPlanFormScreen(),
+      ),
     ),
     GoRoute(
       path: '/reading-plans/admin/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return DashboardAccessGate(child: ReadingPlanFormScreen(planId: id));
+        return PermissionOnlyRoute(
+          permission: 'reading_plans.manage',
+          child: ReadingPlanFormScreen(planId: id),
+        );
       },
     ),
     GoRoute(
