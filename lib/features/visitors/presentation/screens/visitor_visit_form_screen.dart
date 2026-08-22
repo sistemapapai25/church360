@@ -56,7 +56,7 @@ class _VisitorVisitFormScreenState extends ConsumerState<VisitorVisitFormScreen>
 
     try {
       final data = {
-        'visitor_id': widget.visitorId,
+        'user_id': widget.visitorId,
         'visit_date': _visitDate.toIso8601String().split('T')[0],
         'was_contacted': _wasContacted,
         'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),

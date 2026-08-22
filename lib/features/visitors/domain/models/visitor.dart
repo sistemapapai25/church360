@@ -371,7 +371,7 @@ class VisitorVisit {
   factory VisitorVisit.fromJson(Map<String, dynamic> json) {
     return VisitorVisit(
       id: json['id'] as String,
-      visitorId: json['visitor_id'] as String,
+      visitorId: json['user_id'] as String,
       visitDate: DateTime.parse(json['visit_date'] as String),
       worshipServiceId: json['worship_service_id'] as String?,
       notes: json['notes'] as String?,
@@ -388,7 +388,7 @@ class VisitorVisit {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'visitor_id': visitorId,
+      'user_id': visitorId,
       'visit_date': visitDate.toIso8601String().split('T')[0],
       'worship_service_id': worshipServiceId,
       'notes': notes,
@@ -432,7 +432,7 @@ class VisitorFollowup {
   factory VisitorFollowup.fromJson(Map<String, dynamic> json) {
     return VisitorFollowup(
       id: json['id'] as String,
-      visitorId: json['visitor_id'] as String,
+      visitorId: json['user_id'] as String,
       followupDate: DateTime.parse(json['followup_date'] as String),
       followupType: json['followup_type'] as String?,
       description: json['description'] as String?,
@@ -450,7 +450,7 @@ class VisitorFollowup {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'visitor_id': visitorId,
+      'user_id': visitorId,
       'followup_date': followupDate.toIso8601String().split('T')[0],
       'followup_type': followupType,
       'description': description,
