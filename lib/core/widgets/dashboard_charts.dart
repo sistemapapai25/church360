@@ -1119,91 +1119,99 @@ class BirthdaysThisMonthCard extends ConsumerWidget {
                   return const Text('Nenhum aniversariante este mês');
                 }
 
-                final displayBirthdays = birthdays.take(5).toList();
+                final today = DateTime.now().day;
 
                 return Column(
                   children: [
-                    ...displayBirthdays.map((birthday) {
+                    ...birthdays.map((birthday) {
                       final birthdate = birthday['birthdate'] as DateTime;
                       final firstName = (birthday['first_name'] as String?) ?? '';
                       final lastName = (birthday['last_name'] as String?) ?? '';
                       final photoUrl = birthday['photo_url'] as String?;
                       final type = birthday['type'] as String? ?? 'Membro';
 
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundImage: photoUrl != null
-                                  ? NetworkImage(photoUrl)
-                                  : null,
-                              child: photoUrl == null
-                                  ? Text(firstName[0] + lastName[0])
-                                  : null,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '$firstName $lastName',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '${birthdate.day}/${birthdate.month}',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                        ),
+                      final isToday = birthdate.day == today;
+                      final isPast = birthdate.day < today;
+
+                      final nameColor = isPast
+                          ? Colors.grey[500]
+                          : (isToday ? Colors.orange[800] : null);
+                      final dateColor = isPast ? Colors.grey[400] : Colors.grey[600];
+                      final iconColor = isPast
+                          ? Colors.grey[400]
+                          : (isToday ? Colors.orange[700] : Colors.orange[300]);
+
+                      return Opacity(
+                        opacity: isPast ? 0.55 : 1.0,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 20,
+                                backgroundColor: isToday ? Colors.orange[100] : null,
+                                backgroundImage: photoUrl != null
+                                    ? NetworkImage(photoUrl)
+                                    : null,
+                                child: photoUrl == null
+                                    ? Text(firstName[0] + lastName[0])
+                                    : null,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '$firstName $lastName',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: nameColor,
                                       ),
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                        decoration: BoxDecoration(
-                                          color: type == 'Visitante' ? Colors.blue[100] : Colors.green[100],
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          type,
+                                    ),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          isToday
+                                              ? 'Hoje!'
+                                              : '${birthdate.day}/${birthdate.month}',
                                           style: TextStyle(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.bold,
-                                            color: type == 'Visitante' ? Colors.blue[700] : Colors.green[700],
+                                            fontSize: 12,
+                                            fontWeight: isToday ? FontWeight.bold : null,
+                                            color: dateColor,
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: type == 'Visitante' ? Colors.blue[100] : Colors.green[100],
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            type,
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.bold,
+                                              color: type == 'Visitante' ? Colors.blue[700] : Colors.green[700],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            Icon(
-                              Icons.celebration,
-                              color: Colors.orange[300],
-                              size: 20,
-                            ),
-                          ],
+                              Icon(
+                                Icons.celebration,
+                                color: iconColor,
+                                size: 20,
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     }),
-                    if (birthdays.length > 5)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          '+${birthdays.length - 5} aniversariantes',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ),
                   ],
                 );
               },
