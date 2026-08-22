@@ -38,11 +38,9 @@ class StudyGroupDetailScreen extends ConsumerWidget {
       currentUserHasPermissionProvider('study_groups.manage_lessons'),
     );
     final canManageGroupByContext =
-        fromDashboard ||
         canEditByPermissionAsync.valueOrNull == true ||
         canManageOwnByPermissionAsync.valueOrNull == true;
     final canManageLessonsByContext =
-        fromDashboard ||
         canManageLessonsByPermissionAsync.valueOrNull == true ||
         canManageGroupByContext;
 

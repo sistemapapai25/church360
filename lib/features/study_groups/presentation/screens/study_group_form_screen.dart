@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/study_group_provider.dart';
 import '../../domain/models/study_group.dart';
+import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 class StudyGroupFormScreen extends ConsumerStatefulWidget {
   final String? groupId;
@@ -70,6 +72,23 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
 
   Future<void> _saveGroup() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final requiredPermission = widget.groupId == null
+        ? 'study_groups.create'
+        : 'study_groups.edit';
+    final hasPermission = await ref.read(
+      currentUserHasPermissionProvider(requiredPermission).future,
+    );
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Você não tem permissão para esta ação'),
+          ),
+        );
+      }
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -277,15 +296,23 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
             const SizedBox(height: 24),
             
             // Botão Salvar
-            FilledButton(
-              onPressed: _isLoading ? null : _saveGroup,
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(widget.groupId == null ? 'Criar Grupo' : 'Salvar Alterações'),
+            DisabledByPermission(
+              permission: widget.groupId == null
+                  ? 'study_groups.create'
+                  : 'study_groups.edit',
+              disabledTooltip: widget.groupId == null
+                  ? 'Você não tem permissão para criar grupos de estudo'
+                  : 'Você não tem permissão para editar grupos de estudo',
+              child: FilledButton(
+                onPressed: _isLoading ? null : _saveGroup,
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(widget.groupId == null ? 'Criar Grupo' : 'Salvar Alterações'),
+              ),
             ),
           ],
         ),

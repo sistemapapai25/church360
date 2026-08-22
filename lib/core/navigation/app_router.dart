@@ -874,14 +874,9 @@ final appRouter = GoRouter(
       path: '/study-groups',
       builder: (context, state) {
         final fromDashboard = state.uri.queryParameters['from'] == 'dashboard';
-        if (fromDashboard) {
-          return const DashboardAccessGate(
-            child: StudyGroupsListScreen(fromDashboard: true),
-          );
-        }
-        return const PermissionOnlyRoute(
+        return PermissionOnlyRoute(
           permission: 'study_groups.view',
-          child: StudyGroupsListScreen(),
+          child: StudyGroupsListScreen(fromDashboard: fromDashboard),
         );
       },
     ),
@@ -889,16 +884,10 @@ final appRouter = GoRouter(
     // Novo grupo de estudo
     GoRoute(
       path: '/study-groups/new',
-      builder: (context, state) {
-        final fromDashboard = state.uri.queryParameters['from'] == 'dashboard';
-        if (fromDashboard) {
-          return const DashboardAccessGate(child: StudyGroupFormScreen());
-        }
-        return const PermissionOnlyRoute(
-          permission: 'study_groups.create',
-          child: StudyGroupFormScreen(),
-        );
-      },
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'study_groups.create',
+        child: StudyGroupFormScreen(),
+      ),
     ),
 
     // Detalhes do grupo de estudo
@@ -907,14 +896,9 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         final fromDashboard = state.uri.queryParameters['from'] == 'dashboard';
-        if (fromDashboard) {
-          return DashboardAccessGate(
-            child: StudyGroupDetailScreen(groupId: id, fromDashboard: true),
-          );
-        }
         return PermissionOnlyRoute(
           permission: 'study_groups.view',
-          child: StudyGroupDetailScreen(groupId: id),
+          child: StudyGroupDetailScreen(groupId: id, fromDashboard: fromDashboard),
         );
       },
     ),
@@ -924,10 +908,6 @@ final appRouter = GoRouter(
       path: '/study-groups/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        final fromDashboard = state.uri.queryParameters['from'] == 'dashboard';
-        if (fromDashboard) {
-          return DashboardAccessGate(child: StudyGroupFormScreen(groupId: id));
-        }
         return PermissionOnlyRoute(
           permission: 'study_groups.edit',
           child: StudyGroupFormScreen(groupId: id),
@@ -941,12 +921,6 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final groupId = state.pathParameters['groupId']!;
         final lessonId = state.pathParameters['lessonId']!;
-        final fromDashboard = state.uri.queryParameters['from'] == 'dashboard';
-        if (fromDashboard) {
-          return DashboardAccessGate(
-            child: LessonDetailScreen(groupId: groupId, lessonId: lessonId),
-          );
-        }
         return PermissionOnlyRoute(
           permission: 'study_groups.manage_lessons',
           child: LessonDetailScreen(groupId: groupId, lessonId: lessonId),

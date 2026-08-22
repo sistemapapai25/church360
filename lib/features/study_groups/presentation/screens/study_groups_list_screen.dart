@@ -34,7 +34,7 @@ class StudyGroupsListScreen extends ConsumerWidget {
           PermissionBuilder(
             permission: 'study_groups.create',
             builder: (context, hasPermission) {
-              if (!hasPermission && !fromDashboard) {
+              if (!hasPermission) {
                 return const SizedBox.shrink();
               }
               return IconButton(
@@ -179,7 +179,7 @@ class StudyGroupsListScreen extends ConsumerWidget {
                                     permission: 'study_groups.edit',
                                     loadingWidget: const SizedBox.shrink(),
                                     builder: (context, hasPermission) {
-                                      if (!hasPermission && !fromDashboard) {
+                                      if (!hasPermission) {
                                         return const SizedBox.shrink();
                                       }
                                       return IconButton(
