@@ -13,6 +13,7 @@ import '../../../devotionals/presentation/providers/devotional_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../notifications/presentation/widgets/notification_badge.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 
 import '../providers/members_provider.dart';
 import '../../data/members_repository.dart';
@@ -671,20 +672,28 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   }
 
   Widget _buildLgpdAdminQueueRow(BuildContext context, WidgetRef ref) {
-    return PermissionGate(
-      permission: 'lgpd.requests.manage',
-      showLoading: false,
-      fallback: const SizedBox.shrink(),
-      child: _buildInfoRowWithAction(
-        Icons.admin_panel_settings_outlined,
-        'Painel LGPD',
-        'Triagem e processamento de solicitações',
-        'Gerenciar',
-        () async => _openLgpdAdminQueue(context, ref),
-        valueIcon: Icons.rule_folder_outlined,
-        valueColor: Colors.deepOrange,
-        actionColor: Colors.deepOrange,
-      ),
+    // Painel LGPD é restrito ao Owner (`role_global`): a permissão RBAC
+    // 'lgpd.requests.manage' hoje não está associada a nenhum papel (o
+    // Owner não existe como role no sistema granular), então a checagem
+    // por `currentUserIsOwnerProvider` é a fonte de verdade real aqui —
+    // mesmo padrão usado em "Configurações de Desenvolvedor".
+    final isOwner = ref.watch(currentUserIsOwnerProvider).valueOrNull ?? false;
+    final hasManagePermission =
+        ref.watch(currentUserHasPermissionProvider('lgpd.requests.manage')).valueOrNull ??
+        false;
+    if (!isOwner && !hasManagePermission) {
+      return const SizedBox.shrink();
+    }
+
+    return _buildInfoRowWithAction(
+      Icons.admin_panel_settings_outlined,
+      'Painel LGPD',
+      'Triagem e processamento de solicitações',
+      'Gerenciar',
+      () async => _openLgpdAdminQueue(context, ref),
+      valueIcon: Icons.rule_folder_outlined,
+      valueColor: Colors.deepOrange,
+      actionColor: Colors.deepOrange,
     );
   }
 
