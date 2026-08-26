@@ -17,6 +17,8 @@ class Event {
   final DateTime createdAt;
   final DateTime? updatedAt;
   final String? batchId; // Agrupa eventos gerados no mesmo lançamento fixo/recorrente
+  final String visibilityScope; // 'all' | 'restricted' (Fase 3 liga o enforcement)
+  final String registrationScope; // 'all' | 'restricted' (Fase 3 liga o enforcement)
 
   // Campos computados do join
   final int? registrationCount;
@@ -39,6 +41,8 @@ class Event {
     required this.createdAt,
     this.updatedAt,
     this.batchId,
+    this.visibilityScope = 'all',
+    this.registrationScope = 'all',
     this.registrationCount,
   });
 
@@ -66,6 +70,8 @@ class Event {
           ? DateTime.parse(json['updated_at'] as String)
           : null,
       batchId: json['batch_id'] as String?,
+      visibilityScope: json['visibility_scope'] as String? ?? 'all',
+      registrationScope: json['registration_scope'] as String? ?? 'all',
       registrationCount: json['registration_count'] as int?,
     );
   }
@@ -90,6 +96,8 @@ class Event {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'batch_id': batchId,
+      'visibility_scope': visibilityScope,
+      'registration_scope': registrationScope,
     };
   }
 
