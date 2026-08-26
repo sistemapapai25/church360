@@ -5,10 +5,13 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 import '../providers/events_provider.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../domain/models/event_audience.dart';
+import '../widgets/audience_picker.dart';
 
 /// Tela de formulário de evento (criar/editar)
 class EventFormScreen extends ConsumerStatefulWidget {
@@ -43,6 +46,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   List<Map<String, String>> _eventTypeOptions = [];
   List<String> _locationOptions = [];
   String? _managingError;
+  List<EventAudience> _responsibles = [];
 
   bool _isLoading = false;
   bool _isEditMode = false;
@@ -485,6 +489,15 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         _isMandatory = event.isMandatory;
         _status = event.status;
         _imageUrl = event.imageUrl;
+
+        try {
+          _responsibles = await ref
+              .read(eventsRepositoryProvider)
+              .getEventResponsibles(widget.eventId!);
+        } catch (_) {
+          // Falha ao carregar responsáveis não impede editar o resto do
+          // evento; a seção some vazia e o usuário pode reconstruir a lista.
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -1091,7 +1104,121 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
+
+                    // Responsáveis (REG-02)
+                    Text(
+                      'Responsáveis',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Quem pode gerenciar os inscritos deste evento. O líder de um '
+                      'grupo ou ministério escolhido também passa a gerenciar.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    if (_isFixed) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Os responsáveis valem para todas as ocorrências geradas.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    if (_responsibles.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.manage_accounts,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Nenhum responsável definido',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Sem responsável, só quem tem a permissão "Gerenciar '
+                                    'inscrições" administra este evento.',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w400,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final responsible in _responsibles)
+                            InputChip(
+                              avatar: Icon(
+                                switch (responsible.targetKind) {
+                                  EventAudienceTargetKind.person => Icons.person,
+                                  EventAudienceTargetKind.group => Icons.group,
+                                  EventAudienceTargetKind.ministry => Icons.church,
+                                },
+                                size: 18,
+                              ),
+                              label: Text(responsible.displayName ?? responsible.targetId),
+                              onDeleted: () {
+                                setState(() {
+                                  _responsibles = _responsibles
+                                      .where((r) => r.targetId != responsible.targetId ||
+                                          r.targetKind != responsible.targetKind)
+                                      .toList();
+                                });
+                              },
+                            ),
+                        ],
+                      ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final result = await showAudiencePicker(
+                          context,
+                          eventId: widget.eventId ?? '',
+                          initialSelection: _responsibles,
+                        );
+                        if (result != null) {
+                          setState(() => _responsibles = result);
+                        }
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Adicionar responsável'),
+                    ),
+                    const SizedBox(height: 24),
 
                     // Requer inscrição
                     SwitchListTile(
@@ -1381,7 +1508,8 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                 fixedData['end_date'] = null;
                 fixedData['status'] = 'published';
                 fixedData['batch_id'] = batchId;
-                await repo.createEvent(fixedData);
+                final created = await repo.createEvent(fixedData);
+                await _persistResponsibles(created.id);
                 count++;
               }
             }
@@ -1403,7 +1531,8 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
               fixedData['end_date'] = null;
               fixedData['status'] = 'published';
               fixedData['batch_id'] = batchId;
-              await repo.createEvent(fixedData);
+              final created = await repo.createEvent(fixedData);
+              await _persistResponsibles(created.id);
               count++;
               cursor = cursor.add(Duration(days: 7 * _intervalWeeks));
             }
@@ -1428,7 +1557,8 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                 fixedData['end_date'] = null;
                 fixedData['status'] = 'published';
                 fixedData['batch_id'] = batchId;
-                await repo.createEvent(fixedData);
+                final created = await repo.createEvent(fixedData);
+                await _persistResponsibles(created.id);
                 count++;
               }
               cursor = cursor.add(const Duration(days: 1));
@@ -1470,7 +1600,8 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
             fixedData['start_date'] = fixedStart.toIso8601String();
             fixedData['end_date'] = null;
             fixedData['status'] = 'published';
-            await repo.createEvent(fixedData);
+            final created = await repo.createEvent(fixedData);
+            await _persistResponsibles(created.id);
             count++;
           }
         }
@@ -1487,12 +1618,15 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         }
       } else {
         if (_isEditMode) {
-          await ref
+          final updated = await ref
               .read(eventsRepositoryProvider)
               .updateEvent(widget.eventId!, data);
+          await _persistResponsibles(updated.id);
           ref.invalidate(eventByIdProvider(widget.eventId!));
+          ref.invalidate(eventResponsiblesProvider(widget.eventId!));
         } else {
-          await ref.read(eventsRepositoryProvider).createEvent(data);
+          final created = await ref.read(eventsRepositoryProvider).createEvent(data);
+          await _persistResponsibles(created.id);
         }
 
         ref.invalidate(allEventsProvider);
@@ -1521,6 +1655,28 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  /// Grava a lista atual de responsáveis para um evento já salvo. Chamada
+  /// depois de cada `createEvent`/`updateEvent` em `_saveEvent` — inclusive
+  /// dentro do loop de evento fixo/recorrente, onde cada ocorrência gerada
+  /// recebe a mesma lista (Pitfall P1-6).
+  Future<void> _persistResponsibles(String eventId) async {
+    try {
+      await ref
+          .read(eventsRepositoryProvider)
+          .setEventResponsibles(eventId, _responsibles);
+    } catch (e) {
+      if (mounted) {
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'events',
+          fallbackMessage:
+              'Não foi possível salvar os responsáveis. Verifique a conexão e tente novamente.',
+        );
       }
     }
   }

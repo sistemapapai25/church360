@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/event.dart';
+import '../domain/models/event_audience.dart';
 
 /// Repository para gerenciar eventos
 class EventsRepository {
@@ -543,6 +544,69 @@ class EventsRepository {
         
         return EventRegistration.fromJson(data);
       }).toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Buscar responsáveis (event_audience, role='responsible') de um evento
+  Future<List<EventAudience>> getEventResponsibles(String eventId) async {
+    try {
+      final response = await _supabase
+          .from('event_audience')
+          .select()
+          .eq('event_id', eventId)
+          .eq('role', 'responsible');
+
+      return (response as List)
+          .map((json) => EventAudience.fromJson(Map<String, dynamic>.from(json)))
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Substitui o conjunto de responsáveis de um evento. Delete-then-insert
+  /// declarativo (não upsert): torna a operação idempotente para o
+  /// formulário sem exigir `onConflict` sobre a UNIQUE composta de
+  /// `event_audience` (event_id, role, user_id, group_id, ministry_id).
+  Future<void> setEventResponsibles(
+    String eventId,
+    List<EventAudience> targets,
+  ) async {
+    try {
+      await _supabase
+          .from('event_audience')
+          .delete()
+          .eq('event_id', eventId)
+          .eq('role', 'responsible');
+
+      if (targets.isEmpty) return;
+
+      final rows = targets.map((t) {
+        final row = <String, dynamic>{
+          'tenant_id': SupabaseConstants.currentTenantId,
+          'event_id': eventId,
+          'role': 'responsible',
+          'user_id': null,
+          'group_id': null,
+          'ministry_id': null,
+        };
+        switch (t.targetKind) {
+          case EventAudienceTargetKind.person:
+            row['user_id'] = t.userId;
+            break;
+          case EventAudienceTargetKind.group:
+            row['group_id'] = t.groupId;
+            break;
+          case EventAudienceTargetKind.ministry:
+            row['ministry_id'] = t.ministryId;
+            break;
+        }
+        return row;
+      }).toList();
+
+      await _supabase.from('event_audience').insert(rows);
     } catch (e) {
       rethrow;
     }

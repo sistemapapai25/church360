@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/events_repository.dart';
 import '../../domain/models/event.dart';
+import '../../domain/models/event_audience.dart';
 
 /// Provider do repository de eventos
 final eventsRepositoryProvider = Provider<EventsRepository>((ref) {
@@ -49,5 +50,11 @@ final activeEventsCountProvider = FutureProvider<int>((ref) async {
 final eventRegistrationsProvider = FutureProvider.family<List<EventRegistration>, String>((ref, eventId) async {
   final repo = ref.watch(eventsRepositoryProvider);
   return repo.getEventRegistrations(eventId);
+});
+
+/// Provider de responsáveis (event_audience, role='responsible') de um evento
+final eventResponsiblesProvider = FutureProvider.family<List<EventAudience>, String>((ref, eventId) async {
+  final repo = ref.watch(eventsRepositoryProvider);
+  return repo.getEventResponsibles(eventId);
 });
 
