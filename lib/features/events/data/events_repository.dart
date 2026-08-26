@@ -621,6 +621,12 @@ class EventsRepository {
       // `onConflict` é obrigatório: sem ele o PostgREST infere a PK (`id`), que
       // o app não envia, e o upsert vira INSERT puro — reinscrever alguém já
       // inscrito derrubaria a UNIQUE (event_id, user_id) com 409.
+      //
+      // `qr_code` é determinístico (event_id+user_id), não um uuid aleatório:
+      // assim a mesma inscrição sempre recalcula o mesmo código, permitindo
+      // reexibir o ingresso ao reabrir a tela sem depender de estado local
+      // (EventRegistrationScreen volta pra tela de "inscrever-se" ao sair e
+      // voltar, porque o QR antigo só existia em memória).
       final response = await _supabase
           .from('event_registration')
           .upsert({
@@ -628,6 +634,7 @@ class EventsRepository {
             'user_id': memberId,
             'registered_at': DateTime.now().toIso8601String(),
             'tenant_id': SupabaseConstants.currentTenantId,
+            'qr_code': 'EVENT_TICKET:$eventId:$memberId',
           }, onConflict: 'event_id,user_id')
           .select()
           .single();

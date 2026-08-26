@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../../domain/models/event.dart';
@@ -89,7 +88,7 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
           );
         }
 
-        // Se já gerou o ingresso, mostra a tela de sucesso
+        // Se já gerou o ingresso nesta sessão, mostra a tela de sucesso
         if (_generatedTicket != null) {
           return _buildTicketScreen(event, _generatedTicket!);
         }
@@ -100,7 +99,42 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
             if (member == null) {
               return _buildGuestRegistrationScreen(event);
             }
-            return _buildRegistrationScreen(event, member);
+
+            // Sai e volta na tela: sem isto, sempre reaparece "inscrever-se
+            // gratuitamente" mesmo pra quem já está inscrito, porque
+            // _generatedTicket é só estado local desta sessão de tela.
+            final registrationsAsync = ref.watch(eventRegistrationsProvider(event.id));
+            return registrationsAsync.when(
+              data: (registrations) {
+                EventRegistration? existing;
+                for (final r in registrations) {
+                  if (r.memberId == member.id) {
+                    existing = r;
+                    break;
+                  }
+                }
+                if (existing != null) {
+                  return _buildTicketScreen(
+                    event,
+                    EventTicket(
+                      id: existing.id,
+                      eventId: event.id,
+                      memberId: member.id,
+                      qrCode: existing.qrCode ?? 'EVENT_TICKET:${event.id}:${member.id}',
+                      status: 'paid',
+                      paidAmount: event.isFree ? 0 : event.price,
+                      createdAt: existing.registeredAt,
+                      paidAt: existing.registeredAt,
+                      eventName: event.name,
+                    ),
+                  );
+                }
+                return _buildRegistrationScreen(event, member);
+              },
+              // Falha na leitura não deve travar quem ainda não se inscreveu.
+              loading: () => _buildRegistrationScreen(event, member),
+              error: (error, stack) => _buildRegistrationScreen(event, member),
+            );
           },
           loading: () => Scaffold(
             appBar: AppBar(title: const Text('Carregando...')),
@@ -518,36 +552,29 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
     });
 
     try {
-      // Gerar QR Code único
-      final uuid = const Uuid();
-      final ticketId = uuid.v4();
-      final qrCode = 'EVENT_TICKET:${event.id}:${member.id}:$ticketId';
-
-      // Criar ingresso
-      final ticket = EventTicket(
-        id: ticketId,
-        eventId: event.id,
-        memberId: member.id,
-        qrCode: qrCode,
-        status: 'paid', // Por enquanto sempre pago (mesmo gratuito)
-        paidAmount: event.isFree ? 0 : event.price,
-        createdAt: DateTime.now(),
-        paidAt: DateTime.now(),
-        eventName: event.name,
-      );
-
-      // Salvar no banco (TODO: implementar no repository)
-      // await ref.read(eventsRepositoryProvider).createTicket(ticket);
-
-      // Registrar inscrição
-      await ref.read(eventsRepositoryProvider).addRegistration(event.id, member.id);
+      // Registrar inscrição — qr_code é persistido pelo repositório
+      // (determinístico por event_id+user_id), não gerado aqui, pra que o
+      // mesmo código sobreviva a sair/voltar da tela.
+      final registration = await ref
+          .read(eventsRepositoryProvider)
+          .registerMemberInEvent(eventId: event.id, memberId: member.id);
 
       // Invalidar providers
       ref.invalidate(eventRegistrationsProvider(event.id));
       ref.invalidate(eventByIdProvider(event.id));
 
       setState(() {
-        _generatedTicket = ticket;
+        _generatedTicket = EventTicket(
+          id: registration.id,
+          eventId: event.id,
+          memberId: member.id,
+          qrCode: registration.qrCode ?? 'EVENT_TICKET:${event.id}:${member.id}',
+          status: 'paid', // Por enquanto sempre pago (mesmo gratuito)
+          paidAmount: event.isFree ? 0 : event.price,
+          createdAt: registration.registeredAt,
+          paidAt: registration.registeredAt,
+          eventName: event.name,
+        );
         _isRegistering = false;
       });
     } catch (e) {
