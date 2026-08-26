@@ -3,10 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../../../core/utils/share_link_utils.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/share_link_dialog.dart';
 
 import '../../../permissions/providers/permissions_providers.dart';
 import '../providers/events_provider.dart';
@@ -48,12 +48,22 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
 
   void _shareRegistrationLink(Event event) {
     final url = _buildEventRegistrationShareUrl(event.id);
-    Share.share('Inscreva-se no evento "${event.name}":\n$url');
+    showShareLinkDialog(
+      context,
+      title: 'Compartilhar inscrição',
+      url: url,
+      shareText: 'Inscreva-se no evento "${event.name}":\n$url',
+    );
   }
 
   void _shareEventInfoLink(Event event) {
     final url = _buildEventDetailShareUrl(event.id);
-    Share.share('Confira o evento "${event.name}":\n$url');
+    showShareLinkDialog(
+      context,
+      title: 'Compartilhar evento',
+      url: url,
+      shareText: 'Confira o evento "${event.name}":\n$url',
+    );
   }
 
   Future<void> _confirmDeleteEvent(Event event) async {

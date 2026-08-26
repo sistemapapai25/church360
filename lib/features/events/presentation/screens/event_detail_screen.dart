@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/utils/share_link_utils.dart';
 
@@ -14,6 +13,7 @@ import '../../../ministries/domain/models/ministry.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/share_link_dialog.dart';
 
 /// Tela de detalhes do evento
 class EventDetailScreen extends ConsumerStatefulWidget {
@@ -43,12 +43,22 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
 
   void _shareRegistrationLink(Event event) {
     final url = _buildEventRegistrationShareUrl(event.id);
-    Share.share('Inscreva-se no evento "${event.name}":\n$url');
+    showShareLinkDialog(
+      context,
+      title: 'Compartilhar inscrição',
+      url: url,
+      shareText: 'Inscreva-se no evento "${event.name}":\n$url',
+    );
   }
 
   void _shareEventInfoLink(Event event) {
     final url = _buildEventDetailShareUrl(event.id);
-    Share.share('Confira o evento "${event.name}":\n$url');
+    showShareLinkDialog(
+      context,
+      title: 'Compartilhar evento',
+      url: url,
+      shareText: 'Confira o evento "${event.name}":\n$url',
+    );
   }
 
   void _handleBack(BuildContext context) {
