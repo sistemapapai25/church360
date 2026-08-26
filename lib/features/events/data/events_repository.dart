@@ -38,10 +38,12 @@ class EventsRepository {
           .order('label');
 
       return (response as List)
-          .map((json) => {
-                'code': (json['code'] ?? '').toString(),
-                'label': (json['label'] ?? '').toString(),
-              })
+          .map(
+            (json) => {
+              'code': (json['code'] ?? '').toString(),
+              'label': (json['label'] ?? '').toString(),
+            },
+          )
           .where((e) => e['code']!.isNotEmpty)
           .toList();
     } catch (e) {
@@ -51,9 +53,7 @@ class EventsRepository {
 
   Future<void> upsertEventType(String code, String label) async {
     try {
-      await _supabase
-          .from('event_type')
-          .upsert({'code': code, 'label': label});
+      await _supabase.from('event_type').upsert({'code': code, 'label': label});
     } catch (e) {
       rethrow;
     }
@@ -73,7 +73,10 @@ class EventsRepository {
           .toList();
       for (final code in codes) {
         final label = _guessLabel(code);
-        await _supabase.from('event_type').upsert({'code': code, 'label': label});
+        await _supabase.from('event_type').upsert({
+          'code': code,
+          'label': label,
+        });
       }
     } catch (e) {
       rethrow;
@@ -219,7 +222,7 @@ class EventsRepository {
 
       return (response as List).map((json) {
         final data = Map<String, dynamic>.from(json);
-        
+
         // Extrair contagem de inscrições
         if (data['event_registration'] != null) {
           final registrations = data['event_registration'];
@@ -229,7 +232,7 @@ class EventsRepository {
             data['registration_count'] = 0;
           }
         }
-        
+
         return Event.fromJson(data);
       }).toList();
     } catch (e) {
@@ -252,7 +255,7 @@ class EventsRepository {
 
       return (response as List).map((json) {
         final data = Map<String, dynamic>.from(json);
-        
+
         if (data['event_registration'] != null) {
           final registrations = data['event_registration'];
           if (registrations is List && registrations.isNotEmpty) {
@@ -261,7 +264,7 @@ class EventsRepository {
             data['registration_count'] = 0;
           }
         }
-        
+
         return Event.fromJson(data);
       }).toList();
     } catch (e) {
@@ -286,7 +289,7 @@ class EventsRepository {
 
       return (response as List).map((json) {
         final data = Map<String, dynamic>.from(json);
-        
+
         if (data['event_registration'] != null) {
           final registrations = data['event_registration'];
           if (registrations is List && registrations.isNotEmpty) {
@@ -295,7 +298,7 @@ class EventsRepository {
             data['registration_count'] = 0;
           }
         }
-        
+
         return Event.fromJson(data);
       }).toList();
     } catch (e) {
@@ -319,7 +322,7 @@ class EventsRepository {
       if (response == null) return null;
 
       final data = Map<String, dynamic>.from(response);
-      
+
       if (data['event_registration'] != null) {
         final registrations = data['event_registration'];
         if (registrations is List && registrations.isNotEmpty) {
@@ -339,7 +342,8 @@ class EventsRepository {
   Future<Event> createEventFromJson(Map<String, dynamic> data) async {
     try {
       final payload = Map<String, dynamic>.from(data);
-      payload['tenant_id'] = payload['tenant_id'] ?? SupabaseConstants.currentTenantId;
+      payload['tenant_id'] =
+          payload['tenant_id'] ?? SupabaseConstants.currentTenantId;
       final response = await _supabase
           .from('event')
           .insert(payload)
@@ -350,9 +354,11 @@ class EventsRepository {
     } catch (e) {
       final msg = e.toString();
       final fallback = Map<String, dynamic>.from(data);
-      fallback['tenant_id'] = fallback['tenant_id'] ?? SupabaseConstants.currentTenantId;
+      fallback['tenant_id'] =
+          fallback['tenant_id'] ?? SupabaseConstants.currentTenantId;
       var changed = false;
-      if (msg.contains("is_mandatory") && fallback.containsKey('is_mandatory')) {
+      if (msg.contains("is_mandatory") &&
+          fallback.containsKey('is_mandatory')) {
         fallback.remove('is_mandatory');
         changed = true;
       }
@@ -410,7 +416,8 @@ class EventsRepository {
       final msg = e.toString();
       final fallback = Map<String, dynamic>.from(data);
       var changed = false;
-      if (msg.contains("is_mandatory") && fallback.containsKey('is_mandatory')) {
+      if (msg.contains("is_mandatory") &&
+          fallback.containsKey('is_mandatory')) {
         fallback.remove('is_mandatory');
         changed = true;
       }
@@ -536,12 +543,13 @@ class EventsRepository {
 
       return (response as List).map((json) {
         final data = Map<String, dynamic>.from(json);
-        
+
         if (data['user_account'] != null) {
           final member = data['user_account'];
-          data['member_name'] = '${member['first_name']} ${member['last_name']}';
+          data['member_name'] =
+              '${member['first_name']} ${member['last_name']}';
         }
-        
+
         return EventRegistration.fromJson(data);
       }).toList();
     } catch (e) {
@@ -559,7 +567,9 @@ class EventsRepository {
           .eq('role', 'responsible');
 
       return (response as List)
-          .map((json) => EventAudience.fromJson(Map<String, dynamic>.from(json)))
+          .map(
+            (json) => EventAudience.fromJson(Map<String, dynamic>.from(json)),
+          )
           .toList();
     } catch (e) {
       rethrow;
@@ -618,25 +628,27 @@ class EventsRepository {
     required String memberId,
   }) async {
     try {
-      // `onConflict` é obrigatório: sem ele o PostgREST infere a PK (`id`), que
-      // o app não envia, e o upsert vira INSERT puro — reinscrever alguém já
-      // inscrito derrubaria a UNIQUE (event_id, user_id) com 409.
-      //
-      // `qr_code` é determinístico (event_id+user_id), não um uuid aleatório:
-      // assim a mesma inscrição sempre recalcula o mesmo código, permitindo
-      // reexibir o ingresso ao reabrir a tela sem depender de estado local
-      // (EventRegistrationScreen volta pra tela de "inscrever-se" ao sair e
-      // voltar, porque o QR antigo só existia em memória).
+      // REG-04: inscrição de membro passa pela RPC porque `max_capacity`
+      // precisa ser checado em uma transação serializada no servidor. `count()`
+      // no Dart seguido de upsert não protege a última vaga; depois da migration
+      // 20260825000600, INSERT direto em event_registration é negado. O antigo
+      // onConflict do cliente migrou para a cláusula ON CONFLICT (event_id,
+      // user_id) dentro da RPC.
+      final registrationId = await _supabase.rpc(
+        'register_member_in_event',
+        params: {'p_event_id': eventId, 'p_user_id': memberId},
+      );
+
+      final id = registrationId?.toString();
+      if (id == null || id.isEmpty) {
+        throw StateError('register_member_in_event returned empty id');
+      }
+
       final response = await _supabase
           .from('event_registration')
-          .upsert({
-            'event_id': eventId,
-            'user_id': memberId,
-            'registered_at': DateTime.now().toIso8601String(),
-            'tenant_id': SupabaseConstants.currentTenantId,
-            'qr_code': 'EVENT_TICKET:$eventId:$memberId',
-          }, onConflict: 'event_id,user_id')
           .select()
+          .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
           .single();
 
       return EventRegistration.fromJson(response);
@@ -689,9 +701,7 @@ class EventsRepository {
     try {
       await _supabase
           .from('event_registration')
-          .update({
-            'checked_in_at': DateTime.now().toIso8601String(),
-          })
+          .update({'checked_in_at': DateTime.now().toIso8601String()})
           .eq('event_id', eventId)
           .eq('user_id', memberId)
           .eq('tenant_id', SupabaseConstants.currentTenantId);
@@ -705,9 +715,7 @@ class EventsRepository {
     try {
       await _supabase
           .from('event_registration')
-          .update({
-            'checked_in_at': null,
-          })
+          .update({'checked_in_at': null})
           .eq('event_id', eventId)
           .eq('user_id', memberId)
           .eq('tenant_id', SupabaseConstants.currentTenantId);
