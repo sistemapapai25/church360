@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
@@ -8,7 +7,7 @@ import '../../../../core/utils/share_link_utils.dart';
 
 import '../../domain/models/event.dart';
 import '../providers/events_provider.dart';
-import '../../../members/presentation/providers/members_provider.dart';
+import '../widgets/add_registration_dialog.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../ministries/domain/models/ministry.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
@@ -647,7 +646,7 @@ class _RegistrationsTab extends ConsumerWidget {
   ) async {
     await showDialog(
       context: context,
-      builder: (context) => _AddRegistrationDialog(eventId: event.id),
+      builder: (context) => AddRegistrationDialog(eventId: event.id),
     );
   }
 
@@ -744,192 +743,6 @@ class _RegistrationsTab extends ConsumerWidget {
             SnackBar(content: Text('Erro ao remover inscrito: $e')),
           );
         }
-      }
-    }
-  }
-}
-
-/// Dialog para adicionar inscrito
-class _AddRegistrationDialog extends ConsumerStatefulWidget {
-  final String eventId;
-
-  const _AddRegistrationDialog({required this.eventId});
-
-  @override
-  ConsumerState<_AddRegistrationDialog> createState() =>
-      _AddRegistrationDialogState();
-}
-
-class _AddRegistrationDialogState
-    extends ConsumerState<_AddRegistrationDialog> {
-  String? _selectedMemberId;
-  String _searchQuery = '';
-  final _searchController = TextEditingController();
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final allMembersAsync = ref.watch(allMembersProvider);
-    final registrationsAsync = ref.watch(
-      eventRegistrationsProvider(widget.eventId),
-    );
-
-    return AlertDialog(
-      title: const Text('Adicionar Inscrito'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: allMembersAsync.when(
-          data: (allMembers) {
-            return registrationsAsync.when(
-              data: (registrations) {
-                // Filtrar membros que já estão inscritos
-                final registeredMemberIds = registrations
-                    .map((r) => r.memberId)
-                    .toSet();
-                final availableMembers = allMembers
-                    .where((m) => !registeredMemberIds.contains(m.id))
-                    .toList();
-
-                if (availableMembers.isEmpty) {
-                  return const Text(
-                    'Todos os membros já estão inscritos neste evento.',
-                  );
-                }
-
-                // Garantir que o valor selecionado está na lista
-                if (_selectedMemberId != null &&
-                    !availableMembers.any((m) => m.id == _selectedMemberId)) {
-                  _selectedMemberId = null;
-                }
-
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        labelText: 'Buscar membro...',
-                        prefixIcon: const Icon(Icons.search),
-                        suffixIcon: _searchQuery.trim().isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear),
-                                onPressed: () {
-                                  setState(() {
-                                    _searchController.clear();
-                                    _searchQuery = '';
-                                  });
-                                },
-                              )
-                            : null,
-                      ),
-                      onChanged: (value) {
-                        setState(() => _searchQuery = value);
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 240,
-                      child: Builder(
-                        builder: (context) {
-                          var filtered = availableMembers;
-                          if (_searchQuery.isNotEmpty) {
-                            final q = _searchQuery.toLowerCase();
-                            filtered = filtered.where((m) {
-                              return m.displayName.toLowerCase().contains(q) ||
-                                  ((m.nickname?.toLowerCase().contains(q)) ??
-                                      false);
-                            }).toList();
-                          }
-
-                          if (filtered.isEmpty) {
-                            return Center(
-                              child: Text(
-                                _searchQuery.isEmpty
-                                    ? 'Nenhum membro disponível'
-                                    : 'Nenhum resultado para "$_searchQuery"',
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.outline,
-                                ),
-                              ),
-                            );
-                          }
-
-                          return ListView.builder(
-                            itemCount: filtered.length,
-                            itemBuilder: (context, index) {
-                              final m = filtered[index];
-                              final isSelected = _selectedMemberId == m.id;
-                              return ListTile(
-                                leading: CircleAvatar(child: Text(m.initials)),
-                                title: Text(m.displayName),
-                                subtitle: Text(m.email),
-                                trailing: isSelected
-                                    ? const Icon(
-                                        Icons.check_circle,
-                                        color: Colors.green,
-                                      )
-                                    : null,
-                                onTap: () {
-                                  setState(() => _selectedMemberId = m.id);
-                                },
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => Text('Erro: $error'),
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => Text('Erro: $error'),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _selectedMemberId == null
-              ? null
-              : () => _addRegistration(context),
-          child: const Text('Adicionar'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _addRegistration(BuildContext context) async {
-    if (_selectedMemberId == null) return;
-
-    try {
-      await ref
-          .read(eventsRepositoryProvider)
-          .addRegistration(widget.eventId, _selectedMemberId!);
-      ref.invalidate(eventRegistrationsProvider(widget.eventId));
-      ref.invalidate(eventByIdProvider(widget.eventId));
-
-      if (context.mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Inscrito adicionado com sucesso!')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao adicionar inscrito: $e')),
-        );
       }
     }
   }
