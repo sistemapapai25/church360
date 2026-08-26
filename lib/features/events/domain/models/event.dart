@@ -144,19 +144,23 @@ class Event {
 
 /// Modelo de Inscrição em Evento
 class EventRegistration {
+  final String id;
   final String eventId;
   final String memberId;
   final String? memberName; // Computed from join
   final DateTime registeredAt;
   final DateTime? checkedInAt;
+  final String? qrCode;
   final String? ticketId; // ID do ingresso gerado
 
   EventRegistration({
+    required this.id,
     required this.eventId,
     required this.memberId,
     this.memberName,
     required this.registeredAt,
     this.checkedInAt,
+    this.qrCode,
     this.ticketId,
   });
 
@@ -165,6 +169,7 @@ class EventRegistration {
   /// Criar a partir de JSON
   factory EventRegistration.fromJson(Map<String, dynamic> json) {
     return EventRegistration(
+      id: json['id'] as String,
       eventId: json['event_id'] as String,
       memberId: json['user_id'] as String,
       memberName: json['member_name'] as String?,
@@ -172,6 +177,7 @@ class EventRegistration {
       checkedInAt: json['checked_in_at'] != null
           ? DateTime.parse(json['checked_in_at'] as String)
           : null,
+      qrCode: json['qr_code'] as String?,
       ticketId: json['ticket_id'] as String?,
     );
   }
@@ -179,10 +185,12 @@ class EventRegistration {
   /// Converter para JSON
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'event_id': eventId,
       'user_id': memberId,
       'registered_at': registeredAt.toIso8601String(),
       'checked_in_at': checkedInAt?.toIso8601String(),
+      'qr_code': qrCode,
       'ticket_id': ticketId,
     };
   }
