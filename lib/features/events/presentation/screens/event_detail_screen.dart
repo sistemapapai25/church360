@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/utils/share_link_utils.dart';
 
 import '../../domain/models/event.dart';
@@ -10,6 +11,7 @@ import '../providers/events_provider.dart';
 import '../widgets/add_registration_dialog.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../ministries/domain/models/ministry.dart';
+import '../../../members/presentation/providers/members_provider.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/design/community_design.dart';
 
@@ -208,13 +210,29 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
 }
 
 /// Tab de informações do evento
-class _InfoTab extends StatelessWidget {
+class _InfoTab extends ConsumerWidget {
   final Event event;
 
   const _InfoTab({required this.event});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentMember = ref.watch(currentMemberProvider).valueOrNull;
+    EventRegistration? myRegistration;
+    if (currentMember != null && event.requiresRegistration) {
+      final registrations = ref
+          .watch(eventRegistrationsProvider(event.id))
+          .valueOrNull;
+      if (registrations != null) {
+        for (final r in registrations) {
+          if (r.memberId == currentMember.id) {
+            myRegistration = r;
+            break;
+          }
+        }
+      }
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -344,46 +362,88 @@ class _InfoTab extends StatelessWidget {
               ),
           ],
 
-          // Botão de inscrição
+          // Botão de inscrição / status de inscrito
           if (event.requiresRegistration && !event.isPast) ...[
             const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton.icon(
-                onPressed: event.isFull
-                    ? null
-                    : () => context.push('/events/${event.id}/register'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: event.isFree
-                      ? const Color(0xFF38A169)
-                      : Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            if (myRegistration != null) ...[
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed: () => context.push('/events/${event.id}/register'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF38A169),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                ),
-                icon: Icon(
-                  event.isFree
-                      ? Icons.card_giftcard
-                      : Icons.confirmation_number,
-                ),
-                label: Text(
-                  event.isFull
-                      ? 'EVENTO LOTADO'
-                      : event.isFree
-                      ? 'INSCREVER-SE GRATUITAMENTE'
-                      : 'COMPRAR INGRESSO',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                  icon: const Icon(Icons.check_circle),
+                  label: const Text(
+                    'INSCRITO — VER MEU INGRESSO',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ),
+              const SizedBox(height: 20),
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300] ?? Colors.grey),
+                  ),
+                  child: QrImageView(
+                    data: myRegistration.qrCode ??
+                        'EVENT_TICKET:${event.id}:${currentMember!.id}',
+                    version: QrVersions.auto,
+                    size: 180.0,
+                    backgroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ] else
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed: event.isFull
+                      ? null
+                      : () => context.push('/events/${event.id}/register'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: event.isFree
+                        ? const Color(0xFF38A169)
+                        : Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: Icon(
+                    event.isFree
+                        ? Icons.card_giftcard
+                        : Icons.confirmation_number,
+                  ),
+                  label: Text(
+                    event.isFull
+                        ? 'EVENTO LOTADO'
+                        : event.isFree
+                        ? 'INSCREVER-SE GRATUITAMENTE'
+                        : 'COMPRAR INGRESSO',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ],
       ),
