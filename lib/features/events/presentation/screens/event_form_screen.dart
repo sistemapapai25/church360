@@ -12,6 +12,8 @@ import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../domain/models/event_audience.dart';
 import '../widgets/audience_picker.dart';
+import '../../../members/presentation/providers/members_provider.dart';
+import '../../../ministries/presentation/providers/ministries_provider.dart';
 
 /// Tela de formulário de evento (criar/editar)
 class EventFormScreen extends ConsumerStatefulWidget {
@@ -491,9 +493,10 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         _imageUrl = event.imageUrl;
 
         try {
-          _responsibles = await ref
+          final responsibles = await ref
               .read(eventsRepositoryProvider)
               .getEventResponsibles(widget.eventId!);
+          _responsibles = await _withResponsibleNames(responsibles);
         } catch (_) {
           // Falha ao carregar responsáveis não impede editar o resto do
           // evento; a seção some vazia e o usuário pode reconstruir a lista.
@@ -508,6 +511,52 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  /// Resolve o nome de exibição (membro ou ministério) para cada responsável
+  /// carregado do servidor, que só traz os IDs.
+  Future<List<EventAudience>> _withResponsibleNames(
+    List<EventAudience> responsibles,
+  ) async {
+    if (responsibles.isEmpty) return responsibles;
+
+    final needsPeople = responsibles.any(
+      (r) => r.targetKind == EventAudienceTargetKind.person,
+    );
+    final needsMinistries = responsibles.any(
+      (r) => r.targetKind == EventAudienceTargetKind.ministry,
+    );
+
+    final peopleById = needsPeople
+        ? {
+            for (final person in await ref.read(memberDirectoryProvider.future))
+              person.id: person.displayName,
+          }
+        : const <String, String>{};
+    final ministriesById = needsMinistries
+        ? {
+            for (final ministry in await ref.read(allMinistriesProvider.future))
+              ministry.id: ministry.name,
+          }
+        : const <String, String>{};
+
+    return responsibles.map((responsible) {
+      final name = switch (responsible.targetKind) {
+        EventAudienceTargetKind.person => peopleById[responsible.userId],
+        EventAudienceTargetKind.ministry =>
+          ministriesById[responsible.ministryId],
+        EventAudienceTargetKind.group => null,
+      };
+      return EventAudience(
+        id: responsible.id,
+        eventId: responsible.eventId,
+        role: responsible.role,
+        userId: responsible.userId,
+        groupId: responsible.groupId,
+        ministryId: responsible.ministryId,
+        displayName: name ?? responsible.displayName,
+      );
+    }).toList();
   }
 
   @override
