@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../groups/presentation/providers/groups_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../domain/models/event_audience.dart';
 
 /// Abre o bottom sheet de seleção combinável de responsáveis (Pessoas,
-/// Grupos, Ministérios). Retorna `null` se o usuário fechar sem concluir.
+/// Ministérios). Retorna `null` se o usuário fechar sem concluir.
 Future<List<EventAudience>?> showAudiencePicker(
   BuildContext context, {
   required String eventId,
@@ -44,13 +43,13 @@ class _AudiencePickerState extends ConsumerState<AudiencePicker>
   String _query = '';
 
   // Selecionado em todas as abas, chave namespaced por tipo para não colidir
-  // entre os três espaços de id (pessoa/grupo/ministério).
+  // entre os dois espaços de id (pessoa/ministério).
   final Map<String, EventAudience> _selected = {};
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) return;
       setState(() {
@@ -117,7 +116,6 @@ class _AudiencePickerState extends ConsumerState<AudiencePicker>
                 indicatorColor: colorScheme.primary,
                 tabs: const [
                   Tab(text: 'Pessoas'),
-                  Tab(text: 'Grupos'),
                   Tab(text: 'Ministérios'),
                 ],
               ),
@@ -148,20 +146,6 @@ class _AudiencePickerState extends ConsumerState<AudiencePicker>
                   controller: _tabController,
                   children: [
                     _PeopleTab(
-                      eventId: widget.eventId,
-                      query: _query,
-                      selected: _selected,
-                      keyFor: _keyFor,
-                      onToggle: (target) => setState(() {
-                        final key = _keyFor(target);
-                        if (_selected.containsKey(key)) {
-                          _selected.remove(key);
-                        } else {
-                          _selected[key] = target;
-                        }
-                      }),
-                    ),
-                    _GroupsTab(
                       eventId: widget.eventId,
                       query: _query,
                       selected: _selected,
@@ -342,6 +326,7 @@ class _PeopleTab extends ConsumerWidget {
               eventId: eventId,
               role: 'responsible',
               userId: person.id,
+              displayName: person.displayName,
             );
             final isSelected = selected.containsKey(keyFor(target));
             return CheckboxListTile(
@@ -367,68 +352,6 @@ class _PeopleTab extends ConsumerWidget {
       error: (error, stack) => _LoadErrorState(
         message: 'Não foi possível carregar a lista de membros.',
         onRetry: () => ref.invalidate(memberDirectoryProvider),
-      ),
-    );
-  }
-}
-
-class _GroupsTab extends ConsumerWidget {
-  final String eventId;
-  final String query;
-  final Map<String, EventAudience> selected;
-  final String Function(EventAudience) keyFor;
-  final void Function(EventAudience) onToggle;
-
-  const _GroupsTab({
-    required this.eventId,
-    required this.query,
-    required this.selected,
-    required this.keyFor,
-    required this.onToggle,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final groupsAsync = ref.watch(allGroupsProvider);
-
-    return groupsAsync.when(
-      data: (groups) {
-        var filtered = groups;
-        if (query.isNotEmpty) {
-          final q = query.toLowerCase();
-          filtered = filtered.where((g) => g.name.toLowerCase().contains(q)).toList();
-        }
-
-        if (filtered.isEmpty && query.isNotEmpty) {
-          return _SearchEmptyState(query: query);
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: filtered.length,
-          itemBuilder: (context, index) {
-            final group = filtered[index];
-            final target = EventAudience(
-              eventId: eventId,
-              role: 'responsible',
-              groupId: group.id,
-            );
-            final isSelected = selected.containsKey(keyFor(target));
-            return CheckboxListTile(
-              value: isSelected,
-              activeColor: colorScheme.primary,
-              secondary: Icon(Icons.group, color: colorScheme.onSurfaceVariant),
-              title: Text(group.name),
-              onChanged: (_) => onToggle(target),
-            );
-          },
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => _LoadErrorState(
-        message: 'Não foi possível carregar os grupos e ministérios.',
-        onRetry: () => ref.invalidate(allGroupsProvider),
       ),
     );
   }
@@ -475,6 +398,7 @@ class _MinistriesTab extends ConsumerWidget {
               eventId: eventId,
               role: 'responsible',
               ministryId: ministry.id,
+              displayName: ministry.name,
             );
             final isSelected = selected.containsKey(keyFor(target));
             return CheckboxListTile(
