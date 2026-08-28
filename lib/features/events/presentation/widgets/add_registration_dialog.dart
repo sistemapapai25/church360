@@ -1,15 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../providers/events_provider.dart';
+import '../utils/event_full_error.dart';
 
 /// Diálogo público para adicionar um inscrito a um evento.
 class AddRegistrationDialog extends ConsumerStatefulWidget {
   final String eventId;
 
-  const AddRegistrationDialog({super.key, required this.eventId});
+  /// Capacidade máxima do evento, quando conhecida. Serve apenas para
+  /// interpolar o número na copy de `EVENT_FULL` (REG-04) — nenhuma decisão
+  /// de vaga é tomada no cliente. Nulo significa "sem limite" ou "capacidade
+  /// não disponível neste contexto", nunca zero.
+  final int? maxCapacity;
+
+  const AddRegistrationDialog({
+    super.key,
+    required this.eventId,
+    this.maxCapacity,
+  });
 
   @override
   ConsumerState<AddRegistrationDialog> createState() =>
@@ -294,6 +306,38 @@ class _AddRegistrationDialogState
         );
       }
     } catch (e) {
+      // REG-04: a UI antecipa o teto, mas quem decide é a RPC. Se o servidor
+      // recusou por capacidade, a tela achava que havia vaga e perdeu uma
+      // corrida — invalidar evento e lista faz o contador convergir para o
+      // estado real, em vez de deixar o usuário tentando em loop (T-07-04).
+      if (isEventFullError(e)) {
+        AppErrorHandler.log(e, feature: 'events');
+        ref.invalidate(eventByIdProvider(widget.eventId));
+        ref.invalidate(eventRegistrationsProvider(widget.eventId));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(eventFullMessage(widget.maxCapacity))),
+          );
+        }
+        return;
+      }
+
+      // Conflito de duplicidade: a copy genérica de `23505` do AppErrorHandler
+      // ("Esse item ja existe") não diz nada ao responsável — aqui o contexto
+      // é conhecido e a copy do UI-SPEC é mais precisa. Nenhum outro código
+      // específico é sobrescrito: `42501` continua indo pelo handler.
+      if (e is PostgrestException && (e.code ?? '').trim() == '23505') {
+        AppErrorHandler.log(e, feature: 'events');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Este membro já está inscrito neste evento.'),
+            ),
+          );
+        }
+        return;
+      }
+
       if (context.mounted) {
         AppErrorHandler.showSnackBar(
           context,

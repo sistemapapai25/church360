@@ -784,7 +784,10 @@ class _RegistrationsTab extends ConsumerWidget {
   ) async {
     await showDialog(
       context: context,
-      builder: (context) => AddRegistrationDialog(eventId: event.id),
+      builder: (context) => AddRegistrationDialog(
+        eventId: event.id,
+        maxCapacity: event.maxCapacity,
+      ),
     );
   }
 
