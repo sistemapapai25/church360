@@ -5,10 +5,11 @@ import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 import '../../domain/models/event.dart';
 import '../providers/events_provider.dart';
+import '../utils/event_full_error.dart';
 import '../../../members/presentation/providers/members_provider.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
 
 /// Tela de inscrição em evento (pública para membros)
 class EventRegistrationScreen extends ConsumerStatefulWidget {
@@ -43,7 +44,6 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
   Widget build(BuildContext context) {
     final eventAsync = ref.watch(eventByIdProvider(widget.eventId));
     final currentMemberAsync = ref.watch(currentMemberProvider);
-    final currentUser = ref.watch(currentUserProvider);
 
     return eventAsync.when(
       data: (event) {
@@ -140,9 +140,16 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
             appBar: AppBar(title: const Text('Carregando...')),
             body: const Center(child: CircularProgressIndicator()),
           ),
+          // Nenhum `$error` cru na tela: mensagem crua de PostgREST expõe
+          // estrutura interna (T-07-03).
           error: (error, stack) => Scaffold(
             appBar: AppBar(title: const Text('Erro')),
-            body: Center(child: Text('Erro ao carregar perfil: $error')),
+            body: Center(
+              child: Text(
+                AppErrorHandler.userMessage(error, feature: 'events'),
+                textAlign: TextAlign.center,
+              ),
+            ),
           ),
         );
       },
@@ -152,7 +159,12 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
       ),
       error: (error, stack) => Scaffold(
         appBar: AppBar(title: const Text('Erro')),
-        body: Center(child: Text('Erro ao carregar evento: $error')),
+        body: Center(
+          child: Text(
+            AppErrorHandler.userMessage(error, feature: 'events'),
+            textAlign: TextAlign.center,
+          ),
+        ),
       ),
     );
   }
@@ -308,11 +320,25 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Não foi possível concluir a inscrição: $e'),
-          backgroundColor: Colors.red,
-        ),
+
+      // Mesmo contrato do caminho de membro: o visitante também recebe a copy
+      // PT-BR de evento lotado, nunca a mensagem crua do PostgREST (T-07-03).
+      if (isEventFullError(e)) {
+        AppErrorHandler.log(e, feature: 'events');
+        ref.invalidate(eventRegistrationsProvider(event.id));
+        ref.invalidate(eventByIdProvider(event.id));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(eventFullMessage(event.maxCapacity))),
+        );
+        return;
+      }
+
+      AppErrorHandler.showSnackBar(
+        context,
+        e,
+        feature: 'events',
+        fallbackMessage:
+            'Não foi possível concluir a inscrição. Tente novamente.',
       );
     } finally {
       if (mounted) setState(() => _isGuestRegistering = false);
@@ -582,11 +608,29 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
         _isRegistering = false;
       });
 
-      if (mounted) {
+      if (!mounted) return;
+
+      // REG-04: esta tela nunca conta inscritos nem decide se há vaga — só
+      // reage ao veredito da RPC. Quando o servidor recusa por capacidade,
+      // mostra a copy PT-BR única e invalida evento e lista para o contador
+      // convergir (T-07-04).
+      if (isEventFullError(e)) {
+        AppErrorHandler.log(e, feature: 'events');
+        ref.invalidate(eventRegistrationsProvider(event.id));
+        ref.invalidate(eventByIdProvider(event.id));
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao realizar inscrição: $e')),
+          SnackBar(content: Text(eventFullMessage(event.maxCapacity))),
         );
+        return;
       }
+
+      AppErrorHandler.showSnackBar(
+        context,
+        e,
+        feature: 'events',
+        fallbackMessage:
+            'Não foi possível concluir a inscrição. Tente novamente.',
+      );
     }
   }
 

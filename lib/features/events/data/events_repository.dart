@@ -622,6 +622,28 @@ class EventsRepository {
     }
   }
 
+  /// REG-03: "sou responsável por este evento?".
+  ///
+  /// Usa a wrapper de aridade 1 `am_i_event_responsible` (migration
+  /// 20260825000200), que resolve a conta do usuário e o tenant DENTRO do
+  /// servidor. O predicado de aridade 3 existe, mas não pode ser chamado
+  /// daqui: obrigaria o cliente a escolher qual espaço de id enviar, e essa
+  /// escolha é causa documentada de falha silenciosa neste projeto.
+  ///
+  /// Desserialização fail-closed: qualquer retorno que não seja `true`
+  /// vira `false`.
+  Future<bool> isEventResponsible(String eventId) async {
+    try {
+      final res = await _supabase.rpc(
+        'am_i_event_responsible',
+        params: {'p_event_id': eventId},
+      );
+      return (res as bool?) ?? false;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Registrar membro em evento (alias para addRegistration)
   Future<EventRegistration> registerMemberInEvent({
     required String eventId,
