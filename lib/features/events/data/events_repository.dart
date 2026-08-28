@@ -557,14 +557,18 @@ class EventsRepository {
     }
   }
 
-  /// Buscar responsáveis (event_audience, role='responsible') de um evento
-  Future<List<EventAudience>> getEventResponsibles(String eventId) async {
+  /// Buscar a audiência de um evento para um papel específico
+  /// (`responsible`, `visibility` ou `registration`).
+  Future<List<EventAudience>> getEventAudience(
+    String eventId,
+    String role,
+  ) async {
     try {
       final response = await _supabase
           .from('event_audience')
           .select()
           .eq('event_id', eventId)
-          .eq('role', 'responsible');
+          .eq('role', role);
 
       return (response as List)
           .map(
@@ -576,12 +580,21 @@ class EventsRepository {
     }
   }
 
-  /// Substitui o conjunto de responsáveis de um evento. Delete-then-insert
-  /// declarativo (não upsert): torna a operação idempotente para o
-  /// formulário sem exigir `onConflict` sobre a UNIQUE composta de
-  /// `event_audience` (event_id, role, user_id, group_id, ministry_id).
-  Future<void> setEventResponsibles(
+  /// Buscar responsáveis (event_audience, role='responsible') de um evento.
+  /// Casca fina sobre [getEventAudience] — mantida porque é o call site da
+  /// Fase 1 (formulário e `eventResponsiblesProvider`).
+  Future<List<EventAudience>> getEventResponsibles(String eventId) =>
+      getEventAudience(eventId, 'responsible');
+
+  /// Substitui o conjunto de alvos de audiência de um evento para o papel
+  /// recebido. Delete-then-insert declarativo (não upsert): torna a operação
+  /// idempotente para o formulário sem exigir `onConflict` sobre a UNIQUE
+  /// composta de `event_audience`. Nunca converter para `.upsert()` sem
+  /// `onConflict` — o PostgREST infere a PK, o upsert vira INSERT e estoura
+  /// 409 na UNIQUE (incidente CHU-317, quebrou produção).
+  Future<void> setEventAudience(
     String eventId,
+    String role,
     List<EventAudience> targets,
   ) async {
     try {
@@ -589,18 +602,23 @@ class EventsRepository {
           .from('event_audience')
           .delete()
           .eq('event_id', eventId)
-          .eq('role', 'responsible');
+          .eq('role', role);
 
       if (targets.isEmpty) return;
 
       final rows = targets.map((t) {
+        // Mapa de reset com as 4 colunas de alvo explicitamente nulas: o
+        // switch abaixo preenche exatamente uma, que é o que o CHECK
+        // `num_nonnulls(user_id, group_id, ministry_id, rbac_role_id) = 1`
+        // exige do servidor.
         final row = <String, dynamic>{
           'tenant_id': SupabaseConstants.currentTenantId,
           'event_id': eventId,
-          'role': 'responsible',
+          'role': role,
           'user_id': null,
           'group_id': null,
           'ministry_id': null,
+          'rbac_role_id': null,
         };
         switch (t.targetKind) {
           case EventAudienceTargetKind.person:
@@ -624,6 +642,13 @@ class EventsRepository {
       rethrow;
     }
   }
+
+  /// Substitui o conjunto de responsáveis de um evento. Casca fina sobre
+  /// [setEventAudience] — mantida porque é o call site da Fase 1.
+  Future<void> setEventResponsibles(
+    String eventId,
+    List<EventAudience> targets,
+  ) => setEventAudience(eventId, 'responsible', targets);
 
   /// REG-03: "sou responsável por este evento?".
   ///

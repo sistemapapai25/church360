@@ -59,6 +59,21 @@ final eventResponsiblesProvider = FutureProvider.family<List<EventAudience>, Str
   return repo.getEventResponsibles(eventId);
 });
 
+/// VIS-03: audiência de um evento para um papel qualquer
+/// (`responsible`, `visibility` ou `registration`).
+///
+/// `FutureProvider.family` aceita um único argumento, então a chave é um
+/// record `(eventId, role)`. `eventResponsiblesProvider` continua existindo
+/// intacto — é consumido pelo formulário desde a Fase 1.
+final eventAudienceProvider =
+    FutureProvider.family<List<EventAudience>, ({String eventId, String role})>((
+      ref,
+      arg,
+    ) async {
+      final repo = ref.watch(eventsRepositoryProvider);
+      return repo.getEventAudience(arg.eventId, arg.role);
+    });
+
 /// REG-03: o usuário atual é responsável por ESTE evento?
 ///
 /// Vínculo de instância (aquele evento), resolvido no servidor. Não é
