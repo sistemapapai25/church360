@@ -14,6 +14,7 @@ import '../../domain/models/event_audience.dart';
 import '../widgets/audience_picker.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
+import '../../../groups/presentation/providers/groups_provider.dart';
 
 /// Tela de formulário de evento (criar/editar)
 class EventFormScreen extends ConsumerStatefulWidget {
@@ -49,6 +50,12 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   List<String> _locationOptions = [];
   String? _managingError;
   List<EventAudience> _responsibles = [];
+
+  // VIS-01/VIS-03: dois controles independentes, cada um 'all' | 'restricted'.
+  String _visibilityScope = 'all';
+  String _registrationScope = 'all';
+  List<EventAudience> _visibilityTargets = [];
+  List<EventAudience> _registrationTargets = [];
 
   bool _isLoading = false;
   bool _isEditMode = false;
@@ -491,15 +498,25 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         _isMandatory = event.isMandatory;
         _status = event.status;
         _imageUrl = event.imageUrl;
+        _visibilityScope = event.visibilityScope;
+        _registrationScope = event.registrationScope;
 
         try {
-          final responsibles = await ref
-              .read(eventsRepositoryProvider)
-              .getEventResponsibles(widget.eventId!);
-          _responsibles = await _withResponsibleNames(responsibles);
+          final repo = ref.read(eventsRepositoryProvider);
+          final responsibles = await repo.getEventResponsibles(
+            widget.eventId!,
+          );
+          _responsibles = await _withAudienceNames(responsibles);
+          _visibilityTargets = await _withAudienceNames(
+            await repo.getEventAudience(widget.eventId!, 'visibility'),
+          );
+          _registrationTargets = await _withAudienceNames(
+            await repo.getEventAudience(widget.eventId!, 'registration'),
+          );
         } catch (_) {
-          // Falha ao carregar responsáveis não impede editar o resto do
-          // evento; a seção some vazia e o usuário pode reconstruir a lista.
+          // Falha ao carregar responsáveis/audiência não impede editar o
+          // resto do evento; as seções somem vazias e o usuário pode
+          // reconstruir as listas.
         }
       }
     } catch (e) {
@@ -513,18 +530,25 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
     }
   }
 
-  /// Resolve o nome de exibição (membro ou ministério) para cada responsável
-  /// carregado do servidor, que só traz os IDs.
-  Future<List<EventAudience>> _withResponsibleNames(
-    List<EventAudience> responsibles,
+  /// Resolve o nome de exibição (pessoa, grupo, ministério ou cargo) para
+  /// cada alvo de audiência carregado do servidor, que só traz os IDs.
+  /// Serve tanto para Responsáveis quanto para Visibilidade/Elegibilidade.
+  Future<List<EventAudience>> _withAudienceNames(
+    List<EventAudience> audience,
   ) async {
-    if (responsibles.isEmpty) return responsibles;
+    if (audience.isEmpty) return audience;
 
-    final needsPeople = responsibles.any(
+    final needsPeople = audience.any(
       (r) => r.targetKind == EventAudienceTargetKind.person,
     );
-    final needsMinistries = responsibles.any(
+    final needsMinistries = audience.any(
       (r) => r.targetKind == EventAudienceTargetKind.ministry,
+    );
+    final needsGroups = audience.any(
+      (r) => r.targetKind == EventAudienceTargetKind.group,
+    );
+    final needsRoles = audience.any(
+      (r) => r.targetKind == EventAudienceTargetKind.role,
     );
 
     final peopleById = needsPeople
@@ -539,23 +563,39 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
               ministry.id: ministry.name,
           }
         : const <String, String>{};
+    final groupsById = needsGroups
+        ? {
+            for (final group in await ref.read(allGroupsProvider.future))
+              group.id: group.name,
+          }
+        : const <String, String>{};
+    final rolesById = needsRoles
+        ? {
+            for (final role in await ref.read(allRolesProvider.future))
+              role.id: role.name,
+          }
+        : const <String, String>{};
 
-    return responsibles.map((responsible) {
-      final name = switch (responsible.targetKind) {
-        EventAudienceTargetKind.person => peopleById[responsible.userId],
-        EventAudienceTargetKind.ministry =>
-          ministriesById[responsible.ministryId],
-        EventAudienceTargetKind.group => null,
-        EventAudienceTargetKind.role => null,
+    return audience.map((item) {
+      final name = switch (item.targetKind) {
+        EventAudienceTargetKind.person => peopleById[item.userId],
+        EventAudienceTargetKind.ministry => ministriesById[item.ministryId],
+        EventAudienceTargetKind.group => groupsById[item.groupId],
+        // D-07: cargo desativado (ausente de allRolesProvider, que só traz
+        // ativos) continua valendo como alvo — o chip precisa de um rótulo
+        // legível em vez de sumir ou virar null.
+        EventAudienceTargetKind.role =>
+          rolesById[item.rbacRoleId] ?? 'Cargo desativado',
       };
       return EventAudience(
-        id: responsible.id,
-        eventId: responsible.eventId,
-        role: responsible.role,
-        userId: responsible.userId,
-        groupId: responsible.groupId,
-        ministryId: responsible.ministryId,
-        displayName: name ?? responsible.displayName,
+        id: item.id,
+        eventId: item.eventId,
+        role: item.role,
+        userId: item.userId,
+        groupId: item.groupId,
+        ministryId: item.ministryId,
+        rbacRoleId: item.rbacRoleId,
+        displayName: name ?? item.displayName,
       );
     }).toList();
   }
@@ -1271,6 +1311,294 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                     ),
                     const SizedBox(height: 24),
 
+                    // Visibilidade (VIS-01)
+                    Text(
+                      'Visibilidade',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Quem enxerga este evento na lista, na Agenda e por link direto.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    if (_isFixed) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'A audiência vale para todas as ocorrências geradas.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(
+                          value: 'all',
+                          label: Text('Toda a igreja'),
+                          icon: Icon(Icons.public),
+                        ),
+                        ButtonSegment(
+                          value: 'restricted',
+                          label: Text('Somente alvos escolhidos'),
+                          icon: Icon(Icons.lock_outline),
+                        ),
+                      ],
+                      selected: {_visibilityScope},
+                      onSelectionChanged: (newSelection) {
+                        setState(() => _visibilityScope = newSelection.first);
+                      },
+                    ),
+                    if (_visibilityScope == 'restricted') ...[
+                      const SizedBox(height: 12),
+                      if (_visibilityTargets.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Selecione ao menos um alvo. Um evento restrito sem '
+                                  'alvos fica invisível para todos, exceto '
+                                  'responsáveis e quem tem permissão de gestão.',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w400,
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final target in _visibilityTargets)
+                              InputChip(
+                                avatar: Icon(
+                                  switch (target.targetKind) {
+                                    EventAudienceTargetKind.person =>
+                                      Icons.person,
+                                    EventAudienceTargetKind.group =>
+                                      Icons.group,
+                                    EventAudienceTargetKind.ministry =>
+                                      Icons.church,
+                                    EventAudienceTargetKind.role =>
+                                      Icons.badge,
+                                  },
+                                  size: 18,
+                                ),
+                                label: Text(target.displayName ?? target.targetId),
+                                onDeleted: () {
+                                  setState(() {
+                                    _visibilityTargets = _visibilityTargets
+                                        .where((t) => t.targetId != target.targetId ||
+                                            t.targetKind != target.targetKind)
+                                        .toList();
+                                  });
+                                },
+                              ),
+                          ],
+                        ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final result = await showAudiencePicker(
+                            context,
+                            eventId: widget.eventId ?? '',
+                            initialSelection: _visibilityTargets,
+                            role: 'visibility',
+                            title: 'Quem pode ver este evento',
+                            tabs: const [
+                              AudienceTargetTab.groups,
+                              AudienceTargetTab.ministries,
+                              AudienceTargetTab.roles,
+                            ],
+                          );
+                          if (result != null) {
+                            setState(() => _visibilityTargets = result);
+                          }
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('Adicionar alvo de visibilidade'),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+
+                    // Elegibilidade de Inscrição (VIS-03) — só faz sentido
+                    // quando o evento tem inscrição habilitada.
+                    if (_requiresRegistration) ...[
+                      Text(
+                        'Elegibilidade de Inscrição',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Quem pode se inscrever neste evento. É independente da '
+                        'visibilidade: alguém pode ver o evento e não poder se '
+                        'inscrever.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'O responsável pelo evento sempre pode se inscrever, mesmo '
+                        'fora dos alvos.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      if (_isFixed) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'A audiência vale para todas as ocorrências geradas.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(
+                            value: 'all',
+                            label: Text('Toda a igreja'),
+                            icon: Icon(Icons.public),
+                          ),
+                          ButtonSegment(
+                            value: 'restricted',
+                            label: Text('Somente alvos escolhidos'),
+                            icon: Icon(Icons.lock_outline),
+                          ),
+                        ],
+                        selected: {_registrationScope},
+                        onSelectionChanged: (newSelection) {
+                          setState(
+                            () => _registrationScope = newSelection.first,
+                          );
+                        },
+                      ),
+                      if (_registrationScope == 'restricted') ...[
+                        const SizedBox(height: 12),
+                        if (_registrationTargets.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.warning_amber_rounded,
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Selecione ao menos um alvo, ou volte para "Toda a '
+                                    'igreja" — sem alvo, ninguém consegue se inscrever.',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w400,
+                                      color:
+                                          Theme.of(context).colorScheme.error,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final target in _registrationTargets)
+                                InputChip(
+                                  avatar: Icon(
+                                    switch (target.targetKind) {
+                                      EventAudienceTargetKind.person =>
+                                        Icons.person,
+                                      EventAudienceTargetKind.group =>
+                                        Icons.group,
+                                      EventAudienceTargetKind.ministry =>
+                                        Icons.church,
+                                      EventAudienceTargetKind.role =>
+                                        Icons.badge,
+                                    },
+                                    size: 18,
+                                  ),
+                                  label:
+                                      Text(target.displayName ?? target.targetId),
+                                  onDeleted: () {
+                                    setState(() {
+                                      _registrationTargets =
+                                          _registrationTargets
+                                              .where((t) =>
+                                                  t.targetId !=
+                                                      target.targetId ||
+                                                  t.targetKind !=
+                                                      target.targetKind)
+                                              .toList();
+                                    });
+                                  },
+                                ),
+                            ],
+                          ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final result = await showAudiencePicker(
+                              context,
+                              eventId: widget.eventId ?? '',
+                              initialSelection: _registrationTargets,
+                              role: 'registration',
+                              title: 'Quem pode se inscrever',
+                              tabs: const [
+                                AudienceTargetTab.groups,
+                                AudienceTargetTab.ministries,
+                                AudienceTargetTab.roles,
+                              ],
+                            );
+                            if (result != null) {
+                              setState(() => _registrationTargets = result);
+                            }
+                          },
+                          icon: const Icon(Icons.add),
+                          label: const Text('Adicionar alvo de elegibilidade'),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                    ],
+
                     // Requer inscrição
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -1485,6 +1813,33 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
           setState(() => _isLoading = false);
           return;
         }
+      }
+
+      // Validação de Visibilidade/Elegibilidade restritas sem alvo (Pitfall
+      // 6): ver o aviso na UI sobre o efeito de um evento restrito sem alvo.
+      if (_visibilityScope == 'restricted' && _visibilityTargets.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Escolha ao menos um alvo de visibilidade ou volte para "Toda a igreja".',
+            ),
+          ),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+      if (_registrationScope == 'restricted' &&
+          _registrationTargets.isEmpty &&
+          _requiresRegistration) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Escolha ao menos um alvo de elegibilidade ou volte para "Toda a igreja".',
+            ),
+          ),
+        );
+        setState(() => _isLoading = false);
+        return;
       }
 
       // Preparar dados
