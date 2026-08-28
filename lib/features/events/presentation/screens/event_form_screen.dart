@@ -1863,6 +1863,18 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         'is_mandatory': _isMandatory,
         'status': _status,
         'image_url': _imageUrl,
+        // Pitfall 1 (03-RESEARCH.md): uma policy `AS RESTRICTIVE FOR SELECT`
+        // em `public.event` também é avaliada no `INSERT ... RETURNING` e no
+        // `UPDATE ... RETURNING`, e o Postgres LANÇA ERRO se a linha nova não
+        // passar. `createEvent`/`updateEvent` usam `.select().single()`, e a
+        // audiência só existe DEPOIS deste passo — gravar o evento já com o
+        // escopo final quebraria o salvamento do próprio evento restrito
+        // (ninguém está na audiência ainda, nem o autor). Por isso o evento
+        // SEMPRE nasce/atualiza com 'all' aqui; o escopo final só é promovido
+        // depois, quando a audiência já existe. Não "otimizar" isto mandando
+        // o valor final direto.
+        'visibility_scope': 'all',
+        'registration_scope': 'all',
       };
 
       final locationText = _locationController.text.trim();
@@ -1915,7 +1927,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                 fixedData['status'] = 'published';
                 fixedData['batch_id'] = batchId;
                 final created = await repo.createEvent(fixedData);
-                await _persistResponsibles(created.id);
+                await _persistAudienceAndScopes(created.id);
                 count++;
               }
             }
@@ -1938,7 +1950,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
               fixedData['status'] = 'published';
               fixedData['batch_id'] = batchId;
               final created = await repo.createEvent(fixedData);
-              await _persistResponsibles(created.id);
+              await _persistAudienceAndScopes(created.id);
               count++;
               cursor = cursor.add(Duration(days: 7 * _intervalWeeks));
             }
@@ -1964,7 +1976,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                 fixedData['status'] = 'published';
                 fixedData['batch_id'] = batchId;
                 final created = await repo.createEvent(fixedData);
-                await _persistResponsibles(created.id);
+                await _persistAudienceAndScopes(created.id);
                 count++;
               }
               cursor = cursor.add(const Duration(days: 1));
@@ -2007,7 +2019,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
             fixedData['end_date'] = null;
             fixedData['status'] = 'published';
             final created = await repo.createEvent(fixedData);
-            await _persistResponsibles(created.id);
+            await _persistAudienceAndScopes(created.id);
             count++;
           }
         }
@@ -2027,12 +2039,24 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
           final updated = await ref
               .read(eventsRepositoryProvider)
               .updateEvent(widget.eventId!, data);
-          await _persistResponsibles(updated.id);
+          await _persistAudienceAndScopes(updated.id);
           ref.invalidate(eventByIdProvider(widget.eventId!));
           ref.invalidate(eventResponsiblesProvider(widget.eventId!));
+          ref.invalidate(
+            eventAudienceProvider((
+              eventId: widget.eventId!,
+              role: 'visibility',
+            )),
+          );
+          ref.invalidate(
+            eventAudienceProvider((
+              eventId: widget.eventId!,
+              role: 'registration',
+            )),
+          );
         } else {
           final created = await ref.read(eventsRepositoryProvider).createEvent(data);
-          await _persistResponsibles(created.id);
+          await _persistAudienceAndScopes(created.id);
         }
 
         ref.invalidate(allEventsProvider);
@@ -2065,15 +2089,49 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
     }
   }
 
-  /// Grava a lista atual de responsáveis para um evento já salvo. Chamada
-  /// depois de cada `createEvent`/`updateEvent` em `_saveEvent` — inclusive
-  /// dentro do loop de evento fixo/recorrente, onde cada ocorrência gerada
-  /// recebe a mesma lista (Pitfall P1-6).
-  Future<void> _persistResponsibles(String eventId) async {
+  /// Grava responsáveis, alvos de visibilidade e de elegibilidade para um
+  /// evento já salvo com escopo `'all'`, e só então promove os escopos
+  /// finais. Chamada depois de cada `createEvent`/`updateEvent` em
+  /// `_saveEvent` — inclusive dentro do loop de evento fixo/recorrente, onde
+  /// cada ocorrência gerada recebe a mesma audiência (Pitfall P1-6).
+  ///
+  /// Ordem obrigatória (Pitfall 1, 03-RESEARCH.md): o evento já foi gravado
+  /// com `visibility_scope`/`registration_scope` = 'all' pelo mapa `data` em
+  /// `_saveEvent`; a promoção para o escopo final só pode acontecer DEPOIS
+  /// que a audiência existe, porque uma policy `AS RESTRICTIVE FOR SELECT`
+  /// também é avaliada no `UPDATE ... RETURNING` — se o `UPDATE` de escopo
+  /// rodasse antes da audiência, a própria promoção quebraria com erro para
+  /// quem não está em nenhuma linha de `event_audience` ainda.
+  Future<void> _persistAudienceAndScopes(String eventId) async {
     try {
-      await ref
-          .read(eventsRepositoryProvider)
-          .setEventResponsibles(eventId, _responsibles);
+      final repo = ref.read(eventsRepositoryProvider);
+
+      await repo.setEventAudience(eventId, 'responsible', _responsibles);
+      await repo.setEventAudience(
+        eventId,
+        'visibility',
+        _visibilityScope == 'restricted' ? _visibilityTargets : const [],
+      );
+      await repo.setEventAudience(
+        eventId,
+        'registration',
+        _registrationScope == 'restricted'
+            ? _registrationTargets
+            : const [],
+      );
+
+      // Só promove o escopo se algum dos dois deixou de ser 'all' — a
+      // enorme maioria dos eventos hoje é 'all'/'all' e não precisa deste
+      // PATCH extra. Fica DENTRO do try: se qualquer gravação de audiência
+      // acima falhou, este bloco nunca é alcançado e o evento permanece
+      // 'all' (fail-safe do Pitfall 6 — evento restrito sem alvo fica
+      // invisível).
+      if (_visibilityScope != 'all' || _registrationScope != 'all') {
+        await repo.updateEvent(eventId, {
+          'visibility_scope': _visibilityScope,
+          'registration_scope': _registrationScope,
+        });
+      }
     } catch (e) {
       if (mounted) {
         AppErrorHandler.showSnackBar(
@@ -2081,7 +2139,9 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
           e,
           feature: 'events',
           fallbackMessage:
-              'Não foi possível salvar os responsáveis. Verifique a conexão e tente novamente.',
+              'Não foi possível salvar a audiência do evento. O evento foi '
+              'salvo como visível para toda a igreja; reabra e tente '
+              'novamente.',
         );
       }
     }
