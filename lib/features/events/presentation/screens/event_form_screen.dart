@@ -546,6 +546,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         EventAudienceTargetKind.ministry =>
           ministriesById[responsible.ministryId],
         EventAudienceTargetKind.group => null,
+        EventAudienceTargetKind.role => null,
       };
       return EventAudience(
         id: responsible.id,
@@ -1237,6 +1238,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                   EventAudienceTargetKind.person => Icons.person,
                                   EventAudienceTargetKind.group => Icons.group,
                                   EventAudienceTargetKind.ministry => Icons.church,
+                                  EventAudienceTargetKind.role => Icons.badge,
                                 },
                                 size: 18,
                               ),

@@ -612,6 +612,9 @@ class EventsRepository {
           case EventAudienceTargetKind.ministry:
             row['ministry_id'] = t.ministryId;
             break;
+          case EventAudienceTargetKind.role:
+            row['rbac_role_id'] = t.rbacRoleId;
+            break;
         }
         return row;
       }).toList();

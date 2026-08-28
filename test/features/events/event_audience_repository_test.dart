@@ -16,6 +16,7 @@ const _eventId = '11111111-0000-4000-8000-000000000001';
 const _personId = '22222222-0000-4000-8000-000000000002';
 const _groupId = '33333333-0000-4000-8000-000000000003';
 const _ministryId = '44444444-0000-4000-8000-000000000004';
+const _roleId = '55555555-0000-4000-8000-000000000005';
 
 class _EventAudienceApiSpy {
   final List<Uri> deletes = [];
@@ -96,6 +97,105 @@ void main() {
     expect(audience.targetKind, EventAudienceTargetKind.group);
     expect(audience.userId, isNull);
     expect(audience.ministryId, isNull);
+  });
+
+  // Fase 3 — Plano 03, Task 1. Cargo (papel RBAC de public.roles) como quarto
+  // tipo de alvo, espelhando a coluna rbac_role_id do servidor.
+  group('EventAudience — alvo de cargo', () {
+    test('constrói com rbacRoleId e resolve targetKind/targetId de cargo', () {
+      final audience = EventAudience(
+        eventId: _eventId,
+        role: 'visibility',
+        rbacRoleId: _roleId,
+      );
+
+      expect(audience.targetKind, EventAudienceTargetKind.role);
+      expect(audience.targetId, _roleId);
+    });
+
+    test('dois alvos (groupId + rbacRoleId) dispara o assert de alvo único', () {
+      expect(
+        () => EventAudience(
+          eventId: _eventId,
+          role: 'visibility',
+          groupId: _groupId,
+          rbacRoleId: _roleId,
+        ),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+
+    test('nenhum alvo dispara o assert de alvo único', () {
+      expect(
+        () => EventAudience(eventId: _eventId, role: 'visibility'),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+
+    test('fromJson com rbac_role_id resolve targetKind de cargo', () {
+      final audience = EventAudience.fromJson({
+        'id': 'x',
+        'event_id': _eventId,
+        'role': 'visibility',
+        'user_id': null,
+        'group_id': null,
+        'ministry_id': null,
+        'rbac_role_id': _roleId,
+      });
+
+      expect(audience.targetKind, EventAudienceTargetKind.role);
+      expect(audience.targetId, _roleId);
+      expect(audience.userId, isNull);
+      expect(audience.groupId, isNull);
+      expect(audience.ministryId, isNull);
+    });
+
+    test('toJson de alvo de cargo grava rbac_role_id e anula os outros três', () {
+      final json = EventAudience(
+        eventId: _eventId,
+        role: 'registration',
+        rbacRoleId: _roleId,
+      ).toJson();
+
+      expect(json['rbac_role_id'], _roleId);
+      expect(json['user_id'], isNull);
+      expect(json['group_id'], isNull);
+      expect(json['ministry_id'], isNull);
+      expect(json['role'], 'registration');
+      expect(json['event_id'], _eventId);
+    });
+
+    test('alvos pessoa/grupo/ministério não regridem com o quarto tipo', () {
+      final pessoa = EventAudience(
+        eventId: _eventId,
+        role: 'responsible',
+        userId: _personId,
+      );
+      final grupo = EventAudience(
+        eventId: _eventId,
+        role: 'responsible',
+        groupId: _groupId,
+      );
+      final ministerio = EventAudience(
+        eventId: _eventId,
+        role: 'responsible',
+        ministryId: _ministryId,
+      );
+
+      expect(pessoa.targetKind, EventAudienceTargetKind.person);
+      expect(pessoa.targetId, _personId);
+      expect(grupo.targetKind, EventAudienceTargetKind.group);
+      expect(grupo.targetId, _groupId);
+      expect(ministerio.targetKind, EventAudienceTargetKind.ministry);
+      expect(ministerio.targetId, _ministryId);
+
+      for (final alvo in [pessoa, grupo, ministerio]) {
+        expect(alvo.toJson()['rbac_role_id'], isNull);
+      }
+      expect(pessoa.toJson()['user_id'], _personId);
+      expect(grupo.toJson()['group_id'], _groupId);
+      expect(ministerio.toJson()['ministry_id'], _ministryId);
+    });
   });
 
   test('Event.fromJson sem visibility_scope/registration_scope resolve para all', () {
