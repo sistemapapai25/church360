@@ -256,6 +256,31 @@ class _AddRegistrationDialogState
     setState(() => _submitting = true);
 
     try {
+      // REG-03: re-checagem TOCTOU antes de chamar a API. A autorização pode
+      // ter mudado entre a abertura do diálogo e o toque em "Adicionar"; se
+      // mudou, mostra a copy de negação e não chama o repositório. O
+      // servidor nega de qualquer forma (policy do Plano 04).
+      bool podeGerenciar;
+      try {
+        podeGerenciar = await ref.read(
+          canManageEventRegistrationsProvider(widget.eventId).future,
+        );
+      } catch (_) {
+        podeGerenciar = false; // fail-closed
+      }
+      if (!podeGerenciar) {
+        if (context.mounted) {
+          AppErrorHandler.showSnackBar(
+            context,
+            Exception(
+              'Você não tem permissão para gerenciar os inscritos deste evento.',
+            ),
+            feature: 'events',
+          );
+        }
+        return;
+      }
+
       await ref
           .read(eventsRepositoryProvider)
           .addRegistration(widget.eventId, _selectedMemberId!);

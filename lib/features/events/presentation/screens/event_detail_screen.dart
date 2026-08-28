@@ -13,6 +13,7 @@ import '../../../ministries/domain/models/ministry.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/widgets/share_link_dialog.dart';
 
 /// Tela de detalhes do evento
@@ -545,47 +546,55 @@ class _RegistrationsTab extends ConsumerWidget {
 
   const _RegistrationsTab({required this.event});
 
+  /// Verde de sucesso do módulo (mesma constante usada pelo _StatusChip).
+  static const Color _checkInColor = Color(0xFF38A169);
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (!event.requiresRegistration) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.info_outline, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('Este evento não requer inscrição'),
-          ],
-        ),
+      return const _RegistrationsEmptyState(
+        icon: Icons.info_outline,
+        heading: 'Este evento não requer inscrição',
+        body:
+            'Ative "Requer inscrição" na edição do evento para controlar a lista de participantes.',
       );
     }
+
+    // IC-1 (REG-03): a autorização de escrita é composta — permissão global
+    // OU responsável por ESTE evento. `loading` e `error` caem no ramo
+    // seguro, nunca no permissivo (mesmo contrato do PermissionGate:69-73).
+    // A LISTA nunca é escondida: restringir a leitura é escopo da Fase 3, e
+    // gatá-la aqui criaria divergência com o que a RLS ainda entrega.
+    final podeGerenciar = ref
+        .watch(canManageEventRegistrationsProvider(event.id))
+        .when(
+          data: (valor) => valor,
+          loading: () => false,
+          error: (_, __) => false,
+        );
 
     final registrationsAsync = ref.watch(eventRegistrationsProvider(event.id));
 
     return registrationsAsync.when(
       data: (registrations) {
         if (registrations.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text(
-                  'Nenhum inscrito ainda',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                  onPressed: () =>
-                      _showAddRegistrationDialog(context, ref, event),
-                  icon: const Icon(Icons.person_add),
-                  label: const Text('Adicionar Primeiro Inscrito'),
-                ),
-              ],
-            ),
+          return _RegistrationsEmptyState(
+            icon: Icons.people_outline,
+            heading: 'Nenhum inscrito ainda',
+            body: podeGerenciar
+                ? 'Adicione o primeiro inscrito ou compartilhe o link de inscrição do evento.'
+                : 'Quando alguém se inscrever, o nome aparece aqui.',
+            // Sem CTA para quem não pode gerenciar: não oferecer um botão
+            // que o servidor vai negar.
+            action: podeGerenciar
+                ? FilledButton.icon(
+                    onPressed: () => _showAddRegistrationDialog(context, event),
+                    icon: const Icon(Icons.person_add),
+                    label: const Text('Adicionar primeiro inscrito'),
+                  )
+                : null,
           );
         }
 
@@ -629,89 +638,107 @@ class _RegistrationsTab extends ConsumerWidget {
                                 const Icon(
                                   Icons.check_circle,
                                   size: 16,
-                                  color: Colors.green,
+                                  color: _checkInColor,
                                 ),
                                 const SizedBox(width: 4),
+                                // Estado de check-in tem ícone E texto: nunca
+                                // transmitido só por cor.
                                 Text(
                                   'Check-in: ${DateFormat('dd/MM/yyyy HH:mm').format(registration.checkedInAt!)}',
-                                  style: const TextStyle(color: Colors.green),
+                                  style: const TextStyle(color: _checkInColor),
                                 ),
                               ],
                             ),
                         ],
                       ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Botão de check-in
-                          if (!registration.isCheckedIn)
-                            IconButton(
-                              icon: const Icon(
-                                Icons.check_circle_outline,
-                                color: Colors.green,
-                              ),
-                              onPressed: () => _doCheckIn(
-                                context,
-                                ref,
-                                event.id,
-                                registration.memberId,
-                              ),
-                              tooltip: 'Fazer check-in',
+                      // Sem autorização, o trailing inteiro fica ausente —
+                      // ausência silenciosa, como no resto do app.
+                      trailing: podeGerenciar
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Botão de check-in
+                                if (!registration.isCheckedIn)
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.check_circle_outline,
+                                      color: _checkInColor,
+                                    ),
+                                    onPressed: () => _doCheckIn(
+                                      context,
+                                      ref,
+                                      event.id,
+                                      registration.memberId,
+                                    ),
+                                    tooltip: 'Fazer check-in',
+                                  )
+                                else
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.cancel,
+                                      color: colorScheme.tertiary,
+                                    ),
+                                    onPressed: () => _cancelCheckIn(
+                                      context,
+                                      ref,
+                                      event.id,
+                                      registration.memberId,
+                                    ),
+                                    tooltip: 'Cancelar check-in',
+                                  ),
+                                // Botão de remover
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.delete,
+                                    color: colorScheme.error,
+                                  ),
+                                  onPressed: () => _confirmRemoveRegistration(
+                                    context,
+                                    ref,
+                                    event.id,
+                                    registration.memberId,
+                                    registration.memberName ?? 'este membro',
+                                  ),
+                                  tooltip: 'Remover inscrito',
+                                ),
+                              ],
                             )
-                          else
-                            IconButton(
-                              icon: const Icon(
-                                Icons.cancel,
-                                color: Colors.orange,
-                              ),
-                              onPressed: () => _cancelCheckIn(
-                                context,
-                                ref,
-                                event.id,
-                                registration.memberId,
-                              ),
-                              tooltip: 'Cancelar check-in',
-                            ),
-                          // Botão de remover
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _confirmRemoveRegistration(
-                              context,
-                              ref,
-                              event.id,
-                              registration.memberId,
-                              registration.memberName ?? 'este membro',
-                            ),
-                          ),
-                        ],
-                      ),
+                          : null,
                     ),
                   );
                 },
               ),
             ),
-            // FAB para adicionar inscrito
-            Positioned(
-              right: 16,
-              bottom: 16,
-              child: FloatingActionButton(
-                onPressed: () =>
-                    _showAddRegistrationDialog(context, ref, event),
-                child: const Icon(Icons.person_add),
+            // FAB para adicionar inscrito — ausente (sem spinner no lugar)
+            // enquanto o gate não conceder.
+            if (podeGerenciar)
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: FloatingActionButton(
+                  onPressed: () => _showAddRegistrationDialog(context, event),
+                  tooltip: 'Adicionar inscrito',
+                  child: const Icon(Icons.person_add),
+                ),
               ),
-            ),
           ],
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) =>
-          Center(child: Text('Erro ao carregar inscritos: $error')),
+      error: (error, stack) => _RegistrationsEmptyState(
+        icon: Icons.error_outline,
+        iconColor: colorScheme.error,
+        heading: 'Não foi possível carregar os inscritos.',
+        action: OutlinedButton(
+          onPressed: () => ref.invalidate(eventRegistrationsProvider(event.id)),
+          child: const Text('Tentar novamente'),
+        ),
+      ),
     );
   }
 
   Future<void> _showAddRegistrationDialog(
     BuildContext context,
-    WidgetRef ref,
     Event event,
   ) async {
     await showDialog(
@@ -726,20 +753,49 @@ class _RegistrationsTab extends ConsumerWidget {
     String eventId,
     String memberId,
   ) async {
+    // Re-checagem TOCTOU (padrão Tier 1, Pitfall 20): a responsabilidade
+    // pode ter sido removida depois que a tela foi montada. O servidor nega
+    // de qualquer forma — isto é o que faz a UI explicar o motivo em vez de
+    // mostrar uma falha crua.
+    bool podeGerenciar;
+    try {
+      podeGerenciar = await ref.read(
+        canManageEventRegistrationsProvider(eventId).future,
+      );
+    } catch (_) {
+      podeGerenciar = false; // fail-closed, igual ao gate de renderização
+    }
+    if (!podeGerenciar) {
+      if (context.mounted) {
+        AppErrorHandler.showSnackBar(
+          context,
+          Exception(
+            'Você não tem permissão para gerenciar os inscritos deste evento.',
+          ),
+          feature: 'events',
+        );
+      }
+      return;
+    }
+
     try {
       await ref.read(eventsRepositoryProvider).checkIn(eventId, memberId);
       ref.invalidate(eventRegistrationsProvider(eventId));
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Check-in realizado com sucesso!')),
+          const SnackBar(content: Text('Check-in realizado.')),
         );
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
+        AppErrorHandler.showSnackBar(
           context,
-        ).showSnackBar(SnackBar(content: Text('Erro ao fazer check-in: $e')));
+          e,
+          feature: 'events',
+          fallbackMessage:
+              'Não foi possível registrar o check-in. Tente novamente.',
+        );
       }
     }
   }
@@ -750,6 +806,27 @@ class _RegistrationsTab extends ConsumerWidget {
     String eventId,
     String memberId,
   ) async {
+    bool podeGerenciar;
+    try {
+      podeGerenciar = await ref.read(
+        canManageEventRegistrationsProvider(eventId).future,
+      );
+    } catch (_) {
+      podeGerenciar = false;
+    }
+    if (!podeGerenciar) {
+      if (context.mounted) {
+        AppErrorHandler.showSnackBar(
+          context,
+          Exception(
+            'Você não tem permissão para gerenciar os inscritos deste evento.',
+          ),
+          feature: 'events',
+        );
+      }
+      return;
+    }
+
     try {
       await ref.read(eventsRepositoryProvider).cancelCheckIn(eventId, memberId);
       ref.invalidate(eventRegistrationsProvider(eventId));
@@ -757,12 +834,16 @@ class _RegistrationsTab extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Check-in cancelado!')));
+        ).showSnackBar(const SnackBar(content: Text('Check-in cancelado.')));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao cancelar check-in: $e')),
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'events',
+          fallbackMessage:
+              'Não foi possível cancelar o check-in. Tente novamente.',
         );
       }
     }
@@ -777,44 +858,137 @@ class _RegistrationsTab extends ConsumerWidget {
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar remoção'),
-        content: Text('Deseja remover $memberName deste evento?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+      builder: (dialogContext) {
+        final colorScheme = Theme.of(dialogContext).colorScheme;
+        return AlertDialog(
+          title: const Text('Remover inscrito?'),
+          content: Text(
+            '$memberName sai da lista de inscritos deste evento e a vaga volta a ficar livre.',
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Remover'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: FilledButton.styleFrom(
+                backgroundColor: colorScheme.error,
+                foregroundColor: colorScheme.onError,
+              ),
+              child: const Text('Remover'),
+            ),
+          ],
+        );
+      },
     );
 
-    if (confirmed == true && context.mounted) {
-      try {
-        await ref
-            .read(eventsRepositoryProvider)
-            .removeRegistration(eventId, memberId);
-        ref.invalidate(eventRegistrationsProvider(eventId));
-        ref.invalidate(eventByIdProvider(eventId));
+    if (confirmed != true) return;
 
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Inscrito removido com sucesso!')),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erro ao remover inscrito: $e')),
-          );
-        }
+    bool podeGerenciar;
+    try {
+      podeGerenciar = await ref.read(
+        canManageEventRegistrationsProvider(eventId).future,
+      );
+    } catch (_) {
+      podeGerenciar = false;
+    }
+    if (!podeGerenciar) {
+      if (context.mounted) {
+        AppErrorHandler.showSnackBar(
+          context,
+          Exception(
+            'Você não tem permissão para gerenciar os inscritos deste evento.',
+          ),
+          feature: 'events',
+        );
+      }
+      return;
+    }
+
+    try {
+      await ref
+          .read(eventsRepositoryProvider)
+          .removeRegistration(eventId, memberId);
+      ref.invalidate(eventRegistrationsProvider(eventId));
+      ref.invalidate(eventByIdProvider(eventId));
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Inscrito removido.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'events',
+          fallbackMessage:
+              'Não foi possível remover o inscrito. Tente novamente.',
+        );
       }
     }
+  }
+}
+
+/// Estado vazio / de erro da aba Inscritos. Copy vem verbatim do
+/// `01-UI-SPEC.md`; cores saem do `colorScheme`, nunca de `Colors.*` cru.
+class _RegistrationsEmptyState extends StatelessWidget {
+  final IconData icon;
+  final Color? iconColor;
+  final String heading;
+  final String? body;
+  final Widget? action;
+
+  const _RegistrationsEmptyState({
+    required this.icon,
+    required this.heading,
+    this.iconColor,
+    this.body,
+    this.action,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 64,
+              color: iconColor ?? colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              heading,
+              textAlign: TextAlign.center,
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            if (body != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                body!,
+                textAlign: TextAlign.center,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            if (action != null) ...[const SizedBox(height: 24), action!],
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -968,7 +1142,9 @@ class _SchedulesTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => Center(child: Text('Erro: $error')),
+      // CLAUDE.md: nunca renderizar o erro cru para o usuário.
+      error: (error, _) =>
+          const Center(child: Text('Não foi possível carregar as escalas.')),
     );
   }
 
@@ -1043,7 +1219,10 @@ class _EmptySchedulesContent extends ConsumerWidget {
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(child: Text('Erro: $error')),
+          // CLAUDE.md: nunca renderizar o erro cru para o usuário.
+          error: (error, _) => const Center(
+            child: Text('Não foi possível carregar as escalas.'),
+          ),
         ),
       ],
     );
