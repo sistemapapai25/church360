@@ -228,6 +228,10 @@ class _InfoTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    // Nulo aqui significa "evento sem limite de capacidade", não zero.
+    final capacidadeMaxima = event.maxCapacity;
+    final totalInscritos = event.registrationCount ?? 0;
     final currentMember = ref.watch(currentMemberProvider).valueOrNull;
     EventRegistration? myRegistration;
     if (currentMember != null && event.requiresRegistration) {
@@ -339,33 +343,43 @@ class _InfoTab extends ConsumerWidget {
             value: event.requiresRegistration ? 'Sim' : 'Não',
           ),
           if (event.requiresRegistration) ...[
+            // IC-3 (REG-04): três estados mutuamente exclusivos derivados de
+            // `maxCapacity`/`registrationCount`. `maxCapacity == null`
+            // significa "sem limite" e NUNCA pode ser tratado como zero — daí
+            // a comparação explícita com nulo em vez de `?? 0`. A UI só
+            // antecipa o teto; quem decide a vaga é a RPC
+            // `register_member_in_event` (Plano 05).
             _InfoCard(
               icon: Icons.how_to_reg,
               title: 'Inscritos',
-              value:
-                  '${event.registrationCount ?? 0}${event.maxCapacity != null ? ' / ${event.maxCapacity}' : ''}',
+              value: capacidadeMaxima == null
+                  ? '$totalInscritos inscritos'
+                  : '$totalInscritos / $capacidadeMaxima',
+              valueColor: capacidadeMaxima == null
+                  ? null
+                  : (event.isFull ? colorScheme.error : colorScheme.primary),
             ),
             if (event.isFull)
               Container(
-                padding: const EdgeInsets.all(20),
-                decoration:
-                    CommunityDesign.overlayDecoration(
-                      Theme.of(context).colorScheme,
-                    ).copyWith(
-                      color: Colors.red.withValues(alpha: 0.1),
+                padding: const EdgeInsets.all(16),
+                decoration: CommunityDesign.overlayDecoration(colorScheme)
+                    .copyWith(
+                      color: colorScheme.errorContainer,
                       border: Border.all(
-                        color: Colors.red.withValues(alpha: 0.3),
+                        color: colorScheme.error.withValues(alpha: 0.3),
                       ),
                     ),
-                child: const Row(
+                // Acessibilidade: a lotação nunca é transmitida só por cor —
+                // o banner traz ícone E rótulo textual, e o contador em
+                // `error` sempre aparece acompanhado dele.
+                child: Row(
                   children: [
-                    Icon(Icons.warning, color: Colors.white),
-                    SizedBox(width: 8),
+                    Icon(Icons.event_busy, color: colorScheme.onErrorContainer),
+                    const SizedBox(width: 8),
                     Text(
-                      'EVENTO LOTADO',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                      'Evento lotado',
+                      style: CommunityDesign.titleStyle(context).copyWith(
+                        color: colorScheme.onErrorContainer,
                       ),
                     ),
                   ],
@@ -444,7 +458,7 @@ class _InfoTab extends ConsumerWidget {
                   ),
                   label: Text(
                     event.isFull
-                        ? 'EVENTO LOTADO'
+                        ? 'Evento lotado'
                         : event.isFree
                         ? 'INSCREVER-SE GRATUITAMENTE'
                         : 'COMPRAR INGRESSO',
@@ -468,10 +482,15 @@ class _InfoCard extends StatelessWidget {
   final String title;
   final String value;
 
+  /// Cor opcional do valor. Usada pelo contador de capacidade (IC-3): accent
+  /// abaixo do limite, `error` no limite. Nulo mantém a cor padrão do tema.
+  final Color? valueColor;
+
   const _InfoCard({
     required this.icon,
     required this.title,
     required this.value,
+    this.valueColor,
   });
 
   @override
@@ -499,9 +518,10 @@ class _InfoCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: valueColor,
+                  ),
                 ),
               ],
             ),
@@ -549,6 +569,12 @@ class _RegistrationsTab extends ConsumerWidget {
   /// Verde de sucesso do módulo (mesma constante usada pelo _StatusChip).
   static const Color _checkInColor = Color(0xFF38A169);
 
+  /// IC-3 (REG-04): motivo do estado desabilitado. Declarado uma única vez
+  /// para que os dois pontos de adição (FAB e CTA do estado vazio) nunca
+  /// divirjam na explicação dada ao usuário.
+  static const String _lotadoTooltip =
+      'Evento lotado — capacidade máxima atingida';
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -587,12 +613,19 @@ class _RegistrationsTab extends ConsumerWidget {
                 ? 'Adicione o primeiro inscrito ou compartilhe o link de inscrição do evento.'
                 : 'Quando alguém se inscrever, o nome aparece aqui.',
             // Sem CTA para quem não pode gerenciar: não oferecer um botão
-            // que o servidor vai negar.
+            // que o servidor vai negar. Quem pode gerenciar mas esbarra no
+            // teto vê o botão desabilitado com o motivo — nunca escondido,
+            // para não confundir lotação com perda de permissão.
             action: podeGerenciar
-                ? FilledButton.icon(
-                    onPressed: () => _showAddRegistrationDialog(context, event),
-                    icon: const Icon(Icons.person_add),
-                    label: const Text('Adicionar primeiro inscrito'),
+                ? Tooltip(
+                    message: event.isFull ? _lotadoTooltip : '',
+                    child: FilledButton.icon(
+                      onPressed: event.isFull
+                          ? null
+                          : () => _showAddRegistrationDialog(context, event),
+                      icon: const Icon(Icons.person_add),
+                      label: const Text('Adicionar primeiro inscrito'),
+                    ),
                   )
                 : null,
           );
@@ -710,14 +743,22 @@ class _RegistrationsTab extends ConsumerWidget {
               ),
             ),
             // FAB para adicionar inscrito — ausente (sem spinner no lugar)
-            // enquanto o gate não conceder.
+            // enquanto o gate não conceder. Quando o gate concede e o evento
+            // está lotado, o FAB fica VISÍVEL e DESABILITADO com o motivo no
+            // tooltip (IC-3): esconder faria o responsável achar que perdeu a
+            // permissão. As duas condições são ortogonais — a de lotação nunca
+            // desfaz o gate do Plano 06.
             if (podeGerenciar)
               Positioned(
                 right: 16,
                 bottom: 16,
                 child: FloatingActionButton(
-                  onPressed: () => _showAddRegistrationDialog(context, event),
-                  tooltip: 'Adicionar inscrito',
+                  onPressed: event.isFull
+                      ? null
+                      : () => _showAddRegistrationDialog(context, event),
+                  tooltip: event.isFull
+                      ? _lotadoTooltip
+                      : 'Adicionar inscrito',
                   child: const Icon(Icons.person_add),
                 ),
               ),
