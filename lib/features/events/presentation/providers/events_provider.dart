@@ -74,6 +74,37 @@ final eventAudienceProvider =
       return repo.getEventAudience(arg.eventId, arg.role);
     });
 
+/// VIS-03/VIS-04: o usuário atual pode se inscrever NESTE evento?
+///
+/// Resolvido inteiramente no servidor (`am_i_eligible_to_register`, Plano
+/// 06). É insumo de UX: existe para antecipar a recusa em vez de deixar a
+/// pessoa descobrir por erro depois de tentar. **Não é boundary de
+/// segurança** — a autoridade é `register_member_in_event` (Plano 07), e
+/// nenhuma checagem do servidor pode ser afrouxada por causa deste provider.
+final amIEligibleToRegisterProvider = FutureProvider.family<bool, String>((
+  ref,
+  eventId,
+) async {
+  return ref.watch(eventsRepositoryProvider).amIEligibleToRegister(eventId);
+});
+
+/// VIS-03: membros que o servidor considera elegíveis a se inscrever no
+/// evento. Fonte do diálogo "Adicionar Inscrito" quando a inscrição é
+/// restrita.
+///
+/// "Don't Hand-Roll": a resolução de grupo/ministério/cargo acontece dentro
+/// de `list_event_eligible_members`. Reimplementar o filtro em Dart exigiria
+/// expor `user_roles`/`group_member` ao cliente.
+final eligibleMembersProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>((
+      ref,
+      eventId,
+    ) async {
+      return ref
+          .watch(eventsRepositoryProvider)
+          .listEventEligibleMembers(eventId);
+    });
+
 /// REG-03: o usuário atual é responsável por ESTE evento?
 ///
 /// Vínculo de instância (aquele evento), resolvido no servidor. Não é

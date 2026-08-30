@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
@@ -25,6 +26,44 @@ class EventRegistrationScreen extends ConsumerStatefulWidget {
 }
 
 class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScreen> {
+  /// VIS-04: copy PT-BR das recusas que `register_event_guest` (migration
+  /// `20260826000500`) emite por `RAISE EXCEPTION`. O repositório não traduz
+  /// código de erro — por convenção do projeto a copy é da camada de tela —,
+  /// então o mapeamento mora aqui e nenhum literal cru chega ao usuário.
+  static const Map<String, String> _copyDeRecusaDeConvidado = {
+    'EVENT_RESTRICTED':
+        'Este evento é restrito. A inscrição sem login não está disponível; entre com sua conta para verificar se você pode participar.',
+    'EVENT_NOT_PUBLISHED':
+        'As inscrições para este evento ainda não foram abertas.',
+    'EVENT_REGISTRATION_DISABLED':
+        'As inscrições para este evento não estão habilitadas.',
+    'EVENT_ALREADY_FINISHED': 'Este evento já foi finalizado.',
+    'EVENT_ALREADY_STARTED':
+        'Este evento já começou e não aceita novas inscrições.',
+  };
+
+  /// Código de recusa por audiência emitido por `register_member_in_event`
+  /// (Plano 07).
+  static const String _codigoNaoElegivel = 'NOT_ELIGIBLE';
+
+  /// Copy única da recusa por audiência. Usada nos DOIS pontos — pré-checagem
+  /// de UX e `catch` da RPC — porque as duas mensagens não podem divergir.
+  static const String _copyNaoElegivel =
+      'Você não pertence aos grupos, ministérios ou cargos autorizados a se inscrever neste evento.';
+
+  /// Detecta um `RAISE EXCEPTION` do servidor pelo literal do código. Varre
+  /// código, mensagem, detalhes e hint do `PostgrestException` pelo mesmo
+  /// motivo de `isEventFullError`: o PostgREST acomoda o literal em campos
+  /// diferentes conforme a versão.
+  bool _recusaDoServidor(Object error, String codigo) {
+    if (error is PostgrestException) {
+      final haystack =
+          '${error.code ?? ''} ${error.message} ${error.details ?? ''} ${error.hint ?? ''}';
+      return haystack.contains(codigo);
+    }
+    return error.toString().contains(codigo);
+  }
+
   bool _isRegistering = false;
   EventTicket? _generatedTicket;
   bool _isGuestRegistering = false;
@@ -333,6 +372,19 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
         return;
       }
 
+      // VIS-04: recusas nomeadas do servidor viram copy PT-BR. Nenhum
+      // tratamento anterior foi removido — `EVENT_FULL` acima continua
+      // vindo primeiro, e o que não estiver no mapa segue pelo handler.
+      for (final recusa in _copyDeRecusaDeConvidado.entries) {
+        if (_recusaDoServidor(e, recusa.key)) {
+          AppErrorHandler.log(e, feature: 'events');
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(recusa.value)));
+          return;
+        }
+      }
+
       AppErrorHandler.showSnackBar(
         context,
         e,
@@ -577,6 +629,29 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
       _isRegistering = true;
     });
 
+    // VIS-04 / T-08-01: pré-checagem de elegibilidade é UX — evita disparar
+    // uma escrita que o servidor já vai recusar e explica o motivo na hora.
+    // A AUTORIDADE continua sendo `register_member_in_event` (Plano 07); o
+    // mapeamento de recusa no `catch` abaixo permanece OBRIGATÓRIO, porque a
+    // elegibilidade pode mudar entre esta checagem e o envio.
+    //
+    // T-08-05: falha na pré-checagem NÃO bloqueia — em caso de erro segue e
+    // deixa o servidor decidir, que é a autoridade real.
+    bool elegivel = true;
+    try {
+      elegivel = await ref.read(amIEligibleToRegisterProvider(event.id).future);
+    } catch (_) {
+      elegivel = true;
+    }
+    if (!elegivel) {
+      if (!mounted) return;
+      setState(() => _isRegistering = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(_copyNaoElegivel)));
+      return;
+    }
+
     try {
       // Registrar inscrição — qr_code é persistido pelo repositório
       // (determinístico por event_id+user_id), não gerado aqui, pra que o
@@ -621,6 +696,17 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(eventFullMessage(event.maxCapacity))),
         );
+        return;
+      }
+
+      // VIS-04: recusa por audiência (Plano 07). Convive com o tratamento de
+      // `EVENT_FULL` que a Fase 1 estabeleceu, sem substituí-lo — ordem
+      // preservada de propósito: lotação continua sendo checada primeiro.
+      if (_recusaDoServidor(e, _codigoNaoElegivel)) {
+        AppErrorHandler.log(e, feature: 'events');
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text(_copyNaoElegivel)));
         return;
       }
 

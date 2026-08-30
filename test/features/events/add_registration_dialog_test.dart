@@ -17,13 +17,17 @@ const _eventId = '11111111-0000-4000-8000-000000000001';
 Future<void> _pumpDialog(
   WidgetTester tester, {
   required List<Override> overrides,
+  String registrationScope = 'all',
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: overrides,
-      child: const MaterialApp(
+      child: MaterialApp(
         home: Scaffold(
-          body: AddRegistrationDialog(eventId: _eventId),
+          body: AddRegistrationDialog(
+            eventId: _eventId,
+            registrationScope: registrationScope,
+          ),
         ),
       ),
     ),
@@ -150,6 +154,67 @@ void main() {
       );
       expect(find.text('Tentar novamente'), findsOneWidget);
       expect(find.textContaining('Erro:'), findsNothing);
+    },
+  );
+
+  // VIS-03 (Plano 03-08): em evento com inscrição restrita, a fonte da lista
+  // passa a ser `list_event_eligible_members` via `eligibleMembersProvider`.
+  // O diretório completo NÃO pode ser consultado — se fosse, o diálogo
+  // ofereceria gente que o servidor vai recusar.
+  testWidgets(
+    'evento restrito lista só os elegíveis, sem tocar no diretório',
+    (tester) async {
+      await _pumpDialog(
+        tester,
+        registrationScope: 'restricted',
+        overrides: [
+          eligibleMembersProvider(_eventId).overrideWith(
+            (ref) async => [
+              {'id': 'm1', 'full_name': 'Ana Silva'},
+            ],
+          ),
+          memberDirectoryProvider.overrideWith(
+            (ref) async => throw StateError(
+              'diretório não pode ser consultado em evento restrito',
+            ),
+          ),
+          eventRegistrationsProvider(_eventId).overrideWith(
+            (ref) async => const [],
+          ),
+        ],
+      );
+
+      expect(find.text('Ana Silva'), findsOneWidget);
+      expect(
+        find.text('Não foi possível carregar a lista de membros.'),
+        findsNothing,
+      );
+    },
+  );
+
+  // T-08-06 invertido: lista de elegíveis vazia tem copy PRÓPRIA, e não pode
+  // cair no "Todos já estão inscritos" (que seria mentira e esconderia a
+  // causa nº 1 — alvo de cargo só alcança quem tem conta de acesso).
+  testWidgets(
+    'evento restrito sem elegíveis mostra a copy dedicada',
+    (tester) async {
+      await _pumpDialog(
+        tester,
+        registrationScope: 'restricted',
+        overrides: [
+          eligibleMembersProvider(_eventId).overrideWith((ref) async => []),
+          eventRegistrationsProvider(_eventId).overrideWith(
+            (ref) async => const [],
+          ),
+        ],
+      );
+
+      expect(
+        find.text('Nenhum membro elegível para este evento.'),
+        findsOneWidget,
+      );
+      expect(find.text('Todos já estão inscritos'), findsNothing);
+      expect(find.textContaining('conta de acesso'), findsOneWidget);
     },
   );
 }
