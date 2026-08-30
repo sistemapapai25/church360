@@ -672,6 +672,50 @@ class EventsRepository {
     }
   }
 
+  /// VIS-03/VIS-04: "posso me inscrever neste evento?".
+  ///
+  /// Wrapper de aridade 1 (Plano 06) pelo mesmo motivo de
+  /// [isEventResponsible]: os dois espaços de id (conta x auth) são
+  /// resolvidos DENTRO do servidor, e obrigar o cliente a escolher qual
+  /// enviar é causa documentada de falha silenciosa neste projeto.
+  ///
+  /// Desserialização fail-closed: qualquer retorno que não seja `true` vira
+  /// `false`. O resultado é insumo de UX — quem decide a inscrição continua
+  /// sendo a RPC de escrita, que checa de novo no servidor.
+  Future<bool> amIEligibleToRegister(String eventId) async {
+    try {
+      final res = await _supabase.rpc(
+        'am_i_eligible_to_register',
+        params: {'p_event_id': eventId},
+      );
+      return (res as bool?) ?? false;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// VIS-03: membros que o servidor considera elegíveis a se inscrever neste
+  /// evento. Devolve as mesmas colunas de `get_tenant_member_directory`.
+  ///
+  /// A guarda de autorização do chamador está dentro da própria RPC (Plano
+  /// 06): quem não é responsável nem tem `events.manage_registrations`
+  /// recebe lista vazia, não erro. Nunca reimplementar esse filtro aqui.
+  Future<List<Map<String, dynamic>>> listEventEligibleMembers(
+    String eventId,
+  ) async {
+    try {
+      final res = await _supabase.rpc(
+        'list_event_eligible_members',
+        params: {'p_event_id': eventId},
+      );
+      return ((res as List?) ?? const [])
+          .map((json) => Map<String, dynamic>.from(json as Map))
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Registrar membro em evento (alias para addRegistration)
   Future<EventRegistration> registerMemberInEvent({
     required String eventId,

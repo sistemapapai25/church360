@@ -6,15 +6,25 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/utils/share_link_utils.dart';
 
 import '../../domain/models/event.dart';
+import '../../domain/models/event_audience.dart';
 import '../providers/events_provider.dart';
 import '../widgets/add_registration_dialog.dart';
+import '../../../groups/presentation/providers/groups_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../ministries/domain/models/ministry.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/widgets/share_link_dialog.dart';
+
+/// VIS-02/VIS-03: o evento tem algum dos dois controles de audiência
+/// restrito? Os dois são independentes — basta um deles sair de `'all'`
+/// para o evento ser "restrito" do ponto de vista da UI.
+bool _isEventRestricted(Event event) {
+  return event.visibilityScope != 'all' || event.registrationScope != 'all';
+}
 
 /// Tela de detalhes do evento
 class EventDetailScreen extends ConsumerStatefulWidget {
@@ -42,6 +52,17 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     return ShareLinkUtils.buildShareUrl('/events/$eventId');
   }
 
+  /// D-06: evento restrito MANTÉM os dois botões de compartilhar, com aviso.
+  /// O link já é protegido pela RLS de `public.event` (Plano 05) — quem não
+  /// pertence ao alvo abre o link e não enxerga nada. O aviso existe para
+  /// evitar constrangimento social de quem compartilha, **não** como
+  /// controle de segurança. Esconder o botão não protegeria nada e tiraria
+  /// uma capacidade legítima de quem pode ver o evento.
+  String? _shareRestrictionWarning(Event event) {
+    if (!_isEventRestricted(event)) return null;
+    return 'Este evento é restrito. Somente quem pertence aos alvos escolhidos conseguirá abrir este link.';
+  }
+
   void _shareRegistrationLink(Event event) {
     final url = _buildEventRegistrationShareUrl(event.id);
     showShareLinkDialog(
@@ -49,6 +70,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
       title: 'Compartilhar inscrição',
       url: url,
       shareText: 'Inscreva-se no evento "${event.name}":\n$url',
+      warning: _shareRestrictionWarning(event),
     );
   }
 
@@ -59,6 +81,50 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
       title: 'Compartilhar evento',
       url: url,
       shareText: 'Confira o evento "${event.name}":\n$url',
+      warning: _shareRestrictionWarning(event),
+    );
+  }
+
+  /// VIS-02 / T-08-02: depois da RLS do Plano 05, `eventByIdProvider`
+  /// devolvendo `null` deixou de significar só "id inexistente" — passa a
+  /// acontecer legitimamente para evento restrito aberto por link direto.
+  ///
+  /// A copy é deliberadamente NEUTRA e não pode diferenciar "não existe" de
+  /// "você não pode ver": dizer "você não tem acesso a este evento"
+  /// confirmaria a existência do evento para quem não deveria nem saber que
+  /// ele existe. Os três estados (carregando / indisponível / erro) são
+  /// distintos justamente para que "indisponível" não seja confundido com
+  /// falha técnica.
+  Widget _buildUnavailableScreen(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Evento')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.event_busy_outlined,
+                size: 48,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Este evento não está disponível.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () => context.go('/schedule'),
+                icon: const Icon(Icons.calendar_month),
+                label: const Text('Voltar para a Agenda'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -89,10 +155,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     return eventAsync.when(
       data: (event) {
         if (event == null) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('Evento não encontrado')),
-            body: const Center(child: Text('Evento não encontrado')),
-          );
+          return _buildUnavailableScreen(context);
         }
 
         return Scaffold(
@@ -212,9 +275,20 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
         appBar: AppBar(title: const Text('Carregando...')),
         body: const Center(child: CircularProgressIndicator()),
       ),
+      // Estado de ERRO é distinto do estado "indisponível" acima: aqui houve
+      // falha real (rede/servidor) e o usuário pode tentar de novo. Nenhuma
+      // mensagem crua de PostgREST na tela (T-07-03).
       error: (error, stack) => Scaffold(
         appBar: AppBar(title: const Text('Erro')),
-        body: Center(child: Text('Erro ao carregar evento: $error')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              AppErrorHandler.userMessage(error, feature: 'events'),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -225,6 +299,11 @@ class _InfoTab extends ConsumerWidget {
   final Event event;
 
   const _InfoTab({required this.event});
+
+  /// VIS-04: motivo único da recusa antecipada. Declarado uma vez para que o
+  /// rótulo do botão e o tooltip nunca divirjam na explicação dada.
+  static const String _motivoInelegivel =
+      'Inscrição restrita a grupos, ministérios ou cargos específicos';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -282,6 +361,7 @@ class _InfoTab extends ConsumerWidget {
 
           // Status
           _StatusChip(event: event),
+          _RestrictionBadge(event: event),
           const SizedBox(height: 24),
 
           // Nome
@@ -432,47 +512,90 @@ class _InfoTab extends ConsumerWidget {
                 ),
               ),
             ] else
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton.icon(
-                  onPressed: event.isFull
-                      ? null
-                      : () => context.push('/events/${event.id}/register'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: event.isFree
-                        ? const Color(0xFF38A169)
-                        : Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  icon: Icon(
-                    event.isFree
-                        ? Icons.card_giftcard
-                        : Icons.confirmation_number,
-                  ),
-                  label: Text(
-                    event.isFull
-                        ? 'Evento lotado'
-                        : event.isFree
-                        ? 'INSCREVER-SE GRATUITAMENTE'
-                        : 'COMPRAR INGRESSO',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
+              _buildRegistrationCta(context, ref),
           ],
         ],
       ),
     );
+  }
+
+  /// VIS-04: botão de inscrição consciente de elegibilidade.
+  ///
+  /// T-08-01 — este gate é UX, NÃO é boundary de segurança. A autoridade é a
+  /// RPC `register_member_in_event` (Plano 07), que reavalia a audiência no
+  /// servidor a cada tentativa. Nunca afrouxar a checagem do servidor por
+  /// parecer redundante com este botão.
+  ///
+  /// T-08-05 — o ramo `error` mantém o botão HABILITADO de propósito: uma
+  /// falha de rede na RPC de elegibilidade não pode virar bloqueio de UX
+  /// para usuário legítimo. Se ele realmente não puder, o servidor recusa e
+  /// a tela de inscrição traduz a recusa.
+  Widget _buildRegistrationCta(BuildContext context, WidgetRef ref) {
+    final elegivel = ref
+        .watch(amIEligibleToRegisterProvider(event.id))
+        .when(
+          data: (valor) => valor,
+          loading: () => null, // desconhecido: desabilita com indicador
+          error: (_, __) => true, // T-08-05: falha de rede não bloqueia
+        );
+
+    final carregando = elegivel == null;
+    final inelegivel = elegivel == false;
+    final desabilitado = carregando || inelegivel || event.isFull;
+
+    final botao = SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton.icon(
+        onPressed: desabilitado
+            ? null
+            : () => context.push('/events/${event.id}/register'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: event.isFree
+              ? const Color(0xFF38A169)
+              : Theme.of(context).colorScheme.primary,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: Theme.of(
+            context,
+          ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        icon: carregando
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Icon(
+                inelegivel
+                    ? Icons.lock_outline
+                    : event.isFree
+                    ? Icons.card_giftcard
+                    : Icons.confirmation_number,
+              ),
+        label: Text(
+          carregando
+              ? 'Verificando sua inscrição...'
+              : inelegivel
+              ? _motivoInelegivel
+              : event.isFull
+              ? 'Evento lotado'
+              : event.isFree
+              ? 'INSCREVER-SE GRATUITAMENTE'
+              : 'COMPRAR INGRESSO',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+
+    if (!inelegivel) return botao;
+    return Tooltip(message: _motivoInelegivel, child: botao);
   }
 }
 
@@ -529,6 +652,130 @@ class _InfoCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// VIS-02/VIS-03: indicador de que o evento é restrito, e a quem.
+///
+/// T-08-03 (risco aceito): quem consegue renderizar este badge já passou
+/// pela RLS de `public.event` — ou pertence a um dos alvos, ou é responsável
+/// pelo evento, ou tem `events.edit`. Nenhum deles é terceiro não
+/// autorizado, então exibir os nomes dos alvos aqui não é vazamento.
+class _RestrictionBadge extends ConsumerWidget {
+  final Event event;
+
+  const _RestrictionBadge({required this.event});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!_isEventRestricted(event)) return const SizedBox.shrink();
+
+    final colorScheme = Theme.of(context).colorScheme;
+    final alvos = event.visibilityScope != 'all'
+        ? _nomesDosAlvosDeVisibilidade(ref)
+        : const <String>[];
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: colorScheme.outlineVariant),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.lock_outline,
+              size: 18,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Restrito',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  if (alvos.isNotEmpty)
+                    Text(
+                      'Restrito a: ${alvos.join(', ')}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Resolve os nomes dos alvos de VISIBILIDADE. Best-effort por definição:
+  /// audiência ainda carregando, em erro, vazia ou com alvo cujo nome não foi
+  /// resolvido devolve lista vazia (ou omite o item), e o badge mostra apenas
+  /// "Restrito". Uuid cru NUNCA é exibido — não diz nada ao usuário e vaza
+  /// identificador interno.
+  List<String> _nomesDosAlvosDeVisibilidade(WidgetRef ref) {
+    final audiencia = ref
+        .watch(
+          eventAudienceProvider((eventId: event.id, role: 'visibility')),
+        )
+        .valueOrNull;
+    if (audiencia == null || audiencia.isEmpty) return const [];
+
+    // Cada catálogo só é consultado se houver alvo daquele tipo.
+    final grupos = audiencia.any(
+      (a) => a.targetKind == EventAudienceTargetKind.group,
+    )
+        ? {
+            for (final g in ref.watch(allGroupsProvider).valueOrNull ?? [])
+              g.id: g.name,
+          }
+        : const {};
+    final ministerios = audiencia.any(
+      (a) => a.targetKind == EventAudienceTargetKind.ministry,
+    )
+        ? {
+            for (final m in ref.watch(allMinistriesProvider).valueOrNull ?? [])
+              m.id: m.name,
+          }
+        : const {};
+    final cargos = audiencia.any(
+      (a) => a.targetKind == EventAudienceTargetKind.role,
+    )
+        ? {
+            for (final c in ref.watch(allRolesProvider).valueOrNull ?? [])
+              c.id: c.name,
+          }
+        : const {};
+
+    final nomes = <String>[];
+    for (final alvo in audiencia) {
+      final nome = switch (alvo.targetKind) {
+        EventAudienceTargetKind.group => grupos[alvo.groupId],
+        EventAudienceTargetKind.ministry => ministerios[alvo.ministryId],
+        // D-07: cargo desativado some de `allRolesProvider` mas continua
+        // valendo como alvo — rótulo legível em vez de sumir ou virar uuid.
+        EventAudienceTargetKind.role =>
+          cargos[alvo.rbacRoleId] ?? 'Cargo desativado',
+        EventAudienceTargetKind.person => null,
+      };
+      if (nome is String && nome.trim().isNotEmpty) nomes.add(nome);
+    }
+    return nomes;
   }
 }
 
