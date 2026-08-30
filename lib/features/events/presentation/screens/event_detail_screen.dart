@@ -1034,6 +1034,9 @@ class _RegistrationsTab extends ConsumerWidget {
       builder: (context) => AddRegistrationDialog(
         eventId: event.id,
         maxCapacity: event.maxCapacity,
+        // VIS-03: em evento restrito o diálogo lista só elegíveis; em evento
+        // aberto continua usando o diretório de membros (REG-01 intacto).
+        registrationScope: event.registrationScope,
       ),
     );
   }

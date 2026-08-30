@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../members/domain/models/member_directory_entry.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../providers/events_provider.dart';
 import '../utils/event_full_error.dart';
@@ -17,10 +18,18 @@ class AddRegistrationDialog extends ConsumerStatefulWidget {
   /// não disponível neste contexto", nunca zero.
   final int? maxCapacity;
 
+  /// VIS-03: escopo de elegibilidade de inscrição do evento (`'all'` ou
+  /// `'restricted'`). Recebido pronto do chamador, que já tem o [Event] em
+  /// mãos — evita uma segunda leitura de `event` só para decidir a fonte da
+  /// lista. O default `'all'` mantém o comportamento da Fase 1 intacto para
+  /// qualquer call site que não passe o escopo.
+  final String registrationScope;
+
   const AddRegistrationDialog({
     super.key,
     required this.eventId,
     this.maxCapacity,
+    this.registrationScope = 'all',
   });
 
   @override
@@ -41,6 +50,13 @@ class _AddRegistrationDialogState
     super.dispose();
   }
 
+  /// VIS-03: a inscrição deste evento é restrita a alvos de audiência?
+  bool get _inscricaoRestrita => widget.registrationScope != 'all';
+
+  /// Instância única da família de elegíveis deste evento — resolvida uma vez
+  /// para que observar e invalidar apontem sempre para o mesmo provider.
+  late final _fonteDeElegiveis = eligibleMembersProvider(widget.eventId);
+
   @override
   Widget build(BuildContext context) {
     // REG-01: o provider antigo consultava `public.user_account` direto, e a
@@ -49,7 +65,23 @@ class _AddRegistrationDialogState
     // vinha vazia para qualquer responsável comum. `memberDirectoryProvider`
     // usa a RPC `get_tenant_member_directory` (migration 20260807000001),
     // que é `SECURITY DEFINER` e foi criada para o mesmo bug na área Kids.
-    final memberDirectoryAsync = ref.watch(memberDirectoryProvider);
+    //
+    // VIS-03: quando a inscrição é RESTRITA, a fonte muda para a lista de
+    // elegíveis, que devolve as MESMAS colunas vindas de
+    // `list_event_eligible_members`. "Don't Hand-Roll": a resolução de
+    // grupo/ministério/cargo é do servidor; reimplementar esse filtro em Dart
+    // exigiria expor as tabelas de vínculo de cargo e de grupo ao cliente e
+    // criaria uma segunda verdade sobre audiência. Evento aberto continua no
+    // caminho original, intocado — não regredir REG-01 (T-08-06).
+    final memberDirectoryAsync = _inscricaoRestrita
+        ? ref
+              .watch(_fonteDeElegiveis)
+              .whenData(
+                (linhas) => linhas
+                    .map(MemberDirectoryEntry.fromJson)
+                    .toList(growable: false),
+              )
+        : ref.watch(memberDirectoryProvider);
     final registrationsAsync = ref.watch(
       eventRegistrationsProvider(widget.eventId),
     );
@@ -69,6 +101,21 @@ class _AddRegistrationDialogState
                 final availableMembers = directory
                     .where((m) => !registeredMemberIds.contains(m.id))
                     .toList();
+
+                // VIS-03: lista de elegíveis vazia tem causa própria e copy
+                // própria. A medição SQL 13 do Plano 03-01 mostrou que alvo
+                // do tipo cargo só alcança quem tem login — é a causa nº 1 de
+                // "restringi a inscrição e não aparece ninguém". Cair no
+                // "Todos já estão inscritos" aqui seria mentira.
+                if (_inscricaoRestrita && directory.isEmpty) {
+                  return _buildEmptyState(
+                    context,
+                    icon: Icons.lock_outline,
+                    heading: 'Nenhum membro elegível para este evento.',
+                    body:
+                        'A inscrição está restrita aos alvos escolhidos, e alvo do tipo cargo alcança apenas membros com conta de acesso ao aplicativo.',
+                  );
+                }
 
                 if (availableMembers.isEmpty) {
                   return _buildEmptyState(
@@ -254,7 +301,11 @@ class _AddRegistrationDialogState
           ),
           const SizedBox(height: 12),
           OutlinedButton(
-            onPressed: () => ref.invalidate(memberDirectoryProvider),
+            // Invalida a fonte realmente usada: o diretório em evento aberto,
+            // a lista de elegíveis em evento restrito.
+            onPressed: () => _inscricaoRestrita
+                ? ref.invalidate(_fonteDeElegiveis)
+                : ref.invalidate(memberDirectoryProvider),
             child: const Text('Tentar novamente'),
           ),
         ],
