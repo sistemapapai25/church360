@@ -22,6 +22,42 @@ void main() {
     test('NotificationStatus.fromString returns pending as fallback', () {
       expect(NotificationStatus.fromString('unknown_status'), NotificationStatus.pending);
     });
+
+    // Fase 4 / NOTIF-01: o anúncio de publicação de evento passou a ter type
+    // próprio no banco (`event_announcement`). Sem entrada no enum ele cairia
+    // no `orElse` e apareceria como "Geral 📢" na central de notificações.
+    test('NotificationType.fromString maps event_announcement', () {
+      expect(
+        NotificationType.fromString('event_announcement'),
+        NotificationType.eventAnnouncement,
+      );
+    });
+
+    test('event_announcement tem rótulo e ícone próprios, distintos de Geral', () {
+      final type = NotificationType.fromString('event_announcement');
+      expect(type, isNot(NotificationType.general));
+      expect(type.displayName, isNot(NotificationType.general.displayName));
+      expect(type.icon, isNot(NotificationType.eventReminder.icon));
+      expect(type.displayName.trim(), isNotEmpty);
+    });
+
+    test('event_reminder e event_announcement coexistem e são distintos', () {
+      expect(
+        NotificationType.fromString('event_reminder'),
+        NotificationType.eventReminder,
+      );
+      expect(
+        NotificationType.fromString('event_reminder'),
+        isNot(NotificationType.fromString('event_announcement')),
+      );
+    });
+
+    test('NotificationType.fromString ainda cai em general para valor inexistente', () {
+      expect(
+        NotificationType.fromString('valor_inexistente'),
+        NotificationType.general,
+      );
+    });
   });
 
   group('AppNotification model', () {
@@ -118,6 +154,69 @@ void main() {
       expect(changed.meetingReminder, isFalse);
       expect(changed.worshipReminder, isFalse);
       expect(changed.general, isTrue);
+    });
+
+    // Fase 4 / NOTIF-01 (D-04): "Anúncio de novo evento" e "Lembrete de Evento"
+    // são duas preferências independentes, em colunas distintas.
+    test('fromJson usa true como padrão quando event_announcement está ausente', () {
+      final model = NotificationPreferences.fromJson({
+        'id': 'p-3',
+        'user_id': 'u-3',
+        'created_at': '2026-04-01T10:00:00.000Z',
+        'updated_at': '2026-04-01T10:00:00.000Z',
+      });
+
+      expect(model.eventAnnouncement, isTrue);
+    });
+
+    test('fromJson lê event_announcement explícito', () {
+      final model = NotificationPreferences.fromJson({
+        'id': 'p-4',
+        'user_id': 'u-4',
+        'event_announcement': false,
+        'event_reminder': true,
+        'created_at': '2026-04-01T10:00:00.000Z',
+        'updated_at': '2026-04-01T10:00:00.000Z',
+      });
+
+      expect(model.eventAnnouncement, isFalse);
+      expect(model.eventReminder, isTrue);
+    });
+
+    test('toJson grava event_announcement na chave da coluna', () {
+      final model = NotificationPreferences.fromJson({
+        'id': 'p-5',
+        'user_id': 'u-5',
+        'event_announcement': false,
+        'created_at': '2026-04-01T10:00:00.000Z',
+        'updated_at': '2026-04-01T10:00:00.000Z',
+      });
+
+      final json = model.toJson();
+      expect(json.containsKey('event_announcement'), isTrue);
+      expect(json['event_announcement'], isFalse);
+      expect(json['event_reminder'], isTrue);
+    });
+
+    test('copyWith altera só eventAnnouncement e preserva eventReminder (D-04)', () {
+      final base = NotificationPreferences.fromJson({
+        'id': 'p-6',
+        'user_id': 'u-6',
+        'event_announcement': true,
+        'event_reminder': true,
+        'created_at': '2026-04-01T10:00:00.000Z',
+        'updated_at': '2026-04-01T10:00:00.000Z',
+      });
+
+      final changed = base.copyWith(eventAnnouncement: false);
+
+      expect(changed.eventAnnouncement, isFalse);
+      expect(changed.eventReminder, isTrue);
+
+      // E o inverso: desligar o lembrete não mexe no anúncio.
+      final other = base.copyWith(eventReminder: false);
+      expect(other.eventReminder, isFalse);
+      expect(other.eventAnnouncement, isTrue);
     });
   });
 
