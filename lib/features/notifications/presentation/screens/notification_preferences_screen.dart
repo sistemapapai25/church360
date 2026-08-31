@@ -70,9 +70,25 @@ class NotificationPreferencesScreen extends ConsumerWidget {
                 title: 'Eventos e Reuniões',
                 color: Colors.green,
               ),
+              // Fase 4 — NOTIF-01 (D-04): anúncio e lembrete são preferências
+              // independentes, em colunas distintas. Quem quer saber de evento
+              // novo sem ser lembrado antes (ou o contrário) consegue.
+              _PreferenceTile(
+                title: 'Anúncio de novo evento',
+                subtitle:
+                    'Avisar quando um evento for publicado, se você puder vê-lo',
+                value: preferences.eventAnnouncement,
+                onChanged: (value) async {
+                  await actions.updatePreferences(eventAnnouncement: value);
+                },
+              ),
+              // Fase 4 — D-02/D-03: o texto não promete offset fixo. O
+              // responsável cadastra quantos lembretes quiser no evento, ou
+              // nenhum; a preferência só liga/desliga o recebimento.
               _PreferenceTile(
                 title: 'Lembrete de Evento',
-                subtitle: 'Notificar 24 horas antes de um evento',
+                subtitle:
+                    'Receber os lembretes configurados no evento antes da data',
                 value: preferences.eventReminder,
                 onChanged: (value) async {
                   await actions.updatePreferences(eventReminder: value);
