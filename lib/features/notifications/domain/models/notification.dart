@@ -6,6 +6,10 @@ enum NotificationType {
   prayerRequestPrayed('prayer_request_prayed', 'Oração Recebida', '🙏'),
   prayerRequestAnswered('prayer_request_answered', 'Oração Respondida', '✨'),
   eventReminder('event_reminder', 'Lembrete de Evento', '📅'),
+  // Fase 4 — NOTIF-01: aviso automático de publicação de evento, criado pelo
+  // trigger + tick do banco. É irmão de `eventReminder`, não substituto: a
+  // partir da Fase 4 `event_reminder` significa somente o lembrete pré-evento.
+  eventAnnouncement('event_announcement', 'Novo evento', '📣'),
   meetingReminder('meeting_reminder', 'Lembrete de Reunião', '👥'),
   worshipReminder('worship_reminder', 'Lembrete de Culto', '⛪'),
   groupNewMember('group_new_member', 'Novo Membro', '🎉'),
@@ -181,7 +185,11 @@ class NotificationPreferences {
   final bool devotionalDaily;
   final bool prayerRequestPrayed;
   final bool prayerRequestAnswered;
+  // Fase 4 — NOTIF-01 (D-04): duas flags irmãs e independentes. `eventReminder`
+  // controla somente o lembrete pré-evento e `eventAnnouncement` controla o
+  // aviso de publicação — antes a mesma flag fazia os dois papéis.
   final bool eventReminder;
+  final bool eventAnnouncement;
   final bool meetingReminder;
   final bool worshipReminder;
   final bool groupNewMember;
@@ -201,6 +209,7 @@ class NotificationPreferences {
     this.prayerRequestPrayed = true,
     this.prayerRequestAnswered = true,
     this.eventReminder = true,
+    this.eventAnnouncement = true,
     this.meetingReminder = true,
     this.worshipReminder = true,
     this.groupNewMember = true,
@@ -223,6 +232,7 @@ class NotificationPreferences {
       prayerRequestPrayed: json['prayer_request_prayed'] as bool? ?? true,
       prayerRequestAnswered: json['prayer_request_answered'] as bool? ?? true,
       eventReminder: json['event_reminder'] as bool? ?? true,
+      eventAnnouncement: json['event_announcement'] as bool? ?? true,
       meetingReminder: json['meeting_reminder'] as bool? ?? true,
       worshipReminder: json['worship_reminder'] as bool? ?? true,
       groupNewMember: json['group_new_member'] as bool? ?? true,
@@ -246,6 +256,7 @@ class NotificationPreferences {
       'prayer_request_prayed': prayerRequestPrayed,
       'prayer_request_answered': prayerRequestAnswered,
       'event_reminder': eventReminder,
+      'event_announcement': eventAnnouncement,
       'meeting_reminder': meetingReminder,
       'worship_reminder': worshipReminder,
       'group_new_member': groupNewMember,
@@ -268,6 +279,7 @@ class NotificationPreferences {
     bool? prayerRequestPrayed,
     bool? prayerRequestAnswered,
     bool? eventReminder,
+    bool? eventAnnouncement,
     bool? meetingReminder,
     bool? worshipReminder,
     bool? groupNewMember,
@@ -287,6 +299,7 @@ class NotificationPreferences {
       prayerRequestPrayed: prayerRequestPrayed ?? this.prayerRequestPrayed,
       prayerRequestAnswered: prayerRequestAnswered ?? this.prayerRequestAnswered,
       eventReminder: eventReminder ?? this.eventReminder,
+      eventAnnouncement: eventAnnouncement ?? this.eventAnnouncement,
       meetingReminder: meetingReminder ?? this.meetingReminder,
       worshipReminder: worshipReminder ?? this.worshipReminder,
       groupNewMember: groupNewMember ?? this.groupNewMember,

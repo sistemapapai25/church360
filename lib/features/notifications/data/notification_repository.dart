@@ -226,7 +226,19 @@ class NotificationRepository {
     }
   }
 
-  /// Disparar notificação de novo evento para o tenant atual
+  /// Disparar notificação de novo evento para o tenant atual.
+  ///
+  /// OBSOLETO desde a Fase 4 (NOTIF-01 / D-01): nenhuma tela chama este método,
+  /// e o disparo do anúncio passou a ser automático no banco (trigger de
+  /// publicação do evento + tick que consome a outbox, Plano 04-03). Manter a
+  /// chamada da RPC `notify_event_announcement` viva no cliente criaria um
+  /// caminho paralelo de fan-out fora do filtro de audiência.
+  /// Dívida registrada: a remoção deste método (e da RPC) é mudança de API
+  /// independente de NOTIF-01, fora do escopo deste plano.
+  @Deprecated(
+    'Fase 4 / D-01: o anúncio é disparado por trigger + tick no banco. '
+    'Não chamar — caminho paralelo sem filtro de audiência.',
+  )
   Future<int> notifyEventAnnouncement({
     String? title,
     String? body,
@@ -328,6 +340,9 @@ class NotificationRepository {
     bool? prayerRequestPrayed,
     bool? prayerRequestAnswered,
     bool? eventReminder,
+    // Fase 4 / NOTIF-01 (D-04): preferência do anúncio de publicação, gravada
+    // em coluna própria — independente de `event_reminder`.
+    bool? eventAnnouncement,
     bool? meetingReminder,
     bool? worshipReminder,
     bool? groupNewMember,
@@ -346,6 +361,7 @@ class NotificationRepository {
     if (prayerRequestPrayed != null) updates['prayer_request_prayed'] = prayerRequestPrayed;
     if (prayerRequestAnswered != null) updates['prayer_request_answered'] = prayerRequestAnswered;
     if (eventReminder != null) updates['event_reminder'] = eventReminder;
+    if (eventAnnouncement != null) updates['event_announcement'] = eventAnnouncement;
     if (meetingReminder != null) updates['meeting_reminder'] = meetingReminder;
     if (worshipReminder != null) updates['worship_reminder'] = worshipReminder;
     if (groupNewMember != null) updates['group_new_member'] = groupNewMember;

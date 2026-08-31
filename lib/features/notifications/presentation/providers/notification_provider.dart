@@ -155,6 +155,8 @@ class NotificationActions {
     bool? prayerRequestPrayed,
     bool? prayerRequestAnswered,
     bool? eventReminder,
+    // Fase 4 / NOTIF-01 (D-04): repassado 1 para 1 ao repositório.
+    bool? eventAnnouncement,
     bool? meetingReminder,
     bool? worshipReminder,
     bool? groupNewMember,
@@ -170,6 +172,7 @@ class NotificationActions {
       prayerRequestPrayed: prayerRequestPrayed,
       prayerRequestAnswered: prayerRequestAnswered,
       eventReminder: eventReminder,
+      eventAnnouncement: eventAnnouncement,
       meetingReminder: meetingReminder,
       worshipReminder: worshipReminder,
       groupNewMember: groupNewMember,
