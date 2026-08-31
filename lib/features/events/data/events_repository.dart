@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/event.dart';
 import '../domain/models/event_audience.dart';
+import '../domain/models/event_reminder.dart';
 
 /// Repository para gerenciar eventos
 class EventsRepository {
@@ -649,6 +650,62 @@ class EventsRepository {
     String eventId,
     List<EventAudience> targets,
   ) => setEventAudience(eventId, 'responsible', targets);
+
+  /// Fase 4 — NOTIF-02. Lembretes configuráveis de um evento (D-02/D-03).
+  /// Ordenado por `offset_minutes` decrescente: o lembrete mais distante do
+  /// evento ("48h antes") aparece primeiro, seguido do mais próximo
+  /// ("2h antes") — leitura natural para quem está montando o formulário.
+  Future<List<EventReminder>> getEventReminders(String eventId) async {
+    try {
+      final response = await _supabase
+          .from('event_reminder')
+          .select()
+          .eq('event_id', eventId)
+          .order('offset_minutes', ascending: false);
+
+      return (response as List)
+          .map(
+            (json) => EventReminder.fromJson(Map<String, dynamic>.from(json)),
+          )
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Substitui o conjunto de lembretes de um evento. Delete-then-insert
+  /// declarativo (não upsert) — mesmo padrão de [setEventAudience] e pelo
+  /// mesmo motivo: a UNIQUE de `event_reminder` é composta
+  /// (`event_id`, `offset_minutes`), e um `.upsert()` sem `onConflict`
+  /// faria o PostgREST inferir a PK (`id`), virando um INSERT puro que
+  /// estoura 409 na UNIQUE (incidente CHU-317, quebrou produção).
+  ///
+  /// Lista vazia é estado válido (D-03: evento sem nenhum lembrete) —
+  /// deleta e retorna, sem nenhum insert.
+  Future<void> setEventReminders(
+    String eventId,
+    List<EventReminder> reminders,
+  ) async {
+    try {
+      await _supabase.from('event_reminder').delete().eq('event_id', eventId);
+
+      if (reminders.isEmpty) return;
+
+      final rows = reminders
+          .map(
+            (r) => <String, dynamic>{
+              'tenant_id': SupabaseConstants.currentTenantId,
+              'event_id': eventId,
+              'offset_minutes': r.offsetMinutes,
+            },
+          )
+          .toList();
+
+      await _supabase.from('event_reminder').insert(rows);
+    } catch (e) {
+      rethrow;
+    }
+  }
 
   /// REG-03: "sou responsável por este evento?".
   ///

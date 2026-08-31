@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/events_repository.dart';
 import '../../domain/models/event.dart';
 import '../../domain/models/event_audience.dart';
+import '../../domain/models/event_reminder.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 
 /// Provider do repository de eventos
@@ -57,6 +58,12 @@ final eventRegistrationsProvider = FutureProvider.family<List<EventRegistration>
 final eventResponsiblesProvider = FutureProvider.family<List<EventAudience>, String>((ref, eventId) async {
   final repo = ref.watch(eventsRepositoryProvider);
   return repo.getEventResponsibles(eventId);
+});
+
+/// Fase 4 — NOTIF-02. Lembretes configuráveis (D-02/D-03) de um evento.
+final eventRemindersProvider = FutureProvider.family<List<EventReminder>, String>((ref, eventId) async {
+  final repo = ref.watch(eventsRepositoryProvider);
+  return repo.getEventReminders(eventId);
 });
 
 /// VIS-03: audiência de um evento para um papel qualquer

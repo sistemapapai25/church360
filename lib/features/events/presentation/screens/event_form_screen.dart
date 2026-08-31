@@ -11,7 +11,9 @@ import '../../../../core/widgets/image_upload_widget.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../domain/models/event_audience.dart';
+import '../../domain/models/event_reminder.dart';
 import '../widgets/audience_picker.dart';
+import '../widgets/reminder_picker.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
@@ -56,6 +58,9 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   String _registrationScope = 'all';
   List<EventAudience> _visibilityTargets = [];
   List<EventAudience> _registrationTargets = [];
+
+  // Fase 4 — NOTIF-02 (D-02/D-03): vazio por padrão, nunca pré-preenchido.
+  List<EventReminder> _reminders = [];
 
   bool _isLoading = false;
   bool _isEditMode = false;
@@ -513,6 +518,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
           _registrationTargets = await _withAudienceNames(
             await repo.getEventAudience(widget.eventId!, 'registration'),
           );
+          _reminders = await repo.getEventReminders(widget.eventId!);
         } catch (_) {
           // Falha ao carregar responsáveis/audiência não impede editar o
           // resto do evento; as seções somem vazias e o usuário pode
@@ -1599,6 +1605,128 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                       const SizedBox(height: 24),
                     ],
 
+                    // Lembretes (NOTIF-02, D-02/D-03)
+                    Text(
+                      'Lembretes',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Enviado a quem está inscrito, no tempo escolhido antes '
+                      'do evento.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    if (_isFixed) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Os lembretes valem para todas as ocorrências geradas.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    if (_reminders.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.notifications_off_outlined,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Nenhum lembrete configurado',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Este evento não vai disparar lembrete algum. '
+                                    'Adicione um ou mais abaixo se quiser avisar '
+                                    'os inscritos antes da data.',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w400,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final reminder in _reminders)
+                            InputChip(
+                              avatar: const Icon(
+                                Icons.notifications_active_outlined,
+                                size: 18,
+                              ),
+                              label: Text(reminder.label),
+                              onDeleted: () {
+                                setState(() {
+                                  _reminders = _reminders
+                                      .where(
+                                        (r) => r.offsetMinutes !=
+                                            reminder.offsetMinutes,
+                                      )
+                                      .toList();
+                                });
+                              },
+                            ),
+                        ],
+                      ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final result = await showReminderPicker(
+                          context,
+                          existingOffsets: _reminders
+                              .map((r) => r.offsetMinutes)
+                              .toList(),
+                        );
+                        if (result != null) {
+                          setState(() {
+                            _reminders = [
+                              ..._reminders,
+                              EventReminder(
+                                eventId: widget.eventId ?? '',
+                                offsetMinutes: result,
+                              ),
+                            ];
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Adicionar lembrete'),
+                    ),
+                    const SizedBox(height: 24),
+
                     // Requer inscrição
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -2119,6 +2247,9 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
             ? _registrationTargets
             : const [],
       );
+      // NOTIF-02 (D-02/D-03): grava a lista de lembretes tal como está no
+      // estado local — vazia é estado válido e só deleta, sem inserir nada.
+      await repo.setEventReminders(eventId, _reminders);
 
       // Só promove o escopo se algum dos dois deixou de ser 'all' — a
       // enorme maioria dos eventos hoje é 'all'/'all' e não precisa deste
@@ -2139,9 +2270,9 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
           e,
           feature: 'events',
           fallbackMessage:
-              'Não foi possível salvar a audiência do evento. O evento foi '
-              'salvo como visível para toda a igreja; reabra e tente '
-              'novamente.',
+              'Não foi possível salvar a audiência/lembretes do evento. O '
+              'evento foi salvo como visível para toda a igreja; reabra e '
+              'tente novamente.',
         );
       }
     }
