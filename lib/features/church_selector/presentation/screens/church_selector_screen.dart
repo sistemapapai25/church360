@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/navigation/app_router.dart';
 import '../../../../core/widgets/app_restart_scope.dart';
 import '../../../branches/domain/models/tenant_unit.dart';
 import '../../../branches/presentation/providers/branches_provider.dart';
@@ -31,6 +32,15 @@ class _ChurchSelectorScreenState extends ConsumerState<ChurchSelectorScreen> {
 
   Future<void> _selectUnit(TenantUnit unit) async {
     if (_switchingTenantId != null) return;
+
+    // D-04 / LINK-03: o desvio por `/select-church` não pode perder o destino
+    // do link. O `?redirect=` é propagado até aqui pela LoginScreen e lido
+    // ANTES dos `await` (uso síncrono do context), já saneado por
+    // [safeRedirect] — destino inválido volta a ser `/home`, em silêncio.
+    final destino = safeRedirect(
+      GoRouterState.of(context).uri.queryParameters['redirect'],
+    );
+
     setState(() => _switchingTenantId = unit.tenantId);
 
     try {
@@ -55,10 +65,12 @@ class _ChurchSelectorScreenState extends ConsumerState<ChurchSelectorScreen> {
 
       final canPop = context.canPop();
       if (canPop) {
+        // A ordem importa: `restart` ANTES de navegar (reinicia o cache dos
+        // providers tenant-scoped).
         AppRestartScope.restart(context);
-        context.go('/home');
+        context.go(destino ?? '/home');
       } else {
-        context.go('/home');
+        context.go(destino ?? '/home');
       }
     } catch (e) {
       if (!mounted) return;
