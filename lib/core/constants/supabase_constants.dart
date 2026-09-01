@@ -16,6 +16,17 @@ class SupabaseConstants {
   // de app.church360.com.br enquanto o CNAME desse subdomínio não propaga.
   static const String authRedirectUrl = 'https://church360-app.vercel.app/';
 
+  // LINK-01 (Fase 2): host canônico do app na web. É a fonte ÚNICA do domínio
+  // usado para montar qualquer link compartilhável (ShareLinkUtils) e é o mesmo
+  // domínio que vai para o `assetlinks.json` (Android App Links), para o AASA
+  // (iOS Universal Links) e para o intent-filter do manifest nos Planos 06/07.
+  // Trocar este domínio depois exige NOVA RELEASE nas duas lojas e mata todos os
+  // links já compartilhados — por isso ele vive numa constante só.
+  // Deliberadamente separado de `authRedirectUrl` (que é consumida pelo fluxo de
+  // auth do Supabase e tem allowlist própria no painel), mesmo com o mesmo valor
+  // hoje: os dois podem divergir sem que um quebre o outro.
+  static const String appWebBaseUrl = 'https://church360-app.vercel.app/';
+
   // ⚠️ NUNCA exponha o service_role key no app!
   // Ele deve ser usado apenas em scripts backend
   static const String defaultTenantId = 'd5a1cbee-99f4-4c12-8bd8-55c8c22c2645';

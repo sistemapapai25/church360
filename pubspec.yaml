@@ -29,6 +29,11 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # LINK-01 (Fase 2): vem da SDK, nao do pub — nenhuma dependencia de terceiro.
+  # Fornece usePathUrlStrategy() (URL sem '#'), que e no-op fora do web.
+  flutter_web_plugins:
+    sdk: flutter
+
   # Icons
   cupertino_icons: ^1.0.8
   font_awesome_flutter: ^10.7.0

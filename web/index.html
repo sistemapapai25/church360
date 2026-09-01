@@ -31,6 +31,25 @@
   <title>PAPAI</title>
 </head>
 <body>
+  <!--
+    LINK-01 (Fase 2): compatibilidade com links JA compartilhados no formato
+    "#/rota" (hash strategy, anterior ao usePathUrlStrategy() do main.dart).
+    Com a path strategy ativa o Flutter le window.location.pathname e IGNORA o
+    fragmento, entao "/#/events/<id>" chegaria como "/" e cairia no splash ->
+    /home, perdendo o evento silenciosamente (criterio de sucesso #4).
+    Precisa rodar ANTES do flutter_bootstrap.js para que o Flutter ja leia o
+    path corrigido. replaceState e sempre same-origin por construcao — o
+    fragmento nunca sai do documento atual (T-02-01).
+  -->
+  <script>
+    (function () {
+      var h = window.location.hash;
+      if (h && h.length > 2 && h.charAt(1) === '/') {
+        var target = h.substring(1); // "#/events/x?y" -> "/events/x?y"
+        window.history.replaceState(null, '', target);
+      }
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
