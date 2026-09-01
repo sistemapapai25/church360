@@ -1135,13 +1135,59 @@ final appRouter = GoRouter(
     // =====================================================
     // ROTAS: EVENTOS
     // =====================================================
+    // LINK-02 / Plano 02-05 (Achado #10): as 3 rotas de GESTÃO de evento
+    // (`/events/types`, `/events/new`, `/events/:id/edit`) tinham `builder` cru.
+    // Dentro do app elas nem são navegadas por path — a lista abre o formulário
+    // por `MaterialPageRoute` —, então o único caminho até elas é URL digitada
+    // ou link externo, que é exatamente o alcance que o App Link do Plano 02-07
+    // amplia.
+    //
+    // Por que `PermissionOrLevelRoute` com fallback em `leader` e não
+    // `PermissionOnlyRoute` puro: `events.edit` hoje está concedido só a
+    // "Pastor Senior" (38 pessoas) por decisão explícita do usuário registrada
+    // em STATE.md (2026-08-29). Um gate puro jogaria um líder responsável pelo
+    // próprio evento numa `PermissionDeniedScreen` seca, contrariando a
+    // exigência já registrada de mensagem explicativa em vez de erro cru. O
+    // fallback de nível preserva esse caminho e ainda assim bloqueia
+    // membro/frequentador/visitante, que é a lacuna real. A autoridade continua
+    // sendo a RLS de `public.event` e a RPC `register_member_in_event` — o gate
+    // de rota é UX, NÃO é boundary de segurança.
+    //
+    // `/events` (lista), `/events/:id` e `/events/:id/register` seguem SEM gate
+    // de propósito: a lista é filtrada pela RLS, e as duas últimas são públicas
+    // por desenho (fluxo de convidado, `register_event_guest` com
+    // `GRANT EXECUTE ... TO anon`) — são justamente o destino do deep link
+    // (decisão do Plano 02-03, desenho A do Achado #9). Não "consertar".
+    //
+    // O inventário das rotas que PERMANECEM sem gate (risco MÉDIO do Achado
+    // #10) está em `.planning/phases/02-link-deep-linking/02-05-SUMMARY.md`,
+    // com decisão explícita de adiar.
     GoRoute(
       path: '/events',
       builder: (context, state) => const EventsListScreen(),
     ),
     GoRoute(
       path: '/events/types',
-      builder: (context, state) => const EventTypesManageScreen(),
+      builder: (context, state) => const PermissionOrLevelRoute(
+        permission: 'events.create',
+        requiredLevel: AccessLevelType.leader,
+        child: EventTypesManageScreen(),
+      ),
+    ),
+    // ORDEM IMPORTA: o go_router casa a PRIMEIRA rota declarada que bate
+    // (`RouteConfiguration._getLocRouteMatches` percorre `routes` em ordem e
+    // devolve o primeiro match não vazio). Enquanto `/events/new` ficou
+    // declarada DEPOIS de `/events/:id`, ela era sombreada — a URL abria a
+    // `EventDetailScreen` com `eventId: 'new'` e o `builder` daqui nunca rodava,
+    // o que deixaria este gate como código morto. Não mover para baixo de
+    // `/events/:id` de novo.
+    GoRoute(
+      path: '/events/new',
+      builder: (context, state) => const PermissionOrLevelRoute(
+        permission: 'events.create',
+        requiredLevel: AccessLevelType.leader,
+        child: EventFormScreen(),
+      ),
     ),
     GoRoute(
       path: '/events/:id',
@@ -1151,14 +1197,14 @@ final appRouter = GoRouter(
       },
     ),
     GoRoute(
-      path: '/events/new',
-      builder: (context, state) => const EventFormScreen(),
-    ),
-    GoRoute(
       path: '/events/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return EventFormScreen(eventId: id);
+        return PermissionOrLevelRoute(
+          permission: 'events.edit',
+          requiredLevel: AccessLevelType.leader,
+          child: EventFormScreen(eventId: id),
+        );
       },
     ),
     GoRoute(
@@ -1560,61 +1606,137 @@ final appRouter = GoRouter(
     // =====================================================
     // ROTAS: SISTEMA DE PERMISSÕES
     // =====================================================
+    // LINK-02 / Plano 02-05 (Achado #10 da pesquisa da Fase 2): estas 12 rotas
+    // tinham `builder` cru e as 12 telas não fazem nenhuma checagem interna
+    // (grep de PermissionGate|currentUserHasPermission|isAdminProvider|OwnerOnly|
+    // hasPermission|isOwner|AccessDenied|role_global deu 0 ocorrência nelas).
+    // Qualquer autenticado do tenant que digitasse a URL abria a UI de
+    // administração de permissões — e publicar um App Link (Plano 02-07) amplia
+    // o alcance de URLs digitáveis.
+    //
+    // Por que `PermissionOrLevelRoute` e não `PermissionOnlyRoute`: medição do
+    // planejamento confirmou que o code `permissions.manage` NÃO EXISTE no
+    // catálogo RBAC deste projeto (o único code de `permissions.*` presente é
+    // `permissions.dashboard_access_gate`). Gatar com `PermissionOnlyRoute` e um
+    // code inexistente negaria a TODO MUNDO, inclusive ao Owner. O wrapper com
+    // fallback cai para o nível legado `AccessLevelType.admin` quando a
+    // permissão é negada — preserva quem hoje administra permissões e ainda
+    // assim bloqueia membro/frequentador/visitante, que é a lacuna real do
+    // Achado #10. O code fica pré-cabeado para o dia em que for cadastrado no
+    // catálogo, sem exigir nova mudança de rota.
+    //
+    // ATENÇÃO: este gate é UX, NÃO é boundary de segurança. A autoridade é a
+    // checagem de permissão dentro das RPCs de administração — CHU-326
+    // endureceu `assign_role_to_user`/`remove_user_role`. O item A2 do
+    // Assumptions Log da pesquisa (as DEMAIS RPCs de permissão terem proteção
+    // equivalente) segue NÃO VERIFICADO no servidor.
+    //
+    // O inventário das rotas que PERMANECEM sem gate (risco MÉDIO do Achado
+    // #10) está em `.planning/phases/02-link-deep-linking/02-05-SUMMARY.md`,
+    // com decisão explícita de adiar.
     GoRoute(
       path: '/permissions',
-      builder: (context, state) => const PermissionsScreen(),
+      builder: (context, state) => const PermissionOrLevelRoute(
+        permission: 'permissions.manage',
+        requiredLevel: AccessLevelType.admin,
+        child: PermissionsScreen(),
+      ),
     ),
     GoRoute(
       path: '/permissions/roles',
-      builder: (context, state) => const RolesListScreen(),
+      builder: (context, state) => const PermissionOrLevelRoute(
+        permission: 'permissions.manage',
+        requiredLevel: AccessLevelType.admin,
+        child: RolesListScreen(),
+      ),
     ),
     GoRoute(
       path: '/permissions/roles/create',
-      builder: (context, state) => const RoleFormScreen(),
+      builder: (context, state) => const PermissionOrLevelRoute(
+        permission: 'permissions.manage',
+        requiredLevel: AccessLevelType.admin,
+        child: RoleFormScreen(),
+      ),
     ),
     GoRoute(
       path: '/permissions/roles/edit/:roleId',
-      builder: (context, state) =>
-          RoleFormScreen(roleId: state.pathParameters['roleId']),
+      builder: (context, state) => PermissionOrLevelRoute(
+        permission: 'permissions.manage',
+        requiredLevel: AccessLevelType.admin,
+        child: RoleFormScreen(roleId: state.pathParameters['roleId']),
+      ),
     ),
     GoRoute(
       path: '/permissions/roles/:roleId/permissions',
-      builder: (context, state) => RolePermissionsScreen(
-        roleId: state.pathParameters['roleId']!,
-        initialLevel: int.tryParse(state.uri.queryParameters['level'] ?? ''),
+      builder: (context, state) => PermissionOrLevelRoute(
+        permission: 'permissions.manage',
+        requiredLevel: AccessLevelType.admin,
+        child: RolePermissionsScreen(
+          roleId: state.pathParameters['roleId']!,
+          initialLevel: int.tryParse(state.uri.queryParameters['level'] ?? ''),
+        ),
       ),
     ),
     GoRoute(
       path: '/permissions/contexts',
-      builder: (context, state) => const ContextsListScreen(),
+      builder: (context, state) => const PermissionOrLevelRoute(
+        permission: 'permissions.manage',
+        requiredLevel: AccessLevelType.admin,
+        child: ContextsListScreen(),
+      ),
     ),
     GoRoute(
       path: '/permissions/context-form',
       builder: (context, state) {
         final contextId = state.uri.queryParameters['id'];
-        return ContextFormScreen(contextId: contextId);
+        return PermissionOrLevelRoute(
+          permission: 'permissions.manage',
+          requiredLevel: AccessLevelType.admin,
+          child: ContextFormScreen(contextId: contextId),
+        );
       },
     ),
     GoRoute(
       path: '/permissions/user-roles',
-      builder: (context, state) => const UserRolesListScreen(),
+      builder: (context, state) => const PermissionOrLevelRoute(
+        permission: 'permissions.manage',
+        requiredLevel: AccessLevelType.admin,
+        child: UserRolesListScreen(),
+      ),
     ),
     GoRoute(
       path: '/permissions/users/:userId/permissions',
-      builder: (context, state) =>
-          UserPermissionsScreen(userId: state.pathParameters['userId']!),
+      builder: (context, state) => PermissionOrLevelRoute(
+        permission: 'permissions.manage',
+        requiredLevel: AccessLevelType.admin,
+        child: UserPermissionsScreen(
+          userId: state.pathParameters['userId']!,
+        ),
+      ),
     ),
     GoRoute(
       path: '/permissions/assign-role',
-      builder: (context, state) => const AssignRoleScreen(),
+      builder: (context, state) => const PermissionOrLevelRoute(
+        permission: 'permissions.manage',
+        requiredLevel: AccessLevelType.admin,
+        child: AssignRoleScreen(),
+      ),
     ),
     GoRoute(
       path: '/permissions/audit-log',
-      builder: (context, state) => const AuditLogScreen(),
+      builder: (context, state) => const PermissionOrLevelRoute(
+        permission: 'permissions.manage',
+        requiredLevel: AccessLevelType.admin,
+        child: AuditLogScreen(),
+      ),
     ),
     GoRoute(
       path: '/permissions/catalog',
-      builder: (context, state) => const PermissionsCatalogScreen(),
+      builder: (context, state) => const PermissionOrLevelRoute(
+        permission: 'permissions.manage',
+        requiredLevel: AccessLevelType.admin,
+        child: PermissionsCatalogScreen(),
+      ),
     ),
     // Rotas de gestão de filiais (matriz/filial, CHU-289)
     GoRoute(
