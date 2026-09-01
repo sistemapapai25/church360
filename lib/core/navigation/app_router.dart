@@ -182,6 +182,52 @@ class OverlayRefreshObserver extends NavigatorObserver {
   void didRemove(Route route, Route? previousRoute) => _bump();
 }
 
+/// Saneia o valor de `?redirect=` antes de ele virar destino de navegação
+/// pós-login (LINK-03 / D-04).
+///
+/// Risco tratado: **open redirect**. Na web o parâmetro chega pela URL e é
+/// inteiramente controlável por quem monta o link — sem saneamento,
+/// `/login?redirect=https://phishing.example` levaria o usuário recém-
+/// autenticado para fora do app, com a credibilidade de ter acabado de
+/// autenticar de verdade.
+///
+/// Regras (todas fail-closed — qualquer dúvida devolve `null`, e o chamador
+/// cai em `/home`):
+/// - decodifica com `Uri.decodeComponent`; valor malformado devolve `null` em
+///   vez de lançar;
+/// - aceita só caminho interno: precisa começar com `/`;
+/// - rejeita `//host` (protocol-relative, abriria outro domínio);
+/// - rejeita `/login`, `/signup` e `/splash` (loop de volta para a entrada).
+///
+/// É **pública de propósito** (e não `_safeRedirect`): precisa ser importável
+/// por `test/core/navigation/safe_redirect_test.dart`, que é a trava destas
+/// regras.
+String? safeRedirect(String? raw) {
+  if (raw == null || raw.isEmpty) return null;
+
+  final String decoded;
+  try {
+    decoded = Uri.decodeComponent(raw);
+  } catch (_) {
+    // `catch (_)` largo de propósito: para um '%' solto o `decodeComponent`
+    // lança `ArgumentError('Truncated URI')`, que é um `Error` e NÃO um
+    // `FormatException` — capturar só `FormatException` deixaria a exceção
+    // escapar de dentro do `redirect` do GoRouter. Descarta em silêncio: o
+    // caso normal aqui é link velho ou truncado, não ataque.
+    return null;
+  }
+
+  if (decoded.isEmpty) return null;
+  if (!decoded.startsWith('/')) return null;
+  if (decoded.startsWith('//')) return null;
+
+  for (final loop in const ['/login', '/signup', '/splash']) {
+    if (decoded.startsWith(loop)) return null;
+  }
+
+  return decoded;
+}
+
 /// Configuração de rotas do aplicativo
 final appRouter = GoRouter(
   observers: [OverlayRefreshObserver()],
@@ -201,6 +247,12 @@ final appRouter = GoRouter(
     final isSplash = state.matchedLocation == '/splash';
     final isLogin = state.matchedLocation == '/login';
     final isSignup = state.matchedLocation == '/signup';
+    // LINK-03 / Achado #9 (desenho A): `/events/:id` e `/events/:id/register`
+    // CONTINUAM públicas de propósito. O fluxo de convidado sem login é
+    // capacidade legítima do produto, garantida no servidor por
+    // `register_event_guest` com `GRANT EXECUTE ... TO anon`. O gatilho de
+    // LINK-03 para essas rotas vem do CTA `login_required` da própria tela
+    // (Plano 02-04), não de fechar a rota aqui.
     final isPublicEventRegister = state.matchedLocation.startsWith('/events/') &&
         state.matchedLocation.endsWith('/register');
     final isPublicEventDetail = state.matchedLocation.startsWith('/events/') &&
@@ -230,12 +282,23 @@ final appRouter = GoRouter(
         !isPublicEventDetail &&
         !isPublicGroupDetail &&
         !isPublicStudyGroupDetail) {
-      return '/login';
+      // D-04: o destino não pode se perder no desvio para o login. É
+      // `state.uri` e NUNCA `state.matchedLocation` — matchedLocation descarta
+      // a query string, e destinos reais como
+      // `/events/<id>/register?origem=whatsapp` precisam voltar inteiros.
+      final destino = state.uri.toString();
+      return '/login?redirect=${Uri.encodeComponent(destino)}';
     }
 
-    // Se está autenticado e está no login ou signup, redireciona para home
+    // Se está autenticado e está no login ou signup, volta para o destino
+    // preservado (D-04) ou, na falta dele, para a home.
+    //
+    // Esta preempção dispara assim que a sessão aparece e atropela qualquer
+    // `context.go` da LoginScreen — por isso o destino é consumido AQUI, pelo
+    // mesmo `safeRedirect`. Assim não existe caminho de navegação que chegue a
+    // um destino sem passar pelo saneamento.
     if (isAuthenticated && (isLogin || isSignup)) {
-      return '/home';
+      return safeRedirect(state.uri.queryParameters['redirect']) ?? '/home';
     }
 
     return null;
