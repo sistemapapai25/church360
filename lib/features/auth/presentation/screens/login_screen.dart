@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../../../../core/constants/app_branding.dart';
+import '../../../../core/navigation/app_router.dart';
 import '../../../../core/navigation/church_selection_gate.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../../../../core/errors/app_error_handler.dart';
@@ -26,6 +27,38 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _isSendingReset = false;
+
+  /// Destino preservado no `?redirect=` (LINK-03 / D-04), já saneado por
+  /// [safeRedirect]. `null` quando não há parâmetro ou quando ele foi
+  /// descartado pelo saneamento.
+  String? _redirectDestino;
+  bool _redirectResolvido = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Resolvido uma única vez: `build` roda a cada rebuild e não pode ficar
+    // repetindo o log de descarte.
+    if (_redirectResolvido) return;
+    _redirectResolvido = true;
+
+    final raw = GoRouterState.of(context).uri.queryParameters['redirect'];
+    if (raw == null || raw.isEmpty) return;
+
+    final destino = safeRedirect(raw);
+    if (destino == null) {
+      // Destino inválido cai em `/home` EM SILÊNCIO — nenhuma mensagem nova
+      // para o usuário. O caso normal deste fallback é link velho ou
+      // truncado, não ataque; assustar quem só quer entrar não ajuda.
+      AppErrorHandler.log(
+        Exception('Parametro ?redirect= descartado pelo saneamento'),
+        feature: 'auth.login',
+        context: {'redirect_bruto': raw},
+      );
+      return;
+    }
+    setState(() => _redirectDestino = destino);
+  }
 
   void _logLogin(String message, {Object? error, StackTrace? stackTrace}) {
     debugPrint('[Login] $message');
@@ -70,8 +103,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         final route = await ChurchSelectionGate.resolveNextRoute(
           Supabase.instance.client,
         );
-        _logLogin('login success, redirect to $route');
-        if (mounted) context.go(route);
+
+        // D-04: o destino do link sobrevive ao login e também ao desvio pelo
+        // seletor de igreja — quem clicou num link de inscrição cai na
+        // inscrição, não na home. Sem destino válido, o comportamento é
+        // exatamente o de antes.
+        final destino = _redirectDestino;
+        var proximaRota = route;
+        if (destino != null) {
+          if (route == '/home') {
+            proximaRota = destino;
+          } else if (route == '/select-church') {
+            proximaRota =
+                '/select-church?redirect=${Uri.encodeComponent(destino)}';
+          }
+        }
+
+        _logLogin('login success, redirect to $proximaRota');
+        if (mounted) context.go(proximaRota);
       }
     } catch (e, stackTrace) {
       _logLogin(
@@ -221,6 +270,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     textAlign: TextAlign.center,
                     style: CommunityDesign.metaStyle(context),
                   ),
+
+                  // S3 (D-04): explica por que o usuário caiu no login vindo de
+                  // um link. Renderizada SOMENTE com `?redirect=` válido — sem
+                  // ele nada é renderizado, nenhum espaço reservado. O path de
+                  // destino NÃO é exibido: é dado controlável por quem monta a
+                  // URL, e exibi-lo daria um canal de texto renderizado na tela
+                  // de login (T-02-11).
+                  if (_redirectDestino != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Faça login para abrir o link que você recebeu.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 32),
 
                   // Campo de Email

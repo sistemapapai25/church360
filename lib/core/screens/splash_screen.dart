@@ -29,6 +29,15 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkAuth() async {
     if (!mounted) return;
 
+    // Guarda contra a corrida com deep link (Pitfall 9 / Achado #13): no cold
+    // start do iOS o app recebe `/` primeiro e o link chega logo depois, via
+    // RouteInformationParser. Sem esta guarda, o temporizador de 2s dispara
+    // `context.go('/home')` POR CIMA da rota que o link já resolveu — flash de
+    // tela e navegação dupla, exatamente o que o critério de sucesso #2 do
+    // ROADMAP proíbe. É só guarda de ENTRADA: o temporizador, o dispose que o
+    // cancela e o fluxo normal de splash ficam intactos.
+    if (GoRouterState.of(context).matchedLocation != '/splash') return;
+
     try {
       final supabase = Supabase.instance.client;
       final session = supabase.auth.currentSession;
