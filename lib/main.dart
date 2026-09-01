@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -24,6 +25,12 @@ void main() {
       // Mantem o binding e o runApp na mesma zone para evitar "Zone mismatch"
       // (muito comum no Flutter Web quando ensureInitialized fica fora do runZonedGuarded).
       WidgetsFlutterBinding.ensureInitialized();
+
+      // LINK-01 (Fase 2): URL path-based no web (sem '#'). O import e o export
+      // condicional da SDK 3.38.3, entao esta chamada e no-op em Android/iOS —
+      // e pre-requisito de App Links/Universal Links, que nao verificam
+      // fragmento. Sai na MESMA release do shim de '#/' do web/index.html.
+      usePathUrlStrategy();
 
       FlutterError.onError = (details) {
         FlutterError.presentError(details);
