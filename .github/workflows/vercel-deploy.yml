@@ -22,14 +22,13 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # LINK-02: a config da Vercel deixou de ser gerada aqui. Ela agora e versionada em
+      # `web/vercel.json` e o `flutter build web` a copia para `build/web/vercel.json`,
+      # que e exatamente de onde o deploy roda. Reintroduzir um passo que escreva
+      # `build/web/vercel.json` apaga os headers de Content-Type dos arquivos de
+      # `.well-known/` e quebra a verificacao de dominio do App Link / Universal Link.
       - name: Build Flutter Web
         run: flutter build web --release
-
-      - name: Write Vercel rewrites config
-        run: |
-          cat > build/web/vercel.json << 'EOF'
-          { "rewrites": [ { "source": "/(.*)", "destination": "/index.html" } ] }
-          EOF
 
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
