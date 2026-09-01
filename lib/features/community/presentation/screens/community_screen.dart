@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -13,6 +12,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../providers/community_providers.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/utils/share_link_utils.dart';
 import '../../domain/models/community_post.dart';
 import '../../domain/models/classified.dart';
 import '../../../members/presentation/providers/members_provider.dart';
@@ -2040,15 +2040,14 @@ String _birthdayEventLabel(DateTime birthdate) {
   return '🎂 ${DateFormat('d MMM', 'pt_BR').format(next)}';
 }
 
+// LINK-01 (Fase 2, Plano 02-01): a montagem manual daqui tinha os dois defeitos
+// que a fase corrige — no web gerava `#/community/post/<id>` (fragmento, que
+// App Links e Universal Links não verificam) e no mobile apontava, hard-coded,
+// para um domínio antigo que NÃO resolve (o `.app` que nunca foi registrado —
+// o host real é o da Vercel). Passa a delegar para a mesma fonte única de todo
+// link compartilhável do app, `SupabaseConstants.appWebBaseUrl`.
 String _buildPostShareUrl(String postId) {
-  if (kIsWeb) {
-    final base = Uri.base;
-    final origin = base.hasAuthority
-        ? '${base.scheme}://${base.host}${base.hasPort ? ':${base.port}' : ''}'
-        : '';
-    return '$origin/#/community/post/$postId';
-  }
-  return 'https://church360.app/community/post/$postId';
+  return ShareLinkUtils.buildShareUrl('/community/post/$postId');
 }
 
 class _ActivityPill extends StatelessWidget {
