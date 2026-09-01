@@ -751,6 +751,44 @@ class EventsRepository {
     }
   }
 
+  /// LINK-01 / D-02 (Fase 2, Plano 02-04): "por que este evento não abriu?".
+  ///
+  /// Depois da RLS da Fase 3, `getEventById` devolvendo `null` deixou de ter
+  /// significado único — pode ser "restrito para mim" ou "não existe". Essa
+  /// diferença é impossível de descobrir no cliente (os dois casos devolvem
+  /// zero linhas), então quem responde é a RPC `get_event_access_status`
+  /// (`SECURITY DEFINER`, migration `20260901000200`), de aridade 1: o ator é
+  /// derivado DENTRO do servidor, pelo mesmo motivo de [isEventResponsible] e
+  /// [amIEligibleToRegister].
+  ///
+  /// **A desserialização NÃO é fail-closed em direção a `not_found`**, ao
+  /// contrário das duas irmãs acima. A regra 2 do Interaction Contract do
+  /// `02-UI-SPEC.md` proíbe que falha vire estado conclusivo: se a RPC falhar
+  /// (rede, `42501` por falta de `EXECUTE`, servidor fora), a exceção precisa
+  /// chegar CRUA ao provider para a tela cair em `error` com "Tentar
+  /// novamente" — e nunca em "Evento não encontrado". Por isso não há valor
+  /// default no retorno e o `catch` só faz `rethrow`.
+  ///
+  /// **Isto é insumo de UX, não boundary de segurança** (padrão T-08-01): a
+  /// autoridade real de acesso continua sendo a policy
+  /// `event_visibility_restrict` / `event_visibility_restrict_anon` de
+  /// `public.event` mais a própria RPC. Nenhuma checagem de servidor pode ser
+  /// afrouxada por causa deste método.
+  ///
+  /// Valores possíveis: `'ok'`, `'restricted'`, `'not_found'`,
+  /// `'login_required'`.
+  Future<String?> getEventAccessStatus(String eventId) async {
+    try {
+      final res = await _supabase.rpc(
+        'get_event_access_status',
+        params: {'p_event_id': eventId},
+      );
+      return res as String?;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// VIS-03: membros que o servidor considera elegíveis a se inscrever neste
   /// evento. Devolve as mesmas colunas de `get_tenant_member_directory`.
   ///

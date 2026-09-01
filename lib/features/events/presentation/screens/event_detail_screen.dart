@@ -85,18 +85,49 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     );
   }
 
-  /// VIS-02 / T-08-02: depois da RLS do Plano 05, `eventByIdProvider`
-  /// devolvendo `null` deixou de significar só "id inexistente" — passa a
-  /// acontecer legitimamente para evento restrito aberto por link direto.
+  /// VIS-02 / T-08-02 — decisão REVERTIDA de propósito na Fase 2 (D-02 do
+  /// `.planning/phases/02-link-deep-linking/02-CONTEXT.md`, contrato normativo
+  /// em `02-UI-SPEC.md`).
   ///
-  /// A copy é deliberadamente NEUTRA e não pode diferenciar "não existe" de
-  /// "você não pode ver": dizer "você não tem acesso a este evento"
-  /// confirmaria a existência do evento para quem não deveria nem saber que
-  /// ele existe. Os três estados (carregando / indisponível / erro) são
-  /// distintos justamente para que "indisponível" não seja confundido com
-  /// falha técnica.
-  Widget _buildUnavailableScreen(BuildContext context) {
+  /// T-08-02 (Fase 3) exigia copy NEUTRA (`'Este evento não está
+  /// disponível.'`) para não confirmar a existência de um evento restrito a
+  /// quem não pode vê-lo. D-02 reverteu isso conscientemente: quem chega por
+  /// um link compartilhado **já sabe** que o evento existe (coerente com D-06
+  /// da Fase 3, que mantém o botão de compartilhar em evento restrito), e a
+  /// parede neutra deixava a pessoa sem entender o que fazer a seguir.
+  ///
+  /// Risco residual ACEITO por D-02/D-06 (T-02-14 do Plano 02-04): para
+  /// qualquer autenticado do tenant, ver "não encontrado" em vez de "sem
+  /// acesso" é um oráculo de existência de evento. Mitigado por os ids serem
+  /// UUIDv4 não enumeráveis e por a RPC ser negada a `anon`. Registrado, não
+  /// silenciado.
+  ///
+  /// Diferenciar os dois casos é IMPOSSÍVEL só no Flutter: sob a RLS de
+  /// `public.event` ambos devolvem zero linhas. Quem decide é o servidor, via
+  /// `get_event_access_status` (`eventAccessStatusProvider`). Esta árvore de
+  /// estados é UX, não boundary — a autoridade real é a policy
+  /// `event_visibility_restrict` / `event_visibility_restrict_anon`.
+  ///
+  /// Esqueleto único dos cinco estados de acesso. Todos usam o MESMO fundo do
+  /// evento carregado com sucesso: quem chega por link não deve ver a cor de
+  /// fundo mudar conforme o resultado (débito herdado do antigo
+  /// `_buildUnavailableScreen`, que não declarava `backgroundColor`).
+  Widget _buildAccessStateScreen(
+    BuildContext context, {
+    required IconData icon,
+    required String heading,
+    required String supportingText,
+    required IconData primaryIcon,
+    required String primaryLabel,
+    required VoidCallback onPrimary,
+    String? secondaryLabel,
+    VoidCallback? onSecondary,
+  }) {
+    final theme = Theme.of(context);
+    final temSecundario = secondaryLabel != null && onSecondary != null;
+
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(title: const Text('Evento')),
       body: Center(
         child: Padding(
@@ -104,27 +135,154 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.event_busy_outlined,
-                size: 48,
-                color: Theme.of(context).colorScheme.outline,
-              ),
+              // Ícone é decorativo e NUNCA vermelho: "sem acesso" e "não
+              // encontrado" não são falhas do usuário nem do sistema.
+              Icon(icon, size: 48, color: theme.colorScheme.outline),
               const SizedBox(height: 16),
               Text(
-                'Este evento não está disponível.',
+                heading,
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleMedium,
+                style: theme.textTheme.titleLarge,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 8),
+              Text(
+                supportingText,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium,
+              ),
+              SizedBox(height: temSecundario ? 32 : 24),
               FilledButton.icon(
-                onPressed: () => context.go('/schedule'),
-                icon: const Icon(Icons.calendar_month),
-                label: const Text('Voltar para a Agenda'),
+                onPressed: onPrimary,
+                icon: Icon(primaryIcon),
+                label: Text(primaryLabel),
               ),
+              if (temSecundario) ...[
+                const SizedBox(height: 8),
+                TextButton(onPressed: onSecondary, child: Text(secondaryLabel)),
+              ],
             ],
           ),
         ),
       ),
+    );
+  }
+
+  /// Estado `loading`: cobre os DOIS awaits (evento e RPC de status). Regra 1
+  /// do Interaction Contract — renderizar "não encontrado" sobre uma query
+  /// ainda pendente é o caminho mais provável de erro no cold start do deep
+  /// link.
+  Widget _buildLoadingScreen(BuildContext context) {
+    return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
+      appBar: AppBar(title: const Text('Carregando...')),
+      body: const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  Widget _buildRestrictedScreen(BuildContext context) {
+    return _buildAccessStateScreen(
+      context,
+      icon: Icons.lock_outline,
+      heading: 'Você não tem acesso a este evento',
+      supportingText:
+          'Este evento é restrito e você não está entre os públicos escolhidos. Se acha que deveria participar, fale com o responsável pelo evento.',
+      primaryIcon: Icons.calendar_month,
+      primaryLabel: 'Voltar para a Agenda',
+      onPrimary: () => context.go('/schedule'),
+    );
+  }
+
+  Widget _buildNotFoundScreen(BuildContext context) {
+    return _buildAccessStateScreen(
+      context,
+      icon: Icons.event_busy_outlined,
+      heading: 'Evento não encontrado',
+      supportingText:
+          'Este link pode estar incorreto, ou o evento pode ter sido removido.',
+      primaryIcon: Icons.calendar_month,
+      primaryLabel: 'Voltar para a Agenda',
+      onPrimary: () => context.go('/schedule'),
+    );
+  }
+
+  /// LINK-03 / D-04: é este CTA que dispara o retorno pós-login para
+  /// `/events/:id`. A rota continua PÚBLICA de propósito (desenho A do Achado
+  /// #9 — fechá-la mataria o fluxo de convidado de `/register`), então o
+  /// gatilho do `?redirect=` mora aqui, na tela, e não no `redirect` central
+  /// do GoRouter. O saneamento do destino é feito por `safeRedirect` do
+  /// `app_router.dart` (Plano 02-03).
+  Widget _buildLoginRequiredScreen(BuildContext context) {
+    final destino = Uri.encodeComponent('/events/${widget.eventId}');
+    return _buildAccessStateScreen(
+      context,
+      icon: Icons.login,
+      heading: 'Entre para ver este evento',
+      supportingText:
+          'Este evento não está aberto ao público. Faça login e você volta direto para ele.',
+      primaryIcon: Icons.login,
+      primaryLabel: 'Entrar',
+      onPrimary: () => context.go('/login?redirect=$destino'),
+      secondaryLabel: 'Voltar para a Agenda',
+      onSecondary: () => context.go('/schedule'),
+    );
+  }
+
+  /// Estado `error`: regra 2 do Interaction Contract. Falha de rede/servidor
+  /// NUNCA cai em `not_found` — fail-closed em direção ao estado informativo,
+  /// nunca ao conclusivo. Nenhuma mensagem crua de PostgREST na tela
+  /// (T-02-16 / T-07-03).
+  Widget _buildAccessErrorScreen(BuildContext context, Object error) {
+    return _buildAccessStateScreen(
+      context,
+      icon: Icons.cloud_off_outlined,
+      heading: 'Não foi possível carregar este evento.',
+      supportingText: AppErrorHandler.userMessage(error, feature: 'events'),
+      primaryIcon: Icons.refresh,
+      primaryLabel: 'Tentar novamente',
+      onPrimary: () {
+        ref.invalidate(eventByIdProvider(widget.eventId));
+        ref.invalidate(eventAccessStatusProvider(widget.eventId));
+      },
+      secondaryLabel: 'Voltar para a Agenda',
+      onSecondary: () => context.go('/schedule'),
+    );
+  }
+
+  /// Máquina de estados do `02-UI-SPEC.md`, alcançada só quando o evento
+  /// resolveu `null` (restrito para mim OU inexistente).
+  Widget _buildUnavailableScreen(BuildContext context) {
+    // Sem sessão não se chama a RPC: `get_event_access_status` teve o
+    // `EXECUTE` revogado de `anon` (migration `20260901000200`) justamente
+    // para não virar oráculo de existência de evento para qualquer pessoa
+    // com a publishable key. Chamar aqui devolveria `42501`, não um status.
+    final semSessao =
+        ref.watch(supabaseClientProvider).auth.currentSession == null;
+    if (semSessao) {
+      return _buildLoginRequiredScreen(context);
+    }
+
+    // COM sessão, quem sabe a diferença é o servidor. `'ok'`/`'login_required'`
+    // são incoerentes com evento nulo aqui: caem em `error`, nunca em
+    // `not_found` (regra 2 do Interaction Contract).
+    final statusAsync = ref.watch(eventAccessStatusProvider(widget.eventId));
+    return statusAsync.when(
+      data: (status) {
+        switch (status) {
+          case 'restricted':
+            return _buildRestrictedScreen(context);
+          case 'not_found':
+            return _buildNotFoundScreen(context);
+          default:
+            return _buildAccessErrorScreen(
+              context,
+              Exception(
+                'Não foi possível confirmar o acesso a este evento. Tente novamente em instantes.',
+              ),
+            );
+        }
+      },
+      loading: () => _buildLoadingScreen(context),
+      error: (error, stack) => _buildAccessErrorScreen(context, error),
     );
   }
 
@@ -271,25 +429,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
           ),
         );
       },
-      loading: () => Scaffold(
-        appBar: AppBar(title: const Text('Carregando...')),
-        body: const Center(child: CircularProgressIndicator()),
-      ),
-      // Estado de ERRO é distinto do estado "indisponível" acima: aqui houve
+      loading: () => _buildLoadingScreen(context),
+      // Estado de ERRO é distinto dos estados de acesso acima: aqui houve
       // falha real (rede/servidor) e o usuário pode tentar de novo. Nenhuma
       // mensagem crua de PostgREST na tela (T-07-03).
-      error: (error, stack) => Scaffold(
-        appBar: AppBar(title: const Text('Erro')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              AppErrorHandler.userMessage(error, feature: 'events'),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      ),
+      error: (error, stack) => _buildAccessErrorScreen(context, error),
     );
   }
 }

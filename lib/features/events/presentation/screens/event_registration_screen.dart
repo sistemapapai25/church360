@@ -11,6 +11,7 @@ import '../../domain/models/event.dart';
 import '../providers/events_provider.dart';
 import '../utils/event_full_error.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 
 /// Tela de inscrição em evento (pública para membros)
 class EventRegistrationScreen extends ConsumerStatefulWidget {
@@ -79,19 +80,186 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
     super.dispose();
   }
 
+  /// LINK-01 / D-02 (Plano 02-04): espelho da máquina de 5 estados da
+  /// `EventDetailScreen`. `/events/:id/register` também é alvo de link
+  /// compartilhado (D-04), então o link de INSCRIÇÃO precisa explicar o que
+  /// aconteceu com a mesma clareza — só que na linguagem de inscrição.
+  ///
+  /// Contrato normativo em `.planning/phases/02-link-deep-linking/02-UI-SPEC.md`.
+  /// Esta árvore é UX, não boundary: a autoridade real continua sendo a policy
+  /// `event_visibility_restrict` / `event_visibility_restrict_anon` de
+  /// `public.event` e a RPC `register_event_guest` / `register_member_in_event`
+  /// no momento da escrita (padrão T-08-01).
+  Widget _buildAccessStateScreen(
+    BuildContext context, {
+    required IconData icon,
+    required String heading,
+    required String supportingText,
+    required IconData primaryIcon,
+    required String primaryLabel,
+    required VoidCallback onPrimary,
+    String? secondaryLabel,
+    VoidCallback? onSecondary,
+  }) {
+    final theme = Theme.of(context);
+    final temSecundario = secondaryLabel != null && onSecondary != null;
+
+    return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
+      appBar: AppBar(title: const Text('Evento')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Ícone decorativo, NUNCA vermelho — não é falha do usuário.
+              Icon(icon, size: 48, color: theme.colorScheme.outline),
+              const SizedBox(height: 16),
+              Text(
+                heading,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                supportingText,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium,
+              ),
+              SizedBox(height: temSecundario ? 32 : 24),
+              FilledButton.icon(
+                onPressed: onPrimary,
+                icon: Icon(primaryIcon),
+                label: Text(primaryLabel),
+              ),
+              if (temSecundario) ...[
+                const SizedBox(height: 8),
+                TextButton(onPressed: onSecondary, child: Text(secondaryLabel)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Regra 1 do Interaction Contract: `loading` cobre os DOIS awaits (evento e
+  /// RPC de status). Nunca renderizar estado conclusivo sobre query pendente.
+  Widget _buildLoadingScreen(BuildContext context) {
+    return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
+      appBar: AppBar(title: const Text('Carregando...')),
+      body: const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  /// Regra 2 do Interaction Contract: falha de rede/servidor cai em `error`
+  /// com retry, NUNCA em `not_found`. Nenhum `$error` cru na tela (T-02-16).
+  Widget _buildAccessErrorScreen(BuildContext context, Object error) {
+    return _buildAccessStateScreen(
+      context,
+      icon: Icons.cloud_off_outlined,
+      heading: 'Não foi possível carregar este evento.',
+      supportingText: AppErrorHandler.userMessage(error, feature: 'events'),
+      primaryIcon: Icons.refresh,
+      primaryLabel: 'Tentar novamente',
+      onPrimary: () {
+        ref.invalidate(eventByIdProvider(widget.eventId));
+        ref.invalidate(eventAccessStatusProvider(widget.eventId));
+      },
+      secondaryLabel: 'Voltar para a Agenda',
+      onSecondary: () => context.go('/schedule'),
+    );
+  }
+
+  /// Alcançado só quando o evento resolveu `null` — sob a RLS de
+  /// `public.event` isso significa "restrito para mim" OU "não existe", e o
+  /// cliente não tem como distinguir sozinho.
+  Widget _buildUnavailableScreen(BuildContext context) {
+    // Sem sessão não se chama a RPC: `get_event_access_status` teve o
+    // `EXECUTE` revogado de `anon` (migration `20260901000200`) e devolveria
+    // `42501` em vez de status.
+    final semSessao =
+        ref.watch(supabaseClientProvider).auth.currentSession == null;
+    if (semSessao) {
+      // LINK-03 / D-04: o `?redirect=` preserva o sufixo `/register` — quem
+      // clicou num link de inscrição volta para a inscrição, não para a tela
+      // de informações nem para `/home`. Saneado por `safeRedirect`
+      // (`app_router.dart`, Plano 02-03).
+      final destino = Uri.encodeComponent(
+        '/events/${widget.eventId}/register',
+      );
+      return _buildAccessStateScreen(
+        context,
+        icon: Icons.login,
+        heading: 'Entre para se inscrever',
+        supportingText:
+            'A inscrição neste evento é restrita a membros. Faça login e você volta direto para a inscrição.',
+        primaryIcon: Icons.login,
+        primaryLabel: 'Entrar',
+        onPrimary: () => context.go('/login?redirect=$destino'),
+        secondaryLabel: 'Voltar para a Agenda',
+        onSecondary: () => context.go('/schedule'),
+      );
+    }
+
+    // COM sessão, quem sabe a diferença é o servidor.
+    final statusAsync = ref.watch(eventAccessStatusProvider(widget.eventId));
+    return statusAsync.when(
+      data: (status) {
+        switch (status) {
+          case 'restricted':
+            return _buildAccessStateScreen(
+              context,
+              icon: Icons.lock_outline,
+              heading: 'Você não pode se inscrever neste evento',
+              supportingText:
+                  'A inscrição deste evento é restrita e você não está entre os públicos escolhidos. Se acha que deveria participar, fale com o responsável pelo evento.',
+              primaryIcon: Icons.calendar_month,
+              primaryLabel: 'Voltar para a Agenda',
+              onPrimary: () => context.go('/schedule'),
+            );
+          case 'not_found':
+            return _buildAccessStateScreen(
+              context,
+              icon: Icons.event_busy_outlined,
+              heading: 'Evento não encontrado',
+              supportingText:
+                  'Este link de inscrição pode estar incorreto, ou o evento pode ter sido removido.',
+              primaryIcon: Icons.calendar_month,
+              primaryLabel: 'Voltar para a Agenda',
+              onPrimary: () => context.go('/schedule'),
+            );
+          default:
+            // `'ok'`/`'login_required'` são incoerentes com evento nulo aqui:
+            // caem em `error`, nunca em `not_found`.
+            return _buildAccessErrorScreen(
+              context,
+              Exception(
+                'Não foi possível confirmar o acesso a este evento. Tente novamente em instantes.',
+              ),
+            );
+        }
+      },
+      loading: () => _buildLoadingScreen(context),
+      error: (error, stack) => _buildAccessErrorScreen(context, error),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final eventAsync = ref.watch(eventByIdProvider(widget.eventId));
-    final currentMemberAsync = ref.watch(currentMemberProvider);
 
     return eventAsync.when(
       data: (event) {
         if (event == null) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('Evento não encontrado')),
-            body: const Center(child: Text('Evento não encontrado')),
-          );
+          return _buildUnavailableScreen(context);
         }
+
+        // Lido só DEPOIS de o evento resolver não-nulo: evento inacessível não
+        // deve disparar leitura de membro.
+        final currentMemberAsync = ref.watch(currentMemberProvider);
 
         if (!event.requiresRegistration) {
           return Scaffold(
@@ -192,19 +360,8 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
           ),
         );
       },
-      loading: () => Scaffold(
-        appBar: AppBar(title: const Text('Carregando...')),
-        body: const Center(child: CircularProgressIndicator()),
-      ),
-      error: (error, stack) => Scaffold(
-        appBar: AppBar(title: const Text('Erro')),
-        body: Center(
-          child: Text(
-            AppErrorHandler.userMessage(error, feature: 'events'),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ),
+      loading: () => _buildLoadingScreen(context),
+      error: (error, stack) => _buildAccessErrorScreen(context, error),
     );
   }
 
