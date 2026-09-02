@@ -12,6 +12,7 @@ import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../domain/models/event_audience.dart';
 import '../../domain/models/event_reminder.dart';
+import '../../domain/models/event_series.dart';
 import '../widgets/audience_picker.dart';
 import '../widgets/reminder_picker.dart';
 import '../widgets/series_progress_barrier.dart';
@@ -80,6 +81,26 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   /// o único comportamento possível antes desta fase. Deixar em branco não
   /// muda nada para quem já usava o formulário.
   DateTime? _recurrenceEndDate;
+
+  /// Fase 6 — REC-02 / IC-2: o lote a que esta ocorrência pertence.
+  ///
+  /// `null` significa "este evento não é de série" — e é o valor em modo de
+  /// criação, sempre. Em modo de edição ele é restaurado de `event.batch_id`
+  /// por `_loadEvent`, e é ele (não `_isFixed`) que decide se o cabeçalho de
+  /// série e o toggle de escopo aparecem.
+  String? _batchId;
+
+  /// Definição de padrão da série, quando existe (`public.event_series`).
+  ///
+  /// `null` com `_batchId != null` é **série legada** (IC-7), não erro: a
+  /// série foi criada antes desta fase e o padrão não ficou salvo. Hoje é o
+  /// estado de 100% das séries de produção.
+  EventSeries? _series;
+
+  /// A leitura da definição da série falhou (rede/servidor). Diferente de
+  /// série legada: aqui não se sabe se há padrão salvo, então a UI oferece
+  /// "Tentar novamente" em vez de afirmar que o padrão não existe.
+  bool _seriesLoadFailed = false;
 
   /// Fase 6 — S6/IC-6: progresso determinado da criação da série.
   ///
@@ -527,6 +548,16 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         _visibilityScope = event.visibilityScope;
         _registrationScope = event.registrationScope;
 
+        // Fase 6 — Pitfall #8: aqui restaura-se o LOTE, nunca `_isFixed`.
+        //
+        // `_isFixed` é a chave do ramo de GERAÇÃO de série em `_saveEvent`.
+        // Restaurá-lo em modo de edição faria o botão Salvar gerar uma série
+        // inteira nova (até 52 eventos) em vez de atualizar a ocorrência
+        // aberta — que é exatamente o bug do Achado #10. O que o modo de
+        // edição usa é `_batchId` + `_series` + o toggle de escopo; `_isFixed`
+        // permanece `false` durante toda a edição, por construção.
+        _batchId = event.batchId;
+
         try {
           final repo = ref.read(eventsRepositoryProvider);
           final responsibles = await repo.getEventResponsibles(
@@ -545,6 +576,10 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
           // resto do evento; as seções somem vazias e o usuário pode
           // reconstruir as listas.
         }
+
+        // Mesmo espírito tolerante do `catch (_)` acima: falhar ao ler a
+        // definição da série não pode impedir a edição do resto do evento.
+        await _loadSeriesDefinition();
       }
     } catch (e) {
       if (mounted) {
@@ -555,6 +590,50 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  /// Fase 6 — REC-02 / IC-2: lê a definição de padrão do lote e restaura os
+  /// campos de padrão do formulário a partir dela.
+  ///
+  /// Três desfechos, todos legítimos:
+  ///   • linha encontrada → `_series` preenchida e os campos de padrão
+  ///     restaurados;
+  ///   • `null` → **série legada** (IC-7), sem padrão salvo. Não é erro;
+  ///   • exceção → `_seriesLoadFailed`, e o cabeçalho oferece
+  ///     "Tentar novamente". A edição do resto do evento continua liberada.
+  ///
+  /// Reexecutável: é a mesma função que o botão "Tentar novamente" chama.
+  Future<void> _loadSeriesDefinition() async {
+    if (_batchId == null) return;
+    try {
+      final serie = await ref
+          .read(eventsRepositoryProvider)
+          .getEventSeries(_batchId!);
+      _series = serie;
+      _seriesLoadFailed = false;
+      if (serie != null) {
+        _applySeriesPatternToForm(serie);
+      }
+    } catch (_) {
+      _seriesLoadFailed = true;
+    }
+  }
+
+  /// Copia o padrão persistido para o estado do formulário.
+  ///
+  /// **`_isFixed` NÃO é tocado aqui de propósito** (Pitfall #8): estes campos
+  /// alimentam o toggle de escopo da edição, nunca o ramo de geração.
+  void _applySeriesPatternToForm(EventSeries serie) {
+    _fixedPatternGroup = serie.patternGroup;
+    if (serie.variableType != null) {
+      _variableType = serie.variableType!;
+    }
+    _fixedWeekdays
+      ..clear()
+      ..addAll(serie.weekdays);
+    _intervalWeeks = serie.intervalWeeks;
+    _variableMonthlyOrdinal = serie.monthlyOrdinal;
+    _recurrenceEndDate = serie.recurrenceEndDate;
   }
 
   /// Resolve o nome de exibição (pessoa, grupo, ministério ou cargo) para
@@ -651,6 +730,71 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
             ),
         ],
       ),
+    );
+  }
+
+  /// Fase 6 — IC-2: badge `Série` + linha de contexto da ocorrência aberta.
+  ///
+  /// Ocupa o lugar que o switch "Evento fixo" ocupava em modo de edição. Em
+  /// série legada (`_series == null`) a linha omite o padrão, porque ele não
+  /// existe — inventar uma descrição seria pior do que não mostrar nenhuma.
+  Widget _buildSeriesHeader(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    if (_seriesLoadFailed) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 18, color: cs.error),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Não foi possível carregar os dados da série.',
+              style: CommunityDesign.contentStyle(context),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await _loadSeriesDefinition();
+              if (mounted) setState(() {});
+            },
+            child: const Text('Tentar novamente'),
+          ),
+        ],
+      );
+    }
+
+    final data = DateFormat(
+      'dd/MM/yyyy',
+    ).format(_startDate ?? DateTime.now());
+    final padrao = _series?.patternLabel;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          // 11px/w700 vêm do helper e não são replicados aqui (Tipografia,
+          // "Exceções herdadas" do `06-UI-SPEC.md`).
+          child: CommunityDesign.badge(
+            context,
+            'Série',
+            cs.primary,
+            icon: Icons.repeat,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          padrao == null
+              ? 'Ocorrência de $data'
+              : 'Ocorrência de $data · $padrao',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 
@@ -764,19 +908,41 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Evento fixo'),
-                      subtitle: const Text(
-                        'Gera ocorrências automaticamente, sem data de início obrigatória',
-                      ),
-                      value: _isFixed,
-                      onChanged: (v) {
-                        setState(() => _isFixed = v);
-                      },
+                    // 24 quando o que vem a seguir é o cabeçalho de série
+                    // (IC-3 pede 24 das seções vizinhas); 16 no espaçamento
+                    // padrão entre campos do formulário.
+                    SizedBox(
+                      height: (_isEditMode && _batchId != null) ? 24 : 16,
                     ),
-                    if (_isFixed) ...[
+
+                    // Fase 6 — Achado #10 / Pitfall #8 (A-08 do `06-UI-SPEC`).
+                    // METADE VISUAL DA CORREÇÃO — a outra metade é a guarda
+                    // `if (_isFixed && !_isEditMode)` em `_saveEvent`. As duas
+                    // NUNCA podem ser removidas separadamente.
+                    //
+                    // CAUSA do bug que isto fecha: o switch "Evento fixo" era
+                    // renderizado também em modo de edição; `_loadEvent` nunca
+                    // restaurava `_isFixed`; e `_saveEvent` ramificava em
+                    // `if (_isFixed)` ANTES de olhar `_isEditMode`, num ramo
+                    // que só CRIA e nunca atualiza. Abrir uma ocorrência
+                    // existente, ligar o switch e salvar gerava uma série
+                    // inteira nova (até 52 eventos), sem tocar no evento que
+                    // estava sendo editado, e ainda dizia "Gerados N eventos
+                    // fixos". Transformar um evento existente em série não é
+                    // caminho pedido por nenhum REC desta fase.
+                    if (!_isEditMode)
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Evento fixo'),
+                        subtitle: const Text(
+                          'Gera ocorrências automaticamente, sem data de início obrigatória',
+                        ),
+                        value: _isFixed,
+                        onChanged: (v) {
+                          setState(() => _isFixed = v);
+                        },
+                      ),
+                    if (!_isEditMode && _isFixed) ...[
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         initialValue: _fixedPatternGroup,
@@ -1145,6 +1311,13 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
+                    ],
+
+                    // Fase 6 — IC-2: cabeçalho de série. Entra exatamente no
+                    // lugar do switch "Evento fixo", que some em edição.
+                    if (_isEditMode && _batchId != null) ...[
+                      _buildSeriesHeader(context),
+                      const SizedBox(height: 24),
                     ],
 
                     // Data de início
@@ -2133,7 +2306,19 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         } catch (_) {}
       }
 
-      if (_isFixed) {
+      // Fase 6 — Achado #10 / Pitfall #8 (METADE LÓGICA da correção; a outra
+      // metade é a guarda `if (!_isEditMode)` do switch "Evento fixo" no
+      // corpo do formulário). As duas nunca podem ser removidas
+      // separadamente.
+      //
+      // CAUSA: este `if` ramificava só em `_isFixed`, antes de qualquer olhar
+      // para `_isEditMode`, e o ramo abaixo apenas CRIA ocorrências — não
+      // existe caminho de update dentro dele. Com o switch visível em edição,
+      // ligá-lo e salvar gerava uma série nova inteira e deixava a ocorrência
+      // editada intacta. Com `!_isEditMode` aqui, mesmo que `_isFixed` fique
+      // verdadeiro por qualquer caminho futuro, o modo de edição nunca entra
+      // no ramo de geração.
+      if (_isFixed && !_isEditMode) {
         if (_fixedWeekdays.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
