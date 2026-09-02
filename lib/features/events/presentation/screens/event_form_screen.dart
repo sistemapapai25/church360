@@ -18,6 +18,7 @@ import '../../domain/models/event_series.dart';
 import '../../domain/models/event_series_impact.dart';
 import '../utils/series_change_detection.dart';
 import '../utils/series_error.dart';
+import '../utils/series_update_fields.dart';
 import '../widgets/series_impact_dialog.dart';
 import '../widgets/audience_picker.dart';
 import '../widgets/reminder_picker.dart';
@@ -2922,10 +2923,19 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         ? minutosAtuais
         : null;
 
+    // O mesmo mapa vai para a prévia e para a execução: a prévia tem que
+    // refletir o que será enviado de verdade, e o que será enviado carrega o
+    // escopo REAL do formulário — não o `'all'` hardcoded de `data`.
+    final camposDaSerie = seriesUpdateFields(
+      base: data,
+      visibilityScope: _visibilityScope,
+      registrationScope: _registrationScope,
+    );
+
     final EventSeriesImpact previa;
     try {
       previa = await _previaDeImpactoDaSerie(
-        fields: data,
+        fields: camposDaSerie,
         startTimeMinutes: startTimeMinutes,
       );
     } catch (e) {
@@ -2961,6 +2971,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
     // é quem conhece o `fallbackMessage` desta operação.
     EventSeriesImpact? resultado;
     Object? erro;
+    var ancoraFalhou = false;
 
     final confirmado = await showSeriesImpactDialog(
       context,
@@ -2968,11 +2979,42 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
       impact: previa,
       eventName: nomeDoEvento,
       onConfirm: () async {
+        // (1) ÂNCORA PRIMEIRO — e só DENTRO do `onConfirm`.
+        //
+        // Ordem: o passo (9) de `apply_event_series_update` REPLICA a audiência
+        // e os lembretes DA ÂNCORA para as ocorrências do lote. Gravá-los
+        // depois da RPC propagaria os alvos ANTIGOS e descartaria em silêncio
+        // tudo o que o líder editou na tela (responsáveis, alvos de
+        // visibilidade/elegibilidade e lembretes).
+        //
+        // Lugar: nunca antes do diálogo. Cancelar não pode deixar a ocorrência
+        // aberta meio-salva — quem cancela espera que NADA tenha acontecido.
+        //
+        // `showError: false` porque a mensagem honesta aqui fala da série, e
+        // ela é emitida abaixo; duas snackbars sobre o mesmo erro só confundem.
+        final ancoraOk = await _persistAudienceAndScopes(
+          widget.eventId!,
+          showError: false,
+        );
+        if (!ancoraOk) {
+          // Aborta ANTES da RPC. Sem este `return`, um `'restricted'` seria
+          // gravado em dezenas de ocorrências cuja fonte de alvos falhou —
+          // evento restrito sem alvo fica invisível para TODOS, inclusive para
+          // quem deveria vê-lo (Pitfall 6). É o modo de falha oposto ao bug que
+          // esta correção fecha, e é pior: some conteúdo em vez de expor.
+          ancoraFalhou = true;
+          return;
+        }
+
         try {
           resultado = await repo.applySeriesUpdate(
             batchId: _batchId!,
             anchorEventId: widget.eventId!,
-            fields: data,
+            // (2) ESCOPO REAL, nunca o `'all'` que o mapa `data` carrega por
+            // construção. Ver `series_update_fields.dart` para o porquê de o
+            // literal ser correto no caminho de UMA ocorrência e ser
+            // rebaixamento silencioso da série inteira neste caminho.
+            fields: camposDaSerie,
             startTimeMinutes: startTimeMinutes,
           );
         } catch (e) {
@@ -2982,6 +3024,19 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
     );
 
     if (confirmado != true || !mounted) return;
+
+    if (ancoraFalhou) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não foi possível salvar os responsáveis, alvos e lembretes desta '
+            'ocorrência. As outras ocorrências da série não foram alteradas — '
+            'reabra o evento e tente de novo.',
+          ),
+        ),
+      );
+      return;
+    }
 
     if (erro != null) {
       // IC-8: o `catch` de `PERMISSION_DENIED` é mantido MESMO com o gate
@@ -3335,7 +3390,23 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   /// também é avaliada no `UPDATE ... RETURNING` — se o `UPDATE` de escopo
   /// rodasse antes da audiência, a própria promoção quebraria com erro para
   /// quem não está em nenhuma linha de `event_audience` ainda.
-  Future<void> _persistAudienceAndScopes(String eventId) async {
+  ///
+  /// **Devolve `true` só quando TUDO foi gravado.** O caminho de uma ocorrência
+  /// ignora o retorno de propósito (a falha já virou snackbar e o evento
+  /// permanece `'all'`, que é o estado seguro). Quem PRECISA do retorno é
+  /// `_aplicarEdicaoATodaASerie`: lá a âncora é a fonte que o passo (9) da RPC
+  /// replica para o lote inteiro, então mandar `'restricted'` para a série
+  /// depois de uma gravação de alvos que falhou deixaria dezenas de ocorrências
+  /// restritas SEM alvo — invisíveis para todo mundo (Pitfall 6). Engolir a
+  /// exceção aqui dentro, como era antes, tornava esse aborto impossível.
+  ///
+  /// [showError] existe para esse mesmo chamador: ele emite uma mensagem
+  /// própria, que fala da série, e duas snackbars empilhadas sobre o mesmo erro
+  /// só confundem.
+  Future<bool> _persistAudienceAndScopes(
+    String eventId, {
+    bool showError = true,
+  }) async {
     try {
       final repo = ref.read(eventsRepositoryProvider);
 
@@ -3368,8 +3439,10 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
           'registration_scope': _registrationScope,
         });
       }
+      return true;
     } catch (e) {
-      if (mounted) {
+      if (showError && mounted) {
+        // `showSnackBar` já loga internamente — não duplicar a linha de log.
         AppErrorHandler.showSnackBar(
           context,
           e,
@@ -3379,7 +3452,13 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
               'evento foi salvo como visível para toda a igreja; reabra e '
               'tente novamente.',
         );
+      } else {
+        // Sem snackbar (chamador da série, ou tela já desmontada), o log é a
+        // ÚNICA pista que sobra desta falha. Antes, o ramo `!mounted` engolia
+        // o erro sem deixar rastro nenhum.
+        AppErrorHandler.log(e, feature: 'events');
       }
+      return false;
     }
   }
 
