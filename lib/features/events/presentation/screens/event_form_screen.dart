@@ -16,6 +16,7 @@ import '../../domain/models/event_series.dart';
 import '../widgets/audience_picker.dart';
 import '../widgets/reminder_picker.dart';
 import '../widgets/series_progress_barrier.dart';
+import '../widgets/series_scope_toggle.dart';
 import '../utils/series_pattern_label.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
@@ -101,6 +102,20 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   /// série legada: aqui não se sabe se há padrão salvo, então a UI oferece
   /// "Tentar novamente" em vez de afirmar que o padrão não existe.
   bool _seriesLoadFailed = false;
+
+  /// Fase 6 — REC-02 / D-01: escopo da edição.
+  ///
+  /// **Nasce `false` toda vez que o formulário abre e nunca é restaurado de
+  /// lugar nenhum** — nem de `SharedPreferences`, nem do evento, nem da
+  /// série. O estado do toggle não é lembrado entre aberturas: ligar o toggle
+  /// é um ato deliberado por edição. A única atribuição fora desta declaração
+  /// está no `onChanged` do próprio toggle.
+  bool _applyToSeries = false;
+
+  /// `n` da prévia do servidor, para o subtítulo do toggle. `null` = ainda
+  /// não sabido — o subtítulo usa a variante sem número em vez de estimar
+  /// localmente (A-04: a contagem é sempre do servidor).
+  int? _seriesFutureCount;
 
   /// Fase 6 — S6/IC-6: progresso determinado da criação da série.
   ///
@@ -733,6 +748,398 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
     );
   }
 
+  /// Fase 6 — IC-1/IC-3: os campos que definem o PADRÃO de repetição
+  /// (`Padrão`, intervalo, chips de dia, tipo variável, ordinal) e o campo
+  /// `Repetir até`.
+  ///
+  /// **Uma única implementação, dois contextos.** Em modo de criação ela é
+  /// consumida dentro do bloco "Evento fixo", sempre com [enabled] `true`; em
+  /// modo de edição, dentro do `child` do toggle de escopo, com [enabled]
+  /// espelhando "o toggle está ligado E a série tem padrão salvo". Duplicar
+  /// estes campos seria garantir que um dos dois envelhecesse.
+  ///
+  /// [enabled] `false` mantém os campos VISÍVEIS e inoperantes (A-07):
+  /// escondê-los faria o líder concluir que a série perdeu a definição.
+  /// Único ponto de escrita de `_applyToSeries` fora da declaração — é o
+  /// `onChanged` do toggle de escopo (D-01).
+  void _onApplyToSeriesChanged(bool value) {
+    setState(() => _applyToSeries = value);
+  }
+
+  /// Itens do seletor de intervalo, a partir de [minimo] até 4.
+  ///
+  /// O servidor aceita 1..8 (`event_series_interval_chk`), o formulário só
+  /// oferece até 4. Uma série gravada fora dessa faixa derrubaria o
+  /// `DropdownButtonFormField` — ele exige que o valor case com EXATAMENTE um
+  /// item —, então o valor restaurado entra na lista quando falta. A UI passa
+  /// a mostrar o que a série realmente tem, em vez de crashar ao abrir a
+  /// ocorrência.
+  List<DropdownMenuItem<int>> _intervalItems(int minimo) {
+    final valores =
+        <int>{for (var i = minimo; i <= 4; i++) i, _intervalWeeks}
+            .where((v) => v >= 1)
+            .toList()
+          ..sort();
+    return [
+      for (final v in valores)
+        DropdownMenuItem(
+          value: v,
+          child: Text(v == 1 ? '1 semana' : '$v semanas'),
+        ),
+    ];
+  }
+
+  /// Itens do seletor de semana do mês. Mesmo motivo de [_intervalItems]: o
+  /// servidor aceita 1..5, onde 5 é "último" (`event_series_ordinal_chk`), e
+  /// o formulário só oferecia 1..4.
+  List<DropdownMenuItem<int>> _ordinalItems() {
+    final atual = _variableMonthlyOrdinal;
+    final valores = <int>{1, 2, 3, 4, if (atual != null) atual}.toList()
+      ..sort();
+    return [
+      for (final v in valores)
+        DropdownMenuItem(value: v, child: Text(v == 5 ? 'Último' : '$vº')),
+    ];
+  }
+
+  Widget _buildPatternFields({required bool enabled}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DropdownButtonFormField<String>(
+          initialValue: _fixedPatternGroup,
+          decoration: InputDecoration(
+            labelText: 'Padrão',
+            prefixIcon: const Icon(Icons.repeat),
+            filled: true,
+            fillColor: Theme.of(context).cardColor,
+            border: OutlineInputBorder(),
+          ),
+          items: const [
+            DropdownMenuItem(
+              value: 'semanal',
+              child: Text('Semanal'),
+            ),
+            DropdownMenuItem(
+              value: 'variavel',
+              child: Text('Variável'),
+            ),
+          ],
+          onChanged: enabled
+              ? (v) => setState(() {
+                  _fixedPatternGroup = v ?? 'semanal';
+                  if (_fixedPatternGroup == 'variavel' &&
+                      _intervalWeeks < 2) {
+                    _intervalWeeks = 2;
+                  }
+                })
+              : null,
+        ),
+        const SizedBox(height: 16),
+        if (_fixedPatternGroup == 'semanal') ...[
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  initialValue: _intervalWeeks,
+                  decoration: const InputDecoration(
+                    labelText: 'Intervalo (semanas)',
+                  ),
+                  items: _intervalItems(1),
+                  onChanged: enabled
+                      ? (v) => setState(() => _intervalWeeks = v ?? 2)
+                      : null,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Dias da semana',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final d in [
+                DateTime.sunday,
+                DateTime.monday,
+                DateTime.tuesday,
+                DateTime.wednesday,
+                DateTime.thursday,
+                DateTime.friday,
+                DateTime.saturday,
+              ])
+                ChoiceChip(
+                  label: Text(_weekdayLabel(d)),
+                  selected: _fixedWeekdays.contains(d),
+                  onSelected: enabled
+                      ? (sel) {
+                          setState(() {
+                            if (sel) {
+                              _fixedWeekdays.add(d);
+                            } else {
+                              _fixedWeekdays.remove(d);
+                            }
+                          });
+                        }
+                      : null,
+                ),
+            ],
+          ),
+        ],
+        if (_fixedPatternGroup == 'variavel') ...[
+          DropdownButtonFormField<String>(
+            initialValue: _variableType,
+            decoration: const InputDecoration(
+              labelText: 'Tipo variável',
+              prefixIcon: Icon(Icons.tune),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(),
+            ),
+            items: const [
+              DropdownMenuItem(
+                value: 'quinzenal',
+                child: Text('Quinzenal (mesmo dia)'),
+              ),
+              DropdownMenuItem(
+                value: 'dias',
+                child: Text('Por dias corridos'),
+              ),
+              DropdownMenuItem(
+                value: 'unico',
+                child: Text('Único (próxima ocorrência)'),
+              ),
+            ],
+            onChanged: enabled
+                ? (v) => setState(() {
+                    _variableType = v ?? 'quinzenal';
+                    if (_variableType == 'quinzenal' &&
+                        _intervalWeeks < 2) {
+                      _intervalWeeks = 2;
+                    }
+                    if (_variableType == 'dias') {
+                      _fixedWeekdays.clear();
+                      _diasBase = null;
+                    }
+                  })
+                : null,
+          ),
+          const SizedBox(height: 8),
+          if (_variableType == 'quinzenal') ...[
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    initialValue: _intervalWeeks,
+                    decoration: const InputDecoration(
+                      labelText: 'Intervalo (semanas)',
+                    ),
+                    items: _intervalItems(2),
+                    onChanged: enabled
+                        ? (v) => setState(() => _intervalWeeks = v ?? 2)
+                        : null,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Dia da semana',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final d in [
+                  DateTime.sunday,
+                  DateTime.monday,
+                  DateTime.tuesday,
+                  DateTime.wednesday,
+                  DateTime.thursday,
+                  DateTime.friday,
+                  DateTime.saturday,
+                ])
+                  ChoiceChip(
+                    label: Text(_weekdayLabel(d)),
+                    selected: _fixedWeekdays.contains(d),
+                    onSelected: enabled
+                        ? (sel) {
+                            setState(() {
+                              _fixedWeekdays.clear();
+                              if (sel) _fixedWeekdays.add(d);
+                            });
+                          }
+                        : null,
+                  ),
+              ],
+            ),
+          ],
+          if (_variableType == 'dias') ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Dias da semana',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final d in [
+                  DateTime.sunday,
+                  DateTime.monday,
+                  DateTime.tuesday,
+                  DateTime.wednesday,
+                  DateTime.thursday,
+                  DateTime.friday,
+                  DateTime.saturday,
+                ])
+                  ChoiceChip(
+                    label: Text(_weekdayLabel(d)),
+                    selected: _fixedWeekdays.contains(d),
+                    onSelected: enabled
+                        ? (sel) {
+                            setState(() {
+                              _handleDiasChip(d, sel);
+                            });
+                          }
+                        : null,
+                  ),
+              ],
+            ),
+          ],
+          if (_variableType == 'unico') ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Dia da semana',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final d in [
+                  DateTime.sunday,
+                  DateTime.monday,
+                  DateTime.tuesday,
+                  DateTime.wednesday,
+                  DateTime.thursday,
+                  DateTime.friday,
+                  DateTime.saturday,
+                ])
+                  ChoiceChip(
+                    label: Text(_weekdayLabel(d)),
+                    selected: _fixedWeekdays.contains(d),
+                    onSelected: enabled
+                        ? (sel) {
+                            setState(() {
+                              _fixedWeekdays.clear();
+                              if (sel) _fixedWeekdays.add(d);
+                            });
+                          }
+                        : null,
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 8),
+          DropdownButtonFormField<int>(
+            initialValue: _variableMonthlyOrdinal,
+            decoration: const InputDecoration(
+              labelText: 'Semana do mês',
+              prefixIcon: Icon(Icons.calendar_view_month),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(),
+            ),
+            items: _ordinalItems(),
+            onChanged: enabled
+                ? (v) => setState(() => _variableMonthlyOrdinal = v)
+                : null,
+          ),
+        ],
+        const SizedBox(height: 16),
+
+        // Fase 6 — REC-01 / IC-1: data de encerramento da série.
+        //
+        // NÃO é renderizado para `variavel/unico`: um evento
+        // único não recebe `batch_id` e portanto não pertence a
+        // série nenhuma — não há o que "repetir até", e nenhuma
+        // linha de `event_series` é gravada para ele.
+        if (!_isVariavelUnico) ...[
+          if (_recurrenceEndDate == null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: enabled ? _pickRecurrenceEndDate : null,
+                icon: const Icon(Icons.event_busy),
+                label: const Text(
+                  'Escolher data de encerramento',
+                ),
+              ),
+            )
+          else
+            Row(
+              children: [
+                const Icon(Icons.event_busy),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: InkWell(
+                    onTap: enabled ? _pickRecurrenceEndDate : null,
+                    child: Text(
+                      'Repetir até '
+                      '${DateFormat('dd/MM/yyyy').format(_recurrenceEndDate!)}',
+                      style: CommunityDesign.contentStyle(
+                        context,
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  tooltip: 'Limpar data de encerramento',
+                  onPressed: enabled
+                      ? () => setState(() => _recurrenceEndDate = null)
+                      : null,
+                ),
+              ],
+            ),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Sem preencher, o evento se repete pelos próximos 12 meses.',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   /// Fase 6 — IC-2: badge `Série` + linha de contexto da ocorrência aberta.
   ///
   /// Ocupa o lugar que o switch "Evento fixo" ocupava em modo de edição. Em
@@ -944,355 +1351,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                       ),
                     if (!_isEditMode && _isFixed) ...[
                       const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        initialValue: _fixedPatternGroup,
-                        decoration: InputDecoration(
-                          labelText: 'Padrão',
-                          prefixIcon: const Icon(Icons.repeat),
-                          filled: true,
-                          fillColor: Theme.of(context).cardColor,
-                          border: OutlineInputBorder(),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'semanal',
-                            child: Text('Semanal'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'variavel',
-                            child: Text('Variável'),
-                          ),
-                        ],
-                        onChanged: (v) => setState(() {
-                          _fixedPatternGroup = v ?? 'semanal';
-                          if (_fixedPatternGroup == 'variavel' &&
-                              _intervalWeeks < 2) {
-                            _intervalWeeks = 2;
-                          }
-                        }),
-                      ),
-                      const SizedBox(height: 16),
-                      if (_fixedPatternGroup == 'semanal') ...[
-                        Row(
-                          children: [
-                            Expanded(
-                              child: DropdownButtonFormField<int>(
-                                initialValue: _intervalWeeks,
-                                decoration: const InputDecoration(
-                                  labelText: 'Intervalo (semanas)',
-                                ),
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 1,
-                                    child: Text('1 semana'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 2,
-                                    child: Text('2 semanas'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 3,
-                                    child: Text('3 semanas'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 4,
-                                    child: Text('4 semanas'),
-                                  ),
-                                ],
-                                onChanged: (v) =>
-                                    setState(() => _intervalWeeks = v ?? 2),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Dias da semana',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (final d in [
-                              DateTime.sunday,
-                              DateTime.monday,
-                              DateTime.tuesday,
-                              DateTime.wednesday,
-                              DateTime.thursday,
-                              DateTime.friday,
-                              DateTime.saturday,
-                            ])
-                              ChoiceChip(
-                                label: Text(_weekdayLabel(d)),
-                                selected: _fixedWeekdays.contains(d),
-                                onSelected: (sel) {
-                                  setState(() {
-                                    if (sel) {
-                                      _fixedWeekdays.add(d);
-                                    } else {
-                                      _fixedWeekdays.remove(d);
-                                    }
-                                  });
-                                },
-                              ),
-                          ],
-                        ),
-                      ],
-                      if (_fixedPatternGroup == 'variavel') ...[
-                        DropdownButtonFormField<String>(
-                          initialValue: _variableType,
-                          decoration: const InputDecoration(
-                            labelText: 'Tipo variável',
-                            prefixIcon: Icon(Icons.tune),
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(),
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'quinzenal',
-                              child: Text('Quinzenal (mesmo dia)'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'dias',
-                              child: Text('Por dias corridos'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'unico',
-                              child: Text('Único (próxima ocorrência)'),
-                            ),
-                          ],
-                          onChanged: (v) => setState(() {
-                            _variableType = v ?? 'quinzenal';
-                            if (_variableType == 'quinzenal' &&
-                                _intervalWeeks < 2) {
-                              _intervalWeeks = 2;
-                            }
-                            if (_variableType == 'dias') {
-                              _fixedWeekdays.clear();
-                              _diasBase = null;
-                            }
-                          }),
-                        ),
-                        const SizedBox(height: 8),
-                        if (_variableType == 'quinzenal') ...[
-                          Row(
-                            children: [
-                              Expanded(
-                                child: DropdownButtonFormField<int>(
-                                  initialValue: _intervalWeeks,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Intervalo (semanas)',
-                                  ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 2,
-                                      child: Text('2 semanas'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 3,
-                                      child: Text('3 semanas'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 4,
-                                      child: Text('4 semanas'),
-                                    ),
-                                  ],
-                                  onChanged: (v) =>
-                                      setState(() => _intervalWeeks = v ?? 2),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Dia da semana',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final d in [
-                                DateTime.sunday,
-                                DateTime.monday,
-                                DateTime.tuesday,
-                                DateTime.wednesday,
-                                DateTime.thursday,
-                                DateTime.friday,
-                                DateTime.saturday,
-                              ])
-                                ChoiceChip(
-                                  label: Text(_weekdayLabel(d)),
-                                  selected: _fixedWeekdays.contains(d),
-                                  onSelected: (sel) {
-                                    setState(() {
-                                      _fixedWeekdays.clear();
-                                      if (sel) _fixedWeekdays.add(d);
-                                    });
-                                  },
-                                ),
-                            ],
-                          ),
-                        ],
-                        if (_variableType == 'dias') ...[
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Dias da semana',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final d in [
-                                DateTime.sunday,
-                                DateTime.monday,
-                                DateTime.tuesday,
-                                DateTime.wednesday,
-                                DateTime.thursday,
-                                DateTime.friday,
-                                DateTime.saturday,
-                              ])
-                                ChoiceChip(
-                                  label: Text(_weekdayLabel(d)),
-                                  selected: _fixedWeekdays.contains(d),
-                                  onSelected: (sel) {
-                                    setState(() {
-                                      _handleDiasChip(d, sel);
-                                    });
-                                  },
-                                ),
-                            ],
-                          ),
-                        ],
-                        if (_variableType == 'unico') ...[
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Dia da semana',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final d in [
-                                DateTime.sunday,
-                                DateTime.monday,
-                                DateTime.tuesday,
-                                DateTime.wednesday,
-                                DateTime.thursday,
-                                DateTime.friday,
-                                DateTime.saturday,
-                              ])
-                                ChoiceChip(
-                                  label: Text(_weekdayLabel(d)),
-                                  selected: _fixedWeekdays.contains(d),
-                                  onSelected: (sel) {
-                                    setState(() {
-                                      _fixedWeekdays.clear();
-                                      if (sel) _fixedWeekdays.add(d);
-                                    });
-                                  },
-                                ),
-                            ],
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<int>(
-                          initialValue: _variableMonthlyOrdinal,
-                          decoration: const InputDecoration(
-                            labelText: 'Semana do mês',
-                            prefixIcon: Icon(Icons.calendar_view_month),
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(),
-                          ),
-                          items: const [
-                            DropdownMenuItem(value: 1, child: Text('1º')),
-                            DropdownMenuItem(value: 2, child: Text('2º')),
-                            DropdownMenuItem(value: 3, child: Text('3º')),
-                            DropdownMenuItem(value: 4, child: Text('4º')),
-                          ],
-                          onChanged: (v) =>
-                              setState(() => _variableMonthlyOrdinal = v),
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-
-                      // Fase 6 — REC-01 / IC-1: data de encerramento da série.
-                      //
-                      // NÃO é renderizado para `variavel/unico`: um evento
-                      // único não recebe `batch_id` e portanto não pertence a
-                      // série nenhuma — não há o que "repetir até", e nenhuma
-                      // linha de `event_series` é gravada para ele.
-                      if (!_isVariavelUnico) ...[
-                        if (_recurrenceEndDate == null)
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: OutlinedButton.icon(
-                              onPressed: _pickRecurrenceEndDate,
-                              icon: const Icon(Icons.event_busy),
-                              label: const Text(
-                                'Escolher data de encerramento',
-                              ),
-                            ),
-                          )
-                        else
-                          Row(
-                            children: [
-                              const Icon(Icons.event_busy),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: InkWell(
-                                  onTap: _pickRecurrenceEndDate,
-                                  child: Text(
-                                    'Repetir até '
-                                    '${DateFormat('dd/MM/yyyy').format(_recurrenceEndDate!)}',
-                                    style: CommunityDesign.contentStyle(
-                                      context,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.close),
-                                tooltip: 'Limpar data de encerramento',
-                                onPressed: () =>
-                                    setState(() => _recurrenceEndDate = null),
-                              ),
-                            ],
-                          ),
-                        const SizedBox(height: 4),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Sem preencher, o evento se repete pelos próximos 12 meses.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
+                      _buildPatternFields(enabled: true),
                       const SizedBox(height: 16),
 
                       // Fase 6 — A-09: esta prévia é LOCAL e informativa. Ela
@@ -1317,6 +1376,22 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                     // lugar do switch "Evento fixo", que some em edição.
                     if (_isEditMode && _batchId != null) ...[
                       _buildSeriesHeader(context),
+                      const SizedBox(height: 24),
+                      SeriesScopeToggle(
+                        eventId: widget.eventId!,
+                        batchId: _batchId!,
+                        occurrenceDate: _startDate ?? DateTime.now(),
+                        series: _series,
+                        enabled: _applyToSeries,
+                        futureCount: _seriesFutureCount,
+                        onChanged: _onApplyToSeriesChanged,
+                        // D-03: o mesmo método que constrói os campos de
+                        // padrão na criação. Nenhuma lista fixa de campos
+                        // replicáveis existe na UI.
+                        child: _buildPatternFields(
+                          enabled: _applyToSeries && _series != null,
+                        ),
+                      ),
                       const SizedBox(height: 24),
                     ],
 
@@ -1345,10 +1420,34 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.access_time),
                       title: const Text('Horário de Início *'),
-                      subtitle: Text(
-                        _startTime != null
-                            ? _startTime!.format(context)
-                            : 'Selecione o horário',
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _startTime != null
+                                ? _startTime!.format(context)
+                                : 'Selecione o horário',
+                          ),
+                          // D-04 explícito na UI: horário não é data. Com o
+                          // toggle ligado, a RPC troca só a hora do dia de
+                          // cada ocorrência futura e preserva a data de cada
+                          // uma.
+                          if (_applyToSeries) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'O horário novo vale para todas as ocorrências '
+                              'futuras. As datas não mudam.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: _pickStartTime,
