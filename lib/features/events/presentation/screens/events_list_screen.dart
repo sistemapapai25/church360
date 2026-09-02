@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/utils/share_link_utils.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/widgets/share_link_dialog.dart';
 
 import '../../../permissions/providers/permissions_providers.dart';
 import '../providers/events_provider.dart';
+import '../utils/series_error.dart';
+import '../widgets/series_impact_dialog.dart';
 import '../../domain/models/event.dart';
+import '../../domain/models/event_series_impact.dart';
 import 'event_detail_screen.dart';
 import 'event_form_screen.dart';
 
@@ -33,6 +36,12 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
   String _filter = 'upcoming'; // 'all', 'upcoming', 'active'
   bool _selectionMode = false;
   final Set<String> _selectedIds = {};
+
+  /// Fase 6 — IC-5/IC-6: id do evento cuja prévia de impacto de série está em
+  /// voo. Enquanto não for nulo o item de menu fica desabilitado, com
+  /// `CircularProgressIndicator` de 16px no lugar do ícone. É anti duplo toque
+  /// (T-04-05); a atomicidade real é da transação da RPC.
+  String? _seriesActionEventId;
 
   bool _isRegistrationShareEnabled(Event event) {
     return event.requiresRegistration && event.status == 'published' && !event.isPast;
@@ -193,84 +202,123 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
     }
   }
 
+  /// Fase 6 — REC-05 / IC-5: exclui APENAS as ocorrências futuras da série.
+  ///
+  /// Antes desta fase esta ação chamava o método de exclusão por lote do
+  /// repositório (hoje `@Deprecated`), que apaga o lote inteiro — inclusive as
+  /// ocorrências passadas, com inscrição, presença e escala já registradas. É
+  /// exatamente o que REC-05 conserta, e por isso o rótulo do menu mudou
+  /// junto: manter o rótulo antigo, que prometia a série inteira, seria a UI
+  /// mentindo sobre o próprio efeito (A-01).
+  ///
+  /// **O gate de UI (`canDelete && event.batchId != null`) é UX, nunca
+  /// boundary** (IC-8/T-04-04). A autoridade é a guarda dentro de
+  /// `public.delete_event_series_future`. Por isso o tratamento de
+  /// `PERMISSION_DENIED` no `catch` é mantido MESMO com o item de menu
+  /// escondido: a permissão pode mudar entre renderizar e enviar.
   Future<void> _confirmDeleteBatch(Event event) async {
     final batchId = event.batchId;
     if (batchId == null) return;
+    // Anti duplo toque enquanto a prévia está em voo (T-04-05).
+    if (_seriesActionEventId != null) return;
 
-    List<Event> batchEvents;
+    setState(() => _seriesActionEventId = event.id);
+
+    final EventSeriesImpact previa;
     try {
-      batchEvents =
-          await ref.read(eventsRepositoryProvider).getEventsByBatch(batchId);
+      previa = await ref
+          .read(eventsRepositoryProvider)
+          .previewDeleteSeriesFuture(batchId: batchId, anchorEventId: event.id);
     } catch (e) {
+      // A-04: NUNCA confirmar uma operação em massa com número inventado. O
+      // cutoff de "futuro" é calculado no servidor, no fuso invertido, e uma
+      // contagem local erraria por até 3 horas de janela. Se a prévia falhou,
+      // o diálogo NÃO abre e nada é enviado.
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao buscar série do evento: $e'),
-            backgroundColor: Colors.red,
-          ),
+        setState(() => _seriesActionEventId = null);
+        _showSeriesError(
+          e,
+          fallback: 'Não foi possível calcular o impacto desta alteração.',
         );
       }
       return;
     }
-    if (batchEvents.isEmpty) batchEvents = [event];
-
-    final dateFormat = DateFormat('dd/MM/yyyy');
-    final first = batchEvents.first.startDate;
-    final last = batchEvents.last.startDate;
 
     if (!mounted) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Excluir toda a série'),
-        content: Text(
-          'Esta ação vai excluir ${batchEvents.length} evento(s) de '
-          '"${event.name}", gerados no mesmo lançamento '
-          '(de ${dateFormat.format(first)} até ${dateFormat.format(last)}).\n\n'
-          'Inscrições, escalas e demais dados vinculados a esses eventos '
-          'também serão removidos. Essa ação não pode ser desfeita.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: Text('Excluir ${batchEvents.length}'),
-          ),
-        ],
-      ),
+    setState(() => _seriesActionEventId = null);
+
+    final temFuturas = previa.futureCount > 0;
+    await showSeriesImpactDialog(
+      context,
+      variant: temFuturas
+          ? SeriesImpactVariant.deleteFuture
+          : SeriesImpactVariant.nothingToDo,
+      impact: previa,
+      eventName: event.name,
+      onConfirm: temFuturas
+          ? () => _executarExclusaoDeFuturas(event, batchId)
+          : null,
     );
+  }
 
-    if (confirmed != true || !mounted) return;
-
+  /// Execução real da RPC, disparada pelo botão destrutivo do diálogo.
+  ///
+  /// Não relança: o diálogo só precisa saber que terminou. Todo o feedback
+  /// (sucesso ou erro) sai daqui.
+  Future<void> _executarExclusaoDeFuturas(Event event, String batchId) async {
     try {
-      await ref.read(eventsRepositoryProvider).deleteEventsByBatch(batchId);
+      final resultado = await ref
+          .read(eventsRepositoryProvider)
+          .deleteEventSeriesFuture(batchId: batchId, anchorEventId: event.id);
+
       ref.invalidate(allEventsProvider);
       ref.invalidate(activeEventsProvider);
       ref.invalidate(upcomingEventsProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${batchEvents.length} eventos excluídos com sucesso!',
-            ),
-            backgroundColor: Colors.green,
+      ref.invalidate(eventSeriesProvider(batchId));
+
+      if (!mounted) return;
+      // O número informado é o `deleted_count` DA EXECUÇÃO, não o da prévia:
+      // entre uma e outra o conjunto pode ter mudado (T-04-02).
+      final n = resultado.deletedCount;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            n == 1
+                ? '1 ocorrência futura excluída. As passadas foram preservadas.'
+                : '$n ocorrências futuras excluídas. As passadas foram '
+                      'preservadas.',
           ),
-        );
-      }
+        ),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao excluir série: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!mounted) return;
+      _showSeriesError(
+        e,
+        fallback: 'Não foi possível excluir as ocorrências futuras. Verifique '
+            'a conexão e tente novamente.',
+      );
     }
+  }
+
+  /// Erro de operação de série na tela: copy PT-BR conhecida primeiro,
+  /// `AppErrorHandler` depois. **Nunca** `Text('Erro ...: $e')` — qualquer
+  /// campo do `PostgrestException` pode carregar SQL, nome de tabela ou nome
+  /// de RPC (T-04-01).
+  void _showSeriesError(Object error, {required String fallback}) {
+    final especifica = seriesErrorMessage(error);
+    if (especifica == null) {
+      AppErrorHandler.showSnackBar(
+        context,
+        error,
+        feature: 'events',
+        fallbackMessage: fallback,
+      );
+      return;
+    }
+    AppErrorHandler.log(error, feature: 'events');
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(especifica)));
   }
 
   @override
@@ -639,21 +687,49 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                                                 ],
                                               ),
                                             ),
+                                          // Fase 6 — REC-05/A-01. FRONTEIRA DE
+                                          // ESCOPO: só ESTE item troca o
+                                          // `Colors.red` cru por
+                                          // `colorScheme.error`. Os demais
+                                          // destrutivos deste arquivo
+                                          // (exclusão de evento único e
+                                          // seleção em massa, logo acima)
+                                          // ficam como estão — estão fora de
+                                          // REC-05 e o CLAUDE.md proíbe
+                                          // limpeza geral não relacionada.
                                           if (canDelete && event.batchId != null)
-                                            const PopupMenuItem(
+                                            PopupMenuItem(
                                               value: 'delete_batch',
+                                              enabled:
+                                                  _seriesActionEventId !=
+                                                  event.id,
                                               child: Row(
                                                 children: [
-                                                  Icon(
-                                                    Icons.delete_sweep,
-                                                    size: 18,
-                                                    color: Colors.red,
-                                                  ),
-                                                  SizedBox(width: 8),
+                                                  if (_seriesActionEventId ==
+                                                      event.id)
+                                                    const SizedBox(
+                                                      width: 16,
+                                                      height: 16,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                          ),
+                                                    )
+                                                  else
+                                                    Icon(
+                                                      Icons.delete_sweep,
+                                                      size: 18,
+                                                      color: Theme.of(context)
+                                                          .colorScheme
+                                                          .error,
+                                                    ),
+                                                  const SizedBox(width: 8),
                                                   Text(
-                                                    'Excluir toda a série',
+                                                    'Excluir ocorrências futuras',
                                                     style: TextStyle(
-                                                      color: Colors.red,
+                                                      color: Theme.of(context)
+                                                          .colorScheme
+                                                          .error,
                                                     ),
                                                   ),
                                                 ],

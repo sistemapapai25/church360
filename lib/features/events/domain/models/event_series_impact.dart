@@ -8,9 +8,9 @@
 /// uma chave lida direto do `Map` na tela é como uma contagem passa a mentir
 /// silenciosamente quando o servidor muda o nome dela.
 ///
-/// **Este modelo só entra, nunca sai.** Não há `toJson`: nada aqui é enviado
-/// ao servidor, e um serializador daria a impressão errada de que a UI pode
-/// propor contagens.
+/// **Este modelo só entra, nunca sai.** Não existe serializador de saída aqui:
+/// nada deste modelo é enviado ao servidor, e um serializador daria a impressão
+/// errada de que a UI pode propor contagens.
 ///
 /// As contagens são a fonte ÚNICA dos números dos diálogos de impacto (A-04 do
 /// `06-UI-SPEC.md`): o cutoff de "ocorrência futura" é calculado no servidor
