@@ -42,7 +42,12 @@ jobs:
       - name: Write Vercel rewrites config
         run: |
           cat > build/web/vercel.json << 'EOF'
-          { "rewrites": [ { "source": "/(.*)", "destination": "/index.html" } ] }
+          {
+            "rewrites": [
+              { "source": "/privacy", "destination": "/privacy.html" },
+              { "source": "/(.*)", "destination": "/index.html" }
+            ]
+          }
           EOF
 
       - name: Install Vercel CLI

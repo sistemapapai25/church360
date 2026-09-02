@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Política de Privacidade — Church360</title>
+<style>
+  :root{
+    color-scheme: light dark;
+    --bg:#f7f7f9; --card:#ffffff; --text:#1a1a1a; --muted:#5a5a5f; --accent:#5b3df5; --border:#e6e6ea;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#121214; --card:#1c1c1f; --text:#f2f2f4; --muted:#a3a3ab; --accent:#9b8bff; --border:#2c2c30; }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height:1.6;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:32px 20px 80px}
+  header{margin-bottom:32px}
+  .logo{font-weight:700; font-size:20px; color:var(--accent); letter-spacing:.2px}
+  h1{font-size:26px; margin:12px 0 4px}
+  .updated{color:var(--muted); font-size:14px; margin-bottom:0}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:24px 28px; margin-bottom:20px}
+  h2{font-size:17px; margin:0 0 10px; color:var(--text)}
+  p{margin:0 0 12px; color:var(--text)}
+  p:last-child{margin-bottom:0}
+  ul{margin:0 0 12px; padding-left:20px}
+  li{margin-bottom:8px}
+  li:last-child{margin-bottom:0}
+  .muted{color:var(--muted); font-size:14px}
+  a{color:var(--accent)}
+  table{width:100%; border-collapse:collapse; font-size:14px; margin-top:8px}
+  th,td{text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top}
+  th{color:var(--muted); font-weight:600}
+  footer{margin-top:32px; color:var(--muted); font-size:13px; text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">Church360</div>
+    <h1>Política de Privacidade</h1>
+    <p class="updated">Última atualização: 2 de setembro de 2026</p>
+  </header>
+
+  <div class="card">
+    <h2>1. Sobre este documento</h2>
+    <p>
+      O Church360 ("aplicativo", "sistema") é uma plataforma de gestão eclesiástica utilizada por igrejas
+      para administrar membros, ministérios, eventos, comunicação e, em alguns casos, finanças internas.
+      Esta política descreve quais dados são coletados, como são usados, com quem podem ser compartilhados
+      e quais direitos você tem sobre eles, em conformidade com a Lei Geral de Proteção de Dados
+      (Lei nº 13.709/2018 — LGPD).
+    </p>
+    <p>
+      Cada instância do Church360 é operada por uma igreja específica (o "controlador dos dados"), que é
+      responsável pela gestão da sua congregação dentro do sistema. A equipe técnica do Church360 atua como
+      operadora, fornecendo a infraestrutura que processa esses dados sob orientação da igreja.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>2. Quais dados coletamos</h2>
+    <p>Dependendo do seu papel no sistema (membro, líder ou administrador), podemos coletar:</p>
+    <ul>
+      <li><strong>Dados de identificação:</strong> nome completo, e-mail, telefone, data de nascimento, foto de perfil.</li>
+      <li><strong>Dados de vínculo com a igreja:</strong> status de membresia, ministérios, cargos, grupos/células, histórico de participação em eventos.</li>
+      <li><strong>Dados de acompanhamento pastoral:</strong> pedidos de oração, anotações de acompanhamento, quando registrados por líderes autorizados.</li>
+      <li><strong>Dados de acesso e autenticação:</strong> credenciais de login (gerenciadas de forma segura via Firebase Authentication), registros de acesso ao sistema.</li>
+      <li><strong>Dados financeiros internos:</strong> quando aplicável, registros de contribuições e movimentações financeiras da igreja, visíveis apenas a usuários com permissão administrativa/financeira.</li>
+      <li><strong>Dados técnicos:</strong> identificadores de dispositivo para notificações push, registros de erro e uso, para manutenção e segurança do sistema.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>3. Para que usamos seus dados</h2>
+    <ul>
+      <li>Identificação e autenticação de usuários no aplicativo.</li>
+      <li>Organização de membresia, ministérios, eventos e comunicação interna da igreja.</li>
+      <li>Acompanhamento pastoral, quando esse recurso é utilizado pela liderança.</li>
+      <li>Envio de notificações e comunicados relacionados às atividades da igreja.</li>
+      <li>Administração financeira interna da igreja, restrita a usuários com permissão específica.</li>
+      <li>Segurança, prevenção de fraude e auditoria de acesso ao sistema.</li>
+    </ul>
+    <p>
+      O tratamento segue os princípios da LGPD de necessidade, transparência, segurança e minimização:
+      cada usuário só acessa os dados compatíveis com seu papel e permissões (RBAC) dentro do sistema.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>4. Com quem seus dados podem ser compartilhados</h2>
+    <p>Não vendemos dados pessoais. Seus dados podem ser processados pelos seguintes fornecedores de infraestrutura, exclusivamente para operação do serviço:</p>
+    <table>
+      <tr><th>Fornecedor</th><th>Finalidade</th></tr>
+      <tr><td>Supabase</td><td>Banco de dados e regras de acesso (backend)</td></tr>
+      <tr><td>Firebase (Google)</td><td>Autenticação e notificações push</td></tr>
+      <tr><td>Vercel</td><td>Hospedagem da versão web do aplicativo</td></tr>
+    </table>
+    <p class="muted">Esses fornecedores processam os dados sob contrato, com finalidade limitada à prestação do serviço, e não os utilizam para fins próprios.</p>
+    <p>Dentro da própria igreja, dados podem ser visíveis a outros membros ou líderes conforme o nível de privacidade definido para cada informação (por exemplo, um pedido de oração pode ser marcado como público ou privado) e conforme as permissões do cargo de cada usuário.</p>
+  </div>
+
+  <div class="card">
+    <h2>5. Seus direitos como titular dos dados</h2>
+    <p>Conforme a LGPD, você pode solicitar a qualquer momento, junto à liderança da sua igreja:</p>
+    <ul>
+      <li>Confirmação de que seus dados estão sendo tratados e acesso a eles.</li>
+      <li>Correção de dados incompletos, inexatos ou desatualizados.</li>
+      <li>Anonimização, bloqueio ou eliminação de dados desnecessários ou tratados em desconformidade com a lei.</li>
+      <li>Portabilidade dos dados a outro fornecedor de serviço.</li>
+      <li>Revogação do consentimento e exclusão dos dados tratados com base nele.</li>
+      <li>Informação sobre com quem seus dados foram compartilhados.</li>
+    </ul>
+    <p>Solicitações podem ser feitas diretamente à liderança/administração da sua igreja no Church360, responsável pelo tratamento dos dados da congregação.</p>
+  </div>
+
+  <div class="card">
+    <h2>6. Consentimento e registro de aceite</h2>
+    <p>
+      No cadastro, o usuário deve ler e aceitar explicitamente o Consentimento LGPD e os Termos de Compromisso
+      do sistema. O aplicativo registra data e horário desse aceite para fins de comprovação e auditoria interna.
+      A liderança pastoral pode visualizar o status de aceite de cada membro para fins de conformidade.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>7. Retenção e exclusão de dados</h2>
+    <p>
+      Os dados são mantidos enquanto durar o vínculo do usuário com a igreja no sistema, ou pelo tempo
+      necessário para cumprir obrigações legais e administrativas. Ao ser solicitada a exclusão de uma
+      conta, os dados pessoais são removidos ou anonimizados, ressalvadas informações que a igreja precise
+      reter por obrigação legal (por exemplo, registros financeiros).
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>8. Segurança</h2>
+    <p>
+      Utilizamos autenticação segura, controle de acesso baseado em papéis (RBAC) e regras de segurança em
+      nível de banco de dados (RLS) para restringir o acesso aos dados conforme o perfil de cada usuário.
+      Nenhum sistema é 100% livre de riscos, mas adotamos práticas de segurança da informação para reduzir
+      exposições e responder rapidamente a incidentes.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>9. Menores de idade</h2>
+    <p>
+      O Church360 pode conter cadastros de menores de idade vinculados à sua igreja (por exemplo, crianças
+      e adolescentes em ministérios infantis/juvenis). Nesses casos, o cadastro e o consentimento devem ser
+      feitos por um responsável legal ou por líder autorizado pela igreja, conforme as diretrizes internas
+      da congregação.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>10. Alterações desta política</h2>
+    <p>
+      Esta política pode ser atualizada periodicamente para refletir mudanças no aplicativo ou na legislação
+      aplicável. A data da última atualização é sempre indicada no topo desta página.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>11. Contato</h2>
+    <p>
+      Dúvidas sobre esta política ou sobre o tratamento dos seus dados podem ser encaminhadas à liderança/
+      administração da sua igreja no Church360, responsável pelos dados da sua congregação.
+    </p>
+  </div>
+
+  <footer>Church360 — Sistema de gestão de igrejas</footer>
+</div>
+</body>
+</html>
