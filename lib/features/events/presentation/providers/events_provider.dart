@@ -5,6 +5,7 @@ import '../../data/events_repository.dart';
 import '../../domain/models/event.dart';
 import '../../domain/models/event_audience.dart';
 import '../../domain/models/event_reminder.dart';
+import '../../domain/models/event_series.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 
 /// Provider do repository de eventos
@@ -64,6 +65,22 @@ final eventResponsiblesProvider = FutureProvider.family<List<EventAudience>, Str
 final eventRemindersProvider = FutureProvider.family<List<EventReminder>, String>((ref, eventId) async {
   final repo = ref.watch(eventsRepositoryProvider);
   return repo.getEventReminders(eventId);
+});
+
+/// Fase 6 — REC-01. Definição do padrão de repetição de uma série, chaveada
+/// pelo `batch_id` do lote.
+///
+/// **`null` = série legada**, criada antes desta fase e sem definição
+/// persistida (Achado #1). Não é erro e não é estado transitório: hoje é o
+/// estado de 100% das séries de produção (VEREDITO A4 do
+/// `06-DB-BASELINE.md`), e a tela precisa tratá-lo como caminho normal
+/// (IC-7), não como exceção. Falha de rede continua caindo em `error`.
+final eventSeriesProvider = FutureProvider.family<EventSeries?, String>((
+  ref,
+  batchId,
+) async {
+  final repo = ref.watch(eventsRepositoryProvider);
+  return repo.getEventSeries(batchId);
 });
 
 /// VIS-03: audiência de um evento para um papel qualquer

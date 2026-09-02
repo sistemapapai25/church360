@@ -3,6 +3,7 @@ import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/event.dart';
 import '../domain/models/event_audience.dart';
 import '../domain/models/event_reminder.dart';
+import '../domain/models/event_series.dart';
 
 /// Repository para gerenciar eventos
 class EventsRepository {
@@ -702,6 +703,90 @@ class EventsRepository {
           .toList();
 
       await _supabase.from('event_reminder').insert(rows);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Fase 6 — REC-01: definição do padrão de repetição de uma série.
+  ///
+  /// **`null` significa SÉRIE LEGADA, não erro.** Séries criadas antes desta
+  /// fase têm `batch_id` nas ocorrências mas nenhuma linha em `event_series`
+  /// (Achado #1) — hoje são 100% das séries de produção (VEREDITO A4 do
+  /// `06-DB-BASELINE.md`). A tela trata esse retorno como estado degradado
+  /// (IC-7): pode aplicar campos comuns às futuras, não pode editar o padrão.
+  /// Falha de rede continua sendo exceção e chega ao chamador.
+  ///
+  /// A leitura passa por PostgREST porque `event_series` tem policy de
+  /// SELECT para o `authenticated` do tenant. A ESCRITA não tem policy
+  /// nenhuma — ver [upsertEventSeries].
+  Future<EventSeries?> getEventSeries(String batchId) async {
+    try {
+      final response = await _supabase
+          .from('event_series')
+          .select()
+          .eq('id', batchId)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .maybeSingle();
+
+      if (response == null) return null;
+      return EventSeries.fromJson(Map<String, dynamic>.from(response));
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Fase 6 — REC-01: grava (ou regrava) a definição do padrão de uma série.
+  ///
+  /// **Não existe policy de escrita em `public.event_series`.** A tabela
+  /// nasceu com RLS habilitada e exatamente uma policy, de SELECT: RLS é
+  /// deny-by-default, então INSERT/UPDATE/DELETE por PostgREST são recusados
+  /// mesmo para um autenticado do tenant. Esta RPC (`SECURITY DEFINER`,
+  /// migration `20260902000300`) é a única porta de escrita que existe.
+  ///
+  /// A autorização (ser responsável pelo evento **ou** ter `events.edit`) é
+  /// decidida DENTRO do servidor: o ator sai de `auth.uid()` e o tenant de
+  /// `current_tenant_id()`. **Nenhum parâmetro de ator ou de tenant sai
+  /// daqui** — aceitar o ator por parâmetro é a regressão exata do CHU-326.
+  /// Travado por teste em `event_series_repository_test.dart`.
+  ///
+  /// As duas datas são serializadas como `yyyy-MM-dd`: as colunas são `date`,
+  /// e mandar ISO completo faria o Postgres truncar em silêncio, deixando o
+  /// dia gravado dependente do fuso do aparelho de quem salvou.
+  ///
+  /// Erro do servidor (inclusive `42501`/`PERMISSION_DENIED`) **não** é
+  /// engolido em default: sem a definição gravada a série vira legada, e a
+  /// tela precisa poder avisar isso.
+  Future<void> upsertEventSeries({
+    required String batchId,
+    required String anchorEventId,
+    required DateTime anchorDate,
+    required String patternGroup,
+    String? variableType,
+    required List<int> weekdays,
+    required int intervalWeeks,
+    int? monthlyOrdinal,
+    DateTime? recurrenceEndDate,
+    required int startTimeMinutes,
+  }) async {
+    try {
+      await _supabase.rpc(
+        'upsert_event_series',
+        params: {
+          'p_batch_id': batchId,
+          'p_anchor_event_id': anchorEventId,
+          'p_anchor_date': formatSeriesDate(anchorDate),
+          'p_pattern_group': patternGroup,
+          'p_variable_type': variableType,
+          'p_weekdays': weekdays,
+          'p_interval_weeks': intervalWeeks,
+          'p_monthly_ordinal': monthlyOrdinal,
+          'p_recurrence_end_date': recurrenceEndDate == null
+              ? null
+              : formatSeriesDate(recurrenceEndDate),
+          'p_start_time_minutes': startTimeMinutes,
+        },
+      );
     } catch (e) {
       rethrow;
     }
