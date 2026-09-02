@@ -16,6 +16,7 @@ import '../../domain/models/event_audience.dart';
 import '../../domain/models/event_reminder.dart';
 import '../../domain/models/event_series.dart';
 import '../../domain/models/event_series_impact.dart';
+import '../utils/series_change_detection.dart';
 import '../utils/series_error.dart';
 import '../widgets/series_impact_dialog.dart';
 import '../widgets/audience_picker.dart';
@@ -776,7 +777,18 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   /// Único ponto de escrita de `_applyToSeries` fora da declaração — é o
   /// `onChanged` do toggle de escopo (D-01).
   void _onApplyToSeriesChanged(bool value) {
-    setState(() => _applyToSeries = value);
+    setState(() {
+      _applyToSeries = value;
+      // IC-4, última regra: DESLIGAR o toggle devolve os campos de padrão e o
+      // `Repetir até` ao valor PERSISTIDO. Sem isto, o líder desliga o toggle
+      // achando que desistiu, salva a ocorrência única, e os campos continuam
+      // mostrando um padrão que não é o da série — a tela passa a mentir
+      // sobre o estado persistido, e o aviso inline some mesmo com a
+      // divergência ainda na frente dele.
+      if (!value && _series != null) {
+        _applySeriesPatternToForm(_series!);
+      }
+    });
     // Ao LIGAR, busca a contagem do servidor para o subtítulo. É um dry-run:
     // o corpo da RPC retorna antes de qualquer mutação. Falhar aqui é
     // silencioso de propósito — o subtítulo perde o número, o líder não
@@ -785,6 +797,111 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
     if (value) {
       unawaited(_atualizarContagemDeFuturas());
     }
+  }
+
+  /// Fase 6 — REC-03/IC-4: o que o formulário mudou em relação à definição
+  /// persistida da série.
+  ///
+  /// É **getter**, não campo: recalcula a cada `build`, que é exatamente o
+  /// comportamento que IC-4 pede — o aviso aparece enquanto o líder edita, não
+  /// só quando ele tenta salvar.
+  ///
+  /// Com o toggle DESLIGADO (ou sem lote, ou em série legada) o resultado é
+  /// `none` sem nem chamar a detecção: a série nunca é alterada nesse caminho,
+  /// então não existe aviso a dar.
+  ///
+  /// **Isto escolhe o aviso, nunca o efeito.** Quem decide entre criar,
+  /// excluir e regerar é `regenerate_event_series`, comparando com
+  /// `event_series` — e é o `mode` DELA que escolhe o diálogo no salvamento.
+  SeriesChangeKind get _seriesChange {
+    if (!_applyToSeries || _batchId == null || _series == null) {
+      return SeriesChangeKind.none;
+    }
+    return detectSeriesChange(
+      series: _series,
+      patternGroup: _fixedPatternGroup,
+      variableType: _fixedPatternGroup == 'variavel' ? _variableType : null,
+      weekdays: _fixedWeekdays.toList(),
+      intervalWeeks: _intervalWeeks,
+      monthlyOrdinal: _variableMonthlyOrdinal,
+      recurrenceEndDate: _recurrenceEndDate,
+    );
+  }
+
+  /// A data de encerramento que vale de fato depois da edição — a escolhida
+  /// pelo líder, ou o fallback de 12 meses sobre a âncora. A regra mora em
+  /// `series_change_detection.dart` e não é reescrita aqui.
+  DateTime? get _dataDeEncerramentoEfetiva {
+    final serie = _series;
+    if (serie == null) return null;
+    return seriesEffectiveEndDate(
+      series: serie,
+      recurrenceEndDate: _recurrenceEndDate,
+    );
+  }
+
+  /// Descrição do padrão que o formulário está propondo (A-13: fonte única).
+  String get _rotuloDoPadraoNovo => describeSeriesPattern(
+    patternGroup: _fixedPatternGroup,
+    variableType: _fixedPatternGroup == 'variavel' ? _variableType : null,
+    weekdays: _fixedWeekdays.toList(),
+    intervalWeeks: _intervalWeeks,
+    monthlyOrdinal: _variableMonthlyOrdinal,
+  );
+
+  /// Fase 6 — IC-4 / S3: bloco de aviso que aparece ENQUANTO o líder edita.
+  ///
+  /// **Informa, nunca bloqueia** (D-06: data, horário e padrão sempre podem
+  /// ser salvos). Descobrir que a série vai ser regerada só no diálogo de
+  /// confirmação é tarde: a essa altura o líder já decidiu salvar.
+  Widget _buildSeriesChangeWarning(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final data = _dataDeEncerramentoEfetiva;
+    final dataBr = data == null
+        ? ''
+        : DateFormat('dd/MM/yyyy').format(data);
+
+    final texto = switch (_seriesChange) {
+      SeriesChangeKind.pattern =>
+        'Você mudou o padrão de repetição. Ao salvar, as ocorrências futuras '
+            'serão apagadas e geradas de novo nas datas novas.',
+      SeriesChangeKind.shorten =>
+        'Você encurtou o período. Ao salvar, as ocorrências depois de '
+            '$dataBr serão excluídas.',
+      SeriesChangeKind.extend =>
+        'Você estendeu o período. Ao salvar, serão criadas as ocorrências que '
+            'faltam até $dataBr. As que já existem não mudam.',
+      SeriesChangeKind.none => '',
+    };
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.tertiaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.warning_amber_rounded,
+            size: 20,
+            color: cs.onTertiaryContainer,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              texto,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: cs.onTertiaryContainer,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _atualizarContagemDeFuturas() async {
@@ -1437,8 +1554,22 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                         // D-03: o mesmo método que constrói os campos de
                         // padrão na criação. Nenhuma lista fixa de campos
                         // replicáveis existe na UI.
-                        child: _buildPatternFields(
-                          enabled: _applyToSeries && _series != null,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildPatternFields(
+                              enabled: _applyToSeries && _series != null,
+                            ),
+                            // IC-4 / S3: o aviso entra DEPOIS dos campos de
+                            // padrão e do `Repetir até`, e só quando há
+                            // diferença em relação ao persistido.
+                            if (_applyToSeries &&
+                                _seriesChange != SeriesChangeKind.none) ...[
+                              const SizedBox(height: 16),
+                              _buildSeriesChangeWarning(context),
+                            ],
+                          ],
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -2668,7 +2799,22 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         // edição atual e sai por `return`; o `finally` de `_saveEvent` cuida
         // do `_isLoading`.
         if (_isEditMode && _batchId != null && _applyToSeries) {
-          await _aplicarEdicaoATodaASerie(data);
+          // Fase 6 — REC-03/REC-04 (Plano 06-08): com o toggle ligado existem
+          // DOIS caminhos, e a detecção local escolhe qual.
+          if (_seriesChange == SeriesChangeKind.none) {
+            // -----------------------------------------------------------
+            // FRONTEIRA DE ESCOPO — este ramo é o do Plano 06-06 (prévia +
+            // DLG-1 + `apply_event_series_update`), INALTERADO. Ele é o
+            // caminho de CAMPOS COMUNS: mudar o dia da semana ou o período
+            // não passa por aqui, porque `apply_event_series_update` é
+            // arquiteturalmente incapaz de carregar coluna de
+            // `event_series`. Qualquer alteração neste ramo é regressão de
+            // escopo do Plano 06-06, não melhoria.
+            // -----------------------------------------------------------
+            await _aplicarEdicaoATodaASerie(data);
+          } else {
+            await _regenerarSerie(data);
+          }
           return;
         }
 
@@ -2885,6 +3031,295 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         ),
       ),
     );
+  }
+
+  /// Fase 6 — REC-03/REC-04 / DLG-2, DLG-3 e DLG-4: aplica o padrão ou o
+  /// período novo à série, regerando, estendendo ou encurtando as ocorrências
+  /// futuras.
+  ///
+  /// Sequência obrigatória: prévia do servidor → **um** diálogo → execução.
+  /// **Nada é enviado se a prévia falhar** (A-04). Um diálogo por Salvar,
+  /// nunca dois encadeados (A-06) — a mudança de padrão absorve a de período,
+  /// e é o servidor que arbitra qual dos três abrir.
+  ///
+  /// O botão `Salvar` está fora da árvore enquanto isto roda (`_isLoading`
+  /// troca o corpo do formulário), e o botão do diálogo se desabilita sozinho
+  /// ao confirmar — não há duplo toque possível. Isso é UX; a atomicidade real
+  /// é da transação da RPC.
+  Future<void> _regenerarSerie(Map<String, dynamic> data) async {
+    final repo = ref.read(eventsRepositoryProvider);
+    final nomeDoEvento = _nameController.text.trim();
+    final deteccaoLocal = _seriesChange;
+
+    final patternGroup = _fixedPatternGroup;
+    final variableType = _fixedPatternGroup == 'variavel' ? _variableType : null;
+    final weekdays = _fixedWeekdays.toList()..sort();
+
+    final EventSeriesImpact previa;
+    try {
+      previa = await repo.previewRegenerateSeries(
+        batchId: _batchId!,
+        anchorEventId: widget.eventId!,
+        patternGroup: patternGroup,
+        variableType: variableType,
+        weekdays: weekdays,
+        intervalWeeks: _intervalWeeks,
+        monthlyOrdinal: _variableMonthlyOrdinal,
+        recurrenceEndDate: _recurrenceEndDate,
+      );
+    } catch (e) {
+      // A prévia falhou: o diálogo NÃO abre e o salvamento é abortado sem
+      // enviar nada. Confirmar operação em massa com número inventado é
+      // irrecuperável.
+      AppErrorHandler.log(e, feature: 'events');
+      if (mounted) {
+        final mensagem = seriesErrorMessage(e);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              mensagem ?? 'Não foi possível calcular o impacto desta alteração.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    // O SERVIDOR MANDA. A detecção local escolheu o aviso inline; quem decide
+    // o modo é a RPC, comparando com `event_series`. Divergência aqui
+    // significa que `detectSeriesChange` saiu de sincronia com o passo (7) de
+    // `20260902000900_regenerate_event_series_rpc.sql` — fica registrada para
+    // aparecer no log, e o servidor prevalece de qualquer forma.
+    final modoEsperado = switch (deteccaoLocal) {
+      SeriesChangeKind.extend => 'extend',
+      SeriesChangeKind.shorten => 'shorten',
+      SeriesChangeKind.pattern => 'regenerate',
+      SeriesChangeKind.none => 'none',
+    };
+    if (previa.mode != modoEsperado) {
+      debugPrint(
+        '[06-08] detecção local ($modoEsperado) divergiu do servidor '
+        '(${previa.mode}) — o servidor prevalece. Conferir a paridade com o '
+        'passo (7) de regenerate_event_series.',
+      );
+    }
+
+    // Nada a fazer: nem ocorrência futura, nem modo. DLG-6 e aborta.
+    if (previa.futureCount == 0 || previa.mode == 'none') {
+      await showSeriesImpactDialog(
+        context,
+        variant: SeriesImpactVariant.nothingToChange,
+        impact: previa,
+        eventName: nomeDoEvento,
+      );
+      return;
+    }
+
+    // Um diálogo só, escolhido pelo `mode` RETORNADO. Modo desconhecido cai
+    // em DLG-4, que é o aviso mais forte dos três — nunca o mais leve.
+    final variante = switch (previa.mode) {
+      'extend' => SeriesImpactVariant.extend,
+      'shorten' => SeriesImpactVariant.shorten,
+      _ => SeriesImpactVariant.regenerate,
+    };
+
+    EventSeriesImpact? resultado;
+    Object? erro;
+
+    final confirmado = await showSeriesImpactDialog(
+      context,
+      variant: variante,
+      impact: previa,
+      eventName: nomeDoEvento,
+      newEndDate: _dataDeEncerramentoEfetiva,
+      newPatternLabel: _rotuloDoPadraoNovo,
+      onConfirm: () async {
+        try {
+          resultado = await repo.regenerateSeries(
+            batchId: _batchId!,
+            anchorEventId: widget.eventId!,
+            patternGroup: patternGroup,
+            variableType: variableType,
+            weekdays: weekdays,
+            intervalWeeks: _intervalWeeks,
+            monthlyOrdinal: _variableMonthlyOrdinal,
+            recurrenceEndDate: _recurrenceEndDate,
+          );
+        } catch (e) {
+          erro = e;
+        }
+      },
+    );
+
+    if (confirmado != true || !mounted) return;
+
+    if (erro != null) {
+      // IC-8: o `catch` de `PERMISSION_DENIED` é mantido MESMO com o gate
+      // visual do toggle — a permissão pode mudar entre renderizar e enviar.
+      //
+      // "Nada foi alterado" só é VERDADE porque a operação inteira é uma RPC
+      // única, em uma transação. Se algum dia ela virar duas chamadas do
+      // cliente, esta copy vira mentira e muda junto.
+      final mensagem = seriesErrorMessage(erro!);
+      if (mensagem != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(mensagem)));
+      } else {
+        AppErrorHandler.showSnackBar(
+          context,
+          erro!,
+          feature: 'events',
+          fallbackMessage:
+              'Não foi possível concluir a mudança. Nada foi alterado — '
+              'verifique a conexão e tente novamente.',
+        );
+      }
+      return;
+    }
+
+    // Campos comuns DEPOIS da regeneração, nunca antes: aplicá-los primeiro
+    // gravaria as alterações em ocorrências que a regeneração apaga em
+    // seguida (T-08-04).
+    final avisoParcial = await _aplicarCamposComunsAposRegeneracao(data);
+
+    if (!mounted) return;
+
+    ref.invalidate(allEventsProvider);
+    ref.invalidate(activeEventsProvider);
+    ref.invalidate(upcomingEventsProvider);
+    ref.invalidate(eventByIdProvider(widget.eventId!));
+    ref.invalidate(eventSeriesProvider(_batchId!));
+    ref.invalidate(
+      eventAudienceProvider((eventId: widget.eventId!, role: 'visibility')),
+    );
+    ref.invalidate(
+      eventAudienceProvider((eventId: widget.eventId!, role: 'registration')),
+    );
+
+    // A ocorrência ABERTA pode ter sido APAGADA pela operação que o líder
+    // acabou de confirmar (nota (l) do cabeçalho da RPC: a âncora fora do
+    // padrão novo é apagada junto). Por isso a tela FECHA em vez de tentar
+    // recarregar um evento que talvez não exista mais.
+    Navigator.pop(context);
+
+    // Os números são os da EXECUÇÃO, nunca os da prévia: entre uma e outra o
+    // conjunto pode mudar.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          avisoParcial ?? _copyDeSucessoDaRegeneracao(resultado, previa.mode),
+        ),
+      ),
+    );
+  }
+
+  /// Copy de sucesso escolhida pelo `mode` do RETORNO da execução, com os
+  /// números do retorno. Plural sempre pela contagem real.
+  String _copyDeSucessoDaRegeneracao(
+    EventSeriesImpact? resultado,
+    String modoDaPrevia,
+  ) {
+    final modo = (resultado?.mode.isNotEmpty ?? false)
+        ? resultado!.mode
+        : modoDaPrevia;
+
+    switch (modo) {
+      case 'extend':
+        final n = resultado?.createdCount ?? 0;
+        final ultima = resultado?.lastNew;
+        final ate = ultima == null
+            ? ''
+            : ', até ${DateFormat('dd/MM/yyyy').format(ultima)}';
+        return n == 1
+            ? '1 ocorrência nova criada$ate.'
+            : '$n ocorrências novas criadas$ate.';
+      case 'shorten':
+        final n = resultado?.deletedCount ?? 0;
+        return n == 1
+            ? '1 ocorrência excluída. As passadas foram preservadas.'
+            : '$n ocorrências excluídas. As passadas foram preservadas.';
+      default:
+        final n = resultado?.futureAfterCount ?? 0;
+        return n == 1
+            ? 'Série regerada: 1 ocorrência futura no padrão novo.'
+            : 'Série regerada: $n ocorrências futuras no padrão novo.';
+    }
+  }
+
+  /// Aplica os campos comuns do formulário às ocorrências futuras DEPOIS de a
+  /// regeneração ter acontecido.
+  ///
+  /// **São duas transações, não uma.** A regeneração já aconteceu quando isto
+  /// roda; por isso o retorno não é um erro genérico e a copy não pode dizer
+  /// "nada foi alterado". Devolve `null` quando deu tudo certo (ou quando não
+  /// havia campo comum alterado) e a frase honesta quando a segunda parte
+  /// falhou.
+  ///
+  /// **Reancoragem obrigatória:** a ocorrência aberta pode ter sido apagada
+  /// pela própria regeneração (nota (l) do cabeçalho de
+  /// `20260902000900_regenerate_event_series_rpc.sql`, que delega esta
+  /// reancoragem ao cliente). Chamar `apply_event_series_update` com a âncora
+  /// morta responderia `SERIES_NOT_FOUND`, e o líder veria um erro depois de
+  /// uma operação que deu certo.
+  ///
+  /// Os dois campos de ESCOPO ficam de fora do que é enviado: o mapa `data`
+  /// carrega sempre `'all'` neles por construção (o escopo real é promovido
+  /// depois, por `_persistAudienceAndScopes`), e replicá-los aqui rebaixaria
+  /// uma série restrita para visível por toda a igreja, em silêncio. Não é
+  /// lista de campos replicáveis (D-03 continua valendo) — é a mesma lista de
+  /// EXCLUSÃO que o servidor mantém, pelo mesmo motivo.
+  Future<String?> _aplicarCamposComunsAposRegeneracao(
+    Map<String, dynamic> data,
+  ) async {
+    const excluidos = {
+      'start_date',
+      'end_date',
+      'visibility_scope',
+      'registration_scope',
+    };
+
+    try {
+      final repo = ref.read(eventsRepositoryProvider);
+      final ocorrencias = await repo.getEventsByBatch(_batchId!);
+      final agora = DateTime.now();
+      final futuras =
+          ocorrencias.where((e) => e.startDate.isAfter(agora)).toList()
+            ..sort((a, b) => a.startDate.compareTo(b.startDate));
+
+      // Sem ocorrência futura sobrevivente não há o que atualizar — e não é
+      // erro: a regeneração pode ter deixado a série só com passado.
+      if (futuras.isEmpty) return null;
+
+      final ancora = futuras.first;
+      final persistido = ancora.toJson();
+      final campos = <String, dynamic>{
+        for (final entrada in data.entries)
+          if (!excluidos.contains(entrada.key)) entrada.key: entrada.value,
+      };
+
+      // Nenhum campo comum mudou: não enviar nada. Um UPDATE inofensivo
+      // reescreveria dezenas de linhas e dispararia `event_changed_notify_upd`
+      // uma vez por linha — avalanche de avisos idênticos por uma edição que
+      // só mexeu no padrão.
+      final mudou = campos.entries.any(
+        (entrada) => persistido[entrada.key] != entrada.value,
+      );
+      if (!mudou) return null;
+
+      await repo.applySeriesUpdate(
+        batchId: _batchId!,
+        anchorEventId: ancora.id,
+        fields: campos,
+      );
+      return null;
+    } catch (e) {
+      AppErrorHandler.log(e, feature: 'events');
+      return 'As ocorrências foram regeradas, mas as outras alterações não '
+          'foram aplicadas. Abra o evento e salve de novo.';
+    }
   }
 
   /// Grava responsáveis, alvos de visibilidade e de elegibilidade para um
