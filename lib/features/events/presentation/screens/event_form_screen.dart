@@ -14,6 +14,8 @@ import '../../domain/models/event_audience.dart';
 import '../../domain/models/event_reminder.dart';
 import '../widgets/audience_picker.dart';
 import '../widgets/reminder_picker.dart';
+import '../widgets/series_progress_barrier.dart';
+import '../utils/series_pattern_label.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
@@ -71,6 +73,25 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   int _intervalWeeks = 2;
   int? _variableMonthlyOrdinal;
   int? _diasBase;
+
+  /// Fase 6 — REC-01: data de encerramento escolhida pelo líder.
+  ///
+  /// `null` significa **horizonte padrão**: 12 meses a partir de hoje, que era
+  /// o único comportamento possível antes desta fase. Deixar em branco não
+  /// muda nada para quem já usava o formulário.
+  DateTime? _recurrenceEndDate;
+
+  /// Fase 6 — S6/IC-6: progresso determinado da criação da série.
+  ///
+  /// `null` = nenhuma criação em voo. Enquanto for não-nulo, a barreira cobre
+  /// a tela e o botão de salvar fica desabilitado (anti duplo toque).
+  int? _seriesProgressTotal;
+  int _seriesProgressDone = 0;
+
+  /// Teto duro do período de repetição (A-03). A autoridade é a constraint
+  /// `event_series_horizon_chk` do servidor; esta constante só existe para o
+  /// líder descobrir o limite na tela, e não por erro do Postgres.
+  static const int _maxRecurrenceMonths = 24;
 
   @override
   void initState() {
@@ -617,7 +638,24 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
           style: CommunityDesign.titleStyle(context),
         ),
       ),
-      body: _isLoading
+      // Fase 6 — S6/IC-6: a barreira de progresso da criação de série fica
+      // por cima do corpo, com contador real. Ela só existe enquanto
+      // `_seriesProgressTotal != null`.
+      body: Stack(
+        children: [
+          _buildFormBody(context),
+          if (_seriesProgressTotal != null)
+            SeriesProgressBarrier(
+              done: _seriesProgressDone,
+              total: _seriesProgressTotal!,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormBody(BuildContext context) {
+    return _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
@@ -767,7 +805,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                           }
                         }),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       if (_fixedPatternGroup == 'semanal') ...[
                         Row(
                           children: [
@@ -1029,6 +1067,83 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                               setState(() => _variableMonthlyOrdinal = v),
                         ),
                       ],
+                      const SizedBox(height: 16),
+
+                      // Fase 6 — REC-01 / IC-1: data de encerramento da série.
+                      //
+                      // NÃO é renderizado para `variavel/unico`: um evento
+                      // único não recebe `batch_id` e portanto não pertence a
+                      // série nenhuma — não há o que "repetir até", e nenhuma
+                      // linha de `event_series` é gravada para ele.
+                      if (!_isVariavelUnico) ...[
+                        if (_recurrenceEndDate == null)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: OutlinedButton.icon(
+                              onPressed: _pickRecurrenceEndDate,
+                              icon: const Icon(Icons.event_busy),
+                              label: const Text(
+                                'Escolher data de encerramento',
+                              ),
+                            ),
+                          )
+                        else
+                          Row(
+                            children: [
+                              const Icon(Icons.event_busy),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: InkWell(
+                                  onTap: _pickRecurrenceEndDate,
+                                  child: Text(
+                                    'Repetir até '
+                                    '${DateFormat('dd/MM/yyyy').format(_recurrenceEndDate!)}',
+                                    style: CommunityDesign.contentStyle(
+                                      context,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close),
+                                tooltip: 'Limpar data de encerramento',
+                                onPressed: () =>
+                                    setState(() => _recurrenceEndDate = null),
+                              ),
+                            ],
+                          ),
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Sem preencher, o evento se repete pelos próximos 12 meses.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+
+                      // Fase 6 — A-09: esta prévia é LOCAL e informativa. Ela
+                      // recalcula a cada toque num chip de dia, por isso não
+                      // pode custar uma ida ao servidor — e por isso mesmo a
+                      // autoridade do número NÃO é ela. A copy diz "Serão
+                      // geradas" enquanto o SnackBar de sucesso informa o
+                      // número realmente criado. As contagens de operações
+                      // destrutivas (DLG-1..5, planos seguintes) vêm do
+                      // servidor, nunca daqui.
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          _seriesPreviewText(),
+                          style: CommunityDesign.metaStyle(context),
+                        ),
+                      ),
                       const SizedBox(height: 16),
                     ],
 
@@ -1798,7 +1913,12 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                           ? 'Você não tem permissão para editar eventos'
                           : 'Você não tem permissão para criar eventos',
                       child: FilledButton.icon(
-                        onPressed: _saveEvent,
+                        // S6/IC-6: enquanto a criação da série está em voo, o
+                        // botão fica desabilitado — anti duplo toque. Isto é
+                        // UX; não há transação por trás (Achado #3).
+                        onPressed: _seriesProgressTotal != null
+                            ? null
+                            : _saveEvent,
                         icon: const Icon(Icons.save),
                         label: Text(
                           _isEditMode ? 'Salvar Alterações' : 'Criar Evento',
@@ -1811,8 +1931,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                   ],
                 ),
               ),
-            ),
-    );
+            );
   }
 
   Future<void> _pickStartDate() async {
@@ -2025,130 +2144,170 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
           return;
         }
 
+        // Fase 6 — REC-01: valida a data de encerramento antes de gerar
+        // qualquer coisa. Espelha `event_series_horizon_chk`; a autoridade é
+        // a constraint, isto aqui só evita que o líder descubra o teto depois
+        // de o loop já ter criado dezenas de eventos.
+        if (!_isVariavelUnico &&
+            _recurrenceEndDate != null &&
+            !_validateRecurrenceEndDate(_recurrenceEndDate!)) {
+          setState(() => _isLoading = false);
+          return;
+        }
+
         final repo = ref.read(eventsRepositoryProvider);
         final batchId = const Uuid().v4();
         int count = 0;
+        // Achado #9: `from` é a ÂNCORA do lote — é o valor que
+        // `_matchesWeekInterval` usa para decidir a FASE do intervalo e é o
+        // que vai ser persistido como `anchor_date`. Uma vez gravada, nunca
+        // pode ser recalculada: refazer a âncora numa extensão futura joga as
+        // ocorrências novas de uma série quinzenal nas semanas erradas,
+        // intercaladas com as existentes.
         final from = DateTime.now();
-        final until = DateTime(
-          from.year + 1,
-          from.month,
-          from.day,
-          23,
-          59,
-        ); // horizonte padrão: 12 meses
+        final until = _recurrenceUntil(from);
 
-        if (_fixedPatternGroup == 'semanal') {
-          DateTime cursor = DateTime(from.year, from.month, from.day);
-          while (!cursor.isAfter(until)) {
-            if (_fixedWeekdays.contains(cursor.weekday)) {
-              if (_matchesWeekInterval(from, cursor, _intervalWeeks)) {
-                final fixedStart = DateTime(
-                  cursor.year,
-                  cursor.month,
-                  cursor.day,
-                  _startTime!.hour,
-                  _startTime!.minute,
-                );
-                final fixedData = Map<String, dynamic>.from(data);
-                fixedData['start_date'] = fixedStart.toIso8601String();
-                fixedData['end_date'] = null;
-                fixedData['status'] = 'published';
-                fixedData['batch_id'] = batchId;
-                final created = await repo.createEvent(fixedData);
-                await _persistAudienceAndScopes(created.id);
-                count++;
+        if (_isVariavelUnico) {
+          // `variavel/unico` não é série: um evento só, sem `batch_id` e sem
+          // linha em `event_series`. Caminho inalterado por esta fase.
+          final first = _firstMatchOnOrAfter(from, _fixedWeekdays) ?? from;
+          DateTime target = first;
+          if (_variableMonthlyOrdinal != null) {
+            DateTime monthCursor = DateTime(from.year, from.month, 1);
+            for (int m = 0; m < 24; m++) {
+              final wd = _fixedWeekdays.isEmpty
+                  ? DateTime.sunday
+                  : _fixedWeekdays.first;
+              final occ = _nthWeekdayOfMonth(
+                monthCursor.year,
+                monthCursor.month,
+                wd,
+                _variableMonthlyOrdinal!,
+              );
+              if (occ != null && !occ.isBefore(from)) {
+                target = occ;
+                break;
               }
+              monthCursor = DateTime(
+                monthCursor.year,
+                monthCursor.month + 1,
+                1,
+              );
             }
-            cursor = cursor.add(const Duration(days: 1));
           }
-        } else if (_fixedPatternGroup == 'variavel') {
-          if (_variableType == 'quinzenal') {
-            final first = _firstMatchOnOrAfter(from, _fixedWeekdays) ?? from;
-            DateTime cursor = DateTime(
-              first.year,
-              first.month,
-              first.day,
-              _startTime!.hour,
-              _startTime!.minute,
+          final fixedStart = DateTime(
+            target.year,
+            target.month,
+            target.day,
+            _startTime!.hour,
+            _startTime!.minute,
+          );
+          final fixedData = Map<String, dynamic>.from(data);
+          fixedData['start_date'] = fixedStart.toIso8601String();
+          fixedData['end_date'] = null;
+          fixedData['status'] = 'published';
+          final created = await repo.createEvent(fixedData);
+          await _persistAudienceAndScopes(created.id);
+
+          ref.invalidate(allEventsProvider);
+          ref.invalidate(activeEventsProvider);
+          ref.invalidate(upcomingEventsProvider);
+
+          if (mounted) {
+            Navigator.pop(context);
+            // Não é série: reusa a copy já existente de evento avulso, em vez
+            // de prometer "Série criada".
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Evento criado com sucesso!')),
             );
-            while (!cursor.isAfter(until)) {
-              final fixedData = Map<String, dynamic>.from(data);
-              fixedData['start_date'] = cursor.toIso8601String();
-              fixedData['end_date'] = null;
-              fixedData['status'] = 'published';
-              fixedData['batch_id'] = batchId;
-              final created = await repo.createEvent(fixedData);
-              await _persistAudienceAndScopes(created.id);
-              count++;
-              cursor = cursor.add(Duration(days: 7 * _intervalWeeks));
-            }
-          } else if (_variableType == 'dias') {
-            final base = _firstMatchOnOrAfter(from, _fixedWeekdays) ?? from;
-            DateTime cursor = DateTime(base.year, base.month, base.day);
-            while (!cursor.isAfter(until)) {
-              final weekdayOk = _fixedWeekdays.contains(cursor.weekday);
-              final ordinalOk = _variableMonthlyOrdinal == null
-                  ? true
-                  : _isOrdinalOfMonth(cursor, _variableMonthlyOrdinal!);
-              if (weekdayOk && ordinalOk) {
-                final fixedStart = DateTime(
-                  cursor.year,
-                  cursor.month,
-                  cursor.day,
-                  _startTime!.hour,
-                  _startTime!.minute,
-                );
-                final fixedData = Map<String, dynamic>.from(data);
-                fixedData['start_date'] = fixedStart.toIso8601String();
-                fixedData['end_date'] = null;
-                fixedData['status'] = 'published';
-                fixedData['batch_id'] = batchId;
-                final created = await repo.createEvent(fixedData);
-                await _persistAudienceAndScopes(created.id);
-                count++;
-              }
-              cursor = cursor.add(const Duration(days: 1));
-            }
-          } else if (_variableType == 'unico') {
-            final first = _firstMatchOnOrAfter(from, _fixedWeekdays) ?? from;
-            DateTime target = first;
-            if (_variableMonthlyOrdinal != null) {
-              DateTime monthCursor = DateTime(from.year, from.month, 1);
-              for (int m = 0; m < 24; m++) {
-                final wd = _fixedWeekdays.isEmpty
-                    ? DateTime.sunday
-                    : _fixedWeekdays.first;
-                final occ = _nthWeekdayOfMonth(
-                  monthCursor.year,
-                  monthCursor.month,
-                  wd,
-                  _variableMonthlyOrdinal!,
-                );
-                if (occ != null && !occ.isBefore(from)) {
-                  target = occ;
-                  break;
-                }
-                monthCursor = DateTime(
-                  monthCursor.year,
-                  monthCursor.month + 1,
-                  1,
-                );
-              }
-            }
-            final fixedStart = DateTime(
-              target.year,
-              target.month,
-              target.day,
-              _startTime!.hour,
-              _startTime!.minute,
-            );
+          }
+          return;
+        }
+
+        final datas = _computeOccurrenceDates(from, until);
+        setState(() {
+          _seriesProgressTotal = datas.length;
+          _seriesProgressDone = 0;
+        });
+
+        String? anchorEventId;
+        DateTime? ultimaCriada;
+
+        try {
+          for (final ocorrencia in datas) {
             final fixedData = Map<String, dynamic>.from(data);
-            fixedData['start_date'] = fixedStart.toIso8601String();
+            fixedData['start_date'] = ocorrencia.toIso8601String();
             fixedData['end_date'] = null;
             fixedData['status'] = 'published';
+            fixedData['batch_id'] = batchId;
             final created = await repo.createEvent(fixedData);
             await _persistAudienceAndScopes(created.id);
+            anchorEventId ??= created.id;
+            ultimaCriada = ocorrencia;
             count++;
+            if (mounted) {
+              setState(() => _seriesProgressDone = count);
+            }
+          }
+        } catch (e) {
+          // Falha no meio do loop: as ocorrências já criadas EXISTEM no
+          // servidor (Achado #3 — não há transação). Informar o número e
+          // nomear a saída é obrigatório; a saída nomeada ("Excluir
+          // ocorrências futuras") é entregue pela Task 2 do Plano 06-04.
+          ref.invalidate(allEventsProvider);
+          ref.invalidate(activeEventsProvider);
+          ref.invalidate(upcomingEventsProvider);
+          if (mounted) {
+            AppErrorHandler.log(e, feature: 'events');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'A série foi criada só em parte: $count de ${datas.length} '
+                  'ocorrências. Abra a série e use "Excluir ocorrências '
+                  'futuras" antes de tentar de novo.',
+                ),
+              ),
+            );
+          }
+          return;
+        }
+
+        // Fase 6 — REC-01: grava a definição da série DEPOIS das ocorrências.
+        //
+        // Falhar aqui NÃO derruba a criação: os eventos já existem, e o pior
+        // resultado possível é a série ficar sem padrão persistido — que é
+        // exatamente o estado de "série legada" que IC-7 já contrata e que
+        // hoje é o de 100% da produção. Desfazer dezenas de eventos já
+        // criados por causa de uma linha de metadado seria muito pior. O
+        // líder é avisado.
+        if (anchorEventId != null) {
+          try {
+            await repo.upsertEventSeries(
+              batchId: batchId,
+              anchorEventId: anchorEventId,
+              anchorDate: from,
+              patternGroup: _fixedPatternGroup,
+              variableType: _fixedPatternGroup == 'variavel'
+                  ? _variableType
+                  : null,
+              weekdays: _fixedWeekdays.toList()..sort(),
+              intervalWeeks: _intervalWeeks,
+              monthlyOrdinal: _variableMonthlyOrdinal,
+              recurrenceEndDate: _recurrenceEndDate,
+              startTimeMinutes: _startTime!.hour * 60 + _startTime!.minute,
+            );
+          } catch (e) {
+            if (mounted) {
+              AppErrorHandler.showSnackBar(
+                context,
+                e,
+                feature: 'events',
+                fallbackMessage:
+                    'A série foi criada, mas o padrão de repetição não ficou '
+                    'salvo. As ocorrências existem; para mudar o padrão, '
+                    'exclua as ocorrências futuras e crie a série de novo.',
+              );
+            }
           }
         }
 
@@ -2158,8 +2317,17 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
 
         if (mounted) {
           Navigator.pop(context);
+          final ate = ultimaCriada == null
+              ? ''
+              : ', até ${DateFormat('dd/MM/yyyy').format(ultimaCriada)}';
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Gerados $count eventos fixos')),
+            SnackBar(
+              content: Text(
+                count == 1
+                    ? 'Série criada com 1 ocorrência$ate.'
+                    : 'Série criada com $count ocorrências$ate.',
+              ),
+            ),
           );
         }
       } else {
@@ -2205,14 +2373,26 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         }
       }
     } catch (e) {
+      // C6: erro cru na tela é proibido — nome de tabela, RPC e SQL não podem
+      // vazar para o líder. `AppErrorHandler` traduz os códigos conhecidos
+      // (23505, 42501, PGRST204...) e cai no fallback quando não reconhece.
       if (mounted) {
-        ScaffoldMessenger.of(
+        AppErrorHandler.showSnackBar(
           context,
-        ).showSnackBar(SnackBar(content: Text('Erro ao salvar evento: $e')));
+          e,
+          feature: 'events',
+          fallbackMessage:
+              'Não foi possível salvar o evento. Verifique a conexão e tente '
+              'novamente.',
+        );
       }
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _seriesProgressTotal = null;
+          _seriesProgressDone = 0;
+        });
       }
     }
   }
@@ -2276,6 +2456,216 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         );
       }
     }
+  }
+
+  /// Fase 6 — REC-01: `variavel/unico` NÃO é série.
+  ///
+  /// O sub-ramo de evento único não seta `batch_id` no evento criado, então
+  /// ele não pertence a lote nenhum. `Repetir até` não aparece para ele e
+  /// nenhuma linha de `event_series` é gravada.
+  bool get _isVariavelUnico =>
+      _fixedPatternGroup == 'variavel' && _variableType == 'unico';
+
+  /// Teto duro do período de repetição (A-03): hoje + 24 meses.
+  DateTime _maxRecurrenceEndDate() {
+    final hoje = DateTime.now();
+    return DateTime(
+      hoje.year,
+      hoje.month + _maxRecurrenceMonths,
+      hoje.day,
+    );
+  }
+
+  /// Fim do horizonte de geração.
+  ///
+  /// Fase 6 — REC-01: os 12 meses deixaram de ser o TETO e viraram o
+  /// FALLBACK. Com `Repetir até` preenchido, o horizonte é a data escolhida;
+  /// em branco, continua sendo exatamente o mesmo `from.year + 1` de antes
+  /// desta fase — série criada sem data de encerramento gera o mesmo conjunto
+  /// de ocorrências que geraria ontem. O teto duro de 24 meses é a constraint
+  /// `event_series_horizon_chk` do servidor; a validação da tela é UX.
+  DateTime _recurrenceUntil(DateTime from) {
+    if (_recurrenceEndDate != null) {
+      return DateTime(
+        _recurrenceEndDate!.year,
+        _recurrenceEndDate!.month,
+        _recurrenceEndDate!.day,
+        23,
+        59,
+      );
+    }
+    return DateTime(from.year + 1, from.month, from.day, 23, 59);
+  }
+
+  /// Validação local espelhando os CHECKs `event_series_end_after_anchor_chk`
+  /// e `event_series_horizon_chk`, no mesmo espírito do `reminder_picker`:
+  /// o líder descobre o limite na tela, não por erro do Postgres. A
+  /// autoridade continua sendo a constraint.
+  bool _validateRecurrenceEndDate(DateTime date) {
+    final hoje = DateTime.now();
+    final amanha = DateTime(hoje.year, hoje.month, hoje.day + 1);
+    final dia = DateTime(date.year, date.month, date.day);
+
+    if (dia.isBefore(amanha)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A data de encerramento precisa ser depois de hoje.'),
+        ),
+      );
+      return false;
+    }
+
+    final teto = _maxRecurrenceEndDate();
+    if (dia.isAfter(teto)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'O período máximo de repetição é de 24 meses. Escolha uma data '
+            'até ${DateFormat('dd/MM/yyyy').format(teto)}.',
+          ),
+        ),
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<void> _pickRecurrenceEndDate() async {
+    final hoje = DateTime.now();
+    final amanha = DateTime(hoje.year, hoje.month, hoje.day + 1);
+    final teto = _maxRecurrenceEndDate();
+
+    final escolhida = await showDatePicker(
+      context: context,
+      initialDate: _recurrenceEndDate ?? amanha,
+      firstDate: amanha,
+      lastDate: teto,
+      locale: const Locale('pt', 'BR'),
+    );
+
+    if (escolhida == null || !mounted) return;
+    if (!_validateRecurrenceEndDate(escolhida)) return;
+
+    setState(
+      () => _recurrenceEndDate = DateTime(
+        escolhida.year,
+        escolhida.month,
+        escolhida.day,
+      ),
+    );
+  }
+
+  /// Fase 6 — REC-01 / IC-1: texto da prévia local do bloco de repetição.
+  String _seriesPreviewText() {
+    if (_fixedWeekdays.isEmpty) {
+      return 'Escolha os dias da semana para ver quantas ocorrências serão geradas.';
+    }
+
+    final padrao = describeSeriesPattern(
+      patternGroup: _fixedPatternGroup,
+      variableType: _fixedPatternGroup == 'variavel' ? _variableType : null,
+      weekdays: _fixedWeekdays.toList(),
+      intervalWeeks: _intervalWeeks,
+      monthlyOrdinal: _variableMonthlyOrdinal,
+    );
+
+    // `variavel/unico` gera uma ocorrência só e não é série: não há período a
+    // resumir, só o padrão.
+    if (_isVariavelUnico) return '$padrao.';
+
+    final from = DateTime.now();
+    final datas = _computeOccurrenceDates(from, _recurrenceUntil(from));
+    if (datas.isEmpty) return '$padrao.';
+
+    final formato = DateFormat('dd/MM/yyyy');
+    final inicio = formato.format(datas.first);
+    final fim = formato.format(datas.last);
+
+    // Plural pela contagem real — `ocorrência(s)` com parêntese é proibido
+    // pelo contrato de copy.
+    if (datas.length == 1) {
+      return '$padrao. Será gerada 1 ocorrência, de $inicio até $fim.';
+    }
+    return '$padrao. Serão geradas ${datas.length} ocorrências, '
+        'de $inicio até $fim.';
+  }
+
+  /// Fase 6 — REC-01: sequência de datas de ocorrência de uma série.
+  ///
+  /// Extraída do ramo `_isFixed` de `_saveEvent` **sem nenhuma alteração de
+  /// regra de data**: os três ramos (`semanal`, `variavel/quinzenal`,
+  /// `variavel/dias`) e os helpers `_matchesWeekInterval`,
+  /// `_firstMatchOnOrAfter`, `_isOrdinalOfMonth` e `_nthWeekdayOfMonth` são os
+  /// mesmos de antes desta fase. Existe para que a prévia da tela e o loop de
+  /// criação contem exatamente as mesmas ocorrências — duas implementações
+  /// divergiriam e a prévia passaria a mentir.
+  ///
+  /// `variavel/unico` fica de fora de propósito: não é série (ver
+  /// [_isVariavelUnico]) e continua no caminho próprio de `_saveEvent`.
+  List<DateTime> _computeOccurrenceDates(DateTime from, DateTime until) {
+    final datas = <DateTime>[];
+    if (_fixedWeekdays.isEmpty) return datas;
+
+    final hora = _startTime ?? const TimeOfDay(hour: 0, minute: 0);
+
+    if (_fixedPatternGroup == 'semanal') {
+      DateTime cursor = DateTime(from.year, from.month, from.day);
+      while (!cursor.isAfter(until)) {
+        if (_fixedWeekdays.contains(cursor.weekday)) {
+          if (_matchesWeekInterval(from, cursor, _intervalWeeks)) {
+            datas.add(
+              DateTime(
+                cursor.year,
+                cursor.month,
+                cursor.day,
+                hora.hour,
+                hora.minute,
+              ),
+            );
+          }
+        }
+        cursor = cursor.add(const Duration(days: 1));
+      }
+    } else if (_fixedPatternGroup == 'variavel') {
+      if (_variableType == 'quinzenal') {
+        final first = _firstMatchOnOrAfter(from, _fixedWeekdays) ?? from;
+        DateTime cursor = DateTime(
+          first.year,
+          first.month,
+          first.day,
+          hora.hour,
+          hora.minute,
+        );
+        while (!cursor.isAfter(until)) {
+          datas.add(cursor);
+          cursor = cursor.add(Duration(days: 7 * _intervalWeeks));
+        }
+      } else if (_variableType == 'dias') {
+        final base = _firstMatchOnOrAfter(from, _fixedWeekdays) ?? from;
+        DateTime cursor = DateTime(base.year, base.month, base.day);
+        while (!cursor.isAfter(until)) {
+          final weekdayOk = _fixedWeekdays.contains(cursor.weekday);
+          final ordinalOk = _variableMonthlyOrdinal == null
+              ? true
+              : _isOrdinalOfMonth(cursor, _variableMonthlyOrdinal!);
+          if (weekdayOk && ordinalOk) {
+            datas.add(
+              DateTime(
+                cursor.year,
+                cursor.month,
+                cursor.day,
+                hora.hour,
+                hora.minute,
+              ),
+            );
+          }
+          cursor = cursor.add(const Duration(days: 1));
+        }
+      }
+    }
+
+    return datas;
   }
 
   String _weekdayLabel(int weekday) {
