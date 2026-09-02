@@ -955,6 +955,112 @@ class EventsRepository {
     }
   }
 
+  /// Fase 6 — REC-03/REC-04: prévia de impacto da mudança de padrão ou de
+  /// período de uma série.
+  ///
+  /// Modo `p_dry_run: true` de `public.regenerate_event_series` (migration
+  /// `20260902000900`): calcula e devolve as contagens **sem alterar nada** —
+  /// o `RETURN` do dry-run acontece antes de qualquer mutação.
+  ///
+  /// É a fonte ÚNICA dos números dos diálogos DLG-2, DLG-3 e DLG-4 (A-04 do
+  /// `06-UI-SPEC.md`) **e do `mode` que decide qual dos três abrir**. Se esta
+  /// chamada falhar, nenhum diálogo abre e nada é enviado.
+  ///
+  /// `p_recurrence_end_date` é serializado como `yyyy-MM-dd` pelo MESMO motivo
+  /// de [upsertEventSeries]: a coluna é `date`, e mandar ISO completo faria o
+  /// Postgres truncar em silêncio, deixando o dia gravado dependente do fuso
+  /// do aparelho de quem salvou.
+  Future<EventSeriesImpact> previewRegenerateSeries({
+    required String batchId,
+    required String anchorEventId,
+    required String patternGroup,
+    String? variableType,
+    required List<int> weekdays,
+    required int intervalWeeks,
+    int? monthlyOrdinal,
+    DateTime? recurrenceEndDate,
+  }) async {
+    try {
+      final res = await _supabase.rpc(
+        'regenerate_event_series',
+        params: {
+          'p_batch_id': batchId,
+          'p_anchor_event_id': anchorEventId,
+          'p_pattern_group': patternGroup,
+          'p_variable_type': variableType,
+          'p_weekdays': weekdays,
+          'p_interval_weeks': intervalWeeks,
+          'p_monthly_ordinal': monthlyOrdinal,
+          'p_recurrence_end_date': recurrenceEndDate == null
+              ? null
+              : formatSeriesDate(recurrenceEndDate),
+          'p_dry_run': true,
+        },
+      );
+      return EventSeriesImpact.fromJson(Map<String, dynamic>.from(res as Map));
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Fase 6 — REC-03/REC-04: aplica o padrão/período novo à série, regerando,
+  /// estendendo ou encurtando as ocorrências futuras numa única transação.
+  ///
+  /// **O CLIENTE NUNCA INFORMA O MODO.** Não existe parâmetro de modo na
+  /// assinatura: daqui sai só o padrão desejado, e o servidor decide entre
+  /// criar, excluir ou regerar comparando com a linha de
+  /// `public.event_series`. É por isso que o retorno traz `mode` — é ele que a
+  /// UI usa para escolher a copy do SnackBar de sucesso, e não a detecção
+  /// local de `series_change_detection.dart`.
+  ///
+  /// O ator e o tenant também não saem daqui (`auth.uid()` /
+  /// `current_tenant_id()` dentro do servidor) — aceitar o ator por parâmetro
+  /// é a regressão exata do CHU-326.
+  ///
+  /// Mesma serialização `yyyy-MM-dd` da prévia, pelo mesmo motivo: a coluna é
+  /// `date` e ISO completo seria truncado em silêncio pelo Postgres.
+  ///
+  /// Mesma assinatura da prévia, com `p_dry_run: false`. Sem `.select()`
+  /// depois da escrita: a restritiva de SELECT em `public.event` também é
+  /// avaliada no `RETURNING` (Pitfall #9).
+  ///
+  /// Erro do servidor (inclusive `42501`/`PERMISSION_DENIED`) **não** é
+  /// engolido em default: uma regeneração reportada como concluída sem ter
+  /// acontecido é pior do que um erro na tela. A tradução PT-BR dos códigos
+  /// está em `presentation/utils/series_error.dart`.
+  Future<EventSeriesImpact> regenerateSeries({
+    required String batchId,
+    required String anchorEventId,
+    required String patternGroup,
+    String? variableType,
+    required List<int> weekdays,
+    required int intervalWeeks,
+    int? monthlyOrdinal,
+    DateTime? recurrenceEndDate,
+  }) async {
+    try {
+      final res = await _supabase.rpc(
+        'regenerate_event_series',
+        params: {
+          'p_batch_id': batchId,
+          'p_anchor_event_id': anchorEventId,
+          'p_pattern_group': patternGroup,
+          'p_variable_type': variableType,
+          'p_weekdays': weekdays,
+          'p_interval_weeks': intervalWeeks,
+          'p_monthly_ordinal': monthlyOrdinal,
+          'p_recurrence_end_date': recurrenceEndDate == null
+              ? null
+              : formatSeriesDate(recurrenceEndDate),
+          'p_dry_run': false,
+        },
+      );
+      return EventSeriesImpact.fromJson(Map<String, dynamic>.from(res as Map));
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// REG-03: "sou responsável por este evento?".
   ///
   /// Usa a wrapper de aridade 1 `am_i_event_responsible` (migration

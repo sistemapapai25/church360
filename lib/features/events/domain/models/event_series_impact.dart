@@ -1,12 +1,18 @@
 /// Fase 6 — o `jsonb` de impacto devolvido pelas RPCs de série.
 ///
-/// É o contrato de retorno **comum** às RPCs de série da fase
-/// (`delete_event_series_future`, migration `20260902000500`, e as de aplicar/
-/// estender/regerar dos Planos 06 e 08): as três respondem o mesmo formato nos
-/// dois modos, prévia (`p_dry_run: true`) e execução. Qualquer chave nova
-/// acrescentada no servidor tem que aparecer AQUI antes de ser usada na UI —
-/// uma chave lida direto do `Map` na tela é como uma contagem passa a mentir
-/// silenciosamente quando o servidor muda o nome dela.
+/// É o contrato de retorno **comum** às três RPCs de série da fase
+/// (`delete_event_series_future` do Plano 03, `apply_event_series_update` do
+/// Plano 05 e `regenerate_event_series` do Plano 07): as três respondem o
+/// mesmo formato nos dois modos, prévia (`p_dry_run: true`) e execução.
+/// Qualquer chave nova acrescentada no servidor tem que aparecer AQUI antes de
+/// ser usada na UI — uma chave lida direto do `Map` na tela é como uma
+/// contagem passa a mentir silenciosamente quando o servidor muda o nome dela.
+///
+/// **As chaves de regeneração ([mode], [keptCount], [firstNew], [lastNew],
+/// [futureAfterCount], [paidOccurrences], [migratedSchedules]) só vêm
+/// preenchidas por `regenerate_event_series`.** As RPCs dos Planos 03 e 05
+/// continuam válidas sem alterar nada: toda leitura nova tem default, e chave
+/// ausente vira `0`/`''`/`null`, nunca exceção.
 ///
 /// **Este modelo só entra, nunca sai.** Não existe serializador de saída aqui:
 /// nada deste modelo é enviado ao servidor, e um serializador daria a impressão
@@ -56,6 +62,36 @@ class EventSeriesImpact {
   /// sucesso informa: entre a prévia e a confirmação o conjunto pode mudar.
   final int updatedCount;
 
+  /// O modo que o SERVIDOR decidiu: `'none'` | `'extend'` | `'shorten'` |
+  /// `'regenerate'`. Vazio quando a RPC que respondeu não tem modo.
+  ///
+  /// **É este campo — e nunca a detecção local — que escolhe qual diálogo
+  /// abrir e qual copy de sucesso usar.** O cliente propõe o padrão desejado;
+  /// quem compara com `event_series` e decide entre criar, excluir ou regerar
+  /// é `regenerate_event_series`.
+  final String mode;
+
+  /// Ocorrências futuras que a regeneração PRESERVA (já caem numa data-alvo
+  /// do padrão novo e não precisam ser recriadas).
+  final int keptCount;
+
+  /// Primeira e última data do conjunto CRIADO. Nulas quando nada é criado.
+  final DateTime? firstNew;
+  final DateTime? lastNew;
+
+  /// Quantas ocorrências futuras a série tem **depois** da operação. É o
+  /// número do SnackBar de sucesso do DLG-4.
+  final int futureAfterCount;
+
+  /// Ocorrências futuras com inscrição PAGA. D-16/A-02: o ramo pago é stub
+  /// nesta fase — o número existe para diagnóstico, e nenhuma copy de
+  /// reembolso é escrita em lugar nenhum.
+  final int paidOccurrences;
+
+  /// Escalas de ministério de fato migradas para a data equivalente (D-18).
+  /// Sempre `0` em prévia — é medição, não estimativa.
+  final int migratedSchedules;
+
   const EventSeriesImpact({
     required this.dryRun,
     required this.futureCount,
@@ -68,6 +104,13 @@ class EventSeriesImpact {
     required this.notifiedCount,
     this.createdCount = 0,
     this.updatedCount = 0,
+    this.mode = '',
+    this.keptCount = 0,
+    this.firstNew,
+    this.lastNew,
+    this.futureAfterCount = 0,
+    this.paidOccurrences = 0,
+    this.migratedSchedules = 0,
   });
 
   /// Desserializa o `jsonb` do servidor, em snake_case.
@@ -88,6 +131,13 @@ class EventSeriesImpact {
       notifiedCount: json['notified_count'] as int? ?? 0,
       createdCount: json['created_count'] as int? ?? 0,
       updatedCount: json['updated_count'] as int? ?? 0,
+      mode: json['mode'] as String? ?? '',
+      keptCount: json['kept_count'] as int? ?? 0,
+      firstNew: _parseDate(json['first_new']),
+      lastNew: _parseDate(json['last_new']),
+      futureAfterCount: json['future_after_count'] as int? ?? 0,
+      paidOccurrences: json['paid_occurrences'] as int? ?? 0,
+      migratedSchedules: json['migrated_schedules'] as int? ?? 0,
     );
   }
 
