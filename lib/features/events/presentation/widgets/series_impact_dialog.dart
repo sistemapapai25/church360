@@ -1,14 +1,14 @@
 // Fase 6 — diálogos de impacto de operação de série (S4 do `06-UI-SPEC.md`).
 //
 // O contrato de UI prevê seis diálogos; o enum tem sete casos porque DLG-6
-// tem dois títulos (um por gatilho). Entregues até aqui — 06-04 as duas
-// primeiras, 06-06 as duas seguintes:
+// tem dois títulos (um por gatilho). **A LISTA FECHOU no Plano 06-08** — as
+// sete variantes previstas estão entregues e não há mais caso pendente:
 //   • deleteFuture  — DLG-5, "Excluir as ocorrências futuras?"   ← Plano 06-04
 //   • nothingToDo   — DLG-6, "Nada a excluir"                    ← Plano 06-04
 //   • nothingToChange — DLG-6, "Nada a alterar"                  ← Plano 06-06
 //   • applyToSeries — DLG-1, "Aplicar a toda a série?"           ← Plano 06-06
-//   • extend        — DLG-2, "Estender a série?"                 ← pendente
-//   • shorten       — DLG-3, "Encurtar a série?"                 ← pendente
+//   • extend        — DLG-2, "Estender a série?"                 ← Plano 06-08
+//   • shorten       — DLG-3, "Encurtar a série?"                 ← Plano 06-08
 //   • regenerate    — DLG-4, "Mudar o padrão de repetição?"      ← Plano 06-08
 //
 // applyToSeries é a ÚNICA variante NÃO destrutiva do conjunto: ela não apaga
@@ -52,11 +52,6 @@ enum SeriesImpactVariant {
   regenerate,
 }
 
-const String _naoEntregueAinda =
-    'Variante de diálogo de série ainda não entregue: DLG-2/DLG-3 aguardam a '
-    'fatia de encurtar/estender e DLG-4 é do Plano 06-08. Ver o cabeçalho de '
-    'series_impact_dialog.dart.';
-
 /// A variante confirma uma operação que APAGA alguma coisa?
 ///
 /// Governa a cor do botão primário e nada mais. `applyToSeries` e `extend`
@@ -90,9 +85,11 @@ String seriesImpactTitle(SeriesImpactVariant variant) {
     case SeriesImpactVariant.applyToSeries:
       return 'Aplicar a toda a série?';
     case SeriesImpactVariant.extend:
+      return 'Estender a série?';
     case SeriesImpactVariant.shorten:
+      return 'Encurtar a série?';
     case SeriesImpactVariant.regenerate:
-      throw UnimplementedError(_naoEntregueAinda);
+      return 'Mudar o padrão de repetição?';
   }
 }
 
@@ -115,10 +112,16 @@ String seriesImpactConfirmLabel(
       // Sem contagem no rótulo, ao contrário do botão destrutivo: aqui o
       // tamanho da operação está no corpo e nada é removido.
       return 'Aplicar à série';
+    // Os três rótulos abaixo são verbos sem contagem, literais do
+    // `06-UI-SPEC.md`: o tamanho da operação já está no corpo, linha por
+    // linha, e repetir o número no botão de uma operação que muda de modo
+    // conforme o servidor decidir seria a chance de mostrar o número errado.
     case SeriesImpactVariant.extend:
+      return 'Estender série';
     case SeriesImpactVariant.shorten:
+      return 'Encurtar série';
     case SeriesImpactVariant.regenerate:
-      throw UnimplementedError(_naoEntregueAinda);
+      return 'Regerar ocorrências';
   }
 }
 
@@ -170,6 +173,79 @@ List<InlineSpan> _linhaFuturas(EventSeriesImpact impact, String eventName) {
   ];
 }
 
+/// Linha "as passadas serão preservadas" das variantes de DLG-3 e DLG-4,
+/// literal do `06-UI-SPEC.md`. Omitida por quem chama quando `m == 0`.
+///
+/// **DLG-5 tem a sua própria cópia desta frase, sem o "As " inicial**, do
+/// jeito que o Plano 06-04 a entregou e como ela está em produção. Unificar as
+/// duas mudaria o texto de um diálogo destrutivo que não é escopo deste plano;
+/// a divergência é de uma palavra e está aqui declarada, não esquecida.
+List<InlineSpan> _linhaPassadasPreservadas(int m) => m == 1
+    ? const [
+        TextSpan(
+          text: 'A ocorrência passada será preservada, com inscrições, '
+              'presença e escalas.',
+        ),
+      ]
+    : [
+        const TextSpan(text: 'As '),
+        _numero(m),
+        const TextSpan(
+          text: ' ocorrências passadas serão preservadas, com inscrições, '
+              'presença e escalas.',
+        ),
+      ];
+
+/// Linha de inscrições canceladas de DLG-3 e DLG-4 (`k`), com a copy que
+/// promete o caminho de volta — a notificação `event_series_changed` leva
+/// link para a ocorrência equivalente (D-13/D-14).
+///
+/// `k == 0` substitui a linha em vez de omiti-la (regra de contagem do Plano
+/// 06-04); `k > 0` é a ÚNICA linha destrutiva do corpo.
+Widget _linhaInscricoesCanceladas(
+  BuildContext context,
+  ColorScheme cs,
+  int k,
+) {
+  if (k == 0) {
+    return _paragrafo(
+      context,
+      [const TextSpan(text: 'Nenhuma pessoa inscrita será afetada.')],
+      cor: cs.onSurfaceVariant,
+    );
+  }
+
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Icon(Icons.person_off_outlined, size: 18, color: cs.error),
+      const SizedBox(width: 8),
+      Expanded(
+        child: _paragrafo(
+          context,
+          k == 1
+              ? [
+                  const TextSpan(
+                    text: '1 inscrição será cancelada. A pessoa recebe um '
+                        'aviso com link para se inscrever na data '
+                        'equivalente.',
+                  ),
+                ]
+              : [
+                  _numero(k),
+                  const TextSpan(
+                    text: ' inscrições serão canceladas. As pessoas recebem '
+                        'um aviso com link para se inscrever na data '
+                        'equivalente.',
+                  ),
+                ],
+          cor: cs.error,
+        ),
+      ),
+    ],
+  );
+}
+
 /// Corpo do diálogo, montado como função pura para que cada regra de contagem
 /// possa ser verificada isoladamente por teste de widget.
 ///
@@ -184,14 +260,30 @@ List<InlineSpan> _linhaFuturas(EventSeriesImpact impact, String eventName) {
 ///   • plural sempre pela contagem real — proibido o plural por parêntese
 ///     (`ocorrência` seguida de `s` entre parênteses), padrão que esta fase
 ///     remove da lista de eventos.
+/// [newEndDate] é a data de encerramento NOVA escolhida pelo líder (já com o
+/// fallback de 12 meses resolvido por `seriesEffectiveEndDate`). Só a variante
+/// [SeriesImpactVariant.shorten] a usa — ela não vem do `jsonb`, porque é
+/// decisão do formulário e não medição do servidor.
+///
+/// [newPatternLabel] é a descrição do padrão novo, produzida por
+/// `describeSeriesPattern` (A-13: fonte única). Só a variante
+/// [SeriesImpactVariant.regenerate] a usa. **Nunca montar essa frase aqui.**
 List<Widget> buildImpactBody(
   BuildContext context, {
   required SeriesImpactVariant variant,
   required EventSeriesImpact impact,
   required String eventName,
+  DateTime? newEndDate,
+  String? newPatternLabel,
 }) {
   final cs = Theme.of(context).colorScheme;
 
+  // PRECEDÊNCIA (A-06, nota do `06-UI-SPEC.md`): DLG-4 (`regenerate`)
+  // ABSORVE DLG-2 (`extend`) e DLG-3 (`shorten`). Quando o padrão muda, a
+  // mudança de período é descrita DENTRO do DLG-4 e nenhum segundo diálogo
+  // aparece. Não existe caminho que abra dois diálogos de confirmação no
+  // mesmo Salvar — encadear confirmações é como um líder aprende a clicar sem
+  // ler, e a próxima que ele não ler é destrutiva.
   switch (variant) {
     case SeriesImpactVariant.nothingToDo:
     case SeriesImpactVariant.nothingToChange:
@@ -317,10 +409,109 @@ List<Widget> buildImpactBody(
           ]),
       ];
 
+    // DLG-2 — estender. NÃO tem linha de inscrições nem linha de passadas, e
+    // essa ausência é DELIBERADA: vem do texto do `06-UI-SPEC.md`, não de
+    // esquecimento. Estender só acrescenta datas no fim do período — não
+    // cancela inscrição nenhuma e não toca em nenhuma ocorrência existente,
+    // que é exatamente o que a segunda frase promete.
     case SeriesImpactVariant.extend:
+      final n = impact.createdCount;
+      final primeira = impact.firstNew;
+      final ultima = impact.lastNew;
+
+      final intervalo = (primeira == null || ultima == null)
+          ? ''
+          : primeira == ultima
+          ? ', em ${_dataBr.format(primeira)}'
+          : ', de ${_dataBr.format(primeira)} até ${_dataBr.format(ultima)}';
+
+      return [
+        _paragrafo(context, [
+          TextSpan(text: n == 1 ? 'Será criada ' : 'Serão criadas '),
+          _numero(n),
+          TextSpan(
+            text: n == 1
+                ? ' ocorrência nova$intervalo, no mesmo padrão.'
+                : ' ocorrências novas$intervalo, no mesmo padrão.',
+          ),
+        ]),
+        _paragrafo(context, [
+          const TextSpan(
+            text: 'As ocorrências que já existem não serão alteradas.',
+          ),
+        ]),
+      ];
+
+    // DLG-3 — encurtar. A data da primeira frase é a do FORMULÁRIO
+    // ([newEndDate]), não uma data do `jsonb`: o líder precisa reconhecer o
+    // corte que ele mesmo acabou de escolher.
     case SeriesImpactVariant.shorten:
+      final n = impact.deletedCount;
+      final m = impact.pastCount;
+      final k = impact.affectedRegistrations;
+      final corte = newEndDate == null ? '' : ' depois de ${_dataBr.format(newEndDate)}';
+
+      return [
+        _paragrafo(context, [
+          TextSpan(text: n == 1 ? 'A ' : 'As '),
+          if (n != 1) _numero(n),
+          TextSpan(
+            text: n == 1
+                ? 'ocorrência$corte será excluída.'
+                : ' ocorrências$corte serão excluídas.',
+          ),
+        ]),
+
+        if (m > 0) _paragrafo(context, _linhaPassadasPreservadas(m)),
+
+        _linhaInscricoesCanceladas(context, cs, k),
+
+        _paragrafo(context, [
+          const TextSpan(text: 'Esta ação não pode ser desfeita.'),
+        ]),
+      ];
+
+    // DLG-4 — regerar. `{n}` é `future_count`: TODAS as ocorrências futuras
+    // da série, que é o que a frase "serão apagadas e geradas de novo"
+    // descreve para o líder.
     case SeriesImpactVariant.regenerate:
-      throw UnimplementedError(_naoEntregueAinda);
+      final n = impact.futureCount;
+      final m = impact.pastCount;
+      final k = impact.affectedRegistrations;
+
+      return [
+        _paragrafo(context, [
+          TextSpan(text: n == 1 ? 'A ' : 'As '),
+          if (n != 1) _numero(n),
+          TextSpan(
+            text: n == 1
+                ? 'ocorrência futura será apagada e gerada de novo em: '
+                : ' ocorrências futuras serão apagadas e geradas de novo em: ',
+          ),
+          TextSpan(text: '${newPatternLabel ?? ''}.'),
+        ]),
+
+        if (m > 0) _paragrafo(context, _linhaPassadasPreservadas(m)),
+
+        _linhaInscricoesCanceladas(context, cs, k),
+
+        // A linha de escala só aparece quando HÁ escala para migrar.
+        // Prometer migração de escala numa série que não tem escala nenhuma é
+        // ruído — e a promessa é verdadeira porque o Plano 06-07 executa o
+        // UPDATE de D-18 dentro da MESMA transação da regeneração, não num
+        // passo posterior que possa falhar sozinho.
+        if (impact.affectedSchedules > 0)
+          _paragrafo(context, [
+            const TextSpan(
+              text: 'As escalas de ministério das datas futuras vão junto '
+                  'para a data equivalente.',
+            ),
+          ]),
+
+        _paragrafo(context, [
+          const TextSpan(text: 'Esta ação não pode ser desfeita.'),
+        ]),
+      ];
   }
 }
 
@@ -331,6 +522,10 @@ class SeriesImpactDialog extends StatefulWidget {
   final SeriesImpactVariant variant;
   final EventSeriesImpact impact;
   final String eventName;
+
+  /// Ver [buildImpactBody]: só DLG-3 e DLG-4 os consomem.
+  final DateTime? newEndDate;
+  final String? newPatternLabel;
 
   /// Executado ao confirmar, com o botão já desabilitado e mostrando
   /// `CircularProgressIndicator` de 16px no lugar do rótulo (IC-6).
@@ -346,6 +541,8 @@ class SeriesImpactDialog extends StatefulWidget {
     required this.variant,
     required this.impact,
     required this.eventName,
+    this.newEndDate,
+    this.newPatternLabel,
     this.onConfirm,
   });
 
@@ -407,6 +604,8 @@ class _SeriesImpactDialogState extends State<SeriesImpactDialog> {
                         variant: widget.variant,
                         impact: widget.impact,
                         eventName: widget.eventName,
+                        newEndDate: widget.newEndDate,
+                        newPatternLabel: widget.newPatternLabel,
                       )) ...[linha, const SizedBox(height: 16)],
                     ],
                   ),
@@ -477,6 +676,8 @@ Future<bool?> showSeriesImpactDialog(
   required SeriesImpactVariant variant,
   required EventSeriesImpact impact,
   required String eventName,
+  DateTime? newEndDate,
+  String? newPatternLabel,
   Future<void> Function()? onConfirm,
 }) {
   return showDialog<bool>(
@@ -488,6 +689,8 @@ Future<bool?> showSeriesImpactDialog(
       variant: variant,
       impact: impact,
       eventName: eventName,
+      newEndDate: newEndDate,
+      newPatternLabel: newPatternLabel,
       onConfirm: onConfirm,
     ),
   );

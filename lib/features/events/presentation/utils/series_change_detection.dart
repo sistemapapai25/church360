@@ -79,6 +79,19 @@ SeriesChangeKind detectSeriesChange({
   return SeriesChangeKind.none;
 }
 
+/// A data de encerramento que vale de fato para [series] quando o líder
+/// escolheu [recurrenceEndDate] (ou deixou em branco).
+///
+/// Existe para que a REGRA DE FALLBACK de 12 meses tenha UM lugar só: o aviso
+/// inline de "encurtou"/"estendeu" e o corpo do DLG-3 precisam imprimir essa
+/// data, e recalculá-la na tela seria uma segunda implementação da mesma
+/// regra — a forma padrão de uma delas envelhecer errado e a UI passar a
+/// prometer um período que o servidor não usa.
+DateTime seriesEffectiveEndDate({
+  required EventSeries series,
+  DateTime? recurrenceEndDate,
+}) => _horizonte(recurrenceEndDate, series.anchorDate);
+
 /// `true` quando as duas listas descrevem o mesmo conjunto de dias, sem levar
 /// a ordem em conta — a mesma comparação de `array_agg(x ORDER BY x)` que o
 /// servidor faz.
