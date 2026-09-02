@@ -6,6 +6,7 @@ import '../../domain/models/event.dart';
 import '../../domain/models/event_audience.dart';
 import '../../domain/models/event_reminder.dart';
 import '../../domain/models/event_series.dart';
+import '../../domain/models/event_series_impact.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 
 /// Provider do repository de eventos
@@ -81,6 +82,34 @@ final eventSeriesProvider = FutureProvider.family<EventSeries?, String>((
 ) async {
   final repo = ref.watch(eventsRepositoryProvider);
   return repo.getEventSeries(batchId);
+});
+
+/// Fase 6 — REC-05. Prévia de impacto da exclusão das ocorrências futuras de
+/// uma série, chaveada pelo par `(batchId, anchorEventId)`.
+///
+/// `FutureProvider.family` aceita um único argumento, então a chave é um
+/// record — mesmo molde de `eventAudienceProvider`.
+///
+/// **Isto é insumo de UX, não boundary** (padrão T-08-01/IC-8): a contagem
+/// exibida vem do servidor, mas a AUTORIDADE é a própria RPC no momento da
+/// execução. Entre a prévia e a confirmação o conjunto pode mudar — uma
+/// ocorrência pode cruzar o cutoff, alguém pode se inscrever, a permissão pode
+/// ser revogada. Por isso o SnackBar de sucesso informa o `deleted_count`
+/// **retornado pela execução**, nunca o número da prévia, e o tratamento de
+/// `PERMISSION_DENIED` no `catch` é mantido mesmo com o gate visual.
+///
+/// O erro NÃO é engolido: quando a prévia falha, o provider fica em `error` e
+/// o diálogo não abre. Nunca confirmar operação em massa com número inventado
+/// (A-04 do `06-UI-SPEC.md`).
+final eventSeriesImpactProvider = FutureProvider.family<
+  EventSeriesImpact,
+  ({String batchId, String anchorEventId})
+>((ref, arg) async {
+  final repo = ref.watch(eventsRepositoryProvider);
+  return repo.previewDeleteSeriesFuture(
+    batchId: arg.batchId,
+    anchorEventId: arg.anchorEventId,
+  );
 });
 
 /// VIS-03: audiência de um evento para um papel qualquer

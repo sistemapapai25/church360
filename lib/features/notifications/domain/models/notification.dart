@@ -10,6 +10,12 @@ enum NotificationType {
   // trigger + tick do banco. É irmão de `eventReminder`, não substituto: a
   // partir da Fase 4 `event_reminder` significa somente o lembrete pré-evento.
   eventAnnouncement('event_announcement', 'Novo evento', '📣'),
+  // Fase 6 — REC-04/D-15: aviso de que uma ocorrência de série foi cancelada
+  // porque o responsável mudou o padrão, o período ou excluiu as futuras.
+  // Gravado pela RPC `delete_event_series_future` (migration `20260902000500`)
+  // e pelas RPCs de regeneração da fase. É irmão de `eventAnnouncement` e de
+  // `eventReminder`, não substituto: nenhum dos dois descreve um cancelamento.
+  eventSeriesChanged('event_series_changed', 'Mudança na série', '🔁'),
   meetingReminder('meeting_reminder', 'Lembrete de Reunião', '👥'),
   worshipReminder('worship_reminder', 'Lembrete de Culto', '⛪'),
   groupNewMember('group_new_member', 'Novo Membro', '🎉'),

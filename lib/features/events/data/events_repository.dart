@@ -4,6 +4,7 @@ import '../domain/models/event.dart';
 import '../domain/models/event_audience.dart';
 import '../domain/models/event_reminder.dart';
 import '../domain/models/event_series.dart';
+import '../domain/models/event_series_impact.dart';
 
 /// Repository para gerenciar eventos
 class EventsRepository {
@@ -487,6 +488,11 @@ class EventsRepository {
   }
 
   /// Deletar toda a série de eventos gerada no mesmo lançamento fixo/recorrente
+  @Deprecated(
+    'Fase 6 / REC-05: apaga a série inteira, inclusive ocorrências passadas. '
+    'Use deleteEventSeriesFuture. Mantido apenas para não quebrar chamadas '
+    'fora do módulo de eventos.',
+  )
   Future<void> deleteEventsByBatch(String batchId) async {
     try {
       await _supabase
@@ -787,6 +793,80 @@ class EventsRepository {
           'p_start_time_minutes': startTimeMinutes,
         },
       );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Fase 6 — REC-05: prévia de impacto da exclusão das ocorrências futuras.
+  ///
+  /// Modo `p_dry_run: true` de `public.delete_event_series_future` (migration
+  /// `20260902000500`): calcula e devolve as contagens **sem alterar nada**.
+  ///
+  /// É a fonte ÚNICA dos números do diálogo DLG-5 (A-04 do `06-UI-SPEC.md`).
+  /// O cutoff de "ocorrência futura" mora no servidor
+  /// (`public.event_series_future_cutoff()`) e é comparado contra
+  /// `event.start_date`, que guarda hora de parede como se fosse UTC — uma
+  /// contagem local erraria por até 3 horas de janela, e confirmar exclusão em
+  /// massa com número errado é irrecuperável. Se esta chamada falhar, o
+  /// diálogo NÃO abre.
+  ///
+  /// Aridade 3, **sem nenhum parâmetro de ator ou de tenant**: o ator sai de
+  /// `auth.uid()` e o tenant de `current_tenant_id()`, dentro do servidor —
+  /// aceitar o ator por parâmetro é a regressão exata do CHU-326. Travado por
+  /// teste em `event_series_rpc_test.dart`.
+  Future<EventSeriesImpact> previewDeleteSeriesFuture({
+    required String batchId,
+    required String anchorEventId,
+  }) async {
+    try {
+      final res = await _supabase.rpc(
+        'delete_event_series_future',
+        params: {
+          'p_batch_id': batchId,
+          'p_anchor_event_id': anchorEventId,
+          'p_dry_run': true,
+        },
+      );
+      return EventSeriesImpact.fromJson(Map<String, dynamic>.from(res as Map));
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Fase 6 — REC-05: exclui **apenas as ocorrências futuras** de uma série.
+  ///
+  /// **Esta RPC substitui `deleteEventsByBatch` como caminho da UI.** (Sem
+  /// link de doc de propósito: referenciar um membro `@Deprecated` acende
+  /// `deprecated_member_use_from_same_package` no próprio arquivo.) O método
+  /// antigo apaga a série inteira, inclusive as ocorrências passadas com
+  /// inscrição, presença e escala já registradas — é justamente o que REC-05
+  /// conserta. `delete_event_series_future` notifica os inscritos, reancora a
+  /// outbox, apaga só o que está acima do cutoff e encerra a definição da
+  /// série, tudo numa transação única.
+  ///
+  /// Mesma assinatura da prévia, com `p_dry_run: false`. Sem `.select()`
+  /// depois da escrita: a restritiva de SELECT em `public.event` também é
+  /// avaliada no `RETURNING` (Pitfall #9).
+  ///
+  /// Erro do servidor (inclusive `42501`/`PERMISSION_DENIED`) **não** é
+  /// engolido em default — uma exclusão em massa reportada como concluída sem
+  /// ter acontecido é pior do que um erro na tela. A tradução PT-BR dos
+  /// códigos está em `presentation/utils/series_error.dart`.
+  Future<EventSeriesImpact> deleteEventSeriesFuture({
+    required String batchId,
+    required String anchorEventId,
+  }) async {
+    try {
+      final res = await _supabase.rpc(
+        'delete_event_series_future',
+        params: {
+          'p_batch_id': batchId,
+          'p_anchor_event_id': anchorEventId,
+          'p_dry_run': false,
+        },
+      );
+      return EventSeriesImpact.fromJson(Map<String, dynamic>.from(res as Map));
     } catch (e) {
       rethrow;
     }
