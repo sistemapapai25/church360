@@ -872,6 +872,89 @@ class EventsRepository {
     }
   }
 
+  /// Fase 6 — REC-02: prévia de impacto da aplicação de uma edição a toda a
+  /// série futura.
+  ///
+  /// Modo `p_dry_run: true` de `public.apply_event_series_update` (migration
+  /// `20260902000600`): calcula e devolve as contagens **sem alterar nada** —
+  /// o `RETURN` do dry-run acontece antes de qualquer mutação do corpo da
+  /// função.
+  ///
+  /// É a fonte ÚNICA dos números do diálogo DLG-1 (A-04 do `06-UI-SPEC.md`).
+  /// O cutoff de "ocorrência futura" mora no servidor
+  /// (`public.event_series_future_cutoff()`); uma contagem local erraria por
+  /// até 3 horas de janela. Se esta chamada falhar, o diálogo **não abre** e
+  /// nada é enviado.
+  Future<EventSeriesImpact> previewSeriesUpdate({
+    required String batchId,
+    required String anchorEventId,
+    required Map<String, dynamic> fields,
+    int? startTimeMinutes,
+  }) async {
+    try {
+      final res = await _supabase.rpc(
+        'apply_event_series_update',
+        params: {
+          'p_batch_id': batchId,
+          'p_anchor_event_id': anchorEventId,
+          'p_fields': fields,
+          'p_start_time_minutes': startTimeMinutes,
+          'p_dry_run': true,
+        },
+      );
+      return EventSeriesImpact.fromJson(Map<String, dynamic>.from(res as Map));
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Fase 6 — REC-02: aplica a edição da ocorrência aberta a **todas as
+  /// ocorrências futuras** do lote, numa única transação.
+  ///
+  /// **`fields` é o MESMO mapa `data` que o formulário já monta para o
+  /// `updateEvent` de uma ocorrência.** É isso — e só isso — que torna D-03
+  /// verdadeiro sem lista fixa: o que o formulário edita, a série recebe, e
+  /// um campo acrescentado por uma fase futura passa a ser replicável sem
+  /// tocar nem nesta camada nem na RPC. O servidor mantém uma lista de
+  /// EXCLUSÃO (identidade, lote, datas específicas, carimbos e `status`) e
+  /// ignora essas chaves quando elas chegam; o cliente **não deve** depender
+  /// disso e também não precisa filtrá-las.
+  ///
+  /// [startTimeMinutes] só deve ser informado quando o horário mudou de fato
+  /// (D-04): a hora do dia tem statement próprio no servidor, que preserva a
+  /// data de parede de cada ocorrência. Mandá-lo a cada salvamento
+  /// reescreveria o timestamp de dezenas de linhas sem necessidade.
+  ///
+  /// Mesma assinatura da prévia, com `p_dry_run: false`. Sem `.select()`
+  /// depois da escrita: a restritiva de SELECT em `public.event` também é
+  /// avaliada no `RETURNING` (Pitfall #9).
+  ///
+  /// Erro do servidor (inclusive `42501`/`PERMISSION_DENIED`) **não** é
+  /// engolido em default. A tradução PT-BR dos códigos está em
+  /// `presentation/utils/series_error.dart`.
+  Future<EventSeriesImpact> applySeriesUpdate({
+    required String batchId,
+    required String anchorEventId,
+    required Map<String, dynamic> fields,
+    int? startTimeMinutes,
+  }) async {
+    try {
+      final res = await _supabase.rpc(
+        'apply_event_series_update',
+        params: {
+          'p_batch_id': batchId,
+          'p_anchor_event_id': anchorEventId,
+          'p_fields': fields,
+          'p_start_time_minutes': startTimeMinutes,
+          'p_dry_run': false,
+        },
+      );
+      return EventSeriesImpact.fromJson(Map<String, dynamic>.from(res as Map));
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// REG-03: "sou responsável por este evento?".
   ///
   /// Usa a wrapper de aridade 1 `am_i_event_responsible` (migration

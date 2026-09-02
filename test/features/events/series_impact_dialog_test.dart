@@ -201,4 +201,103 @@ void main() {
       }
     }
   });
+
+  group('DLG-1 — aplicar a toda a série (Plano 06-06)', () {
+    testWidgets('título, corpo e botão accent — nada é apresentado como exclusão',
+        (tester) async {
+      await _pump(
+        tester,
+        _impacto(futuras: 14, passadas: 3),
+        variante: SeriesImpactVariant.applyToSeries,
+      );
+
+      final textos = _textosRenderizados(tester);
+      expect(textos, contains('Aplicar a toda a série?'));
+      expect(textos, contains('Aplicar à série'));
+      expect(
+        textos.any(
+          (l) => l.contains(
+            'As alterações vão valer para 14 ocorrências futuras, de '
+            '03/09/2026 até 10/12/2026.',
+          ),
+        ),
+        isTrue,
+      );
+      expect(
+        textos.any((l) => l.contains('As 3 ocorrências passadas não serão alteradas.')),
+        isTrue,
+      );
+      // Esta operação não cancela inscrição nenhuma: nenhuma linha de
+      // inscrições, nem a de "nenhuma pessoa afetada".
+      expect(find.byIcon(Icons.person_off_outlined), findsNothing);
+      expect(textos, isNot(contains('Nenhuma pessoa inscrita será afetada.')));
+      expect(textos.any((l) => l.contains('não pode ser desfeita')), isFalse);
+
+      expect(seriesImpactIsDestructive(SeriesImpactVariant.applyToSeries), isFalse);
+      final botao = tester.widget<FilledButton>(find.byType(FilledButton));
+      expect(
+        botao.style,
+        isNull,
+        reason:
+            'DLG-1 não remove nada — o botão primário usa o accent do tema, '
+            'nunca colorScheme.error.',
+      );
+    });
+
+    testWidgets('m == 0 omite a linha de passadas também em DLG-1',
+        (tester) async {
+      await _pump(
+        tester,
+        _impacto(futuras: 14, passadas: 0),
+        variante: SeriesImpactVariant.applyToSeries,
+      );
+
+      expect(
+        _textosRenderizados(tester).any((l) => l.contains('passada')),
+        isFalse,
+      );
+    });
+
+    testWidgets('contagem 1 usa singular em DLG-1', (tester) async {
+      await _pump(
+        tester,
+        _impacto(
+          futuras: 1,
+          passadas: 1,
+          primeira: DateTime(2026, 9, 6),
+          ultima: DateTime(2026, 9, 6),
+        ),
+        variante: SeriesImpactVariant.applyToSeries,
+      );
+
+      final textos = _textosRenderizados(tester);
+      expect(
+        textos.any(
+          (l) => l.contains(
+            'As alterações vão valer para 1 ocorrência futura, em 06/09/2026.',
+          ),
+        ),
+        isTrue,
+      );
+      expect(
+        textos.any((l) => l.contains('A ocorrência passada não será alterada.')),
+        isTrue,
+      );
+    });
+
+    testWidgets('DLG-6 no caminho de aplicar diz "Nada a alterar"',
+        (tester) async {
+      await _pump(
+        tester,
+        _impacto(futuras: 0, passadas: 7),
+        variante: SeriesImpactVariant.nothingToChange,
+      );
+
+      final textos = _textosRenderizados(tester);
+      expect(textos, contains('Nada a alterar'));
+      expect(textos, isNot(contains('Nada a excluir')));
+      expect(textos, contains('Entendi'));
+      expect(find.byType(FilledButton), findsNothing);
+    });
+  });
 }

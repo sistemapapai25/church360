@@ -1,18 +1,27 @@
 // Fase 6 — diálogos de impacto de operação de série (S4 do `06-UI-SPEC.md`).
 //
-// Seis variantes estão previstas no contrato de UI; ESTE plano (06-04) entrega
-// duas:
+// O contrato de UI prevê seis diálogos; o enum tem sete casos porque DLG-6
+// tem dois títulos (um por gatilho). Entregues até aqui — 06-04 as duas
+// primeiras, 06-06 as duas seguintes:
 //   • deleteFuture  — DLG-5, "Excluir as ocorrências futuras?"   ← Plano 06-04
 //   • nothingToDo   — DLG-6, "Nada a excluir"                    ← Plano 06-04
+//   • nothingToChange — DLG-6, "Nada a alterar"                  ← Plano 06-06
 //   • applyToSeries — DLG-1, "Aplicar a toda a série?"           ← Plano 06-06
-//   • extend        — DLG-2, "Estender a série?"                 ← Plano 06-06
-//   • shorten       — DLG-3, "Encurtar a série?"                 ← Plano 06-06
+//   • extend        — DLG-2, "Estender a série?"                 ← pendente
+//   • shorten       — DLG-3, "Encurtar a série?"                 ← pendente
 //   • regenerate    — DLG-4, "Mudar o padrão de repetição?"      ← Plano 06-08
 //
-// O `switch` sobre a variante é EXAUSTIVO de propósito: quando os Planos 06-06
-// e 06-08 acrescentarem os casos que faltam, o compilador aponta cada lugar que
+// applyToSeries é a ÚNICA variante NÃO destrutiva do conjunto: ela não apaga
+// nem cria ocorrência nenhuma, só reescreve campos das futuras. Por isso o
+// botão primário dela é accent, não `colorScheme.error` — a cor destrutiva
+// aqui seria um alarme falso, e alarme falso é como um líder aprende a
+// confirmar sem ler.
+//
+// O `switch` sobre a variante é EXAUSTIVO de propósito: quando as fatias que
+// faltam acrescentarem os casos restantes, o compilador aponta cada lugar que
 // precisa de copy nova em vez de deixar um `default` silencioso escolher o
-// texto errado para uma operação destrutiva.
+// texto errado para uma operação destrutiva. Foi assim que a copy de DLG-6
+// não virou "Nada a excluir" no caminho de aplicar.
 //
 // TODAS as contagens exibidas aqui vêm do servidor (`EventSeriesImpact`, modo
 // `p_dry_run`), nunca de estimativa local — A-04 do `06-UI-SPEC.md`. Este
@@ -28,6 +37,15 @@ import '../../domain/models/event_series_impact.dart';
 enum SeriesImpactVariant {
   deleteFuture,
   nothingToDo,
+
+  /// DLG-6 no gatilho NÃO destrutivo. O `06-UI-SPEC.md` prevê dois títulos
+  /// para o mesmo diálogo — "Nada a excluir" no caminho de REC-05 e "Nada a
+  /// alterar" nos demais —, e o corpo é o mesmo. Duas variantes em vez de um
+  /// parâmetro de título porque o `switch` exaustivo continua sendo quem
+  /// obriga cada caminho novo a declarar a própria copy; um título opcional
+  /// com default silencioso faria o caminho novo herdar "excluir" sem que
+  /// nada apitasse.
+  nothingToChange,
   applyToSeries,
   extend,
   shorten,
@@ -35,9 +53,28 @@ enum SeriesImpactVariant {
 }
 
 const String _naoEntregueAinda =
-    'Variante de diálogo de série ainda não entregue: DLG-1/2/3 são do Plano '
-    '06-06 e DLG-4 é do Plano 06-08. Ver o cabeçalho de '
+    'Variante de diálogo de série ainda não entregue: DLG-2/DLG-3 aguardam a '
+    'fatia de encurtar/estender e DLG-4 é do Plano 06-08. Ver o cabeçalho de '
     'series_impact_dialog.dart.';
+
+/// A variante confirma uma operação que APAGA alguma coisa?
+///
+/// Governa a cor do botão primário e nada mais. `applyToSeries` e `extend`
+/// respondem `false`: nenhuma das duas remove ocorrência, inscrição ou
+/// escala.
+bool seriesImpactIsDestructive(SeriesImpactVariant variant) {
+  switch (variant) {
+    case SeriesImpactVariant.applyToSeries:
+    case SeriesImpactVariant.extend:
+    case SeriesImpactVariant.nothingToDo:
+    case SeriesImpactVariant.nothingToChange:
+      return false;
+    case SeriesImpactVariant.deleteFuture:
+    case SeriesImpactVariant.shorten:
+    case SeriesImpactVariant.regenerate:
+      return true;
+  }
+}
 
 final DateFormat _dataBr = DateFormat('dd/MM/yyyy');
 
@@ -47,11 +84,11 @@ String seriesImpactTitle(SeriesImpactVariant variant) {
     case SeriesImpactVariant.deleteFuture:
       return 'Excluir as ocorrências futuras?';
     case SeriesImpactVariant.nothingToDo:
-      // DLG-6 muda de "Nada a alterar" para "Nada a excluir" conforme o
-      // gatilho. Enquanto só o caminho de REC-05 existe, este é o único
-      // texto possível; os Planos 06-06/06-08 precisam parametrizar.
       return 'Nada a excluir';
+    case SeriesImpactVariant.nothingToChange:
+      return 'Nada a alterar';
     case SeriesImpactVariant.applyToSeries:
+      return 'Aplicar a toda a série?';
     case SeriesImpactVariant.extend:
     case SeriesImpactVariant.shorten:
     case SeriesImpactVariant.regenerate:
@@ -72,8 +109,12 @@ String seriesImpactConfirmLabel(
           ? 'Excluir 1 ocorrência'
           : 'Excluir ${impact.futureCount} ocorrências';
     case SeriesImpactVariant.nothingToDo:
+    case SeriesImpactVariant.nothingToChange:
       return 'Entendi';
     case SeriesImpactVariant.applyToSeries:
+      // Sem contagem no rótulo, ao contrário do botão destrutivo: aqui o
+      // tamanho da operação está no corpo e nada é removido.
+      return 'Aplicar à série';
     case SeriesImpactVariant.extend:
     case SeriesImpactVariant.shorten:
     case SeriesImpactVariant.regenerate:
@@ -153,6 +194,7 @@ List<Widget> buildImpactBody(
 
   switch (variant) {
     case SeriesImpactVariant.nothingToDo:
+    case SeriesImpactVariant.nothingToChange:
       final m = impact.pastCount;
       final passadas = m == 1
           ? 'A ocorrência passada é preservada'
@@ -232,7 +274,49 @@ List<Widget> buildImpactBody(
         ]),
       ];
 
+    // DLG-1 — a única variante que não remove nada. Duas linhas, e a segunda
+    // some quando não há passado a tranquilizar (`m == 0`), pela mesma regra
+    // de omissão das outras variantes. Não existe linha de inscrições aqui:
+    // esta operação não cancela inscrição nenhuma.
     case SeriesImpactVariant.applyToSeries:
+      final n = impact.futureCount;
+      final m = impact.pastCount;
+      final primeira = impact.firstFuture;
+      final ultima = impact.lastFuture;
+
+      final intervalo = (primeira == null || ultima == null)
+          ? '.'
+          : primeira == ultima
+          ? ', em ${_dataBr.format(primeira)}.'
+          : ', de ${_dataBr.format(primeira)} até ${_dataBr.format(ultima)}.';
+
+      return [
+        _paragrafo(context, [
+          const TextSpan(text: 'As alterações vão valer para '),
+          _numero(n),
+          TextSpan(
+            text: n == 1
+                ? ' ocorrência futura$intervalo'
+                : ' ocorrências futuras$intervalo',
+          ),
+        ]),
+
+        if (m > 0)
+          _paragrafo(context, [
+            if (m == 1)
+              const TextSpan(
+                text: 'A ocorrência passada não será alterada.',
+              )
+            else ...[
+              const TextSpan(text: 'As '),
+              _numero(m),
+              const TextSpan(
+                text: ' ocorrências passadas não serão alteradas.',
+              ),
+            ],
+          ]),
+      ];
+
     case SeriesImpactVariant.extend:
     case SeriesImpactVariant.shorten:
     case SeriesImpactVariant.regenerate:
@@ -272,7 +356,9 @@ class SeriesImpactDialog extends StatefulWidget {
 class _SeriesImpactDialogState extends State<SeriesImpactDialog> {
   bool _executando = false;
 
-  bool get _informativo => widget.variant == SeriesImpactVariant.nothingToDo;
+  bool get _informativo =>
+      widget.variant == SeriesImpactVariant.nothingToDo ||
+      widget.variant == SeriesImpactVariant.nothingToChange;
 
   Future<void> _confirmar() async {
     // Anti duplo toque (T-04-05). A atomicidade real é da transação da RPC;
@@ -351,10 +437,14 @@ class _SeriesImpactDialogState extends State<SeriesImpactDialog> {
                         const SizedBox(width: 8),
                         FilledButton(
                           onPressed: _executando ? null : _confirmar,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: cs.error,
-                            foregroundColor: cs.onError,
-                          ),
+                          // Accent para as variantes que não removem nada
+                          // (DLG-1); destrutivo só onde algo some de fato.
+                          style: seriesImpactIsDestructive(widget.variant)
+                              ? FilledButton.styleFrom(
+                                  backgroundColor: cs.error,
+                                  foregroundColor: cs.onError,
+                                )
+                              : null,
                           child: _executando
                               ? const SizedBox(
                                   width: 16,

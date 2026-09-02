@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -13,6 +15,9 @@ import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../domain/models/event_audience.dart';
 import '../../domain/models/event_reminder.dart';
 import '../../domain/models/event_series.dart';
+import '../../domain/models/event_series_impact.dart';
+import '../utils/series_error.dart';
+import '../widgets/series_impact_dialog.dart';
 import '../widgets/audience_picker.dart';
 import '../widgets/reminder_picker.dart';
 import '../widgets/series_progress_barrier.dart';
@@ -116,6 +121,12 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   /// não sabido — o subtítulo usa a variante sem número em vez de estimar
   /// localmente (A-04: a contagem é sempre do servidor).
   int? _seriesFutureCount;
+
+  /// Horário com que a ocorrência foi CARREGADA, em minutos desde 00:00.
+  ///
+  /// Referência de "o horário mudou?" para séries legadas, que não têm
+  /// `event_series.start_time_minutes` para comparar (Pitfall #6).
+  int? _loadedStartTimeMinutes;
 
   /// Fase 6 — S6/IC-6: progresso determinado da criação da série.
   ///
@@ -550,6 +561,8 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
 
         _startDate = event.startDate;
         _startTime = TimeOfDay.fromDateTime(event.startDate);
+        _loadedStartTimeMinutes =
+            event.startDate.hour * 60 + event.startDate.minute;
 
         if (event.endDate != null) {
           _endDate = event.endDate;
@@ -764,6 +777,42 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   /// `onChanged` do toggle de escopo (D-01).
   void _onApplyToSeriesChanged(bool value) {
     setState(() => _applyToSeries = value);
+    // Ao LIGAR, busca a contagem do servidor para o subtítulo. É um dry-run:
+    // o corpo da RPC retorna antes de qualquer mutação. Falhar aqui é
+    // silencioso de propósito — o subtítulo perde o número, o líder não
+    // ganha um alerta por uma informação acessória, e a prévia que decide o
+    // salvamento é outra, obrigatória e bloqueante.
+    if (value) {
+      unawaited(_atualizarContagemDeFuturas());
+    }
+  }
+
+  Future<void> _atualizarContagemDeFuturas() async {
+    if (_batchId == null || widget.eventId == null) return;
+    try {
+      final previa = await _previaDeImpactoDaSerie(fields: const {});
+      if (mounted) setState(() => _seriesFutureCount = previa.futureCount);
+    } catch (e) {
+      AppErrorHandler.log(e, feature: 'events');
+    }
+  }
+
+  /// Prévia de impacto (`p_dry_run: true`) da aplicação da edição a toda a
+  /// série futura. **Único ponto de chamada da prévia no arquivo**: o
+  /// subtítulo do toggle e a confirmação do Salvar usam a mesma regra de
+  /// cutoff, que é a do servidor.
+  Future<EventSeriesImpact> _previaDeImpactoDaSerie({
+    required Map<String, dynamic> fields,
+    int? startTimeMinutes,
+  }) {
+    return ref
+        .read(eventsRepositoryProvider)
+        .previewSeriesUpdate(
+          batchId: _batchId!,
+          anchorEventId: widget.eventId!,
+          fields: fields,
+          startTimeMinutes: startTimeMinutes,
+        );
   }
 
   /// Itens do seletor de intervalo, a partir de [minimo] até 4.
@@ -2615,6 +2664,21 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
           );
         }
       } else {
+        // Fase 6 — REC-02: ramo do toggle LIGADO. Fica ANTES do caminho de
+        // edição atual e sai por `return`; o `finally` de `_saveEvent` cuida
+        // do `_isLoading`.
+        if (_isEditMode && _batchId != null && _applyToSeries) {
+          await _aplicarEdicaoATodaASerie(data);
+          return;
+        }
+
+        // ---------------------------------------------------------------
+        // FRONTEIRA DE ESCOPO — daqui para baixo é o caminho de edição de
+        // UMA ocorrência, e ele está INALTERADO por esta fase (D-01: o
+        // comportamento atual continua sendo o padrão, e o toggle desligado
+        // tem que produzir exatamente o que produzia antes). Qualquer
+        // alteração neste bloco é regressão de escopo, não melhoria.
+        // ---------------------------------------------------------------
         if (_isEditMode) {
           final updated = await ref
               .read(eventsRepositoryProvider)
@@ -2679,6 +2743,148 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         });
       }
     }
+  }
+
+  /// Fase 6 — REC-02 / DLG-1: aplica a edição da ocorrência aberta a todas as
+  /// ocorrências futuras do lote.
+  ///
+  /// Sequência obrigatória, e nesta ordem: prévia do servidor → diálogo →
+  /// execução. **Nada é enviado se a prévia falhar** (A-04): confirmar uma
+  /// operação em massa com número inventado é irrecuperável. Um único diálogo
+  /// por Salvar — nunca dois encadeados.
+  ///
+  /// O botão `Salvar` está fora da árvore enquanto isto roda (`_isLoading`
+  /// troca o corpo do formulário), então não há duplo toque possível. Isso é
+  /// UX; a atomicidade real é da transação da RPC.
+  Future<void> _aplicarEdicaoATodaASerie(Map<String, dynamic> data) async {
+    final repo = ref.read(eventsRepositoryProvider);
+    final nomeDoEvento = _nameController.text.trim();
+
+    // D-04 + Pitfall #6: o horário só viaja quando MUDOU em relação ao valor
+    // persistido. Mandá-lo a cada salvamento reescreveria o timestamp de até
+    // 52 linhas sem necessidade e dispararia `event_changed_notify_upd` uma
+    // vez por linha — uma avalanche de avisos idênticos para líderes de
+    // ministério, causada por uma edição que nem tocou no horário.
+    //
+    // A referência é `event_series.start_time_minutes`; série legada não tem
+    // essa linha, e aí a referência é o horário com que a ocorrência foi
+    // carregada. Sem nenhuma das duas, não há como afirmar que mudou, e o
+    // horário não vai.
+    final minutosAtuais = _startTime!.hour * 60 + _startTime!.minute;
+    final referencia = _series?.startTimeMinutes ?? _loadedStartTimeMinutes;
+    final startTimeMinutes = (referencia != null && referencia != minutosAtuais)
+        ? minutosAtuais
+        : null;
+
+    final EventSeriesImpact previa;
+    try {
+      previa = await _previaDeImpactoDaSerie(
+        fields: data,
+        startTimeMinutes: startTimeMinutes,
+      );
+    } catch (e) {
+      AppErrorHandler.log(e, feature: 'events');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Não foi possível calcular o impacto desta alteração.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    // DLG-6 na variante não destrutiva: nada a alterar, e o Salvar é
+    // abortado sem enviar nada.
+    if (previa.futureCount == 0) {
+      await showSeriesImpactDialog(
+        context,
+        variant: SeriesImpactVariant.nothingToChange,
+        impact: previa,
+        eventName: nomeDoEvento,
+      );
+      return;
+    }
+
+    // O callback do diálogo NÃO pode lançar (contrato de
+    // `SeriesImpactDialog`): o erro é guardado e tratado aqui, pela tela, que
+    // é quem conhece o `fallbackMessage` desta operação.
+    EventSeriesImpact? resultado;
+    Object? erro;
+
+    final confirmado = await showSeriesImpactDialog(
+      context,
+      variant: SeriesImpactVariant.applyToSeries,
+      impact: previa,
+      eventName: nomeDoEvento,
+      onConfirm: () async {
+        try {
+          resultado = await repo.applySeriesUpdate(
+            batchId: _batchId!,
+            anchorEventId: widget.eventId!,
+            fields: data,
+            startTimeMinutes: startTimeMinutes,
+          );
+        } catch (e) {
+          erro = e;
+        }
+      },
+    );
+
+    if (confirmado != true || !mounted) return;
+
+    if (erro != null) {
+      // IC-8: o `catch` de `PERMISSION_DENIED` é mantido MESMO com o gate
+      // visual do toggle — a permissão pode mudar entre renderizar e enviar,
+      // e a autoridade é a RPC.
+      final mensagem = seriesErrorMessage(erro!);
+      if (mensagem != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(mensagem)));
+      } else {
+        AppErrorHandler.showSnackBar(
+          context,
+          erro!,
+          feature: 'events',
+          fallbackMessage:
+              'Não foi possível aplicar as alterações à série. Verifique a '
+              'conexão e tente novamente.',
+        );
+      }
+      return;
+    }
+
+    ref.invalidate(allEventsProvider);
+    ref.invalidate(activeEventsProvider);
+    ref.invalidate(upcomingEventsProvider);
+    ref.invalidate(eventByIdProvider(widget.eventId!));
+    ref.invalidate(eventSeriesProvider(_batchId!));
+    ref.invalidate(
+      eventAudienceProvider((eventId: widget.eventId!, role: 'visibility')),
+    );
+    ref.invalidate(
+      eventAudienceProvider((eventId: widget.eventId!, role: 'registration')),
+    );
+
+    // O número é o da EXECUÇÃO (`updated_count`), nunca o da prévia: entre
+    // uma e outra o conjunto pode mudar (uma ocorrência cruza o cutoff,
+    // alguém edita a série em paralelo).
+    final n = resultado?.updatedCount ?? 0;
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          n == 1
+              ? 'Alterações aplicadas a 1 ocorrência futura.'
+              : 'Alterações aplicadas a $n ocorrências futuras.',
+        ),
+      ),
+    );
   }
 
   /// Grava responsáveis, alvos de visibilidade e de elegibilidade para um

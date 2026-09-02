@@ -48,6 +48,14 @@ class EventSeriesImpact {
   /// 08). Sempre `0` na exclusão de futuras.
   final int createdCount;
 
+  /// Ocorrências futuras de fato ATUALIZADAS por
+  /// `apply_event_series_update` (migration `20260902000600`). Sempre `0` em
+  /// prévia, e ausente na resposta da RPC de exclusão — por isso cai em `0`.
+  ///
+  /// É este número, e não o `future_count` da prévia, que o SnackBar de
+  /// sucesso informa: entre a prévia e a confirmação o conjunto pode mudar.
+  final int updatedCount;
+
   const EventSeriesImpact({
     required this.dryRun,
     required this.futureCount,
@@ -59,6 +67,7 @@ class EventSeriesImpact {
     required this.deletedCount,
     required this.notifiedCount,
     this.createdCount = 0,
+    this.updatedCount = 0,
   });
 
   /// Desserializa o `jsonb` do servidor, em snake_case.
@@ -78,6 +87,7 @@ class EventSeriesImpact {
       deletedCount: json['deleted_count'] as int? ?? 0,
       notifiedCount: json['notified_count'] as int? ?? 0,
       createdCount: json['created_count'] as int? ?? 0,
+      updatedCount: json['updated_count'] as int? ?? 0,
     );
   }
 
