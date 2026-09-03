@@ -90,13 +90,6 @@ jobs:
           path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 14
 
-      - name: Authenticate to Google Cloud (OIDC)
-        if: ${{ inputs.publish_track != 'none' }}
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
-
       - name: Setup Python
         if: ${{ inputs.publish_track != 'none' }}
         uses: actions/setup-python@v5
@@ -106,6 +99,13 @@ jobs:
       - name: Install Play Publisher dependencies
         if: ${{ inputs.publish_track != 'none' }}
         run: pip install --quiet google-api-python-client google-auth
+
+      - name: Authenticate to Google Cloud (OIDC)
+        if: ${{ inputs.publish_track != 'none' }}
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
 
       - name: Publish to Google Play
         if: ${{ inputs.publish_track != 'none' }}
