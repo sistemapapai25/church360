@@ -121,6 +121,7 @@ flutter:
   #   - images/a_dot_ham.jpeg
   assets:
     - assets/images/brand_logo.png
+    - assets/images/brand_logo_oficial.png
     - assets/images/church360_logo.jpg
     - assets/images/church360-sf-p.svg
 
@@ -133,8 +134,8 @@ flutter_launcher_icons:
     generate: true
   macos:
     generate: true
-  image_path: "assets/images/brand_logo.png"
-  image_path_ios: "assets/images/brand_logo_ios.png"
+  image_path: "assets/images/brand_logo_oficial.png"
+  image_path_ios: "assets/images/brand_logo_oficial.png"
   remove_alpha_ios: true
 
   # An image asset can refer to one or more resolution-specific "variants", see
