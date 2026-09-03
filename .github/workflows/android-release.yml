@@ -1,11 +1,29 @@
 name: Build Android Release (AAB)
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      publish_track:
+        description: 'Faixa do Play Console para publicar (deixe vazio para só gerar o .aab sem publicar)'
+        required: false
+        type: choice
+        default: 'none'
+        options:
+          - 'none'
+          - 'smoke_test'
+          - 'internal'
+
+env:
+  ANDROID_PACKAGE_NAME: com.papai.myapp
+  GCP_WORKLOAD_IDENTITY_PROVIDER: projects/612780695986/locations/global/workloadIdentityPools/github/providers/church360
+  GCP_SERVICE_ACCOUNT: id-play-publisher@church360-494119.iam.gserviceaccount.com
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout repository
@@ -71,3 +89,26 @@ jobs:
           name: app-release-aab
           path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 14
+
+      - name: Authenticate to Google Cloud (OIDC)
+        if: ${{ inputs.publish_track != 'none' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup Python
+        if: ${{ inputs.publish_track != 'none' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Play Publisher dependencies
+        if: ${{ inputs.publish_track != 'none' }}
+        run: pip install --quiet google-api-python-client google-auth
+
+      - name: Publish to Google Play
+        if: ${{ inputs.publish_track != 'none' }}
+        env:
+          PLAY_TRACK: ${{ inputs.publish_track }}
+        run: python .github/scripts/publish_to_play.py
