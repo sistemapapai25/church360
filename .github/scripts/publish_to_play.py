@@ -6,6 +6,7 @@ import sys
 
 import google.auth
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 
 PACKAGE_NAME = os.environ["ANDROID_PACKAGE_NAME"]
 TRACK = os.environ["PLAY_TRACK"]
@@ -36,10 +37,11 @@ def main() -> None:
 
     edit_id = edits.insert(body={}, packageName=PACKAGE_NAME).execute()["id"]
 
+    media = MediaFileUpload(AAB_PATH, mimetype="application/octet-stream")
     bundle = edits.bundles().upload(
         editId=edit_id,
         packageName=PACKAGE_NAME,
-        media_body=AAB_PATH,
+        media_body=media,
     ).execute()
     version_code = bundle["versionCode"]
 
