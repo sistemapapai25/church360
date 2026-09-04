@@ -37,12 +37,20 @@ def main() -> None:
 
     edit_id = edits.insert(body={}, packageName=PACKAGE_NAME).execute()["id"]
 
-    media = MediaFileUpload(AAB_PATH, mimetype="application/octet-stream")
-    bundle = edits.bundles().upload(
+    media = MediaFileUpload(
+        AAB_PATH,
+        mimetype="application/octet-stream",
+        resumable=True,
+        chunksize=8 * 1024 * 1024,
+    )
+    request = edits.bundles().upload(
         editId=edit_id,
         packageName=PACKAGE_NAME,
         media_body=media,
-    ).execute()
+    )
+    bundle = None
+    while bundle is None:
+        _, bundle = request.next_chunk(num_retries=5)
     version_code = bundle["versionCode"]
 
     edits.tracks().update(
