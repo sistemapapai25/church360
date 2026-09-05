@@ -34,36 +34,38 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       },
       child: Scaffold(
         key: _scaffoldKey,
-        // Drawer lateral com opções de Gestão (abre da esquerda)
-        drawer: _buildManagementDrawer(context),
+        // Drawer lateral com opções de Gestão — agora abre pela direita
+        // (endDrawer), acionado pelo FAB de menu no canto inferior direito.
+        endDrawer: _buildManagementDrawer(context),
         appBar: AppBar(
+          // Cabeçalho no mesmo padrão visual já usado na aba "Mais"
+          // (branco, cantos inferiores arredondados, sombra sutil ao rolar).
+          backgroundColor: Colors.white,
+          elevation: 0,
+          scrolledUnderElevation: 2,
+          shadowColor: Colors.black.withValues(alpha: 0.1),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+          ),
           title: const Text(
             'Dashboard',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
-          // Botão de menu no canto superior esquerdo
+          // Botão de voltar (seta normal) no lugar antes ocupado pelo
+          // hambúrguer — o ícone anterior (exit_to_app) se confundia com o
+          // de logout.
           leading: IconButton(
-            icon: const Icon(Icons.menu),
+            icon: const Icon(Icons.arrow_back),
             onPressed: () {
-              _scaffoldKey.currentState?.openDrawer();
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                context.go('/home?tab=more');
+              }
             },
-            tooltip: 'Menu de Gestão',
+            tooltip: 'Voltar',
           ),
           actions: [
-            // Botão voltar para Menu Mais
-            IconButton(
-              icon: const Icon(
-                Icons.exit_to_app_outlined,
-              ), // Ícone indicando saída/retorno
-              onPressed: () {
-                if (Navigator.canPop(context)) {
-                  Navigator.pop(context);
-                } else {
-                  context.go('/home?tab=more');
-                }
-              },
-              tooltip: 'Voltar para Menu',
-            ),
             // Botão de configurar Dashboard: admin/leader com
             // dashboard.configure vai pra config geral do tenant; qualquer
             // outro usuário com acesso ao Dashboard vai pra tela pessoal
@@ -77,6 +79,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             const SizedBox(width: 8),
           ],
         ),
+        // Hambúrguer do menu de Gestão: canto inferior direito, abre o
+        // drawer pela direita.
+        floatingActionButton: FloatingActionButton(
+          heroTag: 'dashboard_management_menu',
+          onPressed: () {
+            _scaffoldKey.currentState?.openEndDrawer();
+          },
+          tooltip: 'Menu de Gestão',
+          child: const Icon(Icons.menu),
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         body: ref
             .watch(enabledDashboardWidgetsProvider)
             .when(
