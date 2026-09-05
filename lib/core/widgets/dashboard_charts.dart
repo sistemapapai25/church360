@@ -5,9 +5,105 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/dashboard_stats_provider.dart';
+import '../theme/app_theme.dart';
 import '../../features/financial/presentation/providers/financial_provider.dart';
 import '../../features/financial/domain/models/contribution.dart';
 import '../../features/dispatch/presentation/providers/auto_scheduler_providers.dart';
+
+/// Tokens visuais compartilhados pelos cards do Dashboard (CHU-302+),
+/// alinhados ao canvas de referência "Dashboard Liderança" aprovado em 05/09.
+class _DashStyle {
+  static const Color textMuted = Color(0xFF8A8797);
+  static const Color textFaint = Color(0xFFAEACBC);
+  static const Color divider = Color(0xFFF0EFF7);
+  static const Color accentPurple = Color(0xFF7C4DFF);
+  static const Color statusGreenBg = Color(0xFFE7F8EE);
+  static const Color statusGreenFg = Color(0xFF0F9D58);
+  static const Color statusBlueBg = Color(0xFFE9F0FE);
+  static const Color statusBlueFg = Color(0xFF3B82F6);
+  static const Color statusRedBg = Color(0xFFFDE8E8);
+  static const Color statusRedFg = Color(0xFFC0392B);
+  static const Color tooltipBg = Color(0xFF1E1B29);
+
+  static const List<BoxShadow> cardShadow = [
+    BoxShadow(color: Color(0x0D201F32), blurRadius: 10, offset: Offset(0, 2)),
+  ];
+
+  static BoxDecoration card({double radius = 16}) => BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: cardShadow,
+      );
+}
+
+/// Cabeçalho padrão dos cards do Dashboard: badge de ícone colorido + título.
+class _DashCardHeader extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final bool showArrow;
+
+  const _DashCardHeader({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    this.showArrow = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: iconColor,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: Colors.white, size: 17),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          ),
+        ),
+        if (showArrow)
+          const Icon(Icons.arrow_forward_ios, size: 14, color: _DashStyle.textFaint),
+      ],
+    );
+  }
+}
+
+/// Selo (pill) de status usado nas listas de atividade do Dashboard.
+class _DashPill extends StatelessWidget {
+  final String label;
+  final Color background;
+  final Color foreground;
+
+  const _DashPill({
+    required this.label,
+    required this.background,
+    required this.foreground,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: foreground),
+      ),
+    );
+  }
+}
 
 /// Widget de gráfico de crescimento de membros
 class MemberGrowthChart extends ConsumerWidget {
@@ -17,40 +113,25 @@ class MemberGrowthChart extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(memberGrowthStatsProvider);
 
-    return Card(
+    return Container(
+      decoration: _DashStyle.card(),
       child: InkWell(
         onTap: () {
           context.push('/member-growth-report');
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.trending_up,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Crescimento de Membros',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Colors.grey[400],
-                  ),
-                ],
+              const _DashCardHeader(
+                icon: Icons.trending_up,
+                iconColor: AppTheme.primaryColor,
+                title: 'Crescimento de Membros',
+                showArrow: true,
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             SizedBox(
               height: 200,
               child: statsAsync.when(
@@ -68,9 +149,10 @@ class MemberGrowthChart extends ConsumerWidget {
                         drawVerticalLine: false,
                         horizontalInterval: 1,
                         getDrawingHorizontalLine: (value) {
-                          return FlLine(
-                            color: Colors.grey.shade300,
+                          return const FlLine(
+                            color: _DashStyle.divider,
                             strokeWidth: 1,
+                            dashArray: [4, 4],
                           );
                         },
                       ),
@@ -99,7 +181,7 @@ class MemberGrowthChart extends ConsumerWidget {
                               ];
                               return Text(
                                 monthNames[monthNumber - 1],
-                                style: const TextStyle(fontSize: 10),
+                                style: const TextStyle(fontSize: 10, color: _DashStyle.textMuted),
                               );
                             },
                           ),
@@ -111,20 +193,33 @@ class MemberGrowthChart extends ConsumerWidget {
                             getTitlesWidget: (value, meta) {
                               return Text(
                                 value.toInt().toString(),
-                                style: const TextStyle(fontSize: 10),
+                                style: const TextStyle(fontSize: 10, color: _DashStyle.textMuted),
                               );
                             },
                           ),
                         ),
                       ),
-                      borderData: FlBorderData(
-                        show: true,
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
+                      borderData: FlBorderData(show: false),
                       minX: 0,
                       maxX: (stats.length - 1).toDouble(),
                       minY: 0,
                       maxY: (stats.map((s) => s['count'] as int).reduce((a, b) => a > b ? a : b) + 2).toDouble(),
+                      lineTouchData: LineTouchData(
+                        touchTooltipData: LineTouchTooltipData(
+                          getTooltipColor: (_) => _DashStyle.tooltipBg,
+                          tooltipRoundedRadius: 10,
+                          getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
+                            return LineTooltipItem(
+                              '${spot.y.toInt()} membros',
+                              const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
                       lineBarsData: [
                         LineChartBarData(
                           spots: stats.asMap().entries.map((entry) {
@@ -134,13 +229,31 @@ class MemberGrowthChart extends ConsumerWidget {
                             );
                           }).toList(),
                           isCurved: true,
-                          color: Theme.of(context).colorScheme.primary,
-                          barWidth: 3,
+                          color: AppTheme.primaryColor,
+                          barWidth: 2.5,
                           isStrokeCapRound: true,
-                          dotData: const FlDotData(show: true),
+                          dotData: FlDotData(
+                            show: true,
+                            getDotPainter: (spot, percent, bar, index) {
+                              final isLast = index == stats.length - 1;
+                              return FlDotCirclePainter(
+                                radius: isLast ? 5.5 : 3.5,
+                                color: isLast ? AppTheme.primaryColor : Colors.white,
+                                strokeColor: AppTheme.primaryColor,
+                                strokeWidth: 2.5,
+                              );
+                            },
+                          ),
                           belowBarData: BarAreaData(
                             show: true,
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                AppTheme.primaryColor.withValues(alpha: 0.22),
+                                AppTheme.primaryColor.withValues(alpha: 0.0),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -167,40 +280,25 @@ class EventsStatsCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(eventsStatsProvider);
 
-    return Card(
+    return Container(
+      decoration: _DashStyle.card(),
       child: InkWell(
         onTap: () {
           context.push('/events-analysis-report');
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.event,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Eventos',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Colors.grey[400],
-                  ),
-                ],
+              const _DashCardHeader(
+                icon: Icons.event,
+                iconColor: _DashStyle.accentPurple,
+                title: 'Eventos',
+                showArrow: true,
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             statsAsync.when(
               data: (stats) {
                 return Row(
@@ -209,19 +307,19 @@ class EventsStatsCard extends ConsumerWidget {
                     _EventStatItem(
                       label: 'Próximos',
                       value: stats['upcoming']!,
-                      color: Colors.blue,
+                      color: AppTheme.primaryColor,
                       icon: Icons.upcoming,
                     ),
                     _EventStatItem(
                       label: 'Ativos',
                       value: stats['active']!,
-                      color: Colors.green,
+                      color: AppTheme.secondaryColor,
                       icon: Icons.play_circle,
                     ),
                     _EventStatItem(
                       label: 'Finalizados',
                       value: stats['completed']!,
-                      color: Colors.grey,
+                      color: _DashStyle.textMuted,
                       icon: Icons.check_circle,
                     ),
                   ],
@@ -244,38 +342,23 @@ class AutoSchedulerSummaryCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final itemsAsync = ref.watch(allAutoSchedulesProvider);
-    return Card(
+    return Container(
+      decoration: _DashStyle.card(),
       child: InkWell(
         onTap: () => context.push('/dispatch-config'),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.schedule,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Agendamentos Automáticos',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Colors.grey[400],
-                  ),
-                ],
+              const _DashCardHeader(
+                icon: Icons.schedule,
+                iconColor: AppTheme.warningColor,
+                title: 'Agendamentos Automáticos',
+                showArrow: true,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               itemsAsync.when(
                 data: (items) {
                   if (items.isEmpty) {
@@ -298,16 +381,10 @@ class AutoSchedulerSummaryCard extends ConsumerWidget {
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Row(
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  c.sendTime,
-                                  style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
-                                ),
+                              _DashPill(
+                                label: c.sendTime,
+                                background: _DashStyle.statusGreenBg,
+                                foreground: _DashStyle.statusGreenFg,
                               ),
                               const SizedBox(width: 8),
                               Expanded(
@@ -322,7 +399,7 @@ class AutoSchedulerSummaryCard extends ConsumerWidget {
                                 c.nextRun != null
                                     ? DateFormat('dd/MM HH:mm').format(c.nextRun!)
                                     : '-',
-                                style: const TextStyle(color: Colors.grey),
+                                style: const TextStyle(color: _DashStyle.textMuted),
                               ),
                             ],
                           ),
@@ -361,20 +438,27 @@ class _EventStatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Icon(icon, color: color, size: 32),
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: color, size: 22),
+        ),
         const SizedBox(height: 8),
         Text(
           value.toString(),
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
         ),
         Text(
           label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey,
-              ),
+          style: const TextStyle(fontSize: 12, color: _DashStyle.textMuted),
         ),
       ],
     );
@@ -389,40 +473,25 @@ class TopActiveGroupsCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final groupsAsync = ref.watch(topActiveGroupsProvider);
 
-    return Card(
+    return Container(
+      decoration: _DashStyle.card(),
       child: InkWell(
         onTap: () {
           context.push('/active-groups-report');
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.groups,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Grupos Mais Ativos',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Colors.grey[400],
-                  ),
-                ],
+              const _DashCardHeader(
+                icon: Icons.groups,
+                iconColor: _DashStyle.accentPurple,
+                title: 'Grupos Mais Ativos',
+                showArrow: true,
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             groupsAsync.when(
               data: (groups) {
                 if (groups.isEmpty) {
@@ -441,23 +510,10 @@ class TopActiveGroupsCard extends ConsumerWidget {
                               style: const TextStyle(fontWeight: FontWeight.w500),
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '${group['meeting_count']} reuniões',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
+                          _DashPill(
+                            label: '${group['meeting_count']} reuniões',
+                            background: _DashStyle.statusBlueBg,
+                            foreground: _DashStyle.statusBlueFg,
                           ),
                         ],
                       ),
@@ -484,28 +540,19 @@ class AverageAttendanceCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(averageAttendanceProvider);
 
-    return Card(
+    return Container(
+      decoration: _DashStyle.card(),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.analytics,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Frequência nas Reuniões',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
+            const _DashCardHeader(
+              icon: Icons.analytics,
+              iconColor: AppTheme.primaryColor,
+              title: 'Frequência nas Reuniões',
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             statsAsync.when(
               data: (stats) {
                 if (stats['total_meetings'] == 0) {
@@ -521,19 +568,19 @@ class AverageAttendanceCard extends ConsumerWidget {
                           label: 'Reuniões',
                           value: stats['total_meetings'].toString(),
                           icon: Icons.event_note,
-                          color: Colors.blue,
+                          color: AppTheme.primaryColor,
                         ),
                         _AttendanceStatItem(
                           label: 'Total Presentes',
                           value: stats['total_attendance'].toString(),
                           icon: Icons.people,
-                          color: Colors.green,
+                          color: AppTheme.secondaryColor,
                         ),
                         _AttendanceStatItem(
                           label: 'Média',
                           value: (stats['average_attendance'] as double).toStringAsFixed(1),
                           icon: Icons.trending_up,
-                          color: Colors.orange,
+                          color: AppTheme.warningColor,
                         ),
                       ],
                     ),
@@ -567,20 +614,27 @@ class _AttendanceStatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Icon(icon, color: color, size: 28),
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
         const SizedBox(height: 8),
         Text(
           value,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
         ),
         Text(
           label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey,
-              ),
+          style: const TextStyle(fontSize: 12, color: _DashStyle.textMuted),
           textAlign: TextAlign.center,
         ),
       ],
@@ -596,28 +650,19 @@ class TopTagsCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tagsAsync = ref.watch(topTagsProvider);
 
-    return Card(
+    return Container(
+      decoration: _DashStyle.card(),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.label,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Tags Mais Usadas',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
+            const _DashCardHeader(
+              icon: Icons.label,
+              iconColor: AppTheme.primaryColor,
+              title: 'Tags Mais Usadas',
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             tagsAsync.when(
               data: (tags) {
                 if (tags.isEmpty) {
@@ -681,11 +726,12 @@ class FinancialSummaryCards extends ConsumerWidget {
                   context,
                   'Contribuições',
                   total,
-                  Colors.green,
+                  AppTheme.secondaryColor,
                   Icons.trending_up,
                 ),
-                loading: () => const Card(
-                  child: Padding(
+                loading: () => Container(
+                  decoration: _DashStyle.card(),
+                  child: const Padding(
                     padding: EdgeInsets.all(20),
                     child: Center(child: CircularProgressIndicator()),
                   ),
@@ -701,11 +747,12 @@ class FinancialSummaryCards extends ConsumerWidget {
                   context,
                   'Despesas',
                   total,
-                  Colors.red,
+                  AppTheme.errorColor,
                   Icons.trending_down,
                 ),
-                loading: () => const Card(
-                  child: Padding(
+                loading: () => Container(
+                  decoration: _DashStyle.card(),
+                  child: const Padding(
                     padding: EdgeInsets.all(20),
                     child: Center(child: CircularProgressIndicator()),
                   ),
@@ -722,11 +769,12 @@ class FinancialSummaryCards extends ConsumerWidget {
             context,
             'Saldo',
             balance,
-            balance >= 0 ? Colors.blue : Colors.orange,
+            balance >= 0 ? AppTheme.primaryColor : AppTheme.warningColor,
             balance >= 0 ? Icons.account_balance : Icons.warning,
           ),
-          loading: () => const Card(
-            child: Padding(
+          loading: () => Container(
+            decoration: _DashStyle.card(),
+            child: const Padding(
               padding: EdgeInsets.all(20),
               child: Center(child: CircularProgressIndicator()),
             ),
@@ -746,42 +794,35 @@ class FinancialSummaryCards extends ConsumerWidget {
   ) {
     final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
-    return Card(
+    return Container(
+      decoration: _DashStyle.card(),
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
+                color: color,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: color, size: 32),
+              child: Icon(icon, color: Colors.white, size: 20),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    formatter.format(value),
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 16),
+            Text(
+              formatter.format(value),
+              style: TextStyle(
+                fontSize: 21,
+                fontWeight: FontWeight.bold,
+                color: color,
               ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 13, color: _DashStyle.textMuted),
             ),
           ],
         ),
@@ -798,28 +839,19 @@ class ContributionsByTypeChart extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final contributionsAsync = ref.watch(allContributionsProvider);
 
-    return Card(
+    return Container(
+      decoration: _DashStyle.card(),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.pie_chart,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Contribuições por Tipo',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
+            const _DashCardHeader(
+              icon: Icons.pie_chart,
+              iconColor: AppTheme.primaryColor,
+              title: 'Contribuições por Tipo',
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             SizedBox(
               height: 250,
               child: contributionsAsync.when(
@@ -885,11 +917,11 @@ class ContributionsByTypeChart extends ConsumerWidget {
                               child: Row(
                                 children: [
                                   Container(
-                                    width: 16,
-                                    height: 16,
+                                    width: 9,
+                                    height: 9,
                                     decoration: BoxDecoration(
                                       color: _getTypeColor(entry.key),
-                                      borderRadius: BorderRadius.circular(4),
+                                      shape: BoxShape.circle,
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -907,9 +939,9 @@ class ContributionsByTypeChart extends ConsumerWidget {
                                         ),
                                         Text(
                                           formatter.format(entry.value),
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontSize: 11,
-                                            color: Colors.grey[600],
+                                            color: _DashStyle.textMuted,
                                           ),
                                         ),
                                       ],
@@ -937,17 +969,17 @@ class ContributionsByTypeChart extends ConsumerWidget {
   Color _getTypeColor(ContributionType type) {
     switch (type) {
       case ContributionType.tithe:
-        return Colors.green;
+        return AppTheme.secondaryColor;
       case ContributionType.offering:
-        return Colors.blue;
+        return AppTheme.primaryColor;
       case ContributionType.missions:
-        return Colors.purple;
+        return _DashStyle.accentPurple;
       case ContributionType.building:
-        return Colors.orange;
+        return AppTheme.warningColor;
       case ContributionType.special:
         return Colors.pink;
       case ContributionType.other:
-        return Colors.grey;
+        return _DashStyle.textMuted;
     }
   }
 }
@@ -960,28 +992,19 @@ class FinancialGoalsWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final goalsAsync = ref.watch(activeGoalsProvider);
 
-    return Card(
+    return Container(
+      decoration: _DashStyle.card(),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.flag,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Metas Financeiras Ativas',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
+            const _DashCardHeader(
+              icon: Icons.flag,
+              iconColor: AppTheme.warningColor,
+              title: 'Metas Financeiras Ativas',
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             goalsAsync.when(
               data: (goals) {
                 if (goals.isEmpty) {
@@ -1017,34 +1040,24 @@ class FinancialGoalsWidget extends ConsumerWidget {
                                   ),
                                 ),
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  '${goal.progressPercentage}%',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue,
-                                  ),
-                                ),
+                              _DashPill(
+                                label: '${goal.progressPercentage}%',
+                                background: _DashStyle.statusBlueBg,
+                                foreground: _DashStyle.statusBlueFg,
                               ),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          LinearProgressIndicator(
-                            value: goal.progress,
-                            backgroundColor: Colors.grey[200],
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Colors.blue,
-                            ),
-                            minHeight: 8,
+                          ClipRRect(
                             borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: goal.progress,
+                              backgroundColor: _DashStyle.divider,
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                AppTheme.primaryColor,
+                              ),
+                              minHeight: 8,
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Row(
@@ -1055,14 +1068,14 @@ class FinancialGoalsWidget extends ConsumerWidget {
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.green,
+                                  color: AppTheme.secondaryColor,
                                 ),
                               ),
                               Text(
                                 'Meta: ${formatter.format(goal.targetAmount)}',
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 14,
-                                  color: Colors.grey[600],
+                                  color: _DashStyle.textMuted,
                                 ),
                               ),
                             ],
@@ -1091,28 +1104,19 @@ class BirthdaysThisMonthCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final birthdaysAsync = ref.watch(birthdaysThisMonthProvider);
 
-    return Card(
+    return Container(
+      decoration: _DashStyle.card(),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.cake,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Aniversariantes do Mês',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
+            const _DashCardHeader(
+              icon: Icons.cake,
+              iconColor: AppTheme.warningColor,
+              title: 'Aniversariantes do Mês',
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             birthdaysAsync.when(
               data: (birthdays) {
                 if (birthdays.isEmpty) {
@@ -1136,7 +1140,7 @@ class BirthdaysThisMonthCard extends ConsumerWidget {
                       final nameColor = isPast
                           ? Colors.grey[500]
                           : (isToday ? Colors.orange[800] : null);
-                      final dateColor = isPast ? Colors.grey[400] : Colors.grey[600];
+                      final dateColor = isPast ? Colors.grey[400] : _DashStyle.textMuted;
                       final iconColor = isPast
                           ? Colors.grey[400]
                           : (isToday ? Colors.orange[700] : Colors.orange[300]);
@@ -1182,20 +1186,14 @@ class BirthdaysThisMonthCard extends ConsumerWidget {
                                           ),
                                         ),
                                         const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                          decoration: BoxDecoration(
-                                            color: type == 'Visitante' ? Colors.blue[100] : Colors.green[100],
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: Text(
-                                            type,
-                                            style: TextStyle(
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.bold,
-                                              color: type == 'Visitante' ? Colors.blue[700] : Colors.green[700],
-                                            ),
-                                          ),
+                                        _DashPill(
+                                          label: type,
+                                          background: type == 'Visitante'
+                                              ? _DashStyle.statusBlueBg
+                                              : _DashStyle.statusGreenBg,
+                                          foreground: type == 'Visitante'
+                                              ? _DashStyle.statusBlueFg
+                                              : _DashStyle.statusGreenFg,
                                         ),
                                       ],
                                     ),
@@ -1234,40 +1232,25 @@ class UpcomingExpensesCard extends ConsumerWidget {
     final expensesAsync = ref.watch(upcomingExpensesProvider);
     final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
-    return Card(
+    return Container(
+      decoration: _DashStyle.card(),
       child: InkWell(
         onTap: () {
           context.push('/upcoming-expenses-report');
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.receipt_long,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Próximas Contas a Pagar',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Colors.grey[400],
-                  ),
-                ],
+              const _DashCardHeader(
+                icon: Icons.receipt_long,
+                iconColor: AppTheme.warningColor,
+                title: 'Próximas Contas a Pagar',
+                showArrow: true,
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             expensesAsync.when(
               data: (expenses) {
                 if (expenses.isEmpty) {
@@ -1294,17 +1277,20 @@ class UpcomingExpensesCard extends ConsumerWidget {
                         child: Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(8),
+                              width: 36,
+                              height: 36,
                               decoration: BoxDecoration(
                                 color: isOverdue
-                                    ? Colors.red[100]
-                                    : Colors.blue[100],
-                                borderRadius: BorderRadius.circular(8),
+                                    ? _DashStyle.statusRedBg
+                                    : _DashStyle.statusBlueBg,
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               child: Icon(
                                 Icons.attach_money,
-                                color: isOverdue ? Colors.red : Colors.blue,
-                                size: 20,
+                                color: isOverdue
+                                    ? _DashStyle.statusRedFg
+                                    : _DashStyle.statusBlueFg,
+                                size: 18,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -1320,9 +1306,9 @@ class UpcomingExpensesCard extends ConsumerWidget {
                                   ),
                                   Text(
                                     description,
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       fontSize: 12,
-                                      color: Colors.grey[600],
+                                      color: _DashStyle.textMuted,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -1331,7 +1317,9 @@ class UpcomingExpensesCard extends ConsumerWidget {
                                     '${date.day}/${date.month}/${date.year}',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: isOverdue ? Colors.red : Colors.grey[500],
+                                      color: isOverdue
+                                          ? _DashStyle.statusRedFg
+                                          : _DashStyle.textFaint,
                                       fontWeight: isOverdue ? FontWeight.bold : FontWeight.normal,
                                     ),
                                   ),
@@ -1342,7 +1330,7 @@ class UpcomingExpensesCard extends ConsumerWidget {
                               formatter.format(amount),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: isOverdue ? Colors.red : Colors.black87,
+                                color: isOverdue ? _DashStyle.statusRedFg : Colors.black87,
                               ),
                             ),
                           ],
@@ -1354,13 +1342,13 @@ class UpcomingExpensesCard extends ConsumerWidget {
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           '+${expenses.length - 5} despesas',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[600],
+                            color: _DashStyle.textMuted,
                           ),
                         ),
                       ),
-                    const Divider(height: 24),
+                    const Divider(height: 24, color: _DashStyle.divider),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1376,7 +1364,7 @@ class UpcomingExpensesCard extends ConsumerWidget {
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
-                            color: Colors.red,
+                            color: _DashStyle.statusRedFg,
                           ),
                         ),
                       ],
@@ -1403,28 +1391,19 @@ class RecentMembersCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final membersAsync = ref.watch(recentMembersProvider);
 
-    return Card(
+    return Container(
+      decoration: _DashStyle.card(),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.person_add,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Novos Membros (30 dias)',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
+            const _DashCardHeader(
+              icon: Icons.person_add,
+              iconColor: AppTheme.secondaryColor,
+              title: 'Novos Membros (30 dias)',
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             membersAsync.when(
               data: (members) {
                 if (members.isEmpty) {
@@ -1438,24 +1417,24 @@ class RecentMembersCard extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.green[50],
-                        borderRadius: BorderRadius.circular(8),
+                        color: _DashStyle.statusGreenBg,
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.trending_up,
-                            color: Colors.green[700],
-                            size: 32,
+                            color: _DashStyle.statusGreenFg,
+                            size: 28,
                           ),
                           const SizedBox(width: 12),
                           Text(
                             '${members.length} ${members.length == 1 ? 'novo membro' : 'novos membros'}',
-                            style: TextStyle(
-                              fontSize: 18,
+                            style: const TextStyle(
+                              fontSize: 17,
                               fontWeight: FontWeight.bold,
-                              color: Colors.green[700],
+                              color: _DashStyle.statusGreenFg,
                             ),
                           ),
                         ],
@@ -1475,6 +1454,8 @@ class RecentMembersCard extends ConsumerWidget {
                           children: [
                             CircleAvatar(
                               radius: 20,
+                              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                              foregroundColor: AppTheme.primaryColor,
                               backgroundImage: photoUrl != null
                                   ? NetworkImage(photoUrl)
                                   : null,
@@ -1499,31 +1480,18 @@ class RecentMembersCard extends ConsumerWidget {
                                         : daysAgo == 1
                                             ? 'Ontem'
                                             : 'Há $daysAgo dias',
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       fontSize: 12,
-                                      color: Colors.grey[600],
+                                      color: _DashStyle.textMuted,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.green[100],
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                'NOVO',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green[700],
-                                ),
-                              ),
+                            const _DashPill(
+                              label: 'NOVO',
+                              background: _DashStyle.statusGreenBg,
+                              foreground: _DashStyle.statusGreenFg,
                             ),
                           ],
                         ),
@@ -1550,40 +1518,25 @@ class UpcomingEventsCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final eventsAsync = ref.watch(upcomingEventsProvider);
 
-    return Card(
+    return Container(
+      decoration: _DashStyle.card(),
       child: InkWell(
         onTap: () {
           context.push('/upcoming-events-report');
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.event,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Próximos Eventos (7 dias)',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Colors.grey[400],
-                  ),
-                ],
+              const _DashCardHeader(
+                icon: Icons.event,
+                iconColor: AppTheme.primaryColor,
+                title: 'Próximos Eventos (7 dias)',
+                showArrow: true,
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             eventsAsync.when(
               data: (events) {
                 if (events.isEmpty) {
@@ -1604,26 +1557,26 @@ class UpcomingEventsCard extends ConsumerWidget {
                       child: Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.blue[100],
-                              borderRadius: BorderRadius.circular(8),
+                              color: _DashStyle.statusBlueBg,
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Column(
                               children: [
                                 Text(
                                   '${startDate.day}',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.blue[700],
+                                    color: _DashStyle.statusBlueFg,
                                   ),
                                 ),
                                 Text(
                                   _getMonthAbbr(startDate.month),
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 12,
-                                    color: Colors.blue[700],
+                                    color: _DashStyle.statusBlueFg,
                                   ),
                                 ),
                               ],
@@ -1645,9 +1598,9 @@ class UpcomingEventsCard extends ConsumerWidget {
                                 if (location != null)
                                   Text(
                                     location,
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       fontSize: 12,
-                                      color: Colors.grey[600],
+                                      color: _DashStyle.textMuted,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -1658,9 +1611,9 @@ class UpcomingEventsCard extends ConsumerWidget {
                                       : daysUntil == 1
                                           ? 'Amanhã'
                                           : 'Em $daysUntil dias',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 11,
-                                    color: Colors.blue[700],
+                                    color: _DashStyle.statusBlueFg,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
