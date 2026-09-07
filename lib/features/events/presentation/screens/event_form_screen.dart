@@ -3235,10 +3235,11 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
       return;
     }
 
-    // Campos comuns DEPOIS da regeneração, nunca antes: aplicá-los primeiro
-    // gravaria as alterações em ocorrências que a regeneração apaga em
-    // seguida (T-08-04).
-    final avisoParcial = await _aplicarCamposComunsAposRegeneracao(data);
+    // Campos comuns, audiência, lembretes e escopo DEPOIS da regeneração,
+    // nunca antes: aplicá-los primeiro gravaria as alterações em ocorrências
+    // que a regeneração apaga em seguida (T-08-04), e a âncora aberta pode
+    // ser uma delas (nota (l) da RPC).
+    final avisoParcial = await _propagarEdicoesAposRegeneracao(data);
 
     if (!mounted) return;
 
@@ -3304,14 +3305,33 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
     }
   }
 
-  /// Aplica os campos comuns do formulário às ocorrências futuras DEPOIS de a
-  /// regeneração ter acontecido.
+  /// Propaga às ocorrências futuras tudo o que o líder editou na tela e que a
+  /// regeneração NÃO carrega sozinha: campos comuns, responsáveis, alvos de
+  /// visibilidade/elegibilidade, lembretes e os dois escopos.
+  ///
+  /// **Por que isto existe (bug `regenerar-serie-perde-dados`).**
+  /// `public.regenerate_event_series` não recebe audiência, lembrete nem
+  /// escopo por parâmetro — a assinatura tem 9 argumentos e nenhum deles é
+  /// desses. O passo (13) da migration `20260902000900` (linhas 638-692)
+  /// COPIA da âncora PERSISTIDA: `SELECT * INTO v_model ... WHERE id =
+  /// p_anchor_event_id`, e os dois `INSERT ... SELECT ... WHERE a.event_id =
+  /// p_anchor_event_id`. Como este ramo nunca chamava
+  /// `_persistAudienceAndScopes`, a âncora ainda estava pré-edição na hora da
+  /// cópia: cada ocorrência NOVA nascia com os alvos, os lembretes e o escopo
+  /// ANTIGOS, e as MANTIDAS nem isso recebiam. Sem erro e sem aviso — o líder
+  /// via "série regerada" e acreditava que a edição tinha ido junto.
+  ///
+  /// Havia um segundo dano, mais grave que perda de edição: como o escopo real
+  /// também não subia, marcar a série como `'restricted'` na mesma tela em que
+  /// se muda o padrão NÃO restringia nada. A série seguia `'all'`, que é o
+  /// primeiro termo do `USING` de `event_visibility_restrict`
+  /// (`20260826000400:104-111`) — o curto-circuito que libera a linha para
+  /// qualquer autenticado do tenant sem consultar `event_audience`.
   ///
   /// **São duas transações, não uma.** A regeneração já aconteceu quando isto
   /// roda; por isso o retorno não é um erro genérico e a copy não pode dizer
-  /// "nada foi alterado". Devolve `null` quando deu tudo certo (ou quando não
-  /// havia campo comum alterado) e a frase honesta quando a segunda parte
-  /// falhou.
+  /// "nada foi alterado". Devolve `null` quando deu tudo certo e a frase
+  /// honesta quando esta segunda parte falhou.
   ///
   /// **Reancoragem obrigatória:** a ocorrência aberta pode ter sido apagada
   /// pela própria regeneração (nota (l) do cabeçalho de
@@ -3320,15 +3340,21 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   /// morta responderia `SERIES_NOT_FOUND`, e o líder veria um erro depois de
   /// uma operação que deu certo.
   ///
-  /// Os dois campos de ESCOPO ficam de fora do que é enviado: o mapa `data`
-  /// carrega sempre `'all'` neles por construção (o escopo real é promovido
-  /// depois, por `_persistAudienceAndScopes`), e replicá-los aqui rebaixaria
-  /// uma série restrita para visível por toda a igreja, em silêncio. Não é
-  /// lista de campos replicáveis (D-03 continua valendo) — é a mesma lista de
-  /// EXCLUSÃO que o servidor mantém, pelo mesmo motivo.
-  Future<String?> _aplicarCamposComunsAposRegeneracao(
+  /// **Por que DEPOIS da RPC e não antes,** ao contrário de
+  /// `_aplicarEdicaoATodaASerie` (correção `edde969`): gravar a âncora antes
+  /// acertaria só as ocorrências NOVAS — as MANTIDAS pela regeneração ficariam
+  /// com os alvos antigos, porque nenhum passo da RPC de regeneração as toca.
+  /// E deixaria a âncora meio-salva se a RPC falhasse, tornando mentirosa a
+  /// copy "Nada foi alterado" do `catch` de `_regenerarSerie`. Aqui a ordem é
+  /// reancorar → gravar a âncora nova → replicar a partir dela.
+  Future<String?> _propagarEdicoesAposRegeneracao(
     Map<String, dynamic> data,
   ) async {
+    // `start_date`/`end_date` pertencem à regeneração, que acabou de definir
+    // as datas — reenviá-las desfaria o padrão novo. Os dois escopos saem daqui
+    // e voltam abaixo com o valor REAL do formulário, nunca com o `'all'` que o
+    // mapa `data` carrega por construção (Pitfall 1; ver
+    // `series_update_fields.dart`).
     const excluidos = {
       'start_date',
       'end_date',
@@ -3345,25 +3371,77 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
             ..sort((a, b) => a.startDate.compareTo(b.startDate));
 
       // Sem ocorrência futura sobrevivente não há o que atualizar — e não é
-      // erro: a regeneração pode ter deixado a série só com passado.
+      // erro: a regeneração pode ter deixado a série só com passado. As
+      // edições de audiência se perdem aqui por falta de onde gravá-las.
       if (futuras.isEmpty) return null;
 
       final ancora = futuras.first;
+
+      // (1) A ÂNCORA NOVA PRIMEIRO — ela é a FONTE da replicação do passo (9)
+      // de `apply_event_series_update`. Gravá-la depois propagaria para o lote
+      // exatamente os alvos antigos que este bug propagava.
+      //
+      // `showError: false` porque a mensagem honesta aqui fala da série (a
+      // regeneração JÁ aconteceu) e é o retorno desta função; duas snackbars
+      // sobre o mesmo erro só confundem.
+      final ancoraOk = await _persistAudienceAndScopes(
+        ancora.id,
+        showError: false,
+      );
+      if (!ancoraOk) {
+        // Aborta ANTES de mandar escopo para o lote. Sem este `return`, um
+        // `'restricted'` iria para todas as futuras cuja fonte de alvos acabou
+        // de falhar — evento restrito sem alvo fica invisível para TODOS,
+        // inclusive para quem deveria vê-lo (Pitfall 6).
+        return 'As ocorrências foram regeradas, mas os responsáveis, alvos e '
+            'lembretes não foram salvos. Abra o evento e salve de novo.';
+      }
+
+      // (2) O QUE VAI NO `p_fields`, e SÓ o que precisa ir.
+      //
+      // Campo comum entra quando diverge do que está persistido na âncora; o
+      // escopo entra quando ALGUMA ocorrência futura diverge do formulário —
+      // note que a comparação é contra `futuras`, a lista lida ANTES do passo
+      // (1), justamente porque a âncora já foi corrigida ali e sozinha não
+      // revelaria mais a divergência das outras.
+      //
+      // O critério é o mesmo nos dois casos: um UPDATE inócuo reescreveria
+      // dezenas de linhas e dispararia `event_changed_notify_upd` uma vez por
+      // linha — avalanche de avisos idênticos por uma edição que só mexeu no
+      // padrão.
       final persistido = ancora.toJson();
-      final campos = <String, dynamic>{
+      final camposComuns = <String, dynamic>{
         for (final entrada in data.entries)
           if (!excluidos.contains(entrada.key)) entrada.key: entrada.value,
       };
-
-      // Nenhum campo comum mudou: não enviar nada. Um UPDATE inofensivo
-      // reescreveria dezenas de linhas e dispararia `event_changed_notify_upd`
-      // uma vez por linha — avalanche de avisos idênticos por uma edição que
-      // só mexeu no padrão.
-      final mudou = campos.entries.any(
+      final comunsMudaram = camposComuns.entries.any(
         (entrada) => persistido[entrada.key] != entrada.value,
       );
-      if (!mudou) return null;
+      final escopoDivergente = futuras.any(
+        (e) =>
+            e.visibilityScope != _visibilityScope ||
+            e.registrationScope != _registrationScope,
+      );
 
+      final campos = <String, dynamic>{
+        if (comunsMudaram) ...camposComuns,
+        if (escopoDivergente) ...{
+          'visibility_scope': _visibilityScope,
+          'registration_scope': _registrationScope,
+        },
+      };
+
+      // (3) A CHAMADA ACONTECE SEMPRE, inclusive com `campos` VAZIO — e é este
+      // o coração da correção. As ocorrências MANTIDAS pela regeneração não são
+      // tocadas por nenhum passo de `regenerate_event_series`; quem as alinha
+      // com a âncora é o passo (9) de `apply_event_series_update`, que roda sob
+      // `IF v_future > 0` (linha 447), independente do passo (7).
+      //
+      // E `p_fields` vazio é seguro: o passo (7) roda sob
+      // `IF coalesce(array_length(v_cols,1),0) > 0` (linha 362), então com
+      // mapa vazio NENHUM `UPDATE` em `public.event` é emitido — nenhum
+      // `event_changed_notify_upd`, nenhuma avalanche. Nenhuma das cinco
+      // EXCEPTIONs da função valida `p_fields` não-vazio.
       await repo.applySeriesUpdate(
         batchId: _batchId!,
         anchorEventId: ancora.id,
