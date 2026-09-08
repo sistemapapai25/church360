@@ -743,7 +743,7 @@ class _ComprovanteReviewScreenState
       _ExtractedItem(
         label: 'Data',
         value: _stringOrEmpty(extracted['data']),
-        icon: Icons.calendar_today_outlined,
+        icon: Icons.calendar_today,
       ),
       _ExtractedItem(
         label: 'Favorecido',

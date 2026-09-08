@@ -386,14 +386,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
             // 👥 PESSOAS
             _DrawerCategory(
-              icon: Icons.people,
+              icon: Icons.groups,
               title: 'PESSOAS',
               permissions: const ['members.view', 'visitors.view'],
               children: [
                 PermissionGate(
                   permission: 'members.view',
                   child: const _DrawerMenuItem(
-                    icon: Icons.people,
+                    icon: Icons.groups,
                     title: 'Membros',
                     route: '/members',
                   ),
@@ -466,7 +466,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
             // 📅 AGENDA
             _DrawerCategory(
-              icon: Icons.calendar_month,
+              icon: Icons.calendar_today,
               title: 'AGENDA',
               permissions: const ['events.view'],
               children: [
@@ -499,7 +499,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 PermissionGate(
                   permission: 'community.moderate',
                   child: const _DrawerMenuItem(
-                    icon: Icons.people_outline,
+                    icon: Icons.groups,
                     title: 'Comunidade',
                     route: '/community/admin',
                   ),

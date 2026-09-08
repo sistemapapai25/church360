@@ -340,7 +340,7 @@ class _PrayerRequestCard extends ConsumerWidget {
       case PrayerPrivacy.public:
         return Icons.public;
       case PrayerPrivacy.membersOnly:
-        return Icons.people;
+        return Icons.groups;
       case PrayerPrivacy.leadersOnly:
         return Icons.admin_panel_settings;
       case PrayerPrivacy.private:

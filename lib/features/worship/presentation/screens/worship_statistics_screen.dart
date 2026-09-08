@@ -195,7 +195,7 @@ class _WorshipStatisticsScreenState
           child: _buildSummaryCard(
             'Total de Presentes',
             totalAttendance.toString(),
-            Icons.people,
+            Icons.groups,
             Colors.green,
           ),
         ),

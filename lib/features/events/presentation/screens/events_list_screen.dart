@@ -819,7 +819,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                                 Row(
                                   children: [
                                     Icon(
-                                      Icons.people,
+                                      Icons.groups,
                                       size: 14,
                                       color: Colors.blue[700],
                                     ),

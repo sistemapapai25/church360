@@ -238,7 +238,7 @@ class _MeetingDetailContentState extends ConsumerState<_MeetingDetailContent>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.people,
+                      Icons.groups,
                       color: Theme.of(context).colorScheme.primary,
                     ),
                     const SizedBox(width: 8),
@@ -295,7 +295,7 @@ class _MeetingDetailContentState extends ConsumerState<_MeetingDetailContent>
         TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(icon: Icon(Icons.people), text: 'Presença'),
+            Tab(icon: Icon(Icons.groups), text: 'Presença'),
             Tab(icon: Icon(Icons.person_add), text: 'Visitantes'),
           ],
         ),
@@ -381,7 +381,7 @@ class _AttendanceList extends ConsumerWidget {
                       child: Column(
                         children: [
                           Icon(
-                            Icons.people_outline,
+                            Icons.groups,
                             size: 64,
                             color: Colors.grey.shade400,
                           ),

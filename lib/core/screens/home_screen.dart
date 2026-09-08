@@ -1724,7 +1724,7 @@ class _MoreTab extends ConsumerWidget {
                 ),
               ),
               trailing: const Icon(
-                Icons.chevron_right,
+                Icons.arrow_forward_ios,
                 size: 20,
                 color: Colors.red,
               ),
@@ -1807,7 +1807,7 @@ class _MoreTab extends ConsumerWidget {
                 ),
                 // Seta
                 Icon(
-                  Icons.arrow_forward_ios_rounded,
+                  Icons.arrow_forward_ios,
                   size: 14,
                   color: cs.onSurface.withValues(alpha: 0.3),
                 ),
@@ -2148,7 +2148,7 @@ class _ChurchDateHeader extends StatelessWidget {
         const SizedBox(width: 8),
         IconButton(
           onPressed: () => context.push('/schedule'),
-          icon: const Icon(Icons.calendar_month),
+          icon: const Icon(Icons.calendar_today),
           tooltip: 'Agenda',
         ),
       ],
@@ -2380,7 +2380,7 @@ class _ChurchNewsCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Icon(
-                  Icons.chevron_right,
+                  Icons.arrow_forward_ios,
                   size: 18,
                   color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                 ),
@@ -2872,7 +2872,7 @@ class _JourneyEvent {
       title: 'Participa do grupo de estudo',
       subtitle: subtitle,
       route: '/study-groups/${group.id}',
-      icon: Icons.groups_2_outlined,
+      icon: Icons.groups,
       isPinned: isPinned,
     );
   }
@@ -3096,7 +3096,7 @@ class _JourneyStatCard extends StatelessWidget {
                   ),
                   if (onTap != null)
                     Icon(
-                      Icons.chevron_right,
+                      Icons.arrow_forward_ios,
                       size: 18,
                       color: cs.onSurface.withValues(alpha: 0.35),
                     ),

@@ -135,7 +135,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   ],
                 ),
                 child: Icon(
-                  Icons.calendar_month,
+                  Icons.calendar_today,
                   size: 16,
                   color: Theme.of(context).colorScheme.primary,
                 ),
@@ -222,7 +222,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           color: Theme.of(context).colorScheme.primary,
         ),
         rightChevronIcon: Icon(
-          Icons.chevron_right,
+          Icons.arrow_forward_ios,
           color: Theme.of(context).colorScheme.primary,
         ),
         headerPadding: const EdgeInsets.symmetric(vertical: 20),
@@ -422,7 +422,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        Icons.calendar_today_outlined,
+                        Icons.calendar_today,
                         size: 48,
                         color: Theme.of(
                           context,
@@ -608,7 +608,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                 ),
               ),
               Icon(
-                Icons.chevron_right,
+                Icons.arrow_forward_ios,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ],
@@ -816,7 +816,7 @@ class _MonthYearPickerBottomSheetState
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.chevron_right, color: cs.primary),
+                  icon: Icon(Icons.arrow_forward_ios, color: cs.primary),
                   onPressed: () => setState(() => selectedYear++),
                 ),
               ],

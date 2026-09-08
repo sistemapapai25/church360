@@ -239,7 +239,7 @@ class _EventsAnalysisReportScreenState
                             child: _buildSummaryCard(
                               'Visitantes',
                               '$totalVisitors',
-                              Icons.people,
+                              Icons.groups,
                               Colors.orange,
                             ),
                           ),
@@ -617,7 +617,7 @@ class _EventsAnalysisReportScreenState
                   const SizedBox(width: 8),
                   if (event.requiresRegistration && event.maxCapacity != null)
                     _buildMetricBadge(
-                      Icons.people,
+                      Icons.groups,
                       '${event.maxCapacity} vagas',
                       Colors.blue,
                     ),

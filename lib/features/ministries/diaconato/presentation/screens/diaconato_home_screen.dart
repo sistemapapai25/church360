@@ -257,7 +257,7 @@ class _LastCountHero extends StatelessWidget {
                       ),
                     ),
                     Icon(
-                      Icons.arrow_forward_ios_rounded,
+                      Icons.arrow_forward_ios,
                       size: 14,
                       color: cs.onSurface.withValues(alpha: 0.3),
                     ),
@@ -629,7 +629,7 @@ class _PlaceholderCard extends StatelessWidget {
           if (onTap != null) ...[
             const SizedBox(width: 8),
             Icon(
-              Icons.arrow_forward_ios_rounded,
+              Icons.arrow_forward_ios,
               size: 14,
               color: cs.onSurface.withValues(alpha: 0.3),
             ),

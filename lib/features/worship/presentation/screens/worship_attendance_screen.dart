@@ -112,7 +112,7 @@ class _WorshipAttendanceScreenState
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        const Icon(Icons.people, size: 20, color: Colors.blue),
+                        const Icon(Icons.groups, size: 20, color: Colors.blue),
                         const SizedBox(width: 8),
                         Text(
                           '${service.totalAttendance} presente${service.totalAttendance != 1 ? 's' : ''}',

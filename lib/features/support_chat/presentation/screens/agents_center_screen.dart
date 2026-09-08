@@ -38,7 +38,7 @@ class AgentsCenterScreen extends ConsumerWidget {
                   leading: _buildAvatar(agent),
                   title: Text(agent.name),
                   subtitle: Text(agent.subtitle ?? agent.role),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(Icons.arrow_forward_ios),
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(

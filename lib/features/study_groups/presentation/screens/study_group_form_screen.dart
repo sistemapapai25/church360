@@ -253,7 +253,7 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
                 labelText: 'Limite de Participantes',
                 hintText: 'Deixe vazio para sem limite',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.people),
+                prefixIcon: Icon(Icons.groups),
               ),
               keyboardType: TextInputType.number,
             ),

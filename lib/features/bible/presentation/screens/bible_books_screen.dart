@@ -233,7 +233,7 @@ class _BibleShortcutCard extends StatelessWidget {
                   ),
                 ),
                 Icon(
-                  Icons.chevron_right,
+                  Icons.arrow_forward_ios,
                   size: 18,
                   color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
@@ -389,7 +389,7 @@ class _BookCard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  Icon(Icons.arrow_forward_ios, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ],
               ),
               const SizedBox(height: 12),

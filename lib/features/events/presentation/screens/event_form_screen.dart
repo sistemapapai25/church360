@@ -1751,7 +1751,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                       controller: _maxCapacityController,
                       decoration: const InputDecoration(
                         labelText: 'Capacidade Máxima',
-                        prefixIcon: Icon(Icons.people),
+                        prefixIcon: Icon(Icons.groups),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(),

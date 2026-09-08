@@ -172,7 +172,7 @@ class NotificationPreferencesScreen extends ConsumerWidget {
                 subtitle: const Text(
                   'Solicita permissao e sincroniza token FCM no backend',
                 ),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Icons.arrow_forward_ios),
                 onTap: () async {
                   final result = await actions.registerCurrentDeviceForPush();
                   if (!context.mounted) return;

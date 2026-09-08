@@ -55,7 +55,7 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
 
                 // Membros Section
-                _buildSectionTitle(context, 'Membros', Icons.people),
+                _buildSectionTitle(context, 'Membros', Icons.groups),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -64,7 +64,7 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
                         context,
                         title: 'Total',
                         value: summary.totalMembers.toString(),
-                        icon: Icons.people,
+                        icon: Icons.groups,
                         color: Colors.blue,
                       ),
                     ),
@@ -129,7 +129,7 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
                         context,
                         title: 'Total',
                         value: summary.totalVisitors.toString(),
-                        icon: Icons.people_outline,
+                        icon: Icons.groups,
                         color: Colors.teal,
                       ),
                     ),
@@ -217,7 +217,7 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
                   context,
                   title: 'Relatório de Membros',
                   subtitle: 'Crescimento, conversões e estatísticas',
-                  icon: Icons.people,
+                  icon: Icons.groups,
                   color: Colors.blue,
                   onTap: () {
                     context.push('/reports/members');

@@ -309,7 +309,7 @@ class SavedDevotionalsCTA extends StatelessWidget {
                     ),
                   ),
                 ),
-                Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+                Icon(Icons.arrow_forward_ios, color: cs.onSurfaceVariant),
               ],
             ),
           ),

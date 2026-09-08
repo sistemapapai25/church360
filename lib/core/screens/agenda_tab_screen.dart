@@ -62,7 +62,7 @@ class _AgendaTabScreenState extends State<AgendaTabScreen>
                 ],
               ),
               child: Icon(
-                Icons.calendar_month,
+                Icons.calendar_today,
                 size: 16,
                 color: Theme.of(context).colorScheme.primary,
               ),

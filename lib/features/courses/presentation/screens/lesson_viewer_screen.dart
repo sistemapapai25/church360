@@ -396,7 +396,7 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
                     '/courses/${widget.courseId}/lessons/${nextLesson.id}/view',
                   );
                 },
-                icon: const Icon(Icons.arrow_forward),
+                icon: const Icon(Icons.arrow_forward_ios),
                 label: const Text('Próxima Aula'),
                 iconAlignment: IconAlignment.end,
                 style: ElevatedButton.styleFrom(

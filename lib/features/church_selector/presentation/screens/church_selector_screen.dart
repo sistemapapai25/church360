@@ -283,7 +283,7 @@ class _UnitTile extends StatelessWidget {
                 else if (isSelected)
                   Icon(Icons.check_circle, color: color)
                 else
-                  const Icon(Icons.chevron_right, color: Colors.grey),
+                  const Icon(Icons.arrow_forward_ios, color: Colors.grey),
               ],
             ),
           ),

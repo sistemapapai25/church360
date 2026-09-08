@@ -268,7 +268,7 @@ class _ChapterNavigation extends StatelessWidget {
                       context.push('/bible/book/$bookId/chapter/${currentChapter + 1}');
                     }
                   : null,
-              icon: const Icon(Icons.chevron_right),
+              icon: const Icon(Icons.arrow_forward_ios),
               label: const Text('Próximo'),
               iconAlignment: IconAlignment.end,
             ),

@@ -175,7 +175,7 @@ class PermissionsScreen extends ConsumerWidget {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: const Icon(Icons.arrow_forward_ios),
         onTap: onTap,
       ),
     );

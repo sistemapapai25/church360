@@ -186,7 +186,7 @@ class _StatsGrid extends StatelessWidget {
       _StatItem(
         title: 'Visitantes ativos',
         value: stats.totalActiveVisitors,
-        icon: Icons.groups_2_outlined,
+        icon: Icons.groups,
         color: Colors.indigo,
       ),
       _StatItem(
@@ -414,7 +414,7 @@ class _PrimaryActionCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.grey),
+            const Icon(Icons.arrow_forward_ios, color: Colors.grey),
           ],
         ),
       ),

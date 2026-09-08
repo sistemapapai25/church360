@@ -210,7 +210,7 @@ class _ActiveGroupsReportScreenState
                             child: _buildSummaryCard(
                               'Total Membros',
                               '$totalMembers',
-                              Icons.people,
+                              Icons.groups,
                               Colors.purple,
                             ),
                           ),
@@ -548,7 +548,7 @@ class _ActiveGroupsReportScreenState
                     Colors.blue,
                   ),
                   _buildMetricBadge(
-                    Icons.people,
+                    Icons.groups,
                     '$members membros',
                     Colors.green,
                   ),

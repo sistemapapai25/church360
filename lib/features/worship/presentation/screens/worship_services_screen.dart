@@ -340,7 +340,7 @@ class _WorshipServiceCard extends ConsumerWidget {
               // Footer com presença
               Row(
                 children: [
-                  Icon(Icons.people, size: 16, color: Colors.grey[600]),
+                  Icon(Icons.groups, size: 16, color: Colors.grey[600]),
                   const SizedBox(width: 4),
                   Text(
                     '${service.totalAttendance} presente${service.totalAttendance != 1 ? 's' : ''}',
