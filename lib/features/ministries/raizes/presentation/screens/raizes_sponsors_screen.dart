@@ -138,7 +138,7 @@ class _SponsorsContentState extends ConsumerState<_SponsorsContent> {
       ),
       floatingActionButton: PearlFab(
         onPressed: () => _openForm(),
-        icon: Icons.person_add_alt_1,
+        icon: Icons.person_add,
         label: 'Novo padrinho',
       ),
       body: RefreshIndicator(
@@ -902,7 +902,7 @@ class _EmptyState extends StatelessWidget {
         Center(
           child: FilledButton.icon(
             onPressed: onAdd,
-            icon: const Icon(Icons.person_add_alt_1, size: 16),
+            icon: const Icon(Icons.person_add, size: 16),
             label: const Text('Cadastrar primeiro padrinho'),
           ),
         ),

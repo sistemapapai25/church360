@@ -494,7 +494,7 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
             DropdownMenu<String>(
               initialSelection: _status,
               label: const Text('Status'),
-              leadingIcon: const Icon(Icons.info),
+              leadingIcon: const Icon(Icons.info_outline),
               dropdownMenuEntries: const [
                 DropdownMenuEntry(value: 'active', label: 'Ativo'),
                 DropdownMenuEntry(value: 'upcoming', label: 'Em breve'),

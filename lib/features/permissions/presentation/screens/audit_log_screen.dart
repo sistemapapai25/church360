@@ -314,7 +314,7 @@ class _AuditLogScreenState extends ConsumerState<AuditLogScreen> {
       case 'role_deleted':
         return Icons.delete;
       default:
-        return Icons.info;
+        return Icons.info_outline;
     }
   }
 

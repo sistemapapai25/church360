@@ -276,7 +276,7 @@ class _CourseCard extends ConsumerWidget {
                         Row(
                           children: [
                             Icon(
-                              Icons.person_outline,
+                              Icons.person,
                               size: 16,
                               color: Theme.of(
                                 context,

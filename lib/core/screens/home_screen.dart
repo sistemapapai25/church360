@@ -1596,7 +1596,7 @@ class _MoreTab extends ConsumerWidget {
           const SizedBox(height: 12),
           _buildMenuCard(
             context,
-            Icons.person_outline,
+            Icons.person,
             'Ver meu perfil',
             '/profile',
             color: Colors.blue,

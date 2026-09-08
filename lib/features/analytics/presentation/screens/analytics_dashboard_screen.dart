@@ -139,7 +139,7 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
                         context,
                         title: 'Novos este mês',
                         value: summary.newVisitorsThisMonth.toString(),
-                        icon: Icons.person_add_outlined,
+                        icon: Icons.person_add,
                         color: Colors.cyan,
                       ),
                     ),

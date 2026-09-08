@@ -277,7 +277,7 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
               DropdownMenu<StudyGroupStatus>(
                 initialSelection: _status,
                 label: const Text('Status'),
-                leadingIcon: const Icon(Icons.info),
+                leadingIcon: const Icon(Icons.info_outline),
                 dropdownMenuEntries: StudyGroupStatus.values
                     .map((status) => DropdownMenuEntry<StudyGroupStatus>(
                           value: status,

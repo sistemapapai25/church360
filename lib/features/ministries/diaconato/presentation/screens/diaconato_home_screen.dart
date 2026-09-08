@@ -442,7 +442,7 @@ class _KpiRow extends StatelessWidget {
             label: 'Minhas ceias',
             value: stats.myAssignedItems,
             color: Colors.green,
-            icon: Icons.person_outline,
+            icon: Icons.person,
           ),
         ),
       ],

@@ -129,7 +129,7 @@ class _RaizesContentState extends ConsumerState<_RaizesContent> {
             ),
             const SizedBox(height: 12),
             _PrimaryActionCard(
-              icon: Icons.person_add_alt_1,
+              icon: Icons.person_add,
               title: 'Cadastrar novo visitante',
               description:
                   'Abre o formulário pré-configurado para visitantes.',

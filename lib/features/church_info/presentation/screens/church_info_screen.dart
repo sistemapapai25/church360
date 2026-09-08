@@ -448,7 +448,7 @@ class ChurchInfoScreen extends ConsumerWidget {
             Row(
               children: [
                 Icon(
-                  Icons.person_outline,
+                  Icons.person,
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(width: 8),

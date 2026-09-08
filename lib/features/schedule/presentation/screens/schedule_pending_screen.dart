@@ -744,7 +744,7 @@ class _PendingCard extends StatelessWidget {
                   // Lote 7: atribuir/reatribuir responsável.
                   TextButton.icon(
                     onPressed: onAssign,
-                    icon: const Icon(Icons.person_add_alt_1, size: 16),
+                    icon: const Icon(Icons.person_add, size: 16),
                     label: Text(
                         assigneeName == null ? 'Atribuir' : 'Reatribuir'),
                   ),

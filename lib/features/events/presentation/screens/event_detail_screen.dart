@@ -1515,7 +1515,7 @@ class _SchedulesTab extends ConsumerWidget {
                       children: [
                         ListTile(
                           leading: const Icon(
-                            Icons.person_add_alt_1,
+                            Icons.person_add,
                             color: Colors.blue,
                           ),
                           title: const Text('Adicionar membro'),

@@ -1325,7 +1325,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                               context,
                             ).colorScheme.surfaceContainerHighest,
                             border: const OutlineInputBorder(),
-                            prefixIcon: const Icon(Icons.person_outline),
+                            prefixIcon: const Icon(Icons.person),
                           ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
@@ -1768,7 +1768,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                 context,
                               ).colorScheme.surfaceContainerHighest,
                               border: const OutlineInputBorder(),
-                              prefixIcon: const Icon(Icons.info),
+                              prefixIcon: const Icon(Icons.info_outline),
                             ),
                             items: const [
                               DropdownMenuItem(
@@ -1992,7 +1992,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                 context,
                               ).colorScheme.surfaceContainerHighest,
                               border: const OutlineInputBorder(),
-                              prefixIcon: const Icon(Icons.person_outline),
+                              prefixIcon: const Icon(Icons.person),
                             ),
                             items: _buildMemberTypeItems(),
                             onChanged: (value) {
@@ -2063,7 +2063,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               child: OutlinedButton.icon(
                 onPressed: () =>
                     _showAddFamilyRelationshipDialog(context, memberId),
-                icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+                icon: const Icon(Icons.person_add, size: 18),
                 label: const Text('Vincular parente'),
               ),
             ),

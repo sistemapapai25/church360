@@ -104,7 +104,7 @@ class StudyGroupDetailScreen extends ConsumerWidget {
               ],
               bottom: const TabBar(
                 tabs: [
-                  Tab(icon: Icon(Icons.info), text: 'Sobre'),
+                  Tab(icon: Icon(Icons.info_outline), text: 'Sobre'),
                   Tab(icon: Icon(Icons.book), text: 'Lições'),
                   Tab(icon: Icon(Icons.people), text: 'Participantes'),
                 ],
