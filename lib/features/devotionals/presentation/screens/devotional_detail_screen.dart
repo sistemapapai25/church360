@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 
 import '../providers/devotional_provider.dart';
 import '../../../../core/widgets/permission_widget.dart';
+import '../../../../core/widgets/media/video_play_overlay.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 
@@ -1154,22 +1155,7 @@ class _YoutubeThumbnail extends StatelessWidget {
             },
             errorBuilder: (_, __, ___) => Container(color: Colors.grey),
           ),
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Icon(Icons.play_arrow, color: Colors.white, size: 30),
-          ),
+          const VideoPlayOverlay(size: 56),
         ],
       ),
     );

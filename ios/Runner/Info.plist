@@ -51,5 +51,9 @@
 	<string>Precisamos da câmera para tirar a foto do seu perfil.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Precisamos acessar suas fotos para escolher a imagem do seu perfil.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

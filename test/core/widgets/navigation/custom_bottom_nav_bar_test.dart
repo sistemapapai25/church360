@@ -46,13 +46,8 @@ void main() {
       ),
     );
 
-    // Verify all 5 items are present
-    expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Bíblia'), findsOneWidget);
-    expect(find.text('Igreja'), findsOneWidget);
-    expect(find.text('Cursos'), findsOneWidget);
-    expect(find.text('Mais'), findsOneWidget);
-
+    // Dock de vidro: rótulos desligados por enquanto (decisão temporária),
+    // então os 5 itens são identificados pelos ícones, não pelo texto.
     expect(find.byIcon(Icons.home_rounded), findsOneWidget);
     expect(find.byIcon(Icons.menu_book_rounded), findsOneWidget);
     expect(find.byIcon(Icons.church_outlined), findsOneWidget);
@@ -60,7 +55,7 @@ void main() {
     expect(find.byIcon(Icons.menu), findsOneWidget);
 
     // Tap Igreja (index 2)
-    await tester.tap(find.text('Igreja'));
+    await tester.tap(find.byIcon(Icons.church_outlined));
     await tester.pump();
 
     expect(selectedIndex, 2);

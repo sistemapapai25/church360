@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/glass_card.dart';
+
 class HomeSectionWidget extends StatelessWidget {
   final String title;
   final bool isExpanded;
@@ -18,21 +20,9 @@ class HomeSectionWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      margin: EdgeInsets.zero, // Margem removida para controle externo e limpeza
+    return GlassCard(
+      radius: 16, // Mesmo radius compacto que a Home já usava.
       padding: const EdgeInsets.all(16), // Padding interno aumentado e unificado
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16), // Borda 16px
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04), // Sombra Material 3 leve
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          )
-        ],
-      ),
       child: Column(
         children: [
           // HEADER

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../core/design/community_design.dart';
+import '../../../../../core/widgets/pearl_fab.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../../domain/models/raizes_sponsor_profile.dart';
 import '../providers/raizes_dashboard_provider.dart';
@@ -135,10 +136,10 @@ class _SponsorsContentState extends ConsumerState<_SponsorsContent> {
           onPressed: () => context.pop(),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: PearlFab(
         onPressed: () => _openForm(),
-        icon: const Icon(Icons.person_add_alt_1),
-        label: const Text('Novo padrinho'),
+        icon: Icons.person_add_alt_1,
+        label: 'Novo padrinho',
       ),
       body: RefreshIndicator(
         onRefresh: () async {

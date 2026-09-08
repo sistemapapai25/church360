@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 import '../providers/worship_provider.dart';
 import '../../domain/models/worship_service.dart';
 import '../../../permissions/providers/permissions_providers.dart';
@@ -95,12 +96,12 @@ class WorshipServicesScreen extends ConsumerWidget {
       ),
       floatingActionButton: PermissionGate(
         permission: 'worship.create',
-        child: FloatingActionButton.extended(
+        child: PearlFab(
           onPressed: () {
             context.push('/worship-services/new');
           },
-          icon: const Icon(Icons.add),
-          label: const Text('Novo Culto'),
+          icon: Icons.add,
+          label: 'Novo Culto',
         ),
       ),
     );

@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 
+import 'pearl_glass_dock.dart';
+
 typedef NavIconBuilder = Widget Function(
   BuildContext context,
   bool isActive,
   Color activeColor,
 );
 
+/// Dock de vidro com os 5 itens sempre na mesma família Pearl — só a
+/// intensidade muda entre repouso, hover e selecionado. Validado antes no
+/// playground isolado (`lib/dev/pearl_button_playground.dart`).
 class PremiumBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
@@ -20,77 +25,32 @@ class PremiumBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 80, // Aumentado para evitar overflow e melhorar toque
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(22),
-          topRight: Radius.circular(22),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            offset: const Offset(0, -2),
-            blurRadius: 15,
-          ),
-        ],
-      ),
-      child: Row(
-        children: List.generate(items.length, (index) {
-          final isActive = currentIndex == index;
-          final item = items[index];
-          final activeColor = item.activeColor;
+    final dark = Theme.of(context).brightness == Brightness.dark;
 
-          return Expanded(
-            child: GestureDetector(
+    return PearlGlassDock(
+      dark: dark,
+      children: List.generate(items.length, (index) {
+        final selected = currentIndex == index;
+        final item = items[index];
+
+        return Expanded(
+          child: Center(
+            child: PearlDockItem(
+              contentBuilder: (context, isSelected, activeColor) =>
+                  item.iconBuilder?.call(context, isSelected, activeColor) ??
+                  Icon(item.icon, size: 18, color: Colors.white),
+              label: item.label,
+              color: item.activeColor,
+              selected: selected,
+              // Nomes desligados por enquanto — mesma decisão validada no
+              // playground antes de trazer pra cá.
+              showLabel: false,
+              dark: dark,
               onTap: () => onTap(index),
-              behavior: HitTestBehavior.opaque,
-              child: Center(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isActive
-                        ? activeColor.withValues(alpha: 0.12)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      item.iconBuilder?.call(context, isActive, activeColor) ??
-                          Icon(
-                            item.icon,
-                            size: 26,
-                            color: isActive
-                                ? activeColor
-                                : Colors.grey.shade500,
-                          ),
-                      const SizedBox(height: 4),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          item.label,
-                          style: TextStyle(
-                            fontSize: 10, // Slight reduction for better fit
-                            fontWeight: FontWeight.w600,
-                            color: isActive
-                                ? activeColor
-                                : Colors.grey.shade500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             ),
-          );
-        }),
-      ),
+          ),
+        );
+      }),
     );
   }
 }

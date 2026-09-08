@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../data/user_roles_repository.dart';
 import '../../domain/models/user_role.dart';
 import '../../providers/permissions_providers.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../members/domain/models/member.dart';
 
@@ -168,10 +169,10 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: PearlFab(
         onPressed: () => context.push('/permissions/assign-role'),
-        icon: const Icon(Icons.person_add),
-        label: const Text('Atribuir Cargo'),
+        icon: Icons.person_add,
+        label: 'Atribuir Cargo',
       ),
     );
   }

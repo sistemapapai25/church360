@@ -7,6 +7,7 @@ import '../../../../core/utils/share_link_utils.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/widgets/share_link_dialog.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 
 import '../../../permissions/providers/permissions_providers.dart';
 import '../providers/events_provider.dart';
@@ -882,7 +883,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
         ),
       ),
       floatingActionButton: (canCrud && canCreate)
-          ? FloatingActionButton.extended(
+          ? PearlFab(
               onPressed: () {
                 Navigator.push(
                   context,
@@ -891,8 +892,8 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                   ),
                 );
               },
-              icon: const Icon(Icons.add),
-              label: const Text('Novo Evento'),
+              icon: Icons.add,
+              label: 'Novo Evento',
             )
           : null,
     );

@@ -13,6 +13,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../providers/community_providers.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/utils/share_link_utils.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 import '../../domain/models/community_post.dart';
 import '../../domain/models/classified.dart';
 import '../../../members/presentation/providers/members_provider.dart';
@@ -632,12 +633,11 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
         final isMobile = MediaQuery.of(context).size.width < 700;
         if (_tabController.index == 0 || _tabController.index == 1) {
           if (!isMobile) {
-            return FloatingActionButton.extended(
+            return PearlFab(
               onPressed: () => _showCreatePostDialog(context),
-              icon: const Icon(Icons.add_comment),
-              label: const Text('Novo Post'),
-              backgroundColor: colorScheme.primary,
-              foregroundColor: colorScheme.onPrimary,
+              icon: Icons.add_comment,
+              label: 'Novo Post',
+              color: colorScheme.primary,
             );
           }
           return _buildSocialFab(
@@ -650,12 +650,11 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           );
         } else if (_tabController.index == 2) {
           if (!isMobile) {
-            return FloatingActionButton.extended(
+            return PearlFab(
               onPressed: () => _showCreateClassifiedDialog(context),
-              icon: const Icon(Icons.add_shopping_cart),
-              label: const Text('Novo Anúncio'),
-              backgroundColor: _classifiedOrange,
-              foregroundColor: Colors.white,
+              icon: Icons.add_shopping_cart,
+              label: 'Novo Anúncio',
+              color: _classifiedOrange,
             );
           }
           return _buildSocialFab(

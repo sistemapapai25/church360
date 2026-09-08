@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../domain/models/church_schedule.dart';
 import '../providers/church_schedule_provider.dart';
 import 'church_schedule_form_screen.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
@@ -131,7 +132,7 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
       ),
       floatingActionButton: PermissionGate(
         permission: 'church_schedule.create',
-        child: FloatingActionButton.extended(
+        child: PearlFab(
           onPressed: () {
             Navigator.push(
               context,
@@ -140,8 +141,8 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
               ),
             );
           },
-          icon: const Icon(Icons.add),
-          label: const Text('Nova Agenda'),
+          icon: Icons.add,
+          label: 'Nova Agenda',
         ),
       ),
     );

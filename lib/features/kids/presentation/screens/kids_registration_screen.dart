@@ -11,6 +11,7 @@ import '../../../members/domain/models/member_directory_entry.dart';
 import '../../domain/models/kids_guardian.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
@@ -237,15 +238,15 @@ class _GuardiansTab extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       floatingActionButton: PermissionGate(
         permission: 'kids.manage',
-        child: FloatingActionButton.extended(
+        child: PearlFab(
           onPressed: () {
             showDialog(
               context: context,
               builder: (context) => _AddGuardianDialog(childId: childId),
             );
           },
-          label: const Text('Adicionar responsável'),
-          icon: const Icon(Icons.add),
+          label: 'Adicionar responsável',
+          icon: Icons.add,
         ),
       ),
       body: guardiansAsync.when(

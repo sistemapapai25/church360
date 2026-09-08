@@ -18,6 +18,7 @@ import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/widgets/share_link_dialog.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 
 /// VIS-02/VIS-03: o evento tem algum dos dois controles de audiência
 /// restrito? Os dois são independentes — basta um deles sair de `'all'`
@@ -1143,14 +1144,14 @@ class _RegistrationsTab extends ConsumerWidget {
               Positioned(
                 right: 16,
                 bottom: 16,
-                child: FloatingActionButton(
+                child: PearlFab(
                   onPressed: event.isFull
                       ? null
                       : () => _showAddRegistrationDialog(context, event),
                   tooltip: event.isFull
                       ? _lotadoTooltip
                       : 'Adicionar inscrito',
-                  child: const Icon(Icons.person_add),
+                  icon: Icons.person_add,
                 ),
               ),
           ],

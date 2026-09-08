@@ -5,6 +5,7 @@ import '../../domain/models/support_material_module.dart';
 import '../../../../core/widgets/file_upload_widget.dart';
 import '../../../../core/widgets/video_upload_widget.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 
 /// Tela de gerenciamento de módulos/capítulos de um material
 class MaterialModulesScreen extends ConsumerStatefulWidget {
@@ -39,10 +40,10 @@ class _MaterialModulesScreenState extends ConsumerState<MaterialModulesScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: PearlFab(
         onPressed: () => _showModuleDialog(context, null),
-        icon: const Icon(Icons.add),
-        label: const Text('Novo Módulo'),
+        icon: Icons.add,
+        label: 'Novo Módulo',
       ),
       body: modulesAsync.when(
         data: (modules) {

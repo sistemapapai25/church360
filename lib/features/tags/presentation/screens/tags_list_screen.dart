@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/tags_provider.dart';
 import '../../data/tags_repository.dart';
 import 'tag_form_screen.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 
 /// Tela de listagem de tags
 class TagsListScreen extends ConsumerWidget {
@@ -129,7 +130,7 @@ class TagsListScreen extends ConsumerWidget {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: PearlFab(
         onPressed: () async {
           await Navigator.push(
             context,
@@ -139,8 +140,8 @@ class TagsListScreen extends ConsumerWidget {
           );
           ref.invalidate(allTagsProvider);
         },
-        icon: const Icon(Icons.add),
-        label: const Text('Nova Tag'),
+        icon: Icons.add,
+        label: 'Nova Tag',
       ),
     );
   }

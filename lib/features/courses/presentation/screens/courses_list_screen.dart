@@ -6,6 +6,8 @@ import '../providers/courses_provider.dart';
 import '../../domain/models/course.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/church_image.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 
 /// Tela de listagem de cursos
@@ -119,10 +121,10 @@ class _CoursesListScreenState extends ConsumerState<CoursesListScreen> {
             ? canCreateAsync.when(
                 data: (canCreate) {
                   if (!canCreate) return null;
-                  return FloatingActionButton.extended(
+                  return PearlFab(
                     onPressed: () => context.push('/courses/new'),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Novo Curso'),
+                    icon: Icons.add,
+                    label: 'Novo Curso',
                   );
                 },
                 loading: () => null,
@@ -226,13 +228,11 @@ class _CourseCard extends ConsumerWidget {
     );
     final canEdit = canEditAsync.maybeWhen(data: (v) => v, orElse: () => false);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      decoration: CommunityDesign.overlayDecoration(
-        Theme.of(context).colorScheme,
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: GlassCard(
+        radius: CommunityDesign.radius,
+        padding: EdgeInsets.zero,
         onTap: () {
           // Navegar para visualização do curso
           context.push('/courses/${course.id}/view');

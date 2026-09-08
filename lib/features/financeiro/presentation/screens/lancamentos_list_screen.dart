@@ -12,6 +12,7 @@ import '../../domain/models/lancamento.dart';
 import '../utils/financeiro_exports.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 
 class LancamentosListScreen extends ConsumerStatefulWidget {
   const LancamentosListScreen({super.key});
@@ -133,10 +134,10 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
         ],
       ),
       body: _buildLancamentosList(),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: PearlFab(
         onPressed: () => context.push('/financial/lancamentos/new'),
-        backgroundColor: _financialGreen,
-        child: const Icon(Icons.add),
+        color: _financialGreen,
+        icon: Icons.add,
       ),
     );
   }
