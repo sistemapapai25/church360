@@ -110,7 +110,7 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
         actions: [
           IconButton(
             tooltip: 'Filtrar período',
-            icon: const Icon(Icons.filter_alt_outlined),
+            icon: const Icon(Icons.filter_list),
             onPressed: _pickPeriod,
           ),
           IconButton(
@@ -137,7 +137,7 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: OutlinedButton.icon(
               onPressed: _pickPeriod,
-              icon: const Icon(Icons.filter_alt_outlined, size: 18),
+              icon: const Icon(Icons.filter_list, size: 18),
               label: Text(_formatPeriodLabel()),
               style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
             ),
