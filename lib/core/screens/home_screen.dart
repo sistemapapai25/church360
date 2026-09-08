@@ -755,6 +755,13 @@ class _CommunityCtaCard extends StatelessWidget {
   static const _ctaOutX = 12.0;
   static const _ctaOutY = 20.0;
 
+  // Espaço de respiro abaixo da parte do botão que fica pra fora do card.
+  // O clearance total reservado abaixo do Stack é _ctaOutY + isso — assim
+  // o próximo bloco da Home nunca começa por baixo do Contribua, mesmo que
+  // o tamanho do botão mude no futuro (é este widget, não o Devocional,
+  // quem sabe o quanto precisa reservar).
+  static const _ctaBreathingGap = 12.0;
+
   // Folga do recuo além do raio do próprio botão — é essa folga que faz o
   // card parecer que "abraça" o botão em vez de só encostar nele.
   static const _notchMargin = 16.0;
@@ -806,11 +813,15 @@ class _CommunityCtaCard extends StatelessWidget {
           borderColor: borderColor,
         );
 
-        return Stack(
-          clipBehavior: Clip.none,
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: cardWidth,
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                SizedBox(
+                  width: cardWidth,
               child: ClipPath(
                 clipper: ShapeBorderClipper(shape: shape),
                 child: BackdropFilter(
@@ -923,6 +934,13 @@ class _CommunityCtaCard extends StatelessWidget {
                 ),
               ),
             ),
+              ],
+            ),
+            // Reserva a altura da parte do Contribua que sai do card + um
+            // respiro — assim o próximo bloco da Home nunca "entra por
+            // baixo" do botão, sem esticar o card em si nem depender de
+            // margem no widget seguinte.
+            const SizedBox(height: _ctaOutY + _ctaBreathingGap),
           ],
         );
       },
@@ -3160,75 +3178,169 @@ class _EdificationDevotionalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tint = GlassCardDevotional.gradientForCategory(devotional.category);
+
     return GlassCardDevotional(
-      gradientColors: GlassCardDevotional.gradientForCategory(
-        devotional.category,
-      ),
-      padding: const EdgeInsets.all(14),
+      gradientColors: tint,
+      // Padding zerado aqui: a capa ocupa quase a largura toda do card (só
+      // uma margem pequena, pra ler como camada elevada sobre o vidro); o
+      // texto abaixo usa seu próprio inset. Ver [_DevotionalCover].
+      padding: EdgeInsets.zero,
       onTap: onTap,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (devotional.hasYoutubeVideo)
-                    const Padding(
-                      padding: EdgeInsets.only(right: 6, top: 1),
-                      child: Icon(
-                        Icons.play_circle_fill,
-                        color: Colors.white,
-                        size: 16,
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+              child: _DevotionalCover(
+                imageUrl: devotional.imageUrl,
+                tint: tint,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (devotional.hasYoutubeVideo)
+                      const Padding(
+                        padding: EdgeInsets.only(right: 6, top: 1),
+                        child: Icon(
+                          Icons.play_circle_fill,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                    Expanded(
+                      child: Text(
+                        devotional.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          height: 1.25,
+                        ),
                       ),
                     ),
-                  Expanded(
-                    child: Text(
-                      devotional.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        height: 1.25,
-                      ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  devotional.scriptureReference ?? devotional.categoryText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 11,
+                  ),
+                ),
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Text(
+                    'Ler agora',
+                    style: TextStyle(
+                      color: Color(0xFF14161B),
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                devotional.scriptureReference ?? devotional.categoryText,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  fontSize: 11,
                 ),
-              ),
-            ],
-          ),
-          Container(
-            margin: const EdgeInsets.only(top: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.92),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: const Text(
-              'Ler agora',
-              style: TextStyle(
-                color: Color(0xFF14161B),
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-              ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Capa do Devocional na Home — camada de primeiro plano sobre o vidro
+/// tintado: puxa `devotional.imageUrl` real (não mockada) com cantos e
+/// elevação próprios, pra ela ler como um card por cima do glass, não como
+/// background dele. Sem imagem, vazia ou com falha de carregamento, cai no
+/// mesmo fallback tintado com ícone de livro (nunca um vazio/erro cru).
+class _DevotionalCover extends StatelessWidget {
+  final String? imageUrl;
+  final List<Color> tint;
+
+  const _DevotionalCover({required this.imageUrl, required this.tint});
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(12);
+    final url = imageUrl;
+    final hasUrl = url != null && url.isNotEmpty;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: hasUrl
+            ? Image.network(
+                url,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+                errorBuilder: (_, __, ___) => _DevotionalCoverFallback(tint: tint),
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return _DevotionalCoverFallback(tint: tint);
+                },
+              )
+            : _DevotionalCoverFallback(tint: tint),
+      ),
+    );
+  }
+}
+
+class _DevotionalCoverFallback extends StatelessWidget {
+  final List<Color> tint;
+
+  const _DevotionalCoverFallback({required this.tint});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            tint.first.withValues(alpha: 0.55),
+            tint.last.withValues(alpha: 0.40),
+          ],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.menu_book_rounded,
+        color: Colors.white.withValues(alpha: 0.85),
+        size: 28,
       ),
     );
   }
