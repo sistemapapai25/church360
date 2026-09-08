@@ -439,7 +439,7 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
                                               onPressed: () =>
                                                   _removeModule(index),
                                               icon: const Icon(
-                                                Icons.delete_outline,
+                                                Icons.delete,
                                               ),
                                             ),
                                           ],

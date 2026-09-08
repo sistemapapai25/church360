@@ -74,7 +74,7 @@ class _PendingPostsList extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
+                Icon(Icons.check_circle, size: 64, color: Colors.green),
                 SizedBox(height: 16),
                 Text('Nenhum post pendente de aprovação!'),
               ],
@@ -242,7 +242,7 @@ class _PendingClassifiedsList extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
+                Icon(Icons.check_circle, size: 64, color: Colors.green),
                 SizedBox(height: 16),
                 Text('Nenhum classificado pendente!'),
               ],

@@ -468,7 +468,7 @@ class _CourseCard extends ConsumerWidget {
       case 'upcoming':
         return Icons.schedule;
       case 'completed':
-        return Icons.check_circle_outline;
+        return Icons.check_circle;
       default:
         return Icons.help_outline;
     }

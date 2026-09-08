@@ -192,7 +192,7 @@ class StudyGroupsListScreen extends ConsumerWidget {
                                           context.push(route);
                                         },
                                         icon: const Icon(
-                                          Icons.edit_outlined,
+                                          Icons.edit,
                                           size: 18,
                                         ),
                                       );

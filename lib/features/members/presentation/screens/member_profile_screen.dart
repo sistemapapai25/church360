@@ -52,7 +52,7 @@ const List<_LgpdRequestOption> _lgpdRequestOptions = [
     type: 'deletion',
     title: 'Exclusão de dados',
     subtitle: 'Solicitar remoção de dados quando aplicável',
-    icon: Icons.delete_outline,
+    icon: Icons.delete,
   ),
   _LgpdRequestOption(
     type: 'anonymization',
@@ -567,7 +567,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     final primary = Theme.of(context).colorScheme.primary;
     final statusColor = hasConsent ? Colors.green : Colors.orange;
     final statusIcon = hasConsent
-        ? Icons.check_circle_outline
+        ? Icons.check_circle
         : Icons.info_outline;
     final currentMember = ref.watch(currentMemberProvider).valueOrNull;
     final canUpdate = currentMember?.id == member.id;
@@ -1263,7 +1263,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                 const NotificationBadge(),
                 const SizedBox(width: 4),
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined),
+                  icon: const Icon(Icons.edit),
                   onPressed: () => context.push('/members/$_memberId/edit'),
                   tooltip: 'Editar Meu Perfil',
                   style: IconButton.styleFrom(
@@ -1280,7 +1280,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                       : 'members.delete',
                   showLoading: false,
                   child: IconButton(
-                    icon: const Icon(Icons.delete_outline),
+                    icon: const Icon(Icons.delete),
                     onPressed: () => _showDeleteDialog(context, ref),
                     tooltip: 'Deletar Membro',
                     style: IconButton.styleFrom(
@@ -1537,7 +1537,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               const SizedBox(width: _sectionGap),
               Expanded(
                 child: _JourneyMiniStat(
-                  icon: Icons.check_circle_outline,
+                  icon: Icons.check_circle,
                   label: 'Leituras',
                   value: totalAsync.when(
                     data: (value) => '$value',
@@ -2136,7 +2136,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                         Navigator.pop(sheetContext);
                         context.push('/members/$_memberId/edit');
                       },
-                      icon: const Icon(Icons.edit_outlined),
+                      icon: const Icon(Icons.edit),
                       label: const Text('Completar Cadastro'),
                     ),
                   ),
@@ -2263,7 +2263,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                           : 'members.edit',
                       showLoading: false,
                       child: IconButton(
-                        icon: const Icon(Icons.edit_outlined),
+                        icon: const Icon(Icons.edit),
                         onPressed: () =>
                             context.push('/members/$_memberId/edit'),
                         tooltip: 'Editar Informações',
@@ -2282,7 +2282,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                           : 'members.delete',
                       showLoading: false,
                       child: IconButton(
-                        icon: const Icon(Icons.delete_outline),
+                        icon: const Icon(Icons.delete),
                         onPressed: () => _showDeleteDialog(context, ref),
                         tooltip: 'Deletar Membro',
                         style: IconButton.styleFrom(
@@ -3081,7 +3081,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     String value,
     String actionLabel,
     VoidCallback onAction, {
-    IconData valueIcon = Icons.check_circle_outline,
+    IconData valueIcon = Icons.check_circle,
     Color? valueColor,
     Color? actionColor,
   }) {

@@ -443,7 +443,7 @@ class _MatchTile extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.check_circle_outline,
+                    Icon(Icons.check_circle,
                         size: 14, color: Colors.green.shade700),
                     const SizedBox(width: 6),
                     Expanded(

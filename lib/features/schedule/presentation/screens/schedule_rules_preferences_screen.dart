@@ -868,7 +868,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                         title: Text('$aName ($af) e $bName ($bf)'),
                         subtitle: const Text('Nunca juntos conforme função'),
                         trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline),
+                          icon: const Icon(Icons.delete),
                           onPressed: () {
                             final list = List<dynamic>.from(_rules['prohibited_combinations'] ?? const []);
                             final ca = c['a'] ?? '';
@@ -941,7 +941,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                         title: Text('$aName ($af) e $bName ($bf)'),
                         subtitle: const Text('Priorizar juntos conforme função'),
                         trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline),
+                          icon: const Icon(Icons.delete),
                           onPressed: () {
                             final list = List<dynamic>.from(_rules['preferred_combinations'] ?? const []);
                             final ca = c['a'] ?? '';
@@ -1463,7 +1463,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                   return const SizedBox.shrink();
                 })),
                 DataCell(IconButton(
-                  icon: const Icon(Icons.delete_outline),
+                  icon: const Icon(Icons.delete),
                   onPressed: () {
                     final list = List<Map<String, dynamic>>.from(_rules['blocks'] ?? const []);
                     if (i >= 0 && i < list.length) {
@@ -1518,7 +1518,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
         radius: 12,
         backgroundColor: colorScheme.primaryContainer,
         foregroundColor: colorScheme.onPrimaryContainer,
-        child: const Icon(Icons.security, size: 14),
+        child: const Icon(Icons.person, size: 14),
       );
     }
 

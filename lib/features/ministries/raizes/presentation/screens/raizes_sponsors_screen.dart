@@ -266,7 +266,7 @@ class _SponsorCard extends StatelessWidget {
                           value: 'delete',
                           child: Row(
                             children: [
-                              Icon(Icons.delete_outline, size: 18),
+                              Icon(Icons.delete, size: 18),
                               SizedBox(width: 8),
                               Text('Remover'),
                             ],

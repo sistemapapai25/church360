@@ -354,7 +354,7 @@ class _WorshipServiceCard extends ConsumerWidget {
                     onPressed: () {
                       context.push('/worship-services/${service.id}/attendance');
                     },
-                    icon: const Icon(Icons.check_circle_outline, size: 16),
+                    icon: const Icon(Icons.check_circle, size: 16),
                     label: const Text('Check-in'),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

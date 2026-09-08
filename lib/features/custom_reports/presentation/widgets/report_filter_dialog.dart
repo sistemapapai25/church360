@@ -262,7 +262,7 @@ class _ReportFilterDialogState extends State<ReportFilterDialog> {
             Row(
               children: [
                 Icon(
-                  Icons.check_circle_outline,
+                  Icons.check_circle,
                   size: 20,
                   color: Theme.of(context).colorScheme.primary,
                 ),

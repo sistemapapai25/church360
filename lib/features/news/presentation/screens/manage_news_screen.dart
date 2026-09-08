@@ -225,7 +225,7 @@ class ManageNewsScreen extends ConsumerWidget {
                           ),
                         if (canDelete)
                           IconButton(
-                            icon: const Icon(Icons.delete_outline, size: 20),
+                            icon: const Icon(Icons.delete, size: 20),
                             tooltip: 'Excluir',
                             onPressed: () async {
                               if (!canDelete) return;

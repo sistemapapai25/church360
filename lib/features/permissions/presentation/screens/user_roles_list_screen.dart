@@ -271,7 +271,7 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
                     ),
                     title: Text(roleName),
                     trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline),
+                      icon: const Icon(Icons.delete),
                       tooltip: 'Remover cargo',
                       onPressed: () => _confirmRemoveRole(context, member, ur, roleName),
                     ),

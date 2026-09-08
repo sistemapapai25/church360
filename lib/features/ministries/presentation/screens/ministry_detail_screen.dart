@@ -363,7 +363,7 @@ class _MinistryDetailContent extends ConsumerWidget {
                 builder: (context, hasPermission) {
                   if (!hasPermission) return const SizedBox.shrink();
                   return IconButton(
-                    icon: const Icon(Icons.edit_outlined),
+                    icon: const Icon(Icons.edit),
                     onPressed: () =>
                         context.push('/ministries/${ministry.id}/edit'),
                     tooltip: 'Editar Ministério',
@@ -376,7 +376,7 @@ class _MinistryDetailContent extends ConsumerWidget {
                 builder: (context, hasPermission) {
                   if (!hasPermission) return const SizedBox.shrink();
                   return IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    icon: const Icon(Icons.delete, color: Colors.red),
                     onPressed: () => _confirmDelete(context, ref),
                     tooltip: 'Deletar Ministério',
                   );
