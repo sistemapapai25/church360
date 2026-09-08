@@ -503,7 +503,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.event_outlined,
+                        Icons.event,
                         size: 64,
                         color: cs.primary.withValues(alpha: 0.28),
                       ),

@@ -501,7 +501,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     decoration: InputDecoration(
                       labelText: 'Nome *',
                       hintText: 'Seu primeiro nome',
-                      prefixIcon: const Icon(Icons.person_outline, size: 20),
+                      prefixIcon: const Icon(Icons.person, size: 20),
                       filled: true,
                       fillColor: Colors.white,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -537,7 +537,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     decoration: InputDecoration(
                       labelText: 'Sobrenome *',
                       hintText: 'Seu sobrenome',
-                      prefixIcon: const Icon(Icons.person_outline, size: 20),
+                      prefixIcon: const Icon(Icons.person, size: 20),
                       filled: true,
                       fillColor: Colors.white,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),

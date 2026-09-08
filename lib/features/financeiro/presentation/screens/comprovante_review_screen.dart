@@ -748,7 +748,7 @@ class _ComprovanteReviewScreenState
       _ExtractedItem(
         label: 'Favorecido',
         value: _stringOrEmpty(extracted['recebedor_nome']),
-        icon: Icons.person_outline,
+        icon: Icons.person,
       ),
       _ExtractedItem(
         label: 'Banco',

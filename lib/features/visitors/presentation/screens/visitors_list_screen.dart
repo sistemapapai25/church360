@@ -383,7 +383,7 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.person_add_outlined,
+              Icons.person_add,
               size: 64,
               color: Theme.of(
                 context,

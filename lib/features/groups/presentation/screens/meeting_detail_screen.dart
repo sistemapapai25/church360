@@ -834,7 +834,7 @@ class _VisitorsList extends ConsumerWidget {
                   child: Column(
                     children: [
                       Icon(
-                        Icons.person_outline,
+                        Icons.person,
                         size: 64,
                         color: Colors.grey.shade400,
                       ),

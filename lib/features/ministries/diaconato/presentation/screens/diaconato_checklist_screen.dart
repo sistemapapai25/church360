@@ -295,7 +295,7 @@ class _DiaconatoChecklistContentState
               _SectionHeader(
                 title: 'Visitantes cadastrados',
                 badge: '${_presentVisitorIds.length}/${visitors.length}',
-                icon: Icons.person_add_alt_outlined,
+                icon: Icons.person_add,
               ),
               const SizedBox(height: 8),
               if (visitors.isEmpty)
@@ -397,7 +397,7 @@ class _HeaderCard extends StatelessWidget {
                   color: cs.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.event_outlined, color: cs.primary),
+                child: Icon(Icons.event, color: cs.primary),
               ),
               const SizedBox(width: 12),
               Expanded(

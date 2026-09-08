@@ -87,7 +87,7 @@ class AccessLevelHistoryScreen extends ConsumerWidget {
       icon = Icons.arrow_downward;
     } else {
       cardColor = Colors.grey.shade50;
-      icon = Icons.info;
+      icon = Icons.info_outline;
     }
 
     return Card(

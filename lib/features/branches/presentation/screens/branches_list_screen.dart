@@ -280,7 +280,7 @@ class _UnitCard extends StatelessWidget {
             ),
             if (canGrantAccess)
               IconButton(
-                icon: const Icon(Icons.person_add_alt_1),
+                icon: const Icon(Icons.person_add),
                 tooltip: 'Conceder acesso em ${unit.name}',
                 onPressed: () => showDialog(
                   context: context,

@@ -1006,7 +1006,7 @@ class _AssigneePicker extends ConsumerWidget {
                             }
                             final m = members[i - 1];
                             return ListTile(
-                              leading: const Icon(Icons.person_outline),
+                              leading: const Icon(Icons.person),
                               title: Text(m.memberName.isEmpty
                                   ? 'Membro do ministério'
                                   : m.memberName),

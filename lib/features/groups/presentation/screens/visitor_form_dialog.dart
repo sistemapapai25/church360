@@ -244,7 +244,7 @@ class _VisitorFormDialogState extends ConsumerState<VisitorFormDialog> {
                         controller: _howFoundUsController,
                         decoration: const InputDecoration(
                           labelText: 'Como conheceu o grupo?',
-                          prefixIcon: Icon(Icons.info),
+                          prefixIcon: Icon(Icons.info_outline),
                           hintText: 'Ex: Indicação, Redes Sociais, etc.',
                         ),
                       ),

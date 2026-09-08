@@ -136,7 +136,7 @@ class _ServiceTile extends StatelessWidget {
           color: cs.primary.withValues(alpha: 0.1),
           shape: BoxShape.circle,
         ),
-        child: Icon(Icons.event_outlined, color: cs.primary, size: 20),
+        child: Icon(Icons.event, color: cs.primary, size: 20),
       ),
       title: Text(
         dateLabel,

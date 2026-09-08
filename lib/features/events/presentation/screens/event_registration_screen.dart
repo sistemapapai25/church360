@@ -392,7 +392,7 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
               decoration: const InputDecoration(
                 labelText: 'Nome completo *',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person_outline),
+                prefixIcon: Icon(Icons.person),
               ),
             ),
             const SizedBox(height: 12),

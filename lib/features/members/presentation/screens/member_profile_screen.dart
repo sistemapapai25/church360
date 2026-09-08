@@ -1745,7 +1745,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     if (_hasValue(member.memberType)) {
       churchItems.add(
         _buildInfoRow(
-          Icons.person_outline,
+          Icons.person,
           'Tipo de Membro',
           _getMemberTypeLabel(member.memberType!),
         ),
@@ -2674,7 +2674,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     final churchItems = <Widget>[
       if (_hasValue(member.memberType))
         _buildInfoRow(
-          Icons.person_outline,
+          Icons.person,
           'Tipo de Membro',
           _getMemberTypeLabel(member.memberType!),
         ),
