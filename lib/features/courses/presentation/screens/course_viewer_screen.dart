@@ -7,6 +7,7 @@ import '../../domain/models/course.dart';
 import '../../domain/models/course_lesson.dart';
 import '../providers/courses_provider.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/media/video_play_overlay.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 
 /// Tela de visualização de curso (para alunos)
@@ -509,16 +510,22 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
       child: lesson.coverImageUrl != null
           ? ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                lesson.coverImageUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Icon(
-                    Icons.play_circle_outline,
-                    size: 40,
-                    color: Colors.blue.shade700,
-                  );
-                },
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    lesson.coverImageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Icon(
+                        Icons.play_circle_outline,
+                        size: 40,
+                        color: Colors.blue.shade700,
+                      );
+                    },
+                  ),
+                  if (lesson.hasVideo) const VideoPlayOverlay(size: 28),
+                ],
               ),
             )
           : Icon(

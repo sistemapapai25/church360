@@ -12,6 +12,7 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../constants/app_branding.dart';
 import '../widgets/church_image.dart';
 import '../widgets/app_logo.dart';
+import '../widgets/media/video_play_overlay.dart';
 import '../../features/permissions/presentation/widgets/dashboard_access_gate.dart';
 
 import '../../features/bible/presentation/screens/bible_books_screen.dart';
@@ -2993,16 +2994,7 @@ class _EdificationCardState extends ConsumerState<_EdificationCard> {
                     ),
                   ),
                 if (devotional.hasYoutubeVideo)
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.play_arrow, color: Colors.white, size: 24),
-                    ),
-                  ),
+                  const VideoPlayOverlay(size: 44),
               ],
             ),
             title: devotional.title,
