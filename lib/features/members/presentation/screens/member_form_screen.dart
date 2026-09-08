@@ -1294,7 +1294,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     _buildCollapsibleSection(
                       'Dados Pessoais',
                       sectionKey: 'personal',
-                      icon: Icons.badge_outlined,
+                      icon: Icons.badge,
                       children: [
                         TextFormField(
                           controller: _firstNameController,
@@ -1619,7 +1619,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     _buildCollapsibleSection(
                       'Endereço',
                       sectionKey: 'address',
-                      icon: Icons.location_on_outlined,
+                      icon: Icons.location_on,
                       children: [
                         // CEP
                         TextFormField(

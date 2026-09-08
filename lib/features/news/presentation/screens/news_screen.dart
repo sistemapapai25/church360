@@ -344,7 +344,7 @@ class _NewsCard extends StatelessWidget {
                         Row(
                           children: [
                             Icon(
-                              Icons.location_on_outlined,
+                              Icons.location_on,
                               size: 14,
                               color: cs.onSurface.withValues(alpha: 0.5),
                             ),

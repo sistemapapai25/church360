@@ -199,7 +199,7 @@ class _PrayerRequestFormScreenState extends ConsumerState<PrayerRequestFormScree
             DropdownMenu<PrayerPrivacy>(
               initialSelection: _selectedPrivacy,
               label: const Text('Privacidade *'),
-              leadingIcon: const Icon(Icons.lock),
+              leadingIcon: const Icon(Icons.lock_outline),
               dropdownMenuEntries: PrayerPrivacy.values
                   .map((privacy) => DropdownMenuEntry<PrayerPrivacy>(
                         value: privacy,
