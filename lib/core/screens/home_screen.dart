@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../constants/app_branding.dart';
 import '../widgets/church_image.dart';
 import '../widgets/app_logo.dart';
@@ -32,6 +33,7 @@ import '../../features/study_groups/presentation/providers/study_group_provider.
 import '../../features/contribution/presentation/screens/contribution_info_screen.dart';
 import '../widgets/pearl_button.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/media/video_play_overlay.dart';
 import '../../features/church_selector/presentation/providers/church_selector_provider.dart';
 import '../design/community_design.dart';
 import '../widgets/navigation/custom_bottom_nav_bar.dart';
@@ -3195,6 +3197,7 @@ class _EdificationDevotionalCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
               child: _DevotionalCover(
                 imageUrl: devotional.imageUrl,
+                youtubeUrl: devotional.hasYoutubeVideo ? devotional.youtubeUrl : null,
                 tint: tint,
               ),
             ),
@@ -3271,21 +3274,34 @@ class _EdificationDevotionalCard extends StatelessWidget {
 }
 
 /// Capa do Devocional na Home — camada de primeiro plano sobre o vidro
-/// tintado: puxa `devotional.imageUrl` real (não mockada) com cantos e
-/// elevação próprios, pra ela ler como um card por cima do glass, não como
-/// background dele. Sem imagem, vazia ou com falha de carregamento, cai no
-/// mesmo fallback tintado com ícone de livro (nunca um vazio/erro cru).
+/// tintado. Prioridade da imagem: `imageUrl` cadastrado > thumbnail real do
+/// YouTube (quando o devocional tem vídeo) > fallback tintado com ícone de
+/// livro (nunca um vazio/erro cru, e nunca uma capa inventada quando já
+/// existe uma real — vídeo ou foto — pra puxar).
 class _DevotionalCover extends StatelessWidget {
   final String? imageUrl;
+  final String? youtubeUrl;
   final List<Color> tint;
 
-  const _DevotionalCover({required this.imageUrl, required this.tint});
+  const _DevotionalCover({
+    required this.imageUrl,
+    required this.youtubeUrl,
+    required this.tint,
+  });
+
+  String? get _youtubeThumbnailUrl {
+    final url = youtubeUrl;
+    if (url == null || url.isEmpty) return null;
+    final id = YoutubePlayer.convertUrlToId(url);
+    return id == null ? null : 'https://img.youtube.com/vi/$id/hqdefault.jpg';
+  }
 
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(12);
-    final url = imageUrl;
-    final hasUrl = url != null && url.isNotEmpty;
+    final hasOwnImage = imageUrl != null && imageUrl!.isNotEmpty;
+    final coverUrl = hasOwnImage ? imageUrl : _youtubeThumbnailUrl;
+    final isVideoThumbnail = !hasOwnImage && coverUrl != null;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -3300,17 +3316,23 @@ class _DevotionalCover extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: radius,
-        child: hasUrl
-            ? Image.network(
-                url,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
-                errorBuilder: (_, __, ___) => _DevotionalCoverFallback(tint: tint),
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
-                  return _DevotionalCoverFallback(tint: tint);
-                },
+        child: coverUrl != null
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    coverUrl,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    errorBuilder: (_, __, ___) => _DevotionalCoverFallback(tint: tint),
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return _DevotionalCoverFallback(tint: tint);
+                    },
+                  ),
+                  if (isVideoThumbnail) const VideoPlayOverlay(size: 32),
+                ],
               )
             : _DevotionalCoverFallback(tint: tint),
       ),
