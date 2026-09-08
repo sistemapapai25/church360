@@ -329,7 +329,7 @@ class _MaterialViewerScreenState extends ConsumerState<MaterialViewerScreen> {
               ),
               // Ícone de navegação
               Icon(
-                Icons.chevron_right,
+                Icons.arrow_forward_ios,
                 color: Colors.grey.shade400,
               ),
             ],

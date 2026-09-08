@@ -106,7 +106,7 @@ class StudyGroupDetailScreen extends ConsumerWidget {
                 tabs: [
                   Tab(icon: Icon(Icons.info_outline), text: 'Sobre'),
                   Tab(icon: Icon(Icons.book), text: 'Lições'),
-                  Tab(icon: Icon(Icons.people), text: 'Participantes'),
+                  Tab(icon: Icon(Icons.groups), text: 'Participantes'),
                 ],
               ),
             ),
@@ -252,7 +252,7 @@ class StudyGroupDetailScreen extends ConsumerWidget {
             ),
             if (group.maxParticipants != null)
               _buildInfoRow(
-                Icons.people,
+                Icons.groups,
                 'Limite de Participantes',
                 '${group.maxParticipants}',
               ),
@@ -375,7 +375,7 @@ class StudyGroupDetailScreen extends ConsumerWidget {
                         subtitle: lesson.bibleReferences != null
                             ? Text(lesson.bibleReferences!)
                             : null,
-                        trailing: const Icon(Icons.chevron_right),
+                        trailing: const Icon(Icons.arrow_forward_ios),
                         onTap: () {
                           final route = fromDashboard
                               ? '/study-groups/$groupId/lessons/${lesson.id}?from=dashboard'

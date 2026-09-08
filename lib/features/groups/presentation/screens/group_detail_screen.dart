@@ -242,7 +242,7 @@ class _GroupDetailContent extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.people,
+                        Icons.groups,
                         color: Theme.of(context).colorScheme.primary,
                       ),
                       const SizedBox(width: 8),
@@ -268,7 +268,7 @@ class _GroupDetailContent extends ConsumerWidget {
                   ]
                 : const [
                     Tab(text: 'Informações', icon: Icon(Icons.info_outline)),
-                    Tab(text: 'Membros', icon: Icon(Icons.people_outline)),
+                    Tab(text: 'Membros', icon: Icon(Icons.groups)),
                     Tab(text: 'Reuniões', icon: Icon(Icons.event_note)),
                     Tab(text: 'Materiais', icon: Icon(Icons.library_books)),
                   ],
@@ -380,7 +380,7 @@ class _MembersTab extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.people_outline,
+                    Icons.groups,
                     size: 64,
                     color: Colors.grey[400],
                   ),
@@ -910,7 +910,7 @@ class _MeetingCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.people,
+                          Icons.groups,
                           size: 16,
                           color: Theme.of(context).colorScheme.primary,
                         ),
@@ -1180,7 +1180,7 @@ class _MaterialCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right),
+              const Icon(Icons.arrow_forward_ios),
             ],
           ),
         ),

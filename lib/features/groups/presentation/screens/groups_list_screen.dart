@@ -211,7 +211,7 @@ class _GroupCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.people,
+                          Icons.groups,
                           size: 16,
                           color: Theme.of(context).colorScheme.primary,
                         ),

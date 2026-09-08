@@ -201,7 +201,7 @@ class _MinistryDetailContent extends ConsumerWidget {
                     subtitle: const Text(
                       'Quem é avisado quando algo muda na agenda do ministério',
                     ),
-                    trailing: const Icon(Icons.chevron_right),
+                    trailing: const Icon(Icons.arrow_forward_ios),
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -473,7 +473,7 @@ class _MembersList extends ConsumerWidget {
             child: Column(
               children: [
                 Icon(
-                  Icons.people_outline,
+                  Icons.groups,
                   size: 48,
                   color: Theme.of(
                     context,
@@ -1884,7 +1884,7 @@ class _SchedulesList extends ConsumerWidget {
             child: Column(
               children: [
                 Icon(
-                  Icons.calendar_today_outlined,
+                  Icons.calendar_today,
                   size: 48,
                   color: colorScheme.outline.withValues(alpha: 0.5),
                 ),
@@ -2052,7 +2052,7 @@ class _SpecializedModuleCta extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward, color: color),
+            Icon(Icons.arrow_forward_ios, color: color),
           ],
         ),
       ),

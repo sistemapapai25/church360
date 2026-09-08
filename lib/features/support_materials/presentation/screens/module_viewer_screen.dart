@@ -345,7 +345,7 @@ class ModuleViewerScreen extends ConsumerWidget {
                         '/support-materials/$materialId/modules/${nextModule.id}',
                       );
                     },
-                    icon: const Icon(Icons.arrow_forward),
+                    icon: const Icon(Icons.arrow_forward_ios),
                     label: const Text('Próximo'),
                   )
                 : const SizedBox.shrink(),

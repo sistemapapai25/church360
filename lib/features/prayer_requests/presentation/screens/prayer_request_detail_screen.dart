@@ -310,7 +310,7 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
                           ),
                           Expanded(
                             child: _StatItem(
-                              icon: Icons.people,
+                              icon: Icons.groups,
                               label: 'Pessoas',
                               value: stats.uniquePrayers.toString(),
                               color: Colors.blue,

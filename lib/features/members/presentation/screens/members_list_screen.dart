@@ -84,7 +84,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                         ],
                       ),
                       child: Icon(
-                        Icons.people,
+                        Icons.groups,
                         size: 24,
                         color: Theme.of(context).colorScheme.primary,
                       ),
@@ -368,7 +368,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.people_outline, size: 64),
+            const Icon(Icons.groups, size: 64),
             const SizedBox(height: 16),
             Text(
               'Nenhum membro encontrado',

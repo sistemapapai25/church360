@@ -187,7 +187,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
       heading: 'Você não tem acesso a este evento',
       supportingText:
           'Este evento é restrito e você não está entre os públicos escolhidos. Se acha que deveria participar, fale com o responsável pelo evento.',
-      primaryIcon: Icons.calendar_month,
+      primaryIcon: Icons.calendar_today,
       primaryLabel: 'Voltar para a Agenda',
       onPrimary: () => context.go('/schedule'),
     );
@@ -200,7 +200,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
       heading: 'Evento não encontrado',
       supportingText:
           'Este link pode estar incorreto, ou o evento pode ter sido removido.',
-      primaryIcon: Icons.calendar_month,
+      primaryIcon: Icons.calendar_today,
       primaryLabel: 'Voltar para a Agenda',
       onPrimary: () => context.go('/schedule'),
     );
@@ -558,7 +558,7 @@ class _InfoTab extends ConsumerWidget {
             ),
           if (event.maxCapacity != null)
             _InfoCard(
-              icon: Icons.people,
+              icon: Icons.groups,
               title: 'Capacidade Máxima',
               value: '${event.maxCapacity} pessoas',
             ),
@@ -999,7 +999,7 @@ class _RegistrationsTab extends ConsumerWidget {
       data: (registrations) {
         if (registrations.isEmpty) {
           return _RegistrationsEmptyState(
-            icon: Icons.people_outline,
+            icon: Icons.groups,
             heading: 'Nenhum inscrito ainda',
             body: podeGerenciar
                 ? 'Adicione o primeiro inscrito ou compartilhe o link de inscrição do evento.'
@@ -1615,7 +1615,7 @@ class _EmptySchedulesContent extends ConsumerWidget {
           child: Column(
             children: [
               Icon(
-                Icons.calendar_today_outlined,
+                Icons.calendar_today,
                 size: 48,
                 color: Colors.grey[400],
               ),

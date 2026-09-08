@@ -427,7 +427,7 @@ class _DispatchRulesSheetState extends ConsumerState<_DispatchRulesSheet> {
       case DispatchRuleType.event:
         return Icons.event;
       case DispatchRuleType.schedule:
-        return Icons.calendar_month;
+        return Icons.calendar_today;
       case DispatchRuleType.schedulePendingSummary:
         return Icons.assignment_late_outlined;
       case DispatchRuleType.pdf:

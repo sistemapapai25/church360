@@ -143,7 +143,7 @@ class _MemberGrowthReportScreenState
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.people_outline, size: 64, color: Colors.grey),
+                          Icon(Icons.groups, size: 64, color: Colors.grey),
                           SizedBox(height: 16),
                           Text(
                             'Sem dados para exibir',
@@ -172,7 +172,7 @@ class _MemberGrowthReportScreenState
                             child: _buildSummaryCard(
                               'Total Atual',
                               '$totalAtEnd',
-                              Icons.people,
+                              Icons.groups,
                               Colors.blue,
                             ),
                           ),

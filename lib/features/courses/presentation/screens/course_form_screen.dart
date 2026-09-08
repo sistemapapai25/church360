@@ -534,7 +534,7 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
               decoration: const InputDecoration(
                 labelText: 'Máximo de Alunos',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.people),
+                prefixIcon: Icon(Icons.groups),
               ),
               keyboardType: TextInputType.number,
               validator: (value) {

@@ -368,7 +368,7 @@ class ReadingPlanCard extends StatelessWidget {
         onPressed: () {
           context.push('/reading-plans/${plan.id}');
         },
-        icon: const Icon(Icons.arrow_forward, size: 16),
+        icon: const Icon(Icons.arrow_forward_ios, size: 16),
         label: const Text('VER DETALHES'),
       ),
     );

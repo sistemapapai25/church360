@@ -471,7 +471,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                     ),
                     _buildSidebarItem(
                       3,
-                      Icons.people,
+                      Icons.groups,
                       'Membros',
                       _tabAccentColorForIndex(3),
                     ),
@@ -3643,7 +3643,7 @@ class _MembersTab extends ConsumerWidget {
                         runSpacing: 8,
                         children: [
                           _ActivityPill(
-                            icon: Icons.groups_2_outlined,
+                            icon: Icons.groups,
                             text: '${activeMembers.length} membros ativos',
                             accent: const Color(0xFF4E6B85),
                           ),

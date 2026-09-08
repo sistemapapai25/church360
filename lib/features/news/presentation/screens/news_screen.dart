@@ -391,7 +391,7 @@ class _NewsCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             Icon(
-                              Icons.arrow_forward,
+                              Icons.arrow_forward_ios,
                               size: 16,
                               color: cs.primary,
                             ),

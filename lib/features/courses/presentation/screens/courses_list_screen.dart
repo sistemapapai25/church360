@@ -351,7 +351,7 @@ class _CourseCard extends ConsumerWidget {
                           if (course.maxStudents != null)
                             _buildChip(
                               context,
-                              icon: Icons.people_outline,
+                              icon: Icons.groups,
                               label:
                                   '${course.enrolledCount ?? 0}/${course.maxStudents}',
                               color: course.isFull ? Colors.red : Colors.green,

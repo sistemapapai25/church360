@@ -147,7 +147,7 @@ class _ServiceTile extends StatelessWidget {
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
       onTap: onTap,
     );
   }

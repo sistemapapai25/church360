@@ -85,7 +85,7 @@ class AppDrawer extends ConsumerWidget {
           // GESTÃO
           _DrawerSection(title: 'GESTÃO'),
           _DrawerItem(
-            icon: Icons.people,
+            icon: Icons.groups,
             title: 'Membros',
             route: '/members',
             currentRoute: GoRouterState.of(context).uri.toString(),

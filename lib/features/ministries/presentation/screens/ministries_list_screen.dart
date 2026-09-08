@@ -404,7 +404,7 @@ class _MinistryCard extends ConsumerWidget {
                   ),
 
                   // Seta
-                  const Icon(Icons.chevron_right, color: Colors.grey),
+                  const Icon(Icons.arrow_forward_ios, color: Colors.grey),
                 ],
               ),
 
@@ -435,7 +435,7 @@ class _MinistryCard extends ConsumerWidget {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.people, size: 16, color: Colors.grey[600]),
+                          Icon(Icons.groups, size: 16, color: Colors.grey[600]),
                           const SizedBox(width: 4),
                           Text(
                             '${members.length} ${members.length == 1 ? 'membro' : 'membros'}',

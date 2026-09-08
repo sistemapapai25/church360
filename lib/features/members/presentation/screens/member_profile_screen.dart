@@ -769,7 +769,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                         if (picked == null) return;
                         setInnerState(() => retentionUntil = picked);
                       },
-                      icon: const Icon(Icons.calendar_today_outlined),
+                      icon: const Icon(Icons.calendar_today),
                       label: Text(
                         retentionUntil == null
                             ? 'Definir prazo de retenção'
@@ -1448,7 +1448,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               ),
             ),
             Icon(
-              Icons.chevron_right,
+              Icons.arrow_forward_ios,
               color: const Color(0xFFE67E22).withValues(alpha: 0.7),
             ),
           ],
@@ -1517,7 +1517,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                 ).copyWith(fontSize: 16, fontWeight: FontWeight.w800),
               ),
               const Spacer(),
-              Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+              Icon(Icons.arrow_forward_ios, color: colorScheme.onSurfaceVariant),
             ],
           ),
           const SizedBox(height: _sectionGap),
@@ -2847,7 +2847,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                     ),
                   ),
                   Icon(
-                    Icons.chevron_right,
+                    Icons.arrow_forward_ios,
                     color: const Color(0xFFE67E22).withValues(alpha: 0.7),
                   ),
                 ],

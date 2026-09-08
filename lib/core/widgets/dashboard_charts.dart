@@ -573,7 +573,7 @@ class AverageAttendanceCard extends ConsumerWidget {
                         _AttendanceStatItem(
                           label: 'Total Presentes',
                           value: stats['total_attendance'].toString(),
-                          icon: Icons.people,
+                          icon: Icons.groups,
                           color: AppTheme.secondaryColor,
                         ),
                         _AttendanceStatItem(

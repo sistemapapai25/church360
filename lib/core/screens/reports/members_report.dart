@@ -204,7 +204,7 @@ class _GrowthTab extends ConsumerWidget {
             context,
             'Membros Ativos',
             stats['total_active'].toString(),
-            Icons.people,
+            Icons.groups,
             Colors.green,
           ),
         ),

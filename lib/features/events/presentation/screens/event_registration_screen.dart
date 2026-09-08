@@ -216,7 +216,7 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
               heading: 'Você não pode se inscrever neste evento',
               supportingText:
                   'A inscrição deste evento é restrita e você não está entre os públicos escolhidos. Se acha que deveria participar, fale com o responsável pelo evento.',
-              primaryIcon: Icons.calendar_month,
+              primaryIcon: Icons.calendar_today,
               primaryLabel: 'Voltar para a Agenda',
               onPrimary: () => context.go('/schedule'),
             );
@@ -227,7 +227,7 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
               heading: 'Evento não encontrado',
               supportingText:
                   'Este link de inscrição pode estar incorreto, ou o evento pode ter sido removido.',
-              primaryIcon: Icons.calendar_month,
+              primaryIcon: Icons.calendar_today,
               primaryLabel: 'Voltar para a Agenda',
               onPrimary: () => context.go('/schedule'),
             );

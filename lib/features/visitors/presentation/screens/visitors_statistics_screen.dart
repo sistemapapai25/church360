@@ -125,7 +125,7 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
                     child: _StatCard(
                       title: 'Total de Visitantes',
                       value: totalVisitors.toString(),
-                      icon: Icons.people,
+                      icon: Icons.groups,
                       color: Colors.blue,
                     ),
                   ),

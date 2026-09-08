@@ -103,7 +103,7 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.people_outline,
+                          Icons.groups,
                           size: 64,
                           color: Theme.of(context).colorScheme.outline,
                         ),
