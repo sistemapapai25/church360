@@ -2644,7 +2644,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
               ),
               _JourneyStatCard(
                 title: 'Leituras',
-                icon: Icons.check_circle_outline,
+                icon: Icons.check_circle,
                 value: totalAsync.when(
                   data: (value) => '$value',
                   loading: () => '—',

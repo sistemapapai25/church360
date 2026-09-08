@@ -50,7 +50,7 @@ class BibleBookmarksScreen extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline),
+                      icon: const Icon(Icons.delete),
                       tooltip: 'Remover favorito',
                       onPressed: () async {
                         final repo = ref.read(bibleRepositoryProvider);

@@ -984,7 +984,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
         radius: 12,
         backgroundColor: colorScheme.primaryContainer,
         foregroundColor: colorScheme.onPrimaryContainer,
-        child: const Icon(Icons.security, size: 14),
+        child: const Icon(Icons.person, size: 14),
       );
     }
 

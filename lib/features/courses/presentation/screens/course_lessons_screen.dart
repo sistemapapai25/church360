@@ -377,14 +377,14 @@ class _LessonCard extends StatelessWidget {
                 // Botão de editar
                 if (onTap != null)
                   IconButton(
-                    icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                    icon: const Icon(Icons.edit, color: Colors.blue),
                     onPressed: onTap,
                     tooltip: 'Editar aula',
                   ),
                 // Botão de deletar
                 if (onDelete != null)
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    icon: const Icon(Icons.delete, color: Colors.red),
                     onPressed: onDelete,
                     tooltip: 'Excluir aula',
                   ),

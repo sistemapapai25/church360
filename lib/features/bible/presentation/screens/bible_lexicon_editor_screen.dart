@@ -294,7 +294,7 @@ class _BibleLexiconEditorScreenState extends ConsumerState<BibleLexiconEditorScr
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          trailing: const Icon(Icons.edit_outlined),
+                          trailing: const Icon(Icons.edit),
                           onTap: () => _editLexeme(lexeme),
                         ),
                       );

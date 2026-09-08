@@ -360,7 +360,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                   },
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline),
+                                  icon: const Icon(Icons.delete),
                                   onPressed: () async {
                                     try {
                                       final repo = ref.read(
@@ -498,7 +498,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                           return ListTile(
                             title: Text(name),
                             trailing: IconButton(
-                              icon: const Icon(Icons.delete_outline),
+                              icon: const Icon(Icons.delete),
                               onPressed: () async {
                                 try {
                                   final repo = ref.read(

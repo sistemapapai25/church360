@@ -1086,7 +1086,7 @@ class _RegistrationsTab extends ConsumerWidget {
                                 if (!registration.isCheckedIn)
                                   IconButton(
                                     icon: const Icon(
-                                      Icons.check_circle_outline,
+                                      Icons.check_circle,
                                       color: _checkInColor,
                                     ),
                                     onPressed: () => _doCheckIn(

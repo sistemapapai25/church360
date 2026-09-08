@@ -203,7 +203,7 @@ class ManageReadingPlansScreen extends ConsumerWidget {
                           },
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 20),
+                          icon: const Icon(Icons.delete, size: 20),
                           tooltip: 'Excluir',
                           onPressed: () async {
                             final confirmed = await showDialog<bool>(

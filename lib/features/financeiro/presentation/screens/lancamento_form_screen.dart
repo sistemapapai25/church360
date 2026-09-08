@@ -334,7 +334,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
                 ),
                 IconButton(
                   tooltip: 'Editar categorias',
-                  icon: const Icon(Icons.edit_outlined),
+                  icon: const Icon(Icons.edit),
                   onPressed: selectedCategoriaId == null
                       ? null
                       : () async {
@@ -416,7 +416,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
                 ),
                 IconButton(
                   tooltip: 'Editar beneficiário',
-                  icon: const Icon(Icons.edit_outlined),
+                  icon: const Icon(Icons.edit),
                   onPressed: selectedBeneficiarioId == null
                       ? null
                       : () async {
@@ -496,7 +496,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
                 ),
                 IconButton(
                   tooltip: 'Editar conta',
-                  icon: const Icon(Icons.edit_outlined),
+                  icon: const Icon(Icons.edit),
                   onPressed: selectedContaId == null
                       ? null
                       : () async {

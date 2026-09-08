@@ -1080,7 +1080,7 @@ class _EventTypesManageScreenState
                               ),
                               IconButton(
                                 onPressed: () => _delete(code),
-                                icon: const Icon(Icons.delete_outline),
+                                icon: const Icon(Icons.delete),
                               ),
                             ],
                           ),

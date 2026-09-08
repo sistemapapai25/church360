@@ -164,14 +164,14 @@ class KidsSelectChildScreen extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        icon: const Icon(Icons.edit, size: 20),
                         tooltip: 'Editar Dados',
                         onPressed: () =>
                             context.push('/members/${child['id']}/edit'),
                       ),
                       IconButton(
                         icon: Icon(
-                          Icons.delete_outline,
+                          Icons.delete,
                           size: 20,
                           color: Theme.of(context).colorScheme.error,
                         ),

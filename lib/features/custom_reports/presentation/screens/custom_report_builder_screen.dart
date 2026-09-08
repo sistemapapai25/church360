@@ -1108,7 +1108,7 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
       case GroupByType.year:
         return Icons.calendar_today;
       case GroupByType.status:
-        return Icons.check_circle_outline;
+        return Icons.check_circle;
       case GroupByType.category:
         return Icons.category;
       case GroupByType.type:

@@ -3267,7 +3267,7 @@ class _PostCardState extends ConsumerState<_PostCard>
                       value: _PostOwnerMenuAction.edit,
                       child: Row(
                         children: [
-                          Icon(Icons.edit_outlined),
+                          Icon(Icons.edit),
                           SizedBox(width: 10),
                           Text('Editar'),
                         ],
@@ -3277,7 +3277,7 @@ class _PostCardState extends ConsumerState<_PostCard>
                       value: _PostOwnerMenuAction.delete,
                       child: Row(
                         children: [
-                          Icon(Icons.delete_outline),
+                          Icon(Icons.delete),
                           SizedBox(width: 10),
                           Text('Excluir'),
                         ],
@@ -4495,7 +4495,7 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
                           value: _ClassifiedOwnerMenuAction.edit,
                           child: Row(
                             children: [
-                              Icon(Icons.edit_outlined),
+                              Icon(Icons.edit),
                               SizedBox(width: 10),
                               Text('Editar'),
                             ],
@@ -4505,7 +4505,7 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
                           value: _ClassifiedOwnerMenuAction.delete,
                           child: Row(
                             children: [
-                              Icon(Icons.delete_outline),
+                              Icon(Icons.delete),
                               SizedBox(width: 10),
                               Text('Excluir'),
                             ],
@@ -5359,7 +5359,7 @@ class _ClassifiedDetailsSheetState
                       value: _ClassifiedOwnerMenuAction.edit,
                       child: Row(
                         children: [
-                          Icon(Icons.edit_outlined),
+                          Icon(Icons.edit),
                           SizedBox(width: 10),
                           Text('Editar'),
                         ],
@@ -5369,7 +5369,7 @@ class _ClassifiedDetailsSheetState
                       value: _ClassifiedOwnerMenuAction.delete,
                       child: Row(
                         children: [
-                          Icon(Icons.delete_outline),
+                          Icon(Icons.delete),
                           SizedBox(width: 10),
                           Text('Excluir'),
                         ],
@@ -5626,7 +5626,7 @@ class _ClassifiedDetailsSheetState
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: _isWorking ? null : _openEdit,
-                        icon: const Icon(Icons.edit_outlined),
+                        icon: const Icon(Icons.edit),
                         label: const Text('Editar'),
                       ),
                     ),
@@ -6026,7 +6026,7 @@ class _EditClassifiedSheetState extends ConsumerState<_EditClassifiedSheet> {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.save_rounded, size: 18),
+                          Icon(Icons.save, size: 18),
                           SizedBox(width: 8),
                           Text('Salvar'),
                         ],

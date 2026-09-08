@@ -915,7 +915,7 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
                                                     foregroundColor: Colors.red,
                                                     side: const BorderSide(color: Colors.red),
                                                   ),
-                                                  child: const Icon(Icons.delete_outline),
+                                                  child: const Icon(Icons.delete),
                                                 ),
                                               ],
                                             ),
@@ -1005,7 +1005,7 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
                                       setState(() => _clearingCache = false);
                                     }
                                   },
-                                  icon: const Icon(Icons.delete_outline),
+                                  icon: const Icon(Icons.delete),
                                   label: const Text('Limpar Thread'),
                                 ),
                               ],

@@ -428,7 +428,7 @@ class _EventRegistrationScreenState extends ConsumerState<EventRegistrationScree
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.check_circle_outline),
+                  : const Icon(Icons.check_circle),
               label: Text(_isGuestRegistering ? 'Enviando...' : 'Concluir inscrição'),
             ),
             const SizedBox(height: 20),
