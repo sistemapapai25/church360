@@ -104,7 +104,7 @@ class _RolesListScreenState extends ConsumerState<RolesListScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.badge_outlined,
+                          Icons.badge,
                           size: 64,
                           color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
                         ),

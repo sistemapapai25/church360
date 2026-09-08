@@ -570,7 +570,7 @@ class ChurchInfoScreen extends ConsumerWidget {
             if (churchInfo.address != null)
               _buildContactItem(
                 context,
-                icon: Icons.location_on_outlined,
+                icon: Icons.location_on,
                 text: churchInfo.address!,
                 onTap: () => _launchUrl(
                   'https://maps.google.com/?q=${Uri.encodeComponent(churchInfo.address!)}',
