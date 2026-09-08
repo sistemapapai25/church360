@@ -358,7 +358,8 @@ class _BookCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
+    return GlassCardTrace(
+      accent: accent,
       radius: CommunityDesign.radius,
       padding: const EdgeInsets.all(14),
       onTap: () {
