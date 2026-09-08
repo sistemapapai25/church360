@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/utils/whatsapp_launcher.dart';
+import '../../../../../core/widgets/pearl_fab.dart';
 import '../../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
@@ -72,10 +73,10 @@ class _VisitsContentState extends ConsumerState<_VisitsContent> {
       floatingActionButton: PermissionGate(
         permission: 'raizes.manage_visits',
         showLoading: false,
-        child: FloatingActionButton.extended(
+        child: PearlFab(
           onPressed: () => _openCreateDialog(context),
-          icon: const Icon(Icons.add),
-          label: const Text('Nova visita'),
+          icon: Icons.add,
+          label: 'Nova visita',
         ),
       ),
       body: Column(

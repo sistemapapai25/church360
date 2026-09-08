@@ -7,6 +7,7 @@ import '../providers/quick_news_provider.dart';
 import '../../domain/models/quick_news.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
@@ -33,10 +34,10 @@ class QuickNewsListScreen extends ConsumerWidget {
       ),
       floatingActionButton: PermissionGate(
         permission: 'quick_news.create',
-        child: FloatingActionButton.extended(
+        child: PearlFab(
           onPressed: () => context.push('/home/quick-news/new'),
-          icon: const Icon(Icons.add),
-          label: const Text('Novo Aviso'),
+          icon: Icons.add,
+          label: 'Novo Aviso',
         ),
       ),
       body: newsAsync.when(

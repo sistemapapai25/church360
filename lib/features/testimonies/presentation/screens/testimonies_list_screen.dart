@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../providers/testimony_provider.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 import '../../domain/models/testimony.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
@@ -23,10 +24,10 @@ class TestimoniesListScreen extends ConsumerWidget {
       ),
       floatingActionButton: PermissionGate(
         permission: 'testimonies.create',
-        child: FloatingActionButton.extended(
+        child: PearlFab(
           onPressed: () => context.push('/home/testimonies/new'),
-          icon: const Icon(Icons.add),
-          label: const Text('Novo Testemunho'),
+          icon: Icons.add,
+          label: 'Novo Testemunho',
         ),
       ),
       body: testimoniesAsync.when(

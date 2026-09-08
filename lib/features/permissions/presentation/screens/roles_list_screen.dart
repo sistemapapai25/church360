@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/permissions_providers.dart';
 import '../../domain/models/role.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 
 /// Tela de Lista de Cargos
 /// Exibe todos os cargos com hierarquia visual
@@ -46,10 +47,10 @@ class _RolesListScreenState extends ConsumerState<RolesListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: PearlFab(
         onPressed: () => context.push('/permissions/roles/create'),
-        icon: const Icon(Icons.add),
-        label: const Text('Novo Cargo'),
+        icon: Icons.add,
+        label: 'Novo Cargo',
       ),
       body: Column(
         children: [

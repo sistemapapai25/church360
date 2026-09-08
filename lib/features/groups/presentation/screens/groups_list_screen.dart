@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 import '../providers/groups_provider.dart';
 import '../../domain/models/group.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
@@ -126,11 +127,11 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
       floatingActionButton: PermissionGate(
         permission: 'groups.create',
         showLoading: false,
-        child: FloatingActionButton(
+        child: PearlFab(
           onPressed: () {
             context.push('/groups/new');
           },
-          child: const Icon(Icons.add),
+          icon: Icons.add,
         ),
       ),
     );

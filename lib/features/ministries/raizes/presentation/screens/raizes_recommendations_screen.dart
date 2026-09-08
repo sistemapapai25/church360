@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../core/design/community_design.dart';
+import '../../../../../core/widgets/pearl_fab.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../../domain/models/visitor_recommendation.dart';
 import '../providers/raizes_dashboard_provider.dart';
@@ -160,19 +161,11 @@ class _RecommendationsContentState
           onPressed: () => context.pop(),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _generating ? null : _generateRecommendations,
-        icon: _generating
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-            : const Icon(Icons.auto_awesome),
-        label: Text(_generating ? 'Gerando...' : 'Gerar sugestões'),
+      floatingActionButton: PearlFab(
+        onPressed: _generateRecommendations,
+        icon: Icons.auto_awesome,
+        label: _generating ? 'Gerando...' : 'Gerar sugestões',
+        loading: _generating,
       ),
       body: Column(
         children: [

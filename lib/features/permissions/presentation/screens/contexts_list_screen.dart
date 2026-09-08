@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../domain/models/role_context.dart';
 import '../../providers/permissions_providers.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 
 /// Tela de Lista de Contextos
 /// Exibe todos os contextos criados com opções de busca, filtro e CRUD
@@ -166,10 +167,10 @@ class _ContextsListScreenState extends ConsumerState<ContextsListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: PearlFab(
         onPressed: () => context.push('/permissions/context-form'),
-        icon: const Icon(Icons.add),
-        label: const Text('Novo Contexto'),
+        icon: Icons.add,
+        label: 'Novo Contexto',
       ),
     );
   }

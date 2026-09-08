@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/utils/share_link_utils.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 import '../providers/groups_provider.dart';
 import '../providers/meetings_provider.dart';
 import '../../domain/models/group.dart';
@@ -468,10 +469,10 @@ class _MembersTab extends ConsumerWidget {
       floatingActionButton: PermissionGate(
         permission: 'groups.manage_members',
         showLoading: false,
-        child: FloatingActionButton.extended(
+        child: PearlFab(
           onPressed: () => _showAddMemberDialog(context, ref, groupId),
-          icon: const Icon(Icons.person_add),
-          label: const Text('Adicionar Membro'),
+          icon: Icons.person_add,
+          label: 'Adicionar Membro',
         ),
       ),
     );
@@ -821,11 +822,11 @@ class _MeetingsTab extends ConsumerWidget {
               child: PermissionGate(
                 permission: 'groups.manage_meetings',
                 showLoading: false,
-                child: FloatingActionButton(
+                child: PearlFab(
                   onPressed: () {
                     context.push('/groups/$groupId/meetings/new');
                   },
-                  child: const Icon(Icons.add),
+                  icon: Icons.add,
                 ),
               ),
             ),

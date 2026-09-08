@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -8,11 +9,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../constants/app_branding.dart';
 import '../widgets/church_image.dart';
 import '../widgets/app_logo.dart';
-import '../widgets/media/video_play_overlay.dart';
 import '../../features/permissions/presentation/widgets/dashboard_access_gate.dart';
 
 import '../../features/bible/presentation/screens/bible_books_screen.dart';
@@ -22,6 +21,7 @@ import '../../features/events/presentation/screens/event_detail_screen.dart';
 import '../../features/notifications/presentation/widgets/notification_badge.dart';
 import '../../features/events/presentation/providers/events_provider.dart';
 import '../../features/devotionals/presentation/providers/devotional_provider.dart';
+import '../../features/devotionals/domain/models/devotional.dart';
 import '../../features/courses/presentation/providers/courses_provider.dart';
 import '../../features/church_info/domain/models/church_info.dart';
 import '../../features/church_info/presentation/providers/church_info_provider.dart';
@@ -30,6 +30,8 @@ import '../../features/members/presentation/providers/members_provider.dart';
 import '../../features/study_groups/domain/models/study_group.dart';
 import '../../features/study_groups/presentation/providers/study_group_provider.dart';
 import '../../features/contribution/presentation/screens/contribution_info_screen.dart';
+import '../widgets/pearl_button.dart';
+import '../widgets/glass_card.dart';
 import '../../features/church_selector/presentation/providers/church_selector_provider.dart';
 import '../design/community_design.dart';
 import '../widgets/navigation/custom_bottom_nav_bar.dart';
@@ -187,9 +189,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Sair do aplicativo?'),
-            content: Text(
-              'Deseja realmente sair do ${AppBranding.appName}?',
-            ),
+            content: Text('Deseja realmente sair do ${AppBranding.appName}?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -233,18 +233,13 @@ const double _homeCardRadius = 16;
 const double _homeCardPadding = 16;
 const double _homeSectionGap = 12;
 
-BoxDecoration _homeCardDecoration(
-  ColorScheme cs, {
-  bool hovered = false,
-}) {
+BoxDecoration _homeCardDecoration(ColorScheme cs, {bool hovered = false}) {
   final isLight = cs.brightness == Brightness.light;
   return CommunityDesign.overlayDecoration(cs, hovered: hovered).copyWith(
     color: isLight ? Colors.white : cs.surface,
     borderRadius: BorderRadius.circular(_homeCardRadius),
     border: isLight
-        ? Border.all(
-            color: cs.outline.withValues(alpha: 0.08),
-          )
+        ? Border.all(color: cs.outline.withValues(alpha: 0.08))
         : null,
   );
 }
@@ -258,10 +253,7 @@ class _NavLogoIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return Opacity(
       opacity: isActive ? 1 : 0.65,
-      child: const AppLogo(
-        width: 22,
-        height: 22,
-      ),
+      child: const AppLogo(width: 22, height: 22),
     );
   }
 }
@@ -307,11 +299,7 @@ class _NavAvatarIcon extends StatelessWidget {
               )
             : Container(
                 color: cs.surfaceContainerHighest,
-                child: Icon(
-                  Icons.person,
-                  size: 16,
-                  color: cs.onSurfaceVariant,
-                ),
+                child: Icon(Icons.person, size: 16, color: cs.onSurfaceVariant),
               ),
       ),
     );
@@ -331,8 +319,10 @@ class _DashboardTab extends ConsumerWidget {
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-            child: Padding(
-            padding: const EdgeInsets.only(bottom: 120), // Espaço para Navigation Bar e FAB/bolha
+          child: Padding(
+            padding: const EdgeInsets.only(
+              bottom: 120,
+            ), // Espaço para Navigation Bar e FAB/bolha
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -344,18 +334,24 @@ class _DashboardTab extends ConsumerWidget {
 
                 // CTA: Comunidade
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: _homePagePadding),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: _homePagePadding,
+                  ),
                   child: const _CommunityCtaCard(),
                 ),
 
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: _homePagePadding),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: _homePagePadding,
+                  ),
                   child: _HomeSocialShortcuts(info: churchInfoAsync),
                 ),
 
                 // Card: Para sua edificação
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: _homePagePadding),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: _homePagePadding,
+                  ),
                   child: const _EdificationCard(),
                 ),
 
@@ -363,7 +359,9 @@ class _DashboardTab extends ConsumerWidget {
 
                 // Cursos
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: _homePagePadding),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: _homePagePadding,
+                  ),
                   child: const _HomeCoursesSection(),
                 ),
 
@@ -420,9 +418,9 @@ class _HomeBannerSliderState extends ConsumerState<_HomeBannerSlider> {
 
     if (linkType == 'event') {
       if (linkedId.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Evento não configurado')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Evento não configurado')));
         return;
       }
       context.push('/events/$linkedId');
@@ -442,9 +440,9 @@ class _HomeBannerSliderState extends ConsumerState<_HomeBannerSlider> {
 
     if (linkType == 'course') {
       if (linkedId.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Curso não configurado')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Curso não configurado')));
         return;
       }
       context.push('/courses/$linkedId/view');
@@ -453,9 +451,9 @@ class _HomeBannerSliderState extends ConsumerState<_HomeBannerSlider> {
 
     if (linkType == 'external' || linkUrl.isNotEmpty) {
       if (linkUrl.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Link não configurado')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Link não configurado')));
         return;
       }
       await _openExternalLink(context, linkUrl);
@@ -495,8 +493,14 @@ class _HomeBannerSliderState extends ConsumerState<_HomeBannerSlider> {
   @override
   Widget build(BuildContext context) {
     final bannersAsync = ref.watch(activeBannersStreamProvider);
-    final width = MediaQuery.sizeOf(context).width - (_homePagePadding * 2);
-    final height = (width * 9 / 16).clamp(170, 200).toDouble();
+    final rawWidth = MediaQuery.sizeOf(context).width - (_homePagePadding * 2);
+    // Trava a largura de REFERÊNCIA do banner numa faixa de celular mesmo em
+    // janelas largas (web/desktop): sem isso a altura ficava presa em ~200
+    // enquanto a largura crescia livre com a tela, esmagando a proporção
+    // 16:9 real da imagem e cortando o topo/rodapé do design do banner (foi
+    // isso que aconteceu no teste em janela larga do Chrome).
+    final width = rawWidth.clamp(0.0, 480.0);
+    final height = width * 9 / 16;
 
     Widget buildCarousel(List<_HomeBannerSlideItem> slides) {
       if (_totalPages != slides.length) {
@@ -506,53 +510,58 @@ class _HomeBannerSliderState extends ConsumerState<_HomeBannerSlider> {
 
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: _homePagePadding),
-        child: SizedBox(
-          height: height,
-          child: Stack(
-            children: [
-              PageView.builder(
-                controller: _pageController,
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentPage = index;
-                  });
-                },
-                itemCount: slides.length,
-                itemBuilder: (context, index) {
-                  final slide = slides[index];
-                  return _HomeBannerSlideCard(
-                    title: slide.title,
-                    subtitle: slide.subtitle,
-                    imageUrl: slide.imageUrl,
-                    onTap: slide.hasAction ? () => _handleBannerTap(context, slide) : null,
-                  );
-                },
-              ),
-              if (slides.length > 1)
-                Positioned(
-                  bottom: 12,
-                  left: 0,
-                  right: 0,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      slides.length,
-                      (index) => AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: _currentPage == index ? 20 : 8,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          color: _currentPage == index
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.5),
+        child: Center(
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: Stack(
+              children: [
+                PageView.builder(
+                  controller: _pageController,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentPage = index;
+                    });
+                  },
+                  itemCount: slides.length,
+                  itemBuilder: (context, index) {
+                    final slide = slides[index];
+                    return _HomeBannerSlideCard(
+                      title: slide.title,
+                      subtitle: slide.subtitle,
+                      imageUrl: slide.imageUrl,
+                      onTap: slide.hasAction
+                          ? () => _handleBannerTap(context, slide)
+                          : null,
+                    );
+                  },
+                ),
+                if (slides.length > 1)
+                  Positioned(
+                    bottom: 12,
+                    left: 0,
+                    right: 0,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        slides.length,
+                        (index) => AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: _currentPage == index ? 20 : 8,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            color: _currentPage == index
+                                ? Colors.white
+                                : Colors.white.withValues(alpha: 0.5),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       );
@@ -560,14 +569,17 @@ class _HomeBannerSliderState extends ConsumerState<_HomeBannerSlider> {
 
     return bannersAsync.when(
       data: (banners) {
-        final sorted = [...banners]..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+        final sorted = [...banners]
+          ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
         final slides = sorted.isEmpty
             ? _fallbackBannerSlides
             : sorted.map((banner) {
                 final subtitle = banner.description?.trim();
                 return _HomeBannerSlideItem(
                   title: banner.title,
-                  subtitle: subtitle != null && subtitle.isNotEmpty ? subtitle : null,
+                  subtitle: subtitle != null && subtitle.isNotEmpty
+                      ? subtitle
+                      : null,
                   imageUrl: banner.imageUrl,
                   linkType: banner.linkType,
                   linkUrl: banner.linkUrl,
@@ -605,7 +617,8 @@ class _HomeBannerSlideItem {
     final url = (linkUrl ?? '').trim();
     final id = (linkedId ?? '').trim();
     if (lt == 'external') return url.isNotEmpty;
-    if (lt == 'event' || lt == 'reading_plan' || lt == 'course') return id.isNotEmpty;
+    if (lt == 'event' || lt == 'reading_plan' || lt == 'course')
+      return id.isNotEmpty;
     return url.isNotEmpty;
   }
 }
@@ -731,133 +744,248 @@ class _HomeBannerSlideCard extends StatelessWidget {
 class _CommunityCtaCard extends StatelessWidget {
   const _CommunityCtaCard();
 
+  // CTA "Contribua" flutuante: o PearlButton fica ancorado no canto
+  // inferior direito do card, parte dentro / parte fora — não participa
+  // do fluxo (Stack + Positioned, não Row), então não empurra o conteúdo
+  // nem aumenta a altura do card.
+  static const _ctaSize = 48.0;
+  static const _ctaColor = Color(0xFF1E7A3E);
+
+  // Quanto do botão sai do card, pra baixo e pra direita.
+  static const _ctaOutX = 12.0;
+  static const _ctaOutY = 20.0;
+
+  // Folga do recuo além do raio do próprio botão — é essa folga que faz o
+  // card parecer que "abraça" o botão em vez de só encostar nele.
+  static const _notchMargin = 16.0;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isLight = cs.brightness == Brightness.light;
+    final borderColor = isLight
+        ? Colors.black.withValues(alpha: 0.08)
+        : Colors.white.withValues(alpha: 0.10);
     void openContribution() {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => const ContributionInfoScreen(),
-        ),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const ContributionInfoScreen()));
     }
-    return Container(
-      decoration: _homeCardDecoration(cs),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(_homeCardRadius),
-          onTap: () => context.push('/community'),
-          child: Padding(
-            padding: const EdgeInsets.all(_homeCardPadding),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: cs.primary.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.groups_outlined,
-                          color: cs.primary,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Comunidade',
-                              style: CommunityDesign.titleStyle(context).copyWith(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Conecte-se, compartilhe pedidos de oração e testemunhos.',
-                              style: CommunityDesign.metaStyle(context).copyWith(
-                                color: cs.onSurfaceVariant,
-                                fontSize: 12,
-                                height: 1.3,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+
+    const ctaRadius = _ctaSize / 2;
+    const notchRadius = ctaRadius + _notchMargin;
+    // Centro do recuo relativo ao canto inferior direito do PRÓPRIO card
+    // (não uma posição absoluta) — assim funciona com a altura natural do
+    // card (definida pelo conteúdo), sem precisar travar uma altura fixa.
+    // É a mesma matemática do botão: ele fica _ctaOutX/_ctaOutY pra fora
+    // desse canto, então o centro dele fica (ctaOut - raio) a partir dele.
+    const notchOffsetFromBottomRight = Offset(
+      _ctaOutX - ctaRadius,
+      _ctaOutY - ctaRadius,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Card mais estreito que a largura disponível, reservando espaço à
+        // direita pro botão poder sair pra fora do card SEM sair dos
+        // limites do widget inteiro — sem essa reserva, o botão dependia
+        // de sobra de espaço do layout ao redor (não havia), e era isso
+        // que o cortava no app real.
+        final cardWidth = constraints.maxWidth - _ctaOutX - 6;
+
+        // Silhueta com recuo circular real ao redor do CTA: em vez de só
+        // arredondar o canto (o que não "abraça" o botão, só encosta nele),
+        // subtrai da forma um círculo centrado no botão e maior que ele —
+        // a borda do card literalmente desvia ao redor da forma do botão.
+        // Sombra, borda e área de toque (InkWell) seguem essa mesma
+        // silhueta.
+        final shape = _CornerHugBorder(
+          cardRadius: _homeCardRadius,
+          notchOffsetFromBottomRight: notchOffsetFromBottomRight,
+          notchRadius: notchRadius,
+          borderColor: borderColor,
+        );
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            SizedBox(
+              width: cardWidth,
+              child: ClipPath(
+                clipper: ShapeBorderClipper(shape: shape),
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                decoration: ShapeDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isLight
+                        ? [
+                            Colors.white.withValues(alpha: 0.80),
+                            Colors.white.withValues(alpha: 0.48),
+                          ]
+                        : [
+                            cs.surface.withValues(alpha: 0.72),
+                            cs.surface.withValues(alpha: 0.46),
                           ],
-                        ),
+                  ),
+                  shape: shape,
+                  shadows: _homeCardDecoration(cs).boxShadow ?? const [],
+                ),
+                child: Material(
+                  type: MaterialType.transparency,
+                  shape: shape,
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    customBorder: shape,
+                    onTap: () => context.push('/community'),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        _homeCardPadding,
+                        _homeCardPadding,
+                        _homeCardPadding + notchRadius * 0.7,
+                        _homeCardPadding,
                       ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        Icons.chevron_right,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: cs.primary.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.groups_outlined,
+                              color: cs.primary,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Comunidade',
+                                  style: CommunityDesign.titleStyle(context)
+                                      .copyWith(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Conecte-se, compartilhe pedidos de oração e testemunhos.',
+                                  style: CommunityDesign.metaStyle(context)
+                                      .copyWith(
+                                        color: cs.onSurfaceVariant,
+                                        fontSize: 12,
+                                        height: 1.3,
+                                      ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                _ContributePillButton(onTap: openContribution),
-              ],
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
+            // Mesmo PearlButton aprovado (gradientes/brilho/hover/active
+            // intactos) — ancorado no canto inferior direito do card (que
+            // agora tem largura reduzida acima, então "sair pra fora" aqui
+            // continua dentro dos limites do widget inteiro), encaixado
+            // exatamente no recuo desenhado pelo shape.
+            Positioned(
+              right: -_ctaOutX,
+              bottom: -_ctaOutY,
+              child: PearlButton(
+                color: _ctaColor,
+                width: _ctaSize,
+                height: _ctaSize,
+                borderRadius: BorderRadius.circular(_ctaSize / 2),
+                dark: !isLight,
+                moldingEnabled: true,
+                lightTintBoost: 0.22,
+                onTap: openContribution,
+                child: const Icon(
+                  Icons.volunteer_activism,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
-class _ContributePillButton extends StatelessWidget {
-  final VoidCallback onTap;
+/// Silhueta do card com um recuo circular real ao redor do CTA — em vez de
+/// só arredondar o canto, subtrai da forma um círculo centrado no botão
+/// (maior que ele, com folga), então a borda literalmente desvia ao redor
+/// da forma do botão. Elevação/sombra e o ripple do InkWell seguem essa
+/// mesma silhueta (via [ShapeDecoration.shape] / [InkWell.customBorder]).
+class _CornerHugBorder extends ShapeBorder {
+  final double cardRadius;
+  // Relativo ao canto inferior direito do rect (não uma posição absoluta) —
+  // funciona com qualquer altura de card, já que essa altura só é
+  // conhecida em tempo de paint (o card cresce com o conteúdo).
+  final Offset notchOffsetFromBottomRight;
+  final double notchRadius;
+  final Color borderColor;
 
-  const _ContributePillButton({required this.onTap});
+  const _CornerHugBorder({
+    required this.cardRadius,
+    required this.notchOffsetFromBottomRight,
+    required this.notchRadius,
+    required this.borderColor,
+  });
 
   @override
-  Widget build(BuildContext context) {
-    const bgColor = Color(0xFFE7F6EC);
-    const fgColor = Color(0xFF1E7A3E);
+  EdgeInsetsGeometry get dimensions => EdgeInsets.zero;
 
-    return Material(
-      color: bgColor,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        splashColor: fgColor.withValues(alpha: 0.12),
-        hoverColor: fgColor.withValues(alpha: 0.08),
-        child: SizedBox(
-          width: 84,
-          height: 84,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.volunteer_activism,
-                size: 20,
-                color: fgColor,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Contribua',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: fgColor,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ],
-          ),
+  @override
+  Path getInnerPath(Rect rect, {ui.TextDirection? textDirection}) =>
+      getOuterPath(rect, textDirection: textDirection);
+
+  @override
+  Path getOuterPath(Rect rect, {ui.TextDirection? textDirection}) {
+    final base = Path()
+      ..addRRect(RRect.fromRectAndRadius(rect, Radius.circular(cardRadius)));
+    final notch = Path()
+      ..addOval(
+        Rect.fromCircle(
+          center: rect.bottomRight + notchOffsetFromBottomRight,
+          radius: notchRadius,
         ),
-      ),
+      );
+    return Path.combine(PathOperation.difference, base, notch);
+  }
+
+  @override
+  void paint(Canvas canvas, Rect rect, {ui.TextDirection? textDirection}) {
+    final path = getOuterPath(rect, textDirection: textDirection);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = borderColor,
     );
   }
+
+  @override
+  ShapeBorder scale(double t) => this;
 }
 
 class _HomeSocialShortcuts extends StatelessWidget {
@@ -884,7 +1012,10 @@ class _HomeSocialShortcuts extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: items
-                  .map((item) => Expanded(child: _SocialShortcutButton(item: item)))
+                  .map(
+                    (item) =>
+                        Expanded(child: _SocialShortcutButton(item: item)),
+                  )
                   .toList(),
             ),
             const SizedBox(height: _homeSectionGap),
@@ -1060,7 +1191,9 @@ class _SocialShortcutButton extends StatelessWidget {
       if (digits.startsWith('00')) {
         digits = digits.substring(2);
       }
-      if (digits.isNotEmpty && digits.length <= 11 && !digits.startsWith('55')) {
+      if (digits.isNotEmpty &&
+          digits.length <= 11 &&
+          !digits.startsWith('55')) {
         digits = '55$digits';
       }
       if (digits.isNotEmpty) {
@@ -1109,19 +1242,14 @@ class _SocialShortcutButton extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Icon(
-                  item.icon,
-                  color: Colors.white,
-                  size: 22,
-                ),
+                child: Icon(item.icon, color: Colors.white, size: 22),
               ),
               const SizedBox(height: 8),
               Text(
                 item.label,
-                style: CommunityDesign.metaStyle(context).copyWith(
-                  fontSize: 12,
-                  color: cs.onSurfaceVariant,
-                ),
+                style: CommunityDesign.metaStyle(
+                  context,
+                ).copyWith(fontSize: 12, color: cs.onSurfaceVariant),
               ),
             ],
           ),
@@ -1231,7 +1359,10 @@ class _HomeSectionCard extends StatelessWidget {
                   onTap: onAction,
                   borderRadius: BorderRadius.circular(999),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 4,
+                    ),
                     child: Text(
                       actionLabel!,
                       style: TextStyle(
@@ -1379,9 +1510,11 @@ class _MoreTab extends ConsumerWidget {
                     children: [
                       Text(
                         displayName, // Apelido ou Primeiro Nome em destaque
-                        style: CommunityDesign.titleStyle(
-                          context,
-                        ).copyWith(fontSize: 16, height: 1.1, fontWeight: FontWeight.w700),
+                        style: CommunityDesign.titleStyle(context).copyWith(
+                          fontSize: 16,
+                          height: 1.1,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       Text(
                         fullName, // Nome completo menor
@@ -1433,7 +1566,10 @@ class _MoreTab extends ConsumerWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: _homePagePadding, vertical: 20),
+        padding: const EdgeInsets.symmetric(
+          horizontal: _homePagePadding,
+          vertical: 20,
+        ),
         children: [
           // VISÃO GERAL
           _buildSectionTitle(context, 'VISÃO GERAL'),
@@ -1523,9 +1659,7 @@ class _MoreTab extends ConsumerWidget {
           Container(
             decoration: CommunityDesign.overlayDecoration(
               Theme.of(context).colorScheme,
-            ).copyWith(
-              borderRadius: BorderRadius.circular(_homeCardRadius),
-            ),
+            ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
             child: ListTile(
               onTap: () async {
                 final confirm = await showDialog<bool>(
@@ -1617,19 +1751,16 @@ class _MoreTab extends ConsumerWidget {
     final itemColor = color ?? cs.primary;
 
     return Container(
-      decoration: CommunityDesign.overlayDecoration(cs).copyWith(
-        borderRadius: BorderRadius.circular(_homeCardRadius),
-      ),
+      decoration: CommunityDesign.overlayDecoration(
+        cs,
+      ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(_homeCardRadius),
           onTap: () => context.push(route),
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
                 // Ícone Colorido
@@ -1688,7 +1819,12 @@ class _ChurchHomeTab extends ConsumerWidget {
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(_homePagePadding, 16, _homePagePadding, 120),
+          padding: const EdgeInsets.fromLTRB(
+            _homePagePadding,
+            16,
+            _homePagePadding,
+            120,
+          ),
           children: [
             _ChurchIdentityHeader(info: churchInfoAsync),
             const SizedBox(height: _homeSectionGap),
@@ -1699,8 +1835,9 @@ class _ChurchHomeTab extends ConsumerWidget {
             const SizedBox(height: 12),
             eventsAsync.when(
               data: (events) {
-                final todayEvents =
-                    events.where((event) => _isSameDay(event.startDate, today)).toList();
+                final todayEvents = events
+                    .where((event) => _isSameDay(event.startDate, today))
+                    .toList();
 
                 if (todayEvents.isEmpty) {
                   return _ChurchEmptyState(
@@ -1718,9 +1855,7 @@ class _ChurchHomeTab extends ConsumerWidget {
                   }).toList(),
                 );
               },
-              loading: () => _ChurchLoadingCard(
-                label: 'Carregando eventos',
-              ),
+              loading: () => _ChurchLoadingCard(label: 'Carregando eventos'),
               error: (_, __) => _ChurchEmptyState(
                 icon: Icons.warning_amber,
                 message: 'Não foi possível carregar os eventos.',
@@ -1743,7 +1878,8 @@ class _ChurchHomeTab extends ConsumerWidget {
                   );
                 }
 
-                final sorted = [...events]..sort((a, b) => a.startDate.compareTo(b.startDate));
+                final sorted = [...events]
+                  ..sort((a, b) => a.startDate.compareTo(b.startDate));
 
                 return ListView.separated(
                   shrinkWrap: true,
@@ -1755,9 +1891,7 @@ class _ChurchHomeTab extends ConsumerWidget {
                   },
                 );
               },
-              loading: () => _ChurchLoadingCard(
-                label: 'Carregando notícias',
-              ),
+              loading: () => _ChurchLoadingCard(label: 'Carregando notícias'),
               error: (_, __) => _ChurchEmptyState(
                 icon: Icons.warning_amber,
                 message: 'Não foi possível carregar as notícias.',
@@ -1838,10 +1972,9 @@ class _ChurchIdentityHeader extends StatelessWidget {
                 children: [
                   Text(
                     showSubtitle ? headline : name,
-                    style: CommunityDesign.titleStyle(context).copyWith(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(fontSize: 18, fontWeight: FontWeight.w700),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1849,9 +1982,9 @@ class _ChurchIdentityHeader extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       name,
-                      style: CommunityDesign.metaStyle(context).copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
+                      style: CommunityDesign.metaStyle(
+                        context,
+                      ).copyWith(color: cs.onSurfaceVariant),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1921,10 +2054,9 @@ class _ChurchIdentityHeader extends StatelessWidget {
           Expanded(
             child: Text(
               'Igreja',
-              style: CommunityDesign.titleStyle(context).copyWith(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontSize: 18, fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -1937,10 +2069,7 @@ class _ChurchDateHeader extends StatelessWidget {
   final DateTime date;
   final String subtitle;
 
-  const _ChurchDateHeader({
-    required this.date,
-    required this.subtitle,
-  });
+  const _ChurchDateHeader({required this.date, required this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -1959,17 +2088,13 @@ class _ChurchDateHeader extends StatelessWidget {
           decoration: BoxDecoration(
             color: cs.surfaceContainerHighest.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(_homeCardRadius),
-            border: Border.all(
-              color: cs.outlineVariant.withValues(alpha: 0.4),
-            ),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
           ),
           child: Text(
             day,
-            style: CommunityDesign.titleStyle(context).copyWith(
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-              height: 1.0,
-            ),
+            style: CommunityDesign.titleStyle(
+              context,
+            ).copyWith(fontSize: 32, fontWeight: FontWeight.w800, height: 1.0),
           ),
         ),
         const SizedBox(width: 12),
@@ -1979,24 +2104,23 @@ class _ChurchDateHeader extends StatelessWidget {
             children: [
               Text(
                 month,
-                style: CommunityDesign.titleStyle(context).copyWith(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: CommunityDesign.titleStyle(
+                  context,
+                ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 2),
               Text(
                 'Hoje, $weekday',
-                style: CommunityDesign.metaStyle(context).copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
+                style: CommunityDesign.metaStyle(
+                  context,
+                ).copyWith(color: cs.onSurfaceVariant),
               ),
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: CommunityDesign.metaStyle(context).copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
+                style: CommunityDesign.metaStyle(
+                  context,
+                ).copyWith(color: cs.onSurfaceVariant),
               ),
             ],
           ),
@@ -2044,17 +2168,16 @@ class _ChurchSectionHeader extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: CommunityDesign.titleStyle(context).copyWith(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: CommunityDesign.titleStyle(
+                  context,
+                ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: CommunityDesign.metaStyle(context).copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
+                style: CommunityDesign.metaStyle(
+                  context,
+                ).copyWith(color: cs.onSurfaceVariant),
               ),
             ],
           ),
@@ -2073,12 +2196,14 @@ class _ChurchAgendaItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final start = DateFormat('HH:mm', 'pt_BR').format(event.startDate);
-    final end = event.endDate != null ? DateFormat('HH:mm', 'pt_BR').format(event.endDate!) : null;
+    final end = event.endDate != null
+        ? DateFormat('HH:mm', 'pt_BR').format(event.endDate!)
+        : null;
 
     return Container(
-      decoration: CommunityDesign.overlayDecoration(cs).copyWith(
-        borderRadius: BorderRadius.circular(_homeCardRadius),
-      ),
+      decoration: CommunityDesign.overlayDecoration(
+        cs,
+      ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
       padding: const EdgeInsets.all(12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2090,17 +2215,16 @@ class _ChurchAgendaItem extends StatelessWidget {
               children: [
                 Text(
                   start,
-                  style: CommunityDesign.titleStyle(context).copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w700, fontSize: 14),
                 ),
                 if (end != null)
                   Text(
                     end,
-                    style: CommunityDesign.metaStyle(context).copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
+                    style: CommunityDesign.metaStyle(
+                      context,
+                    ).copyWith(color: cs.onSurfaceVariant),
                   ),
               ],
             ),
@@ -2120,19 +2244,17 @@ class _ChurchAgendaItem extends StatelessWidget {
               children: [
                 Text(
                   event.name,
-                  style: CommunityDesign.titleStyle(context).copyWith(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontSize: 14, fontWeight: FontWeight.w700),
                 ),
                 if (event.location != null && event.location!.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
                     event.location!,
-                    style: CommunityDesign.metaStyle(context).copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontSize: 12,
-                    ),
+                    style: CommunityDesign.metaStyle(
+                      context,
+                    ).copyWith(color: cs.onSurfaceVariant, fontSize: 12),
                   ),
                 ],
               ],
@@ -2155,9 +2277,9 @@ class _ChurchNewsCard extends StatelessWidget {
     final date = DateFormat('dd/MM/yyyy', 'pt_BR').format(event.startDate);
 
     return Container(
-      decoration: CommunityDesign.overlayDecoration(cs).copyWith(
-        borderRadius: BorderRadius.circular(_homeCardRadius),
-      ),
+      decoration: CommunityDesign.overlayDecoration(
+        cs,
+      ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -2207,21 +2329,20 @@ class _ChurchNewsCard extends StatelessWidget {
                     children: [
                       Text(
                         event.name,
-                        style: CommunityDesign.titleStyle(context).copyWith(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: CommunityDesign.titleStyle(
+                          context,
+                        ).copyWith(fontSize: 14, fontWeight: FontWeight.w700),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (event.description != null && event.description!.isNotEmpty) ...[
+                      if (event.description != null &&
+                          event.description!.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         Text(
                           event.description!,
-                          style: CommunityDesign.metaStyle(context).copyWith(
-                            color: cs.onSurfaceVariant,
-                            fontSize: 12,
-                          ),
+                          style: CommunityDesign.metaStyle(
+                            context,
+                          ).copyWith(color: cs.onSurfaceVariant, fontSize: 12),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -2270,9 +2391,9 @@ class _ChurchEmptyState extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: CommunityDesign.overlayDecoration(cs).copyWith(
-        borderRadius: BorderRadius.circular(_homeCardRadius),
-      ),
+      decoration: CommunityDesign.overlayDecoration(
+        cs,
+      ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
       child: Row(
         children: [
           Icon(icon, color: resolvedColor.withValues(alpha: 0.7)),
@@ -2280,9 +2401,9 @@ class _ChurchEmptyState extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: CommunityDesign.metaStyle(context).copyWith(
-                color: resolvedColor,
-              ),
+              style: CommunityDesign.metaStyle(
+                context,
+              ).copyWith(color: resolvedColor),
             ),
           ),
         ],
@@ -2301,9 +2422,9 @@ class _ChurchLoadingCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: CommunityDesign.overlayDecoration(cs).copyWith(
-        borderRadius: BorderRadius.circular(_homeCardRadius),
-      ),
+      decoration: CommunityDesign.overlayDecoration(
+        cs,
+      ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
       child: Row(
         children: [
           const SizedBox(
@@ -2313,10 +2434,7 @@ class _ChurchLoadingCard extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              label,
-              style: CommunityDesign.metaStyle(context),
-            ),
+            child: Text(label, style: CommunityDesign.metaStyle(context)),
           ),
         ],
       ),
@@ -2378,8 +2496,15 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
     final cs = Theme.of(context).colorScheme;
 
     final bool isLoading =
-        memberAsync.isLoading || readingsAsync.isLoading || coursesAsync.isLoading || groupsAsync.isLoading;
-    final Object? anyError = memberAsync.error ?? readingsAsync.error ?? coursesAsync.error ?? groupsAsync.error;
+        memberAsync.isLoading ||
+        readingsAsync.isLoading ||
+        coursesAsync.isLoading ||
+        groupsAsync.isLoading;
+    final Object? anyError =
+        memberAsync.error ??
+        readingsAsync.error ??
+        coursesAsync.error ??
+        groupsAsync.error;
 
     final memberId = memberAsync.value?.id;
     final readings = readingsAsync.value ?? const <Map<String, dynamic>>[];
@@ -2395,7 +2520,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
           )
         : const <_JourneyEvent>[];
 
-    final shown = events.length <= _visibleCount ? events : events.take(_visibleCount).toList(growable: false);
+    final shown = events.length <= _visibleCount
+        ? events
+        : events.take(_visibleCount).toList(growable: false);
     final canShowMore = events.length > shown.length;
 
     return Scaffold(
@@ -2430,10 +2557,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
             const SizedBox(width: 12),
             Text(
               'Minha Caminhada',
-              style: CommunityDesign.titleStyle(context).copyWith(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontSize: 18, fontWeight: FontWeight.w700),
             ),
           ],
         ),
@@ -2464,10 +2590,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
                 Expanded(
                   child: Text(
                     'Sua jornada espiritual vai ficando registrada aqui.',
-                    style: CommunityDesign.titleStyle(context).copyWith(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
@@ -2519,10 +2644,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
                   children: [
                     Text(
                       'Linha do tempo',
-                      style: CommunityDesign.titleStyle(context).copyWith(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
+                      style: CommunityDesign.titleStyle(
+                        context,
+                      ).copyWith(fontSize: 15, fontWeight: FontWeight.w800),
                     ),
                   ],
                 ),
@@ -2537,7 +2661,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Text(
                       'Não foi possível carregar sua caminhada agora.',
-                      style: CommunityDesign.metaStyle(context).copyWith(color: cs.error),
+                      style: CommunityDesign.metaStyle(
+                        context,
+                      ).copyWith(color: cs.error),
                     ),
                   )
                 else if (events.isEmpty)
@@ -2556,7 +2682,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
                     itemBuilder: (context, index) {
                       final event = shown[index];
                       final prev = index > 0 ? shown[index - 1] : null;
-                      final showMonthHeader = prev == null || !_sameMonth(event.when, prev.when);
+                      final showMonthHeader =
+                          prev == null || !_sameMonth(event.when, prev.when);
                       final isLast = index == shown.length - 1;
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2566,10 +2693,13 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
                               padding: const EdgeInsets.fromLTRB(4, 12, 0, 6),
                               child: Text(
                                 _formatMonthYear(event.when),
-                                style: CommunityDesign.metaStyle(context).copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: cs.onSurface.withValues(alpha: 0.72),
-                                ),
+                                style: CommunityDesign.metaStyle(context)
+                                    .copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: cs.onSurface.withValues(
+                                        alpha: 0.72,
+                                      ),
+                                    ),
                               ),
                             ),
                           _JourneyTimelineItem(
@@ -2592,13 +2722,17 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
                     child: OutlinedButton(
                       onPressed: () {
                         setState(() {
-                          _visibleCount = (_visibleCount + 25).clamp(25, events.length).toInt();
+                          _visibleCount = (_visibleCount + 25)
+                              .clamp(25, events.length)
+                              .toInt();
                         });
                       },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: const StadiumBorder(),
-                        side: BorderSide(color: cs.outline.withValues(alpha: 0.4)),
+                        side: BorderSide(
+                          color: cs.outline.withValues(alpha: 0.4),
+                        ),
                       ),
                       child: const Text(
                         'Ver toda minha jornada',
@@ -2616,11 +2750,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
   }
 }
 
-enum _JourneyEventKind {
-  devotional,
-  course,
-  studyGroup,
-}
+enum _JourneyEventKind { devotional, course, studyGroup }
 
 class _JourneyEvent {
   final DateTime when;
@@ -2650,7 +2780,9 @@ class _JourneyEvent {
     final items = <_JourneyEvent>[
       ...readings.map(_JourneyEvent._fromReading),
       ...enrollments.map(_JourneyEvent._fromEnrollment),
-      ...studyGroups.map((g) => _JourneyEvent._fromStudyGroup(g, memberId: memberId)),
+      ...studyGroups.map(
+        (g) => _JourneyEvent._fromStudyGroup(g, memberId: memberId),
+      ),
     ];
 
     items.sort((a, b) => b.when.compareTo(a.when));
@@ -2658,10 +2790,15 @@ class _JourneyEvent {
   }
 
   static _JourneyEvent _fromReading(Map<String, dynamic> row) {
-    final readAt = _parseDateTime(row['read_at']) ?? _parseDateTime(row['created_at']) ?? DateTime.now();
+    final readAt =
+        _parseDateTime(row['read_at']) ??
+        _parseDateTime(row['created_at']) ??
+        DateTime.now();
     final devotionalId = row['devotional_id']?.toString();
     final devotional = row['devotionals'];
-    final devotionalTitle = devotional is Map ? (devotional['title']?.toString().trim() ?? '') : '';
+    final devotionalTitle = devotional is Map
+        ? (devotional['title']?.toString().trim() ?? '')
+        : '';
     final title = devotionalTitle.isNotEmpty ? devotionalTitle : 'Devocional';
     final notes = row['notes']?.toString().trim() ?? '';
 
@@ -2680,11 +2817,14 @@ class _JourneyEvent {
     final enrolledAt = _parseDateTime(row['enrolled_at']) ?? DateTime.now();
     final course = row['course'];
     final courseId = row['course_id']?.toString();
-    final courseTitle = course is Map ? (course['title']?.toString().trim() ?? '') : '';
+    final courseTitle = course is Map
+        ? (course['title']?.toString().trim() ?? '')
+        : '';
     final status = row['status']?.toString().trim().toLowerCase();
     final progress = row['progress'];
     final endDate = course is Map ? _parseDateTime(course['end_date']) : null;
-    final isCompleted = status == 'completed' || (progress is num && progress >= 100);
+    final isCompleted =
+        status == 'completed' || (progress is num && progress >= 100);
 
     return _JourneyEvent(
       when: isCompleted ? (endDate ?? enrolledAt) : enrolledAt,
@@ -2697,7 +2837,10 @@ class _JourneyEvent {
     );
   }
 
-  static _JourneyEvent _fromStudyGroup(StudyGroup group, {required String? memberId}) {
+  static _JourneyEvent _fromStudyGroup(
+    StudyGroup group, {
+    required String? memberId,
+  }) {
     final when = group.startDate;
     final topic = (group.studyTopic ?? '').trim();
     final subtitle = topic.isNotEmpty ? '${group.name} • $topic' : group.name;
@@ -2752,7 +2895,9 @@ class _JourneyTimelineItem extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: markerBg,
                         shape: BoxShape.circle,
-                        border: Border.all(color: cs.primary.withValues(alpha: 0.20)),
+                        border: Border.all(
+                          color: cs.primary.withValues(alpha: 0.20),
+                        ),
                       ),
                       child: Icon(
                         event.isPinned ? Icons.push_pin_outlined : event.icon,
@@ -2775,9 +2920,13 @@ class _JourneyTimelineItem extends StatelessWidget {
               ),
               Expanded(
                 child: Container(
-                  decoration: CommunityDesign.overlayDecoration(cs, hovered: true).copyWith(
-                    borderRadius: BorderRadius.circular(_homeCardRadius),
-                  ),
+                  decoration:
+                      CommunityDesign.overlayDecoration(
+                        cs,
+                        hovered: true,
+                      ).copyWith(
+                        borderRadius: BorderRadius.circular(_homeCardRadius),
+                      ),
                   padding: const EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2788,16 +2937,19 @@ class _JourneyTimelineItem extends StatelessWidget {
                           Expanded(
                             child: Text(
                               event.title,
-                              style: CommunityDesign.titleStyle(context).copyWith(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: CommunityDesign.titleStyle(context)
+                                  .copyWith(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Text(
                             _formatDay(event.when),
-                            style: CommunityDesign.metaStyle(context).copyWith(fontSize: 12),
+                            style: CommunityDesign.metaStyle(
+                              context,
+                            ).copyWith(fontSize: 12),
                           ),
                         ],
                       ),
@@ -2833,7 +2985,8 @@ DateTime? _parseDateTime(dynamic v) {
   }
 }
 
-bool _sameMonth(DateTime a, DateTime b) => a.year == b.year && a.month == b.month;
+bool _sameMonth(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month;
 
 String _formatDay(DateTime dt) {
   final dd = dt.day.toString().padLeft(2, '0');
@@ -2907,10 +3060,9 @@ class _JourneyStatCard extends StatelessWidget {
                       children: [
                         Text(
                           value,
-                          style: CommunityDesign.titleStyle(context).copyWith(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
+                          style: CommunityDesign.titleStyle(
+                            context,
+                          ).copyWith(fontSize: 16, fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -2966,38 +3118,8 @@ class _EdificationCardState extends ConsumerState<_EdificationCard> {
         final recentDevotionals = devotionals.take(4).toList();
 
         final items = recentDevotionals.map((devotional) {
-          // Determinar qual imagem usar (imageUrl ou thumbnail do YouTube)
-          String? imageUrl = devotional.imageUrl;
-          if (imageUrl == null && devotional.hasYoutubeVideo) {
-            final videoId = YoutubePlayer.convertUrlToId(devotional.youtubeUrl!);
-            if (videoId != null) {
-              imageUrl = 'https://img.youtube.com/vi/$videoId/hqdefault.jpg';
-            }
-          }
-
-          return HomeContentCard(
-            thumbnail: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (imageUrl != null)
-                  ChurchImage(
-                    imageUrl: imageUrl,
-                    type: ChurchImageType.card,
-                  )
-                else
-                  Container(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    child: Icon(
-                      Icons.book,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 32,
-                    ),
-                  ),
-                if (devotional.hasYoutubeVideo)
-                  const VideoPlayOverlay(size: 44),
-              ],
-            ),
-            title: devotional.title,
+          return _EdificationDevotionalCard(
+            devotional: devotional,
             onTap: () {
               context.go('/devotionals/${devotional.id}');
             },
@@ -3020,6 +3142,94 @@ class _EdificationCardState extends ConsumerState<_EdificationCard> {
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+}
+
+/// Card de devocional na Home — família "devocionais complementares"
+/// (gradiente sólido, não vidro; ver `GlassCardDevotional`). Cor do
+/// gradiente segue a categoria do devocional (Domingo/Quarta/Especial).
+class _EdificationDevotionalCard extends StatelessWidget {
+  final Devotional devotional;
+  final VoidCallback onTap;
+
+  const _EdificationDevotionalCard({
+    required this.devotional,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCardDevotional(
+      gradientColors: GlassCardDevotional.gradientForCategory(
+        devotional.category,
+      ),
+      padding: const EdgeInsets.all(14),
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (devotional.hasYoutubeVideo)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 6, top: 1),
+                      child: Icon(
+                        Icons.play_circle_fill,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                  Expanded(
+                    child: Text(
+                      devotional.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                devotional.scriptureReference ?? devotional.categoryText,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+          Container(
+            margin: const EdgeInsets.only(top: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.92),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: const Text(
+              'Ler agora',
+              style: TextStyle(
+                color: Color(0xFF14161B),
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -3077,7 +3287,10 @@ class _StayInformedCardState extends ConsumerState<_StayInformedCard> {
                   top: 8,
                   right: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.primary,
                       borderRadius: BorderRadius.circular(12),

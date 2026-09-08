@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 import '../../domain/models/contribution.dart';
 import '../providers/financial_provider.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
@@ -75,7 +76,7 @@ class _FinancialScreenState extends ConsumerState<FinancialScreen>
                 ? 'financial.create_expense'
                 : 'financial.manage_goals',
         showLoading: false,
-        child: FloatingActionButton.extended(
+        child: PearlFab(
           onPressed: () {
             if (_tabController.index == 0) {
               // Criar contribuição
@@ -88,14 +89,12 @@ class _FinancialScreenState extends ConsumerState<FinancialScreen>
               context.push('/financial-goals/new');
             }
           },
-          icon: const Icon(Icons.add),
-          label: Text(
-            _tabController.index == 0
-                ? 'Nova Contribuição'
-                : _tabController.index == 1
-                    ? 'Nova Despesa'
-                    : 'Nova Meta',
-          ),
+          icon: Icons.add,
+          label: _tabController.index == 0
+              ? 'Nova Contribuição'
+              : _tabController.index == 1
+                  ? 'Nova Despesa'
+                  : 'Nova Meta',
         ),
       ),
     );

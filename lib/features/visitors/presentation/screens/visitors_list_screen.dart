@@ -6,6 +6,7 @@ import '../providers/visitors_provider.dart';
 import '../../domain/models/visitor.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/date_period_filter.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de visitantes
@@ -363,10 +364,10 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
       ),
       floatingActionButton: PermissionGate(
         permission: 'visitors.create',
-        child: FloatingActionButton.extended(
+        child: PearlFab(
           onPressed: () => context.push('/members/new?status=visitor&type=visitante'),
-          icon: const Icon(Icons.add),
-          label: const Text('Novo Visitante'),
+          icon: Icons.add,
+          label: 'Novo Visitante',
         ),
       ),
     );

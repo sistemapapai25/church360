@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/bible_provider.dart';
 import '../../domain/models/bible_book.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/glass_card.dart';
 
 /// Tela de Livros da Bíblia
 class BibleBooksScreen extends ConsumerStatefulWidget {
@@ -357,19 +358,13 @@ class _BookCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(CommunityDesign.radius),
-        onTap: () {
-          context.push('/bible/book/${book.id}');
-        },
-        child: Container(
-          decoration: CommunityDesign.feedCardDecoration(
-            Theme.of(context).colorScheme,
-          ),
-          padding: const EdgeInsets.all(14),
-          child: Column(
+    return GlassCard(
+      radius: CommunityDesign.radius,
+      padding: const EdgeInsets.all(14),
+      onTap: () {
+        context.push('/bible/book/${book.id}');
+      },
+      child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -416,8 +411,6 @@ class _BookCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 }

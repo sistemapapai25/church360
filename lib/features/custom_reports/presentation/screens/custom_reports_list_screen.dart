@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../domain/models/custom_report.dart';
 import '../providers/custom_report_providers.dart';
 import '../../../permissions/providers/permissions_providers.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 
 /// Tela de listagem de relatórios customizados
 class CustomReportsListScreen extends ConsumerStatefulWidget {
@@ -97,12 +98,12 @@ class _CustomReportsListScreenState extends ConsumerState<CustomReportsListScree
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: PearlFab(
         onPressed: () {
           context.push('/custom-reports/new');
         },
-        icon: const Icon(Icons.add),
-        label: const Text('Novo Relatório'),
+        icon: Icons.add,
+        label: 'Novo Relatório',
       ),
     );
   }

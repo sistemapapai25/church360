@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../constants/app_branding.dart';
 import '../errors/app_error_handler.dart';
 import '../widgets/dashboard_charts.dart';
+import '../widgets/pearl_fab.dart';
 import '../providers/dashboard_widget_provider.dart';
 import '../../features/notifications/presentation/widgets/notification_badge.dart';
 import '../../features/custom_reports/presentation/providers/custom_report_providers.dart';
@@ -81,13 +82,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ),
         // Hambúrguer do menu de Gestão: canto inferior direito, abre o
         // drawer pela direita.
-        floatingActionButton: FloatingActionButton(
-          heroTag: 'dashboard_management_menu',
+        floatingActionButton: PearlFab(
           onPressed: () {
             _scaffoldKey.currentState?.openEndDrawer();
           },
+          icon: Icons.menu,
+          color: const Color(0xFF334155),
           tooltip: 'Menu de Gestão',
-          child: const Icon(Icons.menu),
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         body: ref

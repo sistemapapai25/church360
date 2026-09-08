@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/courses_provider.dart';
 import '../../domain/models/course_lesson.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/pearl_fab.dart';
 
 /// Tela de gerenciamento de aulas de um curso
 class CourseLessonsScreen extends ConsumerStatefulWidget {
@@ -178,12 +179,12 @@ class _CourseLessonsScreenState extends ConsumerState<CourseLessonsScreen> {
         error: (error, stack) =>
             Center(child: Text('Erro ao carregar aulas: $error')),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: PearlFab(
         onPressed: () {
           context.push('/courses/${widget.courseId}/lessons/new');
         },
-        icon: const Icon(Icons.add),
-        label: const Text('Nova Aula'),
+        icon: Icons.add,
+        label: 'Nova Aula',
       ),
     );
   }
