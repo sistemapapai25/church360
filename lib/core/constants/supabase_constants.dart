@@ -32,6 +32,9 @@ class SupabaseConstants {
   static const String defaultTenantId = 'd5a1cbee-99f4-4c12-8bd8-55c8c22c2645';
   static const Set<String> migratedDefaultTenantIds = {
     'd8b6be47-f99f-45b8-a3f4-b7ca3cca9645',
+    // Igreja Demo (seed) — instalações antigas ficaram presas nesse tenant
+    // no SharedPreferences e nunca migraram para o defaultTenantId.
+    '27cd3a8a-e9dc-49b5-89ad-24bcd5824efe',
   };
   static String currentTenantId = defaultTenantId;
 
