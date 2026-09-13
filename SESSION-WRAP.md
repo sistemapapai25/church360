@@ -1,6 +1,6 @@
 # Session Wrap - Church360 Papai
 
-Wrap timestamp: 2026-09-13 04:11:11 -03:00 (America/Sao_Paulo)
+Wrap timestamp: 2026-09-13 04:34:56 -03:00 (America/Sao_Paulo)
 
 ## Project
 
@@ -30,6 +30,15 @@ infantilizado pelo uso de cores diferentes por item, glows intensos e pelo
 efeito Pearl como linguagem principal. A interface foi migrada para a direção
 “Soft Glass / Premium Blue / Aqua Tech”, com azul institucional, navy, aqua
 discreto, slate neutro e superfícies claras.
+
+Atualização final desta sessão: a primeira onda da revisão de ícones foi
+aplicada na navegação inferior. A barra agora usa uma linguagem outline única
+nos quatro itens com glifo (`home_outlined`, `menu_book_outlined`,
+`church_outlined` e `school_outlined`), com tamanho uniforme de 23px. A aba
+Mais continua usando o avatar real do usuário e seu fallback de pessoa, pois
+isso é mais semântico que substituir a personalização por um glifo genérico.
+Essa alteração ainda não foi publicada em produção; o próximo agente deve
+seguir o fluxo de branch → PR → merge em `main` → deploy → validação visual.
 
 ## Changes Completed
 
@@ -63,6 +72,17 @@ discreto, slate neutro e superfícies claras.
   flutuante de suporte para a mesma linguagem visual.
 - Removido o violeta da atmosfera da tela de login e convertido o botão
   primário “Entrar” para azul institucional com texto branco.
+- Padronizada a primeira onda dos ícones da navegação inferior em estilo
+  outline: Home (`home_outlined`), Bíblia (`menu_book_outlined`), Igreja
+  (`church_outlined`) e Cursos (`school_outlined`).
+- Removida a logo customizada como ícone da aba Igreja; a logo continua
+  reservada para identidade visual em cabeçalhos e áreas de marca.
+- Uniformizado o tamanho dos ícones simples da barra inferior para 23px;
+  mantidos o azul ativo `#2563EB`, o slate inativo `#64748B` e o avatar da aba
+  Mais.
+- A alteração está na branch `feat/icon-navigation-outline-premium-blue` e
+  precisa ser commitada, enviada para o GitHub, mesclada em `main` e
+  publicada antes de ser considerada concluída.
 - Commit local da alteração visual: `1db3f0e`.
 - Deploy manual de produção concluído na Vercel: `dpl_52GzJ1HtcxWZSLJkssi2n4HCWUch`.
 
@@ -120,6 +140,8 @@ Working:
 - Barra inferior publicada em produção com intensidade de repouso `1.0` para avaliação visual.
 - Tema, navegação inferior, FABs, CTA da Home, Comunidade e login atualizados
   para Soft Glass / Premium Blue.
+- A primeira onda de ícones outline está implementada localmente na navegação
+  inferior, mas ainda não está em produção.
 - Deployment `dpl_52GzJ1HtcxWZSLJkssi2n4HCWUch` está `READY` e aliasado para
   `church360-app.vercel.app` e `app.church360.com.br`.
 
@@ -133,6 +155,12 @@ Known gaps:
   telas com FAB estendido.
 - `app.church360.com.br` continua sem resolução DNS neste ambiente; usar o
   alias `https://church360-app.vercel.app` para a validação imediata.
+- O deploy da nova navegação outline está pendente. Não anunciar a alteração
+  como disponível em produção até confirmar PR mergeado, GitHub Actions/Vercel
+  concluído e HTTP 200 no alias de produção.
+- Após o deploy, validar visualmente Home em desktop e mobile, especialmente a
+  espessura percebida dos glifos, o estado ativo azul, o estado inativo slate,
+  o ícone Igreja e o avatar da aba Mais.
 
 ## Files Touched
 
@@ -206,11 +234,29 @@ Resultados:
 
 The `agent-browser` executable was unavailable in this environment, so final production verification used the deployed bundle and the successful GitHub Actions result rather than an automated browser screenshot.
 
+Verificações desta primeira onda de ícones:
+
+```powershell
+dart format lib/core/screens/home_screen.dart lib/core/widgets/navigation/custom_bottom_nav_bar.dart
+flutter analyze lib/core/screens/home_screen.dart lib/core/widgets/navigation/custom_bottom_nav_bar.dart lib/core/widgets/navigation/pearl_glass_dock.dart
+flutter test --no-pub test\\widget_test.dart test\\core\\navigation\\safe_redirect_test.dart
+git diff --check
+```
+
+Resultados:
+
+- `dart format`: 2 arquivos formatados; nenhuma alteração funcional adicional.
+- `flutter analyze`: sem erros novos; permaneceu apenas o aviso pré-existente
+  `curly_braces_in_flow_control_structures` em `home_screen.dart`.
+- Testes direcionados: 11 testes passaram.
+- `git diff --check`: sem erros de whitespace.
+- Não foi executado deploy nem validação visual em produção desta onda.
+
 ## Git State
 
 Branch:
 
-`main`
+`feat/icon-navigation-outline-premium-blue`
 
 Current implementation commit:
 
@@ -218,7 +264,8 @@ Current implementation commit:
 
 Current branch before this wrap update:
 
-`1db3f0e style: unifica interface em azul premium e soft glass`
+`main` em `0bb2217`; a branch desta sessão foi criada a partir desse estado e
+contém duas alterações de código ainda não commitadas no momento deste wrap.
 
 Previous relevant commits:
 
@@ -226,7 +273,8 @@ Previous relevant commits:
 - `1c8f330 fix(auth): ajusta proporcao da logo no login`
 - `3759636 feat(auth): redesenha tela de login web`
 
-This wrap update is the next intentional documentation commit after `8a79a6b`.
+Este wrap será commitado junto com a primeira onda de ícones. Depois do commit,
+atualizar esta seção com o hash final do commit e enviar a branch para o remoto.
 
 Os commits `f872cfe`, `1db3f0e` e `9b656e7` foram enviados ao GitHub; a branch
 `main` está sincronizada com `origin/main`. O deploy foi feito diretamente a
@@ -235,13 +283,18 @@ partir do build local, portanto produção foi atualizada antes do push.
 ## Next Steps For The Next Chat
 
 1. Start in `C:\Users\prber\projetos\AppsChurch360\Church360-Papai\app` and read this file completely before acting.
-2. Run `git status -sb` and confirm the branch is clean after the wrap commit.
-3. Reavaliar visualmente a nova linguagem em produção usando
-   `https://church360-app.vercel.app`: Home desktop/mobile, navegação inferior,
-   Comunidade, FABs e login.
-4. Se o resultado visual for aprovado, enviar os commits locais para `origin`
-   ou decidir conscientemente manter o deploy desacoplado do GitHub.
-5. Keep the Google Cloud and Supabase redirect values documented above when adding new environments. Never replace the current Google Web Client Secret with an older credential.
-6. For native release work, build and smoke-test the Android and iOS callback flow on physical or emulated devices.
-7. Investigate `app.church360.com.br` DNS only if the custom domain is required.
-8. Design backlog remains separate: PR #70 for CHU-356/M3 is still open and was not merged as part of this login work.
+2. Run `git status -sb` and confirm the branch/PR containing the outline icon
+   change is available; do not push directly to `main`.
+3. Finish the commit/push if still pending, open or inspect the PR, merge it into
+   `main` according to the project rule, and wait for GitHub Actions/Vercel.
+4. Confirm the production deployment succeeded and check
+   `https://church360-app.vercel.app/login` (HTTP 200) plus the deployed bundle.
+5. Reavaliar visualmente em produção Home desktop/mobile, principalmente a
+   navegação inferior: Home, Bíblia, Igreja, Cursos e Mais.
+6. Só depois do deploy considerar esta primeira onda concluída; então seguir
+   para a próxima cascata de ícones inline (`edit_outlined`, `delete_outline`,
+   `save_outlined`, `error_outline`, `chevron_right` etc.) conforme o inventário.
+7. Keep the Google Cloud and Supabase redirect values documented above when adding new environments. Never replace the current Google Web Client Secret with an older credential.
+8. For native release work, build and smoke-test the Android and iOS callback flow on physical or emulated devices.
+9. Investigate `app.church360.com.br` DNS only if the custom domain is required.
+10. Design backlog remains separate: PR #70 for CHU-356/M3 is still open and was not merged as part of this login work.

@@ -104,33 +104,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return [
       const PremiumNavItem(
         label: 'Home',
-        icon: Icons.home_rounded,
+        icon: Icons.home_outlined,
         activeColor: Color(0xFF2563EB),
       ),
-      PremiumNavItem(
+      const PremiumNavItem(
         label: 'Bíblia',
-        activeColor: const Color(0xFF2563EB),
-        iconBuilder: (context, isActive, activeColor) {
-          return Transform.translate(
-            offset: const Offset(0, -1),
-            child: Icon(
-              Icons.menu_book_rounded,
-              size: 26,
-              color: isActive ? activeColor : Colors.grey.shade500,
-            ),
-          );
-        },
+        activeColor: Color(0xFF2563EB),
+        icon: Icons.menu_book_outlined,
       ),
-      PremiumNavItem(
+      const PremiumNavItem(
         label: 'Igreja',
-        activeColor: const Color(0xFF2563EB),
-        iconBuilder: (context, isActive, activeColor) {
-          return _NavLogoIcon(isActive: isActive);
-        },
+        activeColor: Color(0xFF2563EB),
+        icon: Icons.church_outlined,
       ),
       const PremiumNavItem(
         label: 'Cursos',
-        icon: Icons.school_rounded,
+        icon: Icons.school_outlined,
         activeColor: Color(0xFF2563EB),
       ),
       PremiumNavItem(
@@ -244,20 +233,6 @@ BoxDecoration _homeCardDecoration(ColorScheme cs, {bool hovered = false}) {
         ? Border.all(color: cs.outline.withValues(alpha: 0.08))
         : null,
   );
-}
-
-class _NavLogoIcon extends StatelessWidget {
-  final bool isActive;
-
-  const _NavLogoIcon({required this.isActive});
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: isActive ? 1 : 0.65,
-      child: const AppLogo(width: 22, height: 22),
-    );
-  }
 }
 
 class _NavAvatarIcon extends StatelessWidget {
