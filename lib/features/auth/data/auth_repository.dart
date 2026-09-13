@@ -667,6 +667,101 @@ class AuthRepository {
     }
   }
 
+  /// Inicia o OAuth do Google.
+  ///
+  /// No web, volta para a rota de login da origem atual para que o GoRouter
+  /// consiga aplicar o destino preservado. Em plataformas nativas, o
+  /// Supabase devolve a sessão pelo deep link configurado no app.
+  Future<bool> signInWithGoogle({String? redirectPath}) async {
+    final redirectTo = _googleRedirectUrl(redirectPath);
+    try {
+      debugPrint('[Auth] signInWithGoogle start redirect=$redirectTo');
+      return await _supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: redirectTo,
+      );
+    } catch (e) {
+      debugPrint(
+        '[Auth] signInWithGoogle failed type=${e.runtimeType} error=$e',
+      );
+      rethrow;
+    }
+  }
+
+  String _googleRedirectUrl(String? redirectPath) {
+    if (!kIsWeb) return 'io.supabase.flutter://login-callback/';
+
+    final current = Uri.base;
+    final queryParameters = <String, String>{
+      if (redirectPath != null && redirectPath.isNotEmpty)
+        'redirect': redirectPath,
+    };
+
+    if (current.scheme == 'http' || current.scheme == 'https') {
+      return current
+          .replace(
+            path: '/login',
+            queryParameters: queryParameters,
+            fragment: '',
+          )
+          .toString();
+    }
+
+    return Uri.parse(SupabaseConstants.authRedirectUrl)
+        .replace(
+          path: '/login',
+          queryParameters: queryParameters,
+          fragment: '',
+        )
+        .toString();
+  }
+
+  /// Garante que uma sessão restaurada por OAuth tenha o mesmo preparo de
+  /// conta feito no login por senha, inclusive para usuários Google novos.
+  Future<void> ensureCurrentSessionAccount() async {
+    final user =
+        _supabase.auth.currentUser ?? _supabase.auth.currentSession?.user;
+    if (user == null) return;
+
+    final email = _resolveUserEmail(user) ?? '';
+    final metadataName = user.userMetadata?['full_name']?.toString().trim();
+    final preferredFullName = metadataName == null || metadataName.isEmpty
+        ? userFullNameFromEmail(email)
+        : metadataName;
+
+    try {
+      await SupabaseConstants.syncTenantFromServer(
+        _supabase,
+      ).timeout(const Duration(seconds: 8));
+    } catch (e) {
+      debugPrint('[Auth] OAuth syncTenantFromServer falhou/timeout: $e');
+    }
+
+    try {
+      await _supabase
+          .rpc(
+            'ensure_my_account',
+            params: {
+              '_tenant_id': SupabaseConstants.currentTenantId,
+              '_email': email,
+              '_full_name': preferredFullName,
+              '_nickname': preferredFullName,
+            },
+          )
+          .timeout(const Duration(seconds: 8));
+    } catch (e) {
+      debugPrint('[Auth] OAuth ensure_my_account falhou/timeout: $e');
+    }
+
+    try {
+      await ensureUserAccountForSession(
+        preferredFullName: preferredFullName,
+      ).timeout(const Duration(seconds: 8));
+    } catch (e) {
+      debugPrint('[Auth] OAuth ensureUserAccountForSession falhou/timeout: $e');
+    }
+  }
+
   String userFullNameFromEmail(String email) {
     final clean = email.trim();
     if (clean.isEmpty) return '';

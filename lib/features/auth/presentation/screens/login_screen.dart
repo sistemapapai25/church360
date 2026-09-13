@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -40,8 +42,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _isSendingReset = false;
+  bool _googleLoginInProgress = false;
   bool _emailFocused = false;
   bool _passwordFocused = false;
+
+  late final StreamSubscription<AuthState> _authSubscription;
 
   /// Destino preservado no `?redirect=` (LINK-03 / D-04), já saneado por
   /// [safeRedirect]. `null` quando não há parâmetro ou quando ele foi
@@ -58,6 +63,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     )..repeat(reverse: true);
     _emailFocusNode.addListener(_syncFocusState);
     _passwordFocusNode.addListener(_syncFocusState);
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
+      authState,
+    ) {
+      if (authState.event == AuthChangeEvent.signedIn &&
+          _googleLoginInProgress) {
+        unawaited(_finishGoogleLogin());
+      }
+    });
   }
 
   @override
@@ -116,6 +129,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       ..removeListener(_syncFocusState)
       ..dispose();
     _ambientController.dispose();
+    unawaited(_authSubscription.cancel());
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -257,6 +271,89 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     }
   }
 
+  Future<void> _handleGoogleLogin() async {
+    if (_isLoading) return;
+
+    ScaffoldMessenger.of(context).clearSnackBars();
+    setState(() {
+      _isLoading = true;
+      _googleLoginInProgress = true;
+    });
+
+    try {
+      final authRepo = ref.read(authRepositoryProvider);
+      _logLogin('attempt login provider=google');
+      final started = await authRepo.signInWithGoogle(
+        redirectPath: _redirectDestino,
+      );
+      if (!started) {
+        throw const AuthException('Não foi possível abrir o login com Google.');
+      }
+    } catch (e, stackTrace) {
+      _googleLoginInProgress = false;
+      _logLogin(
+        'google login failed type=${e.runtimeType}',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      if (mounted) {
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'auth.google_login',
+          fallbackMessage:
+              'Não foi possível entrar com o Google. Tente novamente.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _finishGoogleLogin() async {
+    if (!_googleLoginInProgress || !mounted) return;
+    _googleLoginInProgress = false;
+
+    try {
+      final authRepo = ref.read(authRepositoryProvider);
+      await authRepo.ensureCurrentSessionAccount();
+      final route = await ChurchSelectionGate.resolveNextRoute(
+        Supabase.instance.client,
+      );
+
+      final destino = _redirectDestino;
+      var proximaRota = route;
+      if (destino != null) {
+        if (route == '/home') {
+          proximaRota = destino;
+        } else if (route == '/select-church') {
+          proximaRota =
+              '/select-church?redirect=${Uri.encodeComponent(destino)}';
+        }
+      }
+
+      _logLogin('google login success, redirect to $proximaRota');
+      if (mounted) context.go(proximaRota);
+    } catch (e, stackTrace) {
+      _logLogin(
+        'google session setup failed type=${e.runtimeType}',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      if (mounted) {
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'auth.google_login',
+          fallbackMessage:
+              'A conta foi autenticada, mas não foi possível preparar seu acesso.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -298,6 +395,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                 _buildForgotPasswordButton(),
                                 const SizedBox(height: 18),
                                 _buildSubmitButton(),
+                                const SizedBox(height: 18),
+                                _buildGoogleDivider(),
+                                const SizedBox(height: 14),
+                                _buildGoogleButton(),
                                 const SizedBox(height: 22),
                                 _buildSignupLink(context),
                               ],
@@ -627,6 +728,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           child: const Text('Criar conta'),
         ),
       ],
+    );
+  }
+
+  Widget _buildGoogleDivider() {
+    final color = Colors.white.withValues(alpha: 0.16);
+    return Row(
+      children: [
+        Expanded(child: Divider(color: color, height: 1)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            'ou',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.50),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        Expanded(child: Divider(color: color, height: 1)),
+      ],
+    );
+  }
+
+  Widget _buildGoogleButton() {
+    return OutlinedButton.icon(
+      onPressed: _isLoading ? null : _handleGoogleLogin,
+      icon: const FaIcon(FontAwesomeIcons.google, size: 17),
+      label: Text(_isLoading ? 'Abrindo Google...' : 'Continuar com Google'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.white,
+        disabledForegroundColor: Colors.white.withValues(alpha: 0.42),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.24)),
+        backgroundColor: Colors.white.withValues(alpha: 0.055),
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        minimumSize: const Size(double.infinity, 52),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+      ),
     );
   }
 }

@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../constants/app_branding.dart';
 import '../navigation/church_selection_gate.dart';
 import '../widgets/app_logo.dart';
+import '../../features/auth/data/auth_repository.dart';
 
 /// Tela de Splash - Primeira tela do app
 /// Verifica autenticação e redireciona
@@ -43,6 +44,15 @@ class _SplashScreenState extends State<SplashScreen> {
       final session = supabase.auth.currentSession;
 
       if (session != null) {
+        final isGoogleSession = session.user.appMetadata['provider'] ==
+                'google' ||
+            session.user.identities?.any(
+                  (identity) => identity.provider == 'google',
+                ) ==
+                true;
+        if (isGoogleSession) {
+          await AuthRepository(supabase).ensureCurrentSessionAccount();
+        }
         final route = await ChurchSelectionGate.resolveNextRoute(supabase);
         if (mounted) context.go(route);
       } else {
@@ -74,7 +84,7 @@ class _SplashScreenState extends State<SplashScreen> {
               child: const AppLogo(),
             ),
             const SizedBox(height: 24),
-            
+
             // Nome do app
             Text(
               AppBranding.appName,
@@ -84,7 +94,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
             ),
             const SizedBox(height: 8),
-            
+
             // Subtítulo
             Text(
               AppBranding.organizationName,
@@ -96,7 +106,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
             ),
             const SizedBox(height: 48),
-            
+
             // Loading indicator
             CircularProgressIndicator(
               color: Theme.of(context).colorScheme.primary,
