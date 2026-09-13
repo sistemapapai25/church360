@@ -12,7 +12,7 @@ class FloatingAgentButton extends StatelessWidget {
     super.key,
     required this.icon,
     required this.onTap,
-    this.gradientColors = const [Color(0xff3F8CFF), Color(0xff6A4DFF)],
+    this.gradientColors = const [Color(0xff2563EB), Color(0xff1E3A8A)],
     this.size = 65,
     this.iconSize = 32,
   });
@@ -40,11 +40,7 @@ class FloatingAgentButton extends StatelessWidget {
           ],
         ),
         child: Center(
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: iconSize,
-          ),
+          child: Icon(icon, color: Colors.white, size: iconSize),
         ),
       ),
     );
@@ -62,7 +58,7 @@ class SupportButton extends StatelessWidget {
     return FloatingAgentButton(
       icon: Icons.support_agent,
       onTap: onTap ?? () {},
-      gradientColors: const [Color(0xff3F8CFF), Color(0xff6A4DFF)],
+      gradientColors: const [Color(0xff2563EB), Color(0xff1E3A8A)],
     );
   }
 }

@@ -105,11 +105,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const PremiumNavItem(
         label: 'Home',
         icon: Icons.home_rounded,
-        activeColor: Color(0xFF2F80ED),
+        activeColor: Color(0xFF2563EB),
       ),
       PremiumNavItem(
         label: 'Bíblia',
-        activeColor: const Color(0xFF9B51E0),
+        activeColor: const Color(0xFF2563EB),
         iconBuilder: (context, isActive, activeColor) {
           return Transform.translate(
             offset: const Offset(0, -1),
@@ -123,7 +123,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       PremiumNavItem(
         label: 'Igreja',
-        activeColor: const Color(0xFF1F3C88),
+        activeColor: const Color(0xFF2563EB),
         iconBuilder: (context, isActive, activeColor) {
           return _NavLogoIcon(isActive: isActive);
         },
@@ -131,11 +131,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const PremiumNavItem(
         label: 'Cursos',
         icon: Icons.school_rounded,
-        activeColor: Color(0xFF27AE60),
+        activeColor: Color(0xFF2563EB),
       ),
       PremiumNavItem(
         label: 'Mais',
-        activeColor: const Color(0xFFF2994A),
+        activeColor: const Color(0xFF2563EB),
         iconBuilder: (context, isActive, activeColor) {
           return _NavAvatarIcon(
             photoUrl: avatarUrl,
@@ -751,7 +751,7 @@ class _CommunityCtaCard extends StatelessWidget {
   // do fluxo (Stack + Positioned, não Row), então não empurra o conteúdo
   // nem aumenta a altura do card.
   static const _ctaSize = 48.0;
-  static const _ctaColor = Color(0xFF1E7A3E);
+  static const _ctaColor = Color(0xFF2563EB);
 
   // Quanto do botão sai do card, pra baixo e pra direita.
   static const _ctaOutX = 12.0;
@@ -824,118 +824,124 @@ class _CommunityCtaCard extends StatelessWidget {
               children: [
                 SizedBox(
                   width: cardWidth,
-              child: ClipPath(
-                clipper: ShapeBorderClipper(shape: shape),
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                  child: Container(
-                decoration: ShapeDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: isLight
-                        ? [
-                            Colors.white.withValues(alpha: 0.80),
-                            Colors.white.withValues(alpha: 0.48),
-                          ]
-                        : [
-                            cs.surface.withValues(alpha: 0.72),
-                            cs.surface.withValues(alpha: 0.46),
-                          ],
-                  ),
-                  shape: shape,
-                  shadows: _homeCardDecoration(cs).boxShadow ?? const [],
-                ),
-                child: Material(
-                  type: MaterialType.transparency,
-                  shape: shape,
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    customBorder: shape,
-                    onTap: () => context.push('/community'),
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        _homeCardPadding,
-                        _homeCardPadding,
-                        _homeCardPadding + notchRadius * 0.7,
-                        _homeCardPadding,
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: cs.primary.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.groups_outlined,
-                              color: cs.primary,
-                              size: 20,
+                  child: ClipPath(
+                    clipper: ShapeBorderClipper(shape: shape),
+                    child: BackdropFilter(
+                      filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                      child: Container(
+                        decoration: ShapeDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: isLight
+                                ? [
+                                    Colors.white.withValues(alpha: 0.80),
+                                    Colors.white.withValues(alpha: 0.48),
+                                  ]
+                                : [
+                                    cs.surface.withValues(alpha: 0.72),
+                                    cs.surface.withValues(alpha: 0.46),
+                                  ],
+                          ),
+                          shape: shape,
+                          shadows:
+                              _homeCardDecoration(cs).boxShadow ?? const [],
+                        ),
+                        child: Material(
+                          type: MaterialType.transparency,
+                          shape: shape,
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            customBorder: shape,
+                            onTap: () => context.push('/community'),
+                            child: Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                _homeCardPadding,
+                                _homeCardPadding,
+                                _homeCardPadding + notchRadius * 0.7,
+                                _homeCardPadding,
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: cs.primary.withValues(alpha: 0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.groups_outlined,
+                                      color: cs.primary,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Comunidade',
+                                          style:
+                                              CommunityDesign.titleStyle(
+                                                context,
+                                              ).copyWith(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Conecte-se, compartilhe pedidos de oração e testemunhos.',
+                                          style:
+                                              CommunityDesign.metaStyle(
+                                                context,
+                                              ).copyWith(
+                                                color: cs.onSurfaceVariant,
+                                                fontSize: 12,
+                                                height: 1.3,
+                                              ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Comunidade',
-                                  style: CommunityDesign.titleStyle(context)
-                                      .copyWith(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Conecte-se, compartilhe pedidos de oração e testemunhos.',
-                                  style: CommunityDesign.metaStyle(context)
-                                      .copyWith(
-                                        color: cs.onSurfaceVariant,
-                                        fontSize: 12,
-                                        height: 1.3,
-                                      ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ),
+                // Mesmo PearlButton aprovado (gradientes/brilho/hover/active
+                // intactos) — ancorado no canto inferior direito do card (que
+                // agora tem largura reduzida acima, então "sair pra fora" aqui
+                // continua dentro dos limites do widget inteiro), encaixado
+                // exatamente no recuo desenhado pelo shape.
+                Positioned(
+                  right: -_ctaOutX,
+                  bottom: -_ctaOutY,
+                  child: PearlButton(
+                    color: _ctaColor,
+                    width: _ctaSize,
+                    height: _ctaSize,
+                    borderRadius: BorderRadius.circular(_ctaSize / 2),
+                    dark: !isLight,
+                    moldingEnabled: true,
+                    lightTintBoost: 0.22,
+                    onTap: openContribution,
+                    child: const Icon(
+                      Icons.volunteer_activism,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                 ),
-              ),
-            ),
-            // Mesmo PearlButton aprovado (gradientes/brilho/hover/active
-            // intactos) — ancorado no canto inferior direito do card (que
-            // agora tem largura reduzida acima, então "sair pra fora" aqui
-            // continua dentro dos limites do widget inteiro), encaixado
-            // exatamente no recuo desenhado pelo shape.
-            Positioned(
-              right: -_ctaOutX,
-              bottom: -_ctaOutY,
-              child: PearlButton(
-                color: _ctaColor,
-                width: _ctaSize,
-                height: _ctaSize,
-                borderRadius: BorderRadius.circular(_ctaSize / 2),
-                dark: !isLight,
-                moldingEnabled: true,
-                lightTintBoost: 0.22,
-                onTap: openContribution,
-                child: const Icon(
-                  Icons.volunteer_activism,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-            ),
               ],
             ),
             // Reserva a altura da parte do Contribua que sai do card + um
@@ -3197,7 +3203,9 @@ class _EdificationDevotionalCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
               child: _DevotionalCover(
                 imageUrl: devotional.imageUrl,
-                youtubeUrl: devotional.hasYoutubeVideo ? devotional.youtubeUrl : null,
+                youtubeUrl: devotional.hasYoutubeVideo
+                    ? devotional.youtubeUrl
+                    : null,
                 tint: tint,
               ),
             ),
@@ -3325,7 +3333,8 @@ class _DevotionalCover extends StatelessWidget {
                     fit: BoxFit.cover,
                     width: double.infinity,
                     height: double.infinity,
-                    errorBuilder: (_, __, ___) => _DevotionalCoverFallback(tint: tint),
+                    errorBuilder: (_, __, ___) =>
+                        _DevotionalCoverFallback(tint: tint),
                     loadingBuilder: (context, child, progress) {
                       if (progress == null) return child;
                       return _DevotionalCoverFallback(tint: tint);

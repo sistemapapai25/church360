@@ -33,22 +33,10 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   int? _pressedMobileTabIndex;
   late final AnimationController _fabBreathController;
 
-  static const _muralBlue = Color(0xFF0B5FA5);
-  static const _prayerGreen = Color(0xFF1D6E45);
   static const _classifiedOrange = Color(0xFF8A5B00);
-  static const _membersSlate = Color(0xFF4E6B85);
 
   Color _tabAccentColorForIndex(int index) {
-    switch (index) {
-      case 0:
-        return _muralBlue;
-      case 1:
-        return _prayerGreen;
-      case 2:
-        return _classifiedOrange;
-      default:
-        return _membersSlate;
-    }
+    return const Color(0xFF2563EB);
   }
 
   Color _tabActiveBackground(Color accent) => accent.withValues(alpha: 0.10);
@@ -641,7 +629,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             );
           }
           return _buildSocialFab(
-            backgroundColor: _muralBlue,
+            backgroundColor: const Color(0xFF2563EB),
             foregroundColor: Colors.white,
             icon: Icons.add_comment,
             label: 'Novo Post',
@@ -658,7 +646,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             );
           }
           return _buildSocialFab(
-            backgroundColor: _classifiedOrange,
+            backgroundColor: const Color(0xFF2563EB),
             foregroundColor: Colors.white,
             icon: Icons.add_shopping_cart,
             label: 'Novo Anúncio',
@@ -1256,18 +1244,16 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
         .toLowerCase();
     final timestamp = DateTime.now().microsecondsSinceEpoch;
     final filePath = 'classifieds/$userId/$timestamp.$extension';
-    final contentType =
-        (extension == 'jpg' || extension == 'jpeg') ? 'image/jpeg' : 'image/$extension';
+    final contentType = (extension == 'jpg' || extension == 'jpeg')
+        ? 'image/jpeg'
+        : 'image/$extension';
 
     await supabase.storage
         .from('church-assets')
         .uploadBinary(
           filePath,
           bytes,
-          fileOptions: FileOptions(
-            contentType: contentType,
-            upsert: true,
-          ),
+          fileOptions: FileOptions(contentType: contentType, upsert: true),
         );
 
     return supabase.storage.from('church-assets').getPublicUrl(filePath);
@@ -2345,8 +2331,9 @@ class _BirthdaysSection extends ConsumerWidget {
                                         color: const Color(0xFFE9F7EF),
                                         borderRadius: BorderRadius.circular(16),
                                         border: Border.all(
-                                          color: const Color(0xFF2E7D32)
-                                              .withValues(alpha: 0.25),
+                                          color: const Color(
+                                            0xFF2E7D32,
+                                          ).withValues(alpha: 0.25),
                                         ),
                                       ),
                                       child: const Center(
@@ -2569,10 +2556,7 @@ class _MuralTabState extends ConsumerState<_MuralTab> {
 
             final item = items[index - 1];
             if (item.post != null) {
-              return _PostCard(
-                post: item.post!,
-                onDeleted: _markPostDeleted,
-              );
+              return _PostCard(post: item.post!, onDeleted: _markPostDeleted);
             }
             return _ClassifiedCard(classified: item.classified!, compact: true);
           },
@@ -2821,8 +2805,7 @@ class _PostCardState extends ConsumerState<_PostCard>
     if (box != null) {
       final top = box.localToGlobal(Offset.zero).dy;
       _reactionsShowBelow = top < 104;
-      final centerX =
-          box.localToGlobal(Offset(box.size.width / 2, 0)).dx;
+      final centerX = box.localToGlobal(Offset(box.size.width / 2, 0)).dx;
       if (centerX < screenWidth / 3) {
         _reactionsAnchorX = -1;
       } else if (centerX > (screenWidth * 2) / 3) {
@@ -2971,7 +2954,7 @@ class _PostCardState extends ConsumerState<_PostCard>
                                                 color: selected == option.$1
                                                     ? colorScheme.primary
                                                     : colorScheme
-                                                        .onSurfaceVariant,
+                                                          .onSurfaceVariant,
                                               ),
                                             ),
                                           ],
@@ -3017,7 +3000,7 @@ class _PostCardState extends ConsumerState<_PostCard>
                                                 color: selected == option.$1
                                                     ? colorScheme.primary
                                                     : colorScheme
-                                                        .onSurfaceVariant,
+                                                          .onSurfaceVariant,
                                               ),
                                             ),
                                           ],
@@ -3077,10 +3060,9 @@ class _PostCardState extends ConsumerState<_PostCard>
               if (next.isEmpty) return;
               setState(() => saving = true);
               try {
-                await ref.read(communityRepositoryProvider).updatePostContent(
-                      postId: post.id,
-                      content: next,
-                    );
+                await ref
+                    .read(communityRepositoryProvider)
+                    .updatePostContent(postId: post.id, content: next);
                 ref.invalidate(communityPostsProvider);
                 if (!context.mounted) return;
                 Navigator.pop(context);
@@ -3090,9 +3072,9 @@ class _PostCardState extends ConsumerState<_PostCard>
                 );
               } catch (e) {
                 if (!mounted) return;
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  SnackBar(content: Text('Erro: $e')),
-                );
+                ScaffoldMessenger.of(
+                  this.context,
+                ).showSnackBar(SnackBar(content: Text('Erro: $e')));
               } finally {
                 if (context.mounted) setState(() => saving = false);
               }
@@ -3107,8 +3089,8 @@ class _PostCardState extends ConsumerState<_PostCard>
                   Text(
                     'Editar post',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -3125,7 +3107,9 @@ class _PostCardState extends ConsumerState<_PostCard>
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: saving ? null : () => Navigator.pop(context),
+                          onPressed: saving
+                              ? null
+                              : () => Navigator.pop(context),
                           child: const Text('Cancelar'),
                         ),
                       ),
@@ -3137,7 +3121,9 @@ class _PostCardState extends ConsumerState<_PostCard>
                               ? SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: const CircularProgressIndicator(strokeWidth: 2),
+                                  child: const CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Text('Salvar'),
                         ),
@@ -3188,12 +3174,14 @@ class _PostCardState extends ConsumerState<_PostCard>
       ref.invalidate(communityPostsProvider);
       widget.onDeleted?.call(post.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Post removido.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Post removido.')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro: $e')));
     }
   }
 
@@ -4039,12 +4027,14 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
           .softDeleteClassified(classifiedId: classified.id);
       ref.invalidate(classifiedsProvider);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Classificado removido.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Classificado removido.')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro: $e')));
     }
   }
 
@@ -4171,8 +4161,7 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
     if (box != null) {
       final top = box.localToGlobal(Offset.zero).dy;
       _reactionsShowBelow = top < 104;
-      final centerX =
-          box.localToGlobal(Offset(box.size.width / 2, 0)).dx;
+      final centerX = box.localToGlobal(Offset(box.size.width / 2, 0)).dx;
       if (centerX < screenWidth / 3) {
         _reactionsAnchorX = -1;
       } else if (centerX > (screenWidth * 2) / 3) {
@@ -4316,7 +4305,7 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
                                                 color: selected == option.$1
                                                     ? colorScheme.primary
                                                     : colorScheme
-                                                        .onSurfaceVariant,
+                                                          .onSurfaceVariant,
                                               ),
                                             ),
                                           ],
@@ -4362,7 +4351,7 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
                                                 color: selected == option.$1
                                                     ? colorScheme.primary
                                                     : colorScheme
-                                                        .onSurfaceVariant,
+                                                          .onSurfaceVariant,
                                               ),
                                             ),
                                           ],
@@ -4408,7 +4397,8 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
     final isLiked = myReaction != null;
     final likesCount = _likesOverride ?? classified.likesCount;
     final currentMemberId = ref.watch(currentMemberProvider).value?.id;
-    final isOwner = currentMemberId != null && currentMemberId == classified.authorId;
+    final isOwner =
+        currentMemberId != null && currentMemberId == classified.authorId;
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),
@@ -5233,12 +5223,14 @@ class _ClassifiedDetailsSheetState
       ref.invalidate(classifiedsProvider);
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Classificado removido.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Classificado removido.')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro: $e')));
     }
   }
 
@@ -5264,7 +5256,8 @@ class _ClassifiedDetailsSheetState
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentMemberId = ref.watch(currentMemberProvider).value?.id;
-    final isOwner = currentMemberId != null && currentMemberId == _classified.authorId;
+    final isOwner =
+        currentMemberId != null && currentMemberId == _classified.authorId;
 
     final primaryStatus = _primaryDealStatus(_classified.category);
     final showPrimary = _classified.dealStatus == 'available';
@@ -5344,39 +5337,39 @@ class _ClassifiedDetailsSheetState
                     ],
                   ),
                   const Spacer(),
-              if (isOwner)
-                PopupMenuButton<_ClassifiedOwnerMenuAction>(
-                  tooltip: 'Opções',
-                  onSelected: (value) async {
-                    if (value == _ClassifiedOwnerMenuAction.edit) {
-                      await _openEdit();
-                      return;
-                    }
-                    await _confirmAndSoftDelete();
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: _ClassifiedOwnerMenuAction.edit,
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit),
-                          SizedBox(width: 10),
-                          Text('Editar'),
-                        ],
-                      ),
+                  if (isOwner)
+                    PopupMenuButton<_ClassifiedOwnerMenuAction>(
+                      tooltip: 'Opções',
+                      onSelected: (value) async {
+                        if (value == _ClassifiedOwnerMenuAction.edit) {
+                          await _openEdit();
+                          return;
+                        }
+                        await _confirmAndSoftDelete();
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: _ClassifiedOwnerMenuAction.edit,
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit),
+                              SizedBox(width: 10),
+                              Text('Editar'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: _ClassifiedOwnerMenuAction.delete,
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete),
+                              SizedBox(width: 10),
+                              Text('Excluir'),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    PopupMenuItem(
-                      value: _ClassifiedOwnerMenuAction.delete,
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete),
-                          SizedBox(width: 10),
-                          Text('Excluir'),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -5593,31 +5586,32 @@ class _ClassifiedDetailsSheetState
               const SizedBox(height: 16),
               Row(
                 children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed:
-                            ((_classified.contactInfo ?? '').trim().isEmpty)
-                            ? null
-                            : _openContact,
-                        icon: Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE9F7EF),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: const Color(0xFF2E7D32)
-                                  .withValues(alpha: 0.25),
-                            ),
-                          ),
-                          child: const Center(
-                            child: FaIcon(
-                              FontAwesomeIcons.whatsapp,
-                              size: 10,
-                              color: Color(0xFF2E7D32),
-                            ),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed:
+                          ((_classified.contactInfo ?? '').trim().isEmpty)
+                          ? null
+                          : _openContact,
+                      icon: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE9F7EF),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(
+                              0xFF2E7D32,
+                            ).withValues(alpha: 0.25),
                           ),
                         ),
+                        child: const Center(
+                          child: FaIcon(
+                            FontAwesomeIcons.whatsapp,
+                            size: 10,
+                            color: Color(0xFF2E7D32),
+                          ),
+                        ),
+                      ),
                       label: const Text('Contato'),
                     ),
                   ),
@@ -5723,18 +5717,16 @@ class _EditClassifiedSheetState extends ConsumerState<_EditClassifiedSheet> {
         .toLowerCase();
     final timestamp = DateTime.now().microsecondsSinceEpoch;
     final filePath = 'classifieds/$userId/$timestamp.$extension';
-    final contentType =
-        (extension == 'jpg' || extension == 'jpeg') ? 'image/jpeg' : 'image/$extension';
+    final contentType = (extension == 'jpg' || extension == 'jpeg')
+        ? 'image/jpeg'
+        : 'image/$extension';
 
     await supabase.storage
         .from('church-assets')
         .uploadBinary(
           filePath,
           bytes,
-          fileOptions: FileOptions(
-            contentType: contentType,
-            upsert: true,
-          ),
+          fileOptions: FileOptions(contentType: contentType, upsert: true),
         );
 
     return supabase.storage.from('church-assets').getPublicUrl(filePath);

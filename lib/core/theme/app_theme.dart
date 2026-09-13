@@ -4,38 +4,39 @@ import 'package:flutter/material.dart';
 /// Baseado em Material Design 3
 class AppTheme {
   // Cores principais
-  static const Color primaryColor = Color(0xFF3B82F6); // Azul
-  static const Color secondaryColor = Color(0xFF10B981); // Verde
+  static const Color primaryColor = Color(0xFF2563EB); // Azul principal
+  static const Color secondaryColor = Color(0xFF1F5E7A); // Azul petróleo
+  static const Color aquaColor = Color(
+    0xFF7DD3FC,
+  ); // Detalhe, usado com parcimônia
   static const Color errorColor = Color(0xFFEF4444); // Vermelho
   static const Color warningColor = Color(0xFFF59E0B); // Amarelo
   static const Color successColor = Color(0xFF10B981); // Verde
 
-  static final Color background = HSLColor.fromAHSL(1.0, 250, 0.5, 0.98).toColor();
-  static final Color foreground = HSLColor.fromAHSL(1.0, 240, 0.10, 0.15).toColor();
-  static final Color card = HSLColor.fromAHSL(1.0, 0, 0.0, 1.0).toColor();
-  static final Color cardForeground = HSLColor.fromAHSL(1.0, 240, 0.10, 0.15).toColor();
-  static final Color primary = HSLColor.fromAHSL(1.0, 240, 0.60, 0.50).toColor();
-  static final Color primaryForeground = HSLColor.fromAHSL(1.0, 0, 0.0, 1.0).toColor();
-  static final Color primaryHover = HSLColor.fromAHSL(1.0, 240, 0.60, 0.45).toColor();
-  static final Color secondary = HSLColor.fromAHSL(1.0, 250, 0.25, 0.95).toColor();
-  static final Color secondaryForeground = HSLColor.fromAHSL(1.0, 240, 0.10, 0.15).toColor();
-  static final Color muted = HSLColor.fromAHSL(1.0, 250, 0.25, 0.96).toColor();
-  static final Color mutedForeground = HSLColor.fromAHSL(1.0, 240, 0.08, 0.50).toColor();
-  static final Color accent = HSLColor.fromAHSL(1.0, 260, 0.50, 0.92).toColor();
-  static final Color accentForeground = HSLColor.fromAHSL(1.0, 260, 0.50, 0.25).toColor();
-  static final Color success = HSLColor.fromAHSL(1.0, 145, 0.60, 0.45).toColor();
-  static final Color border = HSLColor.fromAHSL(1.0, 250, 0.20, 0.88).toColor();
-  static final Color input = HSLColor.fromAHSL(1.0, 250, 0.20, 0.90).toColor();
-  static final Color ring = HSLColor.fromAHSL(1.0, 240, 0.60, 0.50).toColor();
+  static const Color background = Color(0xFFF8FAFC);
+  static const Color foreground = Color(0xFF0F172A);
+  static const Color card = Color(0xFFFFFFFF);
+  static const Color cardForeground = Color(0xFF0F172A);
+  static const Color primary = Color(0xFF2563EB);
+  static const Color primaryForeground = Color(0xFFFFFFFF);
+  static const Color primaryHover = Color(0xFF1D4ED8);
+  static const Color secondary = Color(0xFF1F5E7A);
+  static const Color secondaryForeground = Color(0xFFFFFFFF);
+  static const Color muted = Color(0xFFF1F5F9);
+  static const Color mutedForeground = Color(0xFF64748B);
+  static const Color accent = Color(0xFFDBEAFE);
+  static const Color accentForeground = Color(0xFF1E3A8A);
+  static const Color success = Color(0xFF16A34A);
+  static const Color border = Color(0xFFCBD5E1);
+  static const Color input = Color(0xFFF8FAFC);
+  static const Color ring = Color(0xFF2563EB);
 
   static final ColorScheme _lightColorScheme = ColorScheme.fromSeed(
     seedColor: primaryColor,
     secondary: secondaryColor,
     error: errorColor,
     brightness: Brightness.light,
-  ).copyWith(
-    surface: card,
-  );
+  ).copyWith(surface: card);
 
   static const BorderRadius radiusLg = BorderRadius.all(Radius.circular(12));
   static const BorderRadius radiusMd = BorderRadius.all(Radius.circular(10));
@@ -44,29 +45,20 @@ class AppTheme {
   static const LinearGradient gradientPrimary = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [
-      Color(0xFF3B82F6),
-      Color(0xFF7C4DFF),
-    ],
+    colors: [Color(0xFF2563EB), Color(0xFF1E3A8A)],
     stops: [0.0, 1.0],
   );
 
-  static final LinearGradient gradientSubtle = LinearGradient(
+  static const LinearGradient gradientSubtle = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [
-      HSLColor.fromAHSL(1.0, 250, 0.50, 0.98).toColor(),
-      HSLColor.fromAHSL(1.0, 250, 0.25, 0.95).toColor(),
-    ],
+    colors: [Color(0xFFFFFFFF), Color(0xFFF1F5F9)],
   );
 
-  static final LinearGradient gradientCard = LinearGradient(
+  static const LinearGradient gradientCard = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [
-      HSLColor.fromAHSL(1.0, 0, 0.0, 1.0).toColor(),
-      HSLColor.fromAHSL(1.0, 250, 0.25, 0.97).toColor(),
-    ],
+    colors: [Color(0xFFFFFFFF), Color(0xFFF8FAFC)],
   );
 
   static final BoxShadow shadowSm = BoxShadow(
@@ -101,11 +93,11 @@ class AppTheme {
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
-    
+
     // Color Scheme
     colorScheme: _lightColorScheme,
     cardColor: card,
-    
+
     // AppBar
     appBarTheme: const AppBarTheme(
       centerTitle: true,
@@ -113,7 +105,7 @@ class AppTheme {
       scrolledUnderElevation: 2,
       surfaceTintColor: Colors.transparent,
     ),
-    
+
     // Card
     cardTheme: CardThemeData(
       color: card,
@@ -136,7 +128,7 @@ class AppTheme {
       backgroundColor: card,
       surfaceTintColor: Colors.transparent,
     ),
-    
+
     // Input Decoration
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -153,25 +145,17 @@ class AppTheme {
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: ring, width: 2),
       ),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 16,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     ),
-    
+
     // Elevated Button
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 24,
-          vertical: 16,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
-    
+
     // Floating Action Button
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       shape: const RoundedRectangleBorder(
@@ -184,7 +168,7 @@ class AppTheme {
   static ThemeData darkTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    
+
     // Color Scheme
     colorScheme: ColorScheme.fromSeed(
       seedColor: primaryColor,
@@ -192,14 +176,14 @@ class AppTheme {
       error: errorColor,
       brightness: Brightness.dark,
     ),
-    
+
     // AppBar
     appBarTheme: const AppBarTheme(
       centerTitle: true,
       elevation: 0,
       scrolledUnderElevation: 2,
     ),
-    
+
     // Card
     cardTheme: CardThemeData(
       elevation: 2,
@@ -208,7 +192,7 @@ class AppTheme {
         borderRadius: BorderRadius.all(Radius.circular(12)),
       ),
     ),
-    
+
     // Input Decoration
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -225,25 +209,17 @@ class AppTheme {
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: ring, width: 2),
       ),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 16,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     ),
-    
+
     // Elevated Button
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 24,
-          vertical: 16,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
-    
+
     // Floating Action Button
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       shape: const RoundedRectangleBorder(

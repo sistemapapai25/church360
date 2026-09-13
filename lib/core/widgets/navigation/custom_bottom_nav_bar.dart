@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_theme.dart';
 import 'pearl_glass_dock.dart';
 
-typedef NavIconBuilder = Widget Function(
-  BuildContext context,
-  bool isActive,
-  Color activeColor,
-);
+typedef NavIconBuilder =
+    Widget Function(BuildContext context, bool isActive, Color activeColor);
 
 /// Dock de vidro com os 5 itens sempre na mesma família Pearl — só a
 /// intensidade muda entre repouso, hover e selecionado. Validado antes no
@@ -26,6 +24,8 @@ class PremiumBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
+    const activeColor = AppTheme.primaryColor;
+    const inactiveColor = Color(0xFF64748B);
 
     return PearlGlassDock(
       dark: dark,
@@ -38,9 +38,13 @@ class PremiumBottomNavBar extends StatelessWidget {
             child: PearlDockItem(
               contentBuilder: (context, isSelected, activeColor) =>
                   item.iconBuilder?.call(context, isSelected, activeColor) ??
-                  Icon(item.icon, size: 18, color: Colors.white),
+                  Icon(
+                    item.icon,
+                    size: 20,
+                    color: isSelected ? activeColor : inactiveColor,
+                  ),
               label: item.label,
-              color: item.activeColor,
+              color: selected ? activeColor : inactiveColor,
               selected: selected,
               // Nomes desligados por enquanto — mesma decisão validada no
               // playground antes de trazer pra cá.

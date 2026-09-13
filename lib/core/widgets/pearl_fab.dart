@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'pearl_button.dart';
 
 /// Substituto perolado (PearlButton) para [FloatingActionButton] e
@@ -32,11 +33,15 @@ class PearlFab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = color ?? Theme.of(context).colorScheme.primary;
+    // FABs fazem parte da linguagem global de ações: o azul institucional
+    // mantém a hierarquia consistente mesmo quando uma tela antiga passa
+    // uma cor própria.
+    final effectiveColor = AppTheme.primaryColor;
     final effectiveOnPressed = loading ? null : onPressed;
 
     Widget leading() {
-      if (!loading) return Icon(icon, color: Colors.white, size: label == null ? 24 : 20);
+      if (!loading)
+        return Icon(icon, color: Colors.white, size: label == null ? 24 : 20);
       return const SizedBox(
         width: 18,
         height: 18,
@@ -69,7 +74,8 @@ class PearlFab extends StatelessWidget {
         textDirection: TextDirection.ltr,
       )..layout();
 
-      final width = horizontalPadding * 2 + iconSize + iconLabelGap + textPainter.width;
+      final width =
+          horizontalPadding * 2 + iconSize + iconLabelGap + textPainter.width;
 
       button = PearlButton(
         color: effectiveColor,

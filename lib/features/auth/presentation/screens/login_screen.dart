@@ -26,10 +26,10 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen>
     with SingleTickerProviderStateMixin {
-  static const _primaryBlue = Color(0xFF0B5FA5);
-  static const _accentCyan = Color(0xFF41D3F2);
-  static const _accentViolet = Color(0xFF7C4DFF);
-  static const _surfaceDark = Color(0xFF050814);
+  static const _primaryBlue = Color(0xFF2563EB);
+  static const _accentCyan = Color(0xFF7DD3FC);
+  static const _accentNavy = Color(0xFF1E3A8A);
+  static const _surfaceDark = Color(0xFF07111F);
 
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
@@ -646,7 +646,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: _accentCyan.withValues(alpha: _isLoading ? 0.24 : 0.18),
+            color: _primaryBlue.withValues(alpha: _isLoading ? 0.20 : 0.14),
             blurRadius: 22,
             offset: const Offset(0, 12),
           ),
@@ -655,12 +655,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       child: ElevatedButton(
         onPressed: _isLoading ? null : _handleLogin,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          disabledBackgroundColor: Colors.white.withValues(alpha: 0.72),
-          foregroundColor: const Color(0xFF07111F),
-          disabledForegroundColor: const Color(
-            0xFF07111F,
-          ).withValues(alpha: 0.62),
+          backgroundColor: _primaryBlue,
+          disabledBackgroundColor: _primaryBlue.withValues(alpha: 0.58),
+          foregroundColor: Colors.white,
+          disabledForegroundColor: Colors.white.withValues(alpha: 0.72),
           elevation: 0,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
@@ -677,9 +675,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   width: 22,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFF07111F),
-                    ),
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
                 )
               : const Row(
@@ -814,7 +810,7 @@ class _LoginAtmosphere extends StatelessWidget {
                   center: Alignment(0.78 - (progress * 0.10), 0.86),
                   radius: 0.74 + (pulse * 0.08),
                   colors: [
-                    _LoginScreenState._accentViolet.withValues(alpha: 0.24),
+                    _LoginScreenState._accentNavy.withValues(alpha: 0.16),
                     Colors.transparent,
                   ],
                   stops: const [0, 1],
