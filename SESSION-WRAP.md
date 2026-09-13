@@ -258,6 +258,11 @@ Branch:
 
 `feat/icon-navigation-outline-premium-blue`
 
+Remote:
+
+Branch enviada para `origin`; PR ainda não aberto/mesclado e deploy ainda
+pendente.
+
 Current implementation commit:
 
 `26d5ee1 style: padroniza icones da navegacao inferior`
@@ -266,7 +271,7 @@ Current branch before this wrap update:
 
 `main` em `0bb2217`; a branch desta sessão foi criada a partir desse estado.
 O commit funcional `26d5ee1` contém a primeira onda de ícones e a atualização
-inicial deste wrap.
+inicial deste wrap; o commit documental final é `50ed37d`.
 
 Previous relevant commits:
 
@@ -274,9 +279,8 @@ Previous relevant commits:
 - `1c8f330 fix(auth): ajusta proporcao da logo no login`
 - `3759636 feat(auth): redesenha tela de login web`
 
-O commit funcional `26d5ee1` já foi criado. Este ajuste final do wrap registra o
-hash e será o commit documental seguinte; ambos ainda precisam ser enviados ao
-remoto nesta sessão.
+Os commits `26d5ee1` e `50ed37d` foram enviados ao remoto. O próximo checkpoint
+é exclusivamente PR → merge em `main` → deploy → validação visual.
 
 Os commits `f872cfe`, `1db3f0e` e `9b656e7` foram enviados ao GitHub; a branch
 `main` está sincronizada com `origin/main`. O deploy foi feito diretamente a
@@ -287,8 +291,9 @@ partir do build local, portanto produção foi atualizada antes do push.
 1. Start in `C:\Users\prber\projetos\AppsChurch360\Church360-Papai\app` and read this file completely before acting.
 2. Run `git status -sb` and confirm the branch/PR containing the outline icon
    change is available; do not push directly to `main`.
-3. Finish the commit/push if still pending, open or inspect the PR, merge it into
-   `main` according to the project rule, and wait for GitHub Actions/Vercel.
+3. Abra ou inspecione o PR da branch `feat/icon-navigation-outline-premium-blue`,
+   faça o merge em `main` segundo a regra do projeto e aguarde GitHub
+   Actions/Vercel.
 4. Confirm the production deployment succeeded and check
    `https://church360-app.vercel.app/login` (HTTP 200) plus the deployed bundle.
 5. Reavaliar visualmente em produção Home desktop/mobile, principalmente a
