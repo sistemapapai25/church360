@@ -1,6 +1,6 @@
 # Session Wrap - Church360 Papai
 
-Wrap timestamp: 2026-09-13 02:33:20 -03:00 (America/Sao_Paulo)
+Wrap timestamp: 2026-09-13 03:18:38 -03:00 (America/Sao_Paulo)
 
 ## Project
 
@@ -22,6 +22,9 @@ Production login URL:
 
 `https://church360-app.vercel.app/login`
 
+Depois do login Google, a intensidade visual dos itens não selecionados da
+barra inferior foi ajustada para `1.0` para avaliação visual em produção.
+
 ## Changes Completed
 
 - Kept the approved dark glass login design and existing email/password flows.
@@ -39,6 +42,8 @@ Production login URL:
 - Kept the Google icon using the existing `font_awesome_flutter` dependency.
 - Updated `SESSION-WRAP.md` with this final handoff state.
 - Corrected the Supabase Google provider configuration: the saved Client Secret was an old value; it was replaced with the current secret belonging to the same Web OAuth Client ID.
+- Ajustada a intensidade de repouso dos itens da barra inferior (Home, Bíblia, Igreja, Cursos e Mais) para `1.0`, temporariamente para avaliação visual.
+- Publicada a alteração da barra inferior em produção pelo GitHub Actions/Vercel.
 
 ## OAuth Configuration
 
@@ -83,6 +88,7 @@ Working:
 - Android and iOS deep-link callback configuration.
 - Production deployment through GitHub Actions.
 - Web Google Sign-In manually validated in production after the Client Secret correction.
+- Barra inferior publicada em produção com intensidade de repouso `1.0` para avaliação visual.
 
 Known gaps:
 
@@ -97,6 +103,7 @@ Repository files in the Google Sign-In implementation:
 - `lib/features/auth/presentation/screens/login_screen.dart`
 - `lib/features/auth/data/auth_repository.dart`
 - `lib/core/screens/splash_screen.dart`
+- `lib/core/widgets/navigation/pearl_glass_dock.dart`
 - `android/app/src/main/AndroidManifest.xml`
 - `ios/Runner/Info.plist`
 - `SESSION-WRAP.md`
@@ -114,6 +121,7 @@ flutter test --no-pub test\widget_test.dart test\core\navigation\safe_redirect_t
 git diff --check
 gh run list --branch main --limit 5 --json databaseId,name,status,conclusion,createdAt,headSha,url,displayTitle
 curl.exe -L -s https://church360-app.vercel.app/main.dart.js?v=9e90922
+curl.exe -L -s -D - https://church360-app.vercel.app/login -o NUL
 ```
 
 Results:
@@ -129,6 +137,9 @@ Results:
 - Local `flutter build web --release`: completed successfully; the Wasm dry run reported existing package incompatibilities, but the normal dart2js build succeeded.
 - Production authorization endpoint check: HTTP 302 to Google with the expected Web Client ID and callback URL.
 - Manual production smoke test after configuration correction: Google account selection completed, Supabase exchanged the external code, and the app opened successfully.
+- Targeted tests after the navigation intensity change: all 11 tests passed.
+- GitHub Actions deploy run `34742280757`: completed with `success` in 3m18s for commit `8a79a6b`.
+- Production login endpoint after the navigation deploy: HTTP `200 OK`.
 
 The `agent-browser` executable was unavailable in this environment, so final production verification used the deployed bundle and the successful GitHub Actions result rather than an automated browser screenshot.
 
@@ -140,11 +151,11 @@ Branch:
 
 Current implementation commit:
 
-`9e90922 feat: adiciona login com Google`
+`8a79a6b style: testa intensidade maxima na barra inferior`
 
 Current branch before this wrap update:
 
-`b648d93 docs: atualiza wrap do Google Sign-In`
+`8a79a6b style: testa intensidade maxima na barra inferior`
 
 Previous relevant commits:
 
@@ -152,13 +163,14 @@ Previous relevant commits:
 - `1c8f330 fix(auth): ajusta proporcao da logo no login`
 - `3759636 feat(auth): redesenha tela de login web`
 
-This wrap update is the next intentional documentation commit after `b648d93`.
+This wrap update is the next intentional documentation commit after `8a79a6b`.
 
 ## Next Steps For The Next Chat
 
 1. Start in `C:\Users\prber\projetos\AppsChurch360\Church360-Papai\app` and read this file completely before acting.
 2. Run `git status -sb` and confirm the branch is clean after the wrap commit.
-3. Keep the Google Cloud and Supabase redirect values documented above when adding new environments. Never replace the current Google Web Client Secret with an older credential.
-4. For native release work, build and smoke-test the Android and iOS callback flow on physical or emulated devices.
-5. Investigate `app.church360.com.br` DNS only if the custom domain is required.
-6. Design backlog remains separate: PR #70 for CHU-356/M3 is still open and was not merged as part of this login work.
+3. Reavaliar visualmente a barra inferior em produção; o nível `1.0` é um teste temporário e pode voltar a `0.52` ou receber outro ajuste conforme o feedback.
+4. Keep the Google Cloud and Supabase redirect values documented above when adding new environments. Never replace the current Google Web Client Secret with an older credential.
+5. For native release work, build and smoke-test the Android and iOS callback flow on physical or emulated devices.
+6. Investigate `app.church360.com.br` DNS only if the custom domain is required.
+7. Design backlog remains separate: PR #70 for CHU-356/M3 is still open and was not merged as part of this login work.
