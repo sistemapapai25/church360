@@ -1,6 +1,6 @@
 # Session Wrap - Church360 Papai
 
-Wrap timestamp: 2026-09-13 02:04:52 -03:00 (America/Sao_Paulo)
+Wrap timestamp: 2026-09-13 02:33:20 -03:00 (America/Sao_Paulo)
 
 ## Project
 
@@ -16,7 +16,7 @@ That outer directory is a separate repo. The Flutter app work happened in the ap
 
 ## Summary
 
-The approved web login redesign is now deployed with Google Sign-In fully wired through Supabase Auth. The user validated the final login experience and successfully completed the Google provider configuration.
+The approved web login redesign is deployed with Google Sign-In fully wired through Supabase Auth. After correcting the Google OAuth provider configuration, the user manually completed a real production login with a Google account, including the callback and final application access.
 
 Production login URL:
 
@@ -38,6 +38,7 @@ Production login URL:
 - Updated the splash flow to prepare Google sessions before routing to the app.
 - Kept the Google icon using the existing `font_awesome_flutter` dependency.
 - Updated `SESSION-WRAP.md` with this final handoff state.
+- Corrected the Supabase Google provider configuration: the saved Client Secret was an old value; it was replaced with the current secret belonging to the same Web OAuth Client ID.
 
 ## OAuth Configuration
 
@@ -59,12 +60,13 @@ Supabase Auth redirect URLs:
 
 `io.supabase.flutter://login-callback/`
 
-The Supabase Google provider is enabled and the public Auth settings endpoint returned `external.google: true`.
+The Supabase Google provider is enabled and the public Auth settings endpoint returned `external.google: true`. The current authorization endpoint also returns HTTP 302 to Google with the expected Web Client ID and Supabase callback.
 
 ## Problems And Resolutions
 
 - The Google provider initially rejected `gl_readonly` because that is not an OAuth Client ID. The correct value is the Web Client ID ending in `.apps.googleusercontent.com`.
 - Google initially returned `Error 400: redirect_uri_mismatch`. The fix was to register the Supabase Auth callback URL in Google Cloud, rather than the application login URL.
+- The first real login reached the Google account selector but returned to the login screen with `AuthException: Unable to exchange external code`. The cause was the old Google Client Secret still saved in Supabase. Replacing it with the current secret for the same Web OAuth Client fixed the token exchange, and the user confirmed the login completed successfully.
 - The local Vercel CLI was not authorized, so direct `vercel deploy` returned `Not authorized`. The repository GitHub Actions workflow was used instead and completed successfully.
 - The local Flutter build first hit a sandbox permission issue writing to `build`. Running the repository deploy script with the required elevated access completed the local build. The authoritative production build/deploy ran successfully in GitHub Actions.
 - The custom domain `https://app.church360.com.br/login` did not resolve from this environment during earlier validation. Production validation used `https://church360-app.vercel.app/login`.
@@ -80,11 +82,13 @@ Working:
 - Google account bootstrap and routing after authentication.
 - Android and iOS deep-link callback configuration.
 - Production deployment through GitHub Actions.
+- Web Google Sign-In manually validated in production after the Client Secret correction.
 
 Known gaps:
 
 - The custom domain DNS issue for `app.church360.com.br` remains unresolved from this environment.
 - Native Android/iOS OAuth should still receive a device-level smoke test when those builds are available. The callback configuration is present and the Dart flow compiles.
+- Automated browser validation was unavailable in this environment; the web OAuth flow was confirmed manually by the user in production.
 
 ## Files Touched
 
@@ -123,6 +127,8 @@ Results:
 - Production bundle: contains `Abrindo Google` and `Continuar com Google`.
 - Supabase public Auth settings: Google provider enabled.
 - Local `flutter build web --release`: completed successfully; the Wasm dry run reported existing package incompatibilities, but the normal dart2js build succeeded.
+- Production authorization endpoint check: HTTP 302 to Google with the expected Web Client ID and callback URL.
+- Manual production smoke test after configuration correction: Google account selection completed, Supabase exchanged the external code, and the app opened successfully.
 
 The `agent-browser` executable was unavailable in this environment, so final production verification used the deployed bundle and the successful GitHub Actions result rather than an automated browser screenshot.
 
@@ -136,18 +142,23 @@ Current implementation commit:
 
 `9e90922 feat: adiciona login com Google`
 
+Current branch before this wrap update:
+
+`b648d93 docs: atualiza wrap do Google Sign-In`
+
 Previous relevant commits:
 
 - `7bf2987 docs: adiciona session wrap do login`
 - `1c8f330 fix(auth): ajusta proporcao da logo no login`
 - `3759636 feat(auth): redesenha tela de login web`
 
-This wrap update is the next intentional documentation commit after `9e90922`.
+This wrap update is the next intentional documentation commit after `b648d93`.
 
 ## Next Steps For The Next Chat
 
-1. Start in `C:\Users\prber\projetos\AppsChurch360\Church360-Papai\app`.
+1. Start in `C:\Users\prber\projetos\AppsChurch360\Church360-Papai\app` and read this file completely before acting.
 2. Run `git status -sb` and confirm the branch is clean after the wrap commit.
-3. Keep the Google Cloud and Supabase redirect values documented above when adding new environments.
+3. Keep the Google Cloud and Supabase redirect values documented above when adding new environments. Never replace the current Google Web Client Secret with an older credential.
 4. For native release work, build and smoke-test the Android and iOS callback flow on physical or emulated devices.
 5. Investigate `app.church360.com.br` DNS only if the custom domain is required.
+6. Design backlog remains separate: PR #70 for CHU-356/M3 is still open and was not merged as part of this login work.
