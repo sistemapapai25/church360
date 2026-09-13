@@ -1,6 +1,6 @@
 # Session Wrap - Church360 Papai
 
-Wrap timestamp: 2026-09-13 04:34:56 -03:00 (America/Sao_Paulo)
+Wrap timestamp: 2026-09-13 05:05:36 -03:00 (America/Sao_Paulo)
 
 ## Project
 
@@ -52,7 +52,7 @@ usando o avatar real do usuário e seu fallback de pessoa.
   - local account bootstrap.
 - Updated the splash flow to prepare Google sessions before routing to the app.
 - Kept the Google icon using the existing `font_awesome_flutter` dependency.
-- Updated `SESSION-WRAP.md` with this final handoff state.
+- Updated `SESSION-WRAP.md` with this final handoff for the next agent/chat.
 - Corrected the Supabase Google provider configuration: the saved Client Secret was an old value; it was replaced with the current secret belonging to the same Web OAuth Client ID.
 - Ajustada a intensidade de repouso dos itens da barra inferior (Home, Bíblia, Igreja, Cursos e Mais) para `1.0`, temporariamente para avaliação visual.
 - Publicada a alteração da barra inferior em produção pelo GitHub Actions/Vercel.
@@ -151,12 +151,11 @@ Known gaps:
   telas com FAB estendido.
 - `app.church360.com.br` continua sem resolução DNS neste ambiente; usar o
   alias `https://church360-app.vercel.app` para a validação imediata.
-- O deploy da nova navegação outline está pendente. Não anunciar a alteração
-  como disponível em produção até confirmar PR mergeado, GitHub Actions/Vercel
-  concluído e HTTP 200 no alias de produção.
-- Após o deploy, validar visualmente Home em desktop e mobile, especialmente a
-  espessura percebida dos glifos, o estado ativo azul, o estado inativo slate,
-  o ícone Igreja e o avatar da aba Mais.
+- O deploy da nova navegação outline e da restauração da logo está concluído;
+  PRs #71 e #72 foram mergeados e os aliases de produção respondem.
+- Após o deploy, permanece recomendada a validação visual manual da Home em
+  desktop e mobile, especialmente a logo da aba Igreja, os glifos outline, o
+  estado ativo azul, o estado inativo slate e o avatar da aba Mais.
 
 ## Files Touched
 
@@ -273,7 +272,7 @@ Resultados:
 
 ## Git State
 
-Branch:
+Checked-out branch:
 
 `fix/restore-church-logo-nav`
 
@@ -281,13 +280,14 @@ Remote:
 
 Branch enviada para `origin`; PR #72 aberto, mesclado e publicado.
 
-Current implementation commit:
+Runtime implementation commit:
 
 `d546b35 fix: restaura logo na aba igreja`
 
-Current branch before this wrap update:
+Production main after this session:
 
-`main` em `8b57538`; a correção foi criada a partir do `main` atualizado.
+`main` em `8b57538`; a correção foi criada a partir do `main` atualizado e o
+commit documental anterior desta branch é `39366da`.
 
 Previous relevant commits:
 
@@ -306,14 +306,18 @@ partir do build local, portanto produção foi atualizada antes do push.
 ## Next Steps For The Next Chat
 
 1. Start in `C:\Users\prber\projetos\AppsChurch360\Church360-Papai\app` and read this file completely before acting.
-2. Run `git status -sb` and confirm the deployed `main` state.
-3. Reavaliar visualmente em produção Home desktop/mobile, principalmente a
+2. Run `git status -sb`; o runtime já está publicado e não há merge/deploy
+   pendente para esta correção.
+3. Usar `origin/main` como base para qualquer nova alteração; a branch
+   `fix/restore-church-logo-nav` contém apenas o histórico desta correção e do
+   wrap.
+4. Reavaliar visualmente em produção Home desktop/mobile, principalmente a
    navegação inferior: Home, Bíblia, Igreja com logo, Cursos e Mais.
-4. Só depois da avaliação visual considerar esta primeira onda concluída;
+5. Só depois da avaliação visual considerar esta primeira onda concluída;
    então seguir para a próxima cascata de ícones inline (`edit_outlined`,
    `delete_outline`, `save_outlined`, `error_outline`, `chevron_right` etc.)
    conforme o inventário.
-5. Keep the Google Cloud and Supabase redirect values documented above when adding new environments. Never replace the current Google Web Client Secret with an older credential.
-6. For native release work, build and smoke-test the Android and iOS callback flow on physical or emulated devices.
-7. Investigate `app.church360.com.br` DNS only if the custom domain is required.
-8. Design backlog remains separate: PR #70 for CHU-356/M3 is still open and was not merged as part of this login work.
+6. Keep the Google Cloud and Supabase redirect values documented above when adding new environments. Never replace the current Google Web Client Secret with an older credential.
+7. For native release work, build and smoke-test the Android and iOS callback flow on physical or emulated devices.
+8. Investigate `app.church360.com.br` DNS only if the custom domain is required.
+9. Design backlog remains separate: PR #70 for CHU-356/M3 is still open and was not merged as part of this login work.
