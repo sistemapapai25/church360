@@ -40,7 +40,7 @@ class PremiumBottomNavBar extends StatelessWidget {
                   item.iconBuilder?.call(context, isSelected, activeColor) ??
                   Icon(
                     item.icon,
-                    size: 20,
+                    size: 23,
                     color: isSelected ? activeColor : inactiveColor,
                   ),
               label: item.label,
