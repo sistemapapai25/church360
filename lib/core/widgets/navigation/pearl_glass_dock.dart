@@ -120,7 +120,7 @@ class _PearlDockItemState extends State<PearlDockItem> {
     }
     if (_pressed) return 0.95;
     if (_hovering) return 0.78;
-    return 0.32;
+    return 0.52;
   }
 
   @override
