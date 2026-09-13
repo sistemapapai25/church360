@@ -260,12 +260,13 @@ Branch:
 
 Current implementation commit:
 
-`1db3f0e style: unifica interface em azul premium e soft glass`
+`26d5ee1 style: padroniza icones da navegacao inferior`
 
 Current branch before this wrap update:
 
-`main` em `0bb2217`; a branch desta sessão foi criada a partir desse estado e
-contém duas alterações de código ainda não commitadas no momento deste wrap.
+`main` em `0bb2217`; a branch desta sessão foi criada a partir desse estado.
+O commit funcional `26d5ee1` contém a primeira onda de ícones e a atualização
+inicial deste wrap.
 
 Previous relevant commits:
 
@@ -273,8 +274,9 @@ Previous relevant commits:
 - `1c8f330 fix(auth): ajusta proporcao da logo no login`
 - `3759636 feat(auth): redesenha tela de login web`
 
-Este wrap será commitado junto com a primeira onda de ícones. Depois do commit,
-atualizar esta seção com o hash final do commit e enviar a branch para o remoto.
+O commit funcional `26d5ee1` já foi criado. Este ajuste final do wrap registra o
+hash e será o commit documental seguinte; ambos ainda precisam ser enviados ao
+remoto nesta sessão.
 
 Os commits `f872cfe`, `1db3f0e` e `9b656e7` foram enviados ao GitHub; a branch
 `main` está sincronizada com `origin/main`. O deploy foi feito diretamente a
