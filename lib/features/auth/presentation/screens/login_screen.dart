@@ -1,14 +1,17 @@
+import 'dart:math' as math;
+import 'dart:ui';
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../../core/design/community_design.dart';
 import '../../../../core/constants/app_branding.dart';
+import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/navigation/church_selection_gate.dart';
 import '../../../../core/widgets/app_logo.dart';
-import '../../../../core/errors/app_error_handler.dart';
 import '../providers/auth_provider.dart';
 
 /// Tela de Login
@@ -19,14 +22,26 @@ class LoginScreen extends ConsumerStatefulWidget {
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen>
+    with SingleTickerProviderStateMixin {
+  static const _primaryBlue = Color(0xFF0B5FA5);
+  static const _accentCyan = Color(0xFF41D3F2);
+  static const _accentViolet = Color(0xFF7C4DFF);
+  static const _surfaceDark = Color(0xFF050814);
+
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
+
+  late final AnimationController _ambientController;
 
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _isSendingReset = false;
+  bool _emailFocused = false;
+  bool _passwordFocused = false;
 
   /// Destino preservado no `?redirect=` (LINK-03 / D-04), já saneado por
   /// [safeRedirect]. `null` quando não há parâmetro ou quando ele foi
@@ -35,8 +50,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _redirectResolvido = false;
 
   @override
+  void initState() {
+    super.initState();
+    _ambientController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    )..repeat(reverse: true);
+    _emailFocusNode.addListener(_syncFocusState);
+    _passwordFocusNode.addListener(_syncFocusState);
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
+    if (reducedMotion && _ambientController.isAnimating) {
+      _ambientController.stop();
+    } else if (!reducedMotion && !_ambientController.isAnimating) {
+      _ambientController.repeat(reverse: true);
+    }
+
     // Resolvido uma única vez: `build` roda a cada rebuild e não pode ficar
     // repetindo o log de descarte.
     if (_redirectResolvido) return;
@@ -47,7 +80,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final destino = safeRedirect(raw);
     if (destino == null) {
-      // Destino inválido cai em `/home` EM SILÊNCIO — nenhuma mensagem nova
+      // Destino inválido cai em `/home` EM SILÊNCIO - nenhuma mensagem nova
       // para o usuário. O caso normal deste fallback é link velho ou
       // truncado, não ataque; assustar quem só quer entrar não ajuda.
       AppErrorHandler.log(
@@ -60,6 +93,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _redirectDestino = destino);
   }
 
+  void _syncFocusState() {
+    if (!mounted) return;
+    setState(() {
+      _emailFocused = _emailFocusNode.hasFocus;
+      _passwordFocused = _passwordFocusNode.hasFocus;
+    });
+  }
+
   void _logLogin(String message, {Object? error, StackTrace? stackTrace}) {
     debugPrint('[Login] $message');
     if (error != null) debugPrint('[Login] error=$error');
@@ -68,6 +109,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   void dispose() {
+    _emailFocusNode
+      ..removeListener(_syncFocusState)
+      ..dispose();
+    _passwordFocusNode
+      ..removeListener(_syncFocusState)
+      ..dispose();
+    _ambientController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -105,7 +153,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
 
         // D-04: o destino do link sobrevive ao login e também ao desvio pelo
-        // seletor de igreja — quem clicou num link de inscrição cai na
+        // seletor de igreja - quem clicou num link de inscrição cai na
         // inscrição, não na home. Sem destino válido, o comportamento é
         // exatamente o de antes.
         final destino = _redirectDestino;
@@ -130,10 +178,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
       if (mounted) {
         final authRepo = ref.read(authRepositoryProvider);
-        var message = AppErrorHandler.userMessage(
-          e,
-          feature: 'auth.login',
-        );
+        var message = AppErrorHandler.userMessage(e, feature: 'auth.login');
 
         String? altActionLabel;
         VoidCallback? altAction;
@@ -215,270 +260,651 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 400),
-            padding: const EdgeInsets.all(32.0),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(CommunityDesign.radius),
-              boxShadow: [CommunityDesign.overlayBaseShadow()],
+      backgroundColor: _surfaceDark,
+      body: AnimatedBuilder(
+        animation: _ambientController,
+        builder: (context, _) {
+          final progress = MediaQuery.of(context).disableAnimations
+              ? 0.35
+              : _ambientController.value;
+
+          return Stack(
+            children: [
+              Positioned.fill(child: _LoginAtmosphere(progress: progress)),
+              SafeArea(
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 28,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 410),
+                      child: _LoginGlassCard(
+                        borderProgress: progress,
+                        child: Form(
+                          key: _formKey,
+                          child: AutofillGroup(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _buildHeader(context),
+                                const SizedBox(height: 28),
+                                _buildEmailField(),
+                                const SizedBox(height: 16),
+                                _buildPasswordField(),
+                                const SizedBox(height: 6),
+                                _buildForgotPasswordButton(),
+                                const SizedBox(height: 18),
+                                _buildSubmitButton(),
+                                const SizedBox(height: 22),
+                                _buildSignupLink(context),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    final titleStyle = Theme.of(context).textTheme.headlineSmall?.copyWith(
+      color: Colors.white,
+      fontWeight: FontWeight.w800,
+      letterSpacing: 0,
+      height: 1.05,
+    );
+
+    return Column(
+      children: [
+        Container(
+          width: 84,
+          height: 84,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.30),
+                Colors.white.withValues(alpha: 0.08),
+              ],
             ),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Logo
-                  Center(
-                    child: SizedBox(
-                      width: 96,
-                      height: 96,
-                      child: const AppLogo(),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+            boxShadow: [
+              BoxShadow(
+                color: _accentCyan.withValues(alpha: 0.20),
+                blurRadius: 32,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: const AppLogo(),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          AppBranding.appName,
+          textAlign: TextAlign.center,
+          style: titleStyle,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          AppBranding.organizationName,
+          textAlign: TextAlign.center,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          AppBranding.loginPrompt,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.64),
+            fontSize: 13,
+            height: 1.35,
+          ),
+        ),
+        if (_redirectDestino != null) ...[
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: _accentCyan.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _accentCyan.withValues(alpha: 0.22)),
+            ),
+            child: Text(
+              'Faça login para abrir o link que você recebeu.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.82),
+                fontSize: 13,
+                height: 1.25,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildEmailField() {
+    return TextFormField(
+      controller: _emailController,
+      focusNode: _emailFocusNode,
+      keyboardType: TextInputType.emailAddress,
+      textInputAction: TextInputAction.next,
+      autofillHints: const [AutofillHints.email],
+      cursorColor: Colors.white,
+      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+      decoration: _authInputDecoration(
+        label: 'Email',
+        hint: 'seu@email.com',
+        icon: Icons.email_outlined,
+        focused: _emailFocused,
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Por favor, insira seu email';
+        }
+        if (!value.contains('@')) {
+          return 'Por favor, insira um email válido';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildPasswordField() {
+    return TextFormField(
+      controller: _passwordController,
+      focusNode: _passwordFocusNode,
+      obscureText: _obscurePassword,
+      textInputAction: TextInputAction.done,
+      autofillHints: const [AutofillHints.password],
+      cursorColor: Colors.white,
+      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+      onFieldSubmitted: (_) {
+        if (!_isLoading) _handleLogin();
+      },
+      decoration: _authInputDecoration(
+        label: 'Senha',
+        hint: '********',
+        icon: Icons.lock_outline,
+        focused: _passwordFocused,
+        suffixIcon: IconButton(
+          tooltip: _obscurePassword ? 'Mostrar senha' : 'Ocultar senha',
+          icon: Icon(
+            _obscurePassword
+                ? Icons.visibility_outlined
+                : Icons.visibility_off_outlined,
+            color: Colors.white.withValues(
+              alpha: _passwordFocused ? 0.90 : 0.56,
+            ),
+          ),
+          onPressed: () {
+            setState(() {
+              _obscurePassword = !_obscurePassword;
+            });
+          },
+        ),
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Por favor, insira sua senha';
+        }
+        if (value.length < 6) {
+          return 'A senha deve ter pelo menos 6 caracteres';
+        }
+        return null;
+      },
+    );
+  }
+
+  InputDecoration _authInputDecoration({
+    required String label,
+    required String hint,
+    required IconData icon,
+    required bool focused,
+    Widget? suffixIcon,
+  }) {
+    final radius = BorderRadius.circular(14);
+    final baseBorder = OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+    );
+
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: Icon(
+        icon,
+        size: 20,
+        color: Colors.white.withValues(alpha: focused ? 0.92 : 0.46),
+      ),
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: focused ? 0.12 : 0.07),
+      labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.62)),
+      floatingLabelStyle: const TextStyle(color: Colors.white),
+      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.34)),
+      errorStyle: const TextStyle(color: Color(0xFFFFB4AB), height: 1.25),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      border: baseBorder,
+      enabledBorder: baseBorder,
+      focusedBorder: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.34)),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: const BorderSide(color: Color(0xFFFFB4AB)),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: const BorderSide(color: Color(0xFFFFB4AB), width: 1.2),
+      ),
+    );
+  }
+
+  Widget _buildForgotPasswordButton() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: TextButton(
+        onPressed: _isLoading || _isSendingReset ? null : _handlePasswordReset,
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.white.withValues(alpha: 0.78),
+          disabledForegroundColor: Colors.white.withValues(alpha: 0.32),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        child: Text(_isSendingReset ? 'Enviando...' : 'Esqueci minha senha'),
+      ),
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: _accentCyan.withValues(alpha: _isLoading ? 0.24 : 0.18),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _handleLogin,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          disabledBackgroundColor: Colors.white.withValues(alpha: 0.72),
+          foregroundColor: const Color(0xFF07111F),
+          disabledForegroundColor: const Color(
+            0xFF07111F,
+          ).withValues(alpha: 0.62),
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          minimumSize: const Size(double.infinity, 52),
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          child: _isLoading
+              ? const SizedBox(
+                  key: ValueKey('loading'),
+                  height: 22,
+                  width: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFF07111F),
                     ),
                   ),
-                  const SizedBox(height: 24),
-
-                  // Título
-                  Text(
-                    AppBranding.appName,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Subtítulo
-                  Text(
-                    AppBranding.organizationName,
-                    textAlign: TextAlign.center,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: CommunityDesign.metaStyle(
-                      context,
-                    ).copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    AppBranding.loginPrompt,
-                    textAlign: TextAlign.center,
-                    style: CommunityDesign.metaStyle(context),
-                  ),
-
-                  // S3 (D-04): explica por que o usuário caiu no login vindo de
-                  // um link. Renderizada SOMENTE com `?redirect=` válido — sem
-                  // ele nada é renderizado, nenhum espaço reservado. O path de
-                  // destino NÃO é exibido: é dado controlável por quem monta a
-                  // URL, e exibi-lo daria um canal de texto renderizado na tela
-                  // de login (T-02-11).
-                  if (_redirectDestino != null) ...[
-                    const SizedBox(height: 12),
+                )
+              : const Row(
+                  key: ValueKey('idle'),
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      'Faça login para abrir o link que você recebeu.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      'Entrar',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
+                    SizedBox(width: 8),
+                    Icon(Icons.arrow_forward_rounded, size: 19),
                   ],
-                  const SizedBox(height: 32),
+                ),
+        ),
+      ),
+    );
+  }
 
-                  // Campo de Email
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    autofillHints: const [AutofillHints.email],
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                      hintText: 'seu@email.com',
-                      prefixIcon: const Icon(Icons.email_outlined, size: 20),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Colors.grey.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Colors.grey.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Por favor, insira seu email';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Por favor, insira um email válido';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
+  Widget _buildSignupLink(BuildContext context) {
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          'Não tem uma conta?',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.62),
+            fontSize: 13,
+          ),
+        ),
+        TextButton(
+          onPressed: () => context.push('/signup'),
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            textStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          child: const Text('Criar conta'),
+        ),
+      ],
+    );
+  }
+}
 
-                  // Campo de Senha
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    autofillHints: const [AutofillHints.password],
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Senha',
-                      hintText: '••••••••',
-                      prefixIcon: const Icon(Icons.lock_outline, size: 20),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Colors.grey.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Colors.grey.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Por favor, insira sua senha';
-                      }
-                      if (value.length < 6) {
-                        return 'A senha deve ter pelo menos 6 caracteres';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 8),
+class _LoginAtmosphere extends StatelessWidget {
+  final double progress;
 
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: _isLoading || _isSendingReset
-                          ? null
-                          : _handlePasswordReset,
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF0B5FA5),
-                        textStyle: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      child: Text(
-                        _isSendingReset ? 'Enviando...' : 'Esqueci minha senha',
-                      ),
-                    ),
-                  ),
+  const _LoginAtmosphere({required this.progress});
 
-                  const SizedBox(height: 20),
+  @override
+  Widget build(BuildContext context) {
+    final pulse = math.sin(progress * math.pi);
 
-                  // Botão de Login
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _handleLogin,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0B5FA5),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      minimumSize: const Size(double.infinity, 50),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          )
-                        : const Text(
-                            'Entrar',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                  ),
-                  const SizedBox(height: 24),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF112D57), Color(0xFF0B1B38), Color(0xFF050814)],
+          stops: [0, 0.48, 1],
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(-0.22 + (progress * 0.12), -0.94),
+                  radius: 0.90 + (pulse * 0.05),
+                  colors: [
+                    _LoginScreenState._accentCyan.withValues(alpha: 0.34),
+                    _LoginScreenState._primaryBlue.withValues(alpha: 0.13),
+                    Colors.transparent,
+                  ],
+                  stops: const [0, 0.42, 1],
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(0.78 - (progress * 0.10), 0.86),
+                  radius: 0.74 + (pulse * 0.08),
+                  colors: [
+                    _LoginScreenState._accentViolet.withValues(alpha: 0.24),
+                    Colors.transparent,
+                  ],
+                  stops: const [0, 1],
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _LoginPatternPainter(
+                color: Colors.white.withValues(alpha: 0.030),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.05),
+                    Colors.black.withValues(alpha: 0.34),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-                  // Link para Cadastro
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Não tem uma conta? ',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => context.push('/signup'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF0B5FA5),
-                          textStyle: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        child: const Text('Criar Conta'),
-                      ),
+class _LoginPatternPainter extends CustomPainter {
+  final Color color;
+
+  const _LoginPatternPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+
+    const gap = 34.0;
+    for (var x = -size.height; x < size.width; x += gap) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x + size.height, size.height),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LoginPatternPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}
+
+class _LoginGlassCard extends StatefulWidget {
+  final Widget child;
+  final double borderProgress;
+
+  const _LoginGlassCard({required this.child, required this.borderProgress});
+
+  @override
+  State<_LoginGlassCard> createState() => _LoginGlassCardState();
+}
+
+class _LoginGlassCardState extends State<_LoginGlassCard> {
+  Offset _tilt = Offset.zero;
+  bool _hovered = false;
+
+  void _handleHover(PointerHoverEvent event) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+
+    final local = box.globalToLocal(event.position);
+    final center = Offset(box.size.width / 2, box.size.height / 2);
+    final normalized = Offset(
+      ((local.dx - center.dx) / center.dx).clamp(-1.0, 1.0),
+      ((local.dy - center.dy) / center.dy).clamp(-1.0, 1.0),
+    );
+
+    setState(() {
+      _hovered = true;
+      _tilt = normalized;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
+    final targetTilt = _hovered && !reducedMotion ? _tilt : Offset.zero;
+
+    return MouseRegion(
+      onHover: _handleHover,
+      onExit: (_) {
+        setState(() {
+          _hovered = false;
+          _tilt = Offset.zero;
+        });
+      },
+      child: TweenAnimationBuilder<Offset>(
+        tween: Tween<Offset>(begin: Offset.zero, end: targetTilt),
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        builder: (context, tilt, child) {
+          final matrix = Matrix4.identity()
+            ..setEntry(3, 2, 0.001)
+            ..rotateX(-tilt.dy * 0.045)
+            ..rotateY(tilt.dx * 0.045);
+
+          return Transform(
+            alignment: Alignment.center,
+            transform: matrix,
+            child: child,
+          );
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+            child: CustomPaint(
+              foregroundPainter: _LoginBorderPainter(
+                progress: widget.borderProgress,
+                active: _hovered,
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(26),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.16),
+                      Colors.white.withValues(alpha: 0.070),
                     ],
                   ),
-                ],
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 40,
+                      offset: const Offset(0, 24),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: const Alignment(-0.8, -1),
+                              end: const Alignment(0.8, 1),
+                              colors: [
+                                Colors.transparent,
+                                Colors.white.withValues(alpha: 0.09),
+                                Colors.transparent,
+                              ],
+                              stops: const [0.18, 0.46, 0.74],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    widget.child,
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
     );
+  }
+}
+
+class _LoginBorderPainter extends CustomPainter {
+  final double progress;
+  final bool active;
+
+  const _LoginBorderPainter({required this.progress, required this.active});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(
+      rect.deflate(0.8),
+      const Radius.circular(24),
+    );
+
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = Colors.white.withValues(alpha: active ? 0.18 : 0.10),
+    );
+
+    final shader = SweepGradient(
+      colors: [
+        Colors.transparent,
+        _LoginScreenState._accentCyan.withValues(alpha: active ? 0.78 : 0.46),
+        Colors.white.withValues(alpha: active ? 0.70 : 0.35),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.08, 0.14, 0.25],
+      transform: GradientRotation(progress * math.pi * 2),
+    ).createShader(rect);
+
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = active ? 2.8 : 2.0
+        ..shader = shader
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.4),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _LoginBorderPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.active != active;
   }
 }
