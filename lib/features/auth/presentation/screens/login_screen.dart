@@ -327,9 +327,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     return Column(
       children: [
         Container(
-          width: 84,
-          height: 84,
-          padding: const EdgeInsets.all(12),
+          width: 88,
+          height: 88,
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: LinearGradient(
@@ -349,7 +349,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               ),
             ],
           ),
-          child: const AppLogo(),
+          child: const AppLogo(fit: BoxFit.cover),
         ),
         const SizedBox(height: 20),
         Text(
