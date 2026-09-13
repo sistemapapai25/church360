@@ -112,10 +112,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         activeColor: Color(0xFF2563EB),
         icon: Icons.menu_book_outlined,
       ),
-      const PremiumNavItem(
+      PremiumNavItem(
         label: 'Igreja',
         activeColor: Color(0xFF2563EB),
-        icon: Icons.church_outlined,
+        iconBuilder: (context, isActive, activeColor) {
+          return _NavLogoIcon(isActive: isActive);
+        },
       ),
       const PremiumNavItem(
         label: 'Cursos',
@@ -233,6 +235,20 @@ BoxDecoration _homeCardDecoration(ColorScheme cs, {bool hovered = false}) {
         ? Border.all(color: cs.outline.withValues(alpha: 0.08))
         : null,
   );
+}
+
+class _NavLogoIcon extends StatelessWidget {
+  final bool isActive;
+
+  const _NavLogoIcon({required this.isActive});
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: isActive ? 1 : 0.65,
+      child: const AppLogo(width: 22, height: 22),
+    );
+  }
 }
 
 class _NavAvatarIcon extends StatelessWidget {
