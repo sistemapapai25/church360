@@ -228,10 +228,9 @@ Previous relevant commits:
 
 This wrap update is the next intentional documentation commit after `8a79a6b`.
 
-Atualmente a branch `main` está `ahead 2` em relação a `origin/main`: os
-commits locais `f872cfe` e `1db3f0e` ainda não foram enviados ao GitHub. O
-deploy foi feito diretamente a partir do build local, portanto produção está
-atualizada mesmo antes do push.
+Os commits `f872cfe`, `1db3f0e` e `9b656e7` foram enviados ao GitHub; a branch
+`main` está sincronizada com `origin/main`. O deploy foi feito diretamente a
+partir do build local, portanto produção foi atualizada antes do push.
 
 ## Next Steps For The Next Chat
 
