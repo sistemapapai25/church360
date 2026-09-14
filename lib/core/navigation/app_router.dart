@@ -220,7 +220,7 @@ String? safeRedirect(String? raw) {
     return null;
   }
 
-  if (decoded.isEmpty) return null;
+  if (decoded.isEmpty || decoded == '/') return null;
   if (!decoded.startsWith('/')) return null;
   if (decoded.startsWith('//')) return null;
 
@@ -320,6 +320,11 @@ final appRouter = GoRouter(
     return null;
   },
   routes: [
+    // A raiz ainda pode ser usada por links antigos de autenticação ou por
+    // uma sessão que acabou de ser restaurada. Ela precisa existir no mapa de
+    // rotas para que o roteador consiga encaminhar o usuário ao bootstrap,
+    // em vez de lançar `GoException: no routes for location: /`.
+    GoRoute(path: '/', redirect: (_, __) => '/splash'),
     GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
     GoRoute(path: '/signup', builder: (context, state) => const SignUpScreen()),
