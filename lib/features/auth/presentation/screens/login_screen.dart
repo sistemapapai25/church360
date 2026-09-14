@@ -253,7 +253,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Enviamos um link de redefinição para $email.'),
+          content: const Text(
+            'Se houver uma conta para este e-mail, você receberá as instruções de recuperação.',
+          ),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 4),
         ),

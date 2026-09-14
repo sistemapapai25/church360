@@ -122,14 +122,24 @@ class ProfileScreen extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.2),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.email, size: 16, color: Theme.of(context).colorScheme.primary),
+                      Icon(
+                        Icons.email,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
@@ -146,6 +156,16 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ],
               const SizedBox(height: 32),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/profile/change-password'),
+                icon: const Icon(Icons.lock_outline),
+                label: const Text('Alterar senha'),
+                style: CommunityDesign.pillButtonStyle(
+                  context,
+                  Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 16),
               // Botão para criar perfil
               ElevatedButton.icon(
                 onPressed: () {
