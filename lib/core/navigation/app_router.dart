@@ -237,20 +237,12 @@ String? safeRedirect(String? raw) {
 }
 
 /// Configuração de rotas do aplicativo
-String _initialAppLocation() {
-  if (!kIsWeb) return '/splash';
-
-  final uri = Uri.base;
-  final path = uri.path.isEmpty ? '/' : uri.path;
-  return uri.hasQuery ? '$path?${uri.query}' : path;
-}
-
 final appRouter = GoRouter(
   observers: [OverlayRefreshObserver()],
-  // Em links de recuperação, o Supabase chega diretamente em
-  // `/reset-password?code=...`. Forçar `/splash` aqui descartava a URL do
-  // navegador e levava o usuário para o login antes de o callback ser lido.
-  initialLocation: _initialAppLocation(),
+  // No web, o GoRouter deve usar a localização nativa para preservar
+  // `/reset-password?code=...` enviado pelo Supabase. Em plataformas nativas,
+  // mantém a abertura inicial pela splash.
+  initialLocation: kIsWeb ? null : '/splash',
   redirect: (context, state) async {
     bool isAuthenticated = false;
 
