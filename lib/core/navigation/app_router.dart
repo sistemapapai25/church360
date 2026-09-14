@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../features/auth/presentation/screens/login_screen.dart';
@@ -236,9 +237,20 @@ String? safeRedirect(String? raw) {
 }
 
 /// Configuração de rotas do aplicativo
+String _initialAppLocation() {
+  if (!kIsWeb) return '/splash';
+
+  final uri = Uri.base;
+  final path = uri.path.isEmpty ? '/' : uri.path;
+  return uri.hasQuery ? '$path?${uri.query}' : path;
+}
+
 final appRouter = GoRouter(
   observers: [OverlayRefreshObserver()],
-  initialLocation: '/splash',
+  // Em links de recuperação, o Supabase chega diretamente em
+  // `/reset-password?code=...`. Forçar `/splash` aqui descartava a URL do
+  // navegador e levava o usuário para o login antes de o callback ser lido.
+  initialLocation: _initialAppLocation(),
   redirect: (context, state) async {
     bool isAuthenticated = false;
 
