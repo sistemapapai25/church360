@@ -11,6 +11,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'core/constants/app_branding.dart';
 import 'core/constants/supabase_constants.dart';
 import 'core/navigation/app_router.dart';
+import 'core/navigation/initial_app_location.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/app_logo.dart';
 import 'core/widgets/app_restart_scope.dart';
@@ -25,6 +26,10 @@ void main() {
       // Mantem o binding e o runApp na mesma zone para evitar "Zone mismatch"
       // (muito comum no Flutter Web quando ensureInitialized fica fora do runZonedGuarded).
       WidgetsFlutterBinding.ensureInitialized();
+
+      // Deve ocorrer antes de `usePathUrlStrategy()`: essa configuração pode
+      // normalizar a rota de plataforma para `/` e apagar um deep link.
+      captureInitialAppLocation();
 
       // LINK-01 (Fase 2): URL path-based no web (sem '#'). O import e o export
       // condicional da SDK 3.38.3, entao esta chamada e no-op em Android/iOS —
@@ -47,11 +52,7 @@ void main() {
       };
 
       runApp(
-        const AppRestartScope(
-          child: ProviderScope(
-            child: AppBootstrap(),
-          ),
-        ),
+        const AppRestartScope(child: ProviderScope(child: AppBootstrap())),
       );
     },
     (error, stack) {
@@ -94,7 +95,8 @@ class _AppBootstrapState extends State<AppBootstrap> {
       ).timeout(const Duration(seconds: 12));
     } catch (error) {
       final message = error.toString().toLowerCase();
-      final alreadyInitialized = message.contains('already initialized') ||
+      final alreadyInitialized =
+          message.contains('already initialized') ||
           message.contains('already been initialized');
       if (!alreadyInitialized) rethrow;
     }
@@ -102,12 +104,21 @@ class _AppBootstrapState extends State<AppBootstrap> {
     final client = Supabase.instance.client;
     SupabaseConstants.applyTenantHeadersToClient(client);
 
+    // O bootstrap do Flutter Web pode informar `/` como rota padrão mesmo
+    // quando o navegador abriu diretamente um link de recuperação. Reaplicar
+    // a URL real antes de montar o MaterialApp preserva o callback do
+    // Supabase (`/reset-password?code=...`).
+    final startupLocation = initialAppLocation();
+    if (startupLocation != '/' && startupLocation != '/splash') {
+      appRouter.go(startupLocation);
+    }
+
     final user = client.auth.currentUser ?? client.auth.currentSession?.user;
     if (user != null) {
       unawaited(
-        SupabaseConstants.syncTenantFromServer(client)
-            .timeout(const Duration(seconds: 8))
-            .catchError((error, stack) {
+        SupabaseConstants.syncTenantFromServer(
+          client,
+        ).timeout(const Duration(seconds: 8)).catchError((error, stack) {
           debugPrint('Tenant sync failed during bootstrap: $error');
           debugPrintStack(stackTrace: stack is StackTrace ? stack : null);
         }),
@@ -127,9 +138,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
       future: _initialization,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const _BootstrapMaterialApp(
-            child: _BootstrapLoadingScreen(),
-          );
+          return const _BootstrapMaterialApp(child: _BootstrapLoadingScreen());
         }
 
         if (snapshot.hasError) {
@@ -150,9 +159,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
 class _BootstrapMaterialApp extends StatelessWidget {
   final Widget child;
 
-  const _BootstrapMaterialApp({
-    required this.child,
-  });
+  const _BootstrapMaterialApp({required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -167,9 +174,7 @@ class _BootstrapMaterialApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('pt', 'BR'),
-      ],
+      supportedLocales: const [Locale('pt', 'BR')],
       locale: const Locale('pt', 'BR'),
       home: child,
     );
@@ -189,26 +194,22 @@ class _BootstrapLoadingScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(
-                width: 120,
-                height: 120,
-                child: AppLogo(),
-              ),
+              const SizedBox(width: 120, height: 120, child: AppLogo()),
               const SizedBox(height: 24),
               Text(
                 AppBranding.appName,
                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: cs.primary,
-                    ),
+                  fontWeight: FontWeight.bold,
+                  color: cs.primary,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Inicializando o aplicativo...',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
               ),
               const SizedBox(height: 36),
               CircularProgressIndicator(color: cs.primary),
@@ -224,10 +225,7 @@ class _BootstrapErrorScreen extends StatelessWidget {
   final Object? error;
   final VoidCallback onRetry;
 
-  const _BootstrapErrorScreen({
-    required this.error,
-    required this.onRetry,
-  });
+  const _BootstrapErrorScreen({required this.error, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -243,18 +241,14 @@ class _BootstrapErrorScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 56,
-                  color: cs.error,
-                ),
+                Icon(Icons.error_outline, size: 56, color: cs.error),
                 const SizedBox(height: 16),
                 Text(
                   'Falha ao iniciar o app',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -262,9 +256,9 @@ class _BootstrapErrorScreen extends StatelessWidget {
                       ? 'Ocorreu um erro durante a inicialização.'
                       : message,
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                 ),
                 const SizedBox(height: 20),
                 FilledButton.icon(
@@ -308,7 +302,8 @@ class Church360App extends StatelessWidget {
                 return ListenableBuilder(
                   listenable: overlayListenable,
                   builder: (context, _) {
-                    final currentUri = appRouter.routeInformationProvider.value.uri;
+                    final currentUri =
+                        appRouter.routeInformationProvider.value.uri;
 
                     Uri effectiveUri(Uri uri) {
                       final frag = uri.fragment.trim();
@@ -361,14 +356,19 @@ class Church360App extends StatelessWidget {
                         }
                       } else {
                         if (cfgUri.path != effectiveCurrent.path) {
-                          final cfgPath = cfgUri.path.endsWith('/') ? cfgUri.path : '${cfgUri.path}/';
-                          if (!effectiveCurrent.path.startsWith(cfgPath)) return false;
+                          final cfgPath = cfgUri.path.endsWith('/')
+                              ? cfgUri.path
+                              : '${cfgUri.path}/';
+                          if (!effectiveCurrent.path.startsWith(cfgPath))
+                            return false;
                         }
                       }
 
                       if (cfgUri.queryParameters.isNotEmpty) {
                         for (final entry in cfgUri.queryParameters.entries) {
-                          if (effectiveCurrent.queryParameters[entry.key] != entry.value) return false;
+                          if (effectiveCurrent.queryParameters[entry.key] !=
+                              entry.value)
+                            return false;
                         }
                       }
 
@@ -395,7 +395,8 @@ class Church360App extends StatelessWidget {
                       if (!a.showFloatingButton) continue;
                       final route = (a.floatingRoute ?? '').trim();
                       final normalized = route.isEmpty ? '/home' : route;
-                      if (!matchesLocation(normalized, effectiveCurrentUri)) continue;
+                      if (!matchesLocation(normalized, effectiveCurrentUri))
+                        continue;
                       final cfgUri = parseConfiguredUri(normalized);
                       final pathScore = (cfgUri?.pathSegments.length ?? 0) * 10;
                       final queryScore = (cfgUri?.queryParameters.length ?? 0);
@@ -417,7 +418,8 @@ class Church360App extends StatelessWidget {
                       return null;
                     }
 
-                    if (selected == null && effectiveCurrentUri.path == '/home') {
+                    if (selected == null &&
+                        effectiveCurrentUri.path == '/home') {
                       for (final a in agents) {
                         if (a.key.toLowerCase() == 'default') {
                           selected = a;
@@ -426,7 +428,8 @@ class Church360App extends StatelessWidget {
                       }
                     }
 
-                    if (selected == null && allowFloatingOnCurrentRoute(effectiveCurrentUri)) {
+                    if (selected == null &&
+                        allowFloatingOnCurrentRoute(effectiveCurrentUri)) {
                       selected = findDefaultAgent();
                     }
 
@@ -448,10 +451,10 @@ class Church360App extends StatelessWidget {
                       accentColor: selectedAgent.themeColor,
                       childBuilder: (onAgentChanged, agentKey, accentColor) =>
                           UniversalSupportChat(
-                        agentKey: agentKey,
-                        accentColor: accentColor,
-                        onAgentChanged: onAgentChanged,
-                      ),
+                            agentKey: agentKey,
+                            accentColor: accentColor,
+                            onAgentChanged: onAgentChanged,
+                          ),
                     );
 
                     return _AppOverlayRoot(
@@ -474,9 +477,7 @@ class Church360App extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('pt', 'BR'),
-      ],
+      supportedLocales: const [Locale('pt', 'BR')],
       locale: const Locale('pt', 'BR'),
     );
   }
@@ -486,10 +487,7 @@ class _AppOverlayRoot extends StatefulWidget {
   final Widget appChild;
   final Widget overlayChild;
 
-  const _AppOverlayRoot({
-    required this.appChild,
-    required this.overlayChild,
-  });
+  const _AppOverlayRoot({required this.appChild, required this.overlayChild});
 
   @override
   State<_AppOverlayRoot> createState() => _AppOverlayRootState();
@@ -515,11 +513,6 @@ class _AppOverlayRootState extends State<_AppOverlayRoot> {
 
   @override
   Widget build(BuildContext context) {
-    return Overlay(
-      initialEntries: [
-        _appEntry,
-        _overlayEntry,
-      ],
-    );
+    return Overlay(initialEntries: [_appEntry, _overlayEntry]);
   }
 }
