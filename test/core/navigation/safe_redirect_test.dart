@@ -46,6 +46,10 @@ void main() {
       expect(safeRedirect('/reset-password'), isNull);
     });
 
+    test('rejeita a raiz (deve cair na home, não em uma rota inexistente)', () {
+      expect(safeRedirect('/'), isNull);
+    });
+
     test('rejeita null e string vazia', () {
       expect(safeRedirect(null), isNull);
       expect(safeRedirect(''), isNull);
