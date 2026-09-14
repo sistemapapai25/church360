@@ -1,12 +1,12 @@
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import '../../features/auth/presentation/screens/signup_screen.dart';
 import '../../features/auth/presentation/screens/change_password_screen.dart';
+import 'initial_app_location.dart';
 import '../../features/members/presentation/screens/members_list_screen.dart';
 import '../../features/members/presentation/screens/member_form_screen.dart';
 import '../../features/members/presentation/screens/member_profile_screen.dart';
@@ -239,10 +239,11 @@ String? safeRedirect(String? raw) {
 /// Configuração de rotas do aplicativo
 final appRouter = GoRouter(
   observers: [OverlayRefreshObserver()],
-  // No web, o GoRouter deve usar a localização nativa para preservar
-  // `/reset-password?code=...` enviado pelo Supabase. Em plataformas nativas,
+  // No web, a localização é lida diretamente do navegador para preservar o
+  // callback `/reset-password?code=...` do Supabase. Em plataformas nativas,
   // mantém a abertura inicial pela splash.
-  initialLocation: kIsWeb ? null : '/splash',
+  initialLocation: initialAppLocation(),
+  overridePlatformDefaultLocation: true,
   redirect: (context, state) async {
     bool isAuthenticated = false;
 
