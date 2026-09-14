@@ -566,9 +566,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         : 'Não concedido';
     final primary = Theme.of(context).colorScheme.primary;
     final statusColor = hasConsent ? Colors.green : Colors.orange;
-    final statusIcon = hasConsent
-        ? Icons.check_circle
-        : Icons.info_outline;
+    final statusIcon = hasConsent ? Icons.check_circle : Icons.info_outline;
     final currentMember = ref.watch(currentMemberProvider).valueOrNull;
     final canUpdate = currentMember?.id == member.id;
 
@@ -679,7 +677,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     // mesmo padrão usado em "Configurações de Desenvolvedor".
     final isOwner = ref.watch(currentUserIsOwnerProvider).valueOrNull ?? false;
     final hasManagePermission =
-        ref.watch(currentUserHasPermissionProvider('lgpd.requests.manage')).valueOrNull ??
+        ref
+            .watch(currentUserHasPermissionProvider('lgpd.requests.manage'))
+            .valueOrNull ??
         false;
     if (!isOwner && !hasManagePermission) {
       return const SizedBox.shrink();
@@ -1263,6 +1263,18 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                 const NotificationBadge(),
                 const SizedBox(width: 4),
                 IconButton(
+                  icon: const Icon(Icons.lock_outline),
+                  onPressed: () => context.push('/profile/change-password'),
+                  tooltip: 'Alterar senha',
+                  style: IconButton.styleFrom(
+                    backgroundColor: colorScheme.primary.withValues(
+                      alpha: 0.12,
+                    ),
+                    foregroundColor: colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
                   icon: const Icon(Icons.edit),
                   onPressed: () => context.push('/members/$_memberId/edit'),
                   tooltip: 'Editar Meu Perfil',
@@ -1411,7 +1423,11 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     );
   }
 
-  Widget _buildPendingBanner(BuildContext context, int completion, Member member) {
+  Widget _buildPendingBanner(
+    BuildContext context,
+    int completion,
+    Member member,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
     return InkWell(
       borderRadius: BorderRadius.circular(_cardRadius),
@@ -1517,7 +1533,10 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                 ).copyWith(fontSize: 16, fontWeight: FontWeight.w800),
               ),
               const Spacer(),
-              Icon(Icons.arrow_forward_ios, color: colorScheme.onSurfaceVariant),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: colorScheme.onSurfaceVariant,
+              ),
             ],
           ),
           const SizedBox(height: _sectionGap),
@@ -2101,15 +2120,18 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                         missing.isEmpty
                             ? 'Cadastro completo'
                             : 'Faltam ${missing.length} ${missing.length == 1 ? 'dado' : 'dados'}',
-                        style: CommunityDesign.titleStyle(sheetContext)
-                            .copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: CommunityDesign.titleStyle(
+                          sheetContext,
+                        ).copyWith(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 if (missing.isEmpty)
-                  const Text('Todas as informações obrigatórias foram preenchidas.')
+                  const Text(
+                    'Todas as informações obrigatórias foram preenchidas.',
+                  )
                 else
                   ...missing.map(
                     (label) => Padding(
@@ -2464,10 +2486,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                   Expanded(
                     child: Text(
                       title,
-                      style: CommunityDesign.titleStyle(context).copyWith(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: CommunityDesign.titleStyle(
+                        context,
+                      ).copyWith(fontSize: 14, fontWeight: FontWeight.w700),
                     ),
                   ),
                   Text(

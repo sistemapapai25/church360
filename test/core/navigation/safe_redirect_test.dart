@@ -42,6 +42,10 @@ void main() {
       expect(safeRedirect('/splash'), isNull);
     });
 
+    test('rejeita /reset-password (rota exclusiva do link de recuperação)', () {
+      expect(safeRedirect('/reset-password'), isNull);
+    });
+
     test('rejeita null e string vazia', () {
       expect(safeRedirect(null), isNull);
       expect(safeRedirect(''), isNull);

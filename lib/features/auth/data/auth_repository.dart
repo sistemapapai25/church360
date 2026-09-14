@@ -25,7 +25,8 @@ class AuthRepository {
     if (error is AuthApiException) {
       final code = (error.code ?? '').toLowerCase().trim();
       final msg = error.message.toLowerCase();
-      return code.contains('user') && (code.contains('exists') || code.contains('registered')) ||
+      return code.contains('user') &&
+              (code.contains('exists') || code.contains('registered')) ||
           msg.contains('already registered') ||
           msg.contains('user already registered') ||
           msg.contains('already exists') ||
@@ -50,34 +51,81 @@ class AuthRepository {
     }
     if (error is AuthException) {
       final msg = error.message.toLowerCase();
-      return msg.contains('invalid login') || msg.contains('invalid_credentials');
+      return msg.contains('invalid login') ||
+          msg.contains('invalid_credentials');
     }
     return false;
   }
 
-  Future<void> sendPasswordResetEmail({
-    required String email,
-  }) async {
+  Future<void> sendPasswordResetEmail({required String email}) async {
     final clean = email.trim();
     if (clean.isEmpty) {
       throw const AuthException('Email inválido');
     }
-    await _supabase.auth.resetPasswordForEmail(clean);
+    await _supabase.auth.resetPasswordForEmail(
+      clean,
+      redirectTo: _passwordResetRedirectUrl(),
+    );
   }
 
-  Future<String> getSignupStatus({
-    required String email,
+  String _passwordResetRedirectUrl() {
+    if (!kIsWeb) return 'io.supabase.flutter://login-callback/reset-password';
+
+    return Uri.parse(
+      SupabaseConstants.authRedirectUrl,
+    ).replace(path: '/reset-password', queryParameters: const {}).toString();
+  }
+
+  Future<void> updatePasswordFromRecovery({required String password}) async {
+    if (password.length < 6) {
+      throw AuthException('A nova senha deve ter pelo menos 6 caracteres.');
+    }
+    if (_supabase.auth.currentSession == null) {
+      throw AuthSessionMissingException();
+    }
+    await _supabase.auth.updateUser(UserAttributes(password: password));
+  }
+
+  Future<void> changePasswordWithCurrentPassword({
+    required String currentPassword,
+    required String newPassword,
   }) async {
+    if (newPassword.length < 6) {
+      throw AuthException('A nova senha deve ter pelo menos 6 caracteres.');
+    }
+
+    final currentUser = _supabase.auth.currentUser;
+    final email = currentUser?.email?.trim();
+    if (currentUser == null || email == null || email.isEmpty) {
+      throw AuthSessionMissingException();
+    }
+
+    // O Supabase não aceita a senha atual como parâmetro de `updateUser`.
+    // Autenticar de novo comprova a senha e renova a sessão da mesma conta.
+    final response = await _supabase.auth.signInWithPassword(
+      email: email,
+      password: currentPassword,
+    );
+    if (response.user?.id != currentUser.id) {
+      throw const AuthException('Não foi possível confirmar a conta atual.');
+    }
+
+    await _supabase.auth.updateUser(UserAttributes(password: newPassword));
+  }
+
+  Future<String> getSignupStatus({required String email}) async {
     final clean = email.trim();
     if (clean.isEmpty) return 'not_found';
     try {
-      final res = await _supabase.rpc(
-        'get_signup_status',
-        params: {
-          'p_tenant_id': SupabaseConstants.currentTenantId,
-          'p_email': clean,
-        },
-      ).timeout(const Duration(seconds: 8));
+      final res = await _supabase
+          .rpc(
+            'get_signup_status',
+            params: {
+              'p_tenant_id': SupabaseConstants.currentTenantId,
+              'p_email': clean,
+            },
+          )
+          .timeout(const Duration(seconds: 8));
       return (res ?? 'not_found').toString();
     } catch (e) {
       // fallback silencioso: não bloquear login/signup por falha do helper
@@ -132,7 +180,9 @@ class AuthRepository {
     );
   }
 
-  Future<void> _persistCommitmentTermsAtSignUp({required String memberId}) async {
+  Future<void> _persistCommitmentTermsAtSignUp({
+    required String memberId,
+  }) async {
     await _persistConsentWithStrategies(
       memberId: memberId,
       strategies: _commitmentTermsStrategies,
@@ -620,23 +670,26 @@ class AuthRepository {
         password: password,
       );
       try {
-        await SupabaseConstants.syncTenantFromServer(_supabase)
-            .timeout(const Duration(seconds: 8));
+        await SupabaseConstants.syncTenantFromServer(
+          _supabase,
+        ).timeout(const Duration(seconds: 8));
       } catch (e) {
         debugPrint(
           '❌ [AuthRepository.signInWithPassword] syncTenantFromServer falhou/timeout: $e',
         );
       }
       try {
-        await _supabase.rpc(
-          'ensure_my_account',
-          params: {
-            '_tenant_id': SupabaseConstants.currentTenantId,
-            '_email': email,
-            '_full_name': userFullNameFromEmail(email),
-            '_nickname': userFullNameFromEmail(email),
-          },
-        ).timeout(const Duration(seconds: 8));
+        await _supabase
+            .rpc(
+              'ensure_my_account',
+              params: {
+                '_tenant_id': SupabaseConstants.currentTenantId,
+                '_email': email,
+                '_full_name': userFullNameFromEmail(email),
+                '_nickname': userFullNameFromEmail(email),
+              },
+            )
+            .timeout(const Duration(seconds: 8));
       } catch (e) {
         debugPrint(
           '❌ [AuthRepository.signInWithPassword] ensure_my_account falhou/timeout: $e',
@@ -708,11 +761,7 @@ class AuthRepository {
     }
 
     return Uri.parse(SupabaseConstants.authRedirectUrl)
-        .replace(
-          path: '/login',
-          queryParameters: queryParameters,
-          fragment: '',
-        )
+        .replace(path: '/login', queryParameters: queryParameters, fragment: '')
         .toString();
   }
 
@@ -876,10 +925,12 @@ class AuthRepository {
           UserAttributes(
             data: {
               'lgpd_consent': lgpdConsent,
-              if (lgpdConsent) 'lgpd_consent_at': DateTime.now().toIso8601String(),
+              if (lgpdConsent)
+                'lgpd_consent_at': DateTime.now().toIso8601String(),
               'commitment_terms_accepted': commitmentTermsAccepted,
               if (commitmentTermsAccepted)
-                'commitment_terms_accepted_at': DateTime.now().toIso8601String(),
+                'commitment_terms_accepted_at': DateTime.now()
+                    .toIso8601String(),
             },
           ),
         );

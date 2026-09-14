@@ -3,7 +3,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import '../../features/auth/presentation/screens/signup_screen.dart';
+import '../../features/auth/presentation/screens/change_password_screen.dart';
 import '../../features/members/presentation/screens/members_list_screen.dart';
 import '../../features/members/presentation/screens/member_form_screen.dart';
 import '../../features/members/presentation/screens/member_profile_screen.dart';
@@ -221,7 +223,12 @@ String? safeRedirect(String? raw) {
   if (!decoded.startsWith('/')) return null;
   if (decoded.startsWith('//')) return null;
 
-  for (final loop in const ['/login', '/signup', '/splash']) {
+  for (final loop in const [
+    '/login',
+    '/signup',
+    '/splash',
+    '/reset-password',
+  ]) {
     if (decoded.startsWith(loop)) return null;
   }
 
@@ -247,15 +254,18 @@ final appRouter = GoRouter(
     final isSplash = state.matchedLocation == '/splash';
     final isLogin = state.matchedLocation == '/login';
     final isSignup = state.matchedLocation == '/signup';
+    final isResetPassword = state.matchedLocation == '/reset-password';
     // LINK-03 / Achado #9 (desenho A): `/events/:id` e `/events/:id/register`
     // CONTINUAM públicas de propósito. O fluxo de convidado sem login é
     // capacidade legítima do produto, garantida no servidor por
     // `register_event_guest` com `GRANT EXECUTE ... TO anon`. O gatilho de
     // LINK-03 para essas rotas vem do CTA `login_required` da própria tela
     // (Plano 02-04), não de fechar a rota aqui.
-    final isPublicEventRegister = state.matchedLocation.startsWith('/events/') &&
+    final isPublicEventRegister =
+        state.matchedLocation.startsWith('/events/') &&
         state.matchedLocation.endsWith('/register');
-    final isPublicEventDetail = state.matchedLocation.startsWith('/events/') &&
+    final isPublicEventDetail =
+        state.matchedLocation.startsWith('/events/') &&
         !state.matchedLocation.endsWith('/edit') &&
         !state.matchedLocation.endsWith('/new') &&
         !state.matchedLocation.endsWith('/types') &&
@@ -278,6 +288,7 @@ final appRouter = GoRouter(
     if (!isAuthenticated &&
         !isLogin &&
         !isSignup &&
+        !isResetPassword &&
         !isPublicEventRegister &&
         !isPublicEventDetail &&
         !isPublicGroupDetail &&
@@ -307,6 +318,14 @@ final appRouter = GoRouter(
     GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
     GoRoute(path: '/signup', builder: (context, state) => const SignUpScreen()),
+    GoRoute(
+      path: '/reset-password',
+      builder: (context, state) => const ResetPasswordScreen(),
+    ),
+    GoRoute(
+      path: '/profile/change-password',
+      builder: (context, state) => const ChangePasswordScreen(),
+    ),
     GoRoute(path: '/home', builder: (context, state) => HomeScreen()),
     // Seletor de unidade da rede (matriz/filial, CHU-300)
     GoRoute(
@@ -990,7 +1009,10 @@ final appRouter = GoRouter(
         final fromDashboard = state.uri.queryParameters['from'] == 'dashboard';
         return PermissionOnlyRoute(
           permission: 'study_groups.view',
-          child: StudyGroupDetailScreen(groupId: id, fromDashboard: fromDashboard),
+          child: StudyGroupDetailScreen(
+            groupId: id,
+            fromDashboard: fromDashboard,
+          ),
         );
       },
     ),
@@ -1582,9 +1604,8 @@ final appRouter = GoRouter(
     // dentre os que tem permissão de ver (ver DashboardAccessGate).
     GoRoute(
       path: '/dashboard-settings/personal',
-      builder: (context, state) => const DashboardAccessGate(
-        child: UserDashboardSettingsScreen(),
-      ),
+      builder: (context, state) =>
+          const DashboardAccessGate(child: UserDashboardSettingsScreen()),
     ),
 
     GoRoute(
@@ -1709,9 +1730,7 @@ final appRouter = GoRouter(
       builder: (context, state) => PermissionOrLevelRoute(
         permission: 'permissions.manage',
         requiredLevel: AccessLevelType.admin,
-        child: UserPermissionsScreen(
-          userId: state.pathParameters['userId']!,
-        ),
+        child: UserPermissionsScreen(userId: state.pathParameters['userId']!),
       ),
     ),
     GoRoute(
