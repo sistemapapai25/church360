@@ -573,7 +573,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     decoration: InputDecoration(
                       labelText: 'Apelido *',
                       hintText: 'Como você é conhecido(a)',
-                      prefixIcon: const Icon(Icons.badge_outlined, size: 20),
+                      prefixIcon: const Icon(Icons.badge, size: 20),
                       filled: true,
                       fillColor: Colors.white,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),

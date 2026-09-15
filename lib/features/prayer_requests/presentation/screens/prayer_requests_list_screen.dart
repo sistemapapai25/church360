@@ -344,7 +344,7 @@ class _PrayerRequestCard extends ConsumerWidget {
       case PrayerPrivacy.leadersOnly:
         return Icons.admin_panel_settings;
       case PrayerPrivacy.private:
-        return Icons.lock;
+        return Icons.lock_outline;
     }
   }
 }

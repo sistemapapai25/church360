@@ -681,7 +681,7 @@ class _RolesTab extends ConsumerWidget {
 
         if (filtered.isEmpty && desativadosSelecionados.isEmpty) {
           return const _NoDataState(
-            icon: Icons.badge_outlined,
+            icon: Icons.badge,
             title: 'Nenhum cargo cadastrado',
             description:
                 'Cadastre cargos em Permissões > Cargos para poder restringir '
