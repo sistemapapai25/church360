@@ -59,4 +59,17 @@ void main() {
       expect(safeRedirect('%'), isNull);
     });
   });
+
+  group('rootRedirect', () {
+    test('preserva callback PKCE de recuperação legado', () {
+      expect(
+        rootRedirect(Uri.parse('/?code=recovery-code&foo=bar')),
+        '/reset-password?code=recovery-code&foo=bar',
+      );
+    });
+
+    test('mantém a abertura normal pela splash sem callback', () {
+      expect(rootRedirect(Uri.parse('/')), '/splash');
+    });
+  });
 }

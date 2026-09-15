@@ -236,6 +236,22 @@ String? safeRedirect(String? raw) {
   return decoded;
 }
 
+/// Mantém o callback PKCE de recuperação se links antigos retornarem à raiz.
+///
+/// A rota raiz é usada como Site URL legado. Redirecionar diretamente para a
+/// splash descartaria `?code=...` antes que o SDK do Supabase pudesse trocá-lo
+/// pela sessão de recuperação.
+String rootRedirect(Uri uri) {
+  final code = uri.queryParameters['code'];
+  if (code != null && code.isNotEmpty) {
+    return Uri(
+      path: '/reset-password',
+      queryParameters: uri.queryParameters,
+    ).toString();
+  }
+  return '/splash';
+}
+
 /// Configuração de rotas do aplicativo
 final appRouter = GoRouter(
   observers: [OverlayRefreshObserver()],
@@ -324,7 +340,11 @@ final appRouter = GoRouter(
     // uma sessão que acabou de ser restaurada. Ela precisa existir no mapa de
     // rotas para que o roteador consiga encaminhar o usuário ao bootstrap,
     // em vez de lançar `GoException: no routes for location: /`.
-    GoRoute(path: '/', redirect: (_, __) => '/splash'),
+    // Links de recuperação emitidos antes de `/reset-password` existir podem
+    // retornar ao Site URL (`/?code=...`). Preserve o código e encaminhe-o à
+    // rota pública de recuperação; enviar simplesmente para a splash faria o
+    // GoRouter descartar a query e o usuário acabaria no login.
+    GoRoute(path: '/', redirect: (_, state) => rootRedirect(state.uri)),
     GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
     GoRoute(path: '/signup', builder: (context, state) => const SignUpScreen()),
