@@ -18,6 +18,8 @@ cp "$root/.vercel/project.json" "$web_dir/.vercel/project.json"
 cat > "$web_dir/vercel.json" << 'EOF'
 {
   "rewrites": [
+    { "source": "/privacidade", "destination": "/privacy.html" },
+    { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

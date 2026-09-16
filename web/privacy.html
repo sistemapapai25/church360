@@ -1,179 +1,360 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Política de Privacidade — Church360</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Política de Privacidade — PAPAI</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <style>
   :root{
-    color-scheme: light dark;
-    --bg:#f7f7f9; --card:#ffffff; --text:#1a1a1a; --muted:#5a5a5f; --accent:#5b3df5; --border:#e6e6ea;
+    --bg:#eef0e9;
+    --surface:#ffffff;
+    --surface-2:#f7f8f3;
+    --ink:#1f2b28;
+    --ink-muted:#5b6b64;
+    --line:#d9ddd0;
+    --accent:#b8862c;
+    --accent-ink:#7a5a1a;
+    --accent-bg:#f2e6c8;
+    --shadow: 0 1px 2px rgba(31,43,40,0.06), 0 8px 24px -12px rgba(31,43,40,0.14);
   }
   @media (prefers-color-scheme: dark){
-    :root{ --bg:#121214; --card:#1c1c1f; --text:#f2f2f4; --muted:#a3a3ab; --accent:#9b8bff; --border:#2c2c30; }
+    :root:not([data-theme="light"]){
+      --bg:#141d1a;
+      --surface:#1a2521;
+      --surface-2:#1e2a25;
+      --ink:#eef1ec;
+      --ink-muted:#a7b6ae;
+      --line:#2b3a34;
+      --accent:#e0b563;
+      --accent-ink:#f2d99a;
+      --accent-bg:#382c17;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
   }
-  *{box-sizing:border-box}
+  :root[data-theme="dark"]{
+    --bg:#141d1a;
+    --surface:#1a2521;
+    --surface-2:#1e2a25;
+    --ink:#eef1ec;
+    --ink-muted:#a7b6ae;
+    --line:#2b3a34;
+    --accent:#e0b563;
+    --accent-ink:#f2d99a;
+    --accent-bg:#382c17;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  *{box-sizing:border-box;}
   body{
-    margin:0; background:var(--bg); color:var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Work Sans',system-ui,sans-serif;
     line-height:1.6;
   }
-  .wrap{max-width:760px; margin:0 auto; padding:32px 20px 80px}
-  header{margin-bottom:32px}
-  .logo{font-weight:700; font-size:20px; color:var(--accent); letter-spacing:.2px}
-  h1{font-size:26px; margin:12px 0 4px}
-  .updated{color:var(--muted); font-size:14px; margin-bottom:0}
-  .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:24px 28px; margin-bottom:20px}
-  h2{font-size:17px; margin:0 0 10px; color:var(--text)}
-  p{margin:0 0 12px; color:var(--text)}
-  p:last-child{margin-bottom:0}
-  ul{margin:0 0 12px; padding-left:20px}
-  li{margin-bottom:8px}
-  li:last-child{margin-bottom:0}
-  .muted{color:var(--muted); font-size:14px}
-  a{color:var(--accent)}
-  table{width:100%; border-collapse:collapse; font-size:14px; margin-top:8px}
-  th,td{text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top}
-  th{color:var(--muted); font-weight:600}
-  footer{margin-top:32px; color:var(--muted); font-size:13px; text-align:center}
+  .wrap{
+    max-width:920px;
+    margin:0 auto;
+    padding:56px 24px 96px;
+    display:grid;
+    grid-template-columns:200px minmax(0,1fr);
+    gap:48px;
+    align-items:start;
+  }
+  @media (max-width:760px){
+    .wrap{grid-template-columns:1fr; padding:32px 18px 64px;}
+    nav.toc{display:none;}
+  }
+
+  header.masthead{
+    grid-column:1 / -1;
+    border-bottom:1px solid var(--line);
+    padding-bottom:28px;
+    margin-bottom:8px;
+  }
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--accent-ink);
+    background:var(--accent-bg);
+    display:inline-block;
+    padding:4px 10px;
+    border-radius:3px;
+    margin-bottom:16px;
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-optical-sizing:auto;
+    font-weight:600;
+    font-size:clamp(32px,5vw,44px);
+    margin:0 0 10px;
+    text-wrap:balance;
+    letter-spacing:-0.01em;
+  }
+  .masthead p{
+    color:var(--ink-muted);
+    margin:0;
+    font-size:15px;
+  }
+  .masthead .meta{
+    display:flex;
+    gap:24px;
+    flex-wrap:wrap;
+    margin-top:18px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--ink-muted);
+  }
+  .masthead .meta strong{color:var(--ink); font-weight:600;}
+
+  nav.toc{
+    position:sticky;
+    top:32px;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  nav.toc a{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--ink-muted);
+    text-decoration:none;
+    padding:7px 0;
+    border-left:2px solid transparent;
+    padding-left:12px;
+    transition:color .15s, border-color .15s;
+  }
+  nav.toc a:hover{color:var(--ink); border-color:var(--line);}
+  nav.toc .toc-title{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.12em;
+    color:var(--ink-muted);
+    margin-bottom:8px;
+  }
+
+  main{min-width:0;}
+  section{
+    margin-bottom:40px;
+    scroll-margin-top:24px;
+  }
+  section h2{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:22px;
+    margin:0 0 4px;
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+  }
+  section h2 .num{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    color:var(--accent-ink);
+    font-weight:600;
+  }
+  section p{
+    max-width:65ch;
+    margin:12px 0;
+    color:var(--ink);
+  }
+  section p.muted{color:var(--ink-muted); font-size:14px;}
+  section ul{
+    max-width:65ch;
+    padding-left:20px;
+    margin:12px 0;
+  }
+  section li{margin:6px 0;}
+  section li strong{color:var(--ink);}
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:20px 22px;
+    box-shadow:var(--shadow);
+    margin:16px 0;
+  }
+  .card h3{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--accent-ink);
+    margin:0 0 10px;
+  }
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    margin:16px 0;
+    font-size:14px;
+  }
+  table caption{text-align:left; margin-bottom:8px; color:var(--ink-muted); font-size:13px;}
+  th,td{
+    text-align:left;
+    padding:9px 12px;
+    border-bottom:1px solid var(--line);
+    vertical-align:top;
+  }
+  th{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--ink-muted);
+    font-weight:600;
+  }
+  .tblwrap{overflow-x:auto;}
+
+  a.inline{color:var(--accent-ink); text-decoration-color:var(--accent);}
+
+  footer{
+    grid-column:1/-1;
+    border-top:1px solid var(--line);
+    margin-top:24px;
+    padding-top:24px;
+    color:var(--ink-muted);
+    font-size:13px;
+  }
 </style>
+
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <div class="logo">Church360</div>
-    <h1>Política de Privacidade</h1>
-    <p class="updated">Última atualização: 2 de setembro de 2026</p>
+  <header class="masthead">
+    <span class="eyebrow">Documento legal</span>
+    <h1>Política de Privacidade — PAPAI</h1>
+    <p>Como o aplicativo PAPAI coleta, usa e protege os dados de membros, visitantes e responsáveis da comunidade.</p>
+    <div class="meta">
+      <span>Vigência: <strong>03 de setembro de 2026</strong></span>
+      <span>Contato: <strong>rgachurch360@gmail.com</strong></span>
+      <span>Base legal: <strong>LGPD (Lei 13.709/2018)</strong></span>
+    </div>
   </header>
 
-  <div class="card">
-    <h2>1. Sobre este documento</h2>
-    <p>
-      O Church360 ("aplicativo", "sistema") é uma plataforma de gestão eclesiástica utilizada por igrejas
-      para administrar membros, ministérios, eventos, comunicação e, em alguns casos, finanças internas.
-      Esta política descreve quais dados são coletados, como são usados, com quem podem ser compartilhados
-      e quais direitos você tem sobre eles, em conformidade com a Lei Geral de Proteção de Dados
-      (Lei nº 13.709/2018 — LGPD).
-    </p>
-    <p>
-      Cada instância do Church360 é operada por uma igreja específica (o "controlador dos dados"), que é
-      responsável pela gestão da sua congregação dentro do sistema. A equipe técnica do Church360 atua como
-      operadora, fornecendo a infraestrutura que processa esses dados sob orientação da igreja.
-    </p>
-  </div>
+  <nav class="toc">
+    <div class="toc-title">Nesta página</div>
+    <a href="#quem-somos">1. Quem somos</a>
+    <a href="#dados">2. Dados que coletamos</a>
+    <a href="#uso">3. Para que usamos</a>
+    <a href="#compartilhamento">4. Compartilhamento</a>
+    <a href="#criancas">5. Dados de crianças</a>
+    <a href="#seguranca">6. Segurança</a>
+    <a href="#retencao">7. Retenção e exclusão</a>
+    <a href="#direitos">8. Seus direitos</a>
+    <a href="#alteracoes">9. Alterações</a>
+    <a href="#contato">10. Contato</a>
+  </nav>
 
-  <div class="card">
-    <h2>2. Quais dados coletamos</h2>
-    <p>Dependendo do seu papel no sistema (membro, líder ou administrador), podemos coletar:</p>
-    <ul>
-      <li><strong>Dados de identificação:</strong> nome completo, e-mail, telefone, data de nascimento, foto de perfil.</li>
-      <li><strong>Dados de vínculo com a igreja:</strong> status de membresia, ministérios, cargos, grupos/células, histórico de participação em eventos.</li>
-      <li><strong>Dados de acompanhamento pastoral:</strong> pedidos de oração, anotações de acompanhamento, quando registrados por líderes autorizados.</li>
-      <li><strong>Dados de acesso e autenticação:</strong> credenciais de login (gerenciadas de forma segura via Supabase Authentication), registros de acesso ao sistema.</li>
-      <li><strong>Dados financeiros internos:</strong> quando aplicável, registros de contribuições e movimentações financeiras da igreja, visíveis apenas a usuários com permissão administrativa/financeira.</li>
-      <li><strong>Dados técnicos:</strong> identificadores de dispositivo para notificações push, registros de erro e uso, para manutenção e segurança do sistema.</li>
-    </ul>
-  </div>
+  <main>
+    <section id="quem-somos">
+      <h2><span class="num">01</span>Quem somos</h2>
+      <p>O PAPAI é o aplicativo oficial de gestão da nossa comunidade de igreja, usado por membros, visitantes, líderes e pela secretaria para organizar a vida da igreja: cadastro, eventos, ministério infantil, dízimos e ofertas, comunicação e discipulado. Não é um aplicativo de uso público — o acesso é concedido pela secretaria da igreja a partir do cadastro de cada pessoa.</p>
+      <p>Esta política explica, em linguagem simples, quais dados o PAPAI trata e por quê. Ela vale para todas as pessoas cujos dados aparecem no app: membros adultos, adolescentes, visitantes e crianças (estas, sempre por meio de um responsável).</p>
+    </section>
 
-  <div class="card">
-    <h2>3. Para que usamos seus dados</h2>
-    <ul>
-      <li>Identificação e autenticação de usuários no aplicativo.</li>
-      <li>Organização de membresia, ministérios, eventos e comunicação interna da igreja.</li>
-      <li>Acompanhamento pastoral, quando esse recurso é utilizado pela liderança.</li>
-      <li>Envio de notificações e comunicados relacionados às atividades da igreja.</li>
-      <li>Administração financeira interna da igreja, restrita a usuários com permissão específica.</li>
-      <li>Segurança, prevenção de fraude e auditoria de acesso ao sistema.</li>
-    </ul>
-    <p>
-      O tratamento segue os princípios da LGPD de necessidade, transparência, segurança e minimização:
-      cada usuário só acessa os dados compatíveis com seu papel e permissões (RBAC) dentro do sistema.
-    </p>
-  </div>
+    <section id="dados">
+      <h2><span class="num">02</span>Dados que coletamos</h2>
+      <p>Coletamos apenas os dados necessários para o funcionamento do app. Nenhum dado é obtido por localização do aparelho — o PAPAI não acessa o GPS.</p>
+      <div class="tblwrap">
+        <table>
+          <caption>Categorias de dados tratados no app</caption>
+          <thead>
+            <tr><th>Categoria</th><th>Exemplos</th><th>Origem</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Identificação e contato</td><td>Nome, e-mail, telefone, data de nascimento, endereço</td><td>Cadastro pela secretaria ou pelo próprio membro</td></tr>
+            <tr><td>Foto</td><td>Foto de perfil</td><td>Enviada pelo usuário</td></tr>
+            <tr><td>Família e vínculos</td><td>Parentesco entre membros, responsáveis de crianças</td><td>Cadastro da secretaria</td></tr>
+            <tr><td>Participação na igreja</td><td>Grupos, ministérios, cursos, presença em eventos e cultos</td><td>Uso do app</td></tr>
+            <tr><td>Ministério infantil</td><td>Check-in e check-out de crianças, alergias/observações informadas pelo responsável</td><td>Cadastro do responsável / equipe do kids</td></tr>
+            <tr><td>Financeiro</td><td>Registros de dízimos e ofertas (valor e data informados)</td><td>Lançamento pela tesouraria ou pelo próprio membro</td></tr>
+            <tr><td>Conteúdo enviado</td><td>Pedidos de oração, publicações no mural, testemunhos, mensagens no chat de suporte</td><td>Uso do app</td></tr>
+            <tr><td>Acesso e autenticação</td><td>E-mail e senha (armazenada de forma criptografada), sessão de login</td><td>Login no app</td></tr>
+            <tr><td>Notificações</td><td>Token do dispositivo para envio de avisos</td><td>Gerado automaticamente ao instalar o app</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted">O PAPAI não processa dados de cartão de crédito ou conta bancária: os valores de dízimo e oferta são apenas registros informativos, não há gateway de pagamento integrado ao app.</p>
+    </section>
 
-  <div class="card">
-    <h2>4. Com quem seus dados podem ser compartilhados</h2>
-    <p>Não vendemos dados pessoais. Seus dados podem ser processados pelos seguintes fornecedores de infraestrutura, exclusivamente para operação do serviço:</p>
-    <table>
-      <tr><th>Fornecedor</th><th>Finalidade</th></tr>
-      <tr><td>Supabase</td><td>Banco de dados e regras de acesso (backend)</td></tr>
-      <tr><td>Firebase (Google)</td><td>Autenticação e notificações push</td></tr>
-      <tr><td>Vercel</td><td>Hospedagem da versão web do aplicativo</td></tr>
-    </table>
-    <p class="muted">Esses fornecedores processam os dados sob contrato, com finalidade limitada à prestação do serviço, e não os utilizam para fins próprios.</p>
-    <p>Dentro da própria igreja, dados podem ser visíveis a outros membros ou líderes conforme o nível de privacidade definido para cada informação (por exemplo, um pedido de oração pode ser marcado como público ou privado) e conforme as permissões do cargo de cada usuário.</p>
-  </div>
+    <section id="uso">
+      <h2><span class="num">03</span>Para que usamos</h2>
+      <ul>
+        <li><strong>Operar o app</strong> — manter o cadastro, exibir sua agenda, seus grupos e seu histórico.</li>
+        <li><strong>Ministério infantil</strong> — controlar com segurança quem retirou cada criança.</li>
+        <li><strong>Comunicação</strong> — enviar avisos, notícias e notificações relevantes para você.</li>
+        <li><strong>Gestão financeira interna</strong> — permitir que a tesouraria acompanhe dízimos e ofertas.</li>
+        <li><strong>Controle de acesso</strong> — mostrar a cada pessoa somente as áreas do app compatíveis com seu cargo (RBAC).</li>
+        <li><strong>Segurança</strong> — prevenir acesso indevido e investigar uso irregular do app.</li>
+      </ul>
+      <p>Não usamos os dados para publicidade. O PAPAI não tem nenhum SDK de anúncios ou de rastreamento de terceiros.</p>
+    </section>
 
-  <div class="card">
-    <h2>5. Seus direitos como titular dos dados</h2>
-    <p>Conforme a LGPD, você pode solicitar a qualquer momento, junto à liderança da sua igreja:</p>
-    <ul>
-      <li>Confirmação de que seus dados estão sendo tratados e acesso a eles.</li>
-      <li>Correção de dados incompletos, inexatos ou desatualizados.</li>
-      <li>Anonimização, bloqueio ou eliminação de dados desnecessários ou tratados em desconformidade com a lei.</li>
-      <li>Portabilidade dos dados a outro fornecedor de serviço.</li>
-      <li>Revogação do consentimento e exclusão dos dados tratados com base nele.</li>
-      <li>Informação sobre com quem seus dados foram compartilhados.</li>
-    </ul>
-    <p>Solicitações podem ser feitas diretamente à liderança/administração da sua igreja no Church360, responsável pelo tratamento dos dados da congregação.</p>
-  </div>
+    <section id="compartilhamento">
+      <h2><span class="num">04</span>Compartilhamento de dados</h2>
+      <p>Não vendemos dados a terceiros. Os únicos compartilhamentos são com prestadores de infraestrutura que processam os dados em nosso nome, sob contrato:</p>
+      <div class="card">
+        <h3>Supabase</h3>
+        <p style="margin:0;">Banco de dados, autenticação e armazenamento de arquivos (fotos, documentos) do app.</p>
+      </div>
+      <div class="card">
+        <h3>Firebase Cloud Messaging (Google)</h3>
+        <p style="margin:0;">Somente para entregar notificações push no seu aparelho.</p>
+      </div>
+      <p class="muted">Podemos divulgar dados quando exigido por lei ou ordem judicial.</p>
+    </section>
 
-  <div class="card">
-    <h2>6. Consentimento e registro de aceite</h2>
-    <p>
-      No cadastro, o usuário deve ler e aceitar explicitamente o Consentimento LGPD e os Termos de Compromisso
-      do sistema. O aplicativo registra data e horário desse aceite para fins de comprovação e auditoria interna.
-      A liderança pastoral pode visualizar o status de aceite de cada membro para fins de conformidade.
-    </p>
-  </div>
+    <section id="criancas">
+      <h2><span class="num">05</span>Dados de crianças</h2>
+      <p>Crianças não criam conta própria no PAPAI. Os dados do ministério infantil (nome, responsável, check-in, observações de saúde) são cadastrados e mantidos pelos pais/responsáveis ou pela equipe do kids, com a finalidade exclusiva de garantir a segurança da criança durante os cultos e eventos.</p>
+    </section>
 
-  <div class="card">
-    <h2>7. Retenção e exclusão de dados</h2>
-    <p>
-      Os dados são mantidos enquanto durar o vínculo do usuário com a igreja no sistema, ou pelo tempo
-      necessário para cumprir obrigações legais e administrativas. Ao ser solicitada a exclusão de uma
-      conta, os dados pessoais são removidos ou anonimizados, ressalvadas informações que a igreja precise
-      reter por obrigação legal (por exemplo, registros financeiros).
-    </p>
-  </div>
+    <section id="seguranca">
+      <h2><span class="num">06</span>Segurança</h2>
+      <ul>
+        <li>Toda comunicação entre o app e os servidores é feita por conexão criptografada (HTTPS/TLS).</li>
+        <li>O acesso às informações dentro do app é controlado por cargo e permissão: cada pessoa só enxerga o que sua função permite.</li>
+        <li>Senhas são armazenadas de forma criptografada — nunca em texto simples.</li>
+      </ul>
+    </section>
 
-  <div class="card">
-    <h2>8. Segurança</h2>
-    <p>
-      Utilizamos autenticação segura, controle de acesso baseado em papéis (RBAC) e regras de segurança em
-      nível de banco de dados (RLS) para restringir o acesso aos dados conforme o perfil de cada usuário.
-      Nenhum sistema é 100% livre de riscos, mas adotamos práticas de segurança da informação para reduzir
-      exposições e responder rapidamente a incidentes.
-    </p>
-  </div>
+    <section id="retencao">
+      <h2><span class="num">07</span>Retenção e exclusão</h2>
+      <p>Mantemos os dados enquanto você fizer parte da comunidade ou enquanto forem necessários para as finalidades descritas acima. Ao solicitar a exclusão do seu cadastro (veja o contato abaixo), removemos ou anonimizamos seus dados, exceto quando a lei exigir sua conservação por período maior (por exemplo, registros financeiros).</p>
+    </section>
 
-  <div class="card">
-    <h2>9. Menores de idade</h2>
-    <p>
-      O Church360 pode conter cadastros de menores de idade vinculados à sua igreja (por exemplo, crianças
-      e adolescentes em ministérios infantis/juvenis). Nesses casos, o cadastro e o consentimento devem ser
-      feitos por um responsável legal ou por líder autorizado pela igreja, conforme as diretrizes internas
-      da congregação.
-    </p>
-  </div>
+    <section id="direitos">
+      <h2><span class="num">08</span>Seus direitos (LGPD)</h2>
+      <p>Como titular dos dados, você pode a qualquer momento:</p>
+      <ul>
+        <li>Confirmar quais dados seus tratamos e pedir uma cópia deles;</li>
+        <li>Corrigir dados incompletos, desatualizados ou incorretos;</li>
+        <li>Pedir a exclusão ou anonimização dos seus dados;</li>
+        <li>Revogar consentimentos dados anteriormente;</li>
+        <li>Pedir a portabilidade dos seus dados a outro serviço.</li>
+      </ul>
+      <p>Para exercer qualquer um desses direitos, use o contato abaixo. Respondemos em até 15 dias.</p>
+    </section>
 
-  <div class="card">
-    <h2>10. Alterações desta política</h2>
-    <p>
-      Esta política pode ser atualizada periodicamente para refletir mudanças no aplicativo ou na legislação
-      aplicável. A data da última atualização é sempre indicada no topo desta página.
-    </p>
-  </div>
+    <section id="alteracoes">
+      <h2><span class="num">09</span>Alterações a esta política</h2>
+      <p>Podemos atualizar este texto quando o app ganhar novas funcionalidades ou a legislação mudar. A data de vigência no topo da página sempre indica a versão mais recente.</p>
+    </section>
 
-  <div class="card">
-    <h2>11. Contato</h2>
-    <p>
-      Dúvidas sobre esta política ou sobre o tratamento dos seus dados podem ser encaminhadas à liderança/
-      administração da sua igreja no Church360, responsável pelos dados da sua congregação.
-    </p>
-  </div>
+    <section id="contato">
+      <h2><span class="num">10</span>Contato</h2>
+      <p>Dúvidas, solicitações sobre seus dados ou sobre esta política: <a class="inline" href="mailto:rgachurch360@gmail.com">rgachurch360@gmail.com</a>.</p>
+    </section>
+  </main>
 
-  <footer>Church360 — Sistema de gestão de igrejas</footer>
+  <footer>
+    PAPAI — aplicativo de gestão da comunidade. Esta página é a política de privacidade oficial referenciada nas lojas de aplicativos (Google Play e App Store).
+  </footer>
 </div>
 </body>
 </html>
