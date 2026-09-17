@@ -129,7 +129,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
                 return RefreshIndicator(
                   onRefresh: () async {
-                    ref.invalidate(enabledDashboardWidgetsProvider);
+                    ref.read(refreshDashboardWidgetsProvider)();
                   },
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
@@ -147,35 +147,58 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 64,
-                        color: Colors.red,
+              // A tela de erro precisa oferecer saída: sem retry e sem scroll
+              // o usuário ficava preso nela, já que o RefreshIndicator só
+              // existia no ramo de sucesso.
+              error: (error, _) => RefreshIndicator(
+                onRefresh: () async {
+                  ref.read(refreshDashboardWidgetsProvider)();
+                },
+                child: LayoutBuilder(
+                  builder: (context, constraints) => SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Erro ao carregar widgets',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              size: 64,
+                              color: Colors.red,
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Erro ao carregar widgets',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              AppErrorHandler.userMessage(
+                                error,
+                                feature: 'dashboard.load_widgets',
+                              ),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                            const SizedBox(height: 24),
+                            FilledButton.icon(
+                              onPressed: () =>
+                                  ref.read(refreshDashboardWidgetsProvider)(),
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Tentar novamente'),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        AppErrorHandler.userMessage(
-                          error,
-                          feature: 'dashboard.load_widgets',
-                        ),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),

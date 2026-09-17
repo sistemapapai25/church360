@@ -21,17 +21,26 @@ final userDashboardWidgetRepositoryProvider = Provider<UserDashboardWidgetReposi
   return UserDashboardWidgetRepository(supabase);
 });
 
-/// Provider para todos os widgets (para tela de configuração)
-final allDashboardWidgetsProvider = StreamProvider<List<DashboardWidget>>((ref) {
+/// Provider para todos os widgets (para tela de configuração).
+///
+/// `FutureProvider` de propósito, não `StreamProvider`: `dashboard_widget` é
+/// tabela de configuração e muda raríssimo, mas o canal Realtime derrubava a
+/// tela inteira quando o JWT do socket expirava (aba em segundo plano no web).
+/// Quem altera a tabela chama [refreshDashboardWidgetsProvider].
+final allDashboardWidgetsProvider = FutureProvider<List<DashboardWidget>>((ref) {
   final repository = ref.watch(dashboardWidgetRepositoryProvider);
-  return repository.watchAll();
+  return repository.getAll();
 });
 
 /// Widgets habilitados no tenant (toggle geral da igreja, sem filtro por
 /// usuário). Base para [permittedDashboardWidgetsProvider].
-final tenantEnabledDashboardWidgetsProvider = StreamProvider<List<DashboardWidget>>((ref) {
+///
+/// `FutureProvider` pelo mesmo motivo de [allDashboardWidgetsProvider]: como
+/// [permittedDashboardWidgetsProvider] dá `await` no `.future` daqui, qualquer
+/// erro de canal virava erro do Dashboard inteiro, sem retry e sem fallback.
+final tenantEnabledDashboardWidgetsProvider = FutureProvider<List<DashboardWidget>>((ref) {
   final repository = ref.watch(dashboardWidgetRepositoryProvider);
-  return repository.watchEnabled();
+  return repository.getEnabled();
 });
 
 /// Preferências pessoais do usuário atual: `widget_key -> is_visible`.
@@ -82,6 +91,29 @@ final enabledDashboardWidgetsProvider = FutureProvider<List<DashboardWidget>>((r
   return permitted
       .where((widget) => preferences[widget.widgetKey] ?? true)
       .toList();
+});
+
+/// Invalida a cadeia inteira por trás da lista de widgets do Dashboard.
+///
+/// Invalidar só a folha ([enabledDashboardWidgetsProvider]) não basta:
+/// `invalidate` recomputa o provider e seus dependentes, nunca as dependências
+/// dele — a folha daria `await` no `.future` já em cache de
+/// [tenantEnabledDashboardWidgetsProvider] e nada iria ao banco. Enquanto os
+/// widgets vinham de Realtime isso passava batido, porque o canal empurrava o
+/// dado sozinho.
+void _invalidateDashboardWidgetChain(Ref ref) {
+  ref.invalidate(allDashboardWidgetsProvider);
+  ref.invalidate(tenantEnabledDashboardWidgetsProvider);
+  ref.invalidate(currentUserDashboardWidgetPreferencesProvider);
+  ref.invalidate(permittedDashboardWidgetsProvider);
+  ref.invalidate(enabledDashboardWidgetsProvider);
+}
+
+/// Recarrega a lista de widgets do Dashboard a partir do banco. Use em
+/// pull-to-refresh, no botão de retry da tela de erro e depois de qualquer
+/// escrita em `dashboard_widget`.
+final refreshDashboardWidgetsProvider = Provider<void Function()>((ref) {
+  return () => _invalidateDashboardWidgetChain(ref);
 });
 
 /// Preferências efetivas do usuário atual via RPC `get_user_dashboard_widgets`
@@ -158,8 +190,7 @@ final createCustomDashboardWidgetProvider = Provider<Future<DashboardWidget> Fun
       iconName: iconName,
       isEnabled: isEnabled,
     );
-    ref.invalidate(allDashboardWidgetsProvider);
-    ref.invalidate(enabledDashboardWidgetsProvider);
+    _invalidateDashboardWidgetChain(ref);
     return widget;
   };
 });
