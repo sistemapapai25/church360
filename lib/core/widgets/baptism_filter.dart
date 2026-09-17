@@ -7,10 +7,18 @@ import '../design/community_design.dart';
 /// ⚠️ Deriva de `baptismDate != null` — **batismo realizado**. Não confundir
 /// com o campo `wantsBaptism` do modelo, que é interesse declarado por
 /// visitante: filtrar por ele devolve uma lista completamente diferente.
+///
+/// A opção negativa se chama "Sem registro", e não "Não batizado", porque o
+/// banco não sabe a diferença: ausência de `baptism_date` é ausência de dado,
+/// não prova de que a pessoa não foi batizada. Em 17/09/2026 o campo estava
+/// preenchido em 11 de 263 pessoas do tenant real (4%) — com o rótulo antigo,
+/// o filtro afirmava "não batizado" para ~252 pessoas, quase todas batizadas.
+/// Se um dia o cadastro for preenchido, isto continua correto: "sem registro"
+/// simplesmente esvazia.
 enum BaptismOption {
   all('Todos'),
   baptized('Batizado'),
-  notBaptized('Não batizado');
+  noRecord('Sem registro');
 
   final String label;
   const BaptismOption(this.label);
@@ -22,7 +30,7 @@ enum BaptismOption {
         return true;
       case BaptismOption.baptized:
         return baptismDate != null;
-      case BaptismOption.notBaptized:
+      case BaptismOption.noRecord:
         return baptismDate == null;
     }
   }
@@ -74,6 +82,17 @@ class BaptismFilter extends StatelessWidget {
               onSelected: (_) => onChanged(option),
             );
           }).toList(),
+        ),
+        const SizedBox(height: 6),
+        // Sem esta linha o usuario le "Sem registro" como "nao batizado", que
+        // e exatamente o erro que o rotulo antigo cometia.
+        Text(
+          '"Sem registro" é data de batismo em branco — não é o mesmo que '
+          'não batizado.',
+          style: CommunityDesign.contentStyle(context).copyWith(
+            fontSize: 12,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );
