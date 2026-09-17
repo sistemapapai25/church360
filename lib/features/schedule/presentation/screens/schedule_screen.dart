@@ -105,12 +105,12 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
         context.go('/home');
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF3F6FA),
+        backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
         appBar: AppBar(
           toolbarHeight: 60,
           elevation: 1,
           shadowColor: Colors.black.withValues(alpha: 0.08),
-          backgroundColor: const Color(0xFFF5F9FD),
+          backgroundColor: CommunityDesign.headerColor(context),
           surfaceTintColor: Colors.transparent,
           titleSpacing: 0,
           title: Row(

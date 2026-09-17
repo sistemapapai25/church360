@@ -37,7 +37,7 @@ class _BranchFormScreenState extends ConsumerState<BranchFormScreen> {
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         title: Text(
           'Nova Filial',
           style: CommunityDesign.titleStyle(

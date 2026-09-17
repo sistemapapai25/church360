@@ -81,7 +81,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         title: Text(
           isEditing ? 'Editar Ministério' : 'Novo Ministério',
           style: CommunityDesign.titleStyle(context).copyWith(

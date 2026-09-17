@@ -16,7 +16,7 @@ class ContributionInfoScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         scrolledUnderElevation: 2,
         shadowColor: Colors.black.withValues(alpha: 0.1),

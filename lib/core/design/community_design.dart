@@ -169,6 +169,15 @@ class CommunityDesign {
         borderColor = const Color(0xFFCFE6F6);
         textColor = const Color(0xFF0B5FA5);
     }
+    // No escuro os pasteis claros viram manchas brilhantes: o chip passa a ser
+    // o proprio texto clareado sobre um veu da mesma cor, igual ao badge().
+    if (Theme.of(context).brightness == Brightness.dark) {
+      final fg = accentForeground(context, textColor);
+      bgColor = fg.withValues(alpha: 0.16);
+      borderColor = fg.withValues(alpha: 0.42);
+      textColor = fg;
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -254,6 +263,22 @@ class CommunityDesign {
     }
   }
 
+  /// Ajusta uma cor de destaque para uso como *texto* no tema escuro.
+  ///
+  /// Os accents dos badges sao escuros de proposito (0xFF4E6B85, 0xFF5A3BA6…)
+  /// porque no claro eles vao sobre um fundo `accent.withOpacity(0.12)` quase
+  /// branco. No escuro esse mesmo fundo fica praticamente preto e o texto
+  /// escuro sumia — entao aqui a cor e clareada ate um piso de luminosidade.
+  static Color accentForeground(BuildContext context, Color color) {
+    if (Theme.of(context).brightness != Brightness.dark) return color;
+    final hsl = HSLColor.fromColor(color);
+    if (hsl.lightness >= 0.7) return color;
+    return hsl
+        .withLightness(0.74)
+        .withSaturation(hsl.saturation.clamp(0.0, 0.7))
+        .toColor();
+  }
+
   static Widget badge(
     BuildContext context,
     String label,
@@ -261,25 +286,27 @@ class CommunityDesign {
     IconData? icon,
     double iconSize = 12,
   }) {
+    final fg = accentForeground(context, color);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: fg.withValues(alpha: isDark ? 0.16 : 0.12),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
+        border: Border.all(color: fg.withValues(alpha: isDark ? 0.42 : 0.28)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: iconSize, color: color),
+            Icon(icon, size: iconSize, color: fg),
             const SizedBox(width: 4),
           ],
           Flexible(
             child: Text(
               label,
               style: TextStyle(
-                color: color,
+                color: fg,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
