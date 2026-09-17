@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/tags_repository.dart';
 import '../providers/tags_provider.dart';
+import '../widgets/tag_usage_help.dart';
 import '../../../../core/navigation/route_guard.dart';
 
 /// Tela de formulário de tag (criar/editar)
@@ -104,6 +105,15 @@ class _TagFormScreenState extends ConsumerState<TagFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEditMode ? 'Editar Tag' : 'Nova Tag'),
+        actions: [
+          // A duvida "isso e tag ou campo do cadastro?" nasce aqui, na hora
+          // de nomear — a regra fica a um toque de distancia.
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            tooltip: 'Quando usar uma tag',
+            onPressed: () => showTagUsageSheet(context),
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
