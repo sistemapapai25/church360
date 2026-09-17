@@ -84,7 +84,7 @@ class ProfileScreen extends ConsumerWidget {
   /// Tela quando o perfil não é encontrado
   Widget _buildProfileNotFound(BuildContext context, String? userEmail) {
     return Scaffold(
-      backgroundColor: CommunityDesign.backgroundColor,
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
         title: const Text('Meu Perfil'),
         backgroundColor: Colors.transparent,

@@ -31,6 +31,41 @@ class AppTheme {
   static const Color input = Color(0xFFF8FAFC);
   static const Color ring = Color(0xFF2563EB);
 
+  // ---------------------------------------------------------------------
+  // Tokens do tema escuro
+  //
+  // Sao proprios do escuro de proposito: o darkTheme antigo reaproveitava
+  // `input`/`border`/`card` do claro (quase brancos) e por isso todo campo de
+  // texto virava um retangulo branco. Nada aqui pode ser usado no lightTheme e
+  // nada do bloco claro pode ser usado no darkTheme.
+  // ---------------------------------------------------------------------
+  static const Color darkBackground = Color(0xFF0B1220); // scaffold
+  static const Color darkSurface = Color(0xFF111A2B); // appbar, dialog, sheet
+  static const Color darkCard = Color(0xFF162032);
+  static const Color darkInput = Color(0xFF1B2537);
+  static const Color darkBorder = Color(0xFF334155);
+  static const Color darkForeground = Color(0xFFE2E8F0);
+  static const Color darkMutedForeground = Color(0xFF94A3B8);
+  static const Color darkRing = Color(0xFF60A5FA);
+
+  static final ColorScheme _darkColorScheme =
+      ColorScheme.fromSeed(
+        seedColor: primaryColor,
+        secondary: secondaryColor,
+        error: errorColor,
+        brightness: Brightness.dark,
+      ).copyWith(
+        surface: darkCard,
+        onSurface: darkForeground,
+        surfaceContainerLowest: darkBackground,
+        surfaceContainerLow: darkSurface,
+        surfaceContainer: darkCard,
+        surfaceContainerHigh: darkInput,
+        onSurfaceVariant: darkMutedForeground,
+        outline: darkBorder,
+        outlineVariant: darkBorder,
+      );
+
   static final ColorScheme _lightColorScheme = ColorScheme.fromSeed(
     seedColor: primaryColor,
     secondary: secondaryColor,
@@ -165,27 +200,33 @@ class AppTheme {
   );
 
   /// Tema escuro
+  ///
+  /// IMPORTANTE: nenhuma constante do bloco claro (`card`, `input`, `border`,
+  /// `background`, `mutedForeground`) pode ser usada aqui. Elas sao quase
+  /// brancas e foi exatamente isso que deixava campo de texto, card e dialogo
+  /// como retangulos claros no escuro. Use os tokens `dark*` abaixo.
   static ThemeData darkTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
 
     // Color Scheme
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: primaryColor,
-      secondary: secondaryColor,
-      error: errorColor,
-      brightness: Brightness.dark,
-    ),
+    colorScheme: _darkColorScheme,
+    cardColor: darkCard,
+    scaffoldBackgroundColor: darkBackground,
 
     // AppBar
     appBarTheme: const AppBarTheme(
       centerTitle: true,
       elevation: 0,
       scrolledUnderElevation: 2,
+      backgroundColor: darkSurface,
+      foregroundColor: darkForeground,
+      surfaceTintColor: Colors.transparent,
     ),
 
     // Card
     cardTheme: CardThemeData(
+      color: darkCard,
       elevation: 2,
       surfaceTintColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
@@ -193,24 +234,42 @@ class AppTheme {
       ),
     ),
 
+    dialogTheme: DialogThemeData(
+      backgroundColor: darkSurface,
+      surfaceTintColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(16)),
+      ),
+    ),
+
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: darkSurface,
+      surfaceTintColor: Colors.transparent,
+    ),
+
     // Input Decoration
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: input,
+      fillColor: darkInput,
+      hintStyle: const TextStyle(color: darkMutedForeground),
+      labelStyle: const TextStyle(color: darkMutedForeground),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: border),
+        borderSide: const BorderSide(color: darkBorder),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: border),
+        borderSide: const BorderSide(color: darkBorder),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: ring, width: 2),
+        borderSide: const BorderSide(color: darkRing, width: 2),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     ),
+
+    // Divider
+    dividerTheme: const DividerThemeData(color: darkBorder),
 
     // Elevated Button
     elevatedButtonTheme: ElevatedButtonThemeData(
