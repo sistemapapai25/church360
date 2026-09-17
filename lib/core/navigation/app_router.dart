@@ -12,6 +12,7 @@ import '../../features/members/presentation/screens/member_form_screen.dart';
 import '../../features/members/presentation/screens/member_profile_screen.dart';
 import '../../features/members/domain/models/member.dart';
 import '../../features/members/presentation/screens/profile_screen.dart';
+import '../../features/tags/presentation/screens/tags_list_screen.dart';
 import '../../features/qr_scanner/presentation/screens/qr_scanner_screen.dart';
 import '../../features/groups/presentation/screens/groups_list_screen.dart';
 import '../../features/groups/presentation/screens/group_detail_screen.dart';
@@ -435,6 +436,13 @@ final appRouter = GoRouter(
         // Padronizando para usar o MemberProfileScreen que é mais completo
         return MemberProfileScreen(memberId: id);
       },
+    ),
+    GoRoute(
+      path: '/tags',
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'tags.view',
+        child: TagsListScreen(),
+      ),
     ),
     // Rota de perfil do usuário
     GoRoute(

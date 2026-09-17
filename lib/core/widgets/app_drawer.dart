@@ -7,6 +7,7 @@ import '../constants/app_branding.dart';
 import 'app_logo.dart';
 import 'theme_mode_selector.dart';
 import '../../features/permissions/providers/permissions_providers.dart';
+import '../../features/permissions/presentation/widgets/permission_gate.dart';
 import '../utils/app_exit.dart';
 
 /// Menu lateral do aplicativo
@@ -206,12 +207,16 @@ class AppDrawer extends ConsumerWidget {
               ],
             ),
           ),
-          // _DrawerItem(
-          //   icon: Icons.label,
-          //   title: 'Tags',
-          //   route: '/tags',
-          //   currentRoute: GoRouterState.of(context).uri.toString(),
-          // ),
+          PermissionGate(
+            permission: 'tags.view',
+            showLoading: false,
+            child: _DrawerItem(
+              icon: Icons.label,
+              title: 'Tags',
+              route: '/tags',
+              currentRoute: GoRouterState.of(context).uri.toString(),
+            ),
+          ),
           _DrawerItem(
             icon: Icons.notifications,
             title: 'Notificações',

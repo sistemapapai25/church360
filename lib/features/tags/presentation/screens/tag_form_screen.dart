@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/tags_repository.dart';
 import '../providers/tags_provider.dart';
+import '../../../../core/navigation/route_guard.dart';
 
 /// Tela de formulário de tag (criar/editar)
 class TagFormScreen extends ConsumerStatefulWidget {
@@ -92,6 +93,14 @@ class _TagFormScreenState extends ConsumerState<TagFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Criar e editar sao permissoes distintas: a tela e a mesma, o gate nao.
+    return PermissionOnlyRoute(
+      permission: _isEditMode ? 'tags.edit' : 'tags.create',
+      child: _buildForm(context),
+    );
+  }
+
+  Widget _buildForm(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEditMode ? 'Editar Tag' : 'Nova Tag'),
