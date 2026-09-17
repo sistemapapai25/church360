@@ -9,6 +9,13 @@ import '../../../tags/presentation/providers/tags_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/date_period_filter.dart';
+import '../../../../core/widgets/age_range_filter.dart';
+import '../../../../core/widgets/marital_status_filter.dart';
+import '../../../../core/widgets/baptism_filter.dart';
+import '../../../../core/widgets/birth_month_filter.dart';
+import '../../../../core/widgets/value_chip_filter.dart';
+import '../../../../core/widgets/value_dropdown_filter.dart';
+import '../../../../core/widgets/member_data_filter.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de membros
@@ -25,6 +32,19 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
   String? _selectedTagId; // null = sem filtro de tag
   String? _expandedMemberId; // controla qual card está expandido
   DatePeriodSelection _conversionFilter = const DatePeriodSelection();
+  DatePeriodSelection _baptismDateFilter = const DatePeriodSelection();
+  DatePeriodSelection _membershipDateFilter = const DatePeriodSelection();
+  AgeRangeSelection _ageFilter = const AgeRangeSelection();
+  BirthMonthSelection _birthMonthFilter = const BirthMonthSelection();
+  MaritalStatusOption _maritalFilter = MaritalStatusOption.all;
+  BaptismOption _baptismFilter = BaptismOption.all;
+  MemberDataSelection _dataFilter = const MemberDataSelection();
+  String? _genderFilter;
+  String? _memberTypeFilter;
+  String? _statusFilter;
+  String? _cityFilter;
+  String? _neighborhoodFilter;
+  String? _professionFilter;
   bool _showFilters = false;
   final _searchController = TextEditingController();
 
@@ -34,10 +54,153 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
     super.dispose();
   }
 
+  /// Quantos filtros do painel estão efetivamente restringindo a lista.
+  /// Só conta os do painel "Mais filtros" — busca por nome, toggle de inativos
+  /// e filtro de tag têm controles próprios, visíveis fora dele.
+  /// O bloco "Dados do cadastro" conta cada exigência separadamente: são
+  /// recortes independentes, não um filtro só.
+  int get _activeFilterCount {
+    var count = 0;
+    if (_conversionFilter.period != DatePeriod.all) count++;
+    if (_baptismDateFilter.period != DatePeriod.all) count++;
+    if (_membershipDateFilter.period != DatePeriod.all) count++;
+    if (_ageFilter.isActive) count++;
+    if (_birthMonthFilter.isActive) count++;
+    if (_maritalFilter != MaritalStatusOption.all) count++;
+    if (_baptismFilter != BaptismOption.all) count++;
+    if (_genderFilter != null) count++;
+    if (_memberTypeFilter != null) count++;
+    if (_statusFilter != null) count++;
+    if (_cityFilter != null) count++;
+    if (_neighborhoodFilter != null) count++;
+    if (_professionFilter != null) count++;
+    count += _dataFilter.activeCount;
+    return count;
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _conversionFilter = const DatePeriodSelection();
+      _baptismDateFilter = const DatePeriodSelection();
+      _membershipDateFilter = const DatePeriodSelection();
+      _ageFilter = const AgeRangeSelection();
+      _birthMonthFilter = const BirthMonthSelection();
+      _maritalFilter = MaritalStatusOption.all;
+      _baptismFilter = BaptismOption.all;
+      _dataFilter = const MemberDataSelection();
+      _genderFilter = null;
+      _memberTypeFilter = null;
+      _statusFilter = null;
+      _cityFilter = null;
+      _neighborhoodFilter = null;
+      _professionFilter = null;
+    });
+  }
+
+  /// Valores distintos de um campo, já ordenados, ignorando vazios.
+  /// Sai dos membros carregados — assim o painel nunca oferece uma opção que
+  /// devolveria lista vazia.
+  List<String> _distinctValues(
+    List<Member> members,
+    String? Function(Member) pick,
+  ) {
+    final set = <String>{};
+    for (final m in members) {
+      final v = pick(m)?.trim();
+      if (v != null && v.isNotEmpty) set.add(v);
+    }
+    final list = set.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return list;
+  }
+
+  /// Opções de chips a partir dos valores presentes, com rótulo traduzido.
+  List<ValueChipOption> _chipOptions(
+    List<Member> members,
+    String? Function(Member) pick,
+    String Function(String) labelOf, {
+    String allLabel = 'Todos',
+  }) {
+    return [
+      ValueChipOption(null, allLabel),
+      ..._distinctValues(members, pick).map(
+        (v) => ValueChipOption(v, labelOf(v)),
+      ),
+    ];
+  }
+
+  String _genderLabel(String raw) {
+    switch (raw.toLowerCase()) {
+      case 'male':
+        return 'Masculino';
+      case 'female':
+        return 'Feminino';
+      default:
+        return raw;
+    }
+  }
+
+  String _memberTypeLabel(String raw) {
+    switch (raw) {
+      case 'membro':
+        return 'Membro';
+      case 'visitante':
+        return 'Visitante';
+      case 'lider':
+        return 'Líder';
+      case 'voluntario':
+        return 'Voluntário';
+      case 'titular':
+        return 'Liderança';
+      case 'congregado':
+        return 'Congregado';
+      case 'cooperador':
+        return 'Cooperador';
+      case 'crianca':
+        return 'Criança';
+      default:
+        return raw;
+    }
+  }
+
+  String _statusLabel(String raw) {
+    switch (raw) {
+      case 'member_active':
+        return 'Membro ativo';
+      case 'new_convert':
+        return 'Novo convertido';
+      case 'inactive':
+        return 'Inativo';
+      case 'transferred':
+        return 'Transferido';
+      case 'deceased':
+        return 'Falecido';
+      default:
+        return raw;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Buscar todos os membros
     final membersAsync = ref.watch(allMembersProvider);
+
+    // Base para montar as opcoes dinamicas do painel (cidade, bairro, tipo...).
+    // O painel fica no cabecalho, fora do `when` da lista, entao le o valor
+    // atual do provider; enquanto carrega, a lista vem vazia e os filtros
+    // dinamicos simplesmente nao aparecem.
+    final loadedMembers = membersAsync.valueOrNull ?? const <Member>[];
+    // Mesmo recorte que a lista usa antes dos filtros do painel, para as
+    // opcoes oferecidas baterem com o que os filtros conseguem devolver.
+    final filterBase = loadedMembers
+        .where((m) => m.status != 'visitor')
+        .where(
+          (m) =>
+              _showInactive ||
+              m.status == 'member_active' ||
+              m.status == 'new_convert',
+        )
+        .toList();
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -212,34 +375,183 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: () =>
-                            setState(() => _showFilters = !_showFilters),
-                        icon: Icon(
-                          _showFilters
-                              ? Icons.expand_less
-                              : Icons.filter_alt_outlined,
-                          size: 18,
+                    Row(
+                      children: [
+                        TextButton.icon(
+                          onPressed: () =>
+                              setState(() => _showFilters = !_showFilters),
+                          icon: Icon(
+                            _showFilters
+                                ? Icons.expand_less
+                                : Icons.filter_alt_outlined,
+                            size: 18,
+                          ),
+                          label: Text(
+                            _showFilters
+                                ? 'Ocultar filtros'
+                                : (_activeFilterCount == 0
+                                      ? 'Mais filtros'
+                                      : 'Filtros ($_activeFilterCount)'),
+                          ),
                         ),
-                        label: Text(
-                          _showFilters
-                              ? 'Ocultar filtros'
-                              : (_conversionFilter.period == DatePeriod.all
-                                    ? 'Mais filtros'
-                                    : 'Filtros (1)'),
-                        ),
-                      ),
+                        if (_activeFilterCount > 0)
+                          TextButton.icon(
+                            onPressed: _clearFilters,
+                            icon: const Icon(Icons.filter_alt_off_outlined,
+                                size: 18),
+                            label: const Text('Limpar filtros'),
+                          ),
+                      ],
                     ),
                     if (_showFilters) ...[
                       const SizedBox(height: 8),
-                      DatePeriodFilter(
-                        label: 'Data de conversão',
-                        icon: Icons.auto_awesome,
-                        selection: _conversionFilter,
-                        onChanged: (sel) =>
-                            setState(() => _conversionFilter = sel),
+                      // O painel cresceu: com todos os filtros abertos ele passa
+                      // da altura do cabecalho. Limita e rola, em vez de estourar.
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight:
+                              MediaQuery.of(context).size.height * 0.45,
+                        ),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              AgeRangeFilter(
+                                selection: _ageFilter,
+                                onChanged: (sel) =>
+                                    setState(() => _ageFilter = sel),
+                              ),
+                              const SizedBox(height: 16),
+                              BirthMonthFilter(
+                                selection: _birthMonthFilter,
+                                onChanged: (sel) =>
+                                    setState(() => _birthMonthFilter = sel),
+                              ),
+                              const SizedBox(height: 16),
+                              ValueChipFilter(
+                                label: 'Gênero',
+                                icon: Icons.wc_outlined,
+                                options: _chipOptions(
+                                  filterBase,
+                                  (m) => m.gender,
+                                  _genderLabel,
+                                ),
+                                selected: _genderFilter,
+                                onChanged: (v) =>
+                                    setState(() => _genderFilter = v),
+                              ),
+                              const SizedBox(height: 16),
+                              MaritalStatusFilter(
+                                selection: _maritalFilter,
+                                onChanged: (opt) =>
+                                    setState(() => _maritalFilter = opt),
+                              ),
+                              const SizedBox(height: 16),
+                              ValueChipFilter(
+                                label: 'Tipo de membro',
+                                icon: Icons.badge_outlined,
+                                options: _chipOptions(
+                                  filterBase,
+                                  (m) => m.memberType,
+                                  _memberTypeLabel,
+                                ),
+                                selected: _memberTypeFilter,
+                                onChanged: (v) =>
+                                    setState(() => _memberTypeFilter = v),
+                              ),
+                              const SizedBox(height: 16),
+                              ValueChipFilter(
+                                label: 'Situação',
+                                icon: Icons.how_to_reg_outlined,
+                                options: _chipOptions(
+                                  filterBase,
+                                  (m) => m.status,
+                                  _statusLabel,
+                                ),
+                                selected: _statusFilter,
+                                onChanged: (v) =>
+                                    setState(() => _statusFilter = v),
+                              ),
+                              const SizedBox(height: 16),
+                              BaptismFilter(
+                                selection: _baptismFilter,
+                                onChanged: (opt) =>
+                                    setState(() => _baptismFilter = opt),
+                              ),
+                              const SizedBox(height: 16),
+                              DatePeriodFilter(
+                                label: 'Data de conversão',
+                                icon: Icons.auto_awesome,
+                                selection: _conversionFilter,
+                                onChanged: (sel) =>
+                                    setState(() => _conversionFilter = sel),
+                              ),
+                              const SizedBox(height: 16),
+                              DatePeriodFilter(
+                                label: 'Data de batismo',
+                                icon: Icons.water_drop_outlined,
+                                selection: _baptismDateFilter,
+                                onChanged: (sel) =>
+                                    setState(() => _baptismDateFilter = sel),
+                              ),
+                              const SizedBox(height: 16),
+                              DatePeriodFilter(
+                                label: 'Data de membresia',
+                                icon: Icons.assignment_turned_in_outlined,
+                                selection: _membershipDateFilter,
+                                onChanged: (sel) => setState(
+                                  () => _membershipDateFilter = sel,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              ValueDropdownFilter(
+                                label: 'Cidade',
+                                icon: Icons.location_city_outlined,
+                                allLabel: 'Todas',
+                                values: _distinctValues(
+                                  filterBase,
+                                  (m) => m.city,
+                                ),
+                                selected: _cityFilter,
+                                onChanged: (v) =>
+                                    setState(() => _cityFilter = v),
+                              ),
+                              const SizedBox(height: 16),
+                              ValueDropdownFilter(
+                                label: 'Bairro',
+                                icon: Icons.map_outlined,
+                                allLabel: 'Todos',
+                                values: _distinctValues(
+                                  filterBase,
+                                  (m) => m.neighborhood,
+                                ),
+                                selected: _neighborhoodFilter,
+                                onChanged: (v) =>
+                                    setState(() => _neighborhoodFilter = v),
+                              ),
+                              const SizedBox(height: 16),
+                              ValueDropdownFilter(
+                                label: 'Profissão',
+                                icon: Icons.work_outline,
+                                allLabel: 'Todas',
+                                values: _distinctValues(
+                                  filterBase,
+                                  (m) => m.profession,
+                                ),
+                                selected: _professionFilter,
+                                onChanged: (v) =>
+                                    setState(() => _professionFilter = v),
+                              ),
+                              const SizedBox(height: 16),
+                              MemberDataFilter(
+                                selection: _dataFilter,
+                                onChanged: (sel) =>
+                                    setState(() => _dataFilter = sel),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ],
@@ -275,10 +587,120 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                   }).toList();
                 }
 
+                // LIMITE CONHECIDO (B6): toda a filtragem abaixo é client-side sobre
+                // allMembersProvider — ou seja, só enxerga o que a RLS de user_account
+                // deixou passar. Aguenta o volume atual (centenas de membros). Se a
+                // igreja passar de alguns milhares, isto migra para filtro no servidor.
                 // Filtrar por data de conversão
                 if (_conversionFilter.period != DatePeriod.all) {
                   filteredMembers = filteredMembers
                       .where((m) => _conversionFilter.matches(m.conversionDate))
+                      .toList();
+                }
+
+                // Filtrar por faixa etária (usa o getter `age` do próprio
+                // membro, o mesmo número que o card mostra)
+                if (_ageFilter.isActive) {
+                  filteredMembers = filteredMembers
+                      .where((m) => _ageFilter.matches(m.age))
+                      .toList();
+                }
+
+                // Filtrar por estado civil
+                if (_maritalFilter != MaritalStatusOption.all) {
+                  filteredMembers = filteredMembers
+                      .where((m) => _maritalFilter.matches(m.maritalStatus))
+                      .toList();
+                }
+
+                // Filtrar por batismo (baptismDate, nao wantsBaptism)
+                if (_baptismFilter != BaptismOption.all) {
+                  filteredMembers = filteredMembers
+                      .where((m) => _baptismFilter.matches(m.baptismDate))
+                      .toList();
+                }
+
+                // Filtrar por mes de aniversario
+                if (_birthMonthFilter.isActive) {
+                  filteredMembers = filteredMembers
+                      .where((m) => _birthMonthFilter.matches(m.birthdate))
+                      .toList();
+                }
+
+                // Filtrar por periodo de batismo e de membresia
+                if (_baptismDateFilter.period != DatePeriod.all) {
+                  filteredMembers = filteredMembers
+                      .where((m) => _baptismDateFilter.matches(m.baptismDate))
+                      .toList();
+                }
+                if (_membershipDateFilter.period != DatePeriod.all) {
+                  filteredMembers = filteredMembers
+                      .where(
+                        (m) => _membershipDateFilter.matches(m.membershipDate),
+                      )
+                      .toList();
+                }
+
+                // Filtros de valor unico (genero, tipo, situacao, cidade,
+                // bairro, profissao). A comparacao e sobre o valor cru e
+                // aparado, igual ao que monta as opcoes do painel.
+                bool matchesValue(String? raw, String? wanted) {
+                  if (wanted == null) return true;
+                  return raw?.trim() == wanted;
+                }
+
+                if (_genderFilter != null) {
+                  filteredMembers = filteredMembers
+                      .where((m) => matchesValue(m.gender, _genderFilter))
+                      .toList();
+                }
+                if (_memberTypeFilter != null) {
+                  filteredMembers = filteredMembers
+                      .where(
+                        (m) => matchesValue(m.memberType, _memberTypeFilter),
+                      )
+                      .toList();
+                }
+                if (_statusFilter != null) {
+                  filteredMembers = filteredMembers
+                      .where((m) => matchesValue(m.status, _statusFilter))
+                      .toList();
+                }
+                if (_cityFilter != null) {
+                  filteredMembers = filteredMembers
+                      .where((m) => matchesValue(m.city, _cityFilter))
+                      .toList();
+                }
+                if (_neighborhoodFilter != null) {
+                  filteredMembers = filteredMembers
+                      .where(
+                        (m) =>
+                            matchesValue(m.neighborhood, _neighborhoodFilter),
+                      )
+                      .toList();
+                }
+                if (_professionFilter != null) {
+                  filteredMembers = filteredMembers
+                      .where(
+                        (m) => matchesValue(m.profession, _professionFilter),
+                      )
+                      .toList();
+                }
+
+                // Filtrar por campos do cadastro preenchidos/vazios
+                if (_dataFilter.isActive) {
+                  filteredMembers = filteredMembers
+                      .where(
+                        (m) => _dataFilter.matches({
+                          MemberDataField.phone: m.phone,
+                          MemberDataField.email: m.email,
+                          MemberDataField.cpf: m.cpf,
+                          MemberDataField.birthdate: m.birthdate,
+                          MemberDataField.address: m.address,
+                          MemberDataField.photo: m.photoUrl ?? m.avatarUrl,
+                          MemberDataField.profession: m.profession,
+                        }),
+                      )
                       .toList();
                 }
 
@@ -379,22 +801,42 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      itemCount: filteredMembers.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
-      itemBuilder: (context, index) {
-        final member = filteredMembers[index];
-        return _MemberCard(
-          member: member,
-          expanded: _expandedMemberId == member.id,
-          onToggle: (id) {
-            setState(() {
-              _expandedMemberId = _expandedMemberId == id ? null : id;
-            });
-          },
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Contagem do resultado. Existe para o filtro ser conferível: é este
+        // número que se compara com o COUNT(*) do banco.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+          child: Text(
+            filteredMembers.length == 1
+                ? '1 membro'
+                : '${filteredMembers.length} membros',
+            style: CommunityDesign.metaStyle(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
+          ),
+        ),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+            itemCount: filteredMembers.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 16),
+            itemBuilder: (context, index) {
+              final member = filteredMembers[index];
+              return _MemberCard(
+                member: member,
+                expanded: _expandedMemberId == member.id,
+                onToggle: (id) {
+                  setState(() {
+                    _expandedMemberId = _expandedMemberId == id ? null : id;
+                  });
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
