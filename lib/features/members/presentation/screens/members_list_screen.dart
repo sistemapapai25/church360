@@ -9,6 +9,9 @@ import '../../../tags/presentation/providers/tags_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/date_period_filter.dart';
+import '../../../../core/widgets/age_range_filter.dart';
+import '../../../../core/widgets/marital_status_filter.dart';
+import '../../../../core/widgets/baptism_filter.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de membros
@@ -25,6 +28,9 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
   String? _selectedTagId; // null = sem filtro de tag
   String? _expandedMemberId; // controla qual card está expandido
   DatePeriodSelection _conversionFilter = const DatePeriodSelection();
+  AgeRangeSelection _ageFilter = const AgeRangeSelection();
+  MaritalStatusOption _maritalFilter = MaritalStatusOption.all;
+  BaptismOption _baptismFilter = BaptismOption.all;
   bool _showFilters = false;
   final _searchController = TextEditingController();
 
@@ -32,6 +38,27 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// Quantos filtros do painel estão efetivamente restringindo a lista.
+  /// Só conta os do painel "Mais filtros" — busca por nome, toggle de inativos
+  /// e filtro de tag têm controles próprios, visíveis fora dele.
+  int get _activeFilterCount {
+    var count = 0;
+    if (_conversionFilter.period != DatePeriod.all) count++;
+    if (_ageFilter.isActive) count++;
+    if (_maritalFilter != MaritalStatusOption.all) count++;
+    if (_baptismFilter != BaptismOption.all) count++;
+    return count;
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _conversionFilter = const DatePeriodSelection();
+      _ageFilter = const AgeRangeSelection();
+      _maritalFilter = MaritalStatusOption.all;
+      _baptismFilter = BaptismOption.all;
+    });
   }
 
   @override
@@ -212,25 +239,33 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: () =>
-                            setState(() => _showFilters = !_showFilters),
-                        icon: Icon(
-                          _showFilters
-                              ? Icons.expand_less
-                              : Icons.filter_alt_outlined,
-                          size: 18,
+                    Row(
+                      children: [
+                        TextButton.icon(
+                          onPressed: () =>
+                              setState(() => _showFilters = !_showFilters),
+                          icon: Icon(
+                            _showFilters
+                                ? Icons.expand_less
+                                : Icons.filter_alt_outlined,
+                            size: 18,
+                          ),
+                          label: Text(
+                            _showFilters
+                                ? 'Ocultar filtros'
+                                : (_activeFilterCount == 0
+                                      ? 'Mais filtros'
+                                      : 'Filtros ($_activeFilterCount)'),
+                          ),
                         ),
-                        label: Text(
-                          _showFilters
-                              ? 'Ocultar filtros'
-                              : (_conversionFilter.period == DatePeriod.all
-                                    ? 'Mais filtros'
-                                    : 'Filtros (1)'),
-                        ),
-                      ),
+                        if (_activeFilterCount > 0)
+                          TextButton.icon(
+                            onPressed: _clearFilters,
+                            icon: const Icon(Icons.filter_alt_off_outlined,
+                                size: 18),
+                            label: const Text('Limpar filtros'),
+                          ),
+                      ],
                     ),
                     if (_showFilters) ...[
                       const SizedBox(height: 8),
@@ -240,6 +275,23 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                         selection: _conversionFilter,
                         onChanged: (sel) =>
                             setState(() => _conversionFilter = sel),
+                      ),
+                      const SizedBox(height: 16),
+                      AgeRangeFilter(
+                        selection: _ageFilter,
+                        onChanged: (sel) => setState(() => _ageFilter = sel),
+                      ),
+                      const SizedBox(height: 16),
+                      MaritalStatusFilter(
+                        selection: _maritalFilter,
+                        onChanged: (opt) =>
+                            setState(() => _maritalFilter = opt),
+                      ),
+                      const SizedBox(height: 16),
+                      BaptismFilter(
+                        selection: _baptismFilter,
+                        onChanged: (opt) =>
+                            setState(() => _baptismFilter = opt),
                       ),
                     ],
                   ],
@@ -275,10 +327,36 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                   }).toList();
                 }
 
+                // LIMITE CONHECIDO (B6): toda a filtragem abaixo é client-side sobre
+                // allMembersProvider — ou seja, só enxerga o que a RLS de user_account
+                // deixou passar. Aguenta o volume atual (centenas de membros). Se a
+                // igreja passar de alguns milhares, isto migra para filtro no servidor.
                 // Filtrar por data de conversão
                 if (_conversionFilter.period != DatePeriod.all) {
                   filteredMembers = filteredMembers
                       .where((m) => _conversionFilter.matches(m.conversionDate))
+                      .toList();
+                }
+
+                // Filtrar por faixa etária (usa o getter `age` do próprio
+                // membro, o mesmo número que o card mostra)
+                if (_ageFilter.isActive) {
+                  filteredMembers = filteredMembers
+                      .where((m) => _ageFilter.matches(m.age))
+                      .toList();
+                }
+
+                // Filtrar por estado civil
+                if (_maritalFilter != MaritalStatusOption.all) {
+                  filteredMembers = filteredMembers
+                      .where((m) => _maritalFilter.matches(m.maritalStatus))
+                      .toList();
+                }
+
+                // Filtrar por batismo (baptismDate, nao wantsBaptism)
+                if (_baptismFilter != BaptismOption.all) {
+                  filteredMembers = filteredMembers
+                      .where((m) => _baptismFilter.matches(m.baptismDate))
                       .toList();
                 }
 
@@ -379,22 +457,42 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      itemCount: filteredMembers.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
-      itemBuilder: (context, index) {
-        final member = filteredMembers[index];
-        return _MemberCard(
-          member: member,
-          expanded: _expandedMemberId == member.id,
-          onToggle: (id) {
-            setState(() {
-              _expandedMemberId = _expandedMemberId == id ? null : id;
-            });
-          },
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Contagem do resultado. Existe para o filtro ser conferível: é este
+        // número que se compara com o COUNT(*) do banco.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+          child: Text(
+            filteredMembers.length == 1
+                ? '1 membro'
+                : '${filteredMembers.length} membros',
+            style: CommunityDesign.metaStyle(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
+          ),
+        ),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+            itemCount: filteredMembers.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 16),
+            itemBuilder: (context, index) {
+              final member = filteredMembers[index];
+              return _MemberCard(
+                member: member,
+                expanded: _expandedMemberId == member.id,
+                onToggle: (id) {
+                  setState(() {
+                    _expandedMemberId = _expandedMemberId == id ? null : id;
+                  });
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
