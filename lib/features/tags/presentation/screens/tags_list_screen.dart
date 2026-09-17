@@ -5,6 +5,7 @@ import '../providers/tags_provider.dart';
 import '../../data/tags_repository.dart';
 import 'tag_form_screen.dart';
 import '../../../../core/widgets/pearl_fab.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de tags
 class TagsListScreen extends ConsumerWidget {
@@ -38,18 +39,22 @@ class TagsListScreen extends ConsumerWidget {
                         ),
                   ),
                   const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const TagFormScreen(),
-                        ),
-                      );
-                      ref.invalidate(allTagsProvider);
-                    },
-                    icon: const Icon(Icons.add),
-                    label: const Text('Criar Primeira Tag'),
+                  PermissionGate(
+                    permission: 'tags.create',
+                    showLoading: false,
+                    child: FilledButton.icon(
+                      onPressed: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const TagFormScreen(),
+                          ),
+                        );
+                        ref.invalidate(allTagsProvider);
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Criar Primeira Tag'),
+                    ),
                   ),
                 ],
               ),
@@ -87,21 +92,29 @@ class TagsListScreen extends ConsumerWidget {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit),
-                          onPressed: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => TagFormScreen(tagId: tag.id),
-                              ),
-                            );
-                            ref.invalidate(allTagsProvider);
-                          },
+                        PermissionGate(
+                          permission: 'tags.edit',
+                          showLoading: false,
+                          child: IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => TagFormScreen(tagId: tag.id),
+                                ),
+                              );
+                              ref.invalidate(allTagsProvider);
+                            },
+                          ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _confirmDelete(context, ref, tag),
+                        PermissionGate(
+                          permission: 'tags.delete',
+                          showLoading: false,
+                          child: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => _confirmDelete(context, ref, tag),
+                          ),
                         ),
                       ],
                     ),
@@ -130,18 +143,22 @@ class TagsListScreen extends ConsumerWidget {
           ),
         ),
       ),
-      floatingActionButton: PearlFab(
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const TagFormScreen(),
-            ),
-          );
-          ref.invalidate(allTagsProvider);
-        },
-        icon: Icons.add,
-        label: 'Nova Tag',
+      floatingActionButton: PermissionGate(
+        permission: 'tags.create',
+        showLoading: false,
+        child: PearlFab(
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const TagFormScreen(),
+              ),
+            );
+            ref.invalidate(allTagsProvider);
+          },
+          icon: Icons.add,
+          label: 'Nova Tag',
+        ),
       ),
     );
   }
