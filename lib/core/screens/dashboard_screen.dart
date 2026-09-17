@@ -688,6 +688,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     return isOwnerAsync.when(
                       data: (isOwner) {
                         if (!isOwner) return const SizedBox.shrink();
+                        return const _DrawerMenuItem(
+                          icon: Icons.people_alt_outlined,
+                          title: 'Vincular Cadastros',
+                          route: '/duplicate-accounts',
+                        );
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    );
+                  },
+                ),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final isOwnerAsync = ref.watch(currentUserIsOwnerProvider);
+                    return isOwnerAsync.when(
+                      data: (isOwner) {
+                        if (!isOwner) return const SizedBox.shrink();
                         return _DrawerMenuItem(
                           icon: Icons.developer_mode,
                           title: 'Configurações de Desenvolvedor',
