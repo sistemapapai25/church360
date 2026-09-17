@@ -503,7 +503,7 @@ class _EventsAnalysisReportScreenState
               const SizedBox(height: 4),
               LinearProgressIndicator(
                 value: percentage / 100,
-                backgroundColor: Colors.grey[200],
+                backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
                 valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
                 minHeight: 8,
               ),

@@ -422,8 +422,6 @@ class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
                                     focusNode: fieldFocusNode,
                                     onChanged: (_) => setState(() {}),
                                     decoration: InputDecoration(
-                                      filled: true,
-                                      fillColor: Colors.white,
                                       border: const OutlineInputBorder(),
                                       labelText: 'Buscar responsável',
                                       prefixIcon: const Icon(Icons.search),
@@ -525,8 +523,6 @@ class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
                 initialValue: _relationship,
                 decoration: const InputDecoration(
                   labelText: 'Parentesco',
-                  filled: true,
-                  fillColor: Colors.white,
                 ),
                 items:
                     [

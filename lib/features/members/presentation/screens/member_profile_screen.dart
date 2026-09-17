@@ -2896,7 +2896,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         const SizedBox(height: 8),
         LinearProgressIndicator(
           value: percentage / 100,
-          backgroundColor: const Color(0xFFE6E6E6), // Cinza claro
+          backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
           valueColor: const AlwaysStoppedAnimation<Color>(
             Color(0xFFF39C12), // Laranja vibrante
           ),

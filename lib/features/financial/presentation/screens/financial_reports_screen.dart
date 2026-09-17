@@ -439,7 +439,7 @@ class _FinancialReportsScreenState
                                       const SizedBox(height: 4),
                                       LinearProgressIndicator(
                                         value: percentage / 100,
-                                        backgroundColor: Colors.grey[200],
+                                        backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
                                         valueColor: AlwaysStoppedAnimation<Color>(
                                           index < 3 ? Colors.amber : Colors.blue,
                                         ),
@@ -658,7 +658,7 @@ class _FinancialReportsScreenState
                                   const SizedBox(height: 4),
                                   LinearProgressIndicator(
                                     value: percentage / 100,
-                                    backgroundColor: Colors.grey[200],
+                                    backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
                                     valueColor: AlwaysStoppedAnimation<Color>(color),
                                   ),
                                 ],
