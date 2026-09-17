@@ -78,24 +78,10 @@ class DashboardWidgetRepository {
     await _supabase.rpc('restore_default_dashboard_widgets');
   }
 
-  /// Stream de widgets (para atualizações em tempo real)
-  Stream<List<DashboardWidget>> watchAll() {
-    return _supabase
-        .from('dashboard_widget')
-        .stream(primaryKey: ['id'])
-        .order('display_order', ascending: true)
-        .map((data) => data.map((json) => DashboardWidget.fromJson(json)).toList());
-  }
-
-  /// Stream de widgets habilitados
-  Stream<List<DashboardWidget>> watchEnabled() {
-    return _supabase
-        .from('dashboard_widget')
-        .stream(primaryKey: ['id'])
-        .eq('is_enabled', true)
-        .order('display_order', ascending: true)
-        .map((data) => data.map((json) => DashboardWidget.fromJson(json)).toList());
-  }
+  // Não existe `watchAll()`/`watchEnabled()` aqui de propósito: `dashboard_widget`
+  // é tabela de configuração e não justifica um canal Realtime, que derrubava o
+  // Dashboard inteiro ao expirar o JWT do socket. Use `getAll()`/`getEnabled()`
+  // e invalide os providers depois de escrever.
 
   /// Criar um novo widget customizado
   Future<DashboardWidget> createCustomWidget({

@@ -250,6 +250,8 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
     try {
       final repository = ref.read(dashboardWidgetRepositoryProvider);
       await repository.updateEnabled(id, isEnabled);
+      // Sem o canal Realtime, a lista só volta do banco se pedirmos.
+      ref.read(refreshDashboardWidgetsProvider)();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -284,6 +286,7 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
       }).toList();
 
       await repository.updateMultiple(updates);
+      ref.read(refreshDashboardWidgetsProvider)();
 
       setState(() {
         _isReordering = false;
@@ -337,6 +340,7 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
       try {
         final repository = ref.read(dashboardWidgetRepositoryProvider);
         await repository.restoreDefaults();
+        ref.read(refreshDashboardWidgetsProvider)();
 
         if (!context.mounted) return;
 

@@ -46,7 +46,7 @@ ProviderContainer _buildContainer({
   final container = ProviderContainer(
     overrides: [
       tenantEnabledDashboardWidgetsProvider.overrideWith(
-        (ref) => Stream.value(_tenantWidgets),
+        (ref) => _tenantWidgets,
       ),
       currentUserIsMinistryCoordinatorProvider.overrideWith(
         (ref) async => isCoordinator,
@@ -214,6 +214,62 @@ void main() {
         final keys = enabled.map((w) => w.widgetKey).toSet();
 
         expect(keys, isNot(contains('financial_summary')));
+      },
+    );
+  });
+
+  // Regressão da troca de Realtime por busca sob demanda: enquanto os widgets
+  // vinham de um StreamProvider, o canal empurrava o dado e ninguém reparava
+  // que o RefreshIndicator invalidava só a folha da cadeia.
+  group('refreshDashboardWidgetsProvider — recarga da cadeia', () {
+    test(
+      'invalidar só a folha não rebusca; o refresh da cadeia rebusca',
+      () async {
+        var buscas = 0;
+        final container = ProviderContainer(
+          overrides: [
+            tenantEnabledDashboardWidgetsProvider.overrideWith((ref) {
+              buscas++;
+              // A segunda ida ao "banco" traz um card a mais.
+              return buscas == 1
+                  ? [_widget('birthdays_month')]
+                  : [_widget('birthdays_month'), _widget('recent_members')];
+            }),
+            currentUserIsMinistryCoordinatorProvider.overrideWith(
+              (ref) async => false,
+            ),
+            currentUserHasPermissionProvider.overrideWith(
+              (ref, permissionCode) async => true,
+            ),
+            currentUserDashboardWidgetPreferencesProvider.overrideWith(
+              (ref) async => const <String, bool>{},
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        Future<Set<String>> lerKeys() async {
+          final enabled =
+              await container.read(enabledDashboardWidgetsProvider.future);
+          return enabled.map((w) => w.widgetKey).toSet();
+        }
+
+        expect(await lerKeys(), {'birthdays_month'});
+        expect(buscas, 1);
+
+        // Comportamento antigo do RefreshIndicator: recomputa a folha, que dá
+        // await no .future já em cache do provider do tenant.
+        container.invalidate(enabledDashboardWidgetsProvider);
+        expect(await lerKeys(), {'birthdays_month'});
+        expect(
+          buscas,
+          1,
+          reason: 'invalidar só a folha não pode disparar nova busca',
+        );
+
+        container.read(refreshDashboardWidgetsProvider)();
+        expect(await lerKeys(), {'birthdays_month', 'recent_members'});
+        expect(buscas, 2);
       },
     );
   });
