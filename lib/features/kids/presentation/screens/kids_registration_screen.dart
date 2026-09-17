@@ -630,6 +630,12 @@ class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
                     if (mounted) {
                       navigator.pop();
                       ref.invalidate(kidsGuardiansProvider(widget.childId));
+                      // O vínculo acima também aparece em "Vínculos
+                      // Familiares", cuja lista depende de Realtime e por
+                      // isso não se atualiza sozinha.
+                      ref.invalidate(
+                        familyRelationshipsStreamProvider(widget.childId),
+                      );
                       messenger.showSnackBar(
                         const SnackBar(content: Text('Responsável adicionado!')),
                       );

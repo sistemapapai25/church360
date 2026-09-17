@@ -49,6 +49,17 @@ class FamilyRelationship {
   });
 }
 
+/// O vínculo pedido foi gravado, mas a propagação automática de avós/netos
+/// falhou depois disso. Existe para a tela não anunciar como fracasso algo
+/// que já está no banco.
+class FamilyChainPropagationException implements Exception {
+  final Object cause;
+  FamilyChainPropagationException(this.cause);
+
+  @override
+  String toString() => 'FamilyChainPropagationException: $cause';
+}
+
 class FamilyRelationshipsRepository {
   final SupabaseClient _supabase;
   FamilyRelationshipsRepository(this._supabase);
@@ -155,13 +166,32 @@ class FamilyRelationshipsRepository {
     return result;
   }
 
+  /// Grava o vínculo e, em seguida, tenta propagar a cadeia (avós/netos).
+  ///
+  /// As duas etapas não têm o mesmo peso: a primeira é o que a pessoa pediu,
+  /// a segunda é conveniência. Se a propagação falhar depois de o vínculo já
+  /// estar gravado, o erro sobe como [FamilyChainPropagationException] para
+  /// que a tela não diga "não foi possível adicionar" sobre algo que foi
+  /// adicionado.
   Future<void> addRelationship(String memberId, String parenteId, String type) async {
     await _addRelationshipCore(memberId, parenteId, type);
-    await _propagateChain(memberId, parenteId, type);
+    try {
+      await _propagateChain(memberId, parenteId, type);
+    } catch (e) {
+      throw FamilyChainPropagationException(e);
+    }
   }
 
   Future<void> _addRelationshipCore(
       String memberId, String parenteId, String type) async {
+    // Ninguém é parente de si mesmo, e o banco concorda:
+    // check_not_self_relationship CHECK (membro_id != parente_id) devolve
+    // 23514. A propagação de avós chega aqui com os dois lados iguais em
+    // casos legítimos — ao ligar pai/filho, o vínculo inverso recém-criado
+    // volta na leitura e faz a pessoa candidata a avó de si mesma. Sair
+    // quieto aqui é a resposta certa: não há o que gravar.
+    if (memberId == parenteId) return;
+
     // Evitar duplicado
     final existing = await _supabase
         .from('relacionamentos_familiares')
@@ -173,7 +203,7 @@ class FamilyRelationshipsRepository {
 
     // Buscar gêneros de AMBOS
     final directory = await _directoryByIds([memberId, parenteId]);
-    final genderParente = directory[parenteId]?['gender'] as String?;
+    final genderMembro = directory[memberId]?['gender'] as String?;
 
     // Inserir direto
     await _supabase.from('relacionamentos_familiares').insert({
@@ -182,13 +212,20 @@ class FamilyRelationshipsRepository {
       'tipo_relacionamento': type,
     });
 
-    // Inserir inverso
-    // O tipo inverso depende do gênero do parente (quem será o sujeito do relacionamento inverso)
-    // Ex: A (Pai) -> B (Filha). Inverso: B -> A. O que B é de A?
-    // Se A -> B é 'pai', e B é mulher ('F'), então B -> A é 'filha'.
-    // Portanto, usamos o gênero do parenteId para determinar o inverso.
-    final sexoParenteRef = _toSexo(genderParente);
-    final tipoInverso = _getTipoInverso(type, sexoParenteRef);
+    // Inserir inverso.
+    //
+    // Convenção da tela (member_form_screen `_buildFamilyRelationRow` e
+    // member_profile_screen): a linha mostra o NOME DO PARENTE com o TIPO
+    // como legenda, ou seja, `tipo` diz o que o parente é do membro.
+    // Ex.: (Ramon → Matheus, 'filho') lê-se "Matheus é filho do Ramon".
+    //
+    // Logo a linha inversa (parente → membro) descreve o que o MEMBRO é do
+    // parente, e portanto depende do gênero do MEMBRO — não do parente.
+    // Ex.: (Ramon → Maria, 'filha') tem inverso (Maria → Ramon, 'pai'),
+    // porque quem é pai/mãe ali é o Ramon. Usar o gênero da Maria fazia o
+    // perfil dela mostrar "Ramon — Mãe".
+    final sexoMembroRef = _toSexo(genderMembro);
+    final tipoInverso = _getTipoInverso(type, sexoMembroRef);
 
     if (tipoInverso != null) {
       final inverseExisting = await _supabase
@@ -295,23 +332,37 @@ class FamilyRelationshipsRepository {
     }
   }
 
+  /// Desfaz o vínculo nas DUAS direções.
+  ///
+  /// Não dá para apagar só por `rel.id`: a lista da tela mistura linhas
+  /// diretas com linhas derivadas do inverso, e nas derivadas `membroId` e
+  /// `parenteId` já vêm trocados em relação à linha real do banco
+  /// (ver `getByMember`). Apagar por id removia a linha certa e a segunda
+  /// consulta ia atrás da MESMA linha de novo, deixando a direção
+  /// complementar viva — o vínculo reaparecia na recarga seguinte.
+  ///
+  /// Apagar pelo par, nos dois sentidos, funciona para os dois casos e é
+  /// idempotente: o que já não existe simplesmente não casa.
   Future<void> removeRelationship(FamilyRelationship rel) async {
     await _supabase
         .from('relacionamentos_familiares')
         .delete()
-        .eq('id', rel.id);
-    try {
-      await _supabase
-          .from('relacionamentos_familiares')
-          .delete()
-          .eq('membro_id', rel.parenteId)
-          .eq('parente_id', rel.membroId);
-    } catch (_) {
-      // Se a política de RLS não permitir apagar o inverso, ignorar silenciosamente
-    }
+        .eq('membro_id', rel.membroId)
+        .eq('parente_id', rel.parenteId);
+
+    await _supabase
+        .from('relacionamentos_familiares')
+        .delete()
+        .eq('membro_id', rel.parenteId)
+        .eq('parente_id', rel.membroId);
   }
 
-  static String? _getTipoInverso(String tipo, String sexoParente) {
+  /// Dado `tipo`, devolve o tipo da relação vista do outro lado.
+  ///
+  /// `sexoSujeito` é o gênero de QUEM SERÁ DESCRITO pelo tipo devolvido —
+  /// não o de quem já está descrito por `tipo`. Trocar os dois é o bug que
+  /// fazia um pai virar "Mãe" no perfil da filha.
+  static String? _getTipoInverso(String tipo, String sexoSujeito) {
     final inv = <String, Map<String, String>>{
       'pai': {'M': 'filho', 'F': 'filha'},
       'mae': {'M': 'filho', 'F': 'filha'},
@@ -339,7 +390,7 @@ class FamilyRelationshipsRepository {
       'tutelado': {'M': 'tutor', 'F': 'tutora'},
       'tutelada': {'M': 'tutor', 'F': 'tutora'},
     };
-    return inv[tipo]?[sexoParente];
+    return inv[tipo]?[sexoSujeito];
   }
 
   static String _toSexo(String? gender) {
