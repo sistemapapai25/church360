@@ -14,7 +14,7 @@ class ContributionInfoScreen extends ConsumerWidget {
     final contributionInfoAsync = ref.watch(activeContributionInfoProvider);
 
     return Scaffold(
-      backgroundColor: CommunityDesign.backgroundColor,
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,

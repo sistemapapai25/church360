@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../constants/app_branding.dart';
 import 'app_logo.dart';
+import 'theme_mode_selector.dart';
 import '../../features/permissions/providers/permissions_providers.dart';
 import '../utils/app_exit.dart';
 
@@ -188,6 +189,23 @@ class AppDrawer extends ConsumerWidget {
 
           // CONFIGURAÇÕES
           _DrawerSection(title: 'CONFIGURAÇÕES'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.palette_outlined,
+                  size: 20,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(child: Text('Aparência')),
+                const ThemeModeSelector(compact: true),
+              ],
+            ),
+          ),
           // _DrawerItem(
           //   icon: Icons.label,
           //   title: 'Tags',

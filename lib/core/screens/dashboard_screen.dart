@@ -40,8 +40,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         endDrawer: _buildManagementDrawer(context),
         appBar: AppBar(
           // Cabeçalho no mesmo padrão visual já usado na aba "Mais"
-          // (branco, cantos inferiores arredondados, sombra sutil ao rolar).
-          backgroundColor: Colors.white,
+          // (superficie do tema, cantos inferiores arredondados, sombra sutil ao
+          // rolar) — no claro continua branco, no escuro acompanha o tema.
+          backgroundColor: Theme.of(context).colorScheme.surface,
           elevation: 0,
           scrolledUnderElevation: 2,
           shadowColor: Colors.black.withValues(alpha: 0.1),

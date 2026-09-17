@@ -13,6 +13,7 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../constants/app_branding.dart';
 import '../widgets/church_image.dart';
 import '../widgets/app_logo.dart';
+import '../widgets/theme_mode_selector.dart';
 import '../../features/permissions/presentation/widgets/dashboard_access_gate.dart';
 
 import '../../features/bible/presentation/screens/bible_books_screen.dart';
@@ -1450,9 +1451,9 @@ class _MoreTab extends ConsumerWidget {
     final currentMemberAsync = ref.watch(currentMemberProvider);
 
     return Scaffold(
-      backgroundColor: CommunityDesign.backgroundColor,
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         scrolledUnderElevation: 2,
         shadowColor: Colors.black.withValues(alpha: 0.1),
@@ -1668,6 +1669,44 @@ class _MoreTab extends ConsumerWidget {
                 orElse: () => const SizedBox.shrink(),
               );
             },
+          ),
+
+          const SizedBox(height: 32),
+
+          // PREFERÊNCIAS
+          _buildSectionTitle(context, 'PREFERÊNCIAS'),
+          const SizedBox(height: 12),
+          Container(
+            decoration: CommunityDesign.overlayDecoration(
+              Theme.of(context).colorScheme,
+            ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.palette_outlined,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Aparência',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const SizedBox(
+                  width: double.infinity,
+                  child: ThemeModeSelector(),
+                ),
+              ],
+            ),
           ),
 
           const SizedBox(height: 32),

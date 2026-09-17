@@ -13,6 +13,7 @@ import 'core/constants/supabase_constants.dart';
 import 'core/navigation/app_router.dart';
 import 'core/navigation/initial_app_location.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_mode_provider.dart';
 import 'core/widgets/app_logo.dart';
 import 'core/widgets/app_restart_scope.dart';
 import 'features/support_chat/domain/models/support_agent.dart';
@@ -156,19 +157,19 @@ class _AppBootstrapState extends State<AppBootstrap> {
   }
 }
 
-class _BootstrapMaterialApp extends StatelessWidget {
+class _BootstrapMaterialApp extends ConsumerWidget {
   final Widget child;
 
   const _BootstrapMaterialApp({required this.child});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
       title: AppBranding.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: ref.watch(themeModeProvider),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -275,17 +276,17 @@ class _BootstrapErrorScreen extends StatelessWidget {
   }
 }
 
-class Church360App extends StatelessWidget {
+class Church360App extends ConsumerWidget {
   const Church360App({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
       title: AppBranding.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: ref.watch(themeModeProvider),
       routerConfig: appRouter,
       builder: (context, child) {
         final appChild = child ?? const SizedBox.shrink();
