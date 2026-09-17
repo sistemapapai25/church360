@@ -355,18 +355,31 @@ class OwnerOnlyRoute extends ConsumerWidget {
       return const AccessDeniedScreen(requiredLevel: AccessLevelType.admin);
     }
 
-    return FutureBuilder<Map<String, dynamic>?>(
+    // Casa pelas DUAS chaves. Só `id = auth.uid()` não basta: quando uma
+    // ficha nasce de importação (ou sobrevive a um merge), o `id` dela é
+    // outro e o vínculo com o login vive em `auth_user_id`. O resto do app
+    // já tenta `auth_user_id` primeiro; aqui era o único ponto que não.
+    return FutureBuilder<List<Map<String, dynamic>>>(
       future: supabase
           .from('user_account')
           .select('role_global')
-          .eq('id', authUserId)
+          .or('auth_user_id.eq.$authUserId,id.eq.$authUserId')
           .eq('tenant_id', SupabaseConstants.currentTenantId)
-          .maybeSingle(),
+          .limit(5),
       builder: (context, snapshot) {
-        final role = (snapshot.data?['role_global']?.toString() ?? '')
-            .trim()
-            .toLowerCase();
-        if (role == 'owner') {
+        // Sem isto, a tela de acesso negado pisca antes da resposta chegar.
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final isOwner = (snapshot.data ?? const <Map<String, dynamic>>[]).any(
+          (row) =>
+              (row['role_global']?.toString() ?? '').trim().toLowerCase() ==
+              'owner',
+        );
+        if (isOwner) {
           return child;
         }
         return const AccessDeniedScreen(
