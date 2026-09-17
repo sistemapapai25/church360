@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/members_provider.dart';
 import '../../domain/models/member.dart';
 import '../../../tags/presentation/providers/tags_provider.dart';
+import '../../../tags/presentation/widgets/tag_filter_chips.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/date_period_filter.dart';
@@ -55,8 +56,9 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
   }
 
   /// Quantos filtros do painel estão efetivamente restringindo a lista.
-  /// Só conta os do painel "Mais filtros" — busca por nome, toggle de inativos
-  /// e filtro de tag têm controles próprios, visíveis fora dele.
+  /// Só conta os do painel "Mais filtros" — busca por nome e toggle de
+  /// inativos têm controles próprios, visíveis fora dele. O filtro de tag
+  /// mora no painel e conta como os demais.
   /// O bloco "Dados do cadastro" conta cada exigência separadamente: são
   /// recortes independentes, não um filtro só.
   int get _activeFilterCount {
@@ -74,6 +76,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
     if (_cityFilter != null) count++;
     if (_neighborhoodFilter != null) count++;
     if (_professionFilter != null) count++;
+    if (_selectedTagId != null) count++;
     count += _dataFilter.activeCount;
     return count;
   }
@@ -94,6 +97,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
       _cityFilter = null;
       _neighborhoodFilter = null;
       _professionFilter = null;
+      _selectedTagId = null;
     });
   }
 
@@ -416,6 +420,11 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              TagFilterChips(
+                                selectedTagId: _selectedTagId,
+                                onChanged: (tagId) =>
+                                    setState(() => _selectedTagId = tagId),
+                              ),
                               AgeRangeFilter(
                                 selection: _ageFilter,
                                 onChanged: (sel) =>
