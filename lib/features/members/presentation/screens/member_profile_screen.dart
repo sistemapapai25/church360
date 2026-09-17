@@ -14,6 +14,7 @@ import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../notifications/presentation/widgets/notification_badge.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../permissions/providers/permissions_providers.dart';
+import '../../../tags/presentation/widgets/member_tags_panel.dart';
 
 import '../providers/members_provider.dart';
 import '../../data/members_repository.dart';
@@ -392,6 +393,23 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             title: 'Vínculos Familiares',
             sectionKey: 'family',
             child: _buildFamilyRelationships(context, ref, member),
+          ),
+          // Tags (marcador manual; quem nao tem tags.view nem ve a secao)
+          PermissionGate(
+            permission: 'tags.view',
+            showLoading: false,
+            child: Column(
+              children: [
+                const SizedBox(height: _sectionGap),
+                _buildSection(
+                  context,
+                  icon: Icons.label,
+                  title: 'Tags',
+                  sectionKey: 'tags',
+                  child: MemberTagsPanel(memberId: member.id),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: _sectionGap),
           // Endereço
