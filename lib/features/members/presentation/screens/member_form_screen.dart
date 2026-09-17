@@ -950,10 +950,25 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         ref.invalidate(managedChildrenProvider);
         if (widget.memberId != null) {
           ref.invalidate(memberByIdProvider(widget.memberId!));
+          // A ficha tem DUAS chaves: `user_account.id` e `auth_user_id`, e
+          // elas só coincidem por acaso. Comparar o uid do login apenas com
+          // `widget.memberId` fazia quem tem os dois valores diferentes
+          // (caso de quem já teve cadastro fundido) editar o próprio perfil
+          // sem que `currentMemberProvider` fosse relido — a pessoa salvava
+          // e continuava vendo o dado velho. Mesmo tropeço do OwnerOnlyRoute.
           final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-          if (currentUserId != null && currentUserId == widget.memberId) {
+          final editandoASiMesmo =
+              currentUserId != null &&
+              (currentUserId == widget.memberId ||
+                  currentUserId == _existingMember?.authUserId);
+          if (editandoASiMesmo) {
             ref.invalidate(currentMemberProvider);
           }
+        }
+        // O vínculo de responsável acima grava em relacionamentos_familiares,
+        // cuja lista depende de Realtime para se atualizar sozinha.
+        if (savedMemberId != null) {
+          _refreshFamilyRelationships(savedMemberId);
         }
 
         if (pendingLoginEmailConfirmation != null) {
@@ -2071,6 +2086,19 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     );
   }
 
+  /// Relê os vínculos depois de uma gravação.
+  ///
+  /// A lista vem de `familyRelationshipsStreamProvider`, que só se atualiza
+  /// sozinho quando o Realtime do Supabase avisa. Nenhuma migration deste
+  /// projeto adiciona `relacionamentos_familiares` à publicação
+  /// `supabase_realtime`, então esse aviso pode simplesmente não chegar — e
+  /// a pessoa vê a tela igual depois de vincular ou desvincular, como se
+  /// nada tivesse acontecido. O `invalidate` não substitui o Realtime: ele
+  /// garante o caso de quem acabou de agir.
+  void _refreshFamilyRelationships(String memberId) {
+    ref.invalidate(familyRelationshipsStreamProvider(memberId));
+  }
+
   Widget _buildFamilyRelationRow(BuildContext context, FamilyRelationship rel) {
     final name = (rel.parenteNome?.trim().isNotEmpty ?? false)
         ? rel.parenteNome!.trim()
@@ -2120,6 +2148,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     try {
       final repo = ref.read(familyRelationshipsRepositoryProvider);
       await repo.removeRelationship(rel);
+      _refreshFamilyRelationships(rel.membroId);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -2320,19 +2349,37 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                 final repo = ref.read(
                                   familyRelationshipsRepositoryProvider,
                                 );
-                                await repo.addRelationship(
-                                  memberId,
-                                  selectedMember!.id,
-                                  selectedType,
-                                );
+                                var propagacaoFalhou = false;
+                                try {
+                                  await repo.addRelationship(
+                                    memberId,
+                                    selectedMember!.id,
+                                    selectedType,
+                                  );
+                                } on FamilyChainPropagationException catch (e) {
+                                  // O vínculo pedido está gravado; só a
+                                  // cadeia de avós não fechou. Dizer
+                                  // "não foi possível adicionar" aqui seria
+                                  // mentira — e foi o que confundiu o
+                                  // diagnóstico do erro 23514.
+                                  propagacaoFalhou = true;
+                                  debugPrint(
+                                    'Propagação de vínculos falhou: ${e.cause}',
+                                  );
+                                }
+                                _refreshFamilyRelationships(memberId);
                                 navigator.pop();
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
+                                    SnackBar(
                                       content: Text(
-                                        'Vínculo familiar adicionado com sucesso!',
+                                        propagacaoFalhou
+                                            ? 'Vínculo adicionado. A ligação automática de avós/netos não pôde ser criada.'
+                                            : 'Vínculo familiar adicionado com sucesso!',
                                       ),
-                                      backgroundColor: Colors.green,
+                                      backgroundColor: propagacaoFalhou
+                                          ? Colors.orange
+                                          : Colors.green,
                                     ),
                                   );
                                 }
