@@ -148,7 +148,7 @@ class _TagFormScreenState extends ConsumerState<TagFormScreen> {
                         labelText: 'Categoria',
                         prefixIcon: Icon(Icons.category),
                         border: OutlineInputBorder(),
-                        hintText: 'Ex: Ministério, Cargo, Espiritual',
+                        hintText: 'Ex: Cuidado, Acolhimento, Formação, Serviço',
                       ),
                     ),
                     const SizedBox(height: 24),

@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/design/community_design.dart';
 
-/// Exemplos vivos da regra: o que só um humano sabe e o cadastro não guarda.
+/// Exemplos vivos da regra: situação, acompanhamento ou contexto passageiro.
+///
+/// Nenhum deles é equipe formal de propósito — "time do café" foi descartado
+/// justamente por poder virar ministério, que o sistema já conhece por vínculo
+/// (`ministry_member`) e não deveria ser duplicado em tag.
 const List<String> kTagUsageExamples = <String>[
   'Precisa de visita',
-  'Líder em formação',
   'Novo na cidade',
   'Interessado em batismo 2027',
-  'Time do café',
+  'Líder em formação',
+  'Disponível para servir no próximo evento',
 ];
 
 /// Faixa de ajuda no topo da tela de Tags (C0).
@@ -39,8 +43,8 @@ class TagUsageHelpBanner extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Tag é marcador manual e temporário. Dado permanente da '
-                      'pessoa é campo do cadastro.',
+                      'Tag marca situação, acompanhamento ou contexto '
+                      'passageiro. O que é permanente é campo do cadastro.',
                       style: TextStyle(
                         fontSize: 14,
                         height: 1.4,
@@ -102,17 +106,19 @@ class _TagUsageSheet extends StatelessWidget {
             const SizedBox(height: 16),
             const _UsageBlock(
               icon: Icons.badge_outlined,
-              title: 'Campo do cadastro',
-              body: 'Dado permanente da pessoa — nascimento, estado civil, '
-                  'batismo. Já filtra sozinho na lista de membros, sem '
-                  'precisar de tag.',
+              title: 'Campo do cadastro ou vínculo do sistema',
+              body: 'Informação estrutural e permanente — nascimento, estado '
+                  'civil, batismo — e também o que o sistema já sabe por '
+                  'vínculo: ministério, cargo, grupo. Tudo isso já filtra '
+                  'sozinho, sem precisar de tag.',
             ),
             const SizedBox(height: 12),
             const _UsageBlock(
               icon: Icons.label_outline,
               title: 'Tag',
-              body: 'Marcador manual e temporário para o que o sistema não '
-                  'tem como saber sozinho.',
+              body: 'Marcador manual para situação, acompanhamento ou contexto '
+                  'transitório — o que muda com o tempo e o sistema não tem '
+                  'como saber sozinho.',
             ),
             const SizedBox(height: 20),
             Text(
@@ -120,27 +126,35 @@ class _TagUsageSheet extends StatelessWidget {
               style: CommunityDesign.titleStyle(context).copyWith(fontSize: 14),
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            // Lista, e nao chips: um dos exemplos e uma frase inteira, que
+            // num chip estouraria a largura em tela estreita em vez de quebrar.
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: kTagUsageExamples
                   .map(
-                    (example) => Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: colorScheme.outlineVariant,
-                        ),
-                      ),
-                      child: Text(
-                        example,
-                        style: CommunityDesign.contentStyle(context)
-                            .copyWith(fontSize: 13),
+                    (example) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            margin: const EdgeInsets.only(top: 7),
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              example,
+                              style: CommunityDesign.contentStyle(context)
+                                  .copyWith(fontSize: 13),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   )
@@ -155,7 +169,8 @@ class _TagUsageSheet extends StatelessWidget {
                 borderRadius: BorderRadius.circular(CommunityDesign.radius),
               ),
               child: Text(
-                'Se dá para responder com um campo do cadastro, não é tag.',
+                'Se dá para responder com um campo do cadastro ou com um '
+                'vínculo que o sistema já conhece, não é tag.',
                 style: TextStyle(
                   fontSize: 14,
                   height: 1.4,
