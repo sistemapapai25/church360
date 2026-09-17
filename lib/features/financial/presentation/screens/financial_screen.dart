@@ -651,7 +651,7 @@ class _GoalCard extends StatelessWidget {
             const SizedBox(height: 16),
             LinearProgressIndicator(
               value: goal.progress,
-              backgroundColor: Colors.grey[200],
+              backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
               minHeight: 8,
               borderRadius: BorderRadius.circular(4),

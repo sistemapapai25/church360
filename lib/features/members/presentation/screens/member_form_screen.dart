@@ -1081,8 +1081,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                   controller: fieldController,
                                   focusNode: fieldFocusNode,
                                   decoration: const InputDecoration(
-                                    filled: true,
-                                    fillColor: Colors.white,
                                     border: OutlineInputBorder(),
                                     labelText: 'Buscar responsável',
                                     prefixIcon: Icon(Icons.search),
@@ -1141,8 +1139,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               initialValue: _guardianRelationshipLabel,
               decoration: const InputDecoration(
                 labelText: 'Parentesco',
-                filled: true,
-                fillColor: Colors.white,
                 border: OutlineInputBorder(),
               ),
               items: const [

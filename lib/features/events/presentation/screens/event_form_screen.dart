@@ -1066,8 +1066,6 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
             decoration: const InputDecoration(
               labelText: 'Tipo variável',
               prefixIcon: Icon(Icons.tune),
-              filled: true,
-              fillColor: Colors.white,
               border: OutlineInputBorder(),
             ),
             items: const [
@@ -1232,8 +1230,6 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
             decoration: const InputDecoration(
               labelText: 'Semana do mês',
               prefixIcon: Icon(Icons.calendar_view_month),
-              filled: true,
-              fillColor: Colors.white,
               border: OutlineInputBorder(),
             ),
             items: _ordinalItems(),
@@ -1728,8 +1724,6 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                     decoration: const InputDecoration(
                                       labelText: 'Local',
                                       prefixIcon: Icon(Icons.location_on),
-                                      filled: true,
-                                      fillColor: Colors.white,
                                       border: OutlineInputBorder(),
                                     ),
                                   );
@@ -1752,8 +1746,6 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                       decoration: const InputDecoration(
                         labelText: 'Capacidade Máxima',
                         prefixIcon: Icon(Icons.groups),
-                        filled: true,
-                        fillColor: Colors.white,
                         border: OutlineInputBorder(),
                         hintText: 'Deixe vazio para ilimitado',
                       ),
@@ -2329,8 +2321,6 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                       decoration: const InputDecoration(
                         labelText: 'Status',
                         prefixIcon: Icon(Icons.flag),
-                        filled: true,
-                        fillColor: Colors.white,
                         border: OutlineInputBorder(),
                       ),
                       items: const [

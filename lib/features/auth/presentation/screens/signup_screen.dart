@@ -446,8 +446,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       labelText: 'Email *',
                       hintText: 'seu@email.com',
                       prefixIcon: const Icon(Icons.email_outlined, size: 20),
-                      filled: true,
-                      fillColor: Colors.white,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -502,8 +500,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       labelText: 'Nome *',
                       hintText: 'Seu primeiro nome',
                       prefixIcon: const Icon(Icons.person, size: 20),
-                      filled: true,
-                      fillColor: Colors.white,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -538,8 +534,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       labelText: 'Sobrenome *',
                       hintText: 'Seu sobrenome',
                       prefixIcon: const Icon(Icons.person, size: 20),
-                      filled: true,
-                      fillColor: Colors.white,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -574,8 +568,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       labelText: 'Apelido *',
                       hintText: 'Como você é conhecido(a)',
                       prefixIcon: const Icon(Icons.badge_outlined, size: 20),
-                      filled: true,
-                      fillColor: Colors.white,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -621,8 +613,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           });
                         },
                       ),
-                      filled: true,
-                      fillColor: Colors.white,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -671,8 +661,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           });
                         },
                       ),
-                      filled: true,
-                      fillColor: Colors.white,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
