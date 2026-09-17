@@ -342,14 +342,14 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
     final canCrud = widget.enableCrud;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F9FD),
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: widget.showAppBar
           ? AppBar(
               automaticallyImplyLeading: false,
               toolbarHeight: 64,
               elevation: 1,
               shadowColor: Colors.black.withValues(alpha: 0.08),
-              backgroundColor: const Color(0xFFF5F9FD),
+              backgroundColor: CommunityDesign.headerColor(context),
               surfaceTintColor: Colors.transparent,
               titleSpacing: 0,
               leadingWidth: 54,

@@ -29,11 +29,24 @@ class _DashStyle {
     BoxShadow(color: Color(0x0D201F32), blurRadius: 10, offset: Offset(0, 2)),
   ];
 
-  static BoxDecoration card({double radius = 16}) => BoxDecoration(
-        color: Colors.white,
+  /// Superficie do card. No tema claro `surface` e 0xFFFFFFFF — exatamente o
+  /// branco que estava fixo aqui —, entao o visual aprovado nos PRs #60/#61 nao
+  /// muda; no escuro o card acompanha o tema em vez de ficar branco com texto
+  /// claro por cima.
+  static BoxDecoration card(BuildContext context, {double radius = 16}) =>
+      BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(radius),
         boxShadow: cardShadow,
       );
+
+  /// Linha divisoria: a constante clara so serve no tema claro.
+  static Color dividerColor(BuildContext context) {
+    final theme = Theme.of(context);
+    return theme.brightness == Brightness.dark
+        ? theme.colorScheme.outline.withValues(alpha: 0.35)
+        : divider;
+  }
 }
 
 /// Cabeçalho padrão dos cards do Dashboard: badge de ícone colorido + título.
@@ -114,7 +127,7 @@ class MemberGrowthChart extends ConsumerWidget {
     final statsAsync = ref.watch(memberGrowthStatsProvider);
 
     return Container(
-      decoration: _DashStyle.card(),
+      decoration: _DashStyle.card(context),
       child: InkWell(
         onTap: () {
           context.push('/member-growth-report');
@@ -149,8 +162,8 @@ class MemberGrowthChart extends ConsumerWidget {
                         drawVerticalLine: false,
                         horizontalInterval: 1,
                         getDrawingHorizontalLine: (value) {
-                          return const FlLine(
-                            color: _DashStyle.divider,
+                          return FlLine(
+                            color: _DashStyle.dividerColor(context),
                             strokeWidth: 1,
                             dashArray: [4, 4],
                           );
@@ -281,7 +294,7 @@ class EventsStatsCard extends ConsumerWidget {
     final statsAsync = ref.watch(eventsStatsProvider);
 
     return Container(
-      decoration: _DashStyle.card(),
+      decoration: _DashStyle.card(context),
       child: InkWell(
         onTap: () {
           context.push('/events-analysis-report');
@@ -343,7 +356,7 @@ class AutoSchedulerSummaryCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final itemsAsync = ref.watch(allAutoSchedulesProvider);
     return Container(
-      decoration: _DashStyle.card(),
+      decoration: _DashStyle.card(context),
       child: InkWell(
         onTap: () => context.push('/dispatch-config'),
         borderRadius: BorderRadius.circular(16),
@@ -474,7 +487,7 @@ class TopActiveGroupsCard extends ConsumerWidget {
     final groupsAsync = ref.watch(topActiveGroupsProvider);
 
     return Container(
-      decoration: _DashStyle.card(),
+      decoration: _DashStyle.card(context),
       child: InkWell(
         onTap: () {
           context.push('/active-groups-report');
@@ -541,7 +554,7 @@ class AverageAttendanceCard extends ConsumerWidget {
     final statsAsync = ref.watch(averageAttendanceProvider);
 
     return Container(
-      decoration: _DashStyle.card(),
+      decoration: _DashStyle.card(context),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -651,7 +664,7 @@ class TopTagsCard extends ConsumerWidget {
     final tagsAsync = ref.watch(topTagsProvider);
 
     return Container(
-      decoration: _DashStyle.card(),
+      decoration: _DashStyle.card(context),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -730,7 +743,7 @@ class FinancialSummaryCards extends ConsumerWidget {
                   Icons.trending_up,
                 ),
                 loading: () => Container(
-                  decoration: _DashStyle.card(),
+                  decoration: _DashStyle.card(context),
                   child: const Padding(
                     padding: EdgeInsets.all(20),
                     child: Center(child: CircularProgressIndicator()),
@@ -751,7 +764,7 @@ class FinancialSummaryCards extends ConsumerWidget {
                   Icons.trending_down,
                 ),
                 loading: () => Container(
-                  decoration: _DashStyle.card(),
+                  decoration: _DashStyle.card(context),
                   child: const Padding(
                     padding: EdgeInsets.all(20),
                     child: Center(child: CircularProgressIndicator()),
@@ -773,7 +786,7 @@ class FinancialSummaryCards extends ConsumerWidget {
             balance >= 0 ? Icons.account_balance : Icons.warning,
           ),
           loading: () => Container(
-            decoration: _DashStyle.card(),
+            decoration: _DashStyle.card(context),
             child: const Padding(
               padding: EdgeInsets.all(20),
               child: Center(child: CircularProgressIndicator()),
@@ -795,7 +808,7 @@ class FinancialSummaryCards extends ConsumerWidget {
     final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
     return Container(
-      decoration: _DashStyle.card(),
+      decoration: _DashStyle.card(context),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -840,7 +853,7 @@ class ContributionsByTypeChart extends ConsumerWidget {
     final contributionsAsync = ref.watch(allContributionsProvider);
 
     return Container(
-      decoration: _DashStyle.card(),
+      decoration: _DashStyle.card(context),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -993,7 +1006,7 @@ class FinancialGoalsWidget extends ConsumerWidget {
     final goalsAsync = ref.watch(activeGoalsProvider);
 
     return Container(
-      decoration: _DashStyle.card(),
+      decoration: _DashStyle.card(context),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -1052,7 +1065,7 @@ class FinancialGoalsWidget extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(4),
                             child: LinearProgressIndicator(
                               value: goal.progress,
-                              backgroundColor: _DashStyle.divider,
+                              backgroundColor: _DashStyle.dividerColor(context),
                               valueColor: const AlwaysStoppedAnimation<Color>(
                                 AppTheme.primaryColor,
                               ),
@@ -1105,7 +1118,7 @@ class BirthdaysThisMonthCard extends ConsumerWidget {
     final birthdaysAsync = ref.watch(birthdaysThisMonthProvider);
 
     return Container(
-      decoration: _DashStyle.card(),
+      decoration: _DashStyle.card(context),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -1137,12 +1150,14 @@ class BirthdaysThisMonthCard extends ConsumerWidget {
                       final isToday = birthdate.day == today;
                       final isPast = birthdate.day < today;
 
+                      final onSurface = Theme.of(context).colorScheme.onSurface;
+                      final pastColor = onSurface.withValues(alpha: 0.45);
                       final nameColor = isPast
-                          ? Colors.grey[500]
+                          ? pastColor
                           : (isToday ? Colors.orange[800] : null);
-                      final dateColor = isPast ? Colors.grey[400] : _DashStyle.textMuted;
+                      final dateColor = isPast ? pastColor : _DashStyle.textMuted;
                       final iconColor = isPast
-                          ? Colors.grey[400]
+                          ? pastColor
                           : (isToday ? Colors.orange[700] : Colors.orange[300]);
 
                       return Opacity(
@@ -1233,7 +1248,7 @@ class UpcomingExpensesCard extends ConsumerWidget {
     final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
     return Container(
-      decoration: _DashStyle.card(),
+      decoration: _DashStyle.card(context),
       child: InkWell(
         onTap: () {
           context.push('/upcoming-expenses-report');
@@ -1330,7 +1345,9 @@ class UpcomingExpensesCard extends ConsumerWidget {
                               formatter.format(amount),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: isOverdue ? _DashStyle.statusRedFg : Colors.black87,
+                                color: isOverdue
+                                    ? _DashStyle.statusRedFg
+                                    : Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                           ],
@@ -1348,7 +1365,7 @@ class UpcomingExpensesCard extends ConsumerWidget {
                           ),
                         ),
                       ),
-                    const Divider(height: 24, color: _DashStyle.divider),
+                    Divider(height: 24, color: _DashStyle.dividerColor(context)),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1392,7 +1409,7 @@ class RecentMembersCard extends ConsumerWidget {
     final membersAsync = ref.watch(recentMembersProvider);
 
     return Container(
-      decoration: _DashStyle.card(),
+      decoration: _DashStyle.card(context),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -1519,7 +1536,7 @@ class UpcomingEventsCard extends ConsumerWidget {
     final eventsAsync = ref.watch(upcomingEventsProvider);
 
     return Container(
-      decoration: _DashStyle.card(),
+      decoration: _DashStyle.card(context),
       child: InkWell(
         onTap: () {
           context.push('/upcoming-events-report');

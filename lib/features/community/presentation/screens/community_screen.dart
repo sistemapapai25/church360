@@ -137,14 +137,16 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
 
   Widget _buildMobileLayout() {
     final theme = Theme.of(context);
-    const inactiveTabText = Color(0xFF7A8A9A);
+    final inactiveTabText = theme.brightness == Brightness.dark
+        ? theme.colorScheme.onSurfaceVariant
+        : const Color(0xFF7A8A9A);
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         toolbarHeight: 60,
         elevation: 1,
         shadowColor: Colors.black.withValues(alpha: 0.08),
-        backgroundColor: const Color(0xFFF5F9FD),
+        backgroundColor: CommunityDesign.headerColor(context),
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -314,7 +316,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
-                  color: isActive ? accentColor : inactiveText,
+                  color: isActive
+                      ? CommunityDesign.accentForeground(context, accentColor)
+                      : inactiveText,
                 ),
               ),
             ),
@@ -353,7 +357,11 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           style: TextStyle(
             fontSize: 14,
             fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
-            color: isActive ? accent : const Color(0xFF7A8A9A),
+            color: isActive
+                ? CommunityDesign.accentForeground(context, accent)
+                : (Theme.of(context).brightness == Brightness.dark
+                      ? Theme.of(context).colorScheme.onSurfaceVariant
+                      : const Color(0xFF7A8A9A)),
           ),
         ),
       ),
@@ -372,7 +380,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
       appBar: AppBar(
         elevation: 1,
         shadowColor: Colors.black.withValues(alpha: 0.06),
-        backgroundColor: const Color(0xFFF5F9FD),
+        backgroundColor: CommunityDesign.headerColor(context),
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -426,7 +434,10 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.white, theme.scaffoldBackgroundColor],
+            colors: [
+              theme.colorScheme.surface,
+              theme.scaffoldBackgroundColor,
+            ],
           ),
         ),
         child: Padding(

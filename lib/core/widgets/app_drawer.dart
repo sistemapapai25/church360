@@ -194,14 +194,14 @@ class AppDrawer extends ConsumerWidget {
             child: Row(
               children: [
                 Icon(
-                  Icons.palette_outlined,
+                  Icons.dark_mode_outlined,
                   size: 20,
                   color: Theme.of(
                     context,
                   ).colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(child: Text('Aparência')),
+                const Expanded(child: Text('Modo escuro')),
                 const ThemeModeSelector(compact: true),
               ],
             ),
