@@ -1680,31 +1680,26 @@ class _MoreTab extends ConsumerWidget {
             decoration: CommunityDesign.overlayDecoration(
               Theme.of(context).colorScheme,
             ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.palette_outlined,
-                      size: 20,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Aparência',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.dark_mode_outlined,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
-                const SizedBox(height: 12),
-                const SizedBox(
-                  width: double.infinity,
-                  child: ThemeModeSelector(),
-                ),
+                const SizedBox(width: 12),
+                const Expanded(child: ThemeModeSelector()),
               ],
             ),
           ),
