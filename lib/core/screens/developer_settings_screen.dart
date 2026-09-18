@@ -1819,7 +1819,7 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
                             children: [
                               Row(
                                 children: const [
-                                  Icon(Icons.lock, color: Colors.red),
+                                  Icon(Icons.lock_outline, color: Colors.red),
                                   SizedBox(width: 8),
                                   Text('Números de grupos (Owner)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                                 ],

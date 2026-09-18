@@ -342,7 +342,7 @@ class _CourseCard extends ConsumerWidget {
                           if (course.category != null)
                             _buildChip(
                               context,
-                              icon: Icons.category_outlined,
+                              icon: Icons.category,
                               label: course.category!,
                               color: Colors.purple,
                             ),
