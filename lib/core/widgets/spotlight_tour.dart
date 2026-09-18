@@ -39,12 +39,20 @@ class SpotlightTour extends StatefulWidget {
     super.key,
     required this.steps,
     required this.onFinish,
+    this.rotuloFinal = 'Concluir',
   });
 
   final List<SpotlightStep> steps;
 
-  /// Chamado ao concluir **e** ao pular. Quem pulou não quer ver de novo.
-  final VoidCallback onFinish;
+  /// Chamado ao concluir **e** ao pular — `concluiu` separa os dois. Quem
+  /// pulou não quer ver de novo, e também não quer ser levado para a etapa
+  /// seguinte do roteiro: só quem chega ao fim segue para o perfil.
+  final void Function(bool concluiu) onFinish;
+
+  /// Texto do botão no último passo. O padrão encerra ('Concluir'); quando
+  /// este tour é a primeira metade de um roteiro maior, quem monta passa
+  /// 'Continuar' para não prometer um fim que não é o fim.
+  final String rotuloFinal;
 
   @override
   State<SpotlightTour> createState() => _SpotlightTourState();
@@ -104,7 +112,9 @@ class _SpotlightTourState extends State<SpotlightTour> {
       indice++;
     }
 
-    _encerrar();
+    // Acabaram os passos (todos os restantes foram pulados por falta de
+    // alvo): isso conta como chegar ao fim, não como desistir.
+    _encerrar(concluiu: true);
   }
 
   Future<void> _proximoFrame() {
@@ -140,16 +150,16 @@ class _SpotlightTourState extends State<SpotlightTour> {
   void _avancar() {
     if (_medindo) return;
     if (_index >= widget.steps.length - 1) {
-      _encerrar();
+      _encerrar(concluiu: true);
       return;
     }
     _index++;
     _prepararPasso();
   }
 
-  void _encerrar() {
+  void _encerrar({required bool concluiu}) {
     if (!mounted) return;
-    widget.onFinish();
+    widget.onFinish(concluiu);
   }
 
   @override
@@ -223,7 +233,8 @@ class _SpotlightTourState extends State<SpotlightTour> {
       indice: _index,
       total: widget.steps.length,
       onNext: _avancar,
-      onSkip: _encerrar,
+      onSkip: () => _encerrar(concluiu: false),
+      rotuloFinal: widget.rotuloFinal,
     );
 
     if (cabeEmbaixo) {
@@ -275,6 +286,7 @@ class _BalaoDoTour extends StatelessWidget {
     required this.total,
     required this.onNext,
     required this.onSkip,
+    required this.rotuloFinal,
   });
 
   final String title;
@@ -283,6 +295,7 @@ class _BalaoDoTour extends StatelessWidget {
   final int total;
   final VoidCallback onNext;
   final VoidCallback onSkip;
+  final String rotuloFinal;
 
   @override
   Widget build(BuildContext context) {
@@ -353,7 +366,7 @@ class _BalaoDoTour extends StatelessWidget {
                     vertical: 10,
                   ),
                 ),
-                child: Text(ultimo ? 'Concluir' : 'Próximo'),
+                child: Text(ultimo ? rotuloFinal : 'Próximo'),
               ),
             ],
           ),

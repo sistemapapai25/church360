@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -9,6 +10,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/onboarding/onboarding_tour_prefs.dart';
+import '../../../../core/widgets/spotlight_tour.dart';
 import '../../../devotionals/presentation/providers/devotional_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../notifications/presentation/widgets/notification_badge.dart';
@@ -97,6 +100,98 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   final Set<String> _expandedFieldGroups = {};
 
   String get _memberId => widget.memberId;
+
+  // --- Segunda etapa do tour de primeiro acesso ---
+  // Os três alvos abaixo não existem na Home: moram aqui dentro. A Home
+  // termina a primeira etapa, grava a marca e empurra para `/profile`; esta
+  // tela consome a marca e continua o roteiro do ponto em que parou.
+  final GlobalKey _tourEditarKey = GlobalKey(debugLabel: 'tour-perfil-editar');
+  final GlobalKey _tourSenhaKey = GlobalKey(debugLabel: 'tour-perfil-senha');
+  final GlobalKey _tourJornadaKey = GlobalKey(
+    debugLabel: 'tour-perfil-jornada',
+  );
+
+  bool _tourPerfilVisivel = false;
+  bool _tourPerfilChecado = false;
+
+  /// Consulta a marca **uma vez por montagem** desta tela, e só depois do
+  /// primeiro frame — antes disso a lista ainda não tem layout e todos os
+  /// alvos mediriam vazio.
+  void _talvezIniciarTourDoPerfil() {
+    if (_tourPerfilChecado) return;
+    _tourPerfilChecado = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final pendente = await OnboardingTourPrefs.consumirEtapaPerfil();
+      if (!mounted || !pendente) return;
+      setState(() => _tourPerfilVisivel = true);
+    });
+  }
+
+  void _encerrarTourDoPerfil() {
+    if (!mounted) return;
+    // Nada a gravar: a marca já saiu do armazenamento quando esta tela
+    // montou. Aqui é só tirar o véu da frente.
+    setState(() => _tourPerfilVisivel = false);
+  }
+
+  List<SpotlightStep> _passosDoPerfil() => [
+    SpotlightStep(
+      targetKey: _tourEditarKey,
+      title: 'Editar os seus dados',
+      description:
+          'Este lápis abre o seu cadastro para preencher ou corrigir '
+          'telefone, endereço, data de nascimento e o resto.',
+      onEnter: () => _revelarAlvo(_tourEditarKey),
+    ),
+    SpotlightStep(
+      targetKey: _tourSenhaKey,
+      title: 'Trocar a sua senha',
+      description:
+          'O cadeado pede a senha atual e define uma nova. Se você esqueceu '
+          'a atual, a mesma tela envia um link por e-mail.',
+      onEnter: () => _revelarAlvo(_tourSenhaKey),
+    ),
+    SpotlightStep(
+      targetKey: _tourJornadaKey,
+      title: 'A sua jornada',
+      description:
+          'Seus devocionais, leituras, cursos e grupos ficam reunidos aqui — '
+          'é o seu caminho na igreja, num lugar só.',
+      onEnter: () => _revelarAlvo(_tourJornadaKey),
+    ),
+  ];
+
+  /// Traz o alvo para dentro da tela antes do passo medir.
+  ///
+  /// O tour pula todo alvo que estiver fora da área visível — e o botão da
+  /// jornada fica abaixo da dobra em praticamente qualquer celular. Sem isto
+  /// o último passo simplesmente não aconteceria, e o silêncio pareceria
+  /// "o tour acabou".
+  Future<void> _revelarAlvo(GlobalKey key) async {
+    final ctx = key.currentContext;
+    if (ctx != null) {
+      await Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.35,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOut,
+      );
+      return;
+    }
+
+    // Alvo ainda não materializado pela lista: rola um pedaço e deixa o
+    // próximo frame construí-lo. Se nem assim aparecer, o tour pula o passo.
+    if (!_scrollController.hasClients) return;
+    final destino = math.min(
+      _scrollController.offset + 420,
+      _scrollController.position.maxScrollExtent,
+    );
+    await _scrollController.animateTo(
+      destino,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOut,
+    );
+  }
 
   /// Mostra as opções de escolha de foto (Câmera ou Galeria)
   Future<void> _showPhotoOptions(BuildContext context, String memberId) async {
@@ -258,45 +353,60 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
-      body: memberAsync.when(
-        data: (member) {
-          if (member == null) {
-            return const Center(child: Text('Membro não encontrado'));
-          }
-          final isCurrentMember = currentMemberAsync.maybeWhen(
-            data: (currentMember) => currentMember?.id == member.id,
-            orElse: () => false,
-          );
-          return isCurrentMember
-              ? _buildMyProfileContent(context, ref, member)
-              : _buildLegacyProfileContent(context, ref, member);
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
-              const SizedBox(height: 16),
-              Text(
-                'Erro ao carregar perfil',
-                style: CommunityDesign.titleStyle(context).copyWith(
-                  fontSize: 16,
-                  color: Theme.of(context).colorScheme.error,
-                ),
+      body: Stack(
+        children: [
+          memberAsync.when(
+            data: (member) {
+              if (member == null) {
+                return const Center(child: Text('Membro não encontrado'));
+              }
+              final isCurrentMember = currentMemberAsync.maybeWhen(
+                data: (currentMember) => currentMember?.id == member.id,
+                orElse: () => false,
+              );
+              // Só o dono da ficha entra no roteiro: em `/members/:id` de outra
+              // pessoa os três alvos não fazem sentido nenhum.
+              if (isCurrentMember) _talvezIniciarTourDoPerfil();
+
+              return isCurrentMember
+                  ? _buildMyProfileContent(context, ref, member)
+                  : _buildLegacyProfileContent(context, ref, member);
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Erro ao carregar perfil',
+                    style: CommunityDesign.titleStyle(context).copyWith(
+                      fontSize: 16,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    error.toString(),
+                    style: CommunityDesign.contentStyle(context).copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                error.toString(),
-                style: CommunityDesign.contentStyle(context).copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 12,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
+            ),
           ),
-        ),
+          if (_tourPerfilVisivel)
+            Positioned.fill(
+              child: SpotlightTour(
+                steps: _passosDoPerfil(),
+                onFinish: (_) => _encerrarTourDoPerfil(),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -1282,6 +1392,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                 const NotificationBadge(),
                 const SizedBox(width: 4),
                 IconButton(
+                  key: _tourSenhaKey,
                   icon: const Icon(Icons.lock_outline),
                   onPressed: () => context.push('/profile/change-password'),
                   tooltip: 'Alterar senha',
@@ -1294,6 +1405,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                 ),
                 const SizedBox(width: 4),
                 IconButton(
+                  key: _tourEditarKey,
                   icon: const Icon(Icons.edit),
                   onPressed: () => context.push('/members/$_memberId/edit'),
                   tooltip: 'Editar Meu Perfil',
@@ -1605,6 +1717,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
+              key: _tourJornadaKey,
               onPressed: () => context.push('/my-journey'),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -2212,7 +2325,12 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   /// qualquer conversão de fuso aqui faria a linha do tempo divergir em um dia
   /// da data que a própria ficha mostra logo acima.
   static const List<
-    ({DateTime? Function(Member) get, String title, String subtitle, IconData icon})
+    ({
+      DateTime? Function(Member) get,
+      String title,
+      String subtitle,
+      IconData icon,
+    })
   >
   _lifeEvents = [
     (
@@ -3009,7 +3127,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         const SizedBox(height: 8),
         LinearProgressIndicator(
           value: percentage / 100,
-          backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
+          backgroundColor: Theme.of(
+            context,
+          ).colorScheme.onSurface.withValues(alpha: 0.10),
           valueColor: const AlwaysStoppedAnimation<Color>(
             Color(0xFFF39C12), // Laranja vibrante
           ),
