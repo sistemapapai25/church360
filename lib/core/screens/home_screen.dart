@@ -11,6 +11,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../constants/app_branding.dart';
+import '../domain/models/more_menu_item.dart';
+import '../providers/more_menu_layout_provider.dart';
 import '../widgets/church_image.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/theme_mode_selector.dart';
@@ -1710,94 +1712,12 @@ class _MoreTab extends ConsumerWidget {
           // VISÃO GERAL
           _buildSectionTitle(context, 'VISÃO GERAL'),
           const SizedBox(height: 12),
-          KeyedSubtree(
-            key: perfilCardKey,
-            child: _buildMenuCard(
-              context,
-              Icons.person,
-              'Ver meu perfil',
-              '/profile',
-              color: Colors.blue,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildMenuCard(
-            context,
-            Icons.live_tv_outlined,
-            'Culto ao vivo',
-            '/live-stream',
-            color: Colors.deepOrange,
-          ),
-          const SizedBox(height: 12),
-          // Admin/líder acessa o hub de Ministérios pela dashboard administrativa
-          // (/dashboard → drawer "Ministérios"). Card dedicado aqui foi removido
-          // para evitar redundância na aba Mais do membro comum.
-          ConditionalDashboardAccess(
-            builder: (context, canAccess) {
-              if (!canAccess) return const SizedBox.shrink();
+          // Os itens saem do layout pessoal (F6): a pessoa escolhe quais
+          // aparecem e em que ordem, em '/more-settings'. O gate de cada um
+          // continua onde sempre esteve, dentro do proprio item.
+          ..._buildVisaoGeral(context, ref),
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildMenuCard(
-                    context,
-                    Icons.dashboard_outlined,
-                    'Liderança',
-                    '/dashboard',
-                    color: Colors.redAccent,
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              );
-            },
-          ),
-          // Atalho direto para os ministérios em que a pessoa TEM vínculo —
-          // logo abaixo de "Liderança", como o feedback dos usuários pediu.
-          // Não é o hub (/ministries, que lista os da igreja inteira): é "os
-          // meus", sem passar pela dashboard e pelo drawer.
-          const _MyMinistriesSection(),
-          _buildMenuCard(
-            context,
-            Icons.child_care_outlined,
-            'Inscrição Kids',
-            '/kids-registration',
-            color: Colors.pink,
-          ),
-          const SizedBox(height: 12),
-          _buildMenuCard(
-            context,
-            Icons.church_outlined,
-            'A Igreja',
-            '/church-info',
-            color: Colors.purple,
-          ),
-
-          // "Trocar de igreja" (CHU-300) — só aparece pra quem tem vínculo
-          // em mais de uma unidade da rede (matriz/filial).
-          Consumer(
-            builder: (context, ref, _) {
-              final hasMultipleAsync = ref.watch(hasMultipleUnitsProvider);
-              return hasMultipleAsync.maybeWhen(
-                data: (hasMultiple) => hasMultiple
-                    ? Column(
-                        children: [
-                          const SizedBox(height: 12),
-                          _buildMenuCard(
-                            context,
-                            Icons.swap_horiz_outlined,
-                            'Trocar de igreja',
-                            '/select-church',
-                            color: Colors.teal,
-                          ),
-                        ],
-                      )
-                    : const SizedBox.shrink(),
-                orElse: () => const SizedBox.shrink(),
-              );
-            },
-          ),
-
-          const SizedBox(height: 32),
+          const SizedBox(height: 20),
 
           // PREFERÊNCIAS
           _buildSectionTitle(context, 'PREFERÊNCIAS'),
@@ -1888,6 +1808,18 @@ class _MoreTab extends ConsumerWidget {
             ),
           ],
 
+          // "Configurar esta tela" (F6). Fica em PREFERÊNCIAS, e nunca na
+          // lista configurável: se pudesse ser escondida, a pessoa se
+          // trancaria fora da própria configuração sem caminho de volta.
+          const SizedBox(height: 12),
+          _buildMenuCard(
+            context,
+            Icons.tune_outlined,
+            'Configurar esta tela',
+            '/more-settings',
+            color: Colors.blueGrey,
+          ),
+
           const SizedBox(height: 32),
 
           // Logout Button
@@ -1973,6 +1905,82 @@ class _MoreTab extends ConsumerWidget {
         letterSpacing: 1.1,
       ),
     );
+  }
+
+  /// Monta a seção VISÃO GERAL a partir do layout pessoal (F6).
+  ///
+  /// Enquanto o layout carrega, renderiza a ordem padrão do registro em vez de
+  /// um vazio — senão a aba pisca a cada abertura.
+  List<Widget> _buildVisaoGeral(BuildContext context, WidgetRef ref) {
+    final layout =
+        ref.watch(moreMenuLayoutProvider).asData?.value ??
+        [for (final item in kMoreMenuRegistry) (item, true)];
+
+    return [
+      for (final (item, isVisible) in layout)
+        if (isVisible) _itemDaVisaoGeral(context, item),
+    ];
+  }
+
+  /// Um item da VISÃO GERAL, embrulhado no gate dele.
+  ///
+  /// A ordem salva escolhe a posição; o gate continua decidindo a existência.
+  /// Ordem nunca ressuscita item negado.
+  ///
+  /// O espaçador de 12 vai **dentro** do gate nos itens condicionais: fora
+  /// dele, um item escondido deixaria um buraco no lugar.
+  Widget _itemDaVisaoGeral(BuildContext context, MoreMenuItem item) {
+    Widget card() => _buildMenuCard(
+      context,
+      item.icon,
+      item.label,
+      item.route!,
+      color: item.color,
+    );
+
+    Widget comEspaco(Widget filho) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [filho, const SizedBox(height: 12)],
+    );
+
+    switch (item.key) {
+      case 'profile':
+        // `perfilCardKey` tem que continuar neste item: é o alvo do passo 1
+        // do tour. Se a chave sair de lugar, o passo é pulado em silêncio.
+        return comEspaco(KeyedSubtree(key: perfilCardKey, child: card()));
+
+      // Admin/líder acessa o hub de Ministérios pela dashboard administrativa
+      // (/dashboard → drawer "Ministérios"). Card dedicado aqui foi removido
+      // para evitar redundância na aba Mais do membro comum.
+      case 'leadership':
+        return ConditionalDashboardAccess(
+          builder: (context, canAccess) =>
+              canAccess ? comEspaco(card()) : const SizedBox.shrink(),
+        );
+
+      // Atalho direto para os ministérios em que a pessoa TEM vínculo. Não é o
+      // hub (/ministries, que lista os da igreja inteira): é "os meus". A
+      // seção traz o próprio espaçamento e some inteira sem vínculo.
+      case 'my_ministries':
+        return const _MyMinistriesSection();
+
+      // "Trocar de igreja" (CHU-300) — só para quem tem vínculo em mais de uma
+      // unidade da rede (matriz/filial).
+      case 'switch_church':
+        return Consumer(
+          builder: (context, ref, _) {
+            final hasMultipleAsync = ref.watch(hasMultipleUnitsProvider);
+            return hasMultipleAsync.maybeWhen(
+              data: (hasMultiple) =>
+                  hasMultiple ? comEspaco(card()) : const SizedBox.shrink(),
+              orElse: () => const SizedBox.shrink(),
+            );
+          },
+        );
+
+      default:
+        return comEspaco(card());
+    }
   }
 
   Widget _buildMenuCard(
