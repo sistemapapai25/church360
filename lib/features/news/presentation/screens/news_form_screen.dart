@@ -61,9 +61,9 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao carregar notícia: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao carregar notícia: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -130,8 +130,10 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
         'location': null,
         'max_capacity': null,
         'requires_registration': false,
-        'price': null,
-        'is_mandatory': false,
+        // `price` e `is_mandatory` NÃO existem em public.event (VEREDITO A1 da
+        // migration 20260830000100) — são campos fantasma do model Dart. Mandar
+        // qualquer um dos dois faz o PostgREST recusar o insert inteiro com
+        // PGRST204, que era o erro ao salvar uma notícia.
         'status': _isPublished ? 'published' : 'draft',
         'image_url': _imageUrl?.trim().isEmpty == true ? null : _imageUrl,
       };
@@ -146,11 +148,14 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
       ref.invalidate(allEventsProvider);
       ref.invalidate(activeEventsProvider);
       ref.invalidate(upcomingEventsProvider);
+      ref.invalidate(recentNewsProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_isEditing ? 'Notícia atualizada!' : 'Notícia criada!'),
+            content: Text(
+              _isEditing ? 'Notícia atualizada!' : 'Notícia criada!',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -172,19 +177,19 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dateLabel = DateFormat('dd/MM/yyyy • HH:mm', 'pt_BR').format(
-      _publishedAt,
-    );
+    final dateLabel = DateFormat(
+      'dd/MM/yyyy • HH:mm',
+      'pt_BR',
+    ).format(_publishedAt);
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
         title: Text(
           _isEditing ? 'Editar Notícia' : 'Nova Notícia',
-          style: CommunityDesign.titleStyle(context).copyWith(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: CommunityDesign.titleStyle(
+            context,
+          ).copyWith(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         backgroundColor: CommunityDesign.headerColor(context),
         elevation: 0,

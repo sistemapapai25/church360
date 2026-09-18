@@ -342,6 +342,26 @@ class EventsRepository {
   }
 
   /// Criar evento a partir de JSON
+  /// Notícias publicadas, da mais recente para a mais antiga.
+  ///
+  /// Não dá para reaproveitar `getUpcomingEvents` aqui: a notícia nasce com
+  /// `start_date` no instante da publicação, então ela já é passado um minuto
+  /// depois e sumiria de qualquer filtro de data futura.
+  Future<List<Event>> getRecentNews({int limit = 20}) async {
+    final response = await _supabase
+        .from('event')
+        .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('event_type', 'news')
+        .eq('status', 'published')
+        .order('start_date', ascending: false)
+        .limit(limit);
+
+    return (response as List)
+        .map((json) => Event.fromJson(Map<String, dynamic>.from(json)))
+        .toList();
+  }
+
   Future<Event> createEventFromJson(Map<String, dynamic> data) async {
     try {
       final payload = Map<String, dynamic>.from(data);
@@ -367,6 +387,10 @@ class EventsRepository {
       }
       if (msg.contains("is_free") && fallback.containsKey('is_free')) {
         fallback.remove('is_free');
+        changed = true;
+      }
+      if (msg.contains("price") && fallback.containsKey('price')) {
+        fallback.remove('price');
         changed = true;
       }
       if (changed) {
@@ -426,6 +450,10 @@ class EventsRepository {
       }
       if (msg.contains("is_free") && fallback.containsKey('is_free')) {
         fallback.remove('is_free');
+        changed = true;
+      }
+      if (msg.contains("price") && fallback.containsKey('price')) {
+        fallback.remove('price');
         changed = true;
       }
       if (changed) {
