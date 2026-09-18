@@ -26,6 +26,7 @@ import '../../features/ministries/raizes/presentation/screens/raizes_home_screen
 import '../../features/ministries/raizes/presentation/screens/raizes_visits_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_recommendations_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_sponsors_screen.dart';
+import '../../features/ministries/batismo/presentation/screens/batismo_home_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_home_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_checklist_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_absentees_screen.dart';
@@ -624,6 +625,13 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         return DiaconatoHomeScreen(ministryId: id);
+      },
+    ),
+    GoRoute(
+      path: '/ministries/:id/batismo',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return BatismoHomeScreen(ministryId: id);
       },
     ),
     GoRoute(

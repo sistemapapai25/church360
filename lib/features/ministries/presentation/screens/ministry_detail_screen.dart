@@ -2073,6 +2073,12 @@ class _SpecializedModuleCta extends StatelessWidget {
           'Checklist de presença, ausentes e entregas de ceia.',
           Icons.volunteer_activism_outlined,
         );
+      case MinistryType.batismo:
+        return (
+          'Abrir módulo Batismo',
+          'Equipe, alunos, turmas, presença e o caixa do ministério.',
+          Icons.water_drop_outlined,
+        );
       case MinistryType.generic:
       case MinistryType.kids:
       case MinistryType.louvor:
