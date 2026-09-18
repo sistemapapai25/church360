@@ -436,6 +436,16 @@ class _AssignRoleScreenState extends ConsumerState<AssignRoleScreen> {
             : _notesController.text.trim(),
       );
 
+      // Sem isso a tela de "Usuarios e Cargos" volta com o cache antigo e o
+      // cargo recem-atribuido simplesmente nao aparece. Nenhuma migration
+      // deste projeto adiciona `user_roles` a publicacao `supabase_realtime`,
+      // entao nao ha aviso automatico para derrubar o cache. O mesmo trio de
+      // invalidate ja existe no `_assignRole` de user_roles_list_screen.dart:
+      // as duas telas fazem o mesmo trabalho, so uma avisava.
+      ref.invalidate(userRolesByUserProvider(authUserId));
+      ref.invalidate(userRoleContextsProvider(authUserId));
+      ref.invalidate(userRolesProvider);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Cargo atribuído com sucesso!')),

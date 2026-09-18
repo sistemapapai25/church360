@@ -190,6 +190,13 @@ class _DiaconatoChecklistContentState
         totalUnregisteredVisitors: _unregisteredVisitors,
       );
 
+      // O painel do Diaconato le `diaconatoDashboardStatsProvider`, que e um
+      // `FutureProvider` com cache proprio: sem invalidar, voltar daqui mostra
+      // os KPIs de antes do checklist e so o "puxar para atualizar" corrige.
+      // O `setState` abaixo conserta esta tela; este invalidate conserta a de
+      // tras.
+      ref.invalidate(diaconatoDashboardStatsProvider(widget.ministryId));
+
       if (!mounted) return;
       setState(() {
         _count = updated;
