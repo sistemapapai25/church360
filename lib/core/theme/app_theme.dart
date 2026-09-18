@@ -32,6 +32,25 @@ class AppTheme {
   static const Color ring = Color(0xFF2563EB);
 
   // ---------------------------------------------------------------------
+  // Tokens de status de registro (badge de aluno, matricula, inscricao)
+  //
+  // NENHUMA COR NOVA: os tres apontam para valores que ja existem acima.
+  // Ativo = `success`, Concluido = `primary` (e `darkRing` no escuro),
+  // Desistente = `mutedForeground`. Desistente e NEUTRO de proposito, nao
+  // `errorColor`: sair de uma turma nao e uma falha do sistema, e so outro
+  // estado do registro. Pintar de vermelho faria a lista parecer cheia de
+  // erro.
+  //
+  // Quem resolve claro/escuro e AppStatusTone em core/widgets/status_badge.dart.
+  // ---------------------------------------------------------------------
+  static const Color statusActive = success; // #16A34A
+  static const Color statusDone = primary; // #2563EB
+  static const Color statusDropped = mutedForeground; // #64748B
+
+  static const Color statusDoneDark = darkRing; // #60A5FA
+  static const Color statusDroppedDark = darkMutedForeground; // #94A3B8
+
+  // ---------------------------------------------------------------------
   // Tokens do tema escuro
   //
   // Sao proprios do escuro de proposito: o darkTheme antigo reaproveitava
