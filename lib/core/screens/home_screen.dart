@@ -2201,7 +2201,9 @@ class _MinistryShortcutCard extends StatelessWidget {
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(_homeCardRadius),
-                onTap: () => context.push('/ministries/${ministry.id}'),
+                onTap: () => context.push(
+                  ministry.specializedRoute() ?? '/ministries/${ministry.id}',
+                ),
                 child: conteudo,
               ),
             )

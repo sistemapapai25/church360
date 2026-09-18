@@ -1,50 +1,128 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../core/widgets/app_filter_bar.dart';
+import '../../../../permissions/providers/permissions_providers.dart';
 import '../../../domain/models/ministry.dart';
 import '../../../presentation/providers/ministries_provider.dart';
+import 'ministry_member_actions.dart';
 
-/// Aba Equipe do workspace: quem toca o ministério, em leitura.
+/// Aba Equipe do workspace: quem toca o ministério — e o que dá para fazer
+/// com essa lista.
 ///
-/// Deliberadamente enxuta. Cadastrar membro, montar escala e editar a ficha
-/// continuam na tela de detalhe do ministério — aquele arquivo tem 2087
-/// linhas e as peças (`_MembersList`, `_MemberCard`, `_SchedulesList`) são
-/// privadas; extraí-las seria refatorar uma tela central em produção no meio
-/// da entrega do Batismo. O link do rodapé leva para lá.
-class MinistryTeamTab extends ConsumerWidget {
+/// Ela deixou de ser só leitura: incluir membro, alterar a função e remover
+/// são as mesmas ações da ficha do ministério, agora chamadas daqui pelas
+/// funções de `ministry_member_actions.dart`. Não há mais link para a
+/// ficha: descrição, notificações e edição subiram para o cabeçalho do
+/// workspace, então não sobrou nada lá que esta aba precise alcançar.
+class MinistryTeamTab extends ConsumerStatefulWidget {
   final String ministryId;
 
   const MinistryTeamTab({super.key, required this.ministryId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final membersAsync = ref.watch(ministryMembersProvider(ministryId));
+  ConsumerState<MinistryTeamTab> createState() => _MinistryTeamTabState();
+}
+
+class _MinistryTeamTabState extends ConsumerState<MinistryTeamTab> {
+  final _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  List<MinistryMember> _apply(List<MinistryMember> members) {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return members;
+    return members.where((m) {
+      if (m.memberName.toLowerCase().contains(query)) return true;
+      final cargo = m.cargoName?.toLowerCase() ?? '';
+      if (cargo.contains(query)) return true;
+      return m.role.label.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  Future<void> _addMember() async {
+    await showAddMinistryMemberDialog(
+      context: context,
+      ministryId: widget.ministryId,
+    );
+    // O diálogo grava e fecha sem devolver resultado; invalidar aqui é o que
+    // faz a pessoa recém-incluída aparecer na lista sem sair da aba.
+    if (mounted) ref.invalidate(ministryMembersProvider(widget.ministryId));
+  }
+
+  Future<void> _editRole(MinistryMember member) async {
+    await showMinistryEditRoleDialog(
+      context: context,
+      ref: ref,
+      member: member,
+      ministryId: widget.ministryId,
+    );
+  }
+
+  Future<void> _remove(MinistryMember member) async {
+    await confirmRemoveMinistryMember(
+      context: context,
+      ref: ref,
+      member: member,
+      ministryId: widget.ministryId,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final membersAsync = ref.watch(ministryMembersProvider(widget.ministryId));
+
+    // `maybeWhen` com `orElse: false` em vez de PermissionGate: enquanto a
+    // permissão carrega o botão simplesmente não aparece — mesmo
+    // comportamento da aba Alunos, sem esqueleto piscando na barra.
+    final canManage = ref
+        .watch(currentUserHasPermissionProvider('ministries.manage_members'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
 
     return membersAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => _TeamError(
         message: '$error',
-        onRetry: () => ref.invalidate(ministryMembersProvider(ministryId)),
+        onRetry: () =>
+            ref.invalidate(ministryMembersProvider(widget.ministryId)),
       ),
       data: (members) {
+        final visible = _apply(members);
         final leaders =
-            members.where((m) => m.role != MinistryRole.member).toList()
+            visible.where((m) => m.role != MinistryRole.member).toList()
               ..sort((a, b) => a.role.index.compareTo(b.role.index));
         final rest =
-            members.where((m) => m.role == MinistryRole.member).toList()
+            visible.where((m) => m.role == MinistryRole.member).toList()
               ..sort((a, b) => a.memberName.compareTo(b.memberName));
 
         return RefreshIndicator(
           onRefresh: () async {
-            ref.invalidate(ministryMembersProvider(ministryId));
-            await ref.read(ministryMembersProvider(ministryId).future);
+            ref.invalidate(ministryMembersProvider(widget.ministryId));
+            await ref.read(ministryMembersProvider(widget.ministryId).future);
           },
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
             children: [
+              AppFilterBar(
+                searchController: _search,
+                searchHint: 'Buscar por nome ou função...',
+                onSearchChanged: (v) => setState(() => _query = v),
+                primaryAction: canManage
+                    ? AppFilterAction(
+                        label: 'Incluir membro',
+                        icon: Icons.person_add_alt,
+                        onPressed: _addMember,
+                      )
+                    : null,
+              ),
+              const SizedBox(height: 14),
               if (members.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 32),
@@ -53,18 +131,35 @@ class MinistryTeamTab extends ConsumerWidget {
                     textAlign: TextAlign.center,
                     style: CommunityDesign.metaStyle(context),
                   ),
+                )
+              else if (visible.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: Text(
+                    'Ninguém na equipe bate com essa busca.',
+                    textAlign: TextAlign.center,
+                    style: CommunityDesign.metaStyle(context),
+                  ),
                 ),
               if (leaders.isNotEmpty) ...[
                 _SectionLabel('Liderança (${leaders.length})'),
-                for (final m in leaders) _TeamMemberTile(member: m),
+                for (final m in leaders)
+                  _TeamMemberTile(
+                    member: m,
+                    onEditRole: canManage ? () => _editRole(m) : null,
+                    onRemove: canManage ? () => _remove(m) : null,
+                  ),
                 const SizedBox(height: 20),
               ],
               if (rest.isNotEmpty) ...[
                 _SectionLabel('Membros (${rest.length})'),
-                for (final m in rest) _TeamMemberTile(member: m),
+                for (final m in rest)
+                  _TeamMemberTile(
+                    member: m,
+                    onEditRole: canManage ? () => _editRole(m) : null,
+                    onRemove: canManage ? () => _remove(m) : null,
+                  ),
               ],
-              const SizedBox(height: 24),
-              _OpenMinistrySheetLink(ministryId: ministryId),
             ],
           ),
         );
@@ -81,8 +176,9 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final muted =
-        dark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    final muted = dark
+        ? AppTheme.darkMutedForeground
+        : AppTheme.mutedForeground;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -101,8 +197,10 @@ class _SectionLabel extends StatelessWidget {
 
 class _TeamMemberTile extends StatelessWidget {
   final MinistryMember member;
+  final VoidCallback? onEditRole;
+  final VoidCallback? onRemove;
 
-  const _TeamMemberTile({required this.member});
+  const _TeamMemberTile({required this.member, this.onEditRole, this.onRemove});
 
   @override
   Widget build(BuildContext context) {
@@ -121,9 +219,11 @@ class _TeamMemberTile extends StatelessWidget {
         ? member.role.label
         : '${member.role.label} · $cargo';
 
+    final hasActions = onEditRole != null || onRemove != null;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.fromLTRB(12, 12, hasActions ? 4 : 12, 12),
       decoration: BoxDecoration(
         color: CommunityDesign.cardSurfaceColor(colorScheme),
         border: Border.all(color: borderColor),
@@ -155,68 +255,53 @@ class _TeamMemberTile extends StatelessWidget {
               children: [
                 Text(
                   name.isEmpty ? 'Sem nome' : name,
-                  style: CommunityDesign.titleStyle(context).copyWith(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontSize: 14, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 2),
                 Text(subtitle, style: CommunityDesign.metaStyle(context)),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OpenMinistrySheetLink extends StatelessWidget {
-  final String ministryId;
-
-  const _OpenMinistrySheetLink({required this.ministryId});
-
-  @override
-  Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final accent = dark ? AppTheme.darkRing : AppTheme.primary;
-
-    return InkWell(
-      onTap: () => context.push('/ministries/$ministryId'),
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.08),
-          border: Border.all(color: accent.withValues(alpha: 0.3)),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.badge_outlined, size: 20, color: accent),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Abrir ficha completa do ministério',
-                    style: CommunityDesign.titleStyle(context).copyWith(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
+          if (hasActions)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 20),
+              tooltip: 'Ações do membro',
+              onSelected: (value) {
+                if (value == 'role') onEditRole?.call();
+                if (value == 'remove') onRemove?.call();
+              },
+              itemBuilder: (context) => [
+                if (onEditRole != null)
+                  const PopupMenuItem(
+                    value: 'role',
+                    child: Row(
+                      children: [
+                        Icon(Icons.badge_outlined, size: 18),
+                        SizedBox(width: 10),
+                        Text('Alterar função'),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Cadastrar membro, escala, notificações e edição.',
-                    style: CommunityDesign.metaStyle(context),
+                if (onRemove != null)
+                  const PopupMenuItem(
+                    value: 'remove',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.person_remove_outlined,
+                          size: 18,
+                          color: Colors.red,
+                        ),
+                        SizedBox(width: 10),
+                        Text('Remover', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+              ],
             ),
-            Icon(Icons.arrow_forward_ios, size: 14, color: accent),
-          ],
-        ),
+        ],
       ),
     );
   }

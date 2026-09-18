@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
+import '../../../shared/presentation/widgets/ministry_scale_tab.dart';
 import '../../../shared/presentation/widgets/ministry_tab_placeholder.dart';
 import '../../../shared/presentation/widgets/ministry_team_tab.dart';
 import '../../../shared/presentation/widgets/ministry_workspace_shell.dart';
@@ -12,7 +13,7 @@ import 'tabs/batismo_alunos_tab.dart';
 
 /// Workspace do Batismo nas Águas (Etapa 4 do plano).
 ///
-/// As sete abas aparecem desde já; Financeiro chega nas Etapas 2 e 5, e
+/// As oito abas aparecem desde já; Financeiro chega nas Etapas 2 e 5, e
 /// Checklist, Presença, WhatsApp e Relatórios depois. Até lá elas mostram um
 /// estado vazio honesto, para que a estrutura do módulo fique visível e o que
 /// falta fique explícito.
@@ -93,6 +94,10 @@ class _BatismoWorkspace extends ConsumerWidget {
           label: 'Equipe',
           count: teamCount?.toString(),
           builder: (_) => MinistryTeamTab(ministryId: ministryId),
+        ),
+        MinistryWorkspaceTab(
+          label: 'Escala',
+          builder: (_) => MinistryScaleTab(ministryId: ministryId),
         ),
         const MinistryWorkspaceTab(
           label: 'Financeiro',

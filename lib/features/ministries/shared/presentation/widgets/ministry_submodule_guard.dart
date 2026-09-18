@@ -37,20 +37,21 @@ class MinistrySubmoduleGuard extends ConsumerWidget {
       currentUserHasPermissionProvider(requiredPermission),
     );
 
-    final loading = canSeeAllAsync.isLoading ||
+    final loading =
+        canSeeAllAsync.isLoading ||
         accessAsync.isLoading ||
         permissionAsync.isLoading;
     if (loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final hasError = canSeeAllAsync.hasError ||
+    final hasError =
+        canSeeAllAsync.hasError ||
         accessAsync.hasError ||
         permissionAsync.hasError;
     if (hasError) {
       return _BlockedScreen(
+        ministryId: ministryId,
         submoduleLabel: submoduleLabel,
         message:
             'Não foi possível verificar suas permissões. Tente novamente em instantes.',
@@ -64,6 +65,7 @@ class MinistrySubmoduleGuard extends ConsumerWidget {
     final allowed = canSeeAll || (hasAccess && hasPermission);
     if (!allowed) {
       return _BlockedScreen(
+        ministryId: ministryId,
         submoduleLabel: submoduleLabel,
         message:
             'Você não tem permissão para acessar o $submoduleLabel deste ministério.',
@@ -75,10 +77,12 @@ class MinistrySubmoduleGuard extends ConsumerWidget {
 }
 
 class _BlockedScreen extends StatelessWidget {
+  final String ministryId;
   final String submoduleLabel;
   final String message;
 
   const _BlockedScreen({
+    required this.ministryId,
     required this.submoduleLabel,
     required this.message,
   });
@@ -112,6 +116,18 @@ class _BlockedScreen extends StatelessWidget {
                 message,
                 textAlign: TextAlign.center,
                 style: CommunityDesign.metaStyle(context),
+              ),
+              const SizedBox(height: 20),
+              // Desde que o card do ministério passou a abrir o módulo
+              // direto, esta tela virou o fim da linha para quem está
+              // vinculado mas ainda não tem a permissão do submódulo. Sem
+              // esta saída, essas pessoas perderiam o acesso à ficha que
+              // tinham antes.
+              TextButton.icon(
+                onPressed: () =>
+                    context.pushReplacement('/ministries/$ministryId'),
+                icon: const Icon(Icons.badge_outlined, size: 18),
+                label: const Text('Abrir ficha do ministério'),
               ),
             ],
           ),

@@ -23,7 +23,9 @@ class MinistryTabPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final muted = dark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    final muted = dark
+        ? AppTheme.darkMutedForeground
+        : AppTheme.mutedForeground;
     final track = dark ? AppTheme.darkInput : AppTheme.muted;
     final borderColor = dark ? AppTheme.darkBorder : AppTheme.border;
 
@@ -47,10 +49,9 @@ class MinistryTabPlaceholder extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: CommunityDesign.titleStyle(context).copyWith(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontSize: 16, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 6),
             Text(

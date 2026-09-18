@@ -43,40 +43,49 @@ void main() {
     expect(find.text('Sexta 19h'), findsOneWidget);
   });
 
-  testWidgets('idade e telefone aparecem na mesma linha de meta',
-      (tester) async {
+  testWidgets('idade e telefone aparecem na mesma linha de meta', (
+    tester,
+  ) async {
     final birth = DateTime(DateTime.now().year - 27, 1, 1);
-    await tester.pumpWidget(_host(
-      StudentCard(student: _student(phone: '(11) 91234-5678', birthDate: birth)),
-    ));
+    await tester.pumpWidget(
+      _host(
+        StudentCard(
+          student: _student(phone: '(11) 91234-5678', birthDate: birth),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('27 anos · (11) 91234-5678'), findsOneWidget);
   });
 
   testWidgets('marca a origem do formulario publico', (tester) async {
-    await tester.pumpWidget(_host(
-      StudentCard(student: _student(source: BaptismStudentSource.publica)),
-    ));
+    await tester.pumpWidget(
+      _host(
+        StudentCard(student: _student(source: BaptismStudentSource.publica)),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Inscrição Pública'), findsOneWidget);
   });
 
-  testWidgets('cadastro manual nao ganha a tag de inscricao publica',
-      (tester) async {
+  testWidgets('cadastro manual nao ganha a tag de inscricao publica', (
+    tester,
+  ) async {
     await tester.pumpWidget(_host(StudentCard(student: _student())));
     await tester.pumpAndSettle();
 
     expect(find.text('Inscrição Pública'), findsNothing);
   });
 
-  testWidgets('sem telefone o botao de WhatsApp fica desabilitado',
-      (tester) async {
+  testWidgets('sem telefone o botao de WhatsApp fica desabilitado', (
+    tester,
+  ) async {
     var tapped = false;
-    await tester.pumpWidget(_host(
-      StudentCard(student: _student(), onWhatsApp: null),
-    ));
+    await tester.pumpWidget(
+      _host(StudentCard(student: _student(), onWhatsApp: null)),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.chat_outlined));
@@ -87,12 +96,14 @@ void main() {
 
   testWidgets('com telefone o botao de WhatsApp dispara', (tester) async {
     var tapped = false;
-    await tester.pumpWidget(_host(
-      StudentCard(
-        student: _student(phone: '(11) 91234-5678'),
-        onWhatsApp: () => tapped = true,
+    await tester.pumpWidget(
+      _host(
+        StudentCard(
+          student: _student(phone: '(11) 91234-5678'),
+          onWhatsApp: () => tapped = true,
+        ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.chat_outlined));
@@ -102,9 +113,9 @@ void main() {
   });
 
   testWidgets('o menu oferece so as acoes permitidas', (tester) async {
-    await tester.pumpWidget(_host(
-      StudentCard(student: _student(), onEdit: () {}),
-    ));
+    await tester.pumpWidget(
+      _host(StudentCard(student: _student(), onEdit: () {})),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.more_vert));
@@ -115,11 +126,11 @@ void main() {
   });
 
   testWidgets('desistente usa tom neutro, nao de erro', (tester) async {
-    await tester.pumpWidget(_host(
-      StudentCard(
-        student: _student(status: BaptismStudentStatus.desistente),
+    await tester.pumpWidget(
+      _host(
+        StudentCard(student: _student(status: BaptismStudentStatus.desistente)),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('DESISTENTE'), findsOneWidget);

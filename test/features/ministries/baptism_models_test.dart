@@ -23,13 +23,15 @@ Map<String, dynamic> _studentJson(Map<String, dynamic> overrides) {
 void main() {
   group('BaptismStudent', () {
     test('le o nome da turma do embed', () {
-      final s = BaptismStudent.fromJson(_studentJson({
-        'baptism_turma': {
-          'id': 'turma-1',
-          'name': 'Sexta 19h',
-          'ministry_id': 'm1',
-        },
-      }));
+      final s = BaptismStudent.fromJson(
+        _studentJson({
+          'baptism_turma': {
+            'id': 'turma-1',
+            'name': 'Sexta 19h',
+            'ministry_id': 'm1',
+          },
+        }),
+      );
 
       expect(s.turmaName, 'Sexta 19h');
       expect(s.turmaId, 'turma-1');
@@ -52,12 +54,12 @@ void main() {
       final aniversarioDepois = DateTime(now.year - 30, 12, 31);
       final aniversarioAntes = DateTime(now.year - 30, 1, 1);
 
-      final depois = BaptismStudent.fromJson(_studentJson({
-        'birth_date': aniversarioDepois.toIso8601String(),
-      }));
-      final antes = BaptismStudent.fromJson(_studentJson({
-        'birth_date': aniversarioAntes.toIso8601String(),
-      }));
+      final depois = BaptismStudent.fromJson(
+        _studentJson({'birth_date': aniversarioDepois.toIso8601String()}),
+      );
+      final antes = BaptismStudent.fromJson(
+        _studentJson({'birth_date': aniversarioAntes.toIso8601String()}),
+      );
 
       // Em 31/12 o de dezembro ainda nao fez aniversario (29), o de janeiro
       // ja fez (30) — exceto no proprio 31/12, quando os dois tem 30.
@@ -69,17 +71,19 @@ void main() {
       expect(BaptismStudent.fromJson(_studentJson({})).age, isNull);
     });
 
-    test('toWriteJson nao manda source: a origem nao pode ser forjada pela tela',
-        () {
-      final s = BaptismStudent.fromJson(_studentJson({'source': 'publica'}));
-      expect(s.source, BaptismStudentSource.publica);
-      expect(s.toWriteJson().containsKey('source'), isFalse);
-    });
+    test(
+      'toWriteJson nao manda source: a origem nao pode ser forjada pela tela',
+      () {
+        final s = BaptismStudent.fromJson(_studentJson({'source': 'publica'}));
+        expect(s.source, BaptismStudentSource.publica);
+        expect(s.toWriteJson().containsKey('source'), isFalse);
+      },
+    );
 
     test('toWriteJson grava data como DATE, sem hora', () {
-      final s = BaptismStudent.fromJson(_studentJson({
-        'birth_date': '1995-03-07',
-      }));
+      final s = BaptismStudent.fromJson(
+        _studentJson({'birth_date': '1995-03-07'}),
+      );
       expect(s.toWriteJson()['birth_date'], '1995-03-07');
     });
 
