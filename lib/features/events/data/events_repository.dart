@@ -33,6 +33,16 @@ class EventsRepository {
     }
   }
 
+  /// Catálogo de tipos de evento, sem o tipo interno `news`.
+  ///
+  /// `public.event.event_type` é FK para `public.event_type(code)`, então a
+  /// linha `news` PRECISA existir no catálogo para que uma notícia possa ser
+  /// gravada (sem ela o insert morre com 23503). Mas `news` não é um tipo de
+  /// evento de verdade: é o marcador que separa notícia de evento dentro da
+  /// mesma tabela. Os três consumidores deste método (tela de gerenciar tipos,
+  /// seletor do formulário de evento e regras de escala) não devem vê-lo — na
+  /// tela de gerenciar ele seria até apagável, o que traria o 23503 de volta.
+  /// Por isso o filtro mora aqui, na fonte, e não em cada chamador.
   Future<List<Map<String, String>>> getEventTypesCatalog() async {
     try {
       final response = await _supabase
@@ -48,6 +58,7 @@ class EventsRepository {
             },
           )
           .where((e) => e['code']!.isNotEmpty)
+          .where((e) => e['code']!.trim().toLowerCase() != 'news')
           .toList();
     } catch (e) {
       rethrow;
