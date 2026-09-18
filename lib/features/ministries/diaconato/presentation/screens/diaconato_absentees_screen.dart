@@ -158,6 +158,10 @@ class _AbsenteesContentState extends ConsumerState<_AbsenteesContent> {
         triageByUser: payload,
       );
 
+      // Mesma razao do checklist: os KPIs do painel do Diaconato vem de um
+      // `FutureProvider` com cache, e a triagem muda o que eles contam.
+      ref.invalidate(diaconatoDashboardStatsProvider(widget.ministryId));
+
       if (!mounted) return;
       setState(() {
         _dirtyUserIds.clear();
