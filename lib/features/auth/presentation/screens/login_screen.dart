@@ -473,36 +473,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             height: 1.25,
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          AppBranding.loginPrompt,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.64),
-            fontSize: 13,
-            height: 1.35,
-          ),
-        ),
-        if (_redirectDestino != null) ...[
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: _accentCyan.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _accentCyan.withValues(alpha: 0.22)),
-            ),
-            child: Text(
-              'Faça login para abrir o link que você recebeu.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.82),
-                fontSize: 13,
-                height: 1.25,
-              ),
-            ),
-          ),
-        ],
       ],
     );
   }
