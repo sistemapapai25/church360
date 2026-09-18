@@ -31,6 +31,8 @@ import '../../features/church_info/domain/models/church_info.dart';
 import '../../features/church_info/presentation/providers/church_info_provider.dart';
 import '../../features/home_content/presentation/providers/banners_provider.dart';
 import '../../features/members/presentation/providers/members_provider.dart';
+import '../../features/quick_news/domain/models/quick_news.dart';
+import '../../features/quick_news/presentation/providers/quick_news_provider.dart';
 import '../../features/study_groups/domain/models/study_group.dart';
 import '../../features/study_groups/presentation/providers/study_group_provider.dart';
 import '../../features/contribution/presentation/screens/contribution_info_screen.dart';
@@ -2222,7 +2224,7 @@ class _ChurchHomeTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final eventsAsync = ref.watch(upcomingEventsProvider);
-    final newsAsync = ref.watch(upcomingEventsProvider);
+    final newsAsync = ref.watch(activeQuickNewsProvider);
     final churchInfoAsync = ref.watch(churchInfoProvider);
     final cs = Theme.of(context).colorScheme;
     final today = DateTime.now();
@@ -2282,35 +2284,7 @@ class _ChurchHomeTab extends ConsumerWidget {
               icon: Icons.article_outlined,
             ),
             const SizedBox(height: 12),
-            newsAsync.when(
-              data: (events) {
-                if (events.isEmpty) {
-                  return _ChurchEmptyState(
-                    icon: Icons.article_outlined,
-                    message: 'Nenhuma notícia no momento.',
-                  );
-                }
-
-                final sorted = [...events]
-                  ..sort((a, b) => a.startDate.compareTo(b.startDate));
-
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: sorted.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    return _ChurchNewsCard(event: sorted[index]);
-                  },
-                );
-              },
-              loading: () => _ChurchLoadingCard(label: 'Carregando notícias'),
-              error: (_, __) => _ChurchEmptyState(
-                icon: Icons.warning_amber,
-                message: 'Não foi possível carregar as notícias.',
-                color: cs.error,
-              ),
-            ),
+            _ChurchNewsFeed(newsAsync: newsAsync, eventsAsync: eventsAsync),
           ],
         ),
       ),
@@ -2685,6 +2659,182 @@ class _ChurchAgendaItem extends StatelessWidget {
   }
 }
 
+/// Seção "Notícias" da aba Igreja: os avisos do "Fique por Dentro" primeiro,
+/// já ordenados por prioridade pelo repositório, e os próximos eventos logo
+/// abaixo. As duas fontes são independentes de propósito — se uma falhar, a
+/// outra continua aparecendo, e só quando não sobra nada é que a seção mostra
+/// erro ou vazio.
+class _ChurchNewsFeed extends StatelessWidget {
+  const _ChurchNewsFeed({required this.newsAsync, required this.eventsAsync});
+
+  final AsyncValue<List<QuickNews>> newsAsync;
+  final AsyncValue<List<Event>> eventsAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    final avisos = newsAsync.valueOrNull ?? const <QuickNews>[];
+    final eventos = [...(eventsAsync.valueOrNull ?? const <Event>[])]
+      ..sort((a, b) => a.startDate.compareTo(b.startDate));
+
+    if (avisos.isEmpty && eventos.isEmpty) {
+      if (newsAsync.isLoading || eventsAsync.isLoading) {
+        return _ChurchLoadingCard(label: 'Carregando notícias');
+      }
+      if (newsAsync.hasError || eventsAsync.hasError) {
+        return _ChurchEmptyState(
+          icon: Icons.warning_amber,
+          message: 'Não foi possível carregar as notícias.',
+          color: cs.error,
+        );
+      }
+      return _ChurchEmptyState(
+        icon: Icons.article_outlined,
+        message: 'Nenhuma notícia no momento.',
+      );
+    }
+
+    final cards = <Widget>[
+      for (final aviso in avisos) _ChurchQuickNewsCard(news: aviso),
+      for (final evento in eventos) _ChurchNewsCard(event: evento),
+    ];
+
+    return Column(
+      children: [
+        for (var i = 0; i < cards.length; i++) ...[
+          if (i > 0) const SizedBox(height: 12),
+          cards[i],
+        ],
+      ],
+    );
+  }
+}
+
+/// Card de um aviso do "Fique por Dentro". Espelha o `_ChurchNewsCard` de
+/// evento, mas só vira clicável quando o aviso tem link — sem link não há
+/// para onde ir, então a seta também some.
+class _ChurchQuickNewsCard extends StatelessWidget {
+  const _ChurchQuickNewsCard({required this.news});
+
+  final QuickNews news;
+
+  Future<void> _abrirLink(BuildContext context, String url) async {
+    final normalizada = url.startsWith('http') ? url : 'https://$url';
+    final uri = Uri.tryParse(normalizada);
+
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return;
+    }
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Não foi possível abrir o link')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final link = news.linkUrl;
+    final temLink = link != null && link.trim().isNotEmpty;
+    final data = DateFormat('dd/MM/yyyy', 'pt_BR').format(news.createdAt);
+
+    final conteudo = Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              width: 64,
+              height: 64,
+              child: news.imageUrl != null
+                  ? Image.network(
+                      news.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: cs.surfaceContainerHighest,
+                        child: Icon(
+                          Icons.campaign_outlined,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : Container(
+                      color: cs.surfaceContainerHighest,
+                      child: Icon(
+                        Icons.campaign_outlined,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  news.title,
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontSize: 14, fontWeight: FontWeight.w700),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (news.description.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    news.description,
+                    style: CommunityDesign.metaStyle(
+                      context,
+                    ).copyWith(color: cs.onSurfaceVariant, fontSize: 12),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: 6),
+                Text(
+                  'Aviso · $data',
+                  style: CommunityDesign.metaStyle(
+                    context,
+                  ).copyWith(color: cs.primary, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+          if (temLink) ...[
+            const SizedBox(width: 4),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 18,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    return Container(
+      decoration: CommunityDesign.overlayDecoration(
+        cs,
+      ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
+      child: temLink
+          ? Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(_homeCardRadius),
+                onTap: () => _abrirLink(context, link),
+                child: conteudo,
+              ),
+            )
+          : conteudo,
+    );
+  }
+}
+
 class _ChurchNewsCard extends StatelessWidget {
   final Event event;
 
@@ -2768,7 +2918,7 @@ class _ChurchNewsCard extends StatelessWidget {
                       ],
                       const SizedBox(height: 6),
                       Text(
-                        date,
+                        'Evento · $date',
                         style: CommunityDesign.metaStyle(context).copyWith(
                           color: cs.primary,
                           fontWeight: FontWeight.w600,
