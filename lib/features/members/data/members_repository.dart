@@ -789,12 +789,16 @@ class MembersRepository {
   /// Deletar membro
   Future<void> deleteMember(String id) async {
     try {
-      // relacionamentos_familiares.membro_id/parente_id sao NOT NULL, mas a
-      // FK real no banco e ON DELETE SET NULL - sem essa limpeza previa, o
-      // DELETE em user_account tenta zerar essas colunas em cascata e
-      // viola o NOT NULL (23502). So remove os vinculos onde o usuario
-      // atual e uma das partes (RLS bloqueia o resto silenciosamente, sem
-      // lancar erro) - cobre o caso comum (vinculo direto pai/filho).
+      // A FK de relacionamentos_familiares para user_account e ON DELETE
+      // SET NULL, e as duas colunas sao nullable no banco (a migration v2
+      // que as declara NOT NULL e um CREATE TABLE IF NOT EXISTS sobre uma
+      // tabela que ja existia, entao nunca valeu). Sem esta limpeza previa
+      // o DELETE nao falha: ele deixa para tras a linha do vinculo com um
+      // dos lados nulo, invisivel e inapagavel pela tela.
+      // So remove os vinculos onde o usuario atual e uma das partes (RLS
+      // bloqueia o resto silenciosamente, sem lancar erro) - cobre o caso
+      // comum (vinculo direto pai/filho); o que a RLS barra aqui e
+      // exatamente o que vira linha orfa depois.
       try {
         await _supabase
             .from('relacionamentos_familiares')

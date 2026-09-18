@@ -51,6 +51,40 @@ class FamilyRelationship {
   });
 }
 
+/// Converte uma linha de `relacionamentos_familiares` em vínculo, ou devolve
+/// `null` quando a linha está órfã.
+///
+/// Em produção `membro_id` e `parente_id` são NULLABLE — a migration
+/// `create_family_relationships_v2`, que os declara NOT NULL, é um
+/// `CREATE TABLE IF NOT EXISTS` sobre uma tabela que já existia, então nunca
+/// chegou a valer — e as FKs para `user_account` levam SET NULL. Excluir a
+/// ficha de alguém, portanto, não apaga os vínculos dessa pessoa: deixa as
+/// linhas para trás com um dos lados nulo.
+///
+/// Um `as String` sobre esse null derrubava a lista inteira, e a tela de
+/// edição do membro trocava a seção por "Não foi possível carregar os
+/// vínculos". Uma linha sem as duas pontas não descreve vínculo nenhum e não
+/// tem como ser exibida nem removida pela tela, então é descartada aqui em
+/// vez de derrubar as outras.
+FamilyRelationship? familyRelationshipFromRow(dynamic row) {
+  if (row is! Map) return null;
+  final id = _asString(row['id']);
+  final membroId = _asString(row['membro_id']);
+  final parenteId = _asString(row['parente_id']);
+  final tipo = _asString(row['tipo_relacionamento']);
+  if (id == null || membroId == null || parenteId == null || tipo == null) {
+    return null;
+  }
+  return FamilyRelationship(
+    id: id,
+    membroId: membroId,
+    parenteId: parenteId,
+    tipo: tipo,
+  );
+}
+
+String? _asString(dynamic v) => v is String ? v : null;
+
 /// O vínculo pedido foi gravado, mas a propagação automática de avós/netos
 /// falhou depois disso. Existe para a tela não anunciar como fracasso algo
 /// que já está no banco.
@@ -95,25 +129,26 @@ class FamilyRelationshipsRepository {
         .select('id,membro_id,parente_id,tipo_relacionamento,created_at,updated_at')
         .eq('membro_id', memberId)
         .order('created_at');
-    final dirList = (dirRes as List<dynamic>).map((r) => FamilyRelationship(
-          id: r['id'] as String,
-          membroId: r['membro_id'] as String,
-          parenteId: r['parente_id'] as String,
-          tipo: r['tipo_relacionamento'] as String,
-        )).toList();
+    final dirList = (dirRes as List<dynamic>)
+        .map(familyRelationshipFromRow)
+        .whereType<FamilyRelationship>()
+        .toList();
 
     final revRes = await _supabase
         .from('relacionamentos_familiares')
         .select('id,membro_id,parente_id,tipo_relacionamento,created_at,updated_at')
         .eq('parente_id', memberId)
         .order('created_at');
-    final revRaw = (revRes as List<dynamic>);
+    final revRows = (revRes as List<dynamic>)
+        .map(familyRelationshipFromRow)
+        .whereType<FamilyRelationship>()
+        .toList();
 
     final ids = {
       memberId,
       ...dirList.map((e) => e.membroId),
       ...dirList.map((e) => e.parenteId),
-      ...revRaw.map((r) => r['membro_id'] as String),
+      ...revRows.map((e) => e.membroId),
     };
 
     final directory = await _directoryByIds(ids);
@@ -124,9 +159,9 @@ class FamilyRelationshipsRepository {
       genderMap[entry.key] = entry.value['gender'] as String?;
     }
 
-    final revList = revRaw.map((r) {
-      final otherId = r['membro_id'] as String; // quem apontou para o membro atual
-      final originalTipo = r['tipo_relacionamento'] as String;
+    final revList = revRows.map((r) {
+      final otherId = r.membroId; // quem apontou para o membro atual
+      final originalTipo = r.tipo;
       final sexoMembro = _toSexo(genderMap[otherId]); // Gender of the one who pointed
       // Sempre usamos o sexo do membro que criou o vínculo original para determinar o inverso
       // Ex: se A (pai) criou link 'filho' para B. Inverso depende do sexo de A (pai -> pai).
@@ -134,7 +169,7 @@ class FamilyRelationshipsRepository {
       final sexoRef = sexoMembro;
       final invTipo = _getTipoInverso(originalTipo, sexoRef) ?? originalTipo;
       return FamilyRelationship(
-        id: r['id'] as String,
+        id: r.id,
         membroId: memberId,
         parenteId: otherId,
         tipo: invTipo,
