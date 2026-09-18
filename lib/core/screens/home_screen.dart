@@ -44,6 +44,8 @@ import '../utils/app_exit.dart';
 import '../../features/ministries/domain/models/ministry.dart';
 import '../../features/ministries/presentation/providers/ministries_provider.dart';
 import '../../features/permissions/providers/permissions_providers.dart';
+import '../widgets/spotlight_tour.dart';
+import '../onboarding/onboarding_tour_prefs.dart';
 
 /// Tela principal do app com navegação por abas fixas
 class HomeScreen extends ConsumerStatefulWidget {
@@ -57,6 +59,93 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _selectedIndex = 0; // Inicia na Home
   bool _initializedFromQuery = false;
   bool _syncedDefaultTabToUrl = false;
+
+  // --- Tour de primeiro acesso ---
+  // As chaves ficam aqui, no dono das abas, porque o tour precisa apontar
+  // tanto para itens da dock quanto para cards dentro de duas abas
+  // diferentes. Trocar de aba durante o tour é um setState local; o tour
+  // nunca navega por rota.
+  final GlobalKey _tourNavPerfilKey = GlobalKey(debugLabel: 'tour-nav-perfil');
+  final GlobalKey _tourNavBibliaKey = GlobalKey(debugLabel: 'tour-nav-biblia');
+  final GlobalKey _tourCardPerfilKey = GlobalKey(
+    debugLabel: 'tour-card-perfil',
+  );
+  final GlobalKey _tourCardComunidadeKey = GlobalKey(
+    debugLabel: 'tour-card-comunidade',
+  );
+
+  bool _tourVisivel = false;
+  bool _tourJaConsultado = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _verificarPrimeiroAcesso();
+  }
+
+  Future<void> _verificarPrimeiroAcesso() async {
+    if (_tourJaConsultado) return;
+    _tourJaConsultado = true;
+    final jaViu = await OnboardingTourPrefs.jaConcluiu();
+    if (!mounted || jaViu) return;
+    setState(() => _tourVisivel = true);
+  }
+
+  Future<void> _irParaAba(int index) async {
+    if (!mounted || _selectedIndex == index) return;
+    setState(() => _selectedIndex = index);
+  }
+
+  /// Reabre o tour a pedido (item "Ver tour de novo" na aba Mais). Sempre
+  /// começa na Home, senão o primeiro passo mede um alvo de outra aba.
+  void _reabrirTour() {
+    setState(() {
+      _selectedIndex = 0;
+      _tourVisivel = true;
+    });
+    _syncUrlToSelectedIndex();
+  }
+
+  Future<void> _encerrarTour() async {
+    await OnboardingTourPrefs.marcarConcluido();
+    if (!mounted) return;
+    setState(() => _tourVisivel = false);
+  }
+
+  List<SpotlightStep> _passosDoTour() => [
+    SpotlightStep(
+      targetKey: _tourNavPerfilKey,
+      title: 'Seu perfil fica aqui',
+      description:
+          'Toque na sua foto para abrir o menu com o seu perfil, suas '
+          'preferências e o resto do app.',
+      onEnter: () => _irParaAba(0),
+    ),
+    SpotlightStep(
+      targetKey: _tourCardPerfilKey,
+      title: 'Complete o seu cadastro',
+      description:
+          'Em "Ver meu perfil" você confere e preenche seus dados: telefone, '
+          'data de nascimento e o que mais a igreja precisa saber.',
+      onEnter: () => _irParaAba(4),
+    ),
+    SpotlightStep(
+      targetKey: _tourCardComunidadeKey,
+      title: 'A Comunidade',
+      description:
+          'É onde a igreja conversa: avisos, pedidos e o que está acontecendo '
+          'durante a semana.',
+      onEnter: () => _irParaAba(0),
+    ),
+    SpotlightStep(
+      targetKey: _tourNavBibliaKey,
+      title: 'A Bíblia completa',
+      description:
+          'Leia a Bíblia inteira direto no app, a qualquer hora, sem sair '
+          'daqui.',
+      onEnter: () => _irParaAba(0),
+    ),
+  ];
 
   String _tabParamForIndex(int index) {
     switch (index) {
@@ -111,10 +200,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         icon: Icons.home_outlined,
         activeColor: Color(0xFF2563EB),
       ),
-      const PremiumNavItem(
+      PremiumNavItem(
         label: 'Bíblia',
-        activeColor: Color(0xFF2563EB),
+        activeColor: const Color(0xFF2563EB),
         icon: Icons.menu_book_outlined,
+        itemKey: _tourNavBibliaKey,
       ),
       PremiumNavItem(
         label: 'Igreja',
@@ -131,6 +221,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       PremiumNavItem(
         label: 'Mais',
         activeColor: const Color(0xFF2563EB),
+        itemKey: _tourNavPerfilKey,
         iconBuilder: (context, isActive, activeColor) {
           return _NavAvatarIcon(
             photoUrl: avatarUrl,
@@ -144,11 +235,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // Abas fixas do app
   List<Widget> get _screens => [
-    const _DashboardTab(), // Home (Mural)
+    _DashboardTab(comunidadeKey: _tourCardComunidadeKey), // Home (Mural)
     const BibleBooksScreen(), // Bíblia
     const _ChurchHomeTab(), // Home Institucional
     const CoursesListScreen(), // Cursos
-    const _MoreTab(), // Mais (Menu)
+    _MoreTab(
+      perfilCardKey: _tourCardPerfilKey,
+      onReabrirTour: _reabrirTour,
+    ), // Mais (Menu)
   ];
 
   @override
@@ -219,6 +313,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               items: navItems,
             ),
           ),
+          if (_tourVisivel)
+            Positioned.fill(
+              child: SpotlightTour(
+                steps: _passosDoTour(),
+                onFinish: _encerrarTour,
+              ),
+            ),
         ],
       ),
     );
@@ -305,7 +406,11 @@ class _NavAvatarIcon extends StatelessWidget {
 
 /// Tab Home - Mural do app com eventos, cultos e informações úteis
 class _DashboardTab extends ConsumerWidget {
-  const _DashboardTab();
+  const _DashboardTab({this.comunidadeKey});
+
+  /// Chave do card da Comunidade, usada pelo tour de primeiro acesso
+  /// para saber onde abrir o furo do spotlight.
+  final GlobalKey? comunidadeKey;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -334,7 +439,10 @@ class _DashboardTab extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(
                     horizontal: _homePagePadding,
                   ),
-                  child: const _CommunityCtaCard(),
+                  child: KeyedSubtree(
+                    key: comunidadeKey,
+                    child: const _CommunityCtaCard(),
+                  ),
                 ),
 
                 Padding(
@@ -1447,7 +1555,14 @@ double _homeGridAspectRatio(BuildContext context) {
 
 /// Tab "Mais" - Menu com todas as opções (versão mobile)
 class _MoreTab extends ConsumerWidget {
-  const _MoreTab();
+  const _MoreTab({this.perfilCardKey, this.onReabrirTour});
+
+  /// Chave do card "Ver meu perfil", alvo do tour de primeiro acesso.
+  final GlobalKey? perfilCardKey;
+
+  /// Reabre o tour a pedido. Vem do HomeScreen, que é quem controla as
+  /// abas — o tour precisa trocar de aba e por isso não mora aqui.
+  final VoidCallback? onReabrirTour;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1595,12 +1710,15 @@ class _MoreTab extends ConsumerWidget {
           // VISÃO GERAL
           _buildSectionTitle(context, 'VISÃO GERAL'),
           const SizedBox(height: 12),
-          _buildMenuCard(
-            context,
-            Icons.person,
-            'Ver meu perfil',
-            '/profile',
-            color: Colors.blue,
+          KeyedSubtree(
+            key: perfilCardKey,
+            child: _buildMenuCard(
+              context,
+              Icons.person,
+              'Ver meu perfil',
+              '/profile',
+              color: Colors.blue,
+            ),
           ),
           const SizedBox(height: 12),
           _buildMenuCard(
@@ -1711,6 +1829,64 @@ class _MoreTab extends ConsumerWidget {
               ],
             ),
           ),
+
+          // "Ver tour de novo": sem isto, um problema no tour de primeiro
+          // acesso é irreproduzível — ele só roda uma vez por aparelho.
+          if (onReabrirTour != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              decoration: CommunityDesign.overlayDecoration(
+                Theme.of(context).colorScheme,
+              ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(_homeCardRadius),
+                  onTap: onReabrirTour,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.explore_outlined,
+                            size: 20,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Ver tour de novo',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios,
+                          size: 14,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.3),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
 
           const SizedBox(height: 32),
 
