@@ -119,6 +119,39 @@ void main() {
       expect(t.startDate, DateTime.parse('2026-09-19'));
     });
 
+    test('a chave do link publico sobe e desce do json', () {
+      final fechada = BaptismTurma.fromJson({
+        'id': 'turma-1',
+        'tenant_id': 't1',
+        'ministry_id': 'm1',
+        'name': 'Sexta 19h',
+        'status': 'ativa',
+        'created_at': '2026-09-18T12:00:00Z',
+      });
+
+      // Consulta antiga (ou banco sem a coluna) nao abre turma nenhuma.
+      expect(fechada.acceptsPublicRegistration, isFalse);
+      expect(fechada.toWriteJson()['accepts_public_registration'], isFalse);
+
+      final aberta = BaptismTurma.fromJson({
+        'id': 'turma-2',
+        'tenant_id': 't1',
+        'ministry_id': 'm1',
+        'name': 'Domingo 9h',
+        'status': 'ativa',
+        'created_at': '2026-09-18T12:00:00Z',
+        'accepts_public_registration': true,
+      });
+
+      expect(aberta.acceptsPublicRegistration, isTrue);
+      expect(aberta.toWriteJson()['accepts_public_registration'], isTrue);
+      expect(
+        aberta.copyWith(acceptsPublicRegistration: false)
+            .acceptsPublicRegistration,
+        isFalse,
+      );
+    });
+
     test('turma sem evento nao quebra', () {
       final t = BaptismTurma.fromJson({
         'id': 'turma-1',

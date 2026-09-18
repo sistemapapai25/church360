@@ -202,4 +202,28 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(StudentCard), findsOneWidget);
   });
+
+  testWidgets('com permissao de edicao a barra oferece o link', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(students: const [], turmas: [_turma('turma-1', 'Sexta 19h')]),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Link de inscrição'), findsOneWidget);
+  });
+
+  testWidgets('sem permissao de edicao o link nao aparece', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        students: const [],
+        turmas: [_turma('turma-1', 'Sexta 19h')],
+        canEdit: false,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Link de inscrição'), findsNothing);
+  });
 }

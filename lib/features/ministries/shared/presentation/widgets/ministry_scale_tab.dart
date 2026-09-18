@@ -100,15 +100,16 @@ class _MinistryScaleTabState extends ConsumerState<MinistryScaleTab> {
                 searchController: _search,
                 searchHint: 'Buscar por evento ou pessoa...',
                 onSearchChanged: (v) => setState(() => _query = v),
-                secondaryAction: canManage
-                    ? AppFilterAction(
-                        label: 'Regras',
-                        icon: Icons.tune,
-                        onPressed: () => context.push(
-                          '/ministries/${widget.ministryId}/schedule-rules',
-                        ),
-                      )
-                    : null,
+                secondaryActions: [
+                  if (canManage)
+                    AppFilterAction(
+                      label: 'Regras',
+                      icon: Icons.tune,
+                      onPressed: () => context.push(
+                        '/ministries/${widget.ministryId}/schedule-rules',
+                      ),
+                    ),
+                ],
                 primaryAction: canManage
                     ? AppFilterAction(
                         label: 'Gerar escala',

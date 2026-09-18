@@ -51,7 +51,11 @@ class AppFilterBar extends StatelessWidget {
   final IconData sortIcon;
   final String sortTooltip;
 
-  final AppFilterAction? secondaryAction;
+  /// Ações de apoio, antes da ação principal. São várias porque a barra
+  /// de referência leva duas (abrir as turmas e o link de inscrição) lado
+  /// a lado, na mesma linha da busca.
+  final List<AppFilterAction> secondaryActions;
+
   final AppFilterAction? primaryAction;
 
   /// Largura abaixo da qual a barra quebra em duas linhas.
@@ -66,7 +70,7 @@ class AppFilterBar extends StatelessWidget {
     this.onSort,
     this.sortIcon = Icons.swap_vert,
     this.sortTooltip = 'Ordenar',
-    this.secondaryAction,
+    this.secondaryActions = const [],
     this.primaryAction,
     this.compactBreakpoint = 640,
   });
@@ -148,7 +152,7 @@ class AppFilterBar extends StatelessWidget {
       ...filters,
       if (onSort != null)
         _SortButton(icon: sortIcon, tooltip: sortTooltip, onTap: onSort!),
-      if (secondaryAction != null) _SecondaryAction(action: secondaryAction!),
+      for (final action in secondaryActions) _SecondaryAction(action: action),
       if (primaryAction != null) _PrimaryAction(action: primaryAction!),
     ];
   }

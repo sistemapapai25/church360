@@ -19,6 +19,12 @@ class BaptismTurma {
   final DateTime? startDate;
   final DateTime? endDate;
   final BaptismTurmaStatus status;
+
+  /// Quando `true`, a turma aparece no formulário público de inscrição e
+  /// aceita gente entrando sem login. Nasce `false`: abrir é um ato
+  /// explícito de quem cuida do ministério.
+  final bool acceptsPublicRegistration;
+
   final DateTime createdAt;
 
   /// Nome do evento vindo do embed, quando a consulta o traz.
@@ -37,6 +43,7 @@ class BaptismTurma {
     this.startDate,
     this.endDate,
     required this.status,
+    this.acceptsPublicRegistration = false,
     required this.createdAt,
     this.eventName,
     this.eventDate,
@@ -58,6 +65,8 @@ class BaptismTurma {
       startDate: _parseDate(json['start_date']),
       endDate: _parseDate(json['end_date']),
       status: BaptismTurmaStatus.fromCode(json['status'] as String?),
+      acceptsPublicRegistration:
+          json['accepts_public_registration'] as bool? ?? false,
       createdAt:
           DateTime.tryParse('${json['created_at']}') ?? DateTime.now(),
       eventName: eventMap?['name'] as String?,
@@ -76,6 +85,7 @@ class BaptismTurma {
       'start_date': _dateOnly(startDate),
       'end_date': _dateOnly(endDate),
       'status': status.code,
+      'accepts_public_registration': acceptsPublicRegistration,
     };
   }
 
@@ -89,6 +99,7 @@ class BaptismTurma {
     DateTime? endDate,
     bool clearEndDate = false,
     BaptismTurmaStatus? status,
+    bool? acceptsPublicRegistration,
   }) {
     return BaptismTurma(
       id: id,
@@ -100,6 +111,8 @@ class BaptismTurma {
       startDate: clearStartDate ? null : (startDate ?? this.startDate),
       endDate: clearEndDate ? null : (endDate ?? this.endDate),
       status: status ?? this.status,
+      acceptsPublicRegistration:
+          acceptsPublicRegistration ?? this.acceptsPublicRegistration,
       createdAt: createdAt,
       eventName: eventName,
       eventDate: eventDate,

@@ -27,6 +27,7 @@ import '../../features/ministries/raizes/presentation/screens/raizes_visits_scre
 import '../../features/ministries/raizes/presentation/screens/raizes_recommendations_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_sponsors_screen.dart';
 import '../../features/ministries/batismo/presentation/screens/batismo_home_screen.dart';
+import '../../features/ministries/batismo/presentation/screens/baptism_public_registration_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_home_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_checklist_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_absentees_screen.dart';
@@ -295,6 +296,15 @@ final appRouter = GoRouter(
         !state.matchedLocation.endsWith('/new') &&
         !state.matchedLocation.endsWith('/types') &&
         !isPublicEventRegister;
+    // O formulario publico de inscricao no batismo. Mesmo desenho das duas
+    // rotas de evento acima: o link vai para o WhatsApp de quem nao tem
+    // conta, e a garantia esta no servidor, em `register_baptism_public`
+    // (SECURITY DEFINER, `GRANT EXECUTE ... TO anon`), que so grava numa
+    // turma explicitamente aberta. Fechar a rota aqui mataria o fluxo
+    // inteiro: o visitante cairia no login e a inscricao morreria ali.
+    final isPublicBaptismRegister =
+        state.matchedLocation.startsWith('/batismo/') &&
+        state.matchedLocation.endsWith('/inscricao');
     final isPublicGroupDetail =
         state.matchedLocation.startsWith('/groups/') &&
         !state.matchedLocation.endsWith('/edit') &&
@@ -316,6 +326,7 @@ final appRouter = GoRouter(
         !isResetPassword &&
         !isPublicEventRegister &&
         !isPublicEventDetail &&
+        !isPublicBaptismRegister &&
         !isPublicGroupDetail &&
         !isPublicStudyGroupDetail) {
       // D-04: o destino não pode se perder no desvio para o login. É
@@ -590,6 +601,17 @@ final appRouter = GoRouter(
           permission: 'ministries.manage_schedule',
           child: ScaleHistoryScreen(ministryId: id),
         );
+      },
+    ),
+    // Publica de proposito (ver o bloco de excecoes do redirect). Fica
+    // fora de `/ministries/` para o link ser curto e legivel no WhatsApp, e
+    // para nao correr o risco de herdar um gate de `/ministries/...` no
+    // futuro.
+    GoRoute(
+      path: '/batismo/:ministryId/inscricao',
+      builder: (context, state) {
+        final id = state.pathParameters['ministryId']!;
+        return BaptismPublicRegistrationScreen(ministryId: id);
       },
     ),
     GoRoute(

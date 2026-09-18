@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/supabase_constants.dart';
+import '../domain/models/baptism_public_info.dart';
 import '../domain/models/baptism_student.dart';
 import '../domain/models/baptism_turma.dart';
 
@@ -128,5 +129,69 @@ class BaptismRepository {
 
   Future<void> deleteStudent(String studentId) async {
     await _supabase.from('baptism_student').delete().eq('id', studentId);
+  }
+
+  // -------------------------------------------------------------------
+  // Inscrição pública (sem login)
+  // -------------------------------------------------------------------
+  //
+  // Os dois métodos abaixo rodam com a chave anônima, do lado de fora de
+  // qualquer sessão: são o que o link de inscrição usa. Nenhum deles toca
+  // `baptism_turma` ou `baptism_student` direto — as policies dessas
+  // tabelas exigem vínculo no ministério, e afrouxá-las abriria a lista de
+  // alunos para a internet. A régua e o recorte ficam nas duas funções
+  // SECURITY DEFINER, mesmo desenho do fluxo de convidado dos eventos.
+
+  /// Nome do curso e turmas abertas, para montar o formulário público.
+  Future<BaptismPublicInfo> getPublicRegistrationInfo(
+    String ministryId,
+  ) async {
+    final response = await _supabase.rpc(
+      'baptism_public_registration_info',
+      params: {
+        'p_tenant_id': SupabaseConstants.currentTenantId,
+        'p_ministry_id': ministryId,
+      },
+    );
+
+    return BaptismPublicInfo.fromJson(Map<String, dynamic>.from(response));
+  }
+
+  /// Grava a inscrição e devolve o id do aluno criado.
+  ///
+  /// As recusas chegam como `PostgrestException` com o código cru
+  /// (`TURMA_REGISTRATION_CLOSED`, `ALREADY_REGISTERED`...). A tradução
+  /// para português é da tela, como no resto do projeto.
+  Future<String> registerPublicStudent({
+    required String ministryId,
+    required String turmaId,
+    required String fullName,
+    required String phone,
+    String? email,
+    DateTime? birthDate,
+  }) async {
+    final response = await _supabase.rpc(
+      'register_baptism_public',
+      params: {
+        'p_tenant_id': SupabaseConstants.currentTenantId,
+        'p_ministry_id': ministryId,
+        'p_turma_id': turmaId,
+        'p_full_name': fullName,
+        'p_phone': phone,
+        'p_email': email,
+        'p_birth_date': _dateOnly(birthDate),
+      },
+    );
+
+    return response is String ? response : '$response';
+  }
+
+  /// `birth_date` é `DATE` no banco: mandar um timestamp reintroduziria o
+  /// contrato de hora-de-parede que as datas de turma evitam de propósito.
+  static String? _dateOnly(DateTime? value) {
+    if (value == null) return null;
+    final m = value.month.toString().padLeft(2, '0');
+    final d = value.day.toString().padLeft(2, '0');
+    return '${value.year}-$m-$d';
   }
 }
