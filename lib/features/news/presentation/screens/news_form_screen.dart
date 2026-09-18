@@ -25,6 +25,12 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
 
   String? _imageUrl;
   DateTime _publishedAt = DateTime.now();
+
+  /// Até quando a notícia fica em cartaz. Guardada em `event.end_date` — a
+  /// coluna já existia e a notícia a gravava como nula. Nula aqui significa
+  /// "sem prazo": só sai quando alguém despublicar. Notícia nova nasce com 30
+  /// dias sugeridos, que a pessoa muda ou limpa antes de salvar.
+  DateTime? _expiraEm = DateTime.now().add(const Duration(days: 30));
   bool _isPublished = true;
   bool _isLoading = false;
   bool _isSaving = false;
@@ -56,6 +62,7 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
           _contentController.text = event.description ?? '';
           _imageUrl = event.imageUrl;
           _publishedAt = event.startDate;
+          _expiraEm = event.endDate;
           _isPublished = event.status == 'published';
         });
       }
@@ -97,8 +104,49 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
     });
   }
 
+  Future<void> _pickExpiraEm() async {
+    final base = _expiraEm ?? _publishedAt.add(const Duration(days: 30));
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: base,
+      firstDate: _publishedAt,
+      lastDate: DateTime(2100),
+      helpText: 'Até quando a notícia fica no ar',
+    );
+    if (date == null) return;
+    if (!mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(base),
+      helpText: 'Hora em que ela sai do ar',
+    );
+    if (time == null) return;
+
+    setState(() {
+      _expiraEm = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+    });
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final prazo = _expiraEm;
+    if (prazo != null && !prazo.isAfter(_publishedAt)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('O prazo tem que ser depois da data de publicação.'),
+        ),
+      );
+      return;
+    }
 
     final requiredPermission = _isEditing ? 'news.edit' : 'news.create';
     final hasPermission = await ref.read(
@@ -126,7 +174,7 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
             : _contentController.text.trim(),
         'event_type': 'news',
         'start_date': _publishedAt.toIso8601String(),
-        'end_date': null,
+        'end_date': _expiraEm?.toIso8601String(),
         'location': null,
         'max_capacity': null,
         'requires_registration': false,
@@ -181,6 +229,10 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
       'dd/MM/yyyy • HH:mm',
       'pt_BR',
     ).format(_publishedAt);
+    final prazo = _expiraEm;
+    final prazoLabel = prazo == null
+        ? 'Sem prazo — fica no ar até você despublicar'
+        : DateFormat('dd/MM/yyyy • HH:mm', 'pt_BR').format(prazo);
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -280,6 +332,28 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
                         subtitle: Text(dateLabel),
                         trailing: const Icon(Icons.edit_calendar),
                         onTap: _pickDateTime,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.timer_outlined),
+                        title: const Text('Sai do ar em'),
+                        subtitle: Text(prazoLabel),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (prazo != null)
+                              IconButton(
+                                icon: const Icon(Icons.clear),
+                                tooltip: 'Deixar sem prazo',
+                                onPressed: () =>
+                                    setState(() => _expiraEm = null),
+                              ),
+                            const Icon(Icons.edit_calendar),
+                          ],
+                        ),
+                        onTap: _pickExpiraEm,
                       ),
                     ),
                     const SizedBox(height: 16),

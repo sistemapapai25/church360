@@ -144,6 +144,15 @@ class ManageNewsScreen extends ConsumerWidget {
                             _formatDateTime(item.startDate),
                             style: CommunityDesign.metaStyle(context),
                           ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _rotuloPrazo(item),
+                            style: CommunityDesign.metaStyle(context).copyWith(
+                              color: _venceu(item)
+                                  ? cs.error
+                                  : cs.onSurface.withValues(alpha: 0.6),
+                            ),
+                          ),
                           if (item.description != null &&
                               item.description!.trim().isNotEmpty) ...[
                             const SizedBox(height: 6),
@@ -307,6 +316,22 @@ class ManageNewsScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  bool _venceu(Event e) {
+    final prazo = e.endDate;
+    return prazo != null && prazo.isBefore(DateTime.now());
+  }
+
+  /// O prazo é o que tira a notícia do ar sozinha — sem mostrá-lo aqui, quem
+  /// publicou não tem como saber por que a notícia sumiu do app enquanto
+  /// continua publicada nesta lista.
+  String _rotuloPrazo(Event e) {
+    final prazo = e.endDate;
+    if (prazo == null) return 'Sem prazo';
+    return _venceu(e)
+        ? 'Saiu do ar em ${_formatDateTime(prazo)}'
+        : 'No ar até ${_formatDateTime(prazo)}';
   }
 
   bool _isNews(Event e) {

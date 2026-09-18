@@ -342,18 +342,22 @@ class EventsRepository {
   }
 
   /// Criar evento a partir de JSON
-  /// Notícias publicadas, da mais recente para a mais antiga.
+  /// Notícias publicadas e dentro do prazo, da mais recente para a mais antiga.
   ///
   /// Não dá para reaproveitar `getUpcomingEvents` aqui: a notícia nasce com
   /// `start_date` no instante da publicação, então ela já é passado um minuto
-  /// depois e sumiria de qualquer filtro de data futura.
+  /// depois e sumiria de qualquer filtro de data futura. O que vale para
+  /// notícia é o prazo que quem publicou escolheu, guardado em `end_date`:
+  /// vencido, ela sai do ar sozinha; nulo, fica até alguém despublicar.
   Future<List<Event>> getRecentNews({int limit = 20}) async {
+    final agora = DateTime.now().toIso8601String();
     final response = await _supabase
         .from('event')
         .select()
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('event_type', 'news')
         .eq('status', 'published')
+        .or('end_date.is.null,end_date.gte.$agora')
         .order('start_date', ascending: false)
         .limit(limit);
 
