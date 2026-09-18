@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
@@ -15,9 +14,9 @@ import 'ministry_member_actions.dart';
 ///
 /// Ela deixou de ser só leitura: incluir membro, alterar a função e remover
 /// são as mesmas ações da ficha do ministério, agora chamadas daqui pelas
-/// funções de `ministry_member_actions.dart`. A ficha continua existindo
-/// para descrição, notificações e edição do ministério, e o link do rodapé
-/// leva até lá.
+/// funções de `ministry_member_actions.dart`. Não há mais link para a
+/// ficha: descrição, notificações e edição subiram para o cabeçalho do
+/// workspace, então não sobrou nada lá que esta aba precise alcançar.
 class MinistryTeamTab extends ConsumerStatefulWidget {
   final String ministryId;
 
@@ -161,8 +160,6 @@ class _MinistryTeamTabState extends ConsumerState<MinistryTeamTab> {
                     onRemove: canManage ? () => _remove(m) : null,
                   ),
               ],
-              const SizedBox(height: 24),
-              _OpenMinistrySheetLink(ministryId: widget.ministryId),
             ],
           ),
         );
@@ -305,56 +302,6 @@ class _TeamMemberTile extends StatelessWidget {
               ],
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _OpenMinistrySheetLink extends StatelessWidget {
-  final String ministryId;
-
-  const _OpenMinistrySheetLink({required this.ministryId});
-
-  @override
-  Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final accent = dark ? AppTheme.darkRing : AppTheme.primary;
-
-    return InkWell(
-      onTap: () => context.push('/ministries/$ministryId'),
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.08),
-          border: Border.all(color: accent.withValues(alpha: 0.3)),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.badge_outlined, size: 20, color: accent),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Abrir ficha completa do ministério',
-                    style: CommunityDesign.titleStyle(
-                      context,
-                    ).copyWith(fontSize: 14, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Descrição, notificações e edição do ministério.',
-                    style: CommunityDesign.metaStyle(context),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios, size: 14, color: accent),
-          ],
-        ),
       ),
     );
   }

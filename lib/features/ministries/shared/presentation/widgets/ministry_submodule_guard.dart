@@ -124,7 +124,8 @@ class _BlockedScreen extends StatelessWidget {
               // esta saída, essas pessoas perderiam o acesso à ficha que
               // tinham antes.
               TextButton.icon(
-                onPressed: () => context.pushReplacement('/ministries/$ministryId'),
+                onPressed: () =>
+                    context.pushReplacement('/ministries/$ministryId'),
                 icon: const Icon(Icons.badge_outlined, size: 18),
                 label: const Text('Abrir ficha do ministério'),
               ),

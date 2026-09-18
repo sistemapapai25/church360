@@ -2,17 +2,19 @@ import 'package:church360_app/core/theme/app_theme.dart';
 import 'package:church360_app/features/ministries/domain/models/ministry.dart';
 import 'package:church360_app/features/ministries/presentation/providers/ministries_provider.dart';
 import 'package:church360_app/features/ministries/shared/presentation/widgets/ministry_workspace_shell.dart';
+import 'package:church360_app/features/permissions/providers/permissions_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _ministryId = 'm1';
 
-Ministry _ministry(String name) {
+Ministry _ministry(String name, {String? description}) {
   final now = DateTime(2026, 9, 18);
   return Ministry(
     id: _ministryId,
     name: name,
+    description: description,
     color: '#2563EB',
     isActive: true,
     createdAt: now,
@@ -23,15 +25,20 @@ Ministry _ministry(String name) {
 
 Widget _host({
   String name = 'Batismo nas Aguas',
+  String? description,
   List<MinistryWorkspaceStat> stats = const [],
   Brightness brightness = Brightness.light,
   double width = 800,
+  bool canEdit = false,
 }) {
   return ProviderScope(
     overrides: [
       ministryByIdProvider(_ministryId).overrideWith((ref) async {
-        return _ministry(name);
+        return _ministry(name, description: description);
       }),
+      currentUserHasPermissionProvider(
+        'ministries.edit',
+      ).overrideWith((ref) async => canEdit),
     ],
     child: MaterialApp(
       theme: brightness == Brightness.dark
@@ -89,8 +96,12 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ministryByIdProvider(_ministryId)
-              .overrideWith((ref) async => _ministry('Batismo nas Aguas')),
+          ministryByIdProvider(
+            _ministryId,
+          ).overrideWith((ref) async => _ministry('Batismo nas Aguas')),
+          currentUserHasPermissionProvider(
+            'ministries.edit',
+          ).overrideWith((ref) async => false),
         ],
         child: MaterialApp(
           theme: AppTheme.lightTheme,
@@ -125,8 +136,8 @@ void main() {
     await tester.pumpWidget(_host(name: 'Batismo nas Aguas'));
     await tester.pumpAndSettle();
 
-    // O nome tambem aparece no AppBar, como Text simples. O titulo do corpo
-    // e o unico que quebra o nome em spans.
+    // O nome aparece uma vez so: o titulo grande subiu para o cabecalho e o
+    // texto que existia no AppBar deixou de existir.
     final rich = tester.widget<RichText>(
       find.byWidgetPredicate(
         (w) =>
@@ -189,6 +200,10 @@ void main() {
     await tester.pumpWidget(
       _host(
         width: 360,
+        // Com a engrenagem ao lado da trilha de abas, a linha mais apertada
+        // da tela e esta — e e nela que um Row sem Expanded estouraria.
+        canEdit: true,
+        description: 'Preparo dos candidatos ao batismo nas aguas da igreja.',
         stats: const [
           MinistryWorkspaceStat(
             label: 'na equipe',
@@ -211,5 +226,44 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('mostra a descricao do ministerio no cabecalho', (tester) async {
+    await tester.pumpWidget(
+      _host(description: 'Preparo dos candidatos ao batismo.'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Preparo dos candidatos ao batismo.'), findsOneWidget);
+  });
+
+  testWidgets('o nome do ministerio aparece uma vez so', (tester) async {
+    await tester.pumpWidget(_host(name: 'Batismo nas Aguas'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is RichText && w.text.toPlainText() == 'Batismo nas Aguas',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('sem ministries.edit nao mostra sino nem configuracao', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host());
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.notifications_active_outlined), findsNothing);
+    expect(find.byIcon(Icons.settings_outlined), findsNothing);
+  });
+
+  testWidgets('com ministries.edit mostra sino e configuracao', (tester) async {
+    await tester.pumpWidget(_host(canEdit: true));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.notifications_active_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
   });
 }

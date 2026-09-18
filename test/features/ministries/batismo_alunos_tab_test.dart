@@ -52,18 +52,22 @@ Widget _host({
   bool canDelete = true,
 }) {
   bool valueFor(BaptismWriteAction action) => switch (action) {
-        BaptismWriteAction.create => canCreate,
-        BaptismWriteAction.edit => canEdit,
-        BaptismWriteAction.delete => canDelete,
-      };
+    BaptismWriteAction.create => canCreate,
+    BaptismWriteAction.edit => canEdit,
+    BaptismWriteAction.delete => canDelete,
+  };
 
   return ProviderScope(
     overrides: [
-      baptismStudentsProvider(_ministryId).overrideWith((ref) async => students),
+      baptismStudentsProvider(
+        _ministryId,
+      ).overrideWith((ref) async => students),
       baptismTurmasProvider(_ministryId).overrideWith((ref) async => turmas),
       for (final action in BaptismWriteAction.values)
-        baptismCanWriteProvider((ministryId: _ministryId, action: action))
-            .overrideWith((ref) async => valueFor(action)),
+        baptismCanWriteProvider((
+          ministryId: _ministryId,
+          action: action,
+        )).overrideWith((ref) async => valueFor(action)),
     ],
     child: MaterialApp(
       theme: AppTheme.lightTheme,
@@ -74,10 +78,12 @@ Widget _host({
 
 void main() {
   testWidgets('lista os alunos e conta o total', (tester) async {
-    await tester.pumpWidget(_host(
-      students: [_student('Ana Souza'), _student('Bruno Lima')],
-      turmas: [_turma('turma-1', 'Sexta 19h')],
-    ));
+    await tester.pumpWidget(
+      _host(
+        students: [_student('Ana Souza'), _student('Bruno Lima')],
+        turmas: [_turma('turma-1', 'Sexta 19h')],
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Ana Souza'), findsOneWidget);
@@ -85,12 +91,15 @@ void main() {
     expect(find.text('2 alunos'), findsOneWidget);
   });
 
-  testWidgets('busca por nome recorta a lista e muda a contagem',
-      (tester) async {
-    await tester.pumpWidget(_host(
-      students: [_student('Ana Souza'), _student('Bruno Lima')],
-      turmas: [_turma('turma-1', 'Sexta 19h')],
-    ));
+  testWidgets('busca por nome recorta a lista e muda a contagem', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        students: [_student('Ana Souza'), _student('Bruno Lima')],
+        turmas: [_turma('turma-1', 'Sexta 19h')],
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, 'bruno');
@@ -101,17 +110,20 @@ void main() {
     expect(find.text('1 de 2 alunos'), findsOneWidget);
   });
 
-  testWidgets('busca por telefone ignora a formatacao do numero',
-      (tester) async {
+  testWidgets('busca por telefone ignora a formatacao do numero', (
+    tester,
+  ) async {
     // O telefone esta gravado como "(11) 91234-5678"; quem digita so os
     // digitos tem que achar assim mesmo.
-    await tester.pumpWidget(_host(
-      students: [
-        _student('Ana Souza', phone: '(11) 91234-5678'),
-        _student('Bruno Lima', phone: '(21) 98888-0000'),
-      ],
-      turmas: [_turma('turma-1', 'Sexta 19h')],
-    ));
+    await tester.pumpWidget(
+      _host(
+        students: [
+          _student('Ana Souza', phone: '(11) 91234-5678'),
+          _student('Bruno Lima', phone: '(21) 98888-0000'),
+        ],
+        turmas: [_turma('turma-1', 'Sexta 19h')],
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, '11912345678');
@@ -121,13 +133,16 @@ void main() {
     expect(find.text('Bruno Lima'), findsNothing);
   });
 
-  testWidgets('sem permissao de criar, o botao Novo aluno nao aparece',
-      (tester) async {
-    await tester.pumpWidget(_host(
-      students: [_student('Ana Souza')],
-      turmas: [_turma('turma-1', 'Sexta 19h')],
-      canCreate: false,
-    ));
+  testWidgets('sem permissao de criar, o botao Novo aluno nao aparece', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        students: [_student('Ana Souza')],
+        turmas: [_turma('turma-1', 'Sexta 19h')],
+        canCreate: false,
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Novo aluno'), findsNothing);
@@ -136,21 +151,25 @@ void main() {
     expect(find.text('Ana Souza'), findsOneWidget);
   });
 
-  testWidgets('sem permissao de editar nem excluir, o menu do card some',
-      (tester) async {
-    await tester.pumpWidget(_host(
-      students: [_student('Ana Souza')],
-      turmas: [_turma('turma-1', 'Sexta 19h')],
-      canEdit: false,
-      canDelete: false,
-    ));
+  testWidgets('sem permissao de editar nem excluir, o menu do card some', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        students: [_student('Ana Souza')],
+        turmas: [_turma('turma-1', 'Sexta 19h')],
+        canEdit: false,
+        canDelete: false,
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.more_vert), findsNothing);
   });
 
-  testWidgets('sem turma cadastrada, o vazio manda criar a turma primeiro',
-      (tester) async {
+  testWidgets('sem turma cadastrada, o vazio manda criar a turma primeiro', (
+    tester,
+  ) async {
     await tester.pumpWidget(_host(students: const []));
     await tester.pumpAndSettle();
 
@@ -165,17 +184,19 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(_host(
-      students: [
-        _student(
-          'Ana Carolina de Souza Albuquerque',
-          phone: '(11) 91234-5678',
-          source: BaptismStudentSource.publica,
-          birthDate: DateTime(1998, 4, 12),
-        ),
-      ],
-      turmas: [_turma('turma-1', 'Sexta 19h')],
-    ));
+    await tester.pumpWidget(
+      _host(
+        students: [
+          _student(
+            'Ana Carolina de Souza Albuquerque',
+            phone: '(11) 91234-5678',
+            source: BaptismStudentSource.publica,
+            birthDate: DateTime(1998, 4, 12),
+          ),
+        ],
+        turmas: [_turma('turma-1', 'Sexta 19h')],
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);

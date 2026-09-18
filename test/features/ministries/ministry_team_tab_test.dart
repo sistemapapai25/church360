@@ -82,13 +82,15 @@ void main() {
     expect(find.text('LIDERANÇA (0)'), findsNothing);
   });
 
-  testWidgets('oferece o caminho para a ficha completa', (tester) async {
+  testWidgets('nao oferece mais link para a ficha do ministerio', (
+    tester,
+  ) async {
     await tester.pumpWidget(_host([_member('Ana', MinistryRole.member)]));
     await tester.pumpAndSettle();
 
-    // A ficha deixou de ser a porta de entrada, mas ainda guarda descricao,
-    // notificacoes e edicao — o caminho ate la precisa continuar visivel.
-    expect(find.text('Abrir ficha completa do ministério'), findsOneWidget);
+    // Descricao, notificacoes e edicao subiram para o cabecalho do
+    // workspace — nao sobrou nada na ficha que esta aba precise alcancar.
+    expect(find.text('Abrir ficha completa do ministério'), findsNothing);
   });
 
   testWidgets('sem permissao nao oferece incluir nem acoes por membro', (
