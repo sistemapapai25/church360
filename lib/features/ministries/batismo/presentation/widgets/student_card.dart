@@ -28,12 +28,21 @@ class StudentCard extends StatelessWidget {
   /// abrir o WhatsApp num número vazio.
   final VoidCallback? onWhatsApp;
 
+  /// Quantas etapas do checklist este aluno cumpriu, de quantas se aplicam
+  /// a ele.
+  ///
+  /// Nulo quando o checklist ainda está carregando ou falhou — nesse caso
+  /// a pílula some e o resto do card continua de pé. Total zero também não
+  /// mostra nada: "0/0" não informa, só ocupa espaço.
+  final ({int done, int total})? checklist;
+
   const StudentCard({
     super.key,
     required this.student,
     this.onEdit,
     this.onDelete,
     this.onWhatsApp,
+    this.checklist,
   });
 
   @override
@@ -112,6 +121,19 @@ class StudentCard extends StatelessWidget {
                     color: AppTheme.secondaryForeground,
                     background: AppTheme.secondary,
                     icon: Icons.groups_2_outlined,
+                  ),
+                if (checklist != null && checklist!.total > 0)
+                  _Pill(
+                    label:
+                        '${checklist!.done}/${checklist!.total} etapas',
+                    color: CommunityDesign.accentForeground(
+                      context,
+                      AppTheme.primary,
+                    ),
+                    background: AppTheme.primary.withValues(alpha: 0.14),
+                    icon: checklist!.done == checklist!.total
+                        ? Icons.task_alt
+                        : Icons.checklist_outlined,
                   ),
                 if (student.source == BaptismStudentSource.publica)
                   _Pill(

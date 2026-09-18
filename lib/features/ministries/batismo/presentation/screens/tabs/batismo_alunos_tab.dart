@@ -305,6 +305,17 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
     final canEdit = can(BaptismWriteAction.edit);
     final canDelete = can(BaptismWriteAction.delete);
 
+    // Progresso do checklist por aluno. Degrada em silêncio: enquanto
+    // carrega (ou se falhar) o mapa vem vazio e o card simplesmente não
+    // mostra a pílula — a lista de alunos não depende do checklist para
+    // funcionar.
+    final tally = ref
+        .watch(baptismChecklistTallyProvider(widget.ministryId))
+        .maybeWhen(
+          data: (v) => v,
+          orElse: () => const <String, ({int done, int total})>{},
+        );
+
     return studentsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => _AlunosError(
@@ -416,6 +427,7 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
                 for (final s in visible)
                   StudentCard(
                     student: s,
+                    checklist: tally[s.id],
                     onWhatsApp: (s.phone?.trim().isEmpty ?? true)
                         ? null
                         : () => _whatsApp(s),
