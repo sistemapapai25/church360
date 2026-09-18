@@ -307,6 +307,13 @@ class _TurmaTile extends StatelessWidget {
                         ? AppStatusTone.done
                         : AppStatusTone.dropped),
               ),
+              // Quem está com a lista aberta para o link precisa ver isso
+              // sem abrir o formulário da turma.
+              if (turma.acceptsPublicRegistration)
+                const StatusBadge(
+                  label: 'Inscrições abertas',
+                  tone: AppStatusTone.done,
+                ),
               Text(
                 '$studentCount ${studentCount == 1 ? 'aluno' : 'alunos'}',
                 style: CommunityDesign.metaStyle(context),
@@ -373,6 +380,7 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
   DateTime? _startDate;
   DateTime? _endDate;
   late BaptismTurmaStatus _status;
+  late bool _acceptsPublic;
   bool _saving = false;
   String? _error;
 
@@ -388,6 +396,7 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
     _startDate = t?.startDate;
     _endDate = t?.endDate;
     _status = t?.status ?? BaptismTurmaStatus.ativa;
+    _acceptsPublic = t?.acceptsPublicRegistration ?? false;
   }
 
   @override
@@ -450,6 +459,7 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
             startDate: _startDate,
             endDate: _endDate,
             status: _status,
+            acceptsPublicRegistration: _acceptsPublic,
             createdAt: DateTime.now(),
           ),
         );
@@ -465,6 +475,7 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
             endDate: _endDate,
             clearEndDate: _endDate == null,
             status: _status,
+            acceptsPublicRegistration: _acceptsPublic,
           ),
         );
       }
@@ -602,10 +613,39 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
                     for (final s in BaptismTurmaStatus.values)
                       DropdownMenuItem(value: s, child: Text(s.label)),
                   ],
-                  onChanged: (v) =>
-                      setState(() => _status = v ?? BaptismTurmaStatus.ativa),
+                  onChanged: (v) => setState(() {
+                    _status = v ?? BaptismTurmaStatus.ativa;
+                    // Encerrar ou cancelar a turma fecha o link junto: a RPC
+                    // recusaria a inscrição de qualquer jeito, e deixar a
+                    // chave ligada numa turma encerrada mentiria na tela.
+                    if (_status != BaptismTurmaStatus.ativa) {
+                      _acceptsPublic = false;
+                    }
+                  }),
                 ),
                 const SizedBox(height: 12),
+                // A chave do link publico. Fora do fluxo de status de
+                // proposito: encerrar uma turma e fechar as inscricoes dela
+                // sao decisoes diferentes, e a turma continua ativa depois
+                // que a lista fecha.
+                SwitchListTile.adaptive(
+                  value: _acceptsPublic,
+                  onChanged: _status == BaptismTurmaStatus.ativa
+                      ? (v) => setState(() => _acceptsPublic = v)
+                      : null,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Aceitar inscrições pelo link',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    _status == BaptismTurmaStatus.ativa
+                        ? 'A turma aparece no formulário público de inscrição.'
+                        : 'Só turma ativa pode receber inscrição pelo link.',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                const SizedBox(height: 4),
                 TextFormField(
                   controller: _description,
                   maxLines: 2,

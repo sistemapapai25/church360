@@ -33,7 +33,7 @@ Future<void> _pumpBar(
               AppFilterButton(label: 'Todas as turmas'),
             ],
             onSort: () {},
-            secondaryAction: const AppFilterAction(label: 'Turmas'),
+            secondaryActions: const [AppFilterAction(label: 'Turmas')],
             primaryAction: AppFilterAction(
               label: 'Novo aluno',
               icon: Icons.add,

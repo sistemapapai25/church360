@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../../core/design/community_design.dart';
+import '../../../../../../core/utils/share_link_utils.dart';
 import '../../../../../../core/utils/whatsapp_launcher.dart';
 import '../../../../../../core/widgets/app_filter_bar.dart';
+import '../../../../../../core/widgets/share_link_dialog.dart';
 import '../../../data/baptism_repository.dart';
 import '../../../domain/models/baptism_student.dart';
 import '../../../domain/models/baptism_turma.dart';
@@ -202,6 +204,38 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
     if (changed && mounted) invalidateBaptismData(ref, widget.ministryId);
   }
 
+  /// Abre o diálogo com o link público de inscrição.
+  ///
+  /// O aviso de "nenhuma turma aberta" existe porque o link continua
+  /// válido mesmo sem turma aceitando inscrição — quem o recebesse veria
+  /// "Inscrições fechadas" e ninguém aqui saberia por quê. A turma se abre
+  /// no formulário dela, em Turmas.
+  void _shareRegistrationLink(List<BaptismTurma> turmas) {
+    final abertas = turmas
+        .where(
+          (t) =>
+              t.acceptsPublicRegistration &&
+              t.status == BaptismTurmaStatus.ativa,
+        )
+        .length;
+
+    showShareLinkDialog(
+      context,
+      title: 'Link de inscrição',
+      url: ShareLinkUtils.buildShareUrl(
+        '/batismo/${widget.ministryId}/inscricao',
+      ),
+      shareText:
+          'Inscreva-se no curso de batismo: '
+          '${ShareLinkUtils.buildShareUrl('/batismo/${widget.ministryId}/inscricao')}',
+      warning: abertas == 0
+          ? 'Nenhuma turma está aceitando inscrição agora. Quem abrir o link '
+                'vai ver "Inscrições fechadas" — abra uma turma em Turmas antes '
+                'de divulgar.'
+          : null,
+    );
+  }
+
   Future<T?> _pickOption<T>({
     required String title,
     required List<(T, String)> options,
@@ -338,15 +372,25 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
                   if (picked != null) setState(() => _sort = picked);
                 },
                 sortTooltip: 'Ordenar (${_sort.label})',
-                secondaryAction: AppFilterAction(
-                  label: 'Turmas',
-                  icon: Icons.groups_2_outlined,
-                  onPressed: () => _openTurmas(
-                    canCreate: canCreate,
-                    canEdit: canEdit,
-                    canDelete: canDelete,
+                secondaryActions: [
+                  AppFilterAction(
+                    label: 'Turmas',
+                    icon: Icons.groups_2_outlined,
+                    onPressed: () => _openTurmas(
+                      canCreate: canCreate,
+                      canEdit: canEdit,
+                      canDelete: canDelete,
+                    ),
                   ),
-                ),
+                  // Só para quem administra: o link é um canal de entrada na
+                  // igreja, não um botão de leitura.
+                  if (canEdit)
+                    AppFilterAction(
+                      label: 'Link de inscrição',
+                      icon: Icons.link,
+                      onPressed: () => _shareRegistrationLink(turmas),
+                    ),
+                ],
                 primaryAction: canCreate
                     ? AppFilterAction(
                         label: 'Novo aluno',

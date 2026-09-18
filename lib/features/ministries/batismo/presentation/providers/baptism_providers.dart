@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../data/baptism_repository.dart';
+import '../../domain/models/baptism_public_info.dart';
 import '../../domain/models/baptism_student.dart';
 import '../../domain/models/baptism_turma.dart';
 
@@ -18,6 +19,16 @@ final baptismStudentsProvider =
     FutureProvider.family<List<BaptismStudent>, String>((ref, ministryId) async {
   final repo = ref.watch(baptismRepositoryProvider);
   return repo.getStudents(ministryId);
+});
+
+/// Dados do formulário público de inscrição — o que o link abre.
+///
+/// Vive fora de qualquer sessão: quem chega aqui pode não estar logado, e
+/// é a RPC `baptism_public_registration_info` que decide o que aparece.
+final baptismPublicInfoProvider =
+    FutureProvider.family<BaptismPublicInfo, String>((ref, ministryId) async {
+  final repo = ref.watch(baptismRepositoryProvider);
+  return repo.getPublicRegistrationInfo(ministryId);
 });
 
 /// As três ações de escrita do módulo, com o código RBAC de cada uma.
