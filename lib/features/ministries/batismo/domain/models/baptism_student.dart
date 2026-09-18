@@ -81,6 +81,8 @@ class BaptismStudent {
 
   BaptismStudent copyWith({
     String? turmaId,
+    String? userId,
+    bool clearUserId = false,
     String? fullName,
     String? phone,
     String? email,
@@ -93,7 +95,7 @@ class BaptismStudent {
       id: id,
       tenantId: tenantId,
       turmaId: turmaId ?? this.turmaId,
-      userId: userId,
+      userId: clearUserId ? null : (userId ?? this.userId),
       fullName: fullName ?? this.fullName,
       phone: phone ?? this.phone,
       email: email ?? this.email,

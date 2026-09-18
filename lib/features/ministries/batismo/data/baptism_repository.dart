@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/supabase_constants.dart';
+import '../domain/models/baptism_member_suggestion.dart';
 import '../domain/models/baptism_public_info.dart';
 import '../domain/models/baptism_student.dart';
 import '../domain/models/baptism_turma.dart';
@@ -28,7 +29,7 @@ class BaptismRepository {
   Future<List<BaptismTurma>> getTurmas(String ministryId) async {
     final response = await _supabase
         .from('baptism_turma')
-        .select('*, event(name, start_date)')
+        .select()
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('ministry_id', ministryId)
         .order('created_at', ascending: false);
@@ -45,7 +46,7 @@ class BaptismRepository {
     final response = await _supabase
         .from('baptism_turma')
         .insert(payload)
-        .select('*, event(name, start_date)')
+        .select()
         .single();
 
     return BaptismTurma.fromJson(Map<String, dynamic>.from(response));
@@ -56,7 +57,7 @@ class BaptismRepository {
         .from('baptism_turma')
         .update(turma.toWriteJson())
         .eq('id', turma.id)
-        .select('*, event(name, start_date)')
+        .select()
         .single();
 
     return BaptismTurma.fromJson(Map<String, dynamic>.from(response));
@@ -135,6 +136,42 @@ class BaptismRepository {
   // Inscrição pública (sem login)
   // -------------------------------------------------------------------
   //
+  // -------------------------------------------------------------------
+  // Busca de membro (cadastro de aluno)
+  // -------------------------------------------------------------------
+
+  /// Membros do tenant que casam com [query], com telefone, e-mail e
+  /// nascimento para o formulário preencher sozinho.
+  ///
+  /// Passa pela RPC `baptism_member_lookup` porque nenhum dos caminhos
+  /// que já existiam serve: o diretório de membros não devolve contato, e
+  /// ler `user_account` direto depende da RLS dessa tabela, que olha
+  /// `role_global`/`access_level` e não o RBAC — quem lidera o batismo
+  /// com `baptism.*` e sem papel elevado veria lista vazia.
+  ///
+  /// Abaixo de 3 caracteres devolve vazio sem ir à rede; a função no
+  /// banco repete a mesma trava, para que uma chamada crua não vire um
+  /// dump do diretório.
+  Future<List<BaptismMemberSuggestion>> searchMembers({
+    required String ministryId,
+    required String query,
+  }) async {
+    if (query.trim().length < 3) return const [];
+
+    final response = await _supabase.rpc(
+      'baptism_member_lookup',
+      params: {
+        'p_ministry_id': ministryId,
+        'p_query': query.trim(),
+      },
+    );
+
+    return (response as List)
+        .map((e) =>
+            BaptismMemberSuggestion.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
   // Os dois métodos abaixo rodam com a chave anônima, do lado de fora de
   // qualquer sessão: são o que o link de inscrição usa. Nenhum deles toca
   // `baptism_turma` ou `baptism_student` direto — as policies dessas

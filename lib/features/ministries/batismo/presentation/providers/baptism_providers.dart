@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../events/presentation/providers/events_provider.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../data/baptism_repository.dart';
@@ -19,6 +20,23 @@ final baptismStudentsProvider =
     FutureProvider.family<List<BaptismStudent>, String>((ref, ministryId) async {
   final repo = ref.watch(baptismRepositoryProvider);
   return repo.getStudents(ministryId);
+});
+
+/// Catálogo de categorias da agenda (`event_type`), para o seletor da
+/// turma.
+///
+/// É o mesmo catálogo do formulário de evento — e por isso já sai sem o
+/// code `news`, que é marcador de sistema e não um tipo de evento de
+/// alguma igreja. Fica aqui, e não no módulo de eventos, porque nenhum
+/// provider existia: as outras telas chamam o repositório direto.
+final baptismEventTypeCatalogProvider =
+    FutureProvider<List<({String code, String label})>>((ref) async {
+  final repo = ref.watch(eventsRepositoryProvider);
+  final catalog = await repo.getEventTypesCatalog();
+  return [
+    for (final e in catalog)
+      (code: e['code'] ?? '', label: e['label'] ?? e['code'] ?? ''),
+  ];
 });
 
 /// Dados do formulário público de inscrição — o que o link abre.

@@ -122,7 +122,11 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
       );
       return;
     }
-    final saved = await showStudentFormSheet(context: context, turmas: turmas);
+    final saved = await showStudentFormSheet(
+      context: context,
+      ministryId: widget.ministryId,
+      turmas: turmas,
+    );
     if (saved && mounted) invalidateBaptismData(ref, widget.ministryId);
   }
 
@@ -132,6 +136,7 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
   ) async {
     final saved = await showStudentFormSheet(
       context: context,
+      ministryId: widget.ministryId,
       turmas: turmas,
       student: student,
     );
