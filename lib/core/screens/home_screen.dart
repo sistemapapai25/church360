@@ -41,6 +41,9 @@ import '../widgets/navigation/custom_bottom_nav_bar.dart';
 import '../../features/home/presentation/widgets/home_content_card.dart';
 import '../../features/home/presentation/widgets/home_section_widget.dart';
 import '../utils/app_exit.dart';
+import '../../features/ministries/domain/models/ministry.dart';
+import '../../features/ministries/presentation/providers/ministries_provider.dart';
+import '../../features/permissions/providers/permissions_providers.dart';
 
 /// Tela principal do app com navegação por abas fixas
 class HomeScreen extends ConsumerStatefulWidget {
@@ -1630,6 +1633,11 @@ class _MoreTab extends ConsumerWidget {
               );
             },
           ),
+          // Atalho direto para os ministérios em que a pessoa TEM vínculo —
+          // logo abaixo de "Liderança", como o feedback dos usuários pediu.
+          // Não é o hub (/ministries, que lista os da igreja inteira): é "os
+          // meus", sem passar pela dashboard e pelo drawer.
+          const _MyMinistriesSection(),
           _buildMenuCard(
             context,
             Icons.child_care_outlined,
@@ -1847,6 +1855,131 @@ class _MoreTab extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// =====================================================
+// WIDGET: Meus Ministérios (aba Mais)
+// =====================================================
+
+/// Seção "MEUS MINISTÉRIOS" da aba Mais: lista os ministérios em que a pessoa
+/// logada tem vínculo, como atalho de um toque.
+///
+/// Regras que valem a pena não reaprender:
+/// - A fonte é [currentMemberMinistriesProvider], que resolve o vínculo por
+///   `user_account.id` (a chave que `ministry_member` entende). Usar
+///   `auth.uid()` aqui devolveria lista vazia em silêncio.
+/// - Sem vínculo, carregando ou com erro, a seção inteira não existe. A aba
+///   Mais não pode ganhar espaço morto nem mensagem de erro por causa disto.
+/// - A rota de detalhe `/ministries/:id` é protegida por `ministries.view`
+///   (`app_router.dart`). Quem não tem a permissão vê o ministério como
+///   informação, sem toque — em vez de bater numa tela de "sem permissão".
+class _MyMinistriesSection extends ConsumerWidget {
+  const _MyMinistriesSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ministeriosAsync = ref.watch(currentMemberMinistriesProvider);
+
+    final ministerios = ministeriosAsync.asData?.value ?? const <Ministry>[];
+    if (ministerios.isEmpty) return const SizedBox.shrink();
+
+    // Só o `data` libera a navegação: enquanto a permissão não resolveu, o
+    // card aparece como informação. Errar para o lado de não navegar é
+    // preferível a mandar a pessoa para uma tela de permissão negada.
+    final podeAbrir =
+        ref.watch(currentUserHasPermissionProvider('ministries.view')).asData
+            ?.value ??
+        false;
+
+    final cs = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'MEUS MINISTÉRIOS',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: cs.onSurfaceVariant,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.1,
+          ),
+        ),
+        const SizedBox(height: 12),
+        for (final ministerio in ministerios) ...[
+          _MinistryShortcutCard(ministry: ministerio, canOpen: podeAbrir),
+          const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+}
+
+/// Card de um ministério na seção "MEUS MINISTÉRIOS". Espelha a aparência do
+/// `_buildMenuCard` da aba Mais, sem reaproveitá-lo, porque aqui o destino é
+/// condicional e a seta some quando não há para onde ir.
+class _MinistryShortcutCard extends StatelessWidget {
+  const _MinistryShortcutCard({required this.ministry, required this.canOpen});
+
+  final Ministry ministry;
+  final bool canOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    const itemColor = Colors.indigo;
+
+    final conteudo = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: itemColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.church, color: itemColor, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              ministry.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: cs.onSurface,
+              ),
+            ),
+          ),
+          if (canOpen)
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 14,
+              color: cs.onSurface.withValues(alpha: 0.3),
+            ),
+        ],
+      ),
+    );
+
+    return Container(
+      decoration: CommunityDesign.overlayDecoration(
+        cs,
+      ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
+      child: canOpen
+          ? Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(_homeCardRadius),
+                onTap: () => context.push('/ministries/${ministry.id}'),
+                child: conteudo,
+              ),
+            )
+          : conteudo,
     );
   }
 }
