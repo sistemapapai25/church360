@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../domain/family_chain_propagation.dart';
+
 const Map<String, String> familyRelationshipTypeLabels = {
   'pai': 'Pai',
   'mae': 'Mãe',
@@ -186,18 +188,23 @@ class FamilyRelationshipsRepository {
       String memberId, String parenteId, String type) async {
     // Ninguém é parente de si mesmo, e o banco concorda:
     // check_not_self_relationship CHECK (membro_id != parente_id) devolve
-    // 23514. A propagação de avós chega aqui com os dois lados iguais em
-    // casos legítimos — ao ligar pai/filho, o vínculo inverso recém-criado
-    // volta na leitura e faz a pessoa candidata a avó de si mesma. Sair
-    // quieto aqui é a resposta certa: não há o que gravar.
+    // 23514. `planGrandparentLinks` já descarta esses pares na origem; o
+    // guard fica como rede, porque quem chama daqui de fora não passa por
+    // ele. Sair quieto é a resposta certa: não há o que gravar.
     if (memberId == parenteId) return;
 
     // Evitar duplicado
+    // `.limit(1)` antes do `.maybeSingle()` não é decoração: a tabela não
+    // tem UNIQUE em (membro_id, parente_id), e um par duplicado — que a
+    // propagação antiga sabia criar — fazia o `maybeSingle` estourar. O erro
+    // subia como falha de propagação e a tela avisava em laranja logo depois
+    // de gravar o vínculo com sucesso.
     final existing = await _supabase
         .from('relacionamentos_familiares')
         .select('id')
         .eq('membro_id', memberId)
         .eq('parente_id', parenteId)
+        .limit(1)
         .maybeSingle();
     if (existing != null) return;
 
@@ -233,6 +240,7 @@ class FamilyRelationshipsRepository {
           .select('id')
           .eq('membro_id', parenteId)
           .eq('parente_id', memberId)
+          .limit(1)
           .maybeSingle();
 
       if (inverseExisting == null) {
@@ -249,86 +257,48 @@ class FamilyRelationshipsRepository {
     }
   }
 
+  /// Cria os vínculos de avô/avó/neto que decorrem de um vínculo de
+  /// filiação recém-gravado.
+  ///
+  /// Toda a decisão mora em `planGrandparentLinks`, que é pura e testada.
+  /// Aqui só sobra o que precisa do banco: descobrir as duas listas e o
+  /// gênero de quem é pai/mãe.
+  ///
+  /// A versão anterior lia a convenção da tabela ao contrário (tratava
+  /// `(membro, parente, 'pai')` como "membro é pai do parente") e, por
+  /// causa disso, ao cadastrar o segundo genitor de uma criança ligava os
+  /// dois genitores entre si como avô e avó — a CHU-367.
   Future<void> _propagateChain(
       String memberId, String parenteId, String type) async {
-    // Lógica de propagação de vínculos (Ex: Pai + Pai = Avô)
-    // memberId -> parenteId (type)
+    final filiacao = normalizeFiliacao(
+      membroId: memberId,
+      parenteId: parenteId,
+      tipo: type,
+    );
+    if (filiacao == null) return;
 
-    // Precisamos do gênero do memberId para definir se ele entra como Avô ou Avó
-    final mDirectory = await _directoryByIds([memberId]);
-    final memberGender = _toSexo(mDirectory[memberId]?['gender'] as String?);
-    final isMemberMale = memberGender == 'M';
+    final parentId = filiacao.parentId;
+    final childId = filiacao.childId;
 
-    // Se estamos adicionando um PAI ou MÃE (memberId é pai/mãe de parenteId)
-    if (type == 'pai' || type == 'mae') {
-      // 1. Verificar se o PAI (memberId) tem PAIS (Avós do parenteId)
-      final memberRelations = await getByMember(memberId);
-      final parentsOfMember = memberRelations
-          .where((r) => r.tipo == 'pai' || r.tipo == 'mae')
-          .toList();
+    final parentRelations = await getByMember(parentId);
+    final childRelations = await getByMember(childId);
+    final parentDirectory = await _directoryByIds([parentId]);
+    final parentSexo = _toSexo(parentDirectory[parentId]?['gender'] as String?);
 
-      for (final gp in parentsOfMember) {
-        // gp.parenteId é o pai/mãe de memberId.
-        // Logo, gp.parenteId é AVÔ/AVÓ de parenteId.
-        // O tipo (Avô/Avó) depende do gênero de gp.parenteId.
-        // Podemos deduzir o gênero pelo tipo da relação (pai=M, mae=F).
-        final isGpMale = gp.tipo == 'pai';
-        final grandParentType = isGpMale ? 'avo' : 'ava';
+    final links = planGrandparentLinks(
+      parentId: parentId,
+      childId: childId,
+      parentRelations: parentRelations
+          .map((r) => FamilyTie(parenteId: r.parenteId, tipo: r.tipo))
+          .toList(),
+      childRelations: childRelations
+          .map((r) => FamilyTie(parenteId: r.parenteId, tipo: r.tipo))
+          .toList(),
+      parentSexo: parentSexo,
+    );
 
-        // Criar vínculo: GP -> Neto(a)
-        await _addRelationshipCore(
-            gp.parenteId, parenteId, grandParentType);
-      }
-
-      // 2. Verificar se o FILHO (parenteId) tem FILHOS (Netos do memberId)
-      final childRelations = await getByMember(parenteId);
-      final childrenOfChild = childRelations
-          .where((r) => r.tipo == 'pai' || r.tipo == 'mae') // Ele é pai/mãe deles
-          .toList();
-      
-      for (final gc in childrenOfChild) {
-        // memberId é AVÔ/AVÓ de gc.parenteId
-        final grandParentType = isMemberMale ? 'avo' : 'ava';
-        await _addRelationshipCore(
-             memberId, gc.parenteId, grandParentType);
-      }
-    }
-
-    // Se estamos adicionando um FILHO ou FILHA (memberId é filho/filha de parenteId)
-    // É o inverso do caso acima, mas tratado separadamente para clareza
-    if (type == 'filho' || type == 'filha') {
-      // memberId (Filho) -> parenteId (Pai/Mãe)
-      
-      // 1. Verificar se o PAI (parenteId) tem PAIS (Avós do memberId)
-      final parentRelations = await getByMember(parenteId);
-      final grandparents = parentRelations
-          .where((r) => r.tipo == 'pai' || r.tipo == 'mae')
-          .toList();
-      
-      for (final gp in grandparents) {
-        // gp.parenteId é avô/avó de memberId
-        final isGpMale = gp.tipo == 'pai';
-        final grandParentType = isGpMale ? 'avo' : 'ava';
-        await _addRelationshipCore(gp.parenteId, memberId, grandParentType);
-      }
-
-       // 2. Verificar se o FILHO (memberId) tem FILHOS (Netos do parenteId)
-       // Se o memberId já tem filhos, o parenteId vira Avô/Avó deles.
-       // Precisamos saber o gênero do parenteId.
-       final pDirectory = await _directoryByIds([parenteId]);
-       final parentGender = _toSexo(pDirectory[parenteId]?['gender'] as String?);
-       final isParentMale = parentGender == 'M';
-
-       final memberRelations = await getByMember(memberId);
-       final grandChildren = memberRelations
-          .where((r) => r.tipo == 'pai' || r.tipo == 'mae') // member é pai deles
-          .toList();
-
-        for (final gc in grandChildren) {
-          // parenteId é Avô/Avó de gc.parenteId
-          final grandParentType = isParentMale ? 'avo' : 'ava';
-          await _addRelationshipCore(parenteId, gc.parenteId, grandParentType);
-        }
+    for (final link in links) {
+      await _addRelationshipCore(link.membroId, link.parenteId, link.tipo);
     }
   }
 
