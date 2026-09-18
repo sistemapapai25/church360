@@ -117,6 +117,21 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
     }
   }
 
+  /// Quantos eventos da agenda caem na categoria e na janela da turma.
+  ///
+  /// Sem janela a resposta é 0 e não "todos": uma turma sem período não
+  /// tem encontro definido, tem um intervalo em aberto — e mostrar a
+  /// agenda inteira como se fosse dela seria pior do que mostrar zero.
+  static int? _sessionCount(BaptismTurma turma, List<Event>? agenda) {
+    if (agenda == null) return null;
+    return agenda
+        .where((e) => turma.coversEvent(
+              eventTypeCode: e.eventType,
+              eventStart: e.startDate,
+            ))
+        .length;
+  }
+
   @override
   Widget build(BuildContext context) {
     final turmasAsync = ref.watch(baptismTurmasProvider(widget.ministryId));
@@ -128,6 +143,20 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
         counts[s.turmaId] = (counts[s.turmaId] ?? 0) + 1;
       }
     });
+
+    // Rótulo da categoria e contagem de encontros são resolvidos aqui, uma
+    // vez para a folha toda: o catálogo e a agenda já são carregados para o
+    // formulário, e contar no cliente evita uma consulta por turma.
+    final categoryLabels = <String?, String>{};
+    ref.watch(baptismEventTypeCatalogProvider).whenData((catalog) {
+      for (final c in catalog) {
+        categoryLabels[c.code] = c.label;
+      }
+    });
+
+    // `null` enquanto a agenda não chegou — o tile usa isso para não
+    // anunciar "nenhum encontro" antes de ter os eventos em mãos.
+    final agenda = ref.watch(allEventsProvider).valueOrNull;
 
     return PopScope(
       canPop: false,
@@ -177,7 +206,9 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Cada turma aponta o evento da agenda que é o batismo dela.',
+              'Cada turma aponta uma categoria da agenda e um período. Os '
+              'eventos daquela categoria dentro do período são os encontros '
+              'da turma.',
               style: CommunityDesign.metaStyle(context),
             ),
             const SizedBox(height: 12),
@@ -215,6 +246,8 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
                       return _TurmaTile(
                         turma: t,
                         studentCount: counts[t.id] ?? 0,
+                        categoryLabel: categoryLabels[t.eventTypeCode],
+                        sessionCount: _sessionCount(t, agenda),
                         onEdit:
                             widget.canEdit ? () => _openForm(turma: t) : null,
                         onDelete: widget.canDelete
@@ -241,12 +274,24 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
 class _TurmaTile extends StatelessWidget {
   final BaptismTurma turma;
   final int studentCount;
+
+  /// Rótulo da categoria escolhida, já resolvido pelo catálogo. Nulo
+  /// quando a turma não tem categoria — ou quando o catálogo ainda está
+  /// carregando, e aí o code cru serve de legenda provisória.
+  final String? categoryLabel;
+
+  /// Quantos eventos da agenda caem na janela da turma. `null` enquanto a
+  /// agenda carrega: mostrar "0 encontros" nesse intervalo seria mentira.
+  final int? sessionCount;
+
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
   const _TurmaTile({
     required this.turma,
     required this.studentCount,
+    this.categoryLabel,
+    this.sessionCount,
     this.onEdit,
     this.onDelete,
   });
@@ -256,7 +301,7 @@ class _TurmaTile extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final borderColor = dark ? AppTheme.darkBorder : AppTheme.border;
 
-    final event = turma.eventName;
+    final category = categoryLabel ?? turma.eventTypeCode;
     final period = _periodLabel(turma);
 
     return Container(
@@ -326,7 +371,7 @@ class _TurmaTile extends StatelessWidget {
           Row(
             children: [
               Icon(
-                event == null ? Icons.event_busy_outlined : Icons.event,
+                category == null ? Icons.event_busy_outlined : Icons.event,
                 size: 14,
                 color: dark
                     ? AppTheme.darkMutedForeground
@@ -335,15 +380,48 @@ class _TurmaTile extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  event ?? 'Sem evento de batismo vinculado',
+                  _agendaLabel(category, sessionCount),
                   style: CommunityDesign.metaStyle(context),
                 ),
               ),
             ],
           ),
+          // Uma turma sem janela recolheria todo evento novo da categoria
+          // para sempre. O formulário já não deixa criar assim; este aviso
+          // é para as turmas criadas antes da regra.
+          if (!turma.hasWindow) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  size: 14,
+                  color: AppTheme.warningColor,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Sem período definido — edite a turma para fechar as datas.',
+                    style: CommunityDesign.metaStyle(context)
+                        .copyWith(color: AppTheme.warningColor),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  /// A legenda da linha da agenda. Categoria sem encontro nenhum é o caso
+  /// que mais confunde na tela — em geral significa período errado, não
+  /// categoria errada —, então ela diz isso em vez de ficar muda.
+  static String _agendaLabel(String? category, int? sessions) {
+    if (category == null) return 'Sem categoria da agenda vinculada';
+    if (sessions == null) return category;
+    if (sessions == 0) return '$category · nenhum encontro no período';
+    return '$category · $sessions ${sessions == 1 ? 'encontro' : 'encontros'}';
   }
 
   static String? _periodLabel(BaptismTurma turma) {
@@ -376,7 +454,7 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
   late final TextEditingController _name;
   late final TextEditingController _description;
 
-  String? _eventId;
+  String? _eventTypeCode;
   DateTime? _startDate;
   DateTime? _endDate;
   late BaptismTurmaStatus _status;
@@ -392,7 +470,7 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
     final t = widget.turma;
     _name = TextEditingController(text: t?.name ?? '');
     _description = TextEditingController(text: t?.description ?? '');
-    _eventId = t?.eventId;
+    _eventTypeCode = t?.eventTypeCode;
     _startDate = t?.startDate;
     _endDate = t?.endDate;
     _status = t?.status ?? BaptismTurmaStatus.ativa;
@@ -431,10 +509,22 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
 
     final start = _startDate;
     final end = _endDate;
+
+    // O período é obrigatório NA TELA, e não no banco: pôr NOT NULL na
+    // coluna quebraria as turmas que já existem em produção sem datas. É
+    // esta janela que impede a turma de recolher todo evento futuro da
+    // categoria para sempre.
+    if (start == null || end == null) {
+      setState(() => _error =
+          'Informe o início e o fim do curso — é o período que define '
+          'quais encontros da agenda são desta turma.');
+      return;
+    }
+
     // Mesmo CHECK que existe no banco (`baptism_turma_period_ordered`).
     // Validar aqui transforma um 23514 cru numa frase.
-    if (start != null && end != null && end.isBefore(start)) {
-      setState(() => _error = 'O fim das aulas não pode ser antes do início.');
+    if (end.isBefore(start)) {
+      setState(() => _error = 'O fim do curso não pode ser antes do início.');
       return;
     }
 
@@ -453,7 +543,7 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
             id: '',
             tenantId: '',
             ministryId: widget.ministryId,
-            eventId: _eventId,
+            eventTypeCode: _eventTypeCode,
             name: _name.text,
             description: _description.text,
             startDate: _startDate,
@@ -468,8 +558,8 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
           existing.copyWith(
             name: _name.text,
             description: _description.text,
-            eventId: _eventId,
-            clearEventId: _eventId == null,
+            eventTypeCode: _eventTypeCode,
+            clearEventTypeCode: _eventTypeCode == null,
             startDate: _startDate,
             clearStartDate: _startDate == null,
             endDate: _endDate,
@@ -505,7 +595,8 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final eventsAsync = ref.watch(allEventsProvider);
+    final catalogAsync = ref.watch(baptismEventTypeCatalogProvider);
+    final agenda = ref.watch(allEventsProvider).valueOrNull;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -550,37 +641,36 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
                       : null,
                 ),
                 const SizedBox(height: 12),
-                // Seletor de EVENTO, não filtro por tipo: o catálogo
-                // `event_type` é por igreja, então um filtro fixo por rótulo
-                // não acharia o evento da segunda igreja (D2 revista).
-                eventsAsync.when(
+                // Seletor de CATEGORIA, escolhida por turma a partir do
+                // catálogo desta igreja. Um filtro FIXO por rótulo é que
+                // não sobreviveria à segunda igreja — este não é fixo.
+                catalogAsync.when(
                   loading: () => const LinearProgressIndicator(),
                   error: (e, _) => Text(
-                    'Não foi possível carregar os eventos da agenda.',
+                    'Não foi possível carregar as categorias da agenda.',
                     style: CommunityDesign.metaStyle(context),
                   ),
-                  data: (events) => DropdownButtonFormField<String?>(
-                    initialValue: _eventId,
+                  data: (catalog) => DropdownButtonFormField<String?>(
+                    initialValue: _knownCode(catalog, _eventTypeCode),
                     isExpanded: true,
                     decoration: const InputDecoration(
-                      labelText: 'Evento do batismo',
-                      helperText: 'Pode ficar em branco até a data ser marcada',
+                      labelText: 'Categoria na agenda',
+                      helperText:
+                          'Os eventos desta categoria, dentro do período, '
+                          'são os encontros da turma',
                     ),
                     items: [
                       const DropdownMenuItem<String?>(
                         value: null,
-                        child: Text('Sem evento vinculado'),
+                        child: Text('Sem categoria vinculada'),
                       ),
-                      for (final e in _sortedEvents(events))
+                      for (final c in catalog)
                         DropdownMenuItem<String?>(
-                          value: e.id,
-                          child: Text(
-                            '${e.name} · ${_fmtDate(e.startDate)}',
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          value: c.code,
+                          child: Text(c.label, overflow: TextOverflow.ellipsis),
                         ),
                     ],
-                    onChanged: (v) => setState(() => _eventId = v),
+                    onChanged: (v) => setState(() => _eventTypeCode = v),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -588,7 +678,7 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
                   children: [
                     Expanded(
                       child: _DateField(
-                        label: 'Início das aulas',
+                        label: 'Início do curso *',
                         value: _startDate,
                         onTap: () => _pickDate(start: true),
                         onClear: () => setState(() => _startDate = null),
@@ -597,7 +687,7 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: _DateField(
-                        label: 'Fim das aulas',
+                        label: 'Fim do curso *',
                         value: _endDate,
                         onTap: () => _pickDate(start: false),
                         onClear: () => setState(() => _endDate = null),
@@ -605,6 +695,16 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
                     ),
                   ],
                 ),
+                // Prévia do que o vínculo produz. Sem ela, categoria e
+                // período são dois campos abstratos; com ela, dá para ver
+                // na hora que o período pegou as aulas erradas.
+                if (_eventTypeCode != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _previewLabel(agenda),
+                    style: CommunityDesign.metaStyle(context),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 DropdownButtonFormField<BaptismTurmaStatus>(
                   initialValue: _status,
@@ -699,12 +799,50 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
     );
   }
 
-  /// Mais recentes primeiro: o evento que interessa é sempre o próximo, e a
-  /// agenda da igreja tem anos de histórico.
-  static List<Event> _sortedEvents(List<Event> events) {
-    final sorted = [...events]
-      ..sort((a, b) => b.startDate.compareTo(a.startDate));
-    return sorted;
+  /// A categoria gravada pode não estar mais no catálogo (alguém apagou
+  /// o tipo, ou ele é de outra igreja). Passar um valor fora dos itens
+  /// para o `DropdownButtonFormField` estoura em tempo de execução, então
+  /// aqui ele vira null e o campo aparece vazio, pedindo escolha.
+  static String? _knownCode(
+    List<({String code, String label})> catalog,
+    String? code,
+  ) {
+    if (code == null) return null;
+    return catalog.any((c) => c.code == code) ? code : null;
+  }
+
+  /// Quantos encontros a escolha atual recolhe da agenda.
+  String _previewLabel(List<Event>? agenda) {
+    if (agenda == null) return 'Carregando a agenda…';
+    if (_startDate == null || _endDate == null) {
+      return 'Defina o período para ver quantos encontros entram na turma.';
+    }
+
+    final probe = BaptismTurma(
+      id: '',
+      tenantId: '',
+      ministryId: widget.ministryId,
+      eventTypeCode: _eventTypeCode,
+      name: '',
+      startDate: _startDate,
+      endDate: _endDate,
+      status: _status,
+      createdAt: DateTime.now(),
+    );
+
+    final count = agenda
+        .where((e) => probe.coversEvent(
+              eventTypeCode: e.eventType,
+              eventStart: e.startDate,
+            ))
+        .length;
+
+    if (count == 0) {
+      return 'Nenhum encontro desta categoria cai neste período — confira '
+          'as datas.';
+    }
+    return '$count ${count == 1 ? 'encontro entra' : 'encontros entram'} '
+        'nesta turma.';
   }
 }
 
