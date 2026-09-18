@@ -1021,7 +1021,15 @@ class _EventTypesManageScreenState
         setState(() => _error = 'Tipo em uso por $used evento(s)');
         return;
       }
-      await repo.deleteEventType(code);
+      final removed = await repo.deleteEventType(code);
+      if (removed == 0) {
+        setState(
+          () => _error =
+              'Você não tem permissão para excluir tipos de evento. '
+              'Nada foi alterado.',
+        );
+        return;
+      }
       await _load();
       setState(() => _error = '');
     } catch (e) {
