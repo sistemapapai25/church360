@@ -6,6 +6,7 @@ enum MinistryType {
   generic('generic'),
   raizes('raizes'),
   diaconato('diaconato'),
+  batismo('batismo'),
   kids('kids'),
   louvor('louvor'),
   midia('midia');
@@ -74,6 +75,8 @@ class Ministry {
         return '/ministries/$id/raizes';
       case MinistryType.diaconato:
         return '/ministries/$id/diaconato';
+      case MinistryType.batismo:
+        return '/ministries/$id/batismo';
       case MinistryType.generic:
       case MinistryType.kids:
       case MinistryType.louvor:

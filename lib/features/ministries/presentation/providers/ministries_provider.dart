@@ -161,6 +161,7 @@ class MinistryCapabilities {
 
   bool get isRaizes => ministryType == MinistryType.raizes;
   bool get isDiaconato => ministryType == MinistryType.diaconato;
+  bool get isBatismo => ministryType == MinistryType.batismo;
 
   /// Rota do submódulo especializado (mesma lógica do `Ministry.specializedRoute`),
   /// preservada aqui para uso em decisões que não têm o objeto Ministry à mão.
@@ -170,6 +171,8 @@ class MinistryCapabilities {
         return '/ministries/$ministryId/raizes';
       case MinistryType.diaconato:
         return '/ministries/$ministryId/diaconato';
+      case MinistryType.batismo:
+        return '/ministries/$ministryId/batismo';
       case MinistryType.generic:
       case MinistryType.kids:
       case MinistryType.louvor:
