@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/family_chain_propagation.dart';
@@ -254,6 +255,14 @@ class FamilyRelationshipsRepository {
       'tipo_relacionamento': type,
     });
 
+    // ---- ponto de não retorno ----
+    // Daqui para baixo o vínculo pedido JÁ ESTÁ no banco. Nada abaixo pode
+    // escapar como exceção: o `catch` genérico de member_form_screen não
+    // sabe distinguir, e mostraria "Não foi possível adicionar o vínculo"
+    // em cima de uma linha gravada — foi assim que o 23514 enganou o
+    // diagnóstico por duas sessões. O inverso é conveniência, igual à
+    // propagação de avós: se falhar, some em silêncio no log.
+
     // Inserir inverso.
     //
     // Convenção da tela (member_form_screen `_buildFamilyRelationRow` e
@@ -266,29 +275,33 @@ class FamilyRelationshipsRepository {
     // Ex.: (Ramon → Maria, 'filha') tem inverso (Maria → Ramon, 'pai'),
     // porque quem é pai/mãe ali é o Ramon. Usar o gênero da Maria fazia o
     // perfil dela mostrar "Ramon — Mãe".
-    final sexoMembroRef = _toSexo(genderMembro);
-    final tipoInverso = _getTipoInverso(type, sexoMembroRef);
+    try {
+      final sexoMembroRef = _toSexo(genderMembro);
+      final tipoInverso = _getTipoInverso(type, sexoMembroRef);
 
-    if (tipoInverso != null) {
-      final inverseExisting = await _supabase
-          .from('relacionamentos_familiares')
-          .select('id')
-          .eq('membro_id', parenteId)
-          .eq('parente_id', memberId)
-          .limit(1)
-          .maybeSingle();
+      if (tipoInverso != null) {
+        // O SELECT abaixo também conta: era ele, e não o insert, que
+        // estourava fora de qualquer try e virava mensagem vermelha.
+        final inverseExisting = await _supabase
+            .from('relacionamentos_familiares')
+            .select('id')
+            .eq('membro_id', parenteId)
+            .eq('parente_id', memberId)
+            .limit(1)
+            .maybeSingle();
 
-      if (inverseExisting == null) {
-        try {
+        if (inverseExisting == null) {
           await _supabase.from('relacionamentos_familiares').insert({
             'membro_id': parenteId,
             'parente_id': memberId,
             'tipo_relacionamento': tipoInverso,
           });
-        } catch (_) {
-          // ignorar falhas por RLS
         }
       }
+    } catch (e) {
+      // Falha de RLS, de rede ou de duplicidade no inverso. O vínculo
+      // direto continua gravado e a tela deve dizer que deu certo.
+      debugPrint('Vínculo inverso não pôde ser criado: $e');
     }
   }
 
