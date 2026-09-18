@@ -10,13 +10,14 @@ import '../../../shared/presentation/widgets/ministry_workspace_shell.dart';
 import '../../domain/models/baptism_student.dart';
 import '../providers/baptism_providers.dart';
 import 'tabs/batismo_alunos_tab.dart';
+import 'tabs/batismo_whatsapp_tab.dart';
 
 /// Workspace do Batismo nas Águas (Etapa 4 do plano).
 ///
-/// As oito abas aparecem desde já; Financeiro chega nas Etapas 2 e 5, e
-/// Checklist, Presença, WhatsApp e Relatórios depois. Até lá elas mostram um
-/// estado vazio honesto, para que a estrutura do módulo fique visível e o que
-/// falta fique explícito.
+/// As oito abas aparecem desde já. Equipe, Escala, Alunos e WhatsApp estão
+/// prontas; Financeiro chega nas Etapas 2 e 5, e Checklist, Presença e
+/// Relatórios depois. Até lá elas mostram um estado vazio honesto, para que a
+/// estrutura do módulo fique visível e o que falta fique explícito.
 class BatismoHomeScreen extends ConsumerWidget {
   final String ministryId;
 
@@ -116,9 +117,9 @@ class _BatismoWorkspace extends ConsumerWidget {
           label: 'Presença',
           builder: _presencaPlaceholder,
         ),
-        const MinistryWorkspaceTab(
+        MinistryWorkspaceTab(
           label: 'WhatsApp',
-          builder: _whatsappPlaceholder,
+          builder: (_) => BatismoWhatsAppTab(ministryId: ministryId),
         ),
         const MinistryWorkspaceTab(
           label: 'Relatórios',
@@ -151,14 +152,6 @@ Widget _presencaPlaceholder(BuildContext context) =>
       icon: Icons.how_to_reg_outlined,
       title: 'Presença nas aulas',
       description: 'Chamada por aula e o acompanhamento de quem está faltando.',
-    );
-
-Widget _whatsappPlaceholder(BuildContext context) =>
-    const MinistryTabPlaceholder(
-      icon: Icons.chat_outlined,
-      title: 'Comunicação',
-      description:
-          'Mensagem individual pelo WhatsApp e os avisos em massa da turma.',
     );
 
 Widget _relatoriosPlaceholder(BuildContext context) =>
