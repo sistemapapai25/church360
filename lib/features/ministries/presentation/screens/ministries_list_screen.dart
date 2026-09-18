@@ -343,7 +343,12 @@ class _MinistryCard extends ConsumerWidget {
       ),
       child: InkWell(
         onTap: () {
-          context.push('/ministries/${ministry.id}');
+          // Ministerio com modulo proprio (Batismo, Raizes, Diaconato) abre
+          // direto no modulo: a ficha deixou de ser a porta de entrada e
+          // passou a ser um destino de dentro dele.
+          context.push(
+            ministry.specializedRoute() ?? '/ministries/${ministry.id}',
+          );
         },
         borderRadius: BorderRadius.circular(CommunityDesign.radius),
         child: Padding(
