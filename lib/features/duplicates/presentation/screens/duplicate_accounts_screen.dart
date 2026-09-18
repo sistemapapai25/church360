@@ -144,10 +144,20 @@ class _GroupCardState extends ConsumerState<_GroupCard> {
 
   bool get _parCompleto => _selecionados.length == 2;
 
-  /// Duas fichas com login nao fundem: a RPC barra no passo 3, porque apagar
-  /// um auth.users exige a Admin API. Melhor dizer isso aqui do que deixar o
-  /// erro estourar depois do clique.
-  bool get _doisLogins => _parCompleto && _selecionadas.every((f) => f.temLogin);
+  /// Duas fichas com login nao fundem — mas so quando os logins sao
+  /// DIFERENTES. A guarda da RPC (20260917000700, passo 3) e
+  /// `count(DISTINCT auth_user_id) > 1`, nao "as duas tem login": apagar um
+  /// auth.users exige a Admin API, e isso so e problema quando ha dois.
+  ///
+  /// Quando o grupo veio pelo motivo 'login', as fichas compartilham o MESMO
+  /// auth_user_id — ele e a propria chave do grupo. Bloquear ai era negar o
+  /// merge justamente no caso em que a RPC aceita, e com a mensagem dizendo o
+  /// contrario do titulo do grupo ("Mesmo login: …"). Foi o que travou a
+  /// ultima linha da fila de duplicados (CHU-369).
+  bool get _doisLogins =>
+      _parCompleto &&
+      widget.grupo.motivo != 'login' &&
+      _selecionadas.every((f) => f.temLogin);
 
   @override
   Widget build(BuildContext context) {
@@ -194,8 +204,8 @@ class _GroupCardState extends ConsumerState<_GroupCard> {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  'As duas fichas têm login próprio. Resolva o login antes de '
-                  'fundir — ou marque como pessoas diferentes.',
+                  'As duas fichas têm logins diferentes. Resolva o login antes '
+                  'de fundir — ou marque como pessoas diferentes.',
                   style: tema.textTheme.bodySmall
                       ?.copyWith(color: tema.colorScheme.error),
                 ),
