@@ -472,6 +472,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     final readingsAsync = ref.watch(currentUserReadingsWithDevotionalProvider);
     final journeyItems = _buildJourneyItems(
       readingsAsync.value ?? const <Map<String, dynamic>>[],
+      member,
     );
     final canShowLeadership = _shouldShowLeadership(member);
 
@@ -1511,12 +1512,17 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         padding: EdgeInsets.symmetric(vertical: 8),
         child: Center(child: CircularProgressIndicator()),
       ),
-      error: (_, __) => Text(
-        'Não foi possível carregar sua caminhada agora.',
-        style: CommunityDesign.metaStyle(
-          context,
-        ).copyWith(color: colorScheme.error),
-      ),
+      // Falha ao carregar os devocionais não pode apagar os marcos da vida:
+      // eles vêm do cadastro, que já está em mãos. Só quando não há nada a
+      // mostrar é que a mensagem de erro aparece sozinha.
+      error: (_, __) => journeyItems.isNotEmpty
+          ? _buildJourneyTimeline(context, journeyItems)
+          : Text(
+              'Não foi possível carregar sua caminhada agora.',
+              style: CommunityDesign.metaStyle(
+                context,
+              ).copyWith(color: colorScheme.error),
+            ),
     );
 
     return Container(
@@ -2195,7 +2201,83 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     return type == 'lider' || type == 'coordenador' || type == 'admin';
   }
 
-  List<_JourneyItem> _buildJourneyItems(List<Map<String, dynamic>> readings) {
+  /// Marcos da vida da pessoa que já estão no cadastro, na ordem em que a
+  /// vida acontece. Só entra o que está preenchido: campo vazio não vira item
+  /// "não informado" — o cadastro é magro e a linha do tempo viraria uma lista
+  /// de buracos.
+  ///
+  /// As datas saem do `Member` já parseado, e são exibidas pelo mesmo
+  /// `_formatShortDate` que o resto da ficha usa. Isso é de propósito: as datas
+  /// do banco guardam hora de parede de São Paulo rotulada como UTC, e
+  /// qualquer conversão de fuso aqui faria a linha do tempo divergir em um dia
+  /// da data que a própria ficha mostra logo acima.
+  static const List<
+    ({DateTime? Function(Member) get, String title, String subtitle, IconData icon})
+  >
+  _lifeEvents = [
+    (
+      get: _getBirthdate,
+      title: 'Nascimento',
+      subtitle: 'Data de nascimento',
+      icon: Icons.cake_outlined,
+    ),
+    (
+      get: _getFirstVisitDate,
+      title: 'Primeira visita',
+      subtitle: 'Primeira vez na igreja',
+      icon: Icons.waving_hand_outlined,
+    ),
+    (
+      get: _getSalvationDate,
+      title: 'Decisão por Cristo',
+      subtitle: 'Decisão registrada',
+      icon: Icons.volunteer_activism_outlined,
+    ),
+    (
+      get: _getConversionDate,
+      title: 'Conversão',
+      subtitle: 'Data de conversão',
+      icon: Icons.auto_awesome_outlined,
+    ),
+    (
+      get: _getBaptismDate,
+      title: 'Batismo',
+      subtitle: 'Batismo nas águas',
+      icon: Icons.water_drop_outlined,
+    ),
+    (
+      get: _getMarriageDate,
+      title: 'Casamento',
+      subtitle: 'Data de casamento',
+      icon: Icons.favorite_outline,
+    ),
+    (
+      get: _getMembershipDate,
+      title: 'Tornou-se membro',
+      subtitle: 'Entrada para o rol de membros',
+      icon: Icons.badge_outlined,
+    ),
+    (
+      get: _getCredentialDate,
+      title: 'Credencial',
+      subtitle: 'Emissão da credencial',
+      icon: Icons.card_membership_outlined,
+    ),
+  ];
+
+  static DateTime? _getBirthdate(Member m) => m.birthdate;
+  static DateTime? _getFirstVisitDate(Member m) => m.firstVisitDate;
+  static DateTime? _getSalvationDate(Member m) => m.salvationDate;
+  static DateTime? _getConversionDate(Member m) => m.conversionDate;
+  static DateTime? _getBaptismDate(Member m) => m.baptismDate;
+  static DateTime? _getMarriageDate(Member m) => m.marriageDate;
+  static DateTime? _getMembershipDate(Member m) => m.membershipDate;
+  static DateTime? _getCredentialDate(Member m) => m.credentialDate;
+
+  List<_JourneyItem> _buildJourneyItems(
+    List<Map<String, dynamic>> readings,
+    Member member,
+  ) {
     final items = readings.map((row) {
       final readAt =
           _parseDateTime(row['read_at']) ??
@@ -2213,6 +2295,19 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         icon: Icons.menu_book_outlined,
       );
     }).toList();
+
+    for (final evento in _lifeEvents) {
+      final quando = evento.get(member);
+      if (quando == null) continue;
+      items.add(
+        _JourneyItem(
+          when: quando,
+          title: evento.title,
+          subtitle: evento.subtitle,
+          icon: evento.icon,
+        ),
+      );
+    }
 
     items.sort((a, b) => b.when.compareTo(a.when));
     return items;
