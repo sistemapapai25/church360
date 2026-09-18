@@ -1949,7 +1949,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     final groups = [
       _buildFieldGroup(
         context,
-        icon: Icons.badge_outlined,
+        icon: Icons.badge,
         title: 'Dados Pessoais',
         groupKey: 'personal_info.personal',
         children: personalItems,
@@ -2373,7 +2373,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       get: _getMembershipDate,
       title: 'Tornou-se membro',
       subtitle: 'Entrada para o rol de membros',
-      icon: Icons.badge_outlined,
+      icon: Icons.badge,
     ),
     (
       get: _getCredentialDate,
@@ -2966,7 +2966,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       children: [
         _buildFieldGroup(
           context,
-          icon: Icons.badge_outlined,
+          icon: Icons.badge,
           title: 'Dados Pessoais',
           groupKey: 'personal_info.personal',
           children: personalItems,
