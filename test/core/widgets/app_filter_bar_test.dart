@@ -121,4 +121,22 @@ void main() {
     expect(decoration.fillColor, isNull);
     expect(decoration.filled, isNull);
   });
+
+  testWidgets('a busca ocupa o resto da linha e os controles encostam na '
+      'direita', (tester) async {
+    await _pumpBar(tester, width: 1400);
+
+    // A barra tem que ler como uma faixa unica de ponta a ponta: campo
+    // esticado a esquerda, acoes na margem direita. Antes a busca tinha
+    // largura fixa e sobrava meia tela vazia depois do ultimo botao.
+    final buscaEsquerda = tester.getTopLeft(find.byType(TextField)).dx;
+    final barraEsquerda = tester.getTopLeft(find.byType(AppFilterBar)).dx;
+    expect((buscaEsquerda - barraEsquerda).abs(), lessThan(1));
+
+    final barraDireita = tester.getBottomRight(find.byType(AppFilterBar)).dx;
+    final acaoDireita = tester.getBottomRight(find.text('Novo aluno')).dx;
+    expect(barraDireita - acaoDireita, lessThan(40));
+
+    expect(tester.getSize(find.byType(TextField)).width, greaterThan(400));
+  });
 }

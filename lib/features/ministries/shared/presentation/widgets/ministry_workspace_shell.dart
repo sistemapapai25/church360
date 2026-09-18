@@ -52,10 +52,10 @@ class MinistryWorkspaceStat {
 /// abas que a tela dele passa aqui; Raízes e Diaconato, ao migrar, trocam
 /// só essa lista. Nada aqui conhece batismo.
 ///
-/// O cabeçalho é uma faixa só: a barra de navegação carrega o voltar e o
-/// sino de notificações, e logo abaixo, no mesmo fundo, vêm o ícone do
-/// ministério, o nome e a descrição. O nome não aparece duas vezes — era
-/// assim antes, com um título pequeno na barra e outro grande no corpo.
+/// O nome fica na barra de navegação, ao lado do voltar, com o ícone do
+/// ministério à frente — é a linha mais alta da tela, e é dela que a pessoa
+/// lê onde está. A descrição e os indicadores vêm abaixo, e a barra de abas
+/// ocupa a largura toda, com a engrenagem de edição fechando a trilha.
 class MinistryWorkspaceShell extends ConsumerStatefulWidget {
   final String ministryId;
 
@@ -135,18 +135,27 @@ class _MinistryWorkspaceShellState
     final tabs = widget.tabs;
     final active = tabs.isEmpty ? null : tabs[_selected];
     final headerColor = CommunityDesign.headerColor(context);
+    final hasDescription = description != null && description.isNotEmpty;
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
         backgroundColor: headerColor,
         elevation: 0,
+        // Sem respiro entre o voltar e o título: o nome do ministério começa
+        // colado no botão, e não no meio da barra.
         titleSpacing: 0,
-        title: const SizedBox.shrink(),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Voltar',
           onPressed: () => context.pop(),
+        ),
+        title: Row(
+          children: [
+            _MinistryGlyph(ministry: ministry),
+            const SizedBox(width: 10),
+            Expanded(child: _WorkspaceTitle(name: name)),
+          ],
         ),
         actions: [
           if (canEdit)
@@ -161,50 +170,34 @@ class _MinistryWorkspaceShellState
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Mesma cor da barra: o cabeçalho tem que ler como uma faixa só,
-          // com o nome começando na margem da esquerda, abaixo do voltar.
-          Container(
-            color: headerColor,
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _MinistryGlyph(ministry: ministry),
-                const SizedBox(height: 12),
-                _WorkspaceTitle(name: name),
-                if (description != null && description.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(description, style: CommunityDesign.metaStyle(context)),
-                ],
-              ],
+          // Mesma cor da barra: a descrição é a última linha do cabeçalho,
+          // não o começo do corpo.
+          if (hasDescription)
+            Container(
+              color: headerColor,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Text(
+                description,
+                style: CommunityDesign.metaStyle(context),
+              ),
             ),
-          ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: EdgeInsets.fromLTRB(16, hasDescription ? 14 : 8, 16, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (widget.stats.isNotEmpty) ...[
                   _StatsRow(stats: widget.stats),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                 ],
-                Row(
-                  children: [
-                    Expanded(
-                      child: AppTabs(
-                        tabs: [
-                          for (final tab in tabs)
-                            AppTab(label: tab.label, count: tab.count),
-                        ],
-                        selectedIndex: _selected,
-                        onChanged: (i) => setState(() => _selected = i),
-                      ),
-                    ),
-                    if (canEdit) ...[
-                      const SizedBox(width: 8),
-                      _SettingsButton(onTap: _openEdit),
-                    ],
+                AppTabs(
+                  tabs: [
+                    for (final tab in tabs)
+                      AppTab(label: tab.label, count: tab.count),
                   ],
+                  selectedIndex: _selected,
+                  onChanged: (i) => setState(() => _selected = i),
+                  trailing: canEdit ? _SettingsButton(onTap: _openEdit) : null,
                 ),
                 const SizedBox(height: 16),
               ],
@@ -224,9 +217,9 @@ class _MinistryWorkspaceShellState
   }
 }
 
-/// Ícone do ministério, acima do nome. Usa o ícone e a cor escolhidos no
-/// cadastro — os mesmos do card na lista, para a tela ser reconhecível como
-/// "aquele ministério" e não como uma tela genérica.
+/// Ícone do ministério, ao lado do nome na barra de navegação. Usa o ícone e
+/// a cor escolhidos no cadastro — os mesmos do card na lista, para a tela ser
+/// reconhecível como "aquele ministério" e não como uma tela genérica.
 class _MinistryGlyph extends StatelessWidget {
   final Ministry? ministry;
 
@@ -239,23 +232,25 @@ class _MinistryGlyph extends StatelessWidget {
     final color = ministry == null ? fallback : ministryColor(ministry!.color);
 
     return Container(
-      width: 48,
-      height: 48,
+      width: 32,
+      height: 32,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
-      child: Icon(ministryIconData(ministry?.icon), color: color, size: 22),
+      child: Icon(ministryIconData(ministry?.icon), color: color, size: 18),
     );
   }
 }
 
-/// Botão de configuração do ministério, na ponta direita da barra de abas.
+/// Botão de configuração do ministério, fechando a trilha de abas — o último
+/// ícone da barra, logo depois da última aba.
 ///
-/// Fica fora da trilha rolável de propósito: dentro dela, só apareceria
-/// depois de arrastar as oito abas até o fim.
+/// Fica fora da parte rolável da trilha de propósito: no celular, onde as
+/// oito abas não cabem, dentro dela ele só apareceria depois de arrastar
+/// tudo até o fim.
 class _SettingsButton extends StatelessWidget {
   final VoidCallback onTap;
 
@@ -264,26 +259,21 @@ class _SettingsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final track = dark ? AppTheme.darkInput : AppTheme.muted;
-    final borderColor = dark ? AppTheme.darkBorder : AppTheme.border;
     final foreground = dark
         ? AppTheme.darkMutedForeground
         : AppTheme.mutedForeground;
 
+    // Sem fundo próprio: dentro da pílula, um círculo na cor da trilha só
+    // somaria uma borda no meio da barra. A altura acompanha a das abas para
+    // não engordar a trilha.
     return Tooltip(
       message: 'Editar ministério',
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
-        child: Container(
-          width: 40,
-          height: 40,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: track,
-            border: Border.all(color: borderColor),
-            borderRadius: BorderRadius.circular(999),
-          ),
+        child: SizedBox(
+          width: 32,
+          height: 32,
           child: Icon(Icons.settings_outlined, size: 18, color: foreground),
         ),
       ),
@@ -307,17 +297,19 @@ class _WorkspaceTitle extends StatelessWidget {
     final accent = dark ? AppTheme.darkRing : AppTheme.primary;
     final base = CommunityDesign.titleStyle(
       context,
-    ).copyWith(fontSize: 24, fontWeight: FontWeight.w800, height: 1.15);
+    ).copyWith(fontSize: 18, fontWeight: FontWeight.w800, height: 1.15);
 
     final words = name.trim().split(RegExp(r'\s+'));
     if (words.length < 2) {
-      return Text(name, style: base);
+      return Text(name, style: base, maxLines: 1, overflow: TextOverflow.ellipsis);
     }
 
     final head = words.sublist(0, words.length - 1).join(' ');
     final tail = words.last;
 
     return RichText(
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
       text: TextSpan(
         style: base,
         children: [
