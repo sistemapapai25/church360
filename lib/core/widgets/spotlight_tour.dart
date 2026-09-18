@@ -110,6 +110,11 @@ class _SpotlightTourState extends State<SpotlightTour> {
   Future<void> _proximoFrame() {
     final completer = Completer<void>();
     WidgetsBinding.instance.addPostFrameCallback((_) => completer.complete());
+    // `addPostFrameCallback` **não** agenda frame: ele só entra na fila do
+    // próximo que já for acontecer. Numa tela parada (nenhuma animação, nenhum
+    // toque) esse `await` nunca resolve — e aí o overlay fica no ramo de
+    // medição, invisível e absorvendo todo toque da tela.
+    WidgetsBinding.instance.scheduleFrame();
     return completer.future;
   }
 
@@ -246,11 +251,16 @@ class _FuroClipper extends CustomClipper<Path> {
 
   @override
   Path getClip(Size size) {
-    return Path.combine(
-      PathOperation.difference,
-      Path()..addRect(Offset.zero & size),
-      Path()..addRRect(furo),
-    );
+    // O furo sai do `fillType`, **não** de `Path.combine`. No Flutter web
+    // `Path.combine(PathOperation.difference, ...)` devolve um path sem buraco
+    // nenhum: o véu e o blur cobriam o alvo inteiro e o tour virava uma tela
+    // borrada com uma moldura branca em volta de nada. Medido em harness:
+    // com `Path.combine` o miolo do furo dava 115 (branco sob o véu), igual ao
+    // resto da tela; com `evenOdd` dá 255.
+    return Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Offset.zero & size)
+      ..addRRect(furo);
   }
 
   @override
