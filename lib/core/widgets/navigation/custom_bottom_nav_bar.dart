@@ -35,6 +35,10 @@ class PremiumBottomNavBar extends StatelessWidget {
 
         return Expanded(
           child: Center(
+            // `itemKey` existe para o tour de primeiro acesso medir a posição
+            // deste item da dock. Fica no Center (e não no PearlDockItem) para
+            // o furo cobrir a área de toque inteira, não só o ícone.
+            key: item.itemKey,
             child: PearlDockItem(
               contentBuilder: (context, isSelected, activeColor) =>
                   item.iconBuilder?.call(context, isSelected, activeColor) ??
@@ -65,10 +69,15 @@ class PremiumNavItem {
   final NavIconBuilder? iconBuilder;
   final Color activeColor;
 
+  /// Chave opcional aplicada ao item na dock, usada pelo tour de primeiro
+  /// acesso para medir onde desenhar o furo do spotlight.
+  final Key? itemKey;
+
   const PremiumNavItem({
     required this.label,
     required this.activeColor,
     this.icon,
     this.iconBuilder,
+    this.itemKey,
   });
 }
