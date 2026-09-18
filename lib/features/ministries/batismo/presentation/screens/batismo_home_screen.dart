@@ -6,12 +6,16 @@ import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../../../shared/presentation/widgets/ministry_tab_placeholder.dart';
 import '../../../shared/presentation/widgets/ministry_team_tab.dart';
 import '../../../shared/presentation/widgets/ministry_workspace_shell.dart';
+import '../../domain/models/baptism_student.dart';
+import '../providers/baptism_providers.dart';
+import 'tabs/batismo_alunos_tab.dart';
 
 /// Workspace do Batismo nas Águas (Etapa 4 do plano).
 ///
-/// As sete abas aparecem desde já; Alunos chega na Etapa 6 e Financeiro nas
-/// Etapas 2 e 5. Até lá elas mostram um estado vazio honesto, para que a
-/// estrutura do módulo fique visível e o que falta fique explícito.
+/// As sete abas aparecem desde já; Financeiro chega nas Etapas 2 e 5, e
+/// Checklist, Presença, WhatsApp e Relatórios depois. Até lá elas mostram um
+/// estado vazio honesto, para que a estrutura do módulo fique visível e o que
+/// falta fique explícito.
 class BatismoHomeScreen extends ConsumerWidget {
   final String ministryId;
 
@@ -35,14 +39,31 @@ class _BatismoWorkspace extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Enquanto a aba Alunos não existe, o único indicador que o módulo
-    // consegue afirmar com honestidade é o tamanho da equipe. Alunos e
-    // turmas entram aqui na Etapa 6.
     final membersAsync = ref.watch(ministryMembersProvider(ministryId));
     final teamCount = membersAsync.maybeWhen(
       data: (m) => m.length,
       orElse: () => null,
     );
+
+    // Alunos e turmas são observados aqui, e não só dentro da aba, porque a
+    // linha de indicadores fica acima da barra de abas: sem isso o número
+    // só apareceria depois de alguém abrir Alunos. O shell continua montando
+    // apenas a aba ativa — o que sobe aqui são duas consultas, não a tela.
+    final studentsAsync = ref.watch(baptismStudentsProvider(ministryId));
+    final activeStudents = studentsAsync.maybeWhen(
+      data: (list) => list
+          .where((s) => s.status == BaptismStudentStatus.ativo)
+          .length,
+      orElse: () => null,
+    );
+    final studentCount = studentsAsync.maybeWhen(
+      data: (list) => list.length,
+      orElse: () => null,
+    );
+    final turmaCount = ref.watch(baptismTurmasProvider(ministryId)).maybeWhen(
+          data: (list) => list.length,
+          orElse: () => null,
+        );
 
     return MinistryWorkspaceShell(
       ministryId: ministryId,
@@ -53,6 +74,18 @@ class _BatismoWorkspace extends ConsumerWidget {
             label: 'na equipe',
             value: '$teamCount',
             icon: Icons.groups_outlined,
+          ),
+        if (activeStudents != null)
+          MinistryWorkspaceStat(
+            label: 'alunos ativos',
+            value: '$activeStudents',
+            icon: Icons.school_outlined,
+          ),
+        if (turmaCount != null && turmaCount > 0)
+          MinistryWorkspaceStat(
+            label: turmaCount == 1 ? 'turma' : 'turmas',
+            value: '$turmaCount',
+            icon: Icons.groups_2_outlined,
           ),
       ],
       tabs: [
@@ -65,9 +98,10 @@ class _BatismoWorkspace extends ConsumerWidget {
           label: 'Financeiro',
           builder: _financeiroPlaceholder,
         ),
-        const MinistryWorkspaceTab(
+        MinistryWorkspaceTab(
           label: 'Alunos',
-          builder: _alunosPlaceholder,
+          count: studentCount?.toString(),
+          builder: (_) => BatismoAlunosTab(ministryId: ministryId),
         ),
         const MinistryWorkspaceTab(
           label: 'Checklist',
@@ -97,13 +131,6 @@ Widget _financeiroPlaceholder(BuildContext context) =>
       description:
           'Entradas, saídas e alvos do departamento, com a saída esperando '
           'confirmação de quem responde pelo financeiro.',
-    );
-
-Widget _alunosPlaceholder(BuildContext context) => const MinistryTabPlaceholder(
-      icon: Icons.school_outlined,
-      title: 'Alunos e turmas',
-      description:
-          'Cadastro dos candidatos, turma de cada um e o progresso nas aulas.',
     );
 
 Widget _checklistPlaceholder(BuildContext context) =>
