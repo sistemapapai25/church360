@@ -135,9 +135,21 @@ class EventsRepository {
     }
   }
 
-  Future<void> deleteEventType(String code) async {
+  /// Apaga um tipo do catálogo e devolve quantas linhas o banco removeu.
+  ///
+  /// Zero não é exceção: desde as policies do CHU-368 (migration
+  /// 20260918000300), um DELETE sem permissão volta 204 sem linha nenhuma, e
+  /// não 42501. Sem esse retorno a tela recarregava o catálogo intacto e não
+  /// dizia por quê. O `.select()` é o que faz o PostgREST devolver o que
+  /// apagou — a policy de SELECT já permite ler o próprio tenant.
+  Future<int> deleteEventType(String code) async {
     try {
-      await _supabase.from('event_type').delete().eq('code', code);
+      final removed = await _supabase
+          .from('event_type')
+          .delete()
+          .eq('code', code)
+          .select('code');
+      return (removed as List).length;
     } catch (e) {
       rethrow;
     }

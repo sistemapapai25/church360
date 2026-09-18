@@ -375,7 +375,17 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                         );
                                         return;
                                       }
-                                      await repo.deleteEventType(code);
+                                      final removed = await repo
+                                          .deleteEventType(code);
+                                      if (removed == 0) {
+                                        setStateDialog(
+                                          () => _managingError =
+                                              'Você não tem permissão para '
+                                              'excluir tipos de evento. Nada '
+                                              'foi alterado.',
+                                        );
+                                        return;
+                                      }
                                       await _loadEventTypes();
                                       setStateDialog(() => _managingError = '');
                                     } catch (e) {
