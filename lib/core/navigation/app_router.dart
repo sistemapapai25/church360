@@ -129,6 +129,7 @@ import '../screens/reports/member_growth_report.dart';
 import '../screens/reports/events_analysis_report.dart';
 import '../screens/reports/active_groups_report.dart';
 import '../screens/dashboard_settings_screen.dart';
+import '../screens/more_tab_settings_screen.dart';
 import '../screens/user_dashboard_settings_screen.dart';
 import '../screens/developer_settings_screen.dart';
 import '../../features/duplicates/presentation/screens/duplicate_accounts_screen.dart';
@@ -1645,6 +1646,15 @@ final appRouter = GoRouter(
       path: '/dashboard-settings/personal',
       builder: (context, state) =>
           const DashboardAccessGate(child: UserDashboardSettingsScreen()),
+    ),
+    // F6: o mesmo para a aba "Mais" — visibilidade e ordem dos itens da seção
+    // VISÃO GERAL. Sem guard de permissão de propósito: é preferência pessoal
+    // e a tela só lista o que a pessoa já vê (os gates rodam dentro dela).
+    // Um guard aqui trancaria membro comum fora da configuração da própria
+    // tela inicial.
+    GoRoute(
+      path: '/more-settings',
+      builder: (context, state) => const MoreTabSettingsScreen(),
     ),
 
     GoRoute(
