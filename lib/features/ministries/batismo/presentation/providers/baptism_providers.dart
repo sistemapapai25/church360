@@ -4,6 +4,8 @@ import '../../../../events/presentation/providers/events_provider.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../data/baptism_repository.dart';
+import '../../domain/baptism_checklist_progress.dart';
+import '../../domain/models/baptism_checklist.dart';
 import '../../domain/models/baptism_public_info.dart';
 import '../../domain/models/baptism_student.dart';
 import '../../domain/models/baptism_turma.dart';
@@ -49,6 +51,56 @@ final baptismPublicInfoProvider =
   return repo.getPublicRegistrationInfo(ministryId);
 });
 
+/// Catálogo de etapas do checklist do ministério (ativas e desligadas).
+final baptismChecklistItemsProvider =
+    FutureProvider.family<List<BaptismChecklistItem>, String>(
+        (ref, ministryId) async {
+  final repo = ref.watch(baptismRepositoryProvider);
+  return repo.getChecklistItems(ministryId);
+});
+
+/// Marcações de todos os alunos do ministério.
+///
+/// Depende dos alunos de propósito: é a lista deles que define quais
+/// marcações buscar, e assim invalidar os alunos já refaz as marcações —
+/// aluno recém-cadastrado nunca aparece sem a linha de progresso dele.
+final baptismChecklistEntriesProvider =
+    FutureProvider.family<List<BaptismChecklistEntry>, String>(
+        (ref, ministryId) async {
+  final students = await ref.watch(baptismStudentsProvider(ministryId).future);
+  if (students.isEmpty) return const [];
+  final repo = ref.watch(baptismRepositoryProvider);
+  return repo.getChecklistEntries([for (final s in students) s.id]);
+});
+
+/// Progresso por aluno, já com catálogo e marcações casados.
+final baptismChecklistProgressProvider =
+    FutureProvider.family<List<BaptismStudentProgress>, String>(
+        (ref, ministryId) async {
+  final students = await ref.watch(baptismStudentsProvider(ministryId).future);
+  final items = await ref.watch(baptismChecklistItemsProvider(ministryId).future);
+  final entries =
+      await ref.watch(baptismChecklistEntriesProvider(ministryId).future);
+
+  return buildBaptismChecklistProgress(
+    students: students,
+    items: items,
+    entries: entries,
+  );
+});
+
+/// O mesmo progresso reduzido a "feitas/total" por aluno.
+///
+/// É o que a aba Alunos mostra no card. Fica num provider próprio para que
+/// aquela tela não precise conhecer o checklist inteiro.
+final baptismChecklistTallyProvider =
+    FutureProvider.family<Map<String, ({int done, int total})>, String>(
+        (ref, ministryId) async {
+  final progress =
+      await ref.watch(baptismChecklistProgressProvider(ministryId).future);
+  return baptismChecklistTallyByStudent(progress);
+});
+
 /// As três ações de escrita do módulo, com o código RBAC de cada uma.
 enum BaptismWriteAction {
   create('baptism.create'),
@@ -87,4 +139,11 @@ final baptismCanWriteProvider =
 void invalidateBaptismData(WidgetRef ref, String ministryId) {
   ref.invalidate(baptismStudentsProvider(ministryId));
   ref.invalidate(baptismTurmasProvider(ministryId));
+  // O checklist entra aqui, e não numa função própria, porque `invalidate`
+  // não sobe para quem depende: invalidar só o catálogo deixaria o
+  // progresso e a contagem da aba Alunos com o número velho na tela.
+  ref.invalidate(baptismChecklistItemsProvider(ministryId));
+  ref.invalidate(baptismChecklistEntriesProvider(ministryId));
+  ref.invalidate(baptismChecklistProgressProvider(ministryId));
+  ref.invalidate(baptismChecklistTallyProvider(ministryId));
 }

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/supabase_constants.dart';
+import '../domain/models/baptism_checklist.dart';
 import '../domain/models/baptism_member_suggestion.dart';
 import '../domain/models/baptism_public_info.dart';
 import '../domain/models/baptism_student.dart';
@@ -221,6 +222,138 @@ class BaptismRepository {
     );
 
     return response is String ? response : '$response';
+  }
+
+  // -------------------------------------------------------------------
+  // Checklist — catálogo de etapas
+  // -------------------------------------------------------------------
+
+  /// Etapas do ministério, ativas e desligadas.
+  ///
+  /// Traz as desligadas de propósito: quem administra precisa vê-las para
+  /// reativar. Quem filtra é a camada de progresso, num lugar só.
+  Future<List<BaptismChecklistItem>> getChecklistItems(
+    String ministryId,
+  ) async {
+    final response = await _supabase
+        .from('baptism_checklist_item')
+        .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('ministry_id', ministryId)
+        .order('order_index', ascending: true)
+        .order('title', ascending: true);
+
+    return (response as List)
+        .map((row) =>
+            BaptismChecklistItem.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  Future<BaptismChecklistItem> createChecklistItem(
+    BaptismChecklistItem item,
+  ) async {
+    final payload = item.toWriteJson()
+      ..['tenant_id'] = SupabaseConstants.currentTenantId;
+
+    final response = await _supabase
+        .from('baptism_checklist_item')
+        .insert(payload)
+        .select()
+        .single();
+
+    return BaptismChecklistItem.fromJson(Map<String, dynamic>.from(response));
+  }
+
+  Future<BaptismChecklistItem> updateChecklistItem(
+    BaptismChecklistItem item,
+  ) async {
+    final response = await _supabase
+        .from('baptism_checklist_item')
+        .update(item.toWriteJson())
+        .eq('id', item.id)
+        .select()
+        .single();
+
+    return BaptismChecklistItem.fromJson(Map<String, dynamic>.from(response));
+  }
+
+  /// Apaga a etapa do catálogo.
+  ///
+  /// As marcações dos alunos vão junto (`ON DELETE CASCADE` em
+  /// `baptism_student_checklist.item_id`) — é irreversível. A tela oferece
+  /// desligar antes de apagar justamente por isso.
+  Future<void> deleteChecklistItem(String itemId) async {
+    await _supabase.from('baptism_checklist_item').delete().eq('id', itemId);
+  }
+
+  // -------------------------------------------------------------------
+  // Checklist — marcações dos alunos
+  // -------------------------------------------------------------------
+
+  /// Marcações dos alunos informados.
+  ///
+  /// Recebe os ids em vez de filtrar por ministério dentro de um embed de
+  /// dois níveis (`marcação → aluno → turma → ministry_id`): a tela já tem
+  /// a lista de alunos carregada, e um filtro sobre embed aninhado depende
+  /// de detalhe de versão do PostgREST — quando ele falha, falha devolvendo
+  /// lista errada, não erro.
+  Future<List<BaptismChecklistEntry>> getChecklistEntries(
+    List<String> studentIds,
+  ) async {
+    if (studentIds.isEmpty) return const [];
+
+    final response = await _supabase
+        .from('baptism_student_checklist')
+        .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .inFilter('student_id', studentIds);
+
+    return (response as List)
+        .map((row) =>
+            BaptismChecklistEntry.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  /// Marca etapas cumpridas.
+  ///
+  /// `onConflict` é obrigatório e não é zelo: sem ele o PostgREST infere a
+  /// PK, o upsert vira INSERT e estoura 409 na UNIQUE `(student_id,
+  /// item_id)` — foi o que quebrou o lote do CHU-317 em produção. Marcar a
+  /// mesma etapa duas vezes precisa ser inofensivo, porque dois toques
+  /// seguidos acontecem.
+  Future<void> markChecklistItems(
+    List<({String studentId, String itemId})> marks,
+  ) async {
+    if (marks.isEmpty) return;
+
+    await _supabase.from('baptism_student_checklist').upsert(
+      [
+        for (final mark in marks)
+          {
+            'tenant_id': SupabaseConstants.currentTenantId,
+            'student_id': mark.studentId,
+            'item_id': mark.itemId,
+          },
+      ],
+      onConflict: 'student_id,item_id',
+      ignoreDuplicates: true,
+    );
+  }
+
+  /// Desmarca uma etapa: apaga a linha.
+  ///
+  /// Pede `baptism.edit` no banco, não `baptism.delete` — desmarcar é a
+  /// outra metade de marcar, e separar as duas deixaria a marcação
+  /// irreversível para a maioria dos cargos.
+  Future<void> unmarkChecklistItem({
+    required String studentId,
+    required String itemId,
+  }) async {
+    await _supabase
+        .from('baptism_student_checklist')
+        .delete()
+        .eq('student_id', studentId)
+        .eq('item_id', itemId);
   }
 
   /// `birth_date` é `DATE` no banco: mandar um timestamp reintroduziria o
