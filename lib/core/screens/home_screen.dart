@@ -75,6 +75,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final GlobalKey _tourCardComunidadeKey = GlobalKey(
     debugLabel: 'tour-card-comunidade',
   );
+  final GlobalKey _tourNavIgrejaKey = GlobalKey(debugLabel: 'tour-nav-igreja');
+  final GlobalKey _tourAgendaKey = GlobalKey(debugLabel: 'tour-agenda');
 
   bool _tourVisivel = false;
   bool _tourJaConsultado = false;
@@ -108,10 +110,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _syncUrlToSelectedIndex();
   }
 
-  Future<void> _encerrarTour() async {
+  /// Fim da **primeira etapa** do roteiro (a que mora na Home).
+  ///
+  /// `concluiu` separa chegar ao fim de desistir no meio. Quem pulou não é
+  /// levado para o perfil: pular é um pedido para sair do caminho, não para
+  /// continuar nele em outra tela.
+  Future<void> _encerrarTour(bool concluiu) async {
     await OnboardingTourPrefs.marcarConcluido();
+    if (concluiu) {
+      await OnboardingTourPrefs.marcarEtapaPerfilPendente();
+    }
     if (!mounted) return;
     setState(() => _tourVisivel = false);
+    if (!concluiu) return;
+
+    // Segunda etapa: os três alvos que só existem dentro de "Meu Perfil"
+    // (editar dados, trocar senha, minha jornada). O tour da Home não navega
+    // por rota em passo nenhum — esta é a única navegação, e acontece depois
+    // que ele já terminou. Quem monta a etapa 2 é a própria tela de perfil,
+    // ao encontrar a marca gravada acima.
+    context.push('/profile');
   }
 
   List<SpotlightStep> _passosDoTour() => [
@@ -146,6 +164,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           'Leia a Bíblia inteira direto no app, a qualquer hora, sem sair '
           'daqui.',
       onEnter: () => _irParaAba(0),
+    ),
+    SpotlightStep(
+      targetKey: _tourNavIgrejaKey,
+      title: 'A sua igreja',
+      description:
+          'Aqui ficam a identidade da igreja, os avisos da semana e o que '
+          'acontece hoje.',
+      onEnter: () => _irParaAba(2),
+    ),
+    SpotlightStep(
+      targetKey: _tourAgendaKey,
+      title: 'A agenda da igreja',
+      description:
+          'Este botão abre o calendário do mês: cultos, reuniões e eventos, '
+          'com o dia e a hora de cada um.',
+      onEnter: () => _irParaAba(2),
     ),
   ];
 
@@ -210,7 +244,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       PremiumNavItem(
         label: 'Igreja',
-        activeColor: Color(0xFF2563EB),
+        activeColor: const Color(0xFF2563EB),
+        itemKey: _tourNavIgrejaKey,
         iconBuilder: (context, isActive, activeColor) {
           return _NavLogoIcon(isActive: isActive);
         },
@@ -239,7 +274,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<Widget> get _screens => [
     _DashboardTab(comunidadeKey: _tourCardComunidadeKey), // Home (Mural)
     const BibleBooksScreen(), // Bíblia
-    const _ChurchHomeTab(), // Home Institucional
+    _ChurchHomeTab(agendaKey: _tourAgendaKey), // Home Institucional
     const CoursesListScreen(), // Cursos
     _MoreTab(
       perfilCardKey: _tourCardPerfilKey,
@@ -320,6 +355,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: SpotlightTour(
                 steps: _passosDoTour(),
                 onFinish: _encerrarTour,
+                // Não é o fim do roteiro: faltam os três passos de dentro
+                // do perfil. Prometer 'Concluir' aqui seria mentira.
+                rotuloFinal: 'Continuar',
               ),
             ),
         ],
@@ -2073,7 +2111,9 @@ class _MyMinistriesSection extends ConsumerWidget {
     // card aparece como informação. Errar para o lado de não navegar é
     // preferível a mandar a pessoa para uma tela de permissão negada.
     final podeAbrir =
-        ref.watch(currentUserHasPermissionProvider('ministries.view')).asData
+        ref
+            .watch(currentUserHasPermissionProvider('ministries.view'))
+            .asData
             ?.value ??
         false;
 
@@ -2173,7 +2213,11 @@ class _MinistryShortcutCard extends StatelessWidget {
 // =====================================================
 
 class _ChurchHomeTab extends ConsumerWidget {
-  const _ChurchHomeTab();
+  const _ChurchHomeTab({this.agendaKey});
+
+  /// Chave do botão de calendário, emprestada pelo tour. Fica aqui em cima
+  /// porque o dono das abas é quem conhece o roteiro; a aba só repassa.
+  final GlobalKey? agendaKey;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2199,6 +2243,7 @@ class _ChurchHomeTab extends ConsumerWidget {
             _ChurchDateHeader(
               date: today,
               subtitle: 'Agenda da igreja para hoje',
+              agendaKey: agendaKey,
             ),
             const SizedBox(height: 12),
             eventsAsync.when(
@@ -2436,8 +2481,13 @@ class _ChurchIdentityHeader extends StatelessWidget {
 class _ChurchDateHeader extends StatelessWidget {
   final DateTime date;
   final String subtitle;
+  final GlobalKey? agendaKey;
 
-  const _ChurchDateHeader({required this.date, required this.subtitle});
+  const _ChurchDateHeader({
+    required this.date,
+    required this.subtitle,
+    this.agendaKey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2495,6 +2545,7 @@ class _ChurchDateHeader extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         IconButton(
+          key: agendaKey,
           onPressed: () => context.push('/schedule'),
           icon: const Icon(Icons.calendar_today),
           tooltip: 'Agenda',
