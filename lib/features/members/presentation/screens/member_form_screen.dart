@@ -914,6 +914,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       // Kids (ver kids_repository.dart: getManagedChildren). No fluxo Kids
       // de autocadastro, o vínculo é automático com quem criou o cadastro;
       // na tela administrativa, usa o responsável selecionado no formulário.
+      // Guardado para invalidar também a lista do responsável: o vínculo é
+      // gravado nas duas direções, e o cache do outro lado é separado.
+      String? responsavelVinculadoId;
       if (savedMemberId != null) {
         try {
           final familyRepo = ref.read(familyRelationshipsRepositoryProvider);
@@ -927,6 +930,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                 creator.id,
                 creatorIsFemale ? 'mae' : 'pai',
               );
+              responsavelVinculadoId = creator.id;
             }
           } else if (_requiresGuardianLink && _selectedGuardianMember != null) {
             await familyRepo.addRelationship(
@@ -934,6 +938,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
               _selectedGuardianMember!.id,
               _guardianRelationshipTypeCode,
             );
+            responsavelVinculadoId = _selectedGuardianMember!.id;
           }
         } catch (e) {
           // Não bloquear o salvamento do cadastro por falha ao gravar o
@@ -968,7 +973,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         // O vínculo de responsável acima grava em relacionamentos_familiares,
         // cuja lista depende de Realtime para se atualizar sozinha.
         if (savedMemberId != null) {
-          _refreshFamilyRelationships(savedMemberId);
+          _refreshFamilyRelationships(savedMemberId, responsavelVinculadoId);
         }
 
         if (pendingLoginEmailConfirmation != null) {
@@ -2086,7 +2091,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     );
   }
 
-  /// Relê os vínculos depois de uma gravação.
+  /// Relê os vínculos depois de uma gravação, **dos dois lados**.
   ///
   /// A lista vem de `familyRelationshipsStreamProvider`, que só se atualiza
   /// sozinho quando o Realtime do Supabase avisa. Nenhuma migration deste
@@ -2095,8 +2100,18 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   /// a pessoa vê a tela igual depois de vincular ou desvincular, como se
   /// nada tivesse acontecido. O `invalidate` não substitui o Realtime: ele
   /// garante o caso de quem acabou de agir.
-  void _refreshFamilyRelationships(String memberId) {
+  ///
+  /// Invalidar só o membro editado não bastava: `addRelationship` e
+  /// `removeRelationship` escrevem **nas duas direções** (a linha do membro
+  /// e a do parente). O provider do parente continuava com o valor antigo em
+  /// cache, então abrir o perfil dele logo depois mostrava um vínculo que já
+  /// não existia — ou não mostrava o que acabara de ser criado. O provider é
+  /// por id, e cada id tem o seu cache.
+  void _refreshFamilyRelationships(String memberId, [String? parenteId]) {
     ref.invalidate(familyRelationshipsStreamProvider(memberId));
+    if (parenteId != null && parenteId != memberId) {
+      ref.invalidate(familyRelationshipsStreamProvider(parenteId));
+    }
   }
 
   Widget _buildFamilyRelationRow(BuildContext context, FamilyRelationship rel) {
@@ -2148,7 +2163,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     try {
       final repo = ref.read(familyRelationshipsRepositoryProvider);
       await repo.removeRelationship(rel);
-      _refreshFamilyRelationships(rel.membroId);
+      _refreshFamilyRelationships(rel.membroId, rel.parenteId);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -2367,7 +2382,10 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                     'Propagação de vínculos falhou: ${e.cause}',
                                   );
                                 }
-                                _refreshFamilyRelationships(memberId);
+                                _refreshFamilyRelationships(
+                                  memberId,
+                                  selectedMember!.id,
+                                );
                                 navigator.pop();
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(

@@ -163,9 +163,15 @@ class KidsRepository {
           .eq('parente_id', userId)
           .inFilter('tipo_relacionamento', ['pai', 'mae', 'tutor', 'tutora']);
 
+      // `whereType` em vez de `as String`: as duas colunas são nullable no
+      // banco e a FK para `user_account` é SET NULL, então excluir a ficha
+      // de alguém deixa a linha do vínculo com um dos lados vazio. Um cast
+      // aqui estourava dentro do `try` e o `catch` abaixo engolia a busca
+      // inteira — o responsável perdia TODAS as crianças da lista por causa
+      // de uma linha órfã de outra família.
       final childIds = <String>{
-        ...(asParentDirect as List).map((r) => r['parente_id'] as String),
-        ...(asParentReverse as List).map((r) => r['membro_id'] as String),
+        ...(asParentDirect as List).map((r) => r['parente_id']).whereType<String>(),
+        ...(asParentReverse as List).map((r) => r['membro_id']).whereType<String>(),
       };
 
       if (childIds.isNotEmpty) {
