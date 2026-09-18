@@ -32,8 +32,17 @@ final upcomingEventsProvider = FutureProvider<List<Event>>((ref) async {
   return repo.getUpcomingEvents();
 });
 
+/// Provider das notícias publicadas (event_type = 'news'), recentes primeiro
+final recentNewsProvider = FutureProvider<List<Event>>((ref) async {
+  final repo = ref.watch(eventsRepositoryProvider);
+  return repo.getRecentNews();
+});
+
 /// Provider de evento por ID
-final eventByIdProvider = FutureProvider.family<Event?, String>((ref, id) async {
+final eventByIdProvider = FutureProvider.family<Event?, String>((
+  ref,
+  id,
+) async {
   final repo = ref.watch(eventsRepositoryProvider);
   return repo.getEventById(id);
 });
@@ -51,22 +60,28 @@ final activeEventsCountProvider = FutureProvider<int>((ref) async {
 });
 
 /// Provider de inscrições de um evento
-final eventRegistrationsProvider = FutureProvider.family<List<EventRegistration>, String>((ref, eventId) async {
-  final repo = ref.watch(eventsRepositoryProvider);
-  return repo.getEventRegistrations(eventId);
-});
+final eventRegistrationsProvider =
+    FutureProvider.family<List<EventRegistration>, String>((
+      ref,
+      eventId,
+    ) async {
+      final repo = ref.watch(eventsRepositoryProvider);
+      return repo.getEventRegistrations(eventId);
+    });
 
 /// Provider de responsáveis (event_audience, role='responsible') de um evento
-final eventResponsiblesProvider = FutureProvider.family<List<EventAudience>, String>((ref, eventId) async {
-  final repo = ref.watch(eventsRepositoryProvider);
-  return repo.getEventResponsibles(eventId);
-});
+final eventResponsiblesProvider =
+    FutureProvider.family<List<EventAudience>, String>((ref, eventId) async {
+      final repo = ref.watch(eventsRepositoryProvider);
+      return repo.getEventResponsibles(eventId);
+    });
 
 /// Fase 4 — NOTIF-02. Lembretes configuráveis (D-02/D-03) de um evento.
-final eventRemindersProvider = FutureProvider.family<List<EventReminder>, String>((ref, eventId) async {
-  final repo = ref.watch(eventsRepositoryProvider);
-  return repo.getEventReminders(eventId);
-});
+final eventRemindersProvider =
+    FutureProvider.family<List<EventReminder>, String>((ref, eventId) async {
+      final repo = ref.watch(eventsRepositoryProvider);
+      return repo.getEventReminders(eventId);
+    });
 
 /// Fase 6 — REC-01. Definição do padrão de repetição de uma série, chaveada
 /// pelo `batch_id` do lote.
@@ -101,16 +116,17 @@ final eventSeriesProvider = FutureProvider.family<EventSeries?, String>((
 /// O erro NÃO é engolido: quando a prévia falha, o provider fica em `error` e
 /// o diálogo não abre. Nunca confirmar operação em massa com número inventado
 /// (A-04 do `06-UI-SPEC.md`).
-final eventSeriesImpactProvider = FutureProvider.family<
-  EventSeriesImpact,
-  ({String batchId, String anchorEventId})
->((ref, arg) async {
-  final repo = ref.watch(eventsRepositoryProvider);
-  return repo.previewDeleteSeriesFuture(
-    batchId: arg.batchId,
-    anchorEventId: arg.anchorEventId,
-  );
-});
+final eventSeriesImpactProvider =
+    FutureProvider.family<
+      EventSeriesImpact,
+      ({String batchId, String anchorEventId})
+    >((ref, arg) async {
+      final repo = ref.watch(eventsRepositoryProvider);
+      return repo.previewDeleteSeriesFuture(
+        batchId: arg.batchId,
+        anchorEventId: arg.anchorEventId,
+      );
+    });
 
 /// VIS-03: audiência de um evento para um papel qualquer
 /// (`responsible`, `visibility` ou `registration`).
@@ -119,13 +135,12 @@ final eventSeriesImpactProvider = FutureProvider.family<
 /// record `(eventId, role)`. `eventResponsiblesProvider` continua existindo
 /// intacto — é consumido pelo formulário desde a Fase 1.
 final eventAudienceProvider =
-    FutureProvider.family<List<EventAudience>, ({String eventId, String role})>((
-      ref,
-      arg,
-    ) async {
-      final repo = ref.watch(eventsRepositoryProvider);
-      return repo.getEventAudience(arg.eventId, arg.role);
-    });
+    FutureProvider.family<List<EventAudience>, ({String eventId, String role})>(
+      (ref, arg) async {
+        final repo = ref.watch(eventsRepositoryProvider);
+        return repo.getEventAudience(arg.eventId, arg.role);
+      },
+    );
 
 /// VIS-03/VIS-04: o usuário atual pode se inscrever NESTE evento?
 ///
@@ -216,4 +231,3 @@ final canManageEventRegistrationsProvider = FutureProvider.family<bool, String>(
     return ref.watch(isEventResponsibleProvider(eventId).future);
   },
 );
-

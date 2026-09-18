@@ -2225,6 +2225,7 @@ class _ChurchHomeTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final eventsAsync = ref.watch(upcomingEventsProvider);
     final newsAsync = ref.watch(activeQuickNewsProvider);
+    final newsEventsAsync = ref.watch(recentNewsProvider);
     final churchInfoAsync = ref.watch(churchInfoProvider);
     final cs = Theme.of(context).colorScheme;
     final today = DateTime.now();
@@ -2250,8 +2251,14 @@ class _ChurchHomeTab extends ConsumerWidget {
             const SizedBox(height: 12),
             eventsAsync.when(
               data: (events) {
+                // Notícia mora na mesma tabela (event_type = 'news') e nasce
+                // com a data da publicação — sem este filtro ela aparecia na
+                // agenda do dia como se fosse um compromisso da igreja.
                 final todayEvents = events
-                    .where((event) => _isSameDay(event.startDate, today))
+                    .where(
+                      (event) =>
+                          !event.isNews && _isSameDay(event.startDate, today),
+                    )
                     .toList();
 
                 if (todayEvents.isEmpty) {
@@ -2284,7 +2291,11 @@ class _ChurchHomeTab extends ConsumerWidget {
               icon: Icons.article_outlined,
             ),
             const SizedBox(height: 12),
-            _ChurchNewsFeed(newsAsync: newsAsync, eventsAsync: eventsAsync),
+            _ChurchNewsFeed(
+              avisosAsync: newsAsync,
+              noticiasAsync: newsEventsAsync,
+              eventosAsync: eventsAsync,
+            ),
           ],
         ),
       ),
@@ -2659,30 +2670,46 @@ class _ChurchAgendaItem extends StatelessWidget {
   }
 }
 
-/// Seção "Notícias" da aba Igreja: os avisos do "Fique por Dentro" primeiro,
-/// já ordenados por prioridade pelo repositório, e os próximos eventos logo
-/// abaixo. As duas fontes são independentes de propósito — se uma falhar, a
-/// outra continua aparecendo, e só quando não sobra nada é que a seção mostra
-/// erro ou vazio.
+/// Seção "Notícias" da aba Igreja. Três fontes, nesta ordem: os avisos do
+/// "Fique por Dentro" (`quick_news`), as notícias publicadas pelo módulo de
+/// notícias (que grava em `public.event` com `event_type = 'news'`) e, por
+/// último, os próximos eventos — que ficam aqui a pedido do usuário, para a
+/// seção não secar quando não há notícia nenhuma.
+///
+/// As três são independentes de propósito: se uma falhar, as outras continuam
+/// na tela, e só quando não sobra nada é que a seção mostra erro ou vazio.
 class _ChurchNewsFeed extends StatelessWidget {
-  const _ChurchNewsFeed({required this.newsAsync, required this.eventsAsync});
+  const _ChurchNewsFeed({
+    required this.avisosAsync,
+    required this.noticiasAsync,
+    required this.eventosAsync,
+  });
 
-  final AsyncValue<List<QuickNews>> newsAsync;
-  final AsyncValue<List<Event>> eventsAsync;
+  final AsyncValue<List<QuickNews>> avisosAsync;
+  final AsyncValue<List<Event>> noticiasAsync;
+  final AsyncValue<List<Event>> eventosAsync;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    final avisos = newsAsync.valueOrNull ?? const <QuickNews>[];
-    final eventos = [...(eventsAsync.valueOrNull ?? const <Event>[])]
-      ..sort((a, b) => a.startDate.compareTo(b.startDate));
+    final avisos = avisosAsync.valueOrNull ?? const <QuickNews>[];
+    final noticias = noticiasAsync.valueOrNull ?? const <Event>[];
+    final eventos =
+        [
+            ...(eventosAsync.valueOrNull ?? const <Event>[]),
+          ].where((evento) => !evento.isNews).toList()
+          ..sort((a, b) => a.startDate.compareTo(b.startDate));
 
-    if (avisos.isEmpty && eventos.isEmpty) {
-      if (newsAsync.isLoading || eventsAsync.isLoading) {
+    if (avisos.isEmpty && noticias.isEmpty && eventos.isEmpty) {
+      if (avisosAsync.isLoading ||
+          noticiasAsync.isLoading ||
+          eventosAsync.isLoading) {
         return _ChurchLoadingCard(label: 'Carregando notícias');
       }
-      if (newsAsync.hasError || eventsAsync.hasError) {
+      if (avisosAsync.hasError ||
+          noticiasAsync.hasError ||
+          eventosAsync.hasError) {
         return _ChurchEmptyState(
           icon: Icons.warning_amber,
           message: 'Não foi possível carregar as notícias.',
@@ -2697,6 +2724,7 @@ class _ChurchNewsFeed extends StatelessWidget {
 
     final cards = <Widget>[
       for (final aviso in avisos) _ChurchQuickNewsCard(news: aviso),
+      for (final noticia in noticias) _ChurchNewsCard(event: noticia),
       for (final evento in eventos) _ChurchNewsCard(event: evento),
     ];
 
@@ -2918,7 +2946,7 @@ class _ChurchNewsCard extends StatelessWidget {
                       ],
                       const SizedBox(height: 6),
                       Text(
-                        'Evento · $date',
+                        '${event.isNews ? 'Notícia' : 'Evento'} · $date',
                         style: CommunityDesign.metaStyle(context).copyWith(
                           color: cs.primary,
                           fontWeight: FontWeight.w600,

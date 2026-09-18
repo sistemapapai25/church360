@@ -31,10 +31,9 @@ class ManageNewsScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(
           'Gerenciar Notícias',
-          style: CommunityDesign.titleStyle(context).copyWith(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: CommunityDesign.titleStyle(
+            context,
+          ).copyWith(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         backgroundColor: CommunityDesign.headerColor(context),
         elevation: 0,
@@ -65,9 +64,9 @@ class ManageNewsScreen extends ConsumerWidget {
                     Icon(
                       Icons.article_outlined,
                       size: 64,
-                      color: Theme.of(context).colorScheme.primary.withValues(
-                            alpha: 0.5,
-                          ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.5),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -79,10 +78,10 @@ class ManageNewsScreen extends ConsumerWidget {
                     Text(
                       'Crie uma notícia para aparecer no app.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withValues(alpha: 0.6),
-                          ),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
@@ -103,6 +102,7 @@ class ManageNewsScreen extends ConsumerWidget {
               ref.invalidate(allEventsProvider);
               ref.invalidate(activeEventsProvider);
               ref.invalidate(upcomingEventsProvider);
+              ref.invalidate(recentNewsProvider);
             },
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
@@ -125,19 +125,15 @@ class ManageNewsScreen extends ConsumerWidget {
                         color: cs.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(
-                        Icons.article,
-                        color: cs.primary,
-                      ),
+                      child: Icon(Icons.article, color: cs.primary),
                     ),
                     title: Text(
                       item.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: CommunityDesign.titleStyle(context).copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: CommunityDesign.titleStyle(
+                        context,
+                      ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
                     ),
                     subtitle: Padding(
                       padding: const EdgeInsets.only(top: 6),
@@ -148,6 +144,15 @@ class ManageNewsScreen extends ConsumerWidget {
                             _formatDateTime(item.startDate),
                             style: CommunityDesign.metaStyle(context),
                           ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _rotuloPrazo(item),
+                            style: CommunityDesign.metaStyle(context).copyWith(
+                              color: _venceu(item)
+                                  ? cs.error
+                                  : cs.onSurface.withValues(alpha: 0.6),
+                            ),
+                          ),
                           if (item.description != null &&
                               item.description!.trim().isNotEmpty) ...[
                             const SizedBox(height: 6),
@@ -157,9 +162,9 @@ class ManageNewsScreen extends ConsumerWidget {
                               overflow: TextOverflow.ellipsis,
                               style: CommunityDesign.contentStyle(context)
                                   .copyWith(
-                                color: cs.onSurface.withValues(alpha: 0.7),
-                                fontSize: 13,
-                              ),
+                                    color: cs.onSurface.withValues(alpha: 0.7),
+                                    fontSize: 13,
+                                  ),
                             ),
                           ],
                         ],
@@ -181,17 +186,15 @@ class ManageNewsScreen extends ConsumerWidget {
                           onPressed: () async {
                             final repo = ref.read(eventsRepositoryProvider);
                             try {
-                              await repo.updateEvent(
-                                item.id,
-                                {
-                                  'status': item.status == 'published'
-                                      ? 'draft'
-                                      : 'published',
-                                },
-                              );
+                              await repo.updateEvent(item.id, {
+                                'status': item.status == 'published'
+                                    ? 'draft'
+                                    : 'published',
+                              });
                               ref.invalidate(allEventsProvider);
                               ref.invalidate(activeEventsProvider);
                               ref.invalidate(upcomingEventsProvider);
+                              ref.invalidate(recentNewsProvider);
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
@@ -264,6 +267,7 @@ class ManageNewsScreen extends ConsumerWidget {
                                 ref.invalidate(allEventsProvider);
                                 ref.invalidate(activeEventsProvider);
                                 ref.invalidate(upcomingEventsProvider);
+                                ref.invalidate(recentNewsProvider);
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
@@ -314,6 +318,22 @@ class ManageNewsScreen extends ConsumerWidget {
     );
   }
 
+  bool _venceu(Event e) {
+    final prazo = e.endDate;
+    return prazo != null && prazo.isBefore(DateTime.now());
+  }
+
+  /// O prazo é o que tira a notícia do ar sozinha — sem mostrá-lo aqui, quem
+  /// publicou não tem como saber por que a notícia sumiu do app enquanto
+  /// continua publicada nesta lista.
+  String _rotuloPrazo(Event e) {
+    final prazo = e.endDate;
+    if (prazo == null) return 'Sem prazo';
+    return _venceu(e)
+        ? 'Saiu do ar em ${_formatDateTime(prazo)}'
+        : 'No ar até ${_formatDateTime(prazo)}';
+  }
+
   bool _isNews(Event e) {
     return (e.eventType ?? '').trim().toLowerCase() == 'news';
   }
@@ -324,4 +344,3 @@ class ManageNewsScreen extends ConsumerWidget {
     return '$date • $time';
   }
 }
-

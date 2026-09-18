@@ -16,9 +16,12 @@ class Event {
   final String? imageUrl;
   final DateTime createdAt;
   final DateTime? updatedAt;
-  final String? batchId; // Agrupa eventos gerados no mesmo lançamento fixo/recorrente
-  final String visibilityScope; // 'all' | 'restricted' (Fase 3 liga o enforcement)
-  final String registrationScope; // 'all' | 'restricted' (Fase 3 liga o enforcement)
+  final String?
+  batchId; // Agrupa eventos gerados no mesmo lançamento fixo/recorrente
+  final String
+  visibilityScope; // 'all' | 'restricted' (Fase 3 liga o enforcement)
+  final String
+  registrationScope; // 'all' | 'restricted' (Fase 3 liga o enforcement)
 
   // Campos computados do join
   final int? registrationCount;
@@ -102,6 +105,12 @@ class Event {
   }
 
   /// Propriedades computadas
+  /// `true` quando a linha é, na verdade, uma notícia. O módulo de notícias
+  /// grava em `public.event` com `event_type = 'news'` — não existe tabela
+  /// separada —, então toda lista de eventos precisa decidir de propósito se
+  /// inclui ou exclui essas linhas.
+  bool get isNews => (eventType ?? '').trim().toLowerCase() == 'news';
+
   bool get isPast {
     if (endDate != null) {
       return endDate!.isBefore(DateTime.now());

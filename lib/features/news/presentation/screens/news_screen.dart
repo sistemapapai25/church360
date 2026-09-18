@@ -13,7 +13,7 @@ class NewsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final eventsAsync = ref.watch(upcomingEventsProvider);
+    final eventsAsync = ref.watch(recentNewsProvider);
 
     return PopScope(
       canPop: true,
@@ -126,7 +126,7 @@ class NewsScreen extends ConsumerWidget {
 
             return RefreshIndicator(
               onRefresh: () async {
-                ref.invalidate(upcomingEventsProvider);
+                ref.invalidate(recentNewsProvider);
               },
               child: ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
@@ -189,7 +189,7 @@ class NewsScreen extends ConsumerWidget {
                         const SizedBox(height: 24),
                         FilledButton.icon(
                           onPressed: () {
-                            ref.invalidate(upcomingEventsProvider);
+                            ref.invalidate(recentNewsProvider);
                           },
                           icon: const Icon(Icons.refresh),
                           label: const Text('Tentar novamente'),
@@ -383,11 +383,12 @@ class _NewsCard extends StatelessWidget {
                           children: [
                             Text(
                               'LER NOTÍCIA COMPLETA',
-                              style: CommunityDesign.contentStyle(context).copyWith(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: cs.primary,
-                              ),
+                              style: CommunityDesign.contentStyle(context)
+                                  .copyWith(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: cs.primary,
+                                  ),
                             ),
                             const SizedBox(width: 8),
                             Icon(
