@@ -7,6 +7,10 @@ import 'pearl_button.dart';
 /// ficam todos nela para a linha ler como uma faixa so.
 const double _kControlHeight = 44;
 
+/// Largura minima que a busca guarda para si quando divide a linha com os
+/// controles. Abaixo disso o campo deixa de caber um nome.
+const double _kMinSearchWidth = 240;
+
 /// Acao de uma [AppFilterBar].
 class AppFilterAction {
   final String label;
@@ -81,21 +85,36 @@ class AppFilterBar extends StatelessWidget {
         );
 
         if (!compact) {
-          // Wrap, e nao Row: com busca + dois filtros + ordenacao + duas
-          // acoes a linha pede perto de 900px, entao numa janela de 800 o
-          // Row estourava em barra listrada (medido em teste). Aqui o que
-          // nao couber desce para a linha de baixo sozinho, qualquer que
-          // seja a quantidade de filtros que a tela passar.
-          return Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          if (controls.isEmpty) return search;
+
+          // A busca estica e os controles ficam encostados na direita: a
+          // barra tem que ocupar a largura toda, como no desenho de
+          // referencia, e nao virar um bloco no canto esquerdo com meia tela
+          // vazia ao lado.
+          //
+          // O teto de largura nos controles e o que impede o estouro: com
+          // busca + dois filtros + ordenacao + duas acoes a linha pede perto
+          // de 900px, e numa janela de 800 o Row estourava em barra listrada
+          // (medido em teste). Limitados, eles quebram para a linha de baixo
+          // sozinhos e a busca nunca desce de [_kMinSearchWidth].
+          final controlsMax = (constraints.maxWidth - _kMinSearchWidth - 10)
+              .clamp(0.0, constraints.maxWidth);
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              SizedBox(
-                width: (constraints.maxWidth * 0.34).clamp(240.0, 460.0),
-                child: search,
+              Expanded(child: search),
+              const SizedBox(width: 10),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: controlsMax),
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: controls,
+                ),
               ),
-              ...controls,
             ],
           );
         }

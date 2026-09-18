@@ -1,4 +1,5 @@
 import 'package:church360_app/core/theme/app_theme.dart';
+import 'package:church360_app/core/widgets/app_tabs.dart';
 import 'package:church360_app/features/ministries/domain/models/ministry.dart';
 import 'package:church360_app/features/ministries/presentation/providers/ministries_provider.dart';
 import 'package:church360_app/features/ministries/shared/presentation/widgets/ministry_workspace_shell.dart';
@@ -265,5 +266,49 @@ void main() {
 
     expect(find.byIcon(Icons.notifications_active_outlined), findsOneWidget);
     expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
+  });
+
+  testWidgets('o nome fica na barra de navegacao, ao lado do voltar', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(name: 'Batismo nas Aguas'));
+    await tester.pumpAndSettle();
+
+    final nome = find.byWidgetPredicate(
+      (w) => w is RichText && w.text.toPlainText() == 'Batismo nas Aguas',
+    );
+
+    expect(
+      find.descendant(of: find.byType(AppBar), matching: nome),
+      findsOneWidget,
+    );
+    // Na mesma linha do voltar, e depois dele.
+    final voltar = find.byIcon(Icons.arrow_back);
+    expect(tester.getTopLeft(nome).dx, greaterThan(
+      tester.getBottomRight(voltar).dx - 1,
+    ));
+    expect(
+      (tester.getCenter(nome).dy - tester.getCenter(voltar).dy).abs(),
+      lessThan(8),
+    );
+  });
+
+  testWidgets('a engrenagem fecha a trilha de abas', (tester) async {
+    await tester.pumpWidget(_host(canEdit: true));
+    await tester.pumpAndSettle();
+
+    // Dentro da barra, e nao solta ao lado dela: e o ultimo controle da
+    // trilha, logo depois da ultima aba.
+    expect(
+      find.descendant(
+        of: find.byType(AppTabs),
+        matching: find.byIcon(Icons.settings_outlined),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.getCenter(find.byIcon(Icons.settings_outlined)).dx,
+      greaterThan(tester.getCenter(find.text('Alunos')).dx),
+    );
   });
 }

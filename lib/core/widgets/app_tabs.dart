@@ -15,6 +15,11 @@ class AppTab {
   const AppTab({required this.label, this.count, this.icon});
 }
 
+/// Largura reservada para o controle fixo do fim da trilha
+/// ([AppTabs.trailing]). Usada so na conta que decide entre distribuir e
+/// rolar.
+const double _kTrailingSlot = 48;
+
 /// Barra de sub-abas em pilula, com contador opcional por aba.
 ///
 /// Agrupa sub-secoes de uma MESMA tela de gestao (Alunos / Checklist /
@@ -27,22 +32,30 @@ class AppTab {
 /// `primaryForeground`, contador em selo branco translucido; abas inativas
 /// em `mutedForeground`, contador com fundo `border`.
 ///
-/// A barra rola na horizontal: com cinco abas ela nao cabe na largura de um
-/// celular, e cortar a quinta aba esconderia uma secao inteira.
+/// A trilha ocupa a largura toda. Quando as abas cabem nela, cada uma recebe
+/// a mesma fatia — a distribuicao pareja do desenho de referencia, em vez de
+/// um bloco de abas encostado na esquerda com a metade direita vazia. Quando
+/// nao cabem (celular), a trilha rola na horizontal: cortar a ultima aba
+/// esconderia uma secao inteira.
 class AppTabs extends StatelessWidget {
   final List<AppTab> tabs;
   final int selectedIndex;
   final ValueChanged<int> onChanged;
 
-  /// Alinhamento quando a barra cabe inteira na largura disponivel.
-  final AlignmentGeometry alignment;
+  /// Controle fixo na ponta direita da trilha, dentro da mesma pilula — a
+  /// engrenagem do ministerio, por exemplo.
+  ///
+  /// Fica fora da parte rolavel de proposito: quando as abas nao cabem, um
+  /// controle no fim do trilho so apareceria depois de arrastar tudo ate o
+  /// fim.
+  final Widget? trailing;
 
   const AppTabs({
     super.key,
     required this.tabs,
     required this.selectedIndex,
     required this.onChanged,
-    this.alignment = Alignment.centerLeft,
+    this.trailing,
   });
 
   @override
@@ -50,13 +63,15 @@ class AppTabs extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final track = dark ? AppTheme.darkInput : AppTheme.muted;
     final borderColor = dark ? AppTheme.darkBorder : AppTheme.border;
+    final natural = _naturalWidth(context);
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.zero,
-      child: Align(
-        alignment: alignment,
-        child: Container(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fits =
+            constraints.maxWidth.isFinite && natural <= constraints.maxWidth;
+
+        return Container(
+          width: double.infinity,
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
             color: track,
@@ -64,21 +79,106 @@ class AppTabs extends StatelessWidget {
             borderRadius: BorderRadius.circular(999),
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              for (var i = 0; i < tabs.length; i++) ...[
-                if (i > 0) const SizedBox(width: 4),
-                _AppTabPill(
-                  tab: tabs[i],
-                  selected: i == selectedIndex,
-                  onTap: () => onChanged(i),
-                ),
+              Expanded(child: fits ? _spread() : _scroller()),
+              if (trailing != null) ...[
+                const SizedBox(width: 4),
+                trailing!,
               ],
             ],
           ),
-        ),
+        );
+      },
+    );
+  }
+
+  /// Abas dividindo a largura em partes iguais.
+  Widget _spread() {
+    return Row(
+      children: [
+        for (var i = 0; i < tabs.length; i++) ...[
+          if (i > 0) const SizedBox(width: 4),
+          Expanded(
+            child: _AppTabPill(
+              tab: tabs[i],
+              selected: i == selectedIndex,
+              expanded: true,
+              onTap: () => onChanged(i),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Abas com a largura do proprio conteudo, rolando na horizontal.
+  Widget _scroller() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: EdgeInsets.zero,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < tabs.length; i++) ...[
+            if (i > 0) const SizedBox(width: 4),
+            _AppTabPill(
+              tab: tabs[i],
+              selected: i == selectedIndex,
+              onTap: () => onChanged(i),
+            ),
+          ],
+        ],
       ),
     );
+  }
+
+  /// Largura que a trilha pediria com cada aba no tamanho do seu conteudo.
+  ///
+  /// E medida, e nao chutada, porque e ela que decide entre distribuir e
+  /// rolar: uma conta por baixo espremeria os rotulos, uma por cima mandaria
+  /// rolar uma barra que cabia. A aba ativa e a mais larga (peso w600), entao
+  /// todas sao medidas assim.
+  double _naturalWidth(BuildContext context) {
+    var total = 10.0; // padding da trilha (4+4) + borda (1+1)
+    if (trailing != null) total += _kTrailingSlot;
+
+    for (var i = 0; i < tabs.length; i++) {
+      if (i > 0) total += 4;
+      total += 32; // padding horizontal da pilula
+      total += _textWidth(
+        context,
+        tabs[i].label,
+        const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.2),
+      );
+      if (tabs[i].icon != null) total += 21; // icone 15 + respiro 6
+      final count = tabs[i].count;
+      if (count != null) {
+        total += 20; // respiro 6 + padding do selo 7+7
+        total += _textWidth(
+          context,
+          count,
+          const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            height: 1.3,
+          ),
+        );
+      }
+    }
+    return total;
+  }
+
+  static double _textWidth(
+    BuildContext context,
+    String text,
+    TextStyle style,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    return painter.width;
   }
 }
 
@@ -87,10 +187,16 @@ class _AppTabPill extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  /// `true` quando a aba recebeu uma fatia fixa da trilha: o conteudo passa a
+  /// ser centrado e o rotulo aceita reticencias, para uma medida por baixo
+  /// nunca virar overflow.
+  final bool expanded;
+
   const _AppTabPill({
     required this.tab,
     required this.selected,
     required this.onTap,
+    this.expanded = false,
   });
 
   @override
@@ -112,6 +218,18 @@ class _AppTabPill extends StatelessWidget {
         ? AppTheme.primaryForeground
         : (dark ? AppTheme.darkForeground : AppTheme.foreground);
 
+    final label = Text(
+      tab.label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: foreground,
+        fontSize: 13,
+        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+        height: 1.2,
+      ),
+    );
+
     return Semantics(
       button: true,
       selected: selected,
@@ -128,21 +246,14 @@ class _AppTabPill extends StatelessWidget {
             borderRadius: radius,
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (tab.icon != null) ...[
                 Icon(tab.icon, size: 15, color: foreground),
                 const SizedBox(width: 6),
               ],
-              Text(
-                tab.label,
-                style: TextStyle(
-                  color: foreground,
-                  fontSize: 13,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  height: 1.2,
-                ),
-              ),
+              expanded ? Flexible(child: label) : label,
               if (tab.count != null) ...[
                 const SizedBox(width: 6),
                 Container(
