@@ -70,12 +70,13 @@ class GlassCard extends StatelessWidget {
                     baseColor.withValues(alpha: dark ? 0.46 : 0.48),
                   ],
                 ),
-                border: Border(
-                  top: BorderSide(color: borderLight, width: 1.2),
-                  left: BorderSide(color: borderSoft, width: 1),
-                  right: BorderSide(color: borderSoft, width: 1),
-                  bottom: BorderSide(color: borderSoft, width: 1),
-                ),
+                // Borda UNIFORME. Um `Border` com lados de cores diferentes
+                // e `borderRadius` é inválido no Flutter: em debug estoura
+                // "A borderRadius can only be given on borders with uniform
+                // colors" no paint, e em release ele cai no desenho sem raio
+                // — os quatro cantos ficavam sem borda. O fio de luz do topo
+                // continua existindo, desenhado no Stack logo abaixo.
+                border: Border.all(color: borderSoft, width: 1),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: dark ? 0.35 : 0.06),
@@ -86,6 +87,19 @@ class GlassCard extends StatelessWidget {
               ),
               child: Stack(
                 children: [
+                  // O fio de luz do topo, que antes era o lado `top` de uma
+                  // borda não uniforme.
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 1.2,
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(color: borderLight),
+                      ),
+                    ),
+                  ),
                   // Reflexo diagonal sutil — materialidade de vidro (ref. 08.12.37).
                   Positioned.fill(
                     child: IgnorePointer(
@@ -241,12 +255,13 @@ class GlassCardDevotional extends StatelessWidget {
                     gradientColors.last.withValues(alpha: 0.72),
                   ],
                 ),
-                border: Border(
-                  top: BorderSide(color: borderLight, width: 1.2),
-                  left: BorderSide(color: borderSoft, width: 1),
-                  right: BorderSide(color: borderSoft, width: 1),
-                  bottom: BorderSide(color: borderSoft, width: 1),
-                ),
+                // Borda UNIFORME. Um `Border` com lados de cores diferentes
+                // e `borderRadius` é inválido no Flutter: em debug estoura
+                // "A borderRadius can only be given on borders with uniform
+                // colors" no paint, e em release ele cai no desenho sem raio
+                // — os quatro cantos ficavam sem borda. O fio de luz do topo
+                // continua existindo, desenhado no Stack logo abaixo.
+                border: Border.all(color: borderSoft, width: 1),
                 boxShadow: [
                   BoxShadow(
                     color: gradientColors.last.withValues(alpha: 0.35),
@@ -259,6 +274,19 @@ class GlassCardDevotional extends StatelessWidget {
                 borderRadius: borderRadius,
                 child: Stack(
                   children: [
+                    // O fio de luz do topo, que antes era o lado `top` de uma
+                    // borda não uniforme.
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: 1.2,
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(color: borderLight),
+                        ),
+                      ),
+                    ),
                     // Reflexo diagonal sutil — mesma linguagem do GlassCard.
                     Positioned.fill(
                       child: IgnorePointer(
