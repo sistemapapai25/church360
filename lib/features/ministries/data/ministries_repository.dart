@@ -332,7 +332,13 @@ class MinistriesRepository {
         .eq('user_id', memberId)
         .eq('tenant_id', SupabaseConstants.currentTenantId);
 
+    // O embed `ministry:ministry_id (*)` volta NULL — sem erro nenhum — quando
+    // a RLS de `ministry` não deixa o leitor ver aquela linha. Sem este filtro,
+    // `Ministry.fromJson(null)` estoura e o chamador recebe um erro que parece
+    // de rede. Descartar a linha ilegível é o comportamento certo: a pessoa vê
+    // os ministérios que pode ver, não uma exceção.
     return (response as List)
+        .where((json) => json['ministry'] != null)
         .map((json) => Ministry.fromJson(json['ministry']))
         .toList();
   }
