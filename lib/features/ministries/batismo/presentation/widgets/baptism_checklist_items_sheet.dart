@@ -35,6 +35,32 @@ Future<bool> showBaptismChecklistItemsSheet({
   return changed ?? false;
 }
 
+/// Abre direto o formulário de etapa, sem passar pelo gerenciador.
+///
+/// Serve ao botão "Adicionar etapa" do catálogo que a aba Checklist mostra
+/// no topo: quem já está olhando a lista de etapas não precisa abrir uma
+/// segunda lista de etapas para chegar ao mesmo formulário.
+///
+/// Devolve `true` se a etapa foi salva — quem chamou invalida as listas.
+Future<bool> showBaptismChecklistItemFormSheet({
+  required BuildContext context,
+  required String ministryId,
+  required List<BaptismTurma> turmas,
+  BaptismChecklistItem? item,
+}) async {
+  final saved = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _ItemFormSheet(
+      ministryId: ministryId,
+      turmas: turmas,
+      item: item,
+    ),
+  );
+  return saved ?? false;
+}
+
 class _ItemsSheet extends ConsumerStatefulWidget {
   final String ministryId;
   final List<BaptismTurma> turmas;
