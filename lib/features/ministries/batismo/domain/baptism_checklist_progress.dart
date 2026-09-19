@@ -39,6 +39,23 @@ class BaptismStudentProgress {
   bool isDone(BaptismChecklistItem item) => doneItemIds.contains(item.id);
 }
 
+/// As etapas que valem hoje, na ordem em que a tela mostra.
+///
+/// Mora aqui, e não na tela, porque duas partes da aba Checklist
+/// dependem desta mesma lista: o catálogo no topo (o que o líder vê
+/// cadastrado) e o denominador do progresso de cada aluno. Com duas
+/// réguas, a mesma tela mostraria catálogo e progresso discordando.
+List<BaptismChecklistItem> activeBaptismChecklistItems(
+  Iterable<BaptismChecklistItem> items,
+) {
+  return items.where((i) => i.isActive).toList()
+    ..sort((a, b) {
+      final byOrder = a.orderIndex.compareTo(b.orderIndex);
+      if (byOrder != 0) return byOrder;
+      return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+    });
+}
+
 /// Junta catálogo, alunos e marcações numa lista pronta para a tela.
 ///
 /// [items] pode conter etapas de qualquer turma do ministério e etapas
@@ -49,12 +66,7 @@ List<BaptismStudentProgress> buildBaptismChecklistProgress({
   required List<BaptismChecklistItem> items,
   required List<BaptismChecklistEntry> entries,
 }) {
-  final active = items.where((i) => i.isActive).toList()
-    ..sort((a, b) {
-      final byOrder = a.orderIndex.compareTo(b.orderIndex);
-      if (byOrder != 0) return byOrder;
-      return a.title.toLowerCase().compareTo(b.title.toLowerCase());
-    });
+  final active = activeBaptismChecklistItems(items);
 
   final doneByStudent = <String, Set<String>>{};
   for (final entry in entries) {

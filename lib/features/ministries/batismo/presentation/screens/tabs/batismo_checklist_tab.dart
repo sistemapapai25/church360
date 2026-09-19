@@ -13,8 +13,14 @@ import '../../widgets/baptism_checklist_items_sheet.dart';
 
 /// Aba Checklist do workspace do Batismo.
 ///
-/// Duas coisas em uma tela: o catálogo de etapas do curso (atrás do botão
-/// "Etapas") e o que cada aluno já cumpriu (a lista).
+/// Duas coisas em uma tela: o catálogo de etapas do curso (no topo, mais o
+/// gerenciador atrás de "Etapas do curso") e o que cada aluno já cumpriu
+/// (a lista de baixo).
+///
+/// O catálogo ficou visível no topo depois de 18/09: com ele só atrás do
+/// botão, um ministério sem aluno nenhum cadastrado mostrava uma tela vazia
+/// logo depois de a etapa ser criada, e quem cuida do curso não tinha onde
+/// conferir o que existe.
 ///
 /// Marcar e desmarcar pedem `baptism.edit` — as duas, de propósito.
 /// Desmarcar apaga a linha no banco, mas é a outra metade de marcar; se
@@ -135,6 +141,16 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
     }
   }
 
+  /// Cria uma etapa sem passar pelo gerenciador — o atalho do catálogo.
+  Future<void> _addItem(List<BaptismTurma> turmas) async {
+    final saved = await showBaptismChecklistItemFormSheet(
+      context: context,
+      ministryId: widget.ministryId,
+      turmas: turmas,
+    );
+    if (saved && mounted) invalidateBaptismData(ref, widget.ministryId);
+  }
+
   Future<void> _openItems({
     required List<BaptismTurma> turmas,
     required bool canCreate,
@@ -211,12 +227,17 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
     // ministério com etapas só de uma turma, olhando alunos de outra,
     // diria "nenhuma etapa cadastrada" e mandaria cadastrar de novo o que
     // já existe.
-    final hasActiveItems = ref
+    //
+    // A mesma lista alimenta o catálogo do topo — vem de
+    // activeBaptismChecklistItems para o catálogo e o denominador do
+    // progresso nunca discordarem sobre quais etapas valem.
+    final activeItems = ref
         .watch(baptismChecklistItemsProvider(widget.ministryId))
         .maybeWhen(
-          data: (items) => items.any((i) => i.isActive),
-          orElse: () => false,
+          data: activeBaptismChecklistItems,
+          orElse: () => const <BaptismChecklistItem>[],
         );
+    final hasActiveItems = activeItems.isNotEmpty;
     final turmasAsync = ref.watch(baptismTurmasProvider(widget.ministryId));
     final turmas = turmasAsync.maybeWhen(
       data: (t) => t,
@@ -306,38 +327,214 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
                             '"Etapas do curso" e elas passam a valer para os '
                             'alunos.'
                       : 'Ainda não há etapas cadastradas neste ministério.',
+                  action: canCreate
+                      ? _EmptyStateAction(
+                          label: 'Cadastrar a primeira etapa',
+                          icon: Icons.add,
+                          onPressed: () => _addItem(turmas),
+                        )
+                      : null,
                 )
-              else if (visible.isEmpty)
-                _EmptyState(
-                  icon: Icons.search_off_outlined,
-                  title: 'Nenhum aluno neste filtro',
-                  message: _onlyPending
-                      ? 'Ninguém com etapa pendente no filtro atual.'
-                      : 'Nenhum aluno bate com a busca.',
-                )
-              else
-                for (final p in visible)
-                  _StudentChecklistCard(
-                    progress: p,
-                    expanded: _expanded.contains(p.student.id),
+              else ...[
+                // O catálogo vem ANTES da lista de alunos: ele é a resposta
+                // à pergunta "o que está lançado?", e quem cuida do curso
+                // precisa dela mesmo quando não há um aluno sequer.
+                _CatalogCard(
+                  items: activeItems,
+                  turmas: turmas,
+                  canCreate: canCreate,
+                  onAdd: () => _addItem(turmas),
+                  onManage: () => _openItems(
+                    turmas: turmas,
+                    canCreate: canCreate,
                     canEdit: canEdit,
-                    busyKeys: _busy,
-                    onToggleExpanded: () => setState(() {
-                      if (!_expanded.remove(p.student.id)) {
-                        _expanded.add(p.student.id);
-                      }
-                    }),
-                    onToggleItem: (item, done) => _toggle(
-                      student: p.student,
-                      item: item,
-                      done: done,
-                    ),
-                    onCompleteAll: () => _completeAll(p),
+                    canDelete: canDelete,
                   ),
+                ),
+                const SizedBox(height: 18),
+                // Zero aluno no ministério e zero aluno no filtro são
+                // problemas diferentes e pedem saídas diferentes: um manda
+                // cadastrar, o outro manda limpar o filtro.
+                if (progress.isEmpty)
+                  _EmptyState(
+                    icon: Icons.person_add_alt_outlined,
+                    title: 'Nenhum aluno cadastrado ainda',
+                    message: 'As etapas acima passam a valer assim que o '
+                        'primeiro aluno entrar numa turma. O cadastro de '
+                        'alunos fica na aba Alunos.',
+                  )
+                else ...[
+                  _SectionLabel(
+                    label: 'Alunos',
+                    count: visible.length,
+                    total: progress.length,
+                  ),
+                  const SizedBox(height: 8),
+                  if (visible.isEmpty)
+                    _EmptyState(
+                      icon: Icons.search_off_outlined,
+                      title: 'Nenhum aluno neste filtro',
+                      message: _onlyPending
+                          ? 'Ninguém com etapa pendente no filtro atual.'
+                          : 'Nenhum aluno bate com a busca.',
+                    )
+                  else
+                    for (final p in visible)
+                      _StudentChecklistCard(
+                        progress: p,
+                        expanded: _expanded.contains(p.student.id),
+                        canEdit: canEdit,
+                        busyKeys: _busy,
+                        onToggleExpanded: () => setState(() {
+                          if (!_expanded.remove(p.student.id)) {
+                            _expanded.add(p.student.id);
+                          }
+                        }),
+                        onToggleItem: (item, done) => _toggle(
+                          student: p.student,
+                          item: item,
+                          done: done,
+                        ),
+                        onCompleteAll: () => _completeAll(p),
+                      ),
+                ],
+              ],
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// O catálogo de etapas do curso, no topo da aba.
+///
+/// Não tem caixa de marcar: aqui nada é "cumprido", só existe. Marcar é
+/// sempre de um aluno, e acontece nos cards de baixo. Cada linha diz o
+/// alcance da etapa — todas as turmas ou uma só —, porque é a pergunta
+/// que aparece assim que existe mais de uma turma.
+class _CatalogCard extends StatelessWidget {
+  final List<BaptismChecklistItem> items;
+  final List<BaptismTurma> turmas;
+  final bool canCreate;
+  final VoidCallback onAdd;
+  final VoidCallback onManage;
+
+  const _CatalogCard({
+    required this.items,
+    required this.turmas,
+    required this.canCreate,
+    required this.onAdd,
+    required this.onManage,
+  });
+
+  String _scopeLabel(BaptismChecklistItem item) {
+    if (item.turmaId == null) return 'Todas as turmas';
+    for (final t in turmas) {
+      if (t.id == item.turmaId) return 'Só a turma ${t.name}';
+    }
+    // A turma pode ter sido apagada com a etapa sobrevivendo — dizer
+    // "turma removida" é mais honesto do que mostrar um id ou nada.
+    return 'Só uma turma removida';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 8, 4),
+            child: Row(
+              children: [
+                Icon(Icons.checklist_outlined, size: 18, color: theme.hintColor),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Etapas do curso (${items.length})',
+                    style: CommunityDesign.titleStyle(context)
+                        .copyWith(fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                TextButton(
+                  onPressed: onManage,
+                  child: const Text('Gerenciar'),
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: theme.dividerColor),
+          for (final item in items)
+            ListTile(
+              dense: true,
+              leading: Icon(
+                Icons.radio_button_unchecked,
+                size: 18,
+                color: theme.hintColor,
+              ),
+              title: Text(
+                item.title,
+                style: CommunityDesign.contentStyle(context)
+                    .copyWith(fontSize: 14),
+              ),
+              subtitle: Text(
+                _scopeLabel(item),
+                style: CommunityDesign.metaStyle(context),
+              ),
+            ),
+          if (canCreate)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(6, 0, 0, 6),
+                child: TextButton.icon(
+                  onPressed: onAdd,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Adicionar etapa'),
+                ),
+              ),
+            )
+          else
+            const SizedBox(height: 6),
+        ],
+      ),
+    );
+  }
+}
+
+/// Rótulo da seção de alunos, com a contagem do filtro.
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  final int count;
+  final int total;
+
+  const _SectionLabel({
+    required this.label,
+    required this.count,
+    required this.total,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // "3 de 12" só aparece quando o filtro está escondendo alguém: sem
+    // filtro, o segundo número seria ruído.
+    final suffix = count == total ? '$total' : '$count de $total';
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(
+        '${label.toUpperCase()} · $suffix',
+        style: CommunityDesign.metaStyle(context)
+            .copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.4),
+      ),
     );
   }
 }
@@ -517,15 +714,30 @@ class _ItemTile extends StatelessWidget {
   }
 }
 
+/// Botão opcional de um estado vazio.
+class _EmptyStateAction {
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  const _EmptyStateAction({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+}
+
 class _EmptyState extends StatelessWidget {
   final IconData icon;
   final String title;
   final String message;
+  final _EmptyStateAction? action;
 
   const _EmptyState({
     required this.icon,
     required this.title,
     required this.message,
+    this.action,
   });
 
   @override
@@ -548,6 +760,14 @@ class _EmptyState extends StatelessWidget {
             textAlign: TextAlign.center,
             style: CommunityDesign.metaStyle(context),
           ),
+          if (action != null) ...[
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: action!.onPressed,
+              icon: Icon(action!.icon, size: 18),
+              label: Text(action!.label),
+            ),
+          ],
         ],
       ),
     );

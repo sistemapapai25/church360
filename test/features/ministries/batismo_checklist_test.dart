@@ -286,12 +286,17 @@ void main() {
         ),
       );
 
-      expect(find.text('Entrevista'), findsNothing);
+      // Uma vez cada: o catálogo do topo. O card do aluno ainda está
+      // fechado.
+      expect(find.text('Entrevista'), findsOneWidget);
+      expect(find.text('Aula 1'), findsOneWidget);
+
       await tester.tap(find.text('Ana'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Entrevista'), findsOneWidget);
-      expect(find.text('Aula 1'), findsOneWidget);
+      // Duas: catálogo + a etapa dentro do card do aluno.
+      expect(find.text('Entrevista'), findsNWidgets(2));
+      expect(find.text('Aula 1'), findsNWidgets(2));
       expect(find.byIcon(Icons.check_box), findsOneWidget);
       expect(find.byIcon(Icons.check_box_outline_blank), findsOneWidget);
     });
@@ -311,9 +316,11 @@ void main() {
       await tester.pumpAndSettle();
 
       // A etapa continua visível — quem não edita precisa enxergar o que
-      // já foi cumprido.
-      expect(find.text('Etapa i1'), findsOneWidget);
+      // já foi cumprido. Duas vezes: catálogo + card do aluno.
+      expect(find.text('Etapa i1'), findsNWidgets(2));
       expect(find.text('Marcar tudo'), findsNothing);
+      // Sem baptism.create o catálogo não oferece criar.
+      expect(find.text('Adicionar etapa'), findsNothing);
     });
 
     testWidgets('aluno de turma sem etapa aplicável diz isso', (tester) async {
@@ -333,6 +340,65 @@ void main() {
         find.text('Nenhuma etapa se aplica à turma deste aluno.'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('catálogo aparece mesmo sem nenhum aluno cadastrado',
+        (tester) async {
+      // O caso que motivou a mudança: em produção a etapa foi criada, a
+      // tabela de alunos estava vazia, e a aba não mostrava nada —
+      // parecia que a etapa não tinha sido salva.
+      await _pumpTab(
+        tester,
+        _host(
+          students: const [],
+          items: [_item('i1', title: 'Comprar camisa')],
+          entries: const [],
+          turmas: [_turma('turma-1', 'Batizandos 2026')],
+        ),
+      );
+
+      expect(find.text('Etapas do curso (1)'), findsOneWidget);
+      expect(find.text('Comprar camisa'), findsOneWidget);
+      expect(find.text('Todas as turmas'), findsWidgets);
+      expect(find.text('Nenhum aluno cadastrado ainda'), findsOneWidget);
+      // O estado de filtro não aparece: não há filtro escondendo ninguém.
+      expect(find.text('Nenhum aluno neste filtro'), findsNothing);
+    });
+
+    testWidgets('catálogo diz o alcance de etapa presa a uma turma',
+        (tester) async {
+      await _pumpTab(
+        tester,
+        _host(
+          students: const [],
+          items: [_item('i1', title: 'Ensaio', turmaId: 'turma-1')],
+          entries: const [],
+          turmas: [_turma('turma-1', 'Batizandos 2026')],
+        ),
+      );
+
+      expect(find.text('Só a turma Batizandos 2026'), findsOneWidget);
+    });
+
+    testWidgets('zero aluno e filtro sem resultado dão mensagens diferentes',
+        (tester) async {
+      await _pumpTab(
+        tester,
+        _host(
+          students: [_student('Ana')],
+          items: [_item('i1')],
+          entries: [_entry('id-Ana', 'i1')],
+        ),
+      );
+
+      // Ana cumpriu tudo; "só pendentes" esconde ela.
+      await tester.tap(find.text('Todos'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nenhum aluno neste filtro'), findsOneWidget);
+      expect(find.text('Nenhum aluno cadastrado ainda'), findsNothing);
+      // O catálogo continua lá mesmo com o filtro vazio.
+      expect(find.text('Etapas do curso (1)'), findsOneWidget);
     });
   });
 
