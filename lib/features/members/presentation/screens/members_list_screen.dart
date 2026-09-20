@@ -8,6 +8,7 @@ import '../../domain/models/member.dart';
 import '../../../tags/presentation/providers/tags_provider.dart';
 import '../../../tags/presentation/widgets/tag_filter_chips.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/date_period_filter.dart';
 import '../../../../core/widgets/age_range_filter.dart';
@@ -17,6 +18,8 @@ import '../../../../core/widgets/birth_month_filter.dart';
 import '../../../../core/widgets/value_chip_filter.dart';
 import '../../../../core/widgets/value_dropdown_filter.dart';
 import '../../../../core/widgets/member_data_filter.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/status_badge.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de membros
@@ -127,9 +130,10 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
   }) {
     return [
       ValueChipOption(null, allLabel),
-      ..._distinctValues(members, pick).map(
-        (v) => ValueChipOption(v, labelOf(v)),
-      ),
+      ..._distinctValues(
+        members,
+        pick,
+      ).map((v) => ValueChipOption(v, labelOf(v))),
     ];
   }
 
@@ -229,7 +233,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                 Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back),
+                      icon: const Icon(AppIcons.back),
                       tooltip: 'Voltar',
                       onPressed: () => context.pop(),
                     ),
@@ -251,7 +255,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                         ],
                       ),
                       child: Icon(
-                        Icons.groups,
+                        AppIcons.groupsFilled,
                         size: 24,
                         color: Theme.of(context).colorScheme.primary,
                       ),
@@ -278,8 +282,10 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                     PermissionGate(
                       permission: 'members.create',
                       child: ElevatedButton.icon(
-                        onPressed: () => context.push('/members/new?status=member_active&type=membro'),
-                        icon: const Icon(Icons.add, size: 18),
+                        onPressed: () => context.push(
+                          '/members/new?status=member_active&type=membro',
+                        ),
+                        icon: const Icon(AppIcons.add, size: 18),
                         label: const Text('Novo'),
                         style: CommunityDesign.pillButtonStyle(
                           context,
@@ -308,7 +314,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.search, size: 20),
+                        const Icon(AppIcons.search, size: 20),
                         const SizedBox(width: 8),
                         Text(
                           'Buscar Membros',
@@ -330,10 +336,10 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                             decoration: InputDecoration(
                               hintText: 'Digite o nome ou apelido...',
                               hintStyle: CommunityDesign.metaStyle(context),
-                              prefixIcon: const Icon(Icons.search, size: 20),
+                              prefixIcon: const Icon(AppIcons.search, size: 20),
                               suffixIcon: _searchQuery.trim().isNotEmpty
                                   ? IconButton(
-                                      icon: const Icon(Icons.clear),
+                                      icon: const Icon(AppIcons.clear),
                                       onPressed: () {
                                         setState(() {
                                           _searchController.clear();
@@ -386,8 +392,8 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                               setState(() => _showFilters = !_showFilters),
                           icon: Icon(
                             _showFilters
-                                ? Icons.expand_less
-                                : Icons.filter_alt_outlined,
+                                ? AppIcons.expandLess
+                                : AppIcons.filter,
                             size: 18,
                           ),
                           label: Text(
@@ -401,8 +407,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                         if (_activeFilterCount > 0)
                           TextButton.icon(
                             onPressed: _clearFilters,
-                            icon: const Icon(Icons.filter_alt_off_outlined,
-                                size: 18),
+                            icon: const Icon(AppIcons.filterOff, size: 18),
                             label: const Text('Limpar filtros'),
                           ),
                       ],
@@ -413,8 +418,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                       // da altura do cabecalho. Limita e rola, em vez de estourar.
                       ConstrainedBox(
                         constraints: BoxConstraints(
-                          maxHeight:
-                              MediaQuery.of(context).size.height * 0.45,
+                          maxHeight: MediaQuery.of(context).size.height * 0.45,
                         ),
                         child: SingleChildScrollView(
                           child: Column(
@@ -439,7 +443,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                               const SizedBox(height: 16),
                               ValueChipFilter(
                                 label: 'Gênero',
-                                icon: Icons.wc_outlined,
+                                icon: AppIcons.gender,
                                 options: _chipOptions(
                                   filterBase,
                                   (m) => m.gender,
@@ -458,7 +462,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                               const SizedBox(height: 16),
                               ValueChipFilter(
                                 label: 'Tipo de membro',
-                                icon: Icons.badge_outlined,
+                                icon: AppIcons.badge,
                                 options: _chipOptions(
                                   filterBase,
                                   (m) => m.memberType,
@@ -471,7 +475,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                               const SizedBox(height: 16),
                               ValueChipFilter(
                                 label: 'Situação',
-                                icon: Icons.how_to_reg_outlined,
+                                icon: AppIcons.registration,
                                 options: _chipOptions(
                                   filterBase,
                                   (m) => m.status,
@@ -490,7 +494,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                               const SizedBox(height: 16),
                               DatePeriodFilter(
                                 label: 'Data de conversão',
-                                icon: Icons.auto_awesome,
+                                icon: AppIcons.conversion,
                                 selection: _conversionFilter,
                                 onChanged: (sel) =>
                                     setState(() => _conversionFilter = sel),
@@ -498,7 +502,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                               const SizedBox(height: 16),
                               DatePeriodFilter(
                                 label: 'Data de batismo',
-                                icon: Icons.water_drop_outlined,
+                                icon: AppIcons.water,
                                 selection: _baptismDateFilter,
                                 onChanged: (sel) =>
                                     setState(() => _baptismDateFilter = sel),
@@ -506,16 +510,15 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                               const SizedBox(height: 16),
                               DatePeriodFilter(
                                 label: 'Data de membresia',
-                                icon: Icons.assignment_turned_in_outlined,
+                                icon: AppIcons.membership,
                                 selection: _membershipDateFilter,
-                                onChanged: (sel) => setState(
-                                  () => _membershipDateFilter = sel,
-                                ),
+                                onChanged: (sel) =>
+                                    setState(() => _membershipDateFilter = sel),
                               ),
                               const SizedBox(height: 16),
                               ValueDropdownFilter(
                                 label: 'Cidade',
-                                icon: Icons.location_city_outlined,
+                                icon: AppIcons.city,
                                 allLabel: 'Todas',
                                 values: _distinctValues(
                                   filterBase,
@@ -528,7 +531,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                               const SizedBox(height: 16),
                               ValueDropdownFilter(
                                 label: 'Bairro',
-                                icon: Icons.map_outlined,
+                                icon: AppIcons.map,
                                 allLabel: 'Todos',
                                 values: _distinctValues(
                                   filterBase,
@@ -541,7 +544,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                               const SizedBox(height: 16),
                               ValueDropdownFilter(
                                 label: 'Profissão',
-                                icon: Icons.work_outline,
+                                icon: AppIcons.work,
                                 allLabel: 'Todas',
                                 values: _distinctValues(
                                   filterBase,
@@ -753,11 +756,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: Colors.red,
-                    ),
+                    const Icon(AppIcons.error, size: 64, color: Colors.red),
                     const SizedBox(height: 16),
                     Text(
                       'Erro ao carregar membros',
@@ -776,7 +775,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
                       onPressed: () {
                         ref.invalidate(allMembersProvider);
                       },
-                      icon: const Icon(Icons.refresh),
+                      icon: const Icon(AppIcons.refresh),
                       label: const Text('Tentar novamente'),
                       style: CommunityDesign.pillButtonStyle(
                         context,
@@ -799,7 +798,7 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.groups, size: 64),
+            const Icon(AppIcons.groupsFilled, size: 64),
             const SizedBox(height: 16),
             Text(
               'Nenhum membro encontrado',
@@ -867,249 +866,229 @@ class _MemberCard extends ConsumerStatefulWidget {
 }
 
 class _MemberCardState extends ConsumerState<_MemberCard> {
-  bool _hovering = false;
-
   @override
   Widget build(BuildContext context) {
     final member = widget.member;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovering = true),
-      onExit: (_) => setState(() => _hovering = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        decoration: CommunityDesign.overlayDecoration(
-          Theme.of(context).colorScheme,
-          hovered: _hovering,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () => widget.onToggle(widget.member.id),
-                child: Row(
-                  children: [
-                    Builder(
-                      builder: (context) {
-                        final rawUrl = member.photoUrl;
-                        String? resolvedUrl;
-                        if (rawUrl != null && rawUrl.isNotEmpty) {
-                          final parsed = Uri.tryParse(rawUrl);
-                          if (parsed != null && parsed.hasScheme) {
-                            resolvedUrl = rawUrl;
-                          } else {
-                            resolvedUrl = Supabase.instance.client.storage
-                                .from('member-photos')
-                                .getPublicUrl(rawUrl);
-                          }
-                        }
+    return GlassCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => widget.onToggle(widget.member.id),
+            child: Row(
+              children: [
+                Builder(
+                  builder: (context) {
+                    final rawUrl = member.photoUrl;
+                    String? resolvedUrl;
+                    if (rawUrl != null && rawUrl.isNotEmpty) {
+                      final parsed = Uri.tryParse(rawUrl);
+                      if (parsed != null && parsed.hasScheme) {
+                        resolvedUrl = rawUrl;
+                      } else {
+                        resolvedUrl = Supabase.instance.client.storage
+                            .from('member-photos')
+                            .getPublicUrl(rawUrl);
+                      }
+                    }
 
-                        return CircleAvatar(
-                          radius: 30,
-                          backgroundColor: AppTheme.primary.withValues(
-                            alpha: 0.1,
-                          ),
-                          child: resolvedUrl != null
-                              ? ClipOval(
-                                  child: Image.network(
-                                    resolvedUrl,
-                                    width: 60,
-                                    height: 60,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Text(
-                                        member.initials,
-                                        style: TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.bold,
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.primary,
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                )
-                              : Text(
-                                  member.initials,
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.primary,
-                                  ),
-                                ),
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 2),
-                          Text(
-                            member.displayName,
-                            style: CommunityDesign.titleStyle(context).copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                    return CircleAvatar(
+                      radius: 30,
+                      backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
+                      child: resolvedUrl != null
+                          ? ClipOval(
+                              child: Image.network(
+                                resolvedUrl,
+                                width: 60,
+                                height: 60,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Text(
+                                    member.initials,
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                    ),
+                                  );
+                                },
+                              ),
+                            )
+                          : Text(
+                              member.initials,
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primary,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          _StatusBadge(status: member.status),
-                        ],
-                      ),
-                    ),
-                    AnimatedRotation(
-                      turns: widget.expanded ? 0.5 : 0.0,
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
-                      child: const Icon(Icons.expand_more),
-                    ),
-                  ],
+                    );
+                  },
                 ),
-              ),
-              AnimatedCrossFade(
-                duration: const Duration(milliseconds: 250),
-                crossFadeState: widget.expanded
-                    ? CrossFadeState.showSecond
-                    : CrossFadeState.showFirst,
-                firstCurve: Curves.easeOut,
-                secondCurve: Curves.easeIn,
-                firstChild: const SizedBox.shrink(),
-                secondChild: Column(
-                  children: [
-                    const SizedBox(height: 16),
-                    const Divider(height: 1),
-                    const SizedBox(height: 16),
-                    _buildInfoRow(Icons.email, member.email),
-                    const SizedBox(height: 8),
-                    _buildInfoRow(Icons.phone, member.phone ?? 'Sem telefone'),
-                    const SizedBox(height: 8),
-                    _buildInfoRow(
-                      Icons.person,
-                      member.gender == 'male'
-                          ? 'Masculino'
-                          : member.gender == 'female'
-                          ? 'Feminino'
-                          : 'Não informado',
-                    ),
-                    const SizedBox(height: 8),
-                    _buildInfoRow(
-                      Icons.cake,
-                      member.age != null
-                          ? '${member.age} anos'
-                          : 'Idade não informada',
-                    ),
-                    const SizedBox(height: 8),
-                    _buildInfoRow(
-                      Icons.location_on,
-                      member.city != null
-                          ? '${member.city}${member.state != null ? ' - ${member.state}' : ''}'
-                          : (member.state ?? 'Não informado'),
-                    ),
-                    const SizedBox(height: 12),
-                    Builder(
-                      builder: (_) {
-                        final relsAsync = ref.watch(
-                          familyRelationshipsProvider(member.id),
-                        );
-                        return relsAsync.when(
-                          data: (rels) {
-                            if (rels.isEmpty) return const SizedBox.shrink();
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 2),
+                      Text(
+                        member.displayName,
+                        style: CommunityDesign.titleStyle(
+                          context,
+                        ).copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      _StatusBadge(status: member.status),
+                    ],
+                  ),
+                ),
+                AnimatedRotation(
+                  turns: widget.expanded ? 0.5 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  child: const Icon(AppIcons.expandMore),
+                ),
+              ],
+            ),
+          ),
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 250),
+            crossFadeState: widget.expanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            firstCurve: Curves.easeOut,
+            secondCurve: Curves.easeIn,
+            firstChild: const SizedBox.shrink(),
+            secondChild: Column(
+              children: [
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 16),
+                _buildInfoRow(AppIcons.email, member.email),
+                const SizedBox(height: 8),
+                _buildInfoRow(AppIcons.phone, member.phone ?? 'Sem telefone'),
+                const SizedBox(height: 8),
+                _buildInfoRow(
+                  AppIcons.person,
+                  member.gender == 'male'
+                      ? 'Masculino'
+                      : member.gender == 'female'
+                      ? 'Feminino'
+                      : 'Não informado',
+                ),
+                const SizedBox(height: 8),
+                _buildInfoRow(
+                  AppIcons.cake,
+                  member.age != null
+                      ? '${member.age} anos'
+                      : 'Idade não informada',
+                ),
+                const SizedBox(height: 8),
+                _buildInfoRow(
+                  AppIcons.location,
+                  member.city != null
+                      ? '${member.city}${member.state != null ? ' - ${member.state}' : ''}'
+                      : (member.state ?? 'Não informado'),
+                ),
+                const SizedBox(height: 12),
+                Builder(
+                  builder: (_) {
+                    final relsAsync = ref.watch(
+                      familyRelationshipsProvider(member.id),
+                    );
+                    return relsAsync.when(
+                      data: (rels) {
+                        if (rels.isEmpty) return const SizedBox.shrink();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
                               children: [
-                                Row(
+                                Icon(AppIcons.family, size: 16),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Familiares',
+                                  style: CommunityDesign.titleStyle(context)
+                                      .copyWith(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ...rels.map(
+                              (r) => Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Row(
                                   children: [
-                                    Icon(Icons.family_restroom, size: 16),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Familiares',
-                                      style: CommunityDesign.titleStyle(context)
-                                          .copyWith(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                    const SizedBox(width: 24),
+                                    Icon(
+                                      AppIcons.person,
+                                      size: 16,
+                                      color: Colors.grey[600],
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        '${r.parenteNome ?? r.parenteId} (${r.tipo})',
+                                        style: CommunityDesign.metaStyle(
+                                          context,
+                                        ).copyWith(fontWeight: FontWeight.w500),
+                                      ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
-                                ...rels.map(
-                                  (r) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 6),
-                                    child: Row(
-                                      children: [
-                                        const SizedBox(width: 24),
-                                        Icon(
-                                          Icons.person,
-                                          size: 16,
-                                          color: Colors.grey[600],
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            '${r.parenteNome ?? r.parenteId} (${r.tipo})',
-                                            style:
-                                                CommunityDesign.metaStyle(
-                                                  context,
-                                                ).copyWith(
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                          loading: () => const SizedBox.shrink(),
-                          error: (_, __) => const SizedBox.shrink(),
+                              ),
+                            ),
+                          ],
                         );
                       },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          context.push('/members/${member.id}');
+                        },
+                        icon: const Icon(AppIcons.person, size: 18),
+                        label: const Text('Ver Perfil'),
+                        style: CommunityDesign.pillButtonStyle(
+                          context,
+                          Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              context.push('/members/${member.id}');
-                            },
-                            icon: const Icon(Icons.person, size: 18),
-                            label: const Text('Ver Perfil'),
-                            style: CommunityDesign.pillButtonStyle(
-                              context,
-                              Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          context.push('/members/${member.id}/edit');
+                        },
+                        icon: const Icon(AppIcons.edit, size: 18),
+                        label: const Text('Editar'),
+                        style: CommunityDesign.pillButtonStyle(
+                          context,
+                          Theme.of(context).colorScheme.outline,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              context.push('/members/${member.id}/edit');
-                            },
-                            icon: const Icon(Icons.edit, size: 18),
-                            label: const Text('Editar'),
-                            style: CommunityDesign.pillButtonStyle(
-                              context,
-                              Theme.of(context).colorScheme.outline,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -1139,27 +1118,6 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color color;
-    switch (status) {
-      case 'member_active':
-        color = Colors.green;
-        break;
-      case 'visitor':
-        color = Colors.blue;
-        break;
-      case 'new_convert':
-        color = Colors.orange;
-        break;
-      case 'member_inactive':
-        color = Colors.grey;
-        break;
-      case 'transferred':
-        color = Colors.purple;
-        break;
-      default:
-        color = Colors.grey;
-    }
-
     String label = status;
     if (status == 'member_active') label = 'Ativo';
     if (status == 'visitor') label = 'Visitante';
@@ -1167,6 +1125,12 @@ class _StatusBadge extends StatelessWidget {
     if (status == 'member_inactive') label = 'Inativo';
     if (status == 'transferred') label = 'Transferido';
 
-    return CommunityDesign.badge(context, label, color);
+    final tone = switch (status) {
+      'member_active' || 'visitor' || 'new_convert' => AppStatusTone.active,
+      'transferred' => AppStatusTone.done,
+      _ => AppStatusTone.dropped,
+    };
+
+    return StatusBadge(label: label, tone: tone);
   }
 }

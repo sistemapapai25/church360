@@ -148,3 +148,33 @@ must stay out of commits.
 Known limitation: production browser validation reaches the Vercel SSO gate
 from this environment, so authenticated screen screenshots still require a
 user session with access to the protected project.
+
+## Checkpoint 4 — Members and inventory baseline
+
+This wave established the first module slice of the repeated-surface audit:
+
+- `MembersListScreen` now uses `AppIcons` for its header, search, filters,
+  member metadata, empty/error states, and actions.
+- Member cards now reuse `GlassCard` and member lifecycle labels reuse the
+  shared `StatusBadge`; no data, route, permission, or repository contracts
+  changed.
+- The semantic catalog was expanded for member filters, conversion, baptism,
+  membership, address, contact, and family symbols.
+- `docs/VISUAL-MATERIAL-INVENTORY.md` records the current static baseline:
+  224 consumer files and 2,495 direct `Icons.*` references, with Members,
+  Visitors, Ministries, Events, Finance, Community, and Reports grouped for
+  the next slices. The previous handoff's 223-file count is called out as an
+  inventory correction.
+
+Validation for this wave:
+
+- Full Flutter suite: 506 tests passed.
+- Targeted analysis for `AppIcons` and `MembersListScreen`: no issues.
+- `git diff --check`: passed.
+- `flutter build web --release --no-pub`: passed. Existing WebAssembly dry-run
+  warnings remain in `audioplayers_web`, `dart:html`, `package:js`, and the
+  `image` dependency.
+
+The next slice is Visitors, followed by the shared ministry lists and shells.
+Generated Flutter plugin registrants remain local-only and must stay out of
+the merge.
