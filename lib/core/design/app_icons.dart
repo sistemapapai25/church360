@@ -23,6 +23,7 @@ abstract final class AppIcons {
   static const person = Icons.person_outline;
   static const personFilled = Icons.person;
   static const personAdd = Icons.person_add_alt;
+  static const visitor = Icons.person_add_alt;
   static const edit = Icons.edit_outlined;
   static const delete = Icons.delete_outline;
   static const message = Icons.chat_outlined;
@@ -72,6 +73,9 @@ abstract final class AppIcons {
   static const church = Icons.church_outlined;
   static const book = Icons.menu_book_outlined;
   static const favorite = Icons.favorite_border;
+  static const note = Icons.note_outlined;
+  static const dateRange = Icons.date_range;
+  static const followUp = Icons.flag_outlined;
   static const finance = Icons.account_balance_wallet_outlined;
   static const payments = Icons.payments_outlined;
   static const accountBalance = Icons.account_balance_outlined;

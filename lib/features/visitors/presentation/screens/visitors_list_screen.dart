@@ -4,9 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/visitors_provider.dart';
 import '../../domain/models/visitor.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/date_period_filter.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/pearl_fab.dart';
+import '../../../../core/widgets/status_badge.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de visitantes
@@ -93,7 +96,7 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
                 Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back),
+                      icon: const Icon(AppIcons.back),
                       tooltip: 'Voltar',
                       onPressed: () => context.pop(),
                     ),
@@ -115,7 +118,7 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
                         ],
                       ),
                       child: Icon(
-                        Icons.person_add,
+                        AppIcons.visitor,
                         size: 24,
                         color: Theme.of(context).colorScheme.primary,
                       ),
@@ -149,145 +152,137 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
           // Área de Busca e Filtros
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Container(
-              decoration: CommunityDesign.overlayDecoration(
-                Theme.of(context).colorScheme,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+            child: GlassCard(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(AppIcons.search, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Buscar Visitantes',
+                        style: CommunityDesign.titleStyle(
+                          context,
+                        ).copyWith(fontSize: 18, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (value) =>
+                        setState(() => _searchQuery = value.trim()),
+                    decoration: InputDecoration(
+                      hintText: 'Digite o nome ou apelido...',
+                      hintStyle: CommunityDesign.metaStyle(context),
+                      prefixIcon: const Icon(AppIcons.search, size: 20),
+                      suffixIcon: _searchQuery.trim().isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(AppIcons.clear),
+                              onPressed: () {
+                                setState(() {
+                                  _searchController.clear();
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.3),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.outline.withValues(alpha: 0.1),
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () =>
+                          setState(() => _showFilters = !_showFilters),
+                      icon: Icon(
+                        _showFilters ? AppIcons.expandLess : AppIcons.filter,
+                        size: 18,
+                      ),
+                      label: Text(
+                        _showFilters
+                            ? 'Ocultar filtros'
+                            : (_activeFilterCount() == 0
+                                  ? 'Mais filtros'
+                                  : 'Filtros (${_activeFilterCount()})'),
+                      ),
+                    ),
+                  ),
+                  if (_showFilters) ...[
+                    const SizedBox(height: 8),
+                    DatePeriodFilter(
+                      label: 'Primeira visita',
+                      icon: AppIcons.event,
+                      selection: _firstVisitFilter,
+                      onChanged: (sel) =>
+                          setState(() => _firstVisitFilter = sel),
+                    ),
+                    const SizedBox(height: 16),
+                    DatePeriodFilter(
+                      label: 'Decisão / salvação',
+                      icon: AppIcons.favorite,
+                      selection: _salvationFilter,
+                      onChanged: (sel) =>
+                          setState(() => _salvationFilter = sel),
+                    ),
+                    const SizedBox(height: 16),
+                    _FollowUpFilter(
+                      selected: _followUpStatuses,
+                      onToggle: (status) {
+                        setState(() {
+                          if (_followUpStatuses.contains(status)) {
+                            _followUpStatuses.remove(status);
+                          } else {
+                            _followUpStatuses.add(status);
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
                     Row(
                       children: [
-                        const Icon(Icons.search, size: 20),
+                        Switch(
+                          value: _onlyWantsContact,
+                          onChanged: (v) =>
+                              setState(() => _onlyWantsContact = v),
+                        ),
                         const SizedBox(width: 8),
-                        Text(
-                          'Buscar Visitantes',
-                          style: CommunityDesign.titleStyle(
-                            context,
-                          ).copyWith(fontSize: 18, fontWeight: FontWeight.w600),
+                        Expanded(
+                          child: Text(
+                            'Somente quem deseja contato',
+                            style: CommunityDesign.metaStyle(context),
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _searchController,
-                      onChanged: (value) =>
-                          setState(() => _searchQuery = value.trim()),
-                      decoration: InputDecoration(
-                        hintText: 'Digite o nome ou apelido...',
-                        hintStyle: CommunityDesign.metaStyle(context),
-                        prefixIcon: const Icon(Icons.search, size: 20),
-                        suffixIcon: _searchQuery.trim().isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear),
-                                onPressed: () {
-                                  setState(() {
-                                    _searchController.clear();
-                                    _searchQuery = '';
-                                  });
-                                },
-                              )
-                            : null,
-                        filled: true,
-                        fillColor: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest
-                            .withValues(alpha: 0.3),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.outline.withValues(alpha: 0.1),
-                          ),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      ),
+                    const SizedBox(height: 8),
+                    _AgeRangeFilter(
+                      range: _ageRange,
+                      min: _ageMin,
+                      max: _ageMax,
+                      onChanged: (range) => setState(() => _ageRange = range),
                     ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: () =>
-                            setState(() => _showFilters = !_showFilters),
-                        icon: Icon(
-                          _showFilters
-                              ? Icons.expand_less
-                              : Icons.filter_alt_outlined,
-                          size: 18,
-                        ),
-                        label: Text(
-                          _showFilters
-                              ? 'Ocultar filtros'
-                              : (_activeFilterCount() == 0
-                                    ? 'Mais filtros'
-                                    : 'Filtros (${_activeFilterCount()})'),
-                        ),
-                      ),
-                    ),
-                    if (_showFilters) ...[
-                      const SizedBox(height: 8),
-                      DatePeriodFilter(
-                        label: 'Primeira visita',
-                        icon: Icons.door_front_door,
-                        selection: _firstVisitFilter,
-                        onChanged: (sel) =>
-                            setState(() => _firstVisitFilter = sel),
-                      ),
-                      const SizedBox(height: 16),
-                      DatePeriodFilter(
-                        label: 'Decisão / salvação',
-                        icon: Icons.favorite,
-                        selection: _salvationFilter,
-                        onChanged: (sel) =>
-                            setState(() => _salvationFilter = sel),
-                      ),
-                      const SizedBox(height: 16),
-                      _FollowUpFilter(
-                        selected: _followUpStatuses,
-                        onToggle: (status) {
-                          setState(() {
-                            if (_followUpStatuses.contains(status)) {
-                              _followUpStatuses.remove(status);
-                            } else {
-                              _followUpStatuses.add(status);
-                            }
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Switch(
-                            value: _onlyWantsContact,
-                            onChanged: (v) =>
-                                setState(() => _onlyWantsContact = v),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Somente quem deseja contato',
-                              style: CommunityDesign.metaStyle(context),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      _AgeRangeFilter(
-                        range: _ageRange,
-                        min: _ageMin,
-                        max: _ageMax,
-                        onChanged: (range) =>
-                            setState(() => _ageRange = range),
-                      ),
-                    ],
                   ],
-                ),
+                ],
               ),
             ),
           ),
@@ -309,8 +304,9 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
                 }
 
                 // Filtros adicionais (Raízes)
-                filteredVisitors =
-                    filteredVisitors.where(_matchesFilters).toList();
+                filteredVisitors = filteredVisitors
+                    .where(_matchesFilters)
+                    .toList();
 
                 return _buildVisitorsList(context, filteredVisitors);
               },
@@ -326,11 +322,7 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 48,
-                        color: Colors.red,
-                      ),
+                      const Icon(AppIcons.error, size: 48, color: Colors.red),
                       const SizedBox(height: 16),
                       Text(
                         'Erro ao carregar visitantes',
@@ -347,7 +339,7 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
                         onPressed: () {
                           ref.invalidate(allVisitorsProvider);
                         },
-                        icon: const Icon(Icons.refresh, size: 18),
+                        icon: const Icon(AppIcons.refresh, size: 18),
                         label: const Text('Tentar novamente'),
                         style: CommunityDesign.pillButtonStyle(
                           context,
@@ -365,8 +357,9 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
       floatingActionButton: PermissionGate(
         permission: 'visitors.create',
         child: PearlFab(
-          onPressed: () => context.push('/members/new?status=visitor&type=visitante'),
-          icon: Icons.add,
+          onPressed: () =>
+              context.push('/members/new?status=visitor&type=visitante'),
+          icon: AppIcons.add,
           label: 'Novo Visitante',
         ),
       ),
@@ -383,7 +376,7 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.person_add,
+              AppIcons.visitor,
               size: 64,
               color: Theme.of(
                 context,
@@ -411,6 +404,22 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
   }
 }
 
+AppStatusTone _visitorStatusTone(VisitorStatus status) {
+  return switch (status) {
+    VisitorStatus.converted => AppStatusTone.done,
+    VisitorStatus.inactive => AppStatusTone.dropped,
+    _ => AppStatusTone.active,
+  };
+}
+
+AppStatusTone _followUpStatusTone(String status) {
+  return switch (status) {
+    'completed' => AppStatusTone.done,
+    'pending' || 'in_progress' => AppStatusTone.active,
+    _ => AppStatusTone.dropped,
+  };
+}
+
 /// Widget de card de visitante com design rico
 class _VisitorCard extends ConsumerWidget {
   final Visitor visitor;
@@ -419,148 +428,144 @@ class _VisitorCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(
-        Theme.of(context).colorScheme,
-      ),
-      child: Padding(
-        padding: CommunityDesign.overlayPadding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header: Foto, Nome, Apelido e Status
-            Row(
-              children: [
-                // Foto do visitante
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: 0.1),
-                  backgroundImage: visitor.photoUrl != null
-                      ? NetworkImage(visitor.photoUrl!)
-                      : null,
-                  child: visitor.photoUrl == null
-                      ? Text(
-                          visitor.initials,
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 16),
-                // Nome e apelido
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        visitor.displayName,
-                        style: CommunityDesign.titleStyle(
-                          context,
-                        ).copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      if (visitor.nickname != null) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Text(
-                              '"${visitor.nickname}"',
-                              style: CommunityDesign.metaStyle(
-                                context,
-                              ).copyWith(fontStyle: FontStyle.italic),
-                            ),
-                            const SizedBox(width: 8),
-                            CommunityDesign.badge(
-                              context,
-                              'Visitante',
-                              Colors.blue,
-                            ),
-                          ],
+    return GlassCard(
+      padding: CommunityDesign.overlayPadding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: Foto, Nome, Apelido e Status
+          Row(
+            children: [
+              // Foto do visitante
+              CircleAvatar(
+                radius: 30,
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.1),
+                backgroundImage: visitor.photoUrl != null
+                    ? NetworkImage(visitor.photoUrl!)
+                    : null,
+                child: visitor.photoUrl == null
+                    ? Text(
+                        visitor.initials,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
-                      ] else ...[
-                        const SizedBox(height: 4),
-                        CommunityDesign.badge(
-                          context,
-                          'Visitante',
-                          Colors.blue,
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 16),
+              // Nome e apelido
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      visitor.displayName,
+                      style: CommunityDesign.titleStyle(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    if (visitor.nickname != null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            '"${visitor.nickname}"',
+                            style: CommunityDesign.metaStyle(
+                              context,
+                            ).copyWith(fontStyle: FontStyle.italic),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        StatusBadge(
+                          label: visitor.status.label,
+                          tone: _visitorStatusTone(visitor.status),
+                        ),
+                        StatusBadge(
+                          label: visitor.followUpStatusLabel,
+                          tone: _followUpStatusTone(visitor.followUpStatus),
+                          icon: AppIcons.followUp,
                         ),
                       ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Divider(
-              height: 1,
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
-            const SizedBox(height: 16),
-            // Informações do visitante
-            _buildInfoRow(
-              context,
-              Icons.phone,
-              visitor.phone ?? 'Sem telefone',
-            ),
-            const SizedBox(height: 8),
-            _buildInfoRow(
-              context,
-              Icons.person,
-              visitor.gender == 'male'
-                  ? 'Masculino'
-                  : visitor.gender == 'female'
-                  ? 'Feminino'
-                  : 'Não informado',
-            ),
-            const SizedBox(height: 8),
-            _buildInfoRow(
-              context,
-              Icons.cake,
-              visitor.age != null
-                  ? '${visitor.age} anos'
-                  : 'Idade não informada',
-            ),
-            const SizedBox(height: 8),
-            _buildInfoRow(context, Icons.location_on, visitor.state ?? 'GO'),
-            const SizedBox(height: 16),
-            // Botões de ação
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      context.push('/members/${visitor.id}');
-                    },
-                    icon: const Icon(Icons.person, size: 18),
-                    label: const Text('Ver Perfil'),
-                    style: CommunityDesign.pillButtonStyle(
-                      context,
-                      Theme.of(context).colorScheme.primary,
                     ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Divider(
+            height: 1,
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+          const SizedBox(height: 16),
+          // Informações do visitante
+          _buildInfoRow(
+            context,
+            AppIcons.phone,
+            visitor.phone ?? 'Sem telefone',
+          ),
+          const SizedBox(height: 8),
+          _buildInfoRow(
+            context,
+            AppIcons.person,
+            visitor.gender == 'male'
+                ? 'Masculino'
+                : visitor.gender == 'female'
+                ? 'Feminino'
+                : 'Não informado',
+          ),
+          const SizedBox(height: 8),
+          _buildInfoRow(
+            context,
+            AppIcons.cake,
+            visitor.age != null ? '${visitor.age} anos' : 'Idade não informada',
+          ),
+          const SizedBox(height: 8),
+          _buildInfoRow(context, AppIcons.location, visitor.state ?? 'GO'),
+          const SizedBox(height: 16),
+          // Botões de ação
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    context.push('/members/${visitor.id}');
+                  },
+                  icon: const Icon(AppIcons.person, size: 18),
+                  label: const Text('Ver Perfil'),
+                  style: CommunityDesign.pillButtonStyle(
+                    context,
+                    Theme.of(context).colorScheme.primary,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      context.push('/members/${visitor.id}/edit');
-                    },
-                    icon: const Icon(Icons.edit, size: 18),
-                    label: const Text('Editar'),
-                    style: CommunityDesign.pillButtonStyle(
-                      context,
-                      Theme.of(context).colorScheme.outline,
-                    ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    context.push('/members/${visitor.id}/edit');
+                  },
+                  icon: const Icon(AppIcons.edit, size: 18),
+                  label: const Text('Editar'),
+                  style: CommunityDesign.pillButtonStyle(
+                    context,
+                    Theme.of(context).colorScheme.outline,
                   ),
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -602,14 +607,13 @@ class _FollowUpFilter extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(Icons.flag_outlined, size: 18, color: theme.colorScheme.primary),
+            Icon(AppIcons.followUp, size: 18, color: theme.colorScheme.primary),
             const SizedBox(width: 8),
             Text(
               'Acompanhamento',
-              style: CommunityDesign.titleStyle(context).copyWith(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -662,14 +666,13 @@ class _AgeRangeFilter extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(Icons.cake_outlined, size: 18, color: theme.colorScheme.primary),
+            Icon(AppIcons.cake, size: 18, color: theme.colorScheme.primary),
             const SizedBox(width: 8),
             Text(
               'Faixa etária',
-              style: CommunityDesign.titleStyle(context).copyWith(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const Spacer(),
             if (isActive)

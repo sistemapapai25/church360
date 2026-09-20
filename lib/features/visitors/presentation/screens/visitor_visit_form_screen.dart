@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/visitors_provider.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
@@ -14,10 +16,12 @@ class VisitorVisitFormScreen extends ConsumerStatefulWidget {
   const VisitorVisitFormScreen({super.key, required this.visitorId});
 
   @override
-  ConsumerState<VisitorVisitFormScreen> createState() => _VisitorVisitFormScreenState();
+  ConsumerState<VisitorVisitFormScreen> createState() =>
+      _VisitorVisitFormScreenState();
 }
 
-class _VisitorVisitFormScreenState extends ConsumerState<VisitorVisitFormScreen> {
+class _VisitorVisitFormScreenState
+    extends ConsumerState<VisitorVisitFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _notesController = TextEditingController();
 
@@ -75,7 +79,9 @@ class _VisitorVisitFormScreenState extends ConsumerState<VisitorVisitFormScreen>
         'user_id': widget.visitorId,
         'visit_date': _visitDate.toIso8601String().split('T')[0],
         'was_contacted': _wasContacted,
-        'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        'notes': _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
       };
 
       await ref.read(visitorsRepositoryProvider).createVisit(data);
@@ -128,9 +134,7 @@ class _VisitorVisitFormScreenState extends ConsumerState<VisitorVisitFormScreen>
       body: visitorAsync.when(
         data: (visitor) {
           if (visitor == null) {
-            return const Center(
-              child: Text('Visitante não encontrado'),
-            );
+            return const Center(child: Text('Visitante não encontrado'));
           }
 
           return Form(
@@ -139,36 +143,31 @@ class _VisitorVisitFormScreenState extends ConsumerState<VisitorVisitFormScreen>
               padding: const EdgeInsets.all(16),
               children: [
                 // Visitante Info
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Visitante',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
+                GlassCard(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Visitante',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        visitor.fullName,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
+                      ),
+                      if (visitor.phone != null) ...[
                         const SizedBox(height: 4),
                         Text(
-                          visitor.fullName,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          visitor.phone!,
+                          style: const TextStyle(fontSize: 14),
                         ),
-                        if (visitor.phone != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            visitor.phone!,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        ],
                       ],
-                    ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -180,7 +179,7 @@ class _VisitorVisitFormScreenState extends ConsumerState<VisitorVisitFormScreen>
                     decoration: const InputDecoration(
                       labelText: 'Data da Visita *',
                       border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.calendar_today),
+                      prefixIcon: Icon(AppIcons.calendarFilled),
                     ),
                     child: Text(_formatDate(_visitDate)),
                   ),
@@ -190,7 +189,9 @@ class _VisitorVisitFormScreenState extends ConsumerState<VisitorVisitFormScreen>
                 // Foi Contatado
                 SwitchListTile(
                   title: const Text('Foi contatado após a visita?'),
-                  subtitle: const Text('Marque se já houve contato com o visitante'),
+                  subtitle: const Text(
+                    'Marque se já houve contato com o visitante',
+                  ),
                   value: _wasContacted,
                   onChanged: (value) {
                     setState(() {
@@ -207,7 +208,7 @@ class _VisitorVisitFormScreenState extends ConsumerState<VisitorVisitFormScreen>
                   decoration: const InputDecoration(
                     labelText: 'Observações',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.note),
+                    prefixIcon: Icon(AppIcons.note),
                     hintText: 'Adicione observações sobre esta visita...',
                   ),
                   maxLines: 4,
@@ -227,7 +228,7 @@ class _VisitorVisitFormScreenState extends ConsumerState<VisitorVisitFormScreen>
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.save),
+                        : const Icon(AppIcons.save),
                     label: const Text('Registrar Visita'),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.all(16),
@@ -239,11 +240,9 @@ class _VisitorVisitFormScreenState extends ConsumerState<VisitorVisitFormScreen>
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Text('Erro ao carregar visitante: $error'),
-        ),
+        error: (error, _) =>
+            Center(child: Text('Erro ao carregar visitante: $error')),
       ),
     );
   }
 }
-
