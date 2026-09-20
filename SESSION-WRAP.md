@@ -245,3 +245,92 @@ deployed.
    targeted analysis, and the release web build before the next PR.
 5. Update this wrap again with the next merge commit, deployment status, test
    count, and any authenticated validation limitation.
+
+## Final closeout — visual wave 4 Visitors
+
+Timestamp: 2026-09-20 01:23:37 BRT (America/Sao_Paulo, UTC-03).
+
+### What was delivered
+
+- `visitors_list_screen.dart` now uses the shared `AppIcons` catalog for its
+  navigation, search, filter, status, retry, empty-state, metadata, and action
+  symbols.
+- The visitor search/filter panel and visitor cards now use `GlassCard`.
+- Visitor lifecycle status and follow-up status now use `StatusBadge`, with
+  active/done/neutral tones mapped to the existing design system.
+- `visitor_visit_form_screen.dart` now uses `GlassCard` for visitor context and
+  `AppIcons` for date, notes, and save controls.
+- `AppIcons` gained the explicit semantic entries `visitor`, `note`,
+  `dateRange`, and `followUp`; no Font Awesome brand symbol or persisted
+  ministry icon identifier was changed.
+- Added `test/features/visitors/visitors_visual_test.dart` covering both
+  migrated screens and their shared surfaces, badges, and icons.
+- Updated `docs/VISUAL-MATERIAL-INVENTORY.md`: Visitors list and visit
+  registration are complete; follow-up and statistics remain for the next
+  Visitors slice.
+
+### Decisions and scope
+
+- This wave is visual/component-level only. Routes, permissions, repositories,
+  provider contracts, persistence, and data payloads were not changed.
+- Existing visitor status and follow-up values are mapped to the established
+  `AppStatusTone` vocabulary: converted/completed are done, inactive/unknown
+  are neutral, and active follow-up/lifecycle states are active.
+- The seven generated Flutter plugin registrant files remain local-only and
+  were deliberately excluded from the implementation commit and PR.
+
+### Verification
+
+- Targeted `flutter analyze --no-pub` on the four changed Dart source/test
+  files: passed, no issues.
+- `flutter test --no-pub test/features/visitors/visitors_visual_test.dart`:
+  2 passed.
+- `flutter test --no-pub -j 1`: 508 passed.
+- `flutter build web --release --no-pub`: passed.
+- Production deploy script build: passed.
+- `git diff --check`: passed before commit.
+- WebAssembly dry-run warnings remain from existing dependencies
+  (`audioplayers_web`, `dart:html`, `package:js`, and `image`); the normal
+  JavaScript web build succeeds.
+
+### Git, merge, and deployment
+
+- Implementation commit: `9499cde`, `feat: standardize visitors list surfaces`.
+- PR #126: `https://github.com/sistemapapai25/church360/pull/126`.
+- PR #126 merged into `main` with merge commit `f3fd7ac`.
+- Current handoff branch: `chore/session-wrap-wave-4`, based on `origin/main`
+  at `f3fd7ac`.
+- Production deployment: `dpl_BxTB8xkN8dWn3TWfzdx6tjcDRvFX`.
+- Deployment URL:
+  `https://church360-kdizm0c0f-gabriels-projects-ec03504d.vercel.app`.
+- Vercel target/status: `production` / `Ready`.
+- Active aliases: `https://app.church360.com.br`,
+  `https://church360-app.vercel.app`, and
+  `https://church360-app-gabriels-projects-ec03504d.vercel.app`.
+- HTTP smoke test returned `302 Found` to Vercel SSO, expected while
+  Deployment Protection is enabled. Authenticated visitor screenshots still
+  require a user session in the protected environment.
+- The first local `gh pr merge --delete-branch` attempt hit the shared-worktree
+  conflict because `main` is checked out elsewhere; rerunning
+  `gh pr merge 126 --merge` completed the remote merge successfully.
+
+### Files changed in this wave
+
+- `lib/core/design/app_icons.dart`
+- `lib/features/visitors/presentation/screens/visitors_list_screen.dart`
+- `lib/features/visitors/presentation/screens/visitor_visit_form_screen.dart`
+- `test/features/visitors/visitors_visual_test.dart`
+- `docs/VISUAL-MATERIAL-INVENTORY.md`
+- `SESSION-WRAP.md` (this handoff)
+
+### Next agent should start here
+
+1. Preserve the seven generated registrant modifications; do not stage them.
+2. Read this wrap and confirm `origin/main` is at `f3fd7ac` or newer.
+3. Finish the Visitors slice in `visitor_followup_form_screen.dart` and
+   `visitors_statistics_screen.dart`, applying `AppIcons` and shared surfaces
+   only where the interaction semantics match.
+4. Add focused widget coverage, rerun the full suite, targeted analysis, and
+   the release web build before opening the next PR.
+5. Then move to the shared ministry lists and shells, keeping each visual wave
+   independently reviewable and deployable.
