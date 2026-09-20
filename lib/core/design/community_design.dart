@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+
 class CommunityDesign {
-  static const Color backgroundColor = Color(0xFFF5F9FD);
-  static const double radius = 18;
+  static const Color backgroundColor = AppTheme.background;
+  static const double radius = AppTheme.cardRadius;
   static const double compactImageHeight = 160;
   static const double gridSpacing = 16;
   static const double gridTargetItemWidth = 270;
@@ -10,16 +12,12 @@ class CommunityDesign {
 
   static Color scaffoldBackgroundColor(BuildContext context) {
     final theme = Theme.of(context);
-    return theme.brightness == Brightness.dark
-        ? theme.scaffoldBackgroundColor
-        : backgroundColor;
+    return theme.scaffoldBackgroundColor;
   }
 
   static Color headerColor(BuildContext context) {
     final theme = Theme.of(context);
-    return theme.brightness == Brightness.dark
-        ? theme.appBarTheme.backgroundColor ?? theme.colorScheme.surface
-        : backgroundColor;
+    return theme.appBarTheme.backgroundColor ?? theme.scaffoldBackgroundColor;
   }
 
   static BoxShadow overlayBaseShadow() {
@@ -46,14 +44,9 @@ class CommunityDesign {
     return isLightScheme(colorScheme) ? Colors.white : colorScheme.surface;
   }
 
-  static Border? cardBorder(
-    ColorScheme colorScheme, {
-    double alpha = 0.08,
-  }) {
+  static Border? cardBorder(ColorScheme colorScheme, {double alpha = 0.08}) {
     if (!isLightScheme(colorScheme)) return null;
-    return Border.all(
-      color: colorScheme.outline.withValues(alpha: alpha),
-    );
+    return Border.all(color: colorScheme.outline.withValues(alpha: alpha));
   }
 
   static BoxDecoration overlayDecoration(
@@ -73,9 +66,10 @@ class CommunityDesign {
     bool hovered = false,
     double? radiusValue,
   }) {
-    return overlayDecoration(colorScheme, hovered: hovered).copyWith(
-      borderRadius: BorderRadius.circular(radiusValue ?? radius),
-    );
+    return overlayDecoration(
+      colorScheme,
+      hovered: hovered,
+    ).copyWith(borderRadius: BorderRadius.circular(radiusValue ?? radius));
   }
 
   static EdgeInsets overlayPadding = const EdgeInsets.all(16);
@@ -319,84 +313,9 @@ class CommunityDesign {
   }
 
   static ThemeData getTheme(BuildContext context) {
-    final base = Theme.of(context);
-    if (base.brightness == Brightness.dark) return base;
-
-    const primary = Color(0xFF0B5FA5);
-    const secondary = Color(0xFF1787C9);
-    const tertiary = Color(0xFF41D3F2);
-    const surface = Color(0xFFFFFFFF);
-    const bg = Color(0xFFF3F6FA);
-
-    final scheme = base.colorScheme.copyWith(
-      primary: primary,
-      onPrimary: Colors.white,
-      secondary: secondary,
-      onSecondary: Colors.white,
-      tertiary: tertiary,
-      onTertiary: Colors.black,
-      surface: surface,
-      surfaceContainerHighest: bg,
-      primaryContainer: const Color(0xFFD6E9F7),
-      onPrimaryContainer: const Color(0xFF0A3557),
-      secondaryContainer: const Color(0xFFCFEAFA),
-      onSecondaryContainer: const Color(0xFF08324A),
-      tertiaryContainer: const Color(0xFFCEF6FE),
-      onTertiaryContainer: const Color(0xFF043A45),
-    );
-
-    return base.copyWith(
-      colorScheme: scheme,
-      scaffoldBackgroundColor: bg,
-      cardColor: surface,
-      cardTheme: base.cardTheme.copyWith(
-        color: surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radius),
-        ),
-      ),
-      dialogTheme: base.dialogTheme.copyWith(
-        backgroundColor: surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      bottomSheetTheme: base.bottomSheetTheme.copyWith(
-        backgroundColor: surface,
-        surfaceTintColor: Colors.transparent,
-      ),
-      inputDecorationTheme: base.inputDecorationTheme.copyWith(
-        filled: true,
-        fillColor: scheme.surfaceContainerHighest,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: scheme.primary.withValues(alpha: 0.35),
-            width: 1.2,
-          ),
-        ),
-      ),
-      appBarTheme: base.appBarTheme.copyWith(
-        backgroundColor: const Color(0xFFF5F9FD), // Matches Community App Bar
-        foregroundColor: scheme.onSurface,
-        surfaceTintColor: Colors.transparent,
-        elevation: 1, // Slight elevation as per Community design
-        shadowColor: Colors.black.withValues(alpha: 0.08),
-        scrolledUnderElevation: 2,
-      ),
-      tabBarTheme: base.tabBarTheme.copyWith(
-        labelColor: scheme.primary,
-        unselectedLabelColor: scheme.onSurfaceVariant,
-        indicatorColor: scheme.primary,
-      ),
-    );
+    // Compatibilidade com as telas que ainda envolvem seu corpo em Theme.
+    // A paleta e os controles agora pertencem ao tema global, inclusive no
+    // Financeiro e na Comunidade: este helper não deve criar outro tema.
+    return Theme.of(context);
   }
 }

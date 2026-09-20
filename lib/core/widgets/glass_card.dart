@@ -3,6 +3,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+
 /// Família "vidro" dos cards do app — três variações sobre a mesma
 /// materialidade translúcida já usada no `PearlGlassDock` (blur 20, base
 /// branca/carvão a ~70% de opacidade, borda de luz no topo):
@@ -34,7 +36,7 @@ class GlassCard extends StatelessWidget {
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(16),
-    this.radius = 18,
+    this.radius = AppTheme.cardRadius,
     this.onTap,
     this.onLongPress,
     this.accentColor,
@@ -46,7 +48,7 @@ class GlassCard extends StatelessWidget {
     final borderRadius = BorderRadius.circular(radius);
     final hasAccent = accentColor != null;
 
-    final baseColor = dark ? const Color(0xFF14161B) : Colors.white;
+    final baseColor = dark ? AppTheme.darkGlassBase : AppTheme.glassBase;
     final borderLight = Colors.white.withValues(alpha: dark ? 0.10 : 0.65);
     final borderSoft = Colors.white.withValues(alpha: dark ? 0.05 : 0.35);
 
@@ -110,7 +112,9 @@ class GlassCard extends StatelessWidget {
                             end: const Alignment(0.7, 1),
                             colors: [
                               Colors.transparent,
-                              Colors.white.withValues(alpha: dark ? 0.05 : 0.28),
+                              Colors.white.withValues(
+                                alpha: dark ? 0.05 : 0.28,
+                              ),
                               Colors.transparent,
                             ],
                             stops: const [0.28, 0.46, 0.64],
@@ -171,7 +175,7 @@ class GlassCardAccent extends StatelessWidget {
     required this.child,
     required this.accentColor,
     this.padding = const EdgeInsets.all(16),
-    this.radius = 18,
+    this.radius = AppTheme.cardRadius,
     this.onTap,
   });
 
@@ -204,7 +208,7 @@ class GlassCardDevotional extends StatelessWidget {
     required this.child,
     required this.gradientColors,
     this.padding = const EdgeInsets.all(16),
-    this.radius = 18,
+    this.radius = AppTheme.cardRadius,
     this.onTap,
   }) : assert(gradientColors.length == 2, 'gradientColors precisa de 2 cores');
 
@@ -367,7 +371,7 @@ class GlassCardTrace extends StatefulWidget {
     required this.child,
     required this.accent,
     this.padding = const EdgeInsets.all(16),
-    this.radius = 18,
+    this.radius = AppTheme.cardRadius,
     this.onTap,
     this.selected = false,
   });
@@ -424,7 +428,7 @@ class _GlassCardTraceState extends State<GlassCardTrace>
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final borderRadius = BorderRadius.circular(widget.radius);
-    final baseColor = dark ? const Color(0xFF14161B) : Colors.white;
+    final baseColor = dark ? AppTheme.darkGlassBase : AppTheme.glassBase;
     final traceBase = dark
         ? Colors.white.withValues(alpha: 0.10)
         : Colors.black.withValues(alpha: 0.10);
@@ -481,7 +485,9 @@ class _GlassCardTraceState extends State<GlassCardTrace>
                       builder: (context, _) => CustomPaint(
                         painter: _PerimeterTracePainter(
                           radius: widget.radius,
-                          angle: _reducedMotion ? 0.9 : _controller.value * 2 * pi,
+                          angle: _reducedMotion
+                              ? 0.9
+                              : _controller.value * 2 * pi,
                           accent: widget.accent,
                           baseColor: traceBase,
                           intensity: _intensity,

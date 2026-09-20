@@ -24,8 +24,8 @@ class PremiumBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    const activeColor = AppTheme.primaryColor;
-    const inactiveColor = Color(0xFF64748B);
+    const activeColor = AppTheme.primary;
+    const inactiveColor = AppTheme.mutedForeground;
 
     return PearlGlassDock(
       dark: dark,

@@ -56,7 +56,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('27 anos · (11) 91234-5678'), findsOneWidget);
+    expect(find.text('(11) 91234-5678 · 27 anos'), findsOneWidget);
   });
 
   testWidgets('marca a origem do formulario publico', (tester) async {

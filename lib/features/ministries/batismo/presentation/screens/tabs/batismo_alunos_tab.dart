@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../../core/design/app_icons.dart';
 import '../../../../../../core/design/community_design.dart';
+import '../../../../../../core/theme/app_theme.dart';
 import '../../../../../../core/utils/share_link_utils.dart';
 import '../../../../../../core/utils/whatsapp_launcher.dart';
 import '../../../../../../core/widgets/app_filter_bar.dart';
@@ -168,9 +170,9 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
       if (mounted) invalidateBaptismData(ref, widget.ministryId);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Não foi possível excluir: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Não foi possível excluir: $e')));
       }
     }
   }
@@ -251,8 +253,10 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppTheme.dialogRadius),
+          ),
         ),
         padding: const EdgeInsets.fromLTRB(12, 16, 12, 24),
         child: Column(
@@ -263,8 +267,9 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
                 title,
-                style: CommunityDesign.titleStyle(context)
-                    .copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+                style: CommunityDesign.titleStyle(
+                  context,
+                ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
               ),
             ),
             const SizedBox(height: 8),
@@ -272,7 +277,7 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
               ListTile(
                 title: Text(option.$2),
                 trailing: option.$1 == current
-                    ? const Icon(Icons.check, size: 18)
+                    ? const Icon(AppIcons.check, size: 18)
                     : null,
                 onTap: () => Navigator.of(context).pop(option.$1),
               ),
@@ -295,9 +300,10 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
 
     bool can(BaptismWriteAction action) => ref
         .watch(
-          baptismCanWriteProvider(
-            (ministryId: widget.ministryId, action: action),
-          ),
+          baptismCanWriteProvider((
+            ministryId: widget.ministryId,
+            action: action,
+          )),
         )
         .maybeWhen(data: (v) => v, orElse: () => false);
 
@@ -325,115 +331,154 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
       data: (students) {
         final visible = _apply(students);
 
+        Widget buildCard(BaptismStudent student) => StudentCard(
+          key: ValueKey(student.id),
+          student: student,
+          checklist: tally[student.id],
+          onWhatsApp: (student.phone?.trim().isEmpty ?? true)
+              ? null
+              : () => _whatsApp(student),
+          onEdit: canEdit ? () => _editStudent(student, turmas) : null,
+          onDelete: canDelete ? () => _deleteStudent(student) : null,
+        );
+
         return RefreshIndicator(
           onRefresh: () async {
             invalidateBaptismData(ref, widget.ministryId);
             await ref.read(baptismStudentsProvider(widget.ministryId).future);
           },
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-            children: [
-              AppFilterBar(
-                searchController: _search,
-                searchHint: 'Buscar por nome ou WhatsApp...',
-                onSearchChanged: (v) => setState(() => _query = v),
-                filters: [
-                  AppFilterButton(
-                    label: _status?.label ?? 'Todos os status',
-                    icon: Icons.flag_outlined,
-                    active: _status != null,
-                    onTap: () async {
-                      final picked = await _pickOption<String>(
-                        title: 'Status',
-                        current: _status?.code ?? 'all',
-                        options: [
-                          ('all', 'Todos os status'),
-                          for (final s in BaptismStudentStatus.values)
-                            (s.code, s.label),
-                        ],
-                      );
-                      if (picked == null) return;
-                      setState(() {
-                        _status = picked == 'all'
-                            ? null
-                            : BaptismStudentStatus.fromCode(picked);
-                      });
-                    },
-                  ),
-                  AppFilterButton(
-                    label: _turmaLabel(turmas),
-                    icon: Icons.groups_2_outlined,
-                    active: _turmaId != _TurmaFilter.all,
-                    onTap: () async {
-                      final picked = await _pickOption<String>(
-                        title: 'Turma',
-                        current: _turmaId,
-                        options: [
-                          (_TurmaFilter.all, 'Todas as turmas'),
-                          for (final t in turmas) (t.id, t.name),
-                        ],
-                      );
-                      if (picked != null) setState(() => _turmaId = picked);
-                    },
-                  ),
-                ],
-                onSort: () async {
-                  final picked = await _pickOption<StudentSort>(
-                    title: 'Ordenar por',
-                    current: _sort,
-                    options: [
-                      for (final s in StudentSort.values) (s, s.label),
-                    ],
-                  );
-                  if (picked != null) setState(() => _sort = picked);
-                },
-                sortTooltip: 'Ordenar (${_sort.label})',
-                secondaryActions: [
-                  AppFilterAction(
-                    label: 'Turmas',
-                    icon: Icons.groups_2_outlined,
-                    onPressed: () => _openTurmas(
-                      canCreate: canCreate,
-                      canEdit: canEdit,
-                      canDelete: canDelete,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList.list(
+                  children: [
+                    AppFilterBar(
+                      searchController: _search,
+                      searchHint: 'Buscar por nome ou WhatsApp...',
+                      onSearchChanged: (v) => setState(() => _query = v),
+                      filters: [
+                        AppFilterButton(
+                          label: _status?.label ?? 'Todos os status',
+                          icon: AppIcons.status,
+                          active: _status != null,
+                          onTap: () async {
+                            final picked = await _pickOption<String>(
+                              title: 'Status',
+                              current: _status?.code ?? 'all',
+                              options: [
+                                ('all', 'Todos os status'),
+                                for (final s in BaptismStudentStatus.values)
+                                  (s.code, s.label),
+                              ],
+                            );
+                            if (picked == null) return;
+                            setState(() {
+                              _status = picked == 'all'
+                                  ? null
+                                  : BaptismStudentStatus.fromCode(picked);
+                            });
+                          },
+                        ),
+                        AppFilterButton(
+                          label: _turmaLabel(turmas),
+                          icon: AppIcons.group,
+                          active: _turmaId != _TurmaFilter.all,
+                          onTap: () async {
+                            final picked = await _pickOption<String>(
+                              title: 'Turma',
+                              current: _turmaId,
+                              options: [
+                                (_TurmaFilter.all, 'Todas as turmas'),
+                                for (final t in turmas) (t.id, t.name),
+                              ],
+                            );
+                            if (picked != null) {
+                              setState(() => _turmaId = picked);
+                            }
+                          },
+                        ),
+                      ],
+                      onSort: () async {
+                        final picked = await _pickOption<StudentSort>(
+                          title: 'Ordenar por',
+                          current: _sort,
+                          options: [
+                            for (final s in StudentSort.values) (s, s.label),
+                          ],
+                        );
+                        if (picked != null) setState(() => _sort = picked);
+                      },
+                      sortTooltip: 'Ordenar (${_sort.label})',
+                      secondaryActions: [
+                        AppFilterAction(
+                          label: 'Turmas',
+                          icon: AppIcons.group,
+                          onPressed: () => _openTurmas(
+                            canCreate: canCreate,
+                            canEdit: canEdit,
+                            canDelete: canDelete,
+                          ),
+                        ),
+                        // Só para quem administra: o link é um canal de entrada na
+                        // igreja, não um botão de leitura.
+                        if (canEdit)
+                          AppFilterAction(
+                            label: 'Link de inscrição',
+                            icon: AppIcons.link,
+                            onPressed: () => _shareRegistrationLink(turmas),
+                          ),
+                      ],
+                      primaryAction: canCreate
+                          ? AppFilterAction(
+                              label: 'Novo aluno',
+                              icon: AppIcons.addPerson,
+                              onPressed: () => _newStudent(turmas),
+                            )
+                          : null,
                     ),
-                  ),
-                  // Só para quem administra: o link é um canal de entrada na
-                  // igreja, não um botão de leitura.
-                  if (canEdit)
-                    AppFilterAction(
-                      label: 'Link de inscrição',
-                      icon: Icons.link,
-                      onPressed: () => _shareRegistrationLink(turmas),
-                    ),
-                ],
-                primaryAction: canCreate
-                    ? AppFilterAction(
-                        label: 'Novo aluno',
-                        icon: Icons.person_add_alt,
-                        onPressed: () => _newStudent(turmas),
-                      )
-                    : null,
+                    const SizedBox(height: 16),
+                    _CountLine(visible: visible.length, total: students.length),
+                    const SizedBox(height: 12),
+                    if (visible.isEmpty)
+                      _EmptyState(
+                        hasStudents: students.isNotEmpty,
+                        hasTurmas: turmas.isNotEmpty,
+                      ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 14),
-              _CountLine(visible: visible.length, total: students.length),
-              const SizedBox(height: 10),
-              if (visible.isEmpty)
-                _EmptyState(
-                  hasStudents: students.isNotEmpty,
-                  hasTurmas: turmas.isNotEmpty,
-                )
-              else
-                for (final s in visible)
-                  StudentCard(
-                    student: s,
-                    checklist: tally[s.id],
-                    onWhatsApp: (s.phone?.trim().isEmpty ?? true)
-                        ? null
-                        : () => _whatsApp(s),
-                    onEdit: canEdit ? () => _editStudent(s, turmas) : null,
-                    onDelete: canDelete ? () => _deleteStudent(s) : null,
-                  ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                sliver: SliverLayoutBuilder(
+                  builder: (context, constraints) {
+                    // Altura livre por linha: nomes longos e texto ampliado
+                    // não são recortados por uma proporção fixa de grid.
+                    final columns =
+                        constraints.crossAxisExtent >= 900 &&
+                            MediaQuery.textScalerOf(context).scale(14) <= 20
+                        ? 2
+                        : 1;
+                    return SliverList.builder(
+                      itemCount: (visible.length / columns).ceil(),
+                      itemBuilder: (context, row) => Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (var column = 0; column < columns; column++) ...[
+                            if (column > 0) const SizedBox(width: 16),
+                            Expanded(
+                              child: row * columns + column < visible.length
+                                  ? buildCard(visible[row * columns + column])
+                                  : const SizedBox.shrink(),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
             ],
           ),
         );
@@ -488,7 +533,7 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         children: [
           Icon(
-            hasStudents ? Icons.search_off : Icons.school_outlined,
+            hasStudents ? AppIcons.searchEmpty : AppIcons.student,
             size: 36,
             color: Theme.of(context).disabledColor,
           ),
@@ -518,7 +563,7 @@ class _AlunosError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 40),
+            const Icon(AppIcons.error, size: 40),
             const SizedBox(height: 12),
             Text(
               'Não foi possível carregar os alunos.',

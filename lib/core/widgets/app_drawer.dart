@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../constants/app_branding.dart';
+import '../design/app_icons.dart';
+import '../theme/app_theme.dart';
 import 'app_logo.dart';
 import 'theme_mode_selector.dart';
 import '../../features/permissions/providers/permissions_providers.dart';
@@ -22,6 +24,10 @@ class AppDrawer extends ConsumerWidget {
     );
 
     return Drawer(
+      width: 320,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.horizontal(right: Radius.circular(20)),
+      ),
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
@@ -51,9 +57,9 @@ class AppDrawer extends ConsumerWidget {
                 Text(
                   AppBranding.appName,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimary,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    color: Theme.of(context).colorScheme.onPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -61,22 +67,26 @@ class AppDrawer extends ConsumerWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.9),
-                      ),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onPrimary.withValues(alpha: 0.9),
+                  ),
                 ),
               ],
             ),
             accountEmail: Text(
               currentUser?.email ?? 'Não autenticado',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.8),
-                  ),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onPrimary.withValues(alpha: 0.8),
+              ),
             ),
           ),
 
           // Dashboard
           _DrawerItem(
-            icon: Icons.dashboard,
+            icon: AppIcons.dashboard,
             title: 'Dashboard',
             route: '/',
             currentRoute: GoRouterState.of(context).uri.toString(),
@@ -87,13 +97,13 @@ class AppDrawer extends ConsumerWidget {
           // GESTÃO
           _DrawerSection(title: 'GESTÃO'),
           _DrawerItem(
-            icon: Icons.groups,
+            icon: AppIcons.group,
             title: 'Membros',
             route: '/members',
             currentRoute: GoRouterState.of(context).uri.toString(),
           ),
           _DrawerItem(
-            icon: Icons.person_add,
+            icon: AppIcons.addPerson,
             title: 'Visitantes',
             route: '/visitors',
             currentRoute: GoRouterState.of(context).uri.toString(),
@@ -102,7 +112,7 @@ class AppDrawer extends ConsumerWidget {
             data: (canManage) {
               if (!canManage) return const SizedBox.shrink();
               return _DrawerItem(
-                icon: Icons.admin_panel_settings,
+                icon: AppIcons.admin,
                 title: 'Níveis de Acesso',
                 route: '/access-levels',
                 currentRoute: GoRouterState.of(context).uri.toString(),
@@ -117,25 +127,25 @@ class AppDrawer extends ConsumerWidget {
           // MINISTÉRIO
           _DrawerSection(title: 'MINISTÉRIO'),
           _DrawerItem(
-            icon: Icons.church,
+            icon: AppIcons.church,
             title: 'Ministérios',
             route: '/ministries',
             currentRoute: GoRouterState.of(context).uri.toString(),
           ),
           _DrawerItem(
-            icon: Icons.groups,
+            icon: AppIcons.group,
             title: 'Grupos de Comunhão',
             route: '/groups',
             currentRoute: GoRouterState.of(context).uri.toString(),
           ),
           _DrawerItem(
-            icon: Icons.menu_book,
+            icon: AppIcons.book,
             title: 'Grupos de Estudo',
             route: '/study-groups',
             currentRoute: GoRouterState.of(context).uri.toString(),
           ),
           _DrawerItem(
-            icon: Icons.church_outlined,
+            icon: AppIcons.church,
             title: 'Cultos',
             route: '/worship',
             currentRoute: GoRouterState.of(context).uri.toString(),
@@ -146,19 +156,19 @@ class AppDrawer extends ConsumerWidget {
           // ATIVIDADES
           _DrawerSection(title: 'ATIVIDADES'),
           _DrawerItem(
-            icon: Icons.event,
+            icon: AppIcons.event,
             title: 'Eventos',
             route: '/events',
             currentRoute: GoRouterState.of(context).uri.toString(),
           ),
           _DrawerItem(
-            icon: Icons.favorite,
+            icon: AppIcons.favorite,
             title: 'Pedidos de Oração',
             route: '/prayer-requests',
             currentRoute: GoRouterState.of(context).uri.toString(),
           ),
           _DrawerItem(
-            icon: Icons.book,
+            icon: AppIcons.book,
             title: 'Devocionais',
             route: '/devotionals',
             currentRoute: GoRouterState.of(context).uri.toString(),
@@ -169,7 +179,7 @@ class AppDrawer extends ConsumerWidget {
           // FINANCEIRO
           _DrawerSection(title: 'FINANCEIRO'),
           _DrawerItem(
-            icon: Icons.attach_money,
+            icon: AppIcons.finance,
             title: 'Financeiro',
             route: '/financial',
             currentRoute: GoRouterState.of(context).uri.toString(),
@@ -180,7 +190,7 @@ class AppDrawer extends ConsumerWidget {
           // RELATÓRIOS
           _DrawerSection(title: 'RELATÓRIOS'),
           _DrawerItem(
-            icon: Icons.analytics,
+            icon: AppIcons.analytics,
             title: 'Analytics & Relatórios',
             route: '/analytics',
             currentRoute: GoRouterState.of(context).uri.toString(),
@@ -195,7 +205,7 @@ class AppDrawer extends ConsumerWidget {
             child: Row(
               children: [
                 Icon(
-                  Icons.dark_mode_outlined,
+                  AppIcons.darkMode,
                   size: 20,
                   color: Theme.of(
                     context,
@@ -211,14 +221,14 @@ class AppDrawer extends ConsumerWidget {
             permission: 'tags.view',
             showLoading: false,
             child: _DrawerItem(
-              icon: Icons.label,
+              icon: AppIcons.label,
               title: 'Tags',
               route: '/tags',
               currentRoute: GoRouterState.of(context).uri.toString(),
             ),
           ),
           _DrawerItem(
-            icon: Icons.notifications,
+            icon: AppIcons.notifications,
             title: 'Notificações',
             route: '/notifications',
             currentRoute: GoRouterState.of(context).uri.toString(),
@@ -228,11 +238,8 @@ class AppDrawer extends ConsumerWidget {
 
           // Logout
           ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text(
-              'Sair',
-              style: TextStyle(color: Colors.red),
-            ),
+            leading: const Icon(AppIcons.logout, color: AppTheme.errorColor),
+            title: const Text('Sair', style: TextStyle(color: Colors.red)),
             onTap: () async {
               final confirm = await showDialog<bool>(
                 context: context,
@@ -270,8 +277,10 @@ class AppDrawer extends ConsumerWidget {
               AppBranding.versionLabel,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                  ),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
             ),
           ),
         ],
@@ -293,10 +302,10 @@ class _DrawerSection extends StatelessWidget {
       child: Text(
         title,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
+          color: Theme.of(context).colorScheme.primary,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.2,
+        ),
       ),
     );
   }
@@ -318,7 +327,8 @@ class _DrawerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isSelected = currentRoute == route || currentRoute.startsWith('$route/');
+    final isSelected =
+        currentRoute == route || currentRoute.startsWith('$route/');
 
     return ListTile(
       leading: Icon(
@@ -337,10 +347,10 @@ class _DrawerItem extends StatelessWidget {
         ),
       ),
       selected: isSelected,
-      selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
+      selectedTileColor: Theme.of(
+        context,
+      ).colorScheme.primaryContainer.withValues(alpha: 0.3),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       onTap: () {
         context.push(route);
       },

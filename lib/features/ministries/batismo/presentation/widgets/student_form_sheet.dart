@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../core/widgets/pearl_button.dart';
 import '../../data/baptism_repository.dart';
 import '../../domain/models/baptism_member_suggestion.dart';
 import '../../domain/models/baptism_student.dart';
@@ -22,6 +24,8 @@ Future<bool> showStudentFormSheet({
   final saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
+    constraints: const BoxConstraints(maxWidth: 640),
     backgroundColor: Colors.transparent,
     builder: (_) => _StudentFormSheet(
       ministryId: ministryId,
@@ -86,7 +90,8 @@ class _StudentFormSheetState extends ConsumerState<_StudentFormSheet> {
     _status = s?.status ?? BaptismStudentStatus.ativo;
     // Numa turma só, ela já vem escolhida — é o caso normal da igreja que
     // roda uma turma por vez.
-    _turmaId = s?.turmaId ??
+    _turmaId =
+        s?.turmaId ??
         (widget.turmas.length == 1 ? widget.turmas.first.id : null);
     _memberId = s?.userId;
     // Na edição não há de onde tirar o nome da ficha sem uma consulta a
@@ -274,8 +279,10 @@ class _StudentFormSheetState extends ConsumerState<_StudentFormSheet> {
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppTheme.dialogRadius),
+          ),
         ),
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         child: SingleChildScrollView(
@@ -298,8 +305,9 @@ class _StudentFormSheetState extends ConsumerState<_StudentFormSheet> {
                 const SizedBox(height: 16),
                 Text(
                   _isEdit ? 'Editar aluno' : 'Novo aluno',
-                  style: CommunityDesign.titleStyle(context)
-                      .copyWith(fontSize: 18, fontWeight: FontWeight.w700),
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 16),
                 // A busca vem ANTES do nome de propósito: o caminho comum é
@@ -328,11 +336,15 @@ class _StudentFormSheetState extends ConsumerState<_StudentFormSheet> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: _turmaId,
                   decoration: const InputDecoration(labelText: 'Turma *'),
                   items: [
                     for (final t in widget.turmas)
-                      DropdownMenuItem(value: t.id, child: Text(t.name)),
+                      DropdownMenuItem(
+                        value: t.id,
+                        child: Text(t.name, overflow: TextOverflow.ellipsis),
+                      ),
                   ],
                   onChanged: (v) => setState(() => _turmaId = v),
                 ),
@@ -358,9 +370,10 @@ class _StudentFormSheetState extends ConsumerState<_StudentFormSheet> {
                     decoration: InputDecoration(
                       labelText: 'Data de nascimento',
                       suffixIcon: _birthDate == null
-                          ? const Icon(Icons.calendar_today, size: 18)
+                          ? const Icon(AppIcons.calendar, size: 18)
                           : IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
+                              icon: const Icon(AppIcons.close, size: 18),
+                              tooltip: 'Limpar data de nascimento',
                               onPressed: () =>
                                   setState(() => _birthDate = null),
                             ),
@@ -396,7 +409,10 @@ class _StudentFormSheetState extends ConsumerState<_StudentFormSheet> {
                   const SizedBox(height: 12),
                   Text(
                     _error!,
-                    style: const TextStyle(color: AppTheme.errorColor, fontSize: 13),
+                    style: const TextStyle(
+                      color: AppTheme.errorColor,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 20),
@@ -412,17 +428,27 @@ class _StudentFormSheetState extends ConsumerState<_StudentFormSheet> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: FilledButton(
-                        onPressed: _saving ? null : _save,
+                      child: PearlButton(
+                        color: AppTheme.primary,
+                        width: double.infinity,
+                        height: 48,
+                        onTap: _saving ? null : _save,
                         child: _saving
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
+                                  color: AppTheme.primaryForeground,
                                 ),
                               )
-                            : Text(_isEdit ? 'Salvar' : 'Cadastrar'),
+                            : Text(
+                                _isEdit ? 'Salvar' : 'Cadastrar',
+                                style: const TextStyle(
+                                  color: AppTheme.primaryForeground,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                       ),
                     ),
                   ],
@@ -470,19 +496,15 @@ class _MemberSearchField extends StatelessWidget {
       return InputDecorator(
         decoration: const InputDecoration(
           labelText: 'Membro vinculado',
-          helperText: 'Os dados abaixo podem ser corrigidos sem alterar a ficha',
+          helperText:
+              'Os dados abaixo podem ser corrigidos sem alterar a ficha',
         ),
         child: Row(
           children: [
-            const Icon(Icons.link, size: 16),
+            const Icon(AppIcons.link, size: 16),
             const SizedBox(width: 8),
-            Expanded(
-              child: Text(linkedName!, overflow: TextOverflow.ellipsis),
-            ),
-            TextButton(
-              onPressed: onUnlink,
-              child: const Text('Desvincular'),
-            ),
+            Expanded(child: Text(linkedName!, overflow: TextOverflow.ellipsis)),
+            TextButton(onPressed: onUnlink, child: const Text('Desvincular')),
           ],
         ),
       );
@@ -499,7 +521,7 @@ class _MemberSearchField extends StatelessWidget {
           decoration: InputDecoration(
             labelText: 'Buscar membro',
             hintText: 'Digite 3 letras do nome',
-            prefixIcon: const Icon(Icons.search),
+            prefixIcon: const Icon(AppIcons.search),
             suffixIcon: searching
                 ? const Padding(
                     padding: EdgeInsets.all(12),
@@ -510,14 +532,15 @@ class _MemberSearchField extends StatelessWidget {
                     ),
                   )
                 : (term.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          controller.clear();
-                          onChanged('');
-                        },
-                      )),
+                      ? null
+                      : IconButton(
+                          icon: const Icon(AppIcons.close, size: 18),
+                          tooltip: 'Limpar busca',
+                          onPressed: () {
+                            controller.clear();
+                            onChanged('');
+                          },
+                        )),
             helperText: 'Opcional — quem não tem ficha é só digitar o nome',
           ),
         ),
@@ -530,7 +553,10 @@ class _MemberSearchField extends StatelessWidget {
         ],
         // "Nenhum membro encontrado" só aparece depois da busca terminar.
         // Durante a digitação seria um não-achou que ainda não é verdade.
-        if (!searching && error == null && term.length >= 3 && suggestions.isEmpty) ...[
+        if (!searching &&
+            error == null &&
+            term.length >= 3 &&
+            suggestions.isEmpty) ...[
           const SizedBox(height: 6),
           Text(
             'Nenhum membro encontrado com "$term".',
