@@ -48,8 +48,10 @@ Known baseline issue:
 - Repository: `https://github.com/sistemapapai25/church360.git`
 - Current branch: `feat/visual-cascade-stage-1`
 - Base before this session: `6cb0c1b` (`app#119` merge).
-- This wrap and all implementation files are intentionally staged for one PR/merge.
-- The next action after writing this wrap is `git add`, commit, push, open PR, merge to `main`, and deploy. If any remote or CI step blocks, record the exact output here and in the final response.
+- PR #120 was merged successfully into GitHub `main` with merge commit `3055e8e94b4597af2967ed4f0a2ca6fbdf656c11`.
+- Production deploy completed successfully from the generated `build/web` artifact on 2026-09-20 00:08 BRT. Deployment: `https://church360-jacglbv8z-gabriels-projects-ec03504d.vercel.app`, status Ready, aliases `https://app.church360.com.br`, `https://church360-app.vercel.app`, and `https://church360-app-gabriels-projects-ec03504d.vercel.app`.
+- HTTP smoke test against the deployment URL returned `302` to Vercel SSO, which confirms the deployment is reachable and protected by the project’s access settings. The custom domain DNS lookup was unavailable from this shell, so custom-domain browser validation remains for the user’s environment.
+- The branch remains locally checked out for this handoff; GitHub main contains the merge. Generated Flutter plugin files may be dirty after the release build and should not be included in the next visual PR unless they represent intentional source changes.
 
 ## Next checkpoint for the next agent
 
