@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/app_icons.dart';
 import '../../providers/dashboard_stats_provider.dart';
 
 /// Tela de relatório de grupos
@@ -12,9 +13,7 @@ class GroupsReportScreen extends ConsumerWidget {
     final groupsAsync = ref.watch(topActiveGroupsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Relatório de Grupos'),
-      ),
+      appBar: AppBar(title: const Text('Relatório de Grupos')),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(topActiveGroupsProvider);
@@ -22,9 +21,7 @@ class GroupsReportScreen extends ConsumerWidget {
         child: groupsAsync.when(
           data: (groups) {
             if (groups.isEmpty) {
-              return const Center(
-                child: Text('Nenhum grupo cadastrado'),
-              );
+              return const Center(child: Text('Nenhum grupo cadastrado'));
             }
 
             return ListView.builder(
@@ -43,22 +40,22 @@ class GroupsReportScreen extends ConsumerWidget {
 
                 switch (type) {
                   case 'communion':
-                    icon = Icons.groups;
+                    icon = AppIcons.groupsFilled;
                     color = Colors.blue;
                     typeLabel = 'Comunhão';
                     break;
                   case 'study':
-                    icon = Icons.menu_book;
+                    icon = AppIcons.study;
                     color = Colors.green;
                     typeLabel = 'Estudo';
                     break;
                   case 'ministry':
-                    icon = Icons.volunteer_activism;
+                    icon = AppIcons.volunteer;
                     color = Colors.purple;
                     typeLabel = 'Ministério';
                     break;
                   default:
-                    icon = Icons.group;
+                    icon = AppIcons.group;
                     color = Colors.grey;
                     typeLabel = 'Outro';
                 }
@@ -107,4 +104,3 @@ class GroupsReportScreen extends ConsumerWidget {
     );
   }
 }
-

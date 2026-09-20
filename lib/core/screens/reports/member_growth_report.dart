@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
+import '../../design/app_icons.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 
 /// Enum para períodos de filtro
@@ -19,78 +20,95 @@ enum GrowthPeriod {
 }
 
 /// Provider para crescimento de membros por período (dia a dia)
-final memberGrowthByPeriodProvider = FutureProvider.family<List<Map<String, dynamic>>, (DateTime, DateTime)>(
-  (ref, dates) async {
-    final supabase = ref.watch(supabaseClientProvider);
-    final (startDate, endDate) = dates;
+final memberGrowthByPeriodProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, (DateTime, DateTime)>((
+      ref,
+      dates,
+    ) async {
+      final supabase = ref.watch(supabaseClientProvider);
+      final (startDate, endDate) = dates;
 
-    // Buscar todos os membros criados até a data final
-    final response = await supabase
-        .from('user_account')
-        .select('created_at, status')
-        .inFilter('status', ['member_active', 'member_inactive']) // Apenas membros
-        .lte('created_at', endDate.toIso8601String())
-        .order('created_at', ascending: true);
+      // Buscar todos os membros criados até a data final
+      final response = await supabase
+          .from('user_account')
+          .select('created_at, status')
+          .inFilter('status', [
+            'member_active',
+            'member_inactive',
+          ]) // Apenas membros
+          .lte('created_at', endDate.toIso8601String())
+          .order('created_at', ascending: true);
 
-    final members = response as List;
+      final members = response as List;
 
-    // Criar mapa de contagem por dia
-    final Map<String, int> dayCounts = {};
-    
-    // Inicializar todos os dias do período com 0
-    DateTime currentDate = DateTime(startDate.year, startDate.month, startDate.day);
-    final endDateOnly = DateTime(endDate.year, endDate.month, endDate.day);
-    
-    while (currentDate.isBefore(endDateOnly) || currentDate.isAtSameMomentAs(endDateOnly)) {
-      final dateKey = DateFormat('yyyy-MM-dd').format(currentDate);
-      dayCounts[dateKey] = 0;
-      currentDate = currentDate.add(const Duration(days: 1));
-    }
+      // Criar mapa de contagem por dia
+      final Map<String, int> dayCounts = {};
 
-    // Contar membros criados em cada dia do período
-    for (var member in members) {
-      final createdAt = DateTime.parse(member['created_at'] as String);
-      final createdDateOnly = DateTime(createdAt.year, createdAt.month, createdAt.day);
-      final dateKey = DateFormat('yyyy-MM-dd').format(createdDateOnly);
-      
-      // Só contar se estiver dentro do período
-      if (dayCounts.containsKey(dateKey)) {
-        dayCounts[dateKey] = (dayCounts[dateKey] ?? 0) + 1;
+      // Inicializar todos os dias do período com 0
+      DateTime currentDate = DateTime(
+        startDate.year,
+        startDate.month,
+        startDate.day,
+      );
+      final endDateOnly = DateTime(endDate.year, endDate.month, endDate.day);
+
+      while (currentDate.isBefore(endDateOnly) ||
+          currentDate.isAtSameMomentAs(endDateOnly)) {
+        final dateKey = DateFormat('yyyy-MM-dd').format(currentDate);
+        dayCounts[dateKey] = 0;
+        currentDate = currentDate.add(const Duration(days: 1));
       }
-    }
 
-    // Calcular total acumulado até o início do período
-    int accumulatedBeforePeriod = 0;
-    for (var member in members) {
-      final createdAt = DateTime.parse(member['created_at'] as String);
-      if (createdAt.isBefore(startDate)) {
-        accumulatedBeforePeriod++;
+      // Contar membros criados em cada dia do período
+      for (var member in members) {
+        final createdAt = DateTime.parse(member['created_at'] as String);
+        final createdDateOnly = DateTime(
+          createdAt.year,
+          createdAt.month,
+          createdAt.day,
+        );
+        final dateKey = DateFormat('yyyy-MM-dd').format(createdDateOnly);
+
+        // Só contar se estiver dentro do período
+        if (dayCounts.containsKey(dateKey)) {
+          dayCounts[dateKey] = (dayCounts[dateKey] ?? 0) + 1;
+        }
       }
-    }
 
-    // Converter para lista ordenada com total acumulado
-    int accumulated = accumulatedBeforePeriod;
-    final result = dayCounts.entries.map((entry) {
-      final newMembers = entry.value;
-      accumulated += newMembers;
-      
-      final date = DateTime.parse(entry.key);
-      return {
-        'date': entry.key,
-        'dateObj': date,
-        'day': date.day,
-        'month': date.month,
-        'year': date.year,
-        'newMembers': newMembers,
-        'totalMembers': accumulated,
-      };
-    }).toList();
+      // Calcular total acumulado até o início do período
+      int accumulatedBeforePeriod = 0;
+      for (var member in members) {
+        final createdAt = DateTime.parse(member['created_at'] as String);
+        if (createdAt.isBefore(startDate)) {
+          accumulatedBeforePeriod++;
+        }
+      }
 
-    result.sort((a, b) => (a['dateObj'] as DateTime).compareTo(b['dateObj'] as DateTime));
+      // Converter para lista ordenada com total acumulado
+      int accumulated = accumulatedBeforePeriod;
+      final result = dayCounts.entries.map((entry) {
+        final newMembers = entry.value;
+        accumulated += newMembers;
 
-    return result;
-  },
-);
+        final date = DateTime.parse(entry.key);
+        return {
+          'date': entry.key,
+          'dateObj': date,
+          'day': date.day,
+          'month': date.month,
+          'year': date.year,
+          'newMembers': newMembers,
+          'totalMembers': accumulated,
+        };
+      }).toList();
+
+      result.sort(
+        (a, b) =>
+            (a['dateObj'] as DateTime).compareTo(b['dateObj'] as DateTime),
+      );
+
+      return result;
+    });
 
 /// Tela de relatório de crescimento de membros
 class MemberGrowthReportScreen extends ConsumerStatefulWidget {
@@ -110,14 +128,16 @@ class _MemberGrowthReportScreenState
   @override
   Widget build(BuildContext context) {
     final (startDate, endDate) = _getDateRange();
-    final growthAsync = ref.watch(memberGrowthByPeriodProvider((startDate, endDate)));
+    final growthAsync = ref.watch(
+      memberGrowthByPeriodProvider((startDate, endDate)),
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Crescimento de Membros'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(AppIcons.refresh),
             onPressed: () {
               ref.invalidate(memberGrowthByPeriodProvider);
             },
@@ -143,22 +163,33 @@ class _MemberGrowthReportScreenState
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.groups, size: 64, color: Colors.grey),
+                          Icon(
+                            AppIcons.groupsFilled,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
                           SizedBox(height: 16),
                           Text(
                             'Sem dados para exibir',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
                     );
                   }
 
-                  final totalAtStart = (data.first['totalMembers'] as int) - (data.first['newMembers'] as int);
+                  final totalAtStart =
+                      (data.first['totalMembers'] as int) -
+                      (data.first['newMembers'] as int);
                   final totalAtEnd = data.last['totalMembers'] as int;
-                  final totalNew = data.map((d) => d['newMembers'] as int).reduce((a, b) => a + b);
+                  final totalNew = data
+                      .map((d) => d['newMembers'] as int)
+                      .reduce((a, b) => a + b);
                   final growth = totalAtEnd - totalAtStart;
-                  final growthPercentage = totalAtStart > 0 
+                  final growthPercentage = totalAtStart > 0
                       ? ((growth / totalAtStart) * 100).toStringAsFixed(1)
                       : '0.0';
 
@@ -172,7 +203,7 @@ class _MemberGrowthReportScreenState
                             child: _buildSummaryCard(
                               'Total Atual',
                               '$totalAtEnd',
-                              Icons.groups,
+                              AppIcons.groupsFilled,
                               Colors.blue,
                             ),
                           ),
@@ -181,7 +212,7 @@ class _MemberGrowthReportScreenState
                             child: _buildSummaryCard(
                               'Novos Membros',
                               '+$totalNew',
-                              Icons.person_add,
+                              AppIcons.personAdd,
                               Colors.green,
                             ),
                           ),
@@ -194,7 +225,9 @@ class _MemberGrowthReportScreenState
                             child: _buildSummaryCard(
                               'Crescimento',
                               growth >= 0 ? '+$growth' : '$growth',
-                              growth >= 0 ? Icons.trending_up : Icons.trending_down,
+                              growth >= 0
+                                  ? AppIcons.trendingUp
+                                  : AppIcons.trendingDown,
                               growth >= 0 ? Colors.green : Colors.red,
                             ),
                           ),
@@ -203,7 +236,7 @@ class _MemberGrowthReportScreenState
                             child: _buildSummaryCard(
                               'Percentual',
                               '${growth >= 0 ? '+' : ''}$growthPercentage%',
-                              Icons.percent,
+                              AppIcons.percent,
                               growth >= 0 ? Colors.green : Colors.red,
                             ),
                           ),
@@ -292,7 +325,7 @@ class _MemberGrowthReportScreenState
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                      const Icon(AppIcons.error, size: 64, color: Colors.red),
                       const SizedBox(height: 16),
                       Text('Erro: $error'),
                     ],
@@ -307,7 +340,12 @@ class _MemberGrowthReportScreenState
   }
 
   /// Card de resumo
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
+  Widget _buildSummaryCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Card(
       color: color.withValues(alpha: 0.1),
       child: Padding(
@@ -326,10 +364,7 @@ class _MemberGrowthReportScreenState
             ),
             Text(
               title,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[700],
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
               textAlign: TextAlign.center,
             ),
           ],
@@ -347,19 +382,24 @@ class _MemberGrowthReportScreenState
       );
     }).toList();
 
-    final maxY = data.map((d) => d['totalMembers'] as int).reduce((a, b) => a > b ? a : b);
-    final minY = data.map((d) => d['totalMembers'] as int).reduce((a, b) => a < b ? a : b);
+    final maxY = data
+        .map((d) => d['totalMembers'] as int)
+        .reduce((a, b) => a > b ? a : b);
+    final minY = data
+        .map((d) => d['totalMembers'] as int)
+        .reduce((a, b) => a < b ? a : b);
 
     return LineChart(
       LineChartData(
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-        ),
+        gridData: FlGridData(show: true, drawVerticalLine: false),
         titlesData: FlTitlesData(
           show: true,
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -404,9 +444,7 @@ class _MemberGrowthReportScreenState
             color: Colors.blue,
             barWidth: 3,
             isStrokeCapRound: true,
-            dotData: FlDotData(
-              show: data.length <= 31,
-            ),
+            dotData: FlDotData(show: data.length <= 31),
             belowBarData: BarAreaData(
               show: true,
               color: Colors.blue.withValues(alpha: 0.2),
@@ -422,12 +460,21 @@ class _MemberGrowthReportScreenState
     return BarChart(
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
-        maxY: (data.map((d) => d['newMembers'] as int).reduce((a, b) => a > b ? a : b) + 1).toDouble(),
+        maxY:
+            (data
+                        .map((d) => d['newMembers'] as int)
+                        .reduce((a, b) => a > b ? a : b) +
+                    1)
+                .toDouble(),
         barTouchData: BarTouchData(enabled: true),
         titlesData: FlTitlesData(
           show: true,
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -481,7 +528,7 @@ class _MemberGrowthReportScreenState
   /// Tabela de dados
   Widget _buildDataTable(List<Map<String, dynamic>> data) {
     final dateFormatter = DateFormat('dd/MM/yyyy', 'pt_BR');
-    
+
     // Mostrar apenas os últimos 10 dias
     final displayData = data.reversed.take(10).toList();
 
@@ -498,15 +545,26 @@ class _MemberGrowthReportScreenState
           children: const [
             Padding(
               padding: EdgeInsets.all(8),
-              child: Text('Data', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(
+                'Data',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
             Padding(
               padding: EdgeInsets.all(8),
-              child: Text('Novos', style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+              child: Text(
+                'Novos',
+                style: TextStyle(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
             ),
             Padding(
               padding: EdgeInsets.all(8),
-              child: Text('Total', style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+              child: Text(
+                'Total',
+                style: TextStyle(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
             ),
           ],
         ),
@@ -528,7 +586,9 @@ class _MemberGrowthReportScreenState
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: newMembers > 0 ? Colors.green : Colors.grey,
-                    fontWeight: newMembers > 0 ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: newMembers > 0
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
                 ),
               ),
@@ -582,10 +642,7 @@ class _MemberGrowthReportScreenState
           children: [
             const Text(
               'Período',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -617,7 +674,7 @@ class _MemberGrowthReportScreenState
   Future<void> _showCustomDatePicker() async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
+
     final startDate = await showDatePicker(
       context: context,
       initialDate: _customStartDate ?? today.subtract(const Duration(days: 29)),

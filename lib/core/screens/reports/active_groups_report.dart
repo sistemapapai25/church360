@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import '../../constants/supabase_constants.dart';
 
+import '../../design/app_icons.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 
 /// Enum para períodos de filtro
@@ -21,88 +22,100 @@ enum GroupActivityPeriod {
 }
 
 /// Provider para grupos ativos com análise por período
-  final activeGroupsByPeriodProvider = FutureProvider.family<List<Map<String, dynamic>>, DateTime?>(
-  (ref, startDate) async {
-    final supabase = ref.watch(supabaseClientProvider);
+final activeGroupsByPeriodProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, DateTime?>((
+      ref,
+      startDate,
+    ) async {
+      final supabase = ref.watch(supabaseClientProvider);
 
-    // Buscar todos os grupos ativos
-    final groupsResponse = await supabase
-        .from('group')
-        .select('id, name, description, group_type, created_at')
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .eq('is_active', true)
-        .order('name', ascending: true);
+      // Buscar todos os grupos ativos
+      final groupsResponse = await supabase
+          .from('group')
+          .select('id, name, description, group_type, created_at')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .eq('is_active', true)
+          .order('name', ascending: true);
 
-    final groups = groupsResponse as List;
-    final groupStats = <Map<String, dynamic>>[];
+      final groups = groupsResponse as List;
+      final groupStats = <Map<String, dynamic>>[];
 
-    // Para cada grupo, buscar estatísticas
-    for (var group in groups) {
-      final groupId = group['id'] as String?;
-      final groupName = group['name'] as String?;
-      
-      // Pular grupos sem ID ou nome
-      if (groupId == null || groupName == null || groupName.isEmpty) continue;
+      // Para cada grupo, buscar estatísticas
+      for (var group in groups) {
+        final groupId = group['id'] as String?;
+        final groupName = group['name'] as String?;
 
-      // Query base para reuniões
-      var meetingsQuery = supabase
-          .from('group_meeting')
-          .select('id, meeting_date, total_attendance')
-          .eq('group_id', groupId);
+        // Pular grupos sem ID ou nome
+        if (groupId == null || groupName == null || groupName.isEmpty) continue;
 
-      // Aplicar filtro de período se especificado
-      if (startDate != null) {
-        meetingsQuery = meetingsQuery.gte('meeting_date', startDate.toIso8601String().split('T')[0]);
+        // Query base para reuniões
+        var meetingsQuery = supabase
+            .from('group_meeting')
+            .select('id, meeting_date, total_attendance')
+            .eq('group_id', groupId);
+
+        // Aplicar filtro de período se especificado
+        if (startDate != null) {
+          meetingsQuery = meetingsQuery.gte(
+            'meeting_date',
+            startDate.toIso8601String().split('T')[0],
+          );
+        }
+
+        final meetingsResponse = await meetingsQuery.order(
+          'meeting_date',
+          ascending: false,
+        );
+        final meetings = meetingsResponse as List;
+
+        // Contar membros do grupo
+        final membersResponse = await supabase
+            .from('group_member')
+            .select('user_id')
+            .eq('group_id', groupId);
+
+        final memberCount = (membersResponse as List).length;
+
+        // Calcular estatísticas
+        final meetingCount = meetings.length;
+        final totalAttendance = meetings.fold<int>(
+          0,
+          (sum, meeting) => sum + ((meeting['total_attendance'] as int?) ?? 0),
+        );
+        final averageAttendance = meetingCount > 0
+            ? (totalAttendance / meetingCount)
+            : 0.0;
+
+        // Última reunião
+        DateTime? lastMeetingDate;
+        if (meetings.isNotEmpty) {
+          lastMeetingDate = DateTime.parse(
+            meetings.first['meeting_date'] as String,
+          );
+        }
+
+        groupStats.add({
+          'group_id': groupId,
+          'group_name': groupName,
+          'group_type': group['group_type'] as String?,
+          'description': group['description'] as String?,
+          'member_count': memberCount,
+          'meeting_count': meetingCount,
+          'total_attendance': totalAttendance,
+          'average_attendance': averageAttendance,
+          'last_meeting_date': lastMeetingDate,
+        });
       }
 
-      final meetingsResponse = await meetingsQuery.order('meeting_date', ascending: false);
-      final meetings = meetingsResponse as List;
-
-      // Contar membros do grupo
-      final membersResponse = await supabase
-          .from('group_member')
-          .select('user_id')
-          .eq('group_id', groupId);
-
-      final memberCount = (membersResponse as List).length;
-
-      // Calcular estatísticas
-      final meetingCount = meetings.length;
-      final totalAttendance = meetings.fold<int>(
-        0,
-        (sum, meeting) => sum + ((meeting['total_attendance'] as int?) ?? 0),
-      );
-      final averageAttendance = meetingCount > 0 ? (totalAttendance / meetingCount) : 0.0;
-
-      // Última reunião
-      DateTime? lastMeetingDate;
-      if (meetings.isNotEmpty) {
-        lastMeetingDate = DateTime.parse(meetings.first['meeting_date'] as String);
-      }
-
-      groupStats.add({
-        'group_id': groupId,
-        'group_name': groupName,
-        'group_type': group['group_type'] as String?,
-        'description': group['description'] as String?,
-        'member_count': memberCount,
-        'meeting_count': meetingCount,
-        'total_attendance': totalAttendance,
-        'average_attendance': averageAttendance,
-        'last_meeting_date': lastMeetingDate,
+      // Ordenar por número de reuniões (decrescente)
+      groupStats.sort((a, b) {
+        final countA = a['meeting_count'] as int? ?? 0;
+        final countB = b['meeting_count'] as int? ?? 0;
+        return countB.compareTo(countA);
       });
-    }
 
-    // Ordenar por número de reuniões (decrescente)
-    groupStats.sort((a, b) {
-      final countA = a['meeting_count'] as int? ?? 0;
-      final countB = b['meeting_count'] as int? ?? 0;
-      return countB.compareTo(countA);
+      return groupStats;
     });
-
-    return groupStats;
-  },
-);
 
 /// Tela de relatório de grupos ativos
 class ActiveGroupsReportScreen extends ConsumerStatefulWidget {
@@ -127,7 +140,7 @@ class _ActiveGroupsReportScreenState
         title: const Text('Grupos Mais Ativos'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(AppIcons.refresh),
             onPressed: () {
               ref.invalidate(activeGroupsByPeriodProvider);
             },
@@ -153,11 +166,14 @@ class _ActiveGroupsReportScreenState
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.groups_outlined, size: 64, color: Colors.grey),
+                          Icon(AppIcons.groups, size: 64, color: Colors.grey),
                           SizedBox(height: 16),
                           Text(
                             'Nenhum grupo encontrado',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -165,9 +181,17 @@ class _ActiveGroupsReportScreenState
                   }
 
                   final totalGroups = groups.length;
-                  final totalMeetings = groups.fold<int>(0, (sum, g) => sum + ((g['meeting_count'] as int?) ?? 0));
-                  final totalMembers = groups.fold<int>(0, (sum, g) => sum + ((g['member_count'] as int?) ?? 0));
-                  final groupsWithMeetings = groups.where((g) => ((g['meeting_count'] as int?) ?? 0) > 0).length;
+                  final totalMeetings = groups.fold<int>(
+                    0,
+                    (sum, g) => sum + ((g['meeting_count'] as int?) ?? 0),
+                  );
+                  final totalMembers = groups.fold<int>(
+                    0,
+                    (sum, g) => sum + ((g['member_count'] as int?) ?? 0),
+                  );
+                  final groupsWithMeetings = groups
+                      .where((g) => ((g['meeting_count'] as int?) ?? 0) > 0)
+                      .length;
 
                   return ListView(
                     padding: const EdgeInsets.all(16),
@@ -179,7 +203,7 @@ class _ActiveGroupsReportScreenState
                             child: _buildSummaryCard(
                               'Total de Grupos',
                               '$totalGroups',
-                              Icons.groups,
+                              AppIcons.groupsFilled,
                               Colors.blue,
                             ),
                           ),
@@ -188,7 +212,7 @@ class _ActiveGroupsReportScreenState
                             child: _buildSummaryCard(
                               'Com Reuniões',
                               '$groupsWithMeetings',
-                              Icons.event_available,
+                              AppIcons.eventAvailable,
                               Colors.green,
                             ),
                           ),
@@ -201,7 +225,7 @@ class _ActiveGroupsReportScreenState
                             child: _buildSummaryCard(
                               'Total Reuniões',
                               '$totalMeetings',
-                              Icons.calendar_today,
+                              AppIcons.calendarFilled,
                               Colors.orange,
                             ),
                           ),
@@ -210,7 +234,7 @@ class _ActiveGroupsReportScreenState
                             child: _buildSummaryCard(
                               'Total Membros',
                               '$totalMembers',
-                              Icons.groups,
+                              AppIcons.groupsFilled,
                               Colors.purple,
                             ),
                           ),
@@ -259,7 +283,9 @@ class _ActiveGroupsReportScreenState
                               const SizedBox(height: 16),
                               SizedBox(
                                 height: 250,
-                                child: _buildAttendanceChart(groups.take(10).toList()),
+                                child: _buildAttendanceChart(
+                                  groups.take(10).toList(),
+                                ),
                               ),
                             ],
                           ),
@@ -286,7 +312,7 @@ class _ActiveGroupsReportScreenState
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                      const Icon(AppIcons.error, size: 64, color: Colors.red),
                       const SizedBox(height: 16),
                       Text('Erro: $error'),
                       const SizedBox(height: 8),
@@ -308,7 +334,12 @@ class _ActiveGroupsReportScreenState
   }
 
   /// Card de resumo
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
+  Widget _buildSummaryCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Card(
       color: color.withValues(alpha: 0.1),
       child: Padding(
@@ -327,10 +358,7 @@ class _ActiveGroupsReportScreenState
             ),
             Text(
               title,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey[700],
-              ),
+              style: TextStyle(fontSize: 11, color: Colors.grey[700]),
               textAlign: TextAlign.center,
               maxLines: 2,
             ),
@@ -352,7 +380,9 @@ class _ActiveGroupsReportScreenState
         final group = entry.value;
         final meetings = (group['meeting_count'] as int?) ?? 0;
         final maxMeetings = (groups.first['meeting_count'] as int?) ?? 1;
-        final percentage = maxMeetings > 0 ? (meetings / maxMeetings * 100).toInt() : 0;
+        final percentage = maxMeetings > 0
+            ? (meetings / maxMeetings * 100).toInt()
+            : 0;
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -397,17 +427,16 @@ class _ActiveGroupsReportScreenState
                   ),
                   Text(
                     '$meetings reuniões',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
                   ),
                 ],
               ),
               const SizedBox(height: 4),
               LinearProgressIndicator(
                 value: percentage / 100,
-                backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.10),
                 valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
                 minHeight: 8,
               ),
@@ -427,7 +456,11 @@ class _ActiveGroupsReportScreenState
     return BarChart(
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
-        maxY: groups.map((g) => (g['average_attendance'] as double?) ?? 0.0).reduce((a, b) => a > b ? a : b) + 5,
+        maxY:
+            groups
+                .map((g) => (g['average_attendance'] as double?) ?? 0.0)
+                .reduce((a, b) => a > b ? a : b) +
+            5,
         barTouchData: BarTouchData(
           enabled: true,
           touchTooltipData: BarTouchTooltipData(
@@ -435,7 +468,10 @@ class _ActiveGroupsReportScreenState
               final groupData = groups[group.x.toInt()];
               return BarTooltipItem(
                 '${groupData['group_name']}\n',
-                const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
                 children: [
                   TextSpan(
                     text: 'Média: ${rod.toY.toStringAsFixed(1)}',
@@ -448,8 +484,12 @@ class _ActiveGroupsReportScreenState
         ),
         titlesData: FlTitlesData(
           show: true,
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -543,17 +583,17 @@ class _ActiveGroupsReportScreenState
                 runSpacing: 8,
                 children: [
                   _buildMetricBadge(
-                    Icons.event,
+                    AppIcons.eventFilled,
                     '$meetings reuniões',
                     Colors.blue,
                   ),
                   _buildMetricBadge(
-                    Icons.groups,
+                    AppIcons.groupsFilled,
                     '$members membros',
                     Colors.green,
                   ),
                   _buildMetricBadge(
-                    Icons.analytics,
+                    AppIcons.analytics,
                     'Média: ${avgAttendance.toStringAsFixed(1)}',
                     Colors.orange,
                   ),
@@ -563,7 +603,11 @@ class _ActiveGroupsReportScreenState
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
+                    Icon(
+                      AppIcons.accessTime,
+                      size: 14,
+                      color: Colors.grey[600],
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       'Última reunião: ${dateFormatter.format(lastMeeting)}',
@@ -609,7 +653,7 @@ class _ActiveGroupsReportScreenState
   /// Retorna a data inicial baseada no período selecionado
   DateTime? _getStartDate() {
     final now = DateTime.now();
-    
+
     switch (_selectedPeriod) {
       case GroupActivityPeriod.last30Days:
         return now.subtract(const Duration(days: 30));
@@ -637,10 +681,7 @@ class _ActiveGroupsReportScreenState
           children: [
             const Text(
               'Período de Análise',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Wrap(

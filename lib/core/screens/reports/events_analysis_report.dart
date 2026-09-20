@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../design/app_icons.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/events/domain/models/event.dart';
 import '../../constants/supabase_constants.dart';
@@ -52,15 +53,18 @@ enum EventStatusFilter {
 }
 
 /// Provider para eventos com análise por período
-final eventsAnalysisByPeriodProvider = FutureProvider.family<Map<String, dynamic>, (DateTime, DateTime, String?)>(
-  (ref, params) async {
-    final supabase = ref.watch(supabaseClientProvider);
-    final (startDate, endDate, statusFilter) = params;
+final eventsAnalysisByPeriodProvider =
+    FutureProvider.family<Map<String, dynamic>, (DateTime, DateTime, String?)>((
+      ref,
+      params,
+    ) async {
+      final supabase = ref.watch(supabaseClientProvider);
+      final (startDate, endDate, statusFilter) = params;
 
-    // Query base
-    var query = supabase
-        .from('event')
-        .select('''
+      // Query base
+      var query = supabase
+          .from('event')
+          .select('''
           *,
           event_registration(
             id,
@@ -69,72 +73,76 @@ final eventsAnalysisByPeriodProvider = FutureProvider.family<Map<String, dynamic
             registered_at
           )
         ''')
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .gte('start_date', startDate.toIso8601String())
-        .lte('start_date', endDate.toIso8601String());
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .gte('start_date', startDate.toIso8601String())
+          .lte('start_date', endDate.toIso8601String());
 
-    // Aplicar filtro de status se especificado (ANTES do order)
-    if (statusFilter != null) {
-      query = query.eq('status', statusFilter);
-    }
-
-    // Aplicar ordenação por último
-    final response = await query.order('start_date', ascending: false);
-
-    // Processar eventos
-    final events = (response as List).map((json) {
-      final data = Map<String, dynamic>.from(json);
-      
-      // Processar registrations
-      final registrations = data['event_registration'] as List?;
-      int totalRegistrations = 0;
-      int totalCheckedIn = 0;
-
-      if (registrations != null) {
-        totalRegistrations = registrations.length;
-        totalCheckedIn = registrations.where((r) => r['checked_in_at'] != null).length;
+      // Aplicar filtro de status se especificado (ANTES do order)
+      if (statusFilter != null) {
+        query = query.eq('status', statusFilter);
       }
 
-      data['registration_count'] = totalRegistrations;
-      data['checked_in_count'] = totalCheckedIn;
-      data['check_in_rate'] = totalRegistrations > 0 
-          ? (totalCheckedIn / totalRegistrations * 100).toStringAsFixed(1)
-          : '0.0';
+      // Aplicar ordenação por último
+      final response = await query.order('start_date', ascending: false);
 
-      return Event.fromJson(data);
-    }).toList();
+      // Processar eventos
+      final events = (response as List).map((json) {
+        final data = Map<String, dynamic>.from(json);
 
-    // Buscar visitantes do mesmo período
-    final visitorsResponse = await supabase
-        .from('visitor')
-        .select('id, first_visit_date, last_visit_date, status')
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .gte('first_visit_date', startDate.toIso8601String().split('T')[0])
-        .lte('first_visit_date', endDate.toIso8601String().split('T')[0])
-        .neq('status', 'converted');
+        // Processar registrations
+        final registrations = data['event_registration'] as List?;
+        int totalRegistrations = 0;
+        int totalCheckedIn = 0;
 
-    final visitors = visitorsResponse as List;
+        if (registrations != null) {
+          totalRegistrations = registrations.length;
+          totalCheckedIn = registrations
+              .where((r) => r['checked_in_at'] != null)
+              .length;
+        }
 
-    // Calcular estatísticas
-    final totalEvents = events.length;
-    final totalRegistrations = events.fold<int>(0, (sum, e) => sum + (e.registrationCount ?? 0));
-    final totalVisitors = visitors.length;
-    
-    final eventsByStatus = <String, int>{};
-    for (var event in events) {
-      eventsByStatus[event.status] = (eventsByStatus[event.status] ?? 0) + 1;
-    }
+        data['registration_count'] = totalRegistrations;
+        data['checked_in_count'] = totalCheckedIn;
+        data['check_in_rate'] = totalRegistrations > 0
+            ? (totalCheckedIn / totalRegistrations * 100).toStringAsFixed(1)
+            : '0.0';
 
-    return {
-      'events': events,
-      'visitors': visitors,
-      'totalEvents': totalEvents,
-      'totalRegistrations': totalRegistrations,
-      'totalVisitors': totalVisitors,
-      'eventsByStatus': eventsByStatus,
-    };
-  },
-);
+        return Event.fromJson(data);
+      }).toList();
+
+      // Buscar visitantes do mesmo período
+      final visitorsResponse = await supabase
+          .from('visitor')
+          .select('id, first_visit_date, last_visit_date, status')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .gte('first_visit_date', startDate.toIso8601String().split('T')[0])
+          .lte('first_visit_date', endDate.toIso8601String().split('T')[0])
+          .neq('status', 'converted');
+
+      final visitors = visitorsResponse as List;
+
+      // Calcular estatísticas
+      final totalEvents = events.length;
+      final totalRegistrations = events.fold<int>(
+        0,
+        (sum, e) => sum + (e.registrationCount ?? 0),
+      );
+      final totalVisitors = visitors.length;
+
+      final eventsByStatus = <String, int>{};
+      for (var event in events) {
+        eventsByStatus[event.status] = (eventsByStatus[event.status] ?? 0) + 1;
+      }
+
+      return {
+        'events': events,
+        'visitors': visitors,
+        'totalEvents': totalEvents,
+        'totalRegistrations': totalRegistrations,
+        'totalVisitors': totalVisitors,
+        'eventsByStatus': eventsByStatus,
+      };
+    });
 
 /// Tela de relatório de análise de eventos
 class EventsAnalysisReportScreen extends ConsumerStatefulWidget {
@@ -156,7 +164,11 @@ class _EventsAnalysisReportScreenState
   Widget build(BuildContext context) {
     final (startDate, endDate) = _getDateRange();
     final analysisAsync = ref.watch(
-      eventsAnalysisByPeriodProvider((startDate, endDate, _selectedStatus.dbValue)),
+      eventsAnalysisByPeriodProvider((
+        startDate,
+        endDate,
+        _selectedStatus.dbValue,
+      )),
     );
 
     return Scaffold(
@@ -164,7 +176,7 @@ class _EventsAnalysisReportScreenState
         title: const Text('Análise de Eventos'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(AppIcons.refresh),
             onPressed: () {
               ref.invalidate(eventsAnalysisByPeriodProvider);
             },
@@ -189,18 +201,26 @@ class _EventsAnalysisReportScreenState
                   final totalEvents = data['totalEvents'] as int;
                   final totalRegistrations = data['totalRegistrations'] as int;
                   final totalVisitors = data['totalVisitors'] as int;
-                  final eventsByStatus = data['eventsByStatus'] as Map<String, int>;
+                  final eventsByStatus =
+                      data['eventsByStatus'] as Map<String, int>;
 
                   if (events.isEmpty) {
                     return const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.event_busy, size: 64, color: Colors.grey),
+                          Icon(
+                            AppIcons.eventBusy,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
                           SizedBox(height: 16),
                           Text(
                             'Nenhum evento encontrado',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -217,7 +237,7 @@ class _EventsAnalysisReportScreenState
                             child: _buildSummaryCard(
                               'Total de Eventos',
                               '$totalEvents',
-                              Icons.event,
+                              AppIcons.eventFilled,
                               Colors.blue,
                             ),
                           ),
@@ -226,7 +246,7 @@ class _EventsAnalysisReportScreenState
                             child: _buildSummaryCard(
                               'Inscrições',
                               '$totalRegistrations',
-                              Icons.how_to_reg,
+                              AppIcons.howToReg,
                               Colors.green,
                             ),
                           ),
@@ -239,7 +259,7 @@ class _EventsAnalysisReportScreenState
                             child: _buildSummaryCard(
                               'Visitantes',
                               '$totalVisitors',
-                              Icons.groups,
+                              AppIcons.groupsFilled,
                               Colors.orange,
                             ),
                           ),
@@ -247,10 +267,11 @@ class _EventsAnalysisReportScreenState
                           Expanded(
                             child: _buildSummaryCard(
                               'Média/Evento',
-                              totalEvents > 0 
-                                  ? (totalRegistrations / totalEvents).toStringAsFixed(1)
+                              totalEvents > 0
+                                  ? (totalRegistrations / totalEvents)
+                                        .toStringAsFixed(1)
                                   : '0',
-                              Icons.analytics,
+                              AppIcons.analytics,
                               Colors.purple,
                             ),
                           ),
@@ -327,7 +348,7 @@ class _EventsAnalysisReportScreenState
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                      const Icon(AppIcons.error, size: 64, color: Colors.red),
                       const SizedBox(height: 16),
                       Text('Erro: $error'),
                     ],
@@ -342,7 +363,12 @@ class _EventsAnalysisReportScreenState
   }
 
   /// Card de resumo
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
+  Widget _buildSummaryCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Card(
       color: color.withValues(alpha: 0.1),
       child: Padding(
@@ -361,10 +387,7 @@ class _EventsAnalysisReportScreenState
             ),
             Text(
               title,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey[700],
-              ),
+              style: TextStyle(fontSize: 11, color: Colors.grey[700]),
               textAlign: TextAlign.center,
               maxLines: 2,
             ),
@@ -394,7 +417,7 @@ class _EventsAnalysisReportScreenState
 
     final sections = eventsByStatus.entries.map((entry) {
       final color = statusColors[entry.key] ?? Colors.grey;
-      
+
       return PieChartSectionData(
         value: entry.value.toDouble(),
         title: '${entry.value}',
@@ -427,7 +450,7 @@ class _EventsAnalysisReportScreenState
             children: eventsByStatus.entries.map((entry) {
               final color = statusColors[entry.key] ?? Colors.grey;
               final label = statusLabels[entry.key] ?? entry.key;
-              
+
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
@@ -442,10 +465,7 @@ class _EventsAnalysisReportScreenState
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        label,
-                        style: const TextStyle(fontSize: 12),
-                      ),
+                      child: Text(label, style: const TextStyle(fontSize: 12)),
                     ),
                   ],
                 ),
@@ -461,8 +481,11 @@ class _EventsAnalysisReportScreenState
   Widget _buildTopEventsChart(List<Event> events) {
     // Ordenar por número de inscrições e pegar top 5
     final sortedEvents = List<Event>.from(events)
-      ..sort((a, b) => (b.registrationCount ?? 0).compareTo(a.registrationCount ?? 0));
-    
+      ..sort(
+        (a, b) =>
+            (b.registrationCount ?? 0).compareTo(a.registrationCount ?? 0),
+      );
+
     final topEvents = sortedEvents.take(5).toList();
 
     if (topEvents.isEmpty) {
@@ -493,17 +516,16 @@ class _EventsAnalysisReportScreenState
                   ),
                   Text(
                     '$registrations inscrições',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
                   ),
                 ],
               ),
               const SizedBox(height: 4),
               LinearProgressIndicator(
                 value: percentage / 100,
-                backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.10),
                 valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
                 minHeight: 8,
               ),
@@ -564,7 +586,10 @@ class _EventsAnalysisReportScreenState
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(16),
@@ -583,7 +608,11 @@ class _EventsAnalysisReportScreenState
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+                  Icon(
+                    AppIcons.calendarFilled,
+                    size: 14,
+                    color: Colors.grey[600],
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     dateFormatter.format(event.startDate),
@@ -595,7 +624,7 @@ class _EventsAnalysisReportScreenState
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.location_on, size: 14, color: Colors.grey[600]),
+                    Icon(AppIcons.location, size: 14, color: Colors.grey[600]),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -610,14 +639,14 @@ class _EventsAnalysisReportScreenState
               Row(
                 children: [
                   _buildMetricBadge(
-                    Icons.how_to_reg,
+                    AppIcons.howToReg,
                     '$registrations inscrições',
                     Colors.green,
                   ),
                   const SizedBox(width: 8),
                   if (event.requiresRegistration && event.maxCapacity != null)
                     _buildMetricBadge(
-                      Icons.groups,
+                      AppIcons.groupsFilled,
                       '${event.maxCapacity} vagas',
                       Colors.blue,
                     ),
@@ -700,7 +729,10 @@ class _EventsAnalysisReportScreenState
               runSpacing: 8,
               children: EventAnalysisPeriod.values.map((period) {
                 return FilterChip(
-                  label: Text(period.label, style: const TextStyle(fontSize: 12)),
+                  label: Text(
+                    period.label,
+                    style: const TextStyle(fontSize: 12),
+                  ),
                   selected: _selectedPeriod == period,
                   onSelected: (selected) {
                     setState(() {
@@ -724,7 +756,10 @@ class _EventsAnalysisReportScreenState
               runSpacing: 8,
               children: EventStatusFilter.values.map((status) {
                 return FilterChip(
-                  label: Text(status.label, style: const TextStyle(fontSize: 12)),
+                  label: Text(
+                    status.label,
+                    style: const TextStyle(fontSize: 12),
+                  ),
                   selected: _selectedStatus == status,
                   onSelected: (selected) {
                     setState(() {
@@ -744,7 +779,7 @@ class _EventsAnalysisReportScreenState
   Future<void> _showCustomDatePicker() async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
+
     final startDate = await showDatePicker(
       context: context,
       initialDate: _customStartDate ?? today.subtract(const Duration(days: 29)),

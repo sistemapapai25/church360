@@ -3,19 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../design/app_icons.dart';
 import '../../providers/dashboard_stats_provider.dart';
 
 /// Tela de relatório de membros
 class MembersReportScreen extends ConsumerStatefulWidget {
   final String? initialTab;
 
-  const MembersReportScreen({
-    super.key,
-    this.initialTab,
-  });
+  const MembersReportScreen({super.key, this.initialTab});
 
   @override
-  ConsumerState<MembersReportScreen> createState() => _MembersReportScreenState();
+  ConsumerState<MembersReportScreen> createState() =>
+      _MembersReportScreenState();
 }
 
 class _MembersReportScreenState extends ConsumerState<MembersReportScreen>
@@ -26,7 +25,7 @@ class _MembersReportScreenState extends ConsumerState<MembersReportScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    
+
     // Definir tab inicial baseado no parâmetro
     if (widget.initialTab == 'birthdays') {
       _tabController.index = 1;
@@ -53,9 +52,9 @@ class _MembersReportScreenState extends ConsumerState<MembersReportScreen>
           controller: _tabController,
           isScrollable: true,
           tabs: const [
-            Tab(text: 'Crescimento', icon: Icon(Icons.trending_up)),
-            Tab(text: 'Aniversariantes', icon: Icon(Icons.cake)),
-            Tab(text: 'Novos Membros', icon: Icon(Icons.person_add)),
+            Tab(text: 'Crescimento', icon: Icon(AppIcons.trendingUp)),
+            Tab(text: 'Aniversariantes', icon: Icon(AppIcons.cake)),
+            Tab(text: 'Novos Membros', icon: Icon(AppIcons.personAdd)),
             // Tab(text: 'Por Tags', icon: Icon(Icons.label)),
           ],
         ),
@@ -108,8 +107,8 @@ class _GrowthTab extends ConsumerWidget {
                   Text(
                     'Crescimento Histórico',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
@@ -146,11 +145,22 @@ class _GrowthTab extends ConsumerWidget {
                                     if (index < 0 || index >= growth.length) {
                                       return const Text('');
                                     }
-                                    final monthNumber = growth[index]['monthNumber'] as int;
+                                    final monthNumber =
+                                        growth[index]['monthNumber'] as int;
                                     final year = growth[index]['year'] as int;
                                     final monthNames = [
-                                      'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
-                                      'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+                                      'Jan',
+                                      'Fev',
+                                      'Mar',
+                                      'Abr',
+                                      'Mai',
+                                      'Jun',
+                                      'Jul',
+                                      'Ago',
+                                      'Set',
+                                      'Out',
+                                      'Nov',
+                                      'Dez',
                                     ];
                                     return Text(
                                       '${monthNames[monthNumber - 1]}\n$year',
@@ -167,7 +177,8 @@ class _GrowthTab extends ConsumerWidget {
                                 spots: growth.asMap().entries.map((entry) {
                                   return FlSpot(
                                     entry.key.toDouble(),
-                                    (entry.value['accumulated'] as int).toDouble(),
+                                    (entry.value['accumulated'] as int)
+                                        .toDouble(),
                                   );
                                 }).toList(),
                                 isCurved: true,
@@ -183,7 +194,8 @@ class _GrowthTab extends ConsumerWidget {
                           ),
                         );
                       },
-                      loading: () => const Center(child: CircularProgressIndicator()),
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
                       error: (error, _) => Center(child: Text('Erro: $error')),
                     ),
                   ),
@@ -204,7 +216,7 @@ class _GrowthTab extends ConsumerWidget {
             context,
             'Membros Ativos',
             stats['total_active'].toString(),
-            Icons.groups,
+            AppIcons.groupsFilled,
             Colors.green,
           ),
         ),
@@ -214,7 +226,7 @@ class _GrowthTab extends ConsumerWidget {
             context,
             'Novos (30 dias)',
             stats['recent_30_days'].toString(),
-            Icons.person_add,
+            AppIcons.personAdd,
             Colors.blue,
           ),
         ),
@@ -239,9 +251,9 @@ class _GrowthTab extends ConsumerWidget {
             Text(
               value,
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
             ),
             Text(
               label,
@@ -270,9 +282,7 @@ class _BirthdaysTab extends ConsumerWidget {
       child: birthdaysAsync.when(
         data: (birthdays) {
           if (birthdays.isEmpty) {
-            return const Center(
-              child: Text('Nenhum aniversariante este mês'),
-            );
+            return const Center(child: Text('Nenhum aniversariante este mês'));
           }
 
           return ListView.builder(
@@ -284,22 +294,33 @@ class _BirthdaysTab extends ConsumerWidget {
               final firstName = birthday['first_name'] as String;
               final lastName = birthday['last_name'] as String;
               final photoUrl = birthday['photo_url'] as String?;
-              final type = birthday['type'] as String? ?? 'Membro'; // Tipo: Membro ou Visitante
+              final type =
+                  birthday['type'] as String? ??
+                  'Membro'; // Tipo: Membro ou Visitante
               final now = DateTime.now();
               final age = now.year - birthdate.year;
-              final daysUntil = DateTime(now.year, birthdate.month, birthdate.day)
-                  .difference(now)
-                  .inDays;
+              final daysUntil = DateTime(
+                now.year,
+                birthdate.month,
+                birthdate.day,
+              ).difference(now).inDays;
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
                   leading: CircleAvatar(
                     radius: 25,
-                    backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-                    child: photoUrl == null ? Text(firstName[0] + lastName[0]) : null,
+                    backgroundImage: photoUrl != null
+                        ? NetworkImage(photoUrl)
+                        : null,
+                    child: photoUrl == null
+                        ? Text(firstName[0] + lastName[0])
+                        : null,
                   ),
-                  title: Text('$firstName $lastName', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text(
+                    '$firstName $lastName',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -307,9 +328,14 @@ class _BirthdaysTab extends ConsumerWidget {
                       Text('${birthdate.day}/${birthdate.month} • $age anos'),
                       const SizedBox(height: 2),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
-                          color: type == 'Visitante' ? Colors.blue[100] : Colors.green[100],
+                          color: type == 'Visitante'
+                              ? Colors.blue[100]
+                              : Colors.green[100],
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -317,7 +343,9 @@ class _BirthdaysTab extends ConsumerWidget {
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            color: type == 'Visitante' ? Colors.blue[700] : Colors.green[700],
+                            color: type == 'Visitante'
+                                ? Colors.blue[700]
+                                : Colors.green[700],
                           ),
                         ),
                       ),
@@ -326,10 +354,20 @@ class _BirthdaysTab extends ConsumerWidget {
                   trailing: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.cake, color: daysUntil == 0 ? Colors.orange : Colors.grey),
+                      Icon(
+                        AppIcons.cake,
+                        color: daysUntil == 0 ? Colors.orange : Colors.grey,
+                      ),
                       Text(
-                        daysUntil == 0 ? 'HOJE!' : daysUntil > 0 ? 'Em $daysUntil dias' : 'Passou',
-                        style: TextStyle(fontSize: 10, color: daysUntil == 0 ? Colors.orange : Colors.grey),
+                        daysUntil == 0
+                            ? 'HOJE!'
+                            : daysUntil > 0
+                            ? 'Em $daysUntil dias'
+                            : 'Passou',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: daysUntil == 0 ? Colors.orange : Colors.grey,
+                        ),
                       ),
                     ],
                   ),
@@ -381,20 +419,38 @@ class _RecentMembersTab extends ConsumerWidget {
                 child: ListTile(
                   leading: CircleAvatar(
                     radius: 25,
-                    backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-                    child: photoUrl == null ? Text(firstName[0] + lastName[0]) : null,
+                    backgroundImage: photoUrl != null
+                        ? NetworkImage(photoUrl)
+                        : null,
+                    child: photoUrl == null
+                        ? Text(firstName[0] + lastName[0])
+                        : null,
                   ),
-                  title: Text('$firstName $lastName', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text(
+                    '$firstName $lastName',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   subtitle: Text(DateFormat('dd/MM/yyyy').format(createdAt)),
                   trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.green[100],
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      daysAgo == 0 ? 'HOJE' : daysAgo == 1 ? 'ONTEM' : 'HÁ $daysAgo DIAS',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green[700]),
+                      daysAgo == 0
+                          ? 'HOJE'
+                          : daysAgo == 1
+                          ? 'ONTEM'
+                          : 'HÁ $daysAgo DIAS',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green[700],
+                      ),
                     ),
                   ),
                 ),

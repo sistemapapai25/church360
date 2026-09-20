@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../design/app_icons.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/financial/domain/models/contribution.dart';
 
@@ -19,21 +20,23 @@ enum ExpensePeriod {
 }
 
 /// Provider para despesas futuras com filtro de período
-final upcomingExpensesByPeriodProvider = FutureProvider.family<List<Expense>, (DateTime, DateTime)>(
-  (ref, dates) async {
-    final supabase = ref.watch(supabaseClientProvider);
-    final (startDate, endDate) = dates;
+final upcomingExpensesByPeriodProvider =
+    FutureProvider.family<List<Expense>, (DateTime, DateTime)>((
+      ref,
+      dates,
+    ) async {
+      final supabase = ref.watch(supabaseClientProvider);
+      final (startDate, endDate) = dates;
 
-    final response = await supabase
-        .from('expense')
-        .select()
-        .gte('date', startDate.toIso8601String().split('T')[0])
-        .lte('date', endDate.toIso8601String().split('T')[0])
-        .order('date', ascending: true);
+      final response = await supabase
+          .from('expense')
+          .select()
+          .gte('date', startDate.toIso8601String().split('T')[0])
+          .lte('date', endDate.toIso8601String().split('T')[0])
+          .order('date', ascending: true);
 
-    return (response as List).map((json) => Expense.fromJson(json)).toList();
-  },
-);
+      return (response as List).map((json) => Expense.fromJson(json)).toList();
+    });
 
 /// Tela de relatório de próximas despesas/contas a pagar
 class UpcomingExpensesReportScreen extends ConsumerStatefulWidget {
@@ -53,14 +56,16 @@ class _UpcomingExpensesReportScreenState
   @override
   Widget build(BuildContext context) {
     final (startDate, endDate) = _getDateRange();
-    final expensesAsync = ref.watch(upcomingExpensesByPeriodProvider((startDate, endDate)));
+    final expensesAsync = ref.watch(
+      upcomingExpensesByPeriodProvider((startDate, endDate)),
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Próximas Contas a Pagar'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(AppIcons.refresh),
             onPressed: () {
               ref.invalidate(upcomingExpensesByPeriodProvider);
             },
@@ -86,11 +91,18 @@ class _UpcomingExpensesReportScreenState
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.check_circle, size: 64, color: Colors.green),
+                          Icon(
+                            AppIcons.checkCircle,
+                            size: 64,
+                            color: Colors.green,
+                          ),
                           SizedBox(height: 16),
                           Text(
                             'Nenhuma despesa agendada',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           SizedBox(height: 8),
                           Text(
@@ -103,13 +115,21 @@ class _UpcomingExpensesReportScreenState
                   }
 
                   // Calcular total
-                  final total = expenses.fold<double>(0, (sum, e) => sum + e.amount);
-                  final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+                  final total = expenses.fold<double>(
+                    0,
+                    (sum, e) => sum + e.amount,
+                  );
+                  final formatter = NumberFormat.currency(
+                    locale: 'pt_BR',
+                    symbol: 'R\$',
+                  );
 
                   // Agrupar por categoria
                   final Map<String, List<Expense>> expensesByCategory = {};
                   for (final expense in expenses) {
-                    expensesByCategory.putIfAbsent(expense.category, () => []).add(expense);
+                    expensesByCategory
+                        .putIfAbsent(expense.category, () => [])
+                        .add(expense);
                   }
 
                   return ListView(
@@ -123,7 +143,8 @@ class _UpcomingExpensesReportScreenState
                           child: Column(
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
                                     'Total a Pagar',
@@ -144,7 +165,8 @@ class _UpcomingExpensesReportScreenState
                               ),
                               const SizedBox(height: 8),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     '${expenses.length} ${expenses.length == 1 ? 'despesa' : 'despesas'}',
@@ -194,14 +216,13 @@ class _UpcomingExpensesReportScreenState
                                 color: statusColor.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Icon(
-                                Icons.receipt_long,
-                                color: statusColor,
-                              ),
+                              child: Icon(AppIcons.receipt, color: statusColor),
                             ),
                             title: Text(
                               expense.description,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,18 +230,33 @@ class _UpcomingExpensesReportScreenState
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    Icon(Icons.category, size: 14, color: Colors.grey[600]),
+                                    Icon(
+                                      AppIcons.category,
+                                      size: 14,
+                                      color: Colors.grey[600],
+                                    ),
                                     const SizedBox(width: 4),
                                     Text(expense.category),
                                     const SizedBox(width: 12),
-                                    Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+                                    Icon(
+                                      AppIcons.calendarFilled,
+                                      size: 14,
+                                      color: Colors.grey[600],
+                                    ),
                                     const SizedBox(width: 4),
-                                    Text(DateFormat('dd/MM/yyyy').format(expense.date)),
+                                    Text(
+                                      DateFormat(
+                                        'dd/MM/yyyy',
+                                      ).format(expense.date),
+                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 4),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: statusColor.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(12),
@@ -255,7 +291,7 @@ class _UpcomingExpensesReportScreenState
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                      const Icon(AppIcons.error, size: 64, color: Colors.red),
                       const SizedBox(height: 16),
                       Text('Erro: $error'),
                     ],
@@ -303,10 +339,7 @@ class _UpcomingExpensesReportScreenState
           children: [
             const Text(
               'Período',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Wrap(

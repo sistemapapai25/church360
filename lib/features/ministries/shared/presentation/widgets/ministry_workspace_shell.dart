@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../core/design/community_design.dart';
+import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/app_tabs.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
@@ -146,7 +147,7 @@ class _MinistryWorkspaceShellState
         // colado no botão, e não no meio da barra.
         titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.back),
           tooltip: 'Voltar',
           onPressed: () => context.pop(),
         ),
@@ -160,7 +161,7 @@ class _MinistryWorkspaceShellState
         actions: [
           if (canEdit)
             IconButton(
-              icon: const Icon(Icons.notifications_active_outlined),
+              icon: const Icon(AppIcons.notificationsActive),
               tooltip: 'Notificações de mudança',
               onPressed: () => _openNotifications(name),
             ),
@@ -274,7 +275,7 @@ class _SettingsButton extends StatelessWidget {
         child: SizedBox(
           width: 32,
           height: 32,
-          child: Icon(Icons.settings_outlined, size: 18, color: foreground),
+          child: Icon(AppIcons.settings, size: 18, color: foreground),
         ),
       ),
     );
@@ -301,7 +302,12 @@ class _WorkspaceTitle extends StatelessWidget {
 
     final words = name.trim().split(RegExp(r'\s+'));
     if (words.length < 2) {
-      return Text(name, style: base, maxLines: 1, overflow: TextOverflow.ellipsis);
+      return Text(
+        name,
+        style: base,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
     }
 
     final head = words.sublist(0, words.length - 1).join(' ');

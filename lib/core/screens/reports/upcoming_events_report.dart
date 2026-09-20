@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../design/app_icons.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/events/domain/models/event.dart';
 import '../../constants/supabase_constants.dart';
@@ -21,40 +22,42 @@ enum EventPeriod {
 }
 
 /// Provider para eventos futuros com filtro de período
-final upcomingEventsByPeriodProvider = FutureProvider.family<List<Event>, (DateTime, DateTime)>(
-  (ref, dates) async {
-    final supabase = ref.watch(supabaseClientProvider);
-    final (startDate, endDate) = dates;
+final upcomingEventsByPeriodProvider =
+    FutureProvider.family<List<Event>, (DateTime, DateTime)>((
+      ref,
+      dates,
+    ) async {
+      final supabase = ref.watch(supabaseClientProvider);
+      final (startDate, endDate) = dates;
 
-    final response = await supabase
-        .from('event')
-        .select('''
+      final response = await supabase
+          .from('event')
+          .select('''
           *,
           event_registration(count)
         ''')
-        .eq('status', 'published')
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .gte('start_date', startDate.toIso8601String())
-        .lte('start_date', endDate.toIso8601String())
-        .order('start_date', ascending: true);
+          .eq('status', 'published')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .gte('start_date', startDate.toIso8601String())
+          .lte('start_date', endDate.toIso8601String())
+          .order('start_date', ascending: true);
 
-    return (response as List).map((json) {
-      final data = Map<String, dynamic>.from(json);
-      
-      // Processar contagem de inscrições
-      if (data['event_registration'] != null) {
-        final registrations = data['event_registration'];
-        if (registrations is List && registrations.isNotEmpty) {
-          data['registration_count'] = registrations[0]['count'];
-        } else {
-          data['registration_count'] = 0;
+      return (response as List).map((json) {
+        final data = Map<String, dynamic>.from(json);
+
+        // Processar contagem de inscrições
+        if (data['event_registration'] != null) {
+          final registrations = data['event_registration'];
+          if (registrations is List && registrations.isNotEmpty) {
+            data['registration_count'] = registrations[0]['count'];
+          } else {
+            data['registration_count'] = 0;
+          }
         }
-      }
-      
-      return Event.fromJson(data);
-    }).toList();
-  },
-);
+
+        return Event.fromJson(data);
+      }).toList();
+    });
 
 /// Tela de relatório de próximos eventos
 class UpcomingEventsReportScreen extends ConsumerStatefulWidget {
@@ -74,14 +77,16 @@ class _UpcomingEventsReportScreenState
   @override
   Widget build(BuildContext context) {
     final (startDate, endDate) = _getDateRange();
-    final eventsAsync = ref.watch(upcomingEventsByPeriodProvider((startDate, endDate)));
+    final eventsAsync = ref.watch(
+      upcomingEventsByPeriodProvider((startDate, endDate)),
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Próximos Eventos'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(AppIcons.refresh),
             onPressed: () {
               ref.invalidate(upcomingEventsByPeriodProvider);
             },
@@ -107,11 +112,18 @@ class _UpcomingEventsReportScreenState
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.event_busy, size: 64, color: Colors.grey),
+                          Icon(
+                            AppIcons.eventBusy,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
                           SizedBox(height: 16),
                           Text(
                             'Nenhum evento agendado',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           SizedBox(height: 8),
                           Text(
@@ -209,7 +221,7 @@ class _UpcomingEventsReportScreenState
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                      const Icon(AppIcons.error, size: 64, color: Colors.red),
                       const SizedBox(height: 16),
                       Text('Erro: $error'),
                     ],
@@ -273,7 +285,10 @@ class _UpcomingEventsReportScreenState
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(16),
@@ -307,7 +322,11 @@ class _UpcomingEventsReportScreenState
               // Informações do evento
               Row(
                 children: [
-                  Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                  Icon(
+                    AppIcons.calendarFilled,
+                    size: 16,
+                    color: Colors.grey[600],
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     dateFormatter.format(event.startDate),
@@ -320,7 +339,7 @@ class _UpcomingEventsReportScreenState
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                    Icon(AppIcons.location, size: 16, color: Colors.grey[600]),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -341,15 +360,17 @@ class _UpcomingEventsReportScreenState
                 children: [
                   // Badge de preço
                   _buildBadge(
-                    icon: Icons.attach_money,
-                    label: event.isFree ? 'Gratuito' : formatter.format(event.price),
+                    icon: AppIcons.attachMoney,
+                    label: event.isFree
+                        ? 'Gratuito'
+                        : formatter.format(event.price),
                     color: event.isFree ? Colors.green : Colors.orange,
                   ),
 
                   // Badge de inscrição
                   if (event.requiresRegistration)
                     _buildBadge(
-                      icon: Icons.how_to_reg,
+                      icon: AppIcons.howToReg,
                       label: event.maxCapacity != null
                           ? '${event.registrationCount ?? 0}/${event.maxCapacity}'
                           : '${event.registrationCount ?? 0} inscritos',
@@ -359,7 +380,7 @@ class _UpcomingEventsReportScreenState
                   // Badge de tipo
                   if (event.eventType != null)
                     _buildBadge(
-                      icon: Icons.category,
+                      icon: AppIcons.category,
                       label: event.eventType!,
                       color: Colors.purple,
                     ),
@@ -437,10 +458,7 @@ class _UpcomingEventsReportScreenState
           children: [
             const Text(
               'Período',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Wrap(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/more_menu_item.dart';
 import '../providers/more_menu_layout_provider.dart';
+import '../design/app_icons.dart';
 
 /// Tela de configuração da aba "Mais" (F6).
 ///
@@ -97,7 +98,7 @@ class _MoreTabSettingsScreenState extends ConsumerState<MoreTabSettingsScreen> {
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, color: cs.onPrimaryContainer),
+                Icon(AppIcons.info, color: cs.onPrimaryContainer),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -164,8 +165,9 @@ class _MoreTabSettingsScreenState extends ConsumerState<MoreTabSettingsScreen> {
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed:
-                    _salvando ? null : () => setState(() => _edicao = null),
+                onPressed: _salvando
+                    ? null
+                    : () => setState(() => _edicao = null),
                 child: const Text('Descartar'),
               ),
             ),

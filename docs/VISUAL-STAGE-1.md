@@ -84,3 +84,14 @@ catálogo `AppIcons`; o dock também não reproduz mais o overflow de 1px no
 teste de navegação. Esta parte foi validada junto com os testes de Alunos,
 filtros e badges. A auditoria dos ícones dentro das 152 telas ainda é uma
 etapa posterior.
+
+## Checkpoint 3 — ícones compartilhados
+
+O catálogo `AppIcons` foi expandido e propagado pelos pontos de entrada de
+maior tráfego desta onda: navegação da Home, configurações pessoais e globais
+do Dashboard, configurações de itens da Home, relatórios centrais e controles
+do shell compartilhado de ministérios. Os ícones de marcas e o mapeamento de
+identificadores persistidos dos ministérios continuam preservados.
+
+A auditoria das demais telas e consumidores Material continua nas ondas
+seguintes; esta etapa não encerra a migração das 152 telas inventariadas.
