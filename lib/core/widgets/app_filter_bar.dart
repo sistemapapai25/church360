@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../design/app_icons.dart';
 import '../theme/app_theme.dart';
 import 'pearl_button.dart';
 
@@ -68,7 +69,7 @@ class AppFilterBar extends StatelessWidget {
     this.onSearchChanged,
     this.filters = const [],
     this.onSort,
-    this.sortIcon = Icons.swap_vert,
+    this.sortIcon = AppIcons.sort,
     this.sortTooltip = 'Ordenar',
     this.secondaryActions = const [],
     this.primaryAction,
@@ -168,7 +169,9 @@ class _SearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final muted = dark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    final muted = dark
+        ? AppTheme.darkMutedForeground
+        : AppTheme.mutedForeground;
 
     return SizedBox(
       height: _kControlHeight,
@@ -180,7 +183,7 @@ class _SearchField extends StatelessWidget {
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(color: muted, fontSize: 13),
-          prefixIcon: Icon(Icons.search, size: 18, color: muted),
+          prefixIcon: Icon(AppIcons.search, size: 18, color: muted),
           prefixIconConstraints: const BoxConstraints(minWidth: 40),
           isDense: true,
           // Sem `fillColor` local: o `inputDecorationTheme` dos dois temas ja
@@ -269,7 +272,9 @@ class AppFilterButton extends StatelessWidget {
     final foreground = active
         ? accent
         : (dark ? AppTheme.darkForeground : AppTheme.foreground);
-    final muted = dark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    final muted = dark
+        ? AppTheme.darkMutedForeground
+        : AppTheme.mutedForeground;
 
     return AppFilterShell(
       onTap: onTap,
@@ -289,7 +294,7 @@ class AppFilterButton extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          Icon(Icons.keyboard_arrow_down, size: 18, color: muted),
+          Icon(AppIcons.expand, size: 18, color: muted),
         ],
       ),
     );
@@ -336,38 +341,28 @@ class _SecondaryAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(12);
-
-    return Material(
-      color: AppTheme.secondary,
-      borderRadius: radius,
-      child: InkWell(
-        onTap: action.onPressed,
-        borderRadius: radius,
-        child: Container(
-          height: _kControlHeight,
+    return SizedBox(
+      height: _kControlHeight,
+      child: FilledButton(
+        onPressed: action.onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: AppTheme.secondary,
+          foregroundColor: AppTheme.secondaryForeground,
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (action.icon != null) ...[
-                Icon(
-                  action.icon,
-                  size: 16,
-                  color: AppTheme.secondaryForeground,
-                ),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                action.label,
-                style: const TextStyle(
-                  color: AppTheme.secondaryForeground,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+          shape: const RoundedRectangleBorder(borderRadius: AppTheme.radiusLg),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (action.icon != null) ...[
+              Icon(action.icon, size: 16),
+              const SizedBox(width: 6),
             ],
-          ),
+            Text(
+              action.label,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ],
         ),
       ),
     );

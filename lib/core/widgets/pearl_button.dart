@@ -66,16 +66,14 @@ class _PearlButtonState extends State<PearlButton> {
       duration: _duration,
       curve: _curve,
       opacity: disabled ? 0.48 : 1.0,
-      child: MouseRegion(
-        cursor: disabled ? MouseCursor.defer : SystemMouseCursors.click,
-        onEnter: disabled ? null : (_) => _setHover(true),
-        onExit: disabled ? null : (_) => _setHover(false),
-        child: GestureDetector(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
           onTap: widget.onTap,
-          onTapDown: disabled ? null : (_) => _setPressed(true),
-          onTapUp: disabled ? null : (_) => _setPressed(false),
-          onTapCancel: disabled ? null : () => _setPressed(false),
-          behavior: HitTestBehavior.opaque,
+          borderRadius: radius,
+          onHover: _setHover,
+          onHighlightChanged: _setPressed,
+          onFocusChange: _setHover,
           child: AnimatedContainer(
             duration: _duration,
             curve: _curve,
@@ -90,7 +88,9 @@ class _PearlButtonState extends State<PearlButton> {
                 end: Alignment.bottomRight,
                 colors: [startColor, endColor],
               ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: _hovering ? 0.65 : 0.18),
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: _pressed ? 0.12 : 0.18),

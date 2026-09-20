@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../../theme/app_theme.dart';
+
 /// Superfície inferior de vidro fosco usada pela navegação principal.
 ///
 /// A barra mantém a sensação de profundidade do app, mas deixa a cor para
@@ -16,15 +18,15 @@ class PearlGlassDock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseColor = dark
-        ? const Color(0xFF0F1B30).withValues(alpha: 0.84)
-        : Colors.white.withValues(alpha: 0.88);
+        ? AppTheme.darkSurface.withValues(alpha: 0.92)
+        : AppTheme.card.withValues(alpha: 0.92);
     final topBorder = dark
-        ? const Color(0xFF93C5FD).withValues(alpha: 0.22)
-        : const Color(0xFFBFDBFE).withValues(alpha: 0.92);
+        ? AppTheme.darkRing.withValues(alpha: 0.35)
+        : AppTheme.primary.withValues(alpha: 0.24);
     final shadowColor = Colors.black.withValues(alpha: dark ? 0.30 : 0.10);
 
     return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
@@ -32,7 +34,7 @@ class PearlGlassDock extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: baseColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             border: Border(top: BorderSide(color: topBorder, width: 1)),
             boxShadow: [
               BoxShadow(
@@ -109,19 +111,21 @@ class _PearlDockItemState extends State<PearlDockItem> {
     const width = 46.0;
     const height = 40.0;
     final selectedSurface = widget.dark
-        ? const Color(0xFF1E3A5F).withValues(alpha: 0.88)
-        : const Color(0xFFDBEAFE).withValues(alpha: 0.94);
+        ? AppTheme.primary.withValues(alpha: 0.24)
+        : AppTheme.accent.withValues(alpha: 0.94);
     final hoverSurface = widget.dark
         ? Colors.white.withValues(alpha: 0.07)
         : const Color(0xFFF1F5F9).withValues(alpha: 0.92);
     final borderColor = widget.selected
-        ? const Color(0xFF93C5FD).withValues(alpha: 0.72)
+        ? (widget.dark ? AppTheme.darkRing : AppTheme.primary).withValues(
+            alpha: 0.72,
+          )
         : Colors.transparent;
     final iconColor = widget.selected
         ? widget.color
         : (widget.dark
               ? Colors.white.withValues(alpha: 0.62)
-              : const Color(0xFF64748B));
+              : AppTheme.mutedForeground);
     final surface = widget.selected
         ? selectedSurface
         : (_hovering ? hoverSurface : Colors.transparent);
@@ -137,7 +141,7 @@ class _PearlDockItemState extends State<PearlDockItem> {
         onTapCancel: () => _setPressed(false),
         behavior: HitTestBehavior.opaque,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

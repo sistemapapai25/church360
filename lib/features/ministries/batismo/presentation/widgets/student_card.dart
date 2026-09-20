@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/glass_card.dart';
@@ -48,22 +49,28 @@ class StudentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final muted = dark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    final muted = dark
+        ? AppTheme.darkMutedForeground
+        : AppTheme.mutedForeground;
     final accent = dark ? AppTheme.darkRing : AppTheme.primary;
+    final turmaColor = CommunityDesign.accentForeground(
+      context,
+      AppTheme.secondary,
+    );
 
     final age = student.age;
     final phone = student.phone?.trim();
     final meta = <String>[
-      if (age != null) '$age anos',
       if (phone != null && phone.isNotEmpty) phone,
+      if (age != null) '$age anos',
     ].join(' · ');
 
     final hasMenu = onEdit != null || onDelete != null;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 16),
       child: GlassCard(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -76,21 +83,21 @@ class StudentCard extends StatelessWidget {
                     children: [
                       Text(
                         student.fullName,
-                        style: CommunityDesign.titleStyle(context).copyWith(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: CommunityDesign.titleStyle(
+                          context,
+                        ).copyWith(fontSize: 14, fontWeight: FontWeight.w700),
                       ),
-                      if (meta.isNotEmpty) ...[
-                        const SizedBox(height: 3),
-                        Text(meta, style: CommunityDesign.metaStyle(context)),
-                      ],
+                      const SizedBox(height: 8),
+                      StatusBadge(
+                        label: student.status.label,
+                        tone: student.status.tone,
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 10),
                 _CircleAction(
-                  icon: Icons.chat_outlined,
+                  icon: AppIcons.message,
                   tooltip: onWhatsApp == null
                       ? 'Aluno sem telefone cadastrado'
                       : 'Enviar mensagem no WhatsApp',
@@ -99,10 +106,18 @@ class StudentCard extends StatelessWidget {
                 ),
                 if (hasMenu) ...[
                   const SizedBox(width: 6),
-                  _StudentMenu(onEdit: onEdit, onDelete: onDelete, color: muted),
+                  _StudentMenu(
+                    onEdit: onEdit,
+                    onDelete: onDelete,
+                    color: muted,
+                  ),
                 ],
               ],
             ),
+            if (meta.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(meta, style: CommunityDesign.metaStyle(context)),
+            ],
             const SizedBox(height: 10),
             // Wrap, não Row: com selo + turma + origem, três pílulas não
             // cabem numa linha de 360px.
@@ -111,29 +126,24 @@ class StudentCard extends StatelessWidget {
               runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                StatusBadge(
-                  label: student.status.label,
-                  tone: student.status.tone,
-                ),
                 if (student.turmaName != null)
                   _Pill(
                     label: student.turmaName!,
-                    color: AppTheme.secondaryForeground,
-                    background: AppTheme.secondary,
-                    icon: Icons.groups_2_outlined,
+                    color: turmaColor,
+                    background: turmaColor.withValues(alpha: 0.12),
+                    icon: AppIcons.group,
                   ),
                 if (checklist != null && checklist!.total > 0)
                   _Pill(
-                    label:
-                        '${checklist!.done}/${checklist!.total} etapas',
+                    label: '${checklist!.done}/${checklist!.total} etapas',
                     color: CommunityDesign.accentForeground(
                       context,
                       AppTheme.primary,
                     ),
                     background: AppTheme.primary.withValues(alpha: 0.14),
                     icon: checklist!.done == checklist!.total
-                        ? Icons.task_alt
-                        : Icons.checklist_outlined,
+                        ? AppIcons.completed
+                        : AppIcons.checklist,
                   ),
                 if (student.source == BaptismStudentSource.publica)
                   _Pill(
@@ -143,7 +153,7 @@ class StudentCard extends StatelessWidget {
                       AppTheme.warningColor,
                     ),
                     background: AppTheme.warningColor.withValues(alpha: 0.14),
-                    icon: Icons.public,
+                    icon: AppIcons.public,
                   ),
               ],
             ),
@@ -173,6 +183,7 @@ class _Pill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: background,
+        border: Border.all(color: color.withValues(alpha: 0.35)),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -180,13 +191,15 @@ class _Pill extends StatelessWidget {
         children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              height: 1.2,
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
+              ),
             ),
           ),
         ],
@@ -212,24 +225,21 @@ class _CircleAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabled = onTap != null;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final muted = dark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    final muted = dark
+        ? AppTheme.darkMutedForeground
+        : AppTheme.mutedForeground;
     final tint = enabled ? color : muted;
 
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: tint.withValues(alpha: enabled ? 0.12 : 0.06),
-        shape: const CircleBorder(),
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const CircleBorder(),
-          child: SizedBox(
-            width: 36,
-            height: 36,
-            child: Icon(icon, size: 18, color: tint),
-          ),
-        ),
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onTap,
+      style: IconButton.styleFrom(
+        backgroundColor: dark ? AppTheme.darkCard : AppTheme.card,
+        foregroundColor: tint,
+        disabledForegroundColor: muted,
+        side: BorderSide(color: dark ? AppTheme.darkBorder : AppTheme.border),
       ),
+      icon: Icon(icon, size: 18),
     );
   }
 }
@@ -243,9 +253,16 @@ class _StudentMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return PopupMenuButton<String>(
       tooltip: 'Mais ações',
-      icon: Icon(Icons.more_vert, size: 20, color: color),
+      icon: Icon(AppIcons.more, size: 20, color: color),
+      style: IconButton.styleFrom(
+        backgroundColor: dark ? AppTheme.darkCard : AppTheme.card,
+        side: BorderSide(color: dark ? AppTheme.darkBorder : AppTheme.border),
+        minimumSize: const Size(44, 44),
+        shape: const CircleBorder(),
+      ),
       padding: EdgeInsets.zero,
       onSelected: (value) {
         if (value == 'edit') onEdit?.call();
@@ -257,7 +274,7 @@ class _StudentMenu extends StatelessWidget {
             value: 'edit',
             child: Row(
               children: [
-                Icon(Icons.edit_outlined, size: 18),
+                Icon(AppIcons.edit, size: 18),
                 SizedBox(width: 10),
                 Text('Editar'),
               ],
@@ -268,7 +285,7 @@ class _StudentMenu extends StatelessWidget {
             value: 'delete',
             child: Row(
               children: [
-                Icon(Icons.delete_outline, size: 18),
+                Icon(AppIcons.delete, size: 18),
                 SizedBox(width: 10),
                 Text('Excluir'),
               ],

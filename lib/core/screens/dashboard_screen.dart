@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../constants/app_branding.dart';
+import '../design/app_icons.dart';
 import '../errors/app_error_handler.dart';
 import '../widgets/dashboard_charts.dart';
 import '../widgets/pearl_fab.dart';
@@ -57,7 +58,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           // hambúrguer — o ícone anterior (exit_to_app) se confundia com o
           // de logout.
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(AppIcons.back),
             onPressed: () {
               if (Navigator.canPop(context)) {
                 Navigator.pop(context);
@@ -73,7 +74,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             // outro usuário com acesso ao Dashboard vai pra tela pessoal
             // (CHU-308).
             IconButton(
-              icon: const Icon(Icons.settings),
+              icon: const Icon(AppIcons.settings),
               onPressed: () => _openDashboardSettings(context),
               tooltip: 'Configurar Dashboard',
             ),
@@ -87,7 +88,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           onPressed: () {
             _scaffoldKey.currentState?.openEndDrawer();
           },
-          icon: Icons.menu,
+          icon: AppIcons.menu,
           color: const Color(0xFF334155),
           tooltip: 'Menu de Gestão',
         ),
@@ -103,11 +104,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            Icons.widgets_outlined,
-                            size: 64,
-                            color: Colors.grey,
-                          ),
+                          Icon(AppIcons.widgets, size: 64, color: Colors.grey),
                           SizedBox(height: 16),
                           Text(
                             'Nenhum widget ativo',
@@ -168,7 +165,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const Icon(
-                              Icons.error_outline,
+                              AppIcons.error,
                               size: 64,
                               color: Colors.red,
                             ),
@@ -193,7 +190,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             FilledButton.icon(
                               onPressed: () =>
                                   ref.read(refreshDashboardWidgetsProvider)(),
-                              icon: const Icon(Icons.refresh),
+                              icon: const Icon(AppIcons.refresh),
                               label: const Text('Tentar novamente'),
                             ),
                           ],
@@ -361,7 +358,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
     if (!context.mounted) return;
     context.push(
-      canConfigureTenant ? '/dashboard-settings' : '/dashboard-settings/personal',
+      canConfigureTenant
+          ? '/dashboard-settings'
+          : '/dashboard-settings/personal',
     );
   }
 

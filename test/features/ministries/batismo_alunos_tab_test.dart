@@ -50,6 +50,8 @@ Widget _host({
   bool canCreate = true,
   bool canEdit = true,
   bool canDelete = true,
+  Brightness brightness = Brightness.light,
+  double textScale = 1,
 }) {
   bool valueFor(BaptismWriteAction action) => switch (action) {
     BaptismWriteAction.create => canCreate,
@@ -63,6 +65,9 @@ Widget _host({
         _ministryId,
       ).overrideWith((ref) async => students),
       baptismTurmasProvider(_ministryId).overrideWith((ref) async => turmas),
+      baptismChecklistTallyProvider(
+        _ministryId,
+      ).overrideWith((ref) async => {}),
       for (final action in BaptismWriteAction.values)
         baptismCanWriteProvider((
           ministryId: _ministryId,
@@ -70,13 +75,102 @@ Widget _host({
         )).overrideWith((ref) async => valueFor(action)),
     ],
     child: MaterialApp(
-      theme: AppTheme.lightTheme,
+      theme: brightness == Brightness.dark
+          ? AppTheme.darkTheme
+          : AppTheme.lightTheme,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       home: const Scaffold(body: BatismoAlunosTab(ministryId: _ministryId)),
     ),
   );
 }
 
 void main() {
+  for (final brightness in Brightness.values) {
+    for (final width in [360.0, 1280.0]) {
+      testWidgets('grade responsiva em $width / $brightness', (tester) async {
+        tester.view.physicalSize = Size(width, 1000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          _host(
+            brightness: brightness,
+            students: [
+              _student(
+                'Ana Carolina de Souza Albuquerque',
+                source: BaptismStudentSource.publica,
+              ),
+              _student('Bruno Lima', status: BaptismStudentStatus.concluido),
+              _student('Carla Santos', status: BaptismStudentStatus.desistente),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final first = tester.getTopLeft(find.byType(StudentCard).at(0));
+        final second = tester.getTopLeft(find.byType(StudentCard).at(1));
+        if (width > 900) {
+          expect(first.dy, second.dy);
+          expect(second.dx, greaterThan(first.dx));
+        } else {
+          expect(first.dx, second.dx);
+          expect(second.dy, greaterThan(first.dy));
+        }
+      });
+    }
+  }
+
+  testWidgets('nome e turma longos cabem com texto ampliado no celular', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      _host(
+        textScale: 2,
+        students: [
+          _student(
+            'Ana Carolina de Souza Albuquerque',
+            turmaName:
+                'Turma de preparação para o batismo de domingo pela manhã',
+            source: BaptismStudentSource.publica,
+            status: BaptismStudentStatus.concluido,
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('CONCLUÍDO'), findsOneWidget);
+  });
+
+  testWidgets('abre formulário e cancela sem alterar a lista', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      _host(
+        students: [_student('Ana Souza')],
+        turmas: [_turma('turma-1', 'Sexta 19h')],
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Novo aluno'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nome completo *'), findsOneWidget);
+    await tester.ensureVisible(find.text('Cancelar'));
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nome completo *'), findsNothing);
+    expect(find.text('Ana Souza'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('lista os alunos e conta o total', (tester) async {
     await tester.pumpWidget(
       _host(
@@ -203,9 +297,7 @@ void main() {
     expect(find.byType(StudentCard), findsOneWidget);
   });
 
-  testWidgets('com permissao de edicao a barra oferece o link', (
-    tester,
-  ) async {
+  testWidgets('com permissao de edicao a barra oferece o link', (tester) async {
     await tester.pumpWidget(
       _host(students: const [], turmas: [_turma('turma-1', 'Sexta 19h')]),
     );
