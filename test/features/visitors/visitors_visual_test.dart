@@ -4,8 +4,10 @@ import 'package:church360_app/core/widgets/glass_card.dart';
 import 'package:church360_app/features/permissions/providers/permissions_providers.dart';
 import 'package:church360_app/features/visitors/domain/models/visitor.dart';
 import 'package:church360_app/features/visitors/presentation/providers/visitors_provider.dart';
+import 'package:church360_app/features/visitors/presentation/screens/visitor_followup_form_screen.dart';
 import 'package:church360_app/features/visitors/presentation/screens/visitor_visit_form_screen.dart';
 import 'package:church360_app/features/visitors/presentation/screens/visitors_list_screen.dart';
+import 'package:church360_app/features/visitors/presentation/screens/visitors_statistics_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -84,4 +86,50 @@ void main() {
       expect(find.text('Registrar Visita'), findsNWidgets(2));
     },
   );
+
+  testWidgets(
+    'formulário de follow-up usa a superfície compartilhada e ícones semânticos',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(const VisitorFollowupFormScreen(visitorId: 'visitor-1'), [
+          visitorByIdProvider(
+            'visitor-1',
+          ).overrideWith((ref) async => _visitor()),
+          currentUserHasPermissionProvider(
+            'visitors.followup',
+          ).overrideWith((ref) async => true),
+        ]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ana Souza'), findsOneWidget);
+      expect(find.byType(GlassCard), findsOneWidget);
+      expect(find.byIcon(AppIcons.calendarFilled), findsOneWidget);
+      expect(find.byIcon(AppIcons.category), findsOneWidget);
+      expect(find.byIcon(AppIcons.note), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byIcon(AppIcons.save),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.byIcon(AppIcons.save), findsOneWidget);
+    },
+  );
+
+  testWidgets('estatísticas usam cards e símbolos semânticos', (tester) async {
+    await tester.pumpWidget(
+      _host(const VisitorsStatisticsScreen(), [
+        allVisitorsProvider.overrideWith(
+          (ref) async => [_visitor(status: VisitorStatus.converted)],
+        ),
+      ]),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Estatísticas de Visitantes'), findsOneWidget);
+    expect(find.byType(GlassCard), findsNWidgets(7));
+    expect(find.byIcon(AppIcons.groups), findsOneWidget);
+    expect(find.byIcon(AppIcons.analytics), findsOneWidget);
+    expect(find.byIcon(AppIcons.checkCircle), findsOneWidget);
+  });
 }

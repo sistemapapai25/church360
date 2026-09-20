@@ -21,7 +21,7 @@ um ajuste de inventário, não como uma remoção presumida.
 | Área | Referências | Arquivos | Situação nesta onda |
 | --- | ---: | ---: | --- |
 | Members | 207 | 4 | Listagem migrada; perfil e formulário ainda pendentes |
-| Visitors | 34 | 4 | Listagem e registro de visita migrados; follow-up e estatísticas pendentes |
+| Visitors | 34 | 4 | Slice completo: listagem, registro de visita, follow-up e estatísticas migrados |
 | Ministries | 295 | 29 | Próxima fatia sugerida após Visitors |
 | Events | 158 | 9 | Pendente |
 | Financeiro | 105 | 13 | Pendente |
@@ -38,21 +38,21 @@ dados, rotas ou identificadores persistidos.
 
 `AppIcons` agora cobre também limpeza e expansão de filtros, filtros de
 membros, visitantes, acompanhamento, registro de visita, conversão, batismo,
-membresia, endereço, contato e familiares. `visitors_list_screen.dart` e
-`visitor_visit_form_screen.dart` deixaram de declarar símbolos Material
-diretamente; símbolos de marca e os identificadores de ícones persistidos dos
-ministérios continuam fora desse catálogo por decisão de arquitetura.
+membresia, endereço, contato, familiares, categorias e alertas. As quatro
+telas do recorte de Visitors deixaram de declarar símbolos Material diretamente;
+símbolos de marca e os identificadores de ícones persistidos dos ministérios
+continuam fora desse catálogo por decisão de arquitetura.
 
 ## Onda 4 — Visitors
 
 Os cards de visitante e o painel de busca agora usam `GlassCard`; os estados
-de ciclo de vida e acompanhamento usam `StatusBadge`; o formulário de registro
-de visita usa a mesma superfície e o catálogo semântico. Não houve alteração
-em rotas, permissões, repositórios ou contratos de dados. Foram adicionados
-dois testes de widget para proteger essas superfícies.
+de ciclo de vida e acompanhamento usam `StatusBadge`; os dois formulários e os
+cards/gráficos de estatísticas usam a mesma superfície e o catálogo semântico.
+Não houve alteração em rotas, permissões, repositórios ou contratos de dados.
+Foram adicionados quatro testes de widget para proteger essas superfícies.
 
 ## Próximo recorte
 
-Revisar `visitor_followup_form_screen.dart` e
-`visitors_statistics_screen.dart` para concluir o recorte de Visitors; depois,
-revisar o shell e as listas de Ministries antes de avançar para Events.
+Revisar o shell e as listas de Ministries antes de avançar para Events. O
+recorte de Visitors está completo; autenticação e dados reais continuam sendo
+limitações da validação visual local.

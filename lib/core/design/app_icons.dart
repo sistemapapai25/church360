@@ -68,6 +68,7 @@ abstract final class AppIcons {
   static const completed = Icons.task_alt;
   static const checklist = Icons.checklist_outlined;
   static const error = Icons.error_outline;
+  static const warning = Icons.warning_amber_outlined;
   static const dashboard = Icons.dashboard_outlined;
   static const admin = Icons.admin_panel_settings_outlined;
   static const church = Icons.church_outlined;

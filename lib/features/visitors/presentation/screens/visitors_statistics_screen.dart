@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../providers/visitors_provider.dart';
 import '../../domain/models/visitor.dart';
 
@@ -10,10 +13,12 @@ class VisitorsStatisticsScreen extends ConsumerStatefulWidget {
   const VisitorsStatisticsScreen({super.key});
 
   @override
-  ConsumerState<VisitorsStatisticsScreen> createState() => _VisitorsStatisticsScreenState();
+  ConsumerState<VisitorsStatisticsScreen> createState() =>
+      _VisitorsStatisticsScreenState();
 }
 
-class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScreen> {
+class _VisitorsStatisticsScreenState
+    extends ConsumerState<VisitorsStatisticsScreen> {
   String _selectedPeriod = '30'; // dias
 
   @override
@@ -21,7 +26,9 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
     final visitorsAsync = ref.watch(allVisitorsProvider);
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
+        backgroundColor: CommunityDesign.headerColor(context),
         title: const Text('Estatísticas de Visitantes'),
       ),
       body: visitorsAsync.when(
@@ -42,19 +49,23 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
             0,
             (sum, v) => sum + v.totalVisits,
           );
-          final avgVisitsPerVisitor = totalVisitors > 0 ? totalVisits / totalVisitors : 0.0;
+          final avgVisitsPerVisitor = totalVisitors > 0
+              ? totalVisits / totalVisitors
+              : 0.0;
 
           // Contar por status
           final statusCounts = <VisitorStatus, int>{};
           for (final visitor in filteredVisitors) {
-            statusCounts[visitor.status] = (statusCounts[visitor.status] ?? 0) + 1;
+            statusCounts[visitor.status] =
+                (statusCounts[visitor.status] ?? 0) + 1;
           }
 
           // Contar por "como conheceu"
           final howFoundCounts = <HowFoundChurch, int>{};
           for (final visitor in filteredVisitors) {
             if (visitor.howFound != null) {
-              howFoundCounts[visitor.howFound!] = (howFoundCounts[visitor.howFound!] ?? 0) + 1;
+              howFoundCounts[visitor.howFound!] =
+                  (howFoundCounts[visitor.howFound!] ?? 0) + 1;
             }
           }
 
@@ -125,8 +136,8 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
                     child: _StatCard(
                       title: 'Total de Visitantes',
                       value: totalVisitors.toString(),
-                      icon: Icons.groups,
-                      color: Colors.blue,
+                      icon: AppIcons.groups,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -134,8 +145,8 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
                     child: _StatCard(
                       title: 'Total de Visitas',
                       value: totalVisits.toString(),
-                      icon: Icons.event,
-                      color: Colors.green,
+                      icon: AppIcons.event,
+                      color: Theme.of(context).colorScheme.secondary,
                     ),
                   ),
                 ],
@@ -147,8 +158,8 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
                     child: _StatCard(
                       title: 'Média de Visitas',
                       value: avgVisitsPerVisitor.toStringAsFixed(1),
-                      icon: Icons.analytics,
-                      color: Colors.orange,
+                      icon: AppIcons.analytics,
+                      color: Theme.of(context).colorScheme.tertiary,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -156,8 +167,8 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
                     child: _StatCard(
                       title: 'Novos (30 dias)',
                       value: recentCount.toString(),
-                      icon: Icons.new_releases,
-                      color: Colors.purple,
+                      icon: AppIcons.visitor,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 ],
@@ -169,17 +180,18 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
                     child: _StatCard(
                       title: 'Inativos (60+ dias)',
                       value: inactiveCount.toString(),
-                      icon: Icons.warning,
-                      color: Colors.red,
+                      icon: AppIcons.warning,
+                      color: Theme.of(context).colorScheme.error,
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: _StatCard(
                       title: 'Convertidos',
-                      value: (statusCounts[VisitorStatus.converted] ?? 0).toString(),
-                      icon: Icons.check_circle,
-                      color: Colors.teal,
+                      value: (statusCounts[VisitorStatus.converted] ?? 0)
+                          .toString(),
+                      icon: AppIcons.checkCircle,
+                      color: Theme.of(context).colorScheme.secondary,
                     ),
                   ),
                 ],
@@ -188,7 +200,7 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
 
               // Gráfico de Pizza - Status
               if (statusCounts.isNotEmpty) ...[
-                Card(
+                GlassCard(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -207,7 +219,8 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
                           child: PieChart(
                             PieChartData(
                               sections: statusCounts.entries.map((entry) {
-                                final percentage = (entry.value / totalVisitors) * 100;
+                                final percentage =
+                                    (entry.value / totalVisitors) * 100;
                                 return PieChartSectionData(
                                   value: entry.value.toDouble(),
                                   title: '${percentage.toStringAsFixed(1)}%',
@@ -259,7 +272,7 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
 
               // Gráfico de Barras - Como Conheceu
               if (howFoundCounts.isNotEmpty) ...[
-                Card(
+                GlassCard(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -278,22 +291,36 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
                           child: BarChart(
                             BarChartData(
                               alignment: BarChartAlignment.spaceAround,
-                              maxY: howFoundCounts.values.reduce((a, b) => a > b ? a : b).toDouble() * 1.2,
-                              barGroups: howFoundCounts.entries.toList().asMap().entries.map((entry) {
-                                final index = entry.key;
-                                final data = entry.value;
-                                return BarChartGroupData(
-                                  x: index,
-                                  barRods: [
-                                    BarChartRodData(
-                                      toY: data.value.toDouble(),
-                                      color: Colors.blue,
-                                      width: 20,
-                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                                    ),
-                                  ],
-                                );
-                              }).toList(),
+                              maxY:
+                                  howFoundCounts.values
+                                      .reduce((a, b) => a > b ? a : b)
+                                      .toDouble() *
+                                  1.2,
+                              barGroups: howFoundCounts.entries
+                                  .toList()
+                                  .asMap()
+                                  .entries
+                                  .map((entry) {
+                                    final index = entry.key;
+                                    final data = entry.value;
+                                    return BarChartGroupData(
+                                      x: index,
+                                      barRods: [
+                                        BarChartRodData(
+                                          toY: data.value.toDouble(),
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                          width: 20,
+                                          borderRadius:
+                                              const BorderRadius.vertical(
+                                                top: Radius.circular(4),
+                                              ),
+                                        ),
+                                      ],
+                                    );
+                                  })
+                                  .toList(),
                               titlesData: FlTitlesData(
                                 leftTitles: AxisTitles(
                                   sideTitles: SideTitles(
@@ -312,13 +339,22 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
                                     showTitles: true,
                                     getTitlesWidget: (value, meta) {
                                       final index = value.toInt();
-                                      if (index >= 0 && index < howFoundCounts.length) {
-                                        final label = howFoundCounts.keys.toList()[index].label;
+                                      if (index >= 0 &&
+                                          index < howFoundCounts.length) {
+                                        final label = howFoundCounts.keys
+                                            .toList()[index]
+                                            .label;
                                         return Padding(
-                                          padding: const EdgeInsets.only(top: 8),
+                                          padding: const EdgeInsets.only(
+                                            top: 8,
+                                          ),
                                           child: Text(
-                                            label.length > 10 ? '${label.substring(0, 10)}...' : label,
-                                            style: const TextStyle(fontSize: 10),
+                                            label.length > 10
+                                                ? '${label.substring(0, 10)}...'
+                                                : label,
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                            ),
                                           ),
                                         );
                                       }
@@ -350,9 +386,8 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Text('Erro ao carregar estatísticas: $error'),
-        ),
+        error: (error, _) =>
+            Center(child: Text('Erro ao carregar estatísticas: $error')),
       ),
     );
   }
@@ -360,15 +395,15 @@ class _VisitorsStatisticsScreenState extends ConsumerState<VisitorsStatisticsScr
   Color _getStatusColor(VisitorStatus status) {
     switch (status) {
       case VisitorStatus.firstVisit:
-        return Colors.blue;
+        return Theme.of(context).colorScheme.primary;
       case VisitorStatus.returning:
-        return Colors.orange;
+        return Theme.of(context).colorScheme.tertiary;
       case VisitorStatus.regular:
-        return Colors.green;
+        return Theme.of(context).colorScheme.secondary;
       case VisitorStatus.converted:
-        return Colors.purple;
+        return Theme.of(context).colorScheme.primary;
       case VisitorStatus.inactive:
-        return Colors.grey;
+        return Theme.of(context).colorScheme.outline;
     }
   }
 }
@@ -411,7 +446,7 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return GlassCard(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -434,9 +469,9 @@ class _StatCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ],
