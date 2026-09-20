@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../providers/visitors_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
@@ -19,10 +21,12 @@ class VisitorFollowupFormScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<VisitorFollowupFormScreen> createState() => _VisitorFollowupFormScreenState();
+  ConsumerState<VisitorFollowupFormScreen> createState() =>
+      _VisitorFollowupFormScreenState();
 }
 
-class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormScreen> {
+class _VisitorFollowupFormScreenState
+    extends ConsumerState<VisitorFollowupFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _descriptionController = TextEditingController();
   final _followupTypeController = TextEditingController();
@@ -42,9 +46,11 @@ class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormS
   }
 
   Future<void> _loadFollowup() async {
-    final followups = await ref.read(visitorFollowupsProvider(widget.visitorId).future);
+    final followups = await ref.read(
+      visitorFollowupsProvider(widget.visitorId).future,
+    );
     final followup = followups.firstWhere((f) => f.id == widget.followupId);
-    
+
     if (mounted) {
       setState(() {
         _followupDate = followup.followupDate;
@@ -105,13 +111,19 @@ class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormS
       final data = {
         'user_id': widget.visitorId,
         'followup_date': _followupDate.toIso8601String().split('T')[0],
-        'followup_type': _followupTypeController.text.trim().isEmpty ? null : _followupTypeController.text.trim(),
-        'description': _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+        'followup_type': _followupTypeController.text.trim().isEmpty
+            ? null
+            : _followupTypeController.text.trim(),
+        'description': _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
         'completed': _completed,
       };
 
       if (_isEditMode) {
-        await ref.read(visitorsRepositoryProvider).updateFollowup(widget.followupId!, data);
+        await ref
+            .read(visitorsRepositoryProvider)
+            .updateFollowup(widget.followupId!, data);
       } else {
         await ref.read(visitorsRepositoryProvider).createFollowup(data);
       }
@@ -123,7 +135,11 @@ class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormS
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_isEditMode ? 'Follow-up atualizado com sucesso!' : 'Follow-up criado com sucesso!'),
+            content: Text(
+              _isEditMode
+                  ? 'Follow-up atualizado com sucesso!'
+                  : 'Follow-up criado com sucesso!',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -163,9 +179,7 @@ class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormS
       body: visitorAsync.when(
         data: (visitor) {
           if (visitor == null) {
-            return const Center(
-              child: Text('Visitante não encontrado'),
-            );
+            return const Center(child: Text('Visitante não encontrado'));
           }
 
           return Form(
@@ -174,7 +188,7 @@ class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormS
               padding: const EdgeInsets.all(16),
               children: [
                 // Visitante Info
-                Card(
+                GlassCard(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -182,10 +196,7 @@ class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormS
                       children: [
                         const Text(
                           'Visitante',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -215,7 +226,7 @@ class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormS
                     decoration: const InputDecoration(
                       labelText: 'Data do Follow-up *',
                       border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.calendar_today),
+                      prefixIcon: Icon(AppIcons.calendarFilled),
                     ),
                     child: Text(_formatDate(_followupDate)),
                   ),
@@ -228,7 +239,7 @@ class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormS
                   decoration: const InputDecoration(
                     labelText: 'Tipo de Follow-up',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.category),
+                    prefixIcon: Icon(AppIcons.category),
                     hintText: 'Ex: Ligação, Visita, WhatsApp...',
                   ),
                 ),
@@ -240,7 +251,7 @@ class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormS
                   decoration: const InputDecoration(
                     labelText: 'Descrição',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.description),
+                    prefixIcon: Icon(AppIcons.note),
                     hintText: 'Descreva o que será feito neste follow-up...',
                   ),
                   maxLines: 4,
@@ -256,7 +267,9 @@ class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormS
                 // Completado
                 SwitchListTile(
                   title: const Text('Follow-up completado?'),
-                  subtitle: const Text('Marque se o follow-up já foi realizado'),
+                  subtitle: const Text(
+                    'Marque se o follow-up já foi realizado',
+                  ),
                   value: _completed,
                   onChanged: (value) {
                     setState(() {
@@ -280,8 +293,10 @@ class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormS
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.save),
-                    label: Text(_isEditMode ? 'Atualizar Follow-up' : 'Criar Follow-up'),
+                        : const Icon(AppIcons.save),
+                    label: Text(
+                      _isEditMode ? 'Atualizar Follow-up' : 'Criar Follow-up',
+                    ),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.all(16),
                     ),
@@ -292,11 +307,9 @@ class _VisitorFollowupFormScreenState extends ConsumerState<VisitorFollowupFormS
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Text('Erro ao carregar visitante: $error'),
-        ),
+        error: (error, _) =>
+            Center(child: Text('Erro ao carregar visitante: $error')),
       ),
     );
   }
 }
-
