@@ -334,3 +334,95 @@ Timestamp: 2026-09-20 01:23:37 BRT (America/Sao_Paulo, UTC-03).
    the release web build before opening the next PR.
 5. Then move to the shared ministry lists and shells, keeping each visual wave
    independently reviewable and deployable.
+
+## Final closeout — visual wave 5 Visitors
+
+Timestamp: 2026-09-20 01:42:09 BRT (America/Sao_Paulo, UTC-03).
+
+### What was delivered
+
+The Visitors visual slice is now complete. The remaining two screens from the
+previous handoff were migrated without changing behavior:
+
+- `visitor_followup_form_screen.dart` now reuses `GlassCard` for visitor
+  context and `AppIcons` for date, category, notes, and save actions.
+- `visitors_statistics_screen.dart` now uses `GlassCard` for summary cards and
+  charts, `AppIcons` for the metrics, and the application color scheme for
+  metric/chart accents instead of local Material icon and color choices.
+- `AppIcons.warning` was added for the inactive visitor metric.
+- `docs/VISUAL-MATERIAL-INVENTORY.md` now records Visitors as complete and
+  points the next wave to Ministries.
+- Widget coverage expanded from two to four focused Visitors tests.
+
+This remains a visual/component-only wave. Routes, permissions, providers,
+repositories, persistence, calculations, chart data, and database contracts
+were not changed.
+
+### Decisions and limitations
+
+- The existing Visitors calculations, period filters, status counts, chart
+  layout, follow-up save flow, permission gate, and date picker were preserved.
+- `GlassCard` was applied to the existing visual surfaces; no new module-only
+  card variant was introduced.
+- The seven generated Flutter plugin registrants are build artifacts and remain
+  modified locally, outside every commit.
+- The local visual preview is an in-memory Batismo preview, not an authenticated
+  Visitors route. It verified the shared visual foundation and responsive
+  desktop/mobile rendering, but not authenticated Visitors data in production.
+
+### Verification
+
+Passed:
+
+- `flutter test --no-pub test/features/visitors/visitors_visual_test.dart` —
+  **4 passed**.
+- `flutter test --no-pub -j 1` — **510 passed**.
+- `flutter analyze --no-pub` on the four changed Dart source/test files — no
+  issues found.
+- `git diff --check` — passed before commit.
+- `flutter build web --release --no-pub` — passed. The known WebAssembly dry
+  run warnings remain in existing dependencies (`audioplayers_web`,
+  `dart:html`, `package:js`, and `image`); the normal JavaScript build passed.
+- Local visual preview at `http://127.0.0.1:8765` — loaded with meaningful
+  content, interactive controls, and no page errors/overlay; desktop and 390 ×
+  844 mobile screenshots were captured outside the repository.
+
+### Git, merge, and production deployment
+
+- Implementation commit: `bfff895`, `feat: finish visitors visual surfaces`.
+- PR #127: `https://github.com/sistemapapai25/church360/pull/127`.
+- PR #127 merged into `main` with merge commit `d3c5065`.
+- Current handoff branch: `chore/session-wrap-wave-5`, based on
+  `origin/main` at `d3c5065`.
+- GitHub Actions run `35489630562`: **success**, 2m55s.
+- Production deployment: `dpl_GMJmLkoJm19uhWwEzrYjUvzw6viu`.
+- Deployment URL:
+  `https://church360-3kn82h52h-gabriels-projects-ec03504d.vercel.app`.
+- Vercel target/status: `production` / **Ready**.
+- Active aliases: `https://app.church360.com.br`,
+  `https://church360-app.vercel.app`, and
+  `https://church360-app-gabriels-projects-ec03504d.vercel.app`.
+- HTTP smoke test returned **302 Found** to Vercel SSO, expected while
+  Deployment Protection is enabled.
+
+### Files changed in this wave
+
+- `lib/core/design/app_icons.dart`
+- `lib/features/visitors/presentation/screens/visitor_followup_form_screen.dart`
+- `lib/features/visitors/presentation/screens/visitors_statistics_screen.dart`
+- `test/features/visitors/visitors_visual_test.dart`
+- `docs/VISUAL-MATERIAL-INVENTORY.md`
+- `SESSION-WRAP.md` (this handoff)
+
+### Next agent should start here
+
+1. Preserve the seven generated registrant modifications; do not stage them.
+2. Read this wrap and confirm `origin/main` is at `d3c5065` or newer.
+3. Continue the visual cascade with the shared Ministry lists and shells,
+   starting from the inventory groups in `docs/VISUAL-MATERIAL-INVENTORY.md`.
+4. Keep each wave independently reviewable: focused widget coverage, full
+   suite, targeted analysis, release web build, local visual preview, PR,
+   merge, production deploy, then this wrap.
+5. Do not claim authenticated production screen validation from this
+   environment while the Vercel SSO gate prevents access without a user
+   session.
