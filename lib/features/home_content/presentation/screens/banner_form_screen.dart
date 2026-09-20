@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/design/app_icons.dart';
 import '../providers/banners_provider.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
 import '../../../events/presentation/providers/events_provider.dart';
@@ -14,10 +15,7 @@ import '../../../permissions/presentation/widgets/permission_gate.dart';
 class BannerFormScreen extends ConsumerStatefulWidget {
   final String? bannerId;
 
-  const BannerFormScreen({
-    super.key,
-    this.bannerId,
-  });
+  const BannerFormScreen({super.key, this.bannerId});
 
   @override
   ConsumerState<BannerFormScreen> createState() => _BannerFormScreenState();
@@ -35,7 +33,8 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
   bool _isSaving = false;
 
   // Campos de vínculo
-  String _linkType = 'external'; // 'external', 'event', 'reading_plan', 'course', 'message'
+  String _linkType =
+      'external'; // 'external', 'event', 'reading_plan', 'course', 'message'
   String? _linkedId;
 
   bool get _isEditing => widget.bannerId != null;
@@ -60,8 +59,10 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final banner = await ref.read(bannerByIdProvider(widget.bannerId!).future);
-      
+      final banner = await ref.read(
+        bannerByIdProvider(widget.bannerId!).future,
+      );
+
       if (banner != null && mounted) {
         setState(() {
           _titleController.text = banner.title;
@@ -75,9 +76,9 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao carregar banner: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao carregar banner: $e')));
       }
     } finally {
       if (mounted) {
@@ -103,7 +104,9 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
     if (!hasPermission) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+          const SnackBar(
+            content: Text('Você não tem permissão para esta ação'),
+          ),
         );
       }
       return;
@@ -113,7 +116,7 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
 
     try {
       final repo = ref.read(bannersRepositoryProvider);
-      
+
       final data = {
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim().isEmpty
@@ -145,8 +148,8 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _isEditing 
-                  ? 'Banner atualizado com sucesso!' 
+              _isEditing
+                  ? 'Banner atualizado com sucesso!'
                   : 'Banner criado com sucesso!',
             ),
           ),
@@ -155,9 +158,9 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao salvar banner: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao salvar banner: $e')));
       }
     } finally {
       if (mounted) {
@@ -193,9 +196,14 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
         return DropdownMenu<String>(
           initialSelection: _linkedId,
           label: const Text('Selecione o Evento'),
-          leadingIcon: const Icon(Icons.event),
+          leadingIcon: const Icon(AppIcons.eventFilled),
           dropdownMenuEntries: events
-              .map((event) => DropdownMenuEntry<String>(value: event.id, label: event.name))
+              .map(
+                (event) => DropdownMenuEntry<String>(
+                  value: event.id,
+                  label: event.name,
+                ),
+              )
               .toList(),
           onSelected: (value) {
             setState(() {
@@ -222,9 +230,14 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
         return DropdownMenu<String>(
           initialSelection: _linkedId,
           label: const Text('Selecione o Plano de Leitura'),
-          leadingIcon: const Icon(Icons.book),
+          leadingIcon: const Icon(AppIcons.book),
           dropdownMenuEntries: plans
-              .map((plan) => DropdownMenuEntry<String>(value: plan.id, label: plan.title))
+              .map(
+                (plan) => DropdownMenuEntry<String>(
+                  value: plan.id,
+                  label: plan.title,
+                ),
+              )
               .toList(),
           onSelected: (value) {
             setState(() {
@@ -251,9 +264,14 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
         return DropdownMenu<String>(
           initialSelection: _linkedId,
           label: const Text('Selecione o Curso'),
-          leadingIcon: const Icon(Icons.school),
+          leadingIcon: const Icon(AppIcons.course),
           dropdownMenuEntries: courses
-              .map((course) => DropdownMenuEntry<String>(value: course.id, label: course.title))
+              .map(
+                (course) => DropdownMenuEntry<String>(
+                  value: course.id,
+                  label: course.title,
+                ),
+              )
               .toList(),
           onSelected: (value) {
             setState(() {
@@ -291,7 +309,7 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
                   ? 'Você não tem permissão para editar banners'
                   : 'Você não tem permissão para criar banners',
               child: IconButton(
-                icon: const Icon(Icons.check),
+                icon: const Icon(AppIcons.check),
                 onPressed: _saveBanner,
                 tooltip: 'Salvar',
               ),
@@ -314,7 +332,7 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
                         labelText: 'Título *',
                         hintText: 'Ex: Culto de Celebração',
                         border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.title),
+                        prefixIcon: Icon(AppIcons.label),
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
@@ -333,7 +351,7 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
                         labelText: 'Descrição',
                         hintText: 'Breve descrição do banner',
                         border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.description),
+                        prefixIcon: Icon(AppIcons.article),
                       ),
                       maxLines: 3,
                       textCapitalization: TextCapitalization.sentences,
@@ -373,12 +391,24 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
                             DropdownMenu<String>(
                               initialSelection: _linkType,
                               label: const Text('Tipo de Ação'),
-                              leadingIcon: const Icon(Icons.touch_app),
+                              leadingIcon: const Icon(AppIcons.touch),
                               dropdownMenuEntries: const [
-                                DropdownMenuEntry(value: 'external', label: 'Link Externo'),
-                                DropdownMenuEntry(value: 'event', label: 'Abrir Evento'),
-                                DropdownMenuEntry(value: 'reading_plan', label: 'Abrir Plano de Leitura'),
-                                DropdownMenuEntry(value: 'course', label: 'Abrir Curso'),
+                                DropdownMenuEntry(
+                                  value: 'external',
+                                  label: 'Link Externo',
+                                ),
+                                DropdownMenuEntry(
+                                  value: 'event',
+                                  label: 'Abrir Evento',
+                                ),
+                                DropdownMenuEntry(
+                                  value: 'reading_plan',
+                                  label: 'Abrir Plano de Leitura',
+                                ),
+                                DropdownMenuEntry(
+                                  value: 'course',
+                                  label: 'Abrir Curso',
+                                ),
                               ],
                               onSelected: (value) {
                                 if (value == null) return;
@@ -399,7 +429,7 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
                                   labelText: 'URL',
                                   hintText: 'https://exemplo.com',
                                   border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.link),
+                                  prefixIcon: Icon(AppIcons.link),
                                 ),
                                 keyboardType: TextInputType.url,
                               ),
@@ -428,7 +458,9 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
                           });
                         },
                         secondary: Icon(
-                          _isActive ? Icons.visibility : Icons.visibility_off,
+                          _isActive
+                              ? AppIcons.visibility
+                              : AppIcons.visibilityOff,
                           color: _isActive ? Colors.green : Colors.grey,
                         ),
                       ),
@@ -437,7 +469,9 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
 
                     // Botão Salvar
                     DisabledByPermission(
-                      permission: _isEditing ? 'banners.edit' : 'banners.create',
+                      permission: _isEditing
+                          ? 'banners.edit'
+                          : 'banners.create',
                       disabledTooltip: _isEditing
                           ? 'Você não tem permissão para editar banners'
                           : 'Você não tem permissão para criar banners',
@@ -447,10 +481,14 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
-                            : const Icon(Icons.save),
-                        label: Text(_isEditing ? 'Atualizar Banner' : 'Criar Banner'),
+                            : const Icon(AppIcons.save),
+                        label: Text(
+                          _isEditing ? 'Atualizar Banner' : 'Criar Banner',
+                        ),
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.all(16),
                         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/design/app_icons.dart';
 import '../providers/banners_provider.dart';
 import '../../domain/models/banner.dart';
 import '../../../permissions/providers/permissions_providers.dart';
@@ -33,7 +34,7 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
           PermissionGate(
             permission: 'banners.create',
             child: IconButton(
-              icon: const Icon(Icons.add),
+              icon: const Icon(AppIcons.add),
               onPressed: () {
                 context.push('/home/banners/new');
               },
@@ -47,14 +48,18 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
           if (banners.isEmpty) {
             return _buildEmptyState();
           }
-          return _buildBannersList(banners, canEdit: canEdit, canDelete: canDelete);
+          return _buildBannersList(
+            banners,
+            canEdit: canEdit,
+            canDelete: canDelete,
+          );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const Icon(AppIcons.error, size: 48, color: Colors.red),
               const SizedBox(height: 16),
               Text('Erro ao carregar banners: $error'),
               const SizedBox(height: 16),
@@ -75,7 +80,7 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.image_not_supported,
+            AppIcons.imageMissing,
             size: 64,
             color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
           ),
@@ -88,8 +93,10 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
           Text(
             'Adicione banners para exibir na tela inicial do app',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
@@ -99,7 +106,7 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
               onPressed: () {
                 context.push('/home/banners/new');
               },
-              icon: const Icon(Icons.add),
+              icon: const Icon(AppIcons.add),
               label: const Text('Adicionar Primeiro Banner'),
             ),
           ),
@@ -140,7 +147,11 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
     );
   }
 
-  Future<void> _onReorder(List<HomeBanner> banners, int oldIndex, int newIndex) async {
+  Future<void> _onReorder(
+    List<HomeBanner> banners,
+    int oldIndex,
+    int newIndex,
+  ) async {
     // Ajustar índice se necessário
     if (newIndex > oldIndex) {
       newIndex -= 1;
@@ -153,7 +164,7 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
     // Atualizar no banco
     final repo = ref.read(bannersRepositoryProvider);
     final bannerIds = banners.map((b) => b.id).toList();
-    
+
     try {
       await repo.updateBannersOrder(bannerIds);
       // Atualizar a lista
@@ -167,16 +178,16 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao atualizar ordem: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao atualizar ordem: $e')));
       }
     }
   }
 
   Future<void> _toggleBannerActive(HomeBanner banner) async {
     final repo = ref.read(bannersRepositoryProvider);
-    
+
     try {
       await repo.toggleBannerActive(banner.id, !banner.isActive);
       ref.invalidate(allBannersProvider);
@@ -195,9 +206,9 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao atualizar banner: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao atualizar banner: $e')));
       }
     }
   }
@@ -209,7 +220,9 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
     if (!hasPermission) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+          const SnackBar(
+            content: Text('Você não tem permissão para esta ação'),
+          ),
         );
       }
       return;
@@ -240,7 +253,7 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
     if (confirmed != true) return;
 
     final repo = ref.read(bannersRepositoryProvider);
-    
+
     try {
       await repo.deleteBanner(banner.id);
       ref.invalidate(allBannersProvider);
@@ -253,9 +266,9 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao excluir banner: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao excluir banner: $e')));
       }
     }
   }
@@ -283,16 +296,16 @@ class _BannerCard extends StatelessWidget {
   IconData _getLinkTypeIcon(String linkType) {
     switch (linkType) {
       case 'event':
-        return Icons.event;
+        return AppIcons.eventFilled;
       case 'reading_plan':
-        return Icons.book;
+        return AppIcons.book;
       case 'course':
-        return Icons.school;
+        return AppIcons.course;
       case 'message':
-        return Icons.mic;
+        return AppIcons.microphone;
       case 'external':
       default:
-        return Icons.link;
+        return AppIcons.link;
     }
   }
 
@@ -306,8 +319,10 @@ class _BannerCard extends StatelessWidget {
           children: [
             // Ícone de arrastar
             Icon(
-              Icons.drag_handle,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+              AppIcons.dragHandle,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.4),
             ),
             const SizedBox(width: 8),
             // Miniatura da imagem
@@ -322,8 +337,10 @@ class _BannerCard extends StatelessWidget {
                   return Container(
                     width: 60,
                     height: 40,
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    child: const Icon(Icons.broken_image, size: 20),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    child: const Icon(AppIcons.imageBroken, size: 20),
                   );
                 },
               ),
@@ -404,7 +421,9 @@ class _BannerCard extends StatelessWidget {
                   child: Row(
                     children: [
                       Icon(
-                        banner.isActive ? Icons.visibility_off : Icons.visibility,
+                        banner.isActive
+                            ? AppIcons.visibilityOff
+                            : AppIcons.visibility,
                         size: 20,
                       ),
                       const SizedBox(width: 12),
@@ -417,7 +436,7 @@ class _BannerCard extends StatelessWidget {
                     value: 'edit',
                     child: Row(
                       children: [
-                        Icon(Icons.edit, size: 20),
+                        Icon(AppIcons.edit, size: 20),
                         SizedBox(width: 12),
                         Text('Editar'),
                       ],
@@ -428,7 +447,7 @@ class _BannerCard extends StatelessWidget {
                     value: 'delete',
                     child: Row(
                       children: [
-                        Icon(Icons.delete, size: 20, color: Colors.red),
+                        Icon(AppIcons.delete, size: 20, color: Colors.red),
                         const SizedBox(width: 12),
                         Text('Excluir', style: TextStyle(color: Colors.red)),
                       ],
@@ -442,4 +461,3 @@ class _BannerCard extends StatelessWidget {
     );
   }
 }
-

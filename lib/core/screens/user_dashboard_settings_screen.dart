@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/dashboard_widget.dart';
 import '../providers/dashboard_widget_provider.dart';
+import '../design/app_icons.dart';
 
 /// Tela de gerenciamento pessoal do Dashboard (CHU-308).
 ///
@@ -19,9 +20,7 @@ class UserDashboardSettingsScreen extends ConsumerWidget {
     final settingsAsync = ref.watch(myDashboardWidgetSettingsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Meu Dashboard'),
-      ),
+      appBar: AppBar(title: const Text('Meu Dashboard')),
       body: settingsAsync.when(
         data: (settings) {
           if (settings.isEmpty) {
@@ -48,7 +47,7 @@ class UserDashboardSettingsScreen extends ConsumerWidget {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.info_outline,
+                      AppIcons.info,
                       color: Theme.of(context).colorScheme.onPrimaryContainer,
                     ),
                     const SizedBox(width: 12),
@@ -57,7 +56,9 @@ class UserDashboardSettingsScreen extends ConsumerWidget {
                         'Escolha quais cards aparecem no seu Dashboard, dentre '
                         'os que você tem permissão de ver.',
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onPrimaryContainer,
                         ),
                       ),
                     ),
@@ -91,7 +92,8 @@ class UserDashboardSettingsScreen extends ConsumerWidget {
         ),
         subtitle: widget.description != null ? Text(widget.description!) : null,
         value: isVisible,
-        onChanged: (value) => _toggleWidget(context, ref, widget.widgetKey, value),
+        onChanged: (value) =>
+            _toggleWidget(context, ref, widget.widgetKey, value),
       ),
     );
   }

@@ -41,6 +41,7 @@ import '../widgets/glass_card.dart';
 import '../widgets/media/video_play_overlay.dart';
 import '../../features/church_selector/presentation/providers/church_selector_provider.dart';
 import '../design/community_design.dart';
+import '../design/app_icons.dart';
 import '../widgets/navigation/custom_bottom_nav_bar.dart';
 import '../../features/home/presentation/widgets/home_content_card.dart';
 import '../../features/home/presentation/widgets/home_section_widget.dart';
@@ -235,13 +236,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return [
       const PremiumNavItem(
         label: 'Home',
-        icon: Icons.home_outlined,
+        icon: AppIcons.home,
         activeColor: Color(0xFF2563EB),
       ),
       PremiumNavItem(
         label: 'Bíblia',
         activeColor: const Color(0xFF2563EB),
-        icon: Icons.menu_book_outlined,
+        icon: AppIcons.bible,
         itemKey: _tourNavBibliaKey,
       ),
       PremiumNavItem(
@@ -254,7 +255,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       const PremiumNavItem(
         label: 'Cursos',
-        icon: Icons.school_outlined,
+        icon: AppIcons.course,
         activeColor: Color(0xFF2563EB),
       ),
       PremiumNavItem(
@@ -764,8 +765,9 @@ class _HomeBannerSlideItem {
     final url = (linkUrl ?? '').trim();
     final id = (linkedId ?? '').trim();
     if (lt == 'external') return url.isNotEmpty;
-    if (lt == 'event' || lt == 'reading_plan' || lt == 'course')
+    if (lt == 'event' || lt == 'reading_plan' || lt == 'course') {
       return id.isNotEmpty;
+    }
     return url.isNotEmpty;
   }
 }

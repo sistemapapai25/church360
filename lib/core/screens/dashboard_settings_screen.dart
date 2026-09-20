@@ -3,17 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/dashboard_widget.dart';
 import '../providers/dashboard_widget_provider.dart';
- 
+import '../design/app_icons.dart';
 
 /// Tela de configuração da Dashboard
 class DashboardSettingsScreen extends ConsumerStatefulWidget {
   const DashboardSettingsScreen({super.key});
 
   @override
-  ConsumerState<DashboardSettingsScreen> createState() => _DashboardSettingsScreenState();
+  ConsumerState<DashboardSettingsScreen> createState() =>
+      _DashboardSettingsScreenState();
 }
 
-class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScreen> {
+class _DashboardSettingsScreenState
+    extends ConsumerState<DashboardSettingsScreen> {
   List<DashboardWidget> _widgets = [];
   bool _isReordering = false;
 
@@ -27,7 +29,7 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
         actions: [
           // Botão de Restaurar Padrão
           IconButton(
-            icon: const Icon(Icons.restore),
+            icon: const Icon(AppIcons.restore),
             tooltip: 'Restaurar Padrão',
             onPressed: () => _showRestoreDialog(context),
           ),
@@ -48,7 +50,7 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
                 child: Row(
                   children: [
                     Icon(
-                      Icons.info_outline,
+                      AppIcons.info,
                       color: Theme.of(context).colorScheme.onPrimaryContainer,
                     ),
                     const SizedBox(width: 12),
@@ -56,7 +58,9 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
                       child: Text(
                         'Ative/desative widgets e arraste para reordenar',
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onPrimaryContainer,
                         ),
                       ),
                     ),
@@ -145,15 +149,14 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
             // Ícone de reordenar (arrastável)
             ReorderableDragStartListener(
               index: index,
-              child: Icon(
-                Icons.drag_handle,
-                color: Colors.grey[600],
-              ),
+              child: Icon(AppIcons.dragHandle, color: Colors.grey[600]),
             ),
             const SizedBox(width: 8),
             // Ícone do widget
             CircleAvatar(
-              backgroundColor: _getCategoryColor(widget.category).withValues(alpha: 0.2),
+              backgroundColor: _getCategoryColor(
+                widget.category,
+              ).withValues(alpha: 0.2),
               child: Icon(
                 _getIconData(widget.iconName),
                 color: _getCategoryColor(widget.category),
@@ -169,8 +172,7 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (widget.description != null)
-              Text(widget.description!),
+            if (widget.description != null) Text(widget.description!),
             const SizedBox(height: 4),
             Text(
               _getCategoryLabel(widget.category),
@@ -191,25 +193,25 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
   }
 
   IconData _getIconData(String? iconName) {
-    if (iconName == null) return Icons.widgets;
-    
+    if (iconName == null) return AppIcons.widgets;
+
     final iconMap = {
-      'cake': Icons.cake,
-      'person_add': Icons.person_add,
-      'trending_up': Icons.trending_up,
-      'label': Icons.label,
-      'event': Icons.event,
-      'calendar_today': Icons.calendar_today,
-      'groups': Icons.groups,
-      'people': Icons.people,
-      'payments': Icons.payments,
-      'account_balance': Icons.account_balance,
-      'pie_chart': Icons.pie_chart,
-      'flag': Icons.flag,
-      'schedule': Icons.schedule,
+      'cake': AppIcons.cake,
+      'person_add': AppIcons.personAdd,
+      'trending_up': AppIcons.trendingUp,
+      'label': AppIcons.label,
+      'event': AppIcons.eventFilled,
+      'calendar_today': AppIcons.calendarFilled,
+      'groups': AppIcons.groupsFilled,
+      'people': AppIcons.groupsFilled,
+      'payments': AppIcons.payments,
+      'account_balance': AppIcons.accountBalance,
+      'pie_chart': AppIcons.pieChart,
+      'flag': AppIcons.status,
+      'schedule': AppIcons.schedule,
     };
 
-    return iconMap[iconName] ?? Icons.widgets;
+    return iconMap[iconName] ?? AppIcons.widgets;
   }
 
   Color _getCategoryColor(String category) {
@@ -276,13 +278,10 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
   Future<void> _saveOrder() async {
     try {
       final repository = ref.read(dashboardWidgetRepositoryProvider);
-      
+
       // Criar lista de updates
       final updates = _widgets.asMap().entries.map((entry) {
-        return {
-          'id': entry.value.id,
-          'display_order': entry.key + 1,
-        };
+        return {'id': entry.value.id, 'display_order': entry.key + 1};
       }).toList();
 
       await repository.updateMultiple(updates);

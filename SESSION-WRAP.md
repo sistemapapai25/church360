@@ -82,3 +82,25 @@ Start by reading this file and `docs/VISUAL-STAGE-1.md`, then verify the merged 
 - Tests under `test/core/widgets/`, `test/features/ministries/`
 - `docs/VISUAL-STAGE-1.md` and visual evidence PNGs
 - `tool/visual_preview.dart`
+
+## Checkpoint 3 delivered — shared icon propagation
+
+The next visual wave propagated the semantic `AppIcons` catalog through the
+Home tab navigation, dashboard settings, Home banner management, core reports,
+and the shared ministry workspace shell. The catalog now covers the common
+navigation, reporting, dashboard, media, visibility, status, and ministry
+control symbols used by those entry points. Font Awesome brand symbols and
+database-backed ministry icon identifiers remain untouched.
+
+Validation for this wave:
+
+- Full Flutter suite: 506 tests passed.
+- Ministry workspace targeted suite: 13 tests passed.
+- Targeted `flutter analyze --no-pub`: no issues found.
+- `git diff --check`: passed.
+- `flutter build web --release --no-pub`: passed. The existing WebAssembly
+  dry-run dependency warnings remain for `audioplayers_web`, `dart:html`,
+  `package:js`, and `image`.
+
+The next wave remains the broader inventory of repeated local card/list/header
+styles and the remaining Material icon consumers across the 152 screens.

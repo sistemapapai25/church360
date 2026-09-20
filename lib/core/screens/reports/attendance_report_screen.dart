@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/app_icons.dart';
 import '../../providers/dashboard_stats_provider.dart';
 
 /// Tela de relatório de presença
@@ -13,9 +14,7 @@ class AttendanceReportScreen extends ConsumerWidget {
     final attendanceAsync = ref.watch(attendanceByGroupProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Relatório de Presença'),
-      ),
+      appBar: AppBar(title: const Text('Relatório de Presença')),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(attendanceByGroupProvider);
@@ -33,8 +32,8 @@ class AttendanceReportScreen extends ConsumerWidget {
                     Text(
                       'Média de Presença (Últimos 3 Meses)',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 24),
                     attendanceAsync.when(
@@ -55,7 +54,8 @@ class AttendanceReportScreen extends ConsumerWidget {
                           (sum, item) => sum + (item['total_expected'] as int),
                         );
                         final averagePercentage = totalExpected > 0
-                            ? (totalPresent / totalExpected * 100).toStringAsFixed(1)
+                            ? (totalPresent / totalExpected * 100)
+                                  .toStringAsFixed(1)
                             : '0.0';
 
                         return Column(
@@ -78,7 +78,8 @@ class AttendanceReportScreen extends ConsumerWidget {
                                           radius: 30,
                                         ),
                                         PieChartSectionData(
-                                          value: (totalExpected - totalPresent).toDouble(),
+                                          value: (totalExpected - totalPresent)
+                                              .toDouble(),
                                           color: Colors.grey[300],
                                           title: '',
                                           radius: 30,
@@ -91,14 +92,19 @@ class AttendanceReportScreen extends ConsumerWidget {
                                     children: [
                                       Text(
                                         '$averagePercentage%',
-                                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .headlineLarge
+                                            ?.copyWith(
                                               fontWeight: FontWeight.bold,
                                               color: Colors.green,
                                             ),
                                       ),
                                       Text(
                                         'Média Geral',
-                                        style: Theme.of(context).textTheme.bodySmall,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
                                       ),
                                     ],
                                   ),
@@ -113,24 +119,39 @@ class AttendanceReportScreen extends ConsumerWidget {
                               final present = item['total_present'] as int;
                               final expected = item['total_expected'] as int;
                               final percentage = expected > 0
-                                  ? (present / expected * 100).toStringAsFixed(1)
+                                  ? (present / expected * 100).toStringAsFixed(
+                                      1,
+                                    )
                                   : '0.0';
 
                               return Card(
                                 margin: const EdgeInsets.only(bottom: 12),
                                 child: ListTile(
                                   leading: CircleAvatar(
-                                    backgroundColor: Colors.green.withValues(alpha: 0.2),
-                                    child: const Icon(Icons.groups, color: Colors.green),
+                                    backgroundColor: Colors.green.withValues(
+                                      alpha: 0.2,
+                                    ),
+                                    child: const Icon(
+                                      AppIcons.groupsFilled,
+                                      color: Colors.green,
+                                    ),
                                   ),
                                   title: Text(
                                     groupName,
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                   subtitle: LinearProgressIndicator(
                                     value: present / expected,
-                                    backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
-                                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+                                    backgroundColor: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.10),
+                                    valueColor:
+                                        const AlwaysStoppedAnimation<Color>(
+                                          Colors.green,
+                                        ),
                                   ),
                                   trailing: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -158,7 +179,8 @@ class AttendanceReportScreen extends ConsumerWidget {
                           ],
                         );
                       },
-                      loading: () => const Center(child: CircularProgressIndicator()),
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
                       error: (error, _) => Center(child: Text('Erro: $error')),
                     ),
                   ],
@@ -171,4 +193,3 @@ class AttendanceReportScreen extends ConsumerWidget {
     );
   }
 }
-
