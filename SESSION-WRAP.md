@@ -846,3 +846,57 @@ Timestamp: 2026-09-21, America/Sao_Paulo (UTC-03).
   formulário, registro e diálogos especializados continuam pendentes.
 - Os sete registradores Flutter gerados continuam locais e não devem ser
   incluídos em commits.
+
+## Final closeout — merge, deploy e handoff da onda 10
+
+Timestamp: 2026-09-21 17:36, America/Sao_Paulo (UTC-03).
+
+### O que foi concluído
+
+- PR #134 (Diaconato/Raízes), PR #135 (primeira fatia de Events) e PR #136
+  (handoff da onda 10) já estavam mergeados em `main` no início deste
+  fechamento.
+- O estado remoto confirmado para a aplicação é `origin/main` no merge
+  `9c92673`, correspondente ao PR #136.
+- O build web de produção foi executado pelo script `deploy-vercel.ps1` e
+  concluiu com sucesso em 106,8 s.
+- A primeira tentativa de deploy foi recusada por `Not authorized` porque o
+  vínculo local usava um escopo antigo. O deploy foi repetido com o time
+  `gabriels-projects-ec03504d` e concluiu com sucesso.
+
+### Produção
+
+- Deployment: `dpl_3q2b1wXyp8D3C5fuNyXmraxfFC4R`.
+- URL do deployment: `https://church360-5mchbrxqn-gabriels-projects-ec03504d.vercel.app`.
+- Estado: `READY`, target `production`.
+- Alias confirmado: `https://app.church360.com.br`.
+- A conta autenticada foi `rgagithub-1384`; o escopo correto foi
+  `gabriels-projects-ec03504d`.
+
+### Verificação desta sessão
+
+- `flutter build web --release`: passou.
+- Avisos Wasm conhecidos permanecem nas dependências `audioplayers_web`,
+  `dart:html`, `package:js` e `image`; não bloquearam o build JavaScript.
+- `vercel inspect` confirmou o deployment de produção como `Ready` e os
+  aliases de produção.
+- Os sete registradores Flutter gerados permanecem modificados localmente e
+  fora deste commit:
+  `linux/flutter/generated_plugin_registrant.cc`,
+  `linux/flutter/generated_plugin_registrant.h`,
+  `linux/flutter/generated_plugins.cmake`,
+  `macos/Flutter/GeneratedPluginRegistrant.swift`,
+  `windows/flutter/generated_plugin_registrant.cc`,
+  `windows/flutter/generated_plugin_registrant.h` e
+  `windows/flutter/generated_plugins.cmake`.
+
+### Estado Git e próximos passos
+
+- Esta atualização está sendo preparada na branch `chore/session-wrap-final`,
+  baseada no `origin/main` do merge `9c92673`.
+- O único arquivo intencional desta atualização é `SESSION-WRAP.md`; os sete
+  arquivos gerados acima devem continuar fora do commit.
+- O próximo agente deve começar lendo este wrap, validar o alias de produção
+  com uma sessão autenticada quando possível e continuar a próxima fatia
+  visual de Events (`event_detail_screen.dart`, `event_form_screen.dart` e
+  `event_registration_screen.dart`).
