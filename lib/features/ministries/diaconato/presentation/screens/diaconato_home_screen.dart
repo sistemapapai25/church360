@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
+import '../../../../../core/widgets/glass_card.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../../domain/models/diaconato_dashboard_stats.dart';
@@ -54,8 +56,7 @@ class _DiaconatoContentState extends ConsumerState<_DiaconatoContent> {
 
   @override
   Widget build(BuildContext context) {
-    final ministryAsync =
-        ref.watch(ministryByIdProvider(widget.ministryId));
+    final ministryAsync = ref.watch(ministryByIdProvider(widget.ministryId));
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -85,7 +86,7 @@ class _DiaconatoContentState extends ConsumerState<_DiaconatoContent> {
             _SectionLabel(text: 'ATALHOS'),
             const SizedBox(height: 8),
             _PlaceholderCard(
-              icon: Icons.checklist_outlined,
+              icon: AppIcons.checklist,
               title: 'Checklist de presença',
               description:
                   'Membros primeiro, visitantes cadastrados depois, contagem de não cadastrados.',
@@ -96,7 +97,7 @@ class _DiaconatoContentState extends ConsumerState<_DiaconatoContent> {
             ),
             const SizedBox(height: 16),
             _PlaceholderCard(
-              icon: Icons.call_missed_outgoing_outlined,
+              icon: AppIcons.callMissed,
               title: 'Ausentes',
               description:
                   'Triagem dos ausentes: sem ação, ligação, ceia, ou ambos.',
@@ -107,7 +108,7 @@ class _DiaconatoContentState extends ConsumerState<_DiaconatoContent> {
             ),
             const SizedBox(height: 16),
             _PlaceholderCard(
-              icon: Icons.takeout_dining_outlined,
+              icon: AppIcons.communion,
               title: 'Lotes de ceia',
               description:
                   'Lote por culto com responsável, status e (em breve) WhatsApp via dispatch.',
@@ -132,10 +133,10 @@ class _SectionLabel extends StatelessWidget {
     return Text(
       text,
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.1,
-          ),
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 1.1,
+      ),
     );
   }
 }
@@ -156,9 +157,8 @@ class _DashboardSection extends ConsumerWidget {
       ),
       error: (e, _) => _DashboardError(
         message: e.toString(),
-        onRetry: () => ref.invalidate(
-          diaconatoDashboardStatsProvider(ministryId),
-        ),
+        onRetry: () =>
+            ref.invalidate(diaconatoDashboardStatsProvider(ministryId)),
       ),
     );
   }
@@ -179,10 +179,7 @@ class _DashboardBody extends StatelessWidget {
         if (lastCount == null)
           _NoCountHero()
         else
-          _LastCountHero(
-            ministryId: ministryId,
-            lastCount: lastCount,
-          ),
+          _LastCountHero(ministryId: ministryId, lastCount: lastCount),
         const SizedBox(height: 16),
         _KpiRow(stats: stats),
         if (stats.unregisteredVisitorsLast30Days > 0) ...[
@@ -207,115 +204,110 @@ class _LastCountHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final dateLabel = _capitalize(
-      DateFormat("EEE, d 'de' MMM 'de' y", 'pt_BR').format(lastCount.serviceDate),
+      DateFormat(
+        "EEE, d 'de' MMM 'de' y",
+        'pt_BR',
+      ).format(lastCount.serviceDate),
     );
 
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(cs),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(CommunityDesign.radius),
-          onTap: () => context.push(
-            '/ministries/$ministryId/diaconato/absentees/${lastCount.worshipServiceId}',
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return GlassCard(
+      onTap: () => context.push(
+        '/ministries/$ministryId/diaconato/absentees/${lastCount.worshipServiceId}',
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(Icons.event_available_outlined,
-                          color: cs.primary),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Último culto contado',
-                            style: CommunityDesign.metaStyle(context),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            dateLabel,
-                            style: CommunityDesign.titleStyle(context).copyWith(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      size: 14,
-                      color: cs.onSurface.withValues(alpha: 0.3),
-                    ),
-                  ],
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(AppIcons.eventAvailable, color: cs.primary),
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    _MiniStat(
-                      label: 'Membros',
-                      value: lastCount.totalMembersPresent,
-                      color: cs.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    _MiniStat(
-                      label: 'Vis. cad.',
-                      value: lastCount.totalRegisteredVisitorsPresent,
-                      color: Colors.blue,
-                    ),
-                    const SizedBox(width: 8),
-                    _MiniStat(
-                      label: 'Não cad.',
-                      value: lastCount.totalUnregisteredVisitors,
-                      color: Colors.orange,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: cs.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              lastCount.totalPeople.toString(),
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: cs.primary,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Total',
-                              style: CommunityDesign.metaStyle(context)
-                                  .copyWith(fontSize: 11),
-                            ),
-                          ],
-                        ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Último culto contado',
+                        style: CommunityDesign.metaStyle(context),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        dateLabel,
+                        style: CommunityDesign.titleStyle(
+                          context,
+                        ).copyWith(fontWeight: FontWeight.w700, fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  AppIcons.forward,
+                  size: 14,
+                  color: cs.onSurface.withValues(alpha: 0.3),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                _MiniStat(
+                  label: 'Membros',
+                  value: lastCount.totalMembersPresent,
+                  color: cs.primary,
+                ),
+                const SizedBox(width: 8),
+                _MiniStat(
+                  label: 'Vis. cad.',
+                  value: lastCount.totalRegisteredVisitorsPresent,
+                  color: Colors.blue,
+                ),
+                const SizedBox(width: 8),
+                _MiniStat(
+                  label: 'Não cad.',
+                  value: lastCount.totalUnregisteredVisitors,
+                  color: Colors.orange,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          lastCount.totalPeople.toString(),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: cs.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Total',
+                          style: CommunityDesign.metaStyle(
+                            context,
+                          ).copyWith(fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -371,9 +363,7 @@ class _NoCountHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(cs),
-      padding: const EdgeInsets.all(20),
+    return GlassCard(
       child: Row(
         children: [
           Container(
@@ -383,7 +373,7 @@ class _NoCountHero extends StatelessWidget {
               color: cs.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(Icons.fact_check_outlined, color: cs.primary),
+            child: Icon(AppIcons.factCheck, color: cs.primary),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -392,10 +382,9 @@ class _NoCountHero extends StatelessWidget {
               children: [
                 Text(
                   'Nenhum culto contado ainda',
-                  style: CommunityDesign.titleStyle(context).copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                  ),
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w700, fontSize: 15),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -424,7 +413,7 @@ class _KpiRow extends StatelessWidget {
             label: 'Triagem pend.',
             value: stats.pendingTriageInLastCount,
             color: Colors.redAccent,
-            icon: Icons.help_outline,
+            icon: AppIcons.help,
           ),
         ),
         const SizedBox(width: 8),
@@ -433,7 +422,7 @@ class _KpiRow extends StatelessWidget {
             label: 'Ceias abertas',
             value: stats.openCommunionItems,
             color: Colors.deepPurple,
-            icon: Icons.takeout_dining_outlined,
+            icon: AppIcons.communion,
           ),
         ),
         const SizedBox(width: 8),
@@ -442,7 +431,7 @@ class _KpiRow extends StatelessWidget {
             label: 'Minhas ceias',
             value: stats.myAssignedItems,
             color: Colors.green,
-            icon: Icons.person,
+            icon: AppIcons.personFilled,
           ),
         ),
       ],
@@ -504,17 +493,13 @@ class _UnregisteredBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GlassCard(
+      accentColor: Colors.orange,
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.orange.withValues(alpha: 0.08),
-        border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.add_circle_outline, color: Colors.orange),
+          const Icon(AppIcons.addCircle, color: Colors.orange),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -533,7 +518,7 @@ class _UnregisteredBanner extends StatelessWidget {
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: onCapture,
-                  icon: const Icon(Icons.eco_outlined, size: 16),
+                  icon: const Icon(AppIcons.eco, size: 16),
                   label: const Text('Ir para Raízes'),
                 ),
               ],
@@ -553,14 +538,10 @@ class _DashboardError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: CommunityDesign.overlayDecoration(
-        Theme.of(context).colorScheme,
-      ),
+    return GlassCard(
       child: Column(
         children: [
-          const Icon(Icons.error_outline, color: Colors.red),
+          const Icon(AppIcons.error, color: Colors.red),
           const SizedBox(height: 8),
           Text(
             'Erro ao carregar dashboard',
@@ -575,7 +556,7 @@ class _DashboardError extends StatelessWidget {
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh, size: 16),
+            icon: const Icon(AppIcons.refresh, size: 16),
             label: const Text('Tentar novamente'),
           ),
         ],
@@ -613,16 +594,12 @@ class _PlaceholderCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: CommunityDesign.titleStyle(context).copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w700, fontSize: 16),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: CommunityDesign.metaStyle(context),
-                ),
+                Text(description, style: CommunityDesign.metaStyle(context)),
               ],
             ),
           ),
@@ -638,21 +615,7 @@ class _PlaceholderCard extends StatelessWidget {
       ),
     );
 
-    final container = Container(
-      decoration: CommunityDesign.overlayDecoration(cs),
-      child: onTap == null
-          ? content
-          : Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(CommunityDesign.radius),
-                onTap: onTap,
-                child: content,
-              ),
-            ),
-    );
-
-    return container;
+    return GlassCard(onTap: onTap, child: content);
   }
 }
 

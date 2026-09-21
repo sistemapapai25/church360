@@ -125,4 +125,12 @@ abstract final class AppIcons {
   static const tune = Icons.tune;
   static const autoSchedule = Icons.hub;
   static const history = Icons.history;
+  static const factCheck = Icons.fact_check_outlined;
+  static const help = Icons.help_outline;
+  static const callMissed = Icons.call_missed_outgoing_outlined;
+  static const communion = Icons.takeout_dining_outlined;
+  static const eco = Icons.eco_outlined;
+  static const addCircle = Icons.add_circle_outline;
+  static const sync = Icons.sync;
+  static const lockOpen = Icons.lock_open;
 }

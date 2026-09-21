@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../core/design/app_icons.dart';
+import '../../../../../core/widgets/glass_card.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../../members/presentation/providers/members_provider.dart';
 import '../../domain/models/ministry_notification_config.dart';
@@ -47,8 +49,8 @@ class _MinistryNotificationConfigScreenState
     final existing = await repo.getByMinistry(widget.ministryId);
     if (!mounted) return;
     setState(() {
-      _config = existing ??
-          MinistryNotificationConfig.defaultFor(widget.ministryId);
+      _config =
+          existing ?? MinistryNotificationConfig.defaultFor(widget.ministryId);
       _loading = false;
     });
   }
@@ -66,19 +68,21 @@ class _MinistryNotificationConfigScreenState
         _config = saved;
         _saving = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Configuração salva')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Configuração salva')));
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao salvar: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao salvar: $e')));
     }
   }
 
-  void _update(MinistryNotificationConfig Function(MinistryNotificationConfig) f) {
+  void _update(
+    MinistryNotificationConfig Function(MinistryNotificationConfig) f,
+  ) {
     setState(() {
       if (_config != null) _config = f(_config!);
     });
@@ -87,9 +91,7 @@ class _MinistryNotificationConfigScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notificações de mudança'),
-      ),
+      appBar: AppBar(title: const Text('Notificações de mudança')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _buildBody(context),
@@ -106,7 +108,7 @@ class _MinistryNotificationConfigScreenState
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.save),
+                      : const Icon(AppIcons.save),
                   label: const Text('Salvar'),
                 ),
               ),
@@ -119,49 +121,73 @@ class _MinistryNotificationConfigScreenState
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
-        Text(
-          'Ministério: ${widget.ministryName}',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Quando algo muda na agenda deste ministério (evento adicionado/removido, escala editada, membro escalado), os destinatários abaixo recebem uma notificação dentro do app.',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 20),
-
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Ativo'),
-          subtitle: const Text('Desliga todas as notificações sem perder a configuração'),
-          value: cfg.active,
-          onChanged: (v) => _update((c) => c.copyWith(active: v)),
-        ),
-
-        const Divider(height: 32),
-
-        Text('Quem recebe?', style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 8),
-        AbsorbPointer(
-          absorbing: !cfg.active,
-          child: Opacity(
-            opacity: cfg.active ? 1.0 : 0.5,
-            child: RadioGroup<NotificationConfigMode>(
-              groupValue: cfg.mode,
-              onChanged: (v) {
-                if (v != null) _update((c) => c.copyWith(mode: v));
-              },
-              child: Column(
+        GlassCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  for (final m in NotificationConfigMode.values)
-                    RadioListTile<NotificationConfigMode>(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(m.label),
-                      value: m,
+                  const Icon(AppIcons.notificationsActive),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Ministério: ${widget.ministryName}',
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
+                  ),
                 ],
               ),
-            ),
+              const SizedBox(height: 8),
+              Text(
+                'Quando algo muda na agenda deste ministério (evento adicionado/removido, escala editada, membro escalado), os destinatários abaixo recebem uma notificação dentro do app.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Ativo'),
+                subtitle: const Text(
+                  'Desliga todas as notificações sem perder a configuração',
+                ),
+                value: cfg.active,
+                onChanged: (v) => _update((c) => c.copyWith(active: v)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        GlassCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Quem recebe?',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              AbsorbPointer(
+                absorbing: !cfg.active,
+                child: Opacity(
+                  opacity: cfg.active ? 1.0 : 0.5,
+                  child: RadioGroup<NotificationConfigMode>(
+                    groupValue: cfg.mode,
+                    onChanged: (v) {
+                      if (v != null) _update((c) => c.copyWith(mode: v));
+                    },
+                    child: Column(
+                      children: [
+                        for (final m in NotificationConfigMode.values)
+                          RadioListTile<NotificationConfigMode>(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(m.label),
+                            value: m,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
 
@@ -171,83 +197,109 @@ class _MinistryNotificationConfigScreenState
           const SizedBox(height: 12),
           _buildCustomUsersPicker(cfg),
         ],
-
-        const Divider(height: 32),
-
-        Text('Quando notificar?', style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 4),
-        Text(
-          'Os toggles abaixo controlam quais tipos de mudança disparam notificação.',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 8),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Evento adicionado à agenda'),
-          value: cfg.notifyOnEventAdded,
-          onChanged: cfg.active
-              ? (v) => _update((c) => c.copyWith(notifyOnEventAdded: v))
-              : null,
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Evento removido da agenda'),
-          value: cfg.notifyOnEventRemoved,
-          onChanged: cfg.active
-              ? (v) => _update((c) => c.copyWith(notifyOnEventRemoved: v))
-              : null,
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Evento editado'),
-          subtitle: const Text('Nome, data/hora, local, tipo ou status'),
-          value: cfg.notifyOnEventUpdated,
-          onChanged: cfg.active
-              ? (v) => _update((c) => c.copyWith(notifyOnEventUpdated: v))
-              : null,
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Membro escalado/desescalado'),
-          value: cfg.notifyOnMemberAssigned,
-          onChanged: cfg.active
-              ? (v) => _update((c) => c.copyWith(notifyOnMemberAssigned: v))
-              : null,
-        ),
-
-        const Divider(height: 32),
-
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Sempre incluir membro afetado'),
-          subtitle: const Text(
-              'Quando alguém é escalado/desescalado, ele recebe a notificação mesmo se não estiver na lista acima.'),
-          value: cfg.alwaysIncludeAffectedMember,
-          onChanged: cfg.active
-              ? (v) =>
-                  _update((c) => c.copyWith(alwaysIncludeAffectedMember: v))
-              : null,
+        const SizedBox(height: 12),
+        GlassCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(AppIcons.tune),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Quando notificar?',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Os toggles abaixo controlam quais tipos de mudança disparam notificação.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              _notificationToggle(
+                title: 'Evento adicionado à agenda',
+                value: cfg.notifyOnEventAdded,
+                onChanged: cfg.active
+                    ? (v) => _update((c) => c.copyWith(notifyOnEventAdded: v))
+                    : null,
+              ),
+              _notificationToggle(
+                title: 'Evento removido da agenda',
+                value: cfg.notifyOnEventRemoved,
+                onChanged: cfg.active
+                    ? (v) => _update((c) => c.copyWith(notifyOnEventRemoved: v))
+                    : null,
+              ),
+              _notificationToggle(
+                title: 'Evento editado',
+                subtitle: 'Nome, data/hora, local, tipo ou status',
+                value: cfg.notifyOnEventUpdated,
+                onChanged: cfg.active
+                    ? (v) => _update((c) => c.copyWith(notifyOnEventUpdated: v))
+                    : null,
+              ),
+              _notificationToggle(
+                title: 'Membro escalado/desescalado',
+                value: cfg.notifyOnMemberAssigned,
+                onChanged: cfg.active
+                    ? (v) =>
+                          _update((c) => c.copyWith(notifyOnMemberAssigned: v))
+                    : null,
+              ),
+              _notificationToggle(
+                title: 'Sempre incluir membro afetado',
+                subtitle:
+                    'Quando alguém é escalado/desescalado, ele recebe a notificação mesmo se não estiver na lista acima.',
+                value: cfg.alwaysIncludeAffectedMember,
+                onChanged: cfg.active
+                    ? (v) => _update(
+                        (c) => c.copyWith(alwaysIncludeAffectedMember: v),
+                      )
+                    : null,
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
+  Widget _notificationToggle({
+    required String title,
+    String? subtitle,
+    required bool value,
+    required ValueChanged<bool>? onChanged,
+  }) {
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(title),
+      subtitle: subtitle == null ? null : Text(subtitle),
+      value: value,
+      onChanged: onChanged,
+    );
+  }
+
   Widget _buildCustomMinistriesPicker(MinistryNotificationConfig cfg) {
-    return Card(
+    return GlassCard(
+      padding: const EdgeInsets.all(12),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.zero,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 const Expanded(
-                  child: Text('Ministérios inteiros incluídos',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'Ministérios inteiros incluídos',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 TextButton.icon(
                   onPressed: cfg.active ? _pickMinistry : null,
-                  icon: const Icon(Icons.add, size: 18),
+                  icon: const Icon(AppIcons.add, size: 18),
                   label: const Text('Adicionar'),
                 ),
               ],
@@ -267,11 +319,13 @@ class _MinistryNotificationConfigScreenState
                     InputChip(
                       label: Text(_ministryNamesCache[id] ?? id),
                       onDeleted: cfg.active
-                          ? () => _update((c) => c.copyWith(
+                          ? () => _update(
+                              (c) => c.copyWith(
                                 customMinistryIds: List<String>.from(
-                                    c.customMinistryIds)
-                                  ..remove(id),
-                              ))
+                                  c.customMinistryIds,
+                                )..remove(id),
+                              ),
+                            )
                           : null,
                     ),
                 ],
@@ -283,21 +337,24 @@ class _MinistryNotificationConfigScreenState
   }
 
   Widget _buildCustomUsersPicker(MinistryNotificationConfig cfg) {
-    return Card(
+    return GlassCard(
+      padding: const EdgeInsets.all(12),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.zero,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 const Expanded(
-                  child: Text('Pessoas individuais',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'Pessoas individuais',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
                 TextButton.icon(
                   onPressed: cfg.active ? _pickUser : null,
-                  icon: const Icon(Icons.add, size: 18),
+                  icon: const Icon(AppIcons.add, size: 18),
                   label: const Text('Adicionar'),
                 ),
               ],
@@ -317,11 +374,13 @@ class _MinistryNotificationConfigScreenState
                     InputChip(
                       label: Text(_userNamesCache[id] ?? id),
                       onDeleted: cfg.active
-                          ? () => _update((c) => c.copyWith(
+                          ? () => _update(
+                              (c) => c.copyWith(
                                 customUserIds: List<String>.from(
-                                    c.customUserIds)
-                                  ..remove(id),
-                              ))
+                                  c.customUserIds,
+                                )..remove(id),
+                              ),
+                            )
                           : null,
                     ),
                 ],
@@ -333,15 +392,17 @@ class _MinistryNotificationConfigScreenState
   }
 
   Future<void> _pickMinistry() async {
-    final mins =
-        await ref.read(activeMinistriesProvider.future);
+    final mins = await ref.read(activeMinistriesProvider.future);
     if (!mounted) return;
     final cfg = _config!;
-    final available =
-        mins.where((m) => !cfg.customMinistryIds.contains(m.id)).toList();
+    final available = mins
+        .where((m) => !cfg.customMinistryIds.contains(m.id))
+        .toList();
     if (available.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nenhum ministério disponível pra adicionar')),
+        const SnackBar(
+          content: Text('Nenhum ministério disponível pra adicionar'),
+        ),
       );
       return;
     }
@@ -361,9 +422,9 @@ class _MinistryNotificationConfigScreenState
     if (picked == null) return;
     final pickedMinistry = available.firstWhere((m) => m.id == picked);
     _ministryNamesCache[picked] = pickedMinistry.name;
-    _update((c) => c.copyWith(
-          customMinistryIds: [...c.customMinistryIds, picked],
-        ));
+    _update(
+      (c) => c.copyWith(customMinistryIds: [...c.customMinistryIds, picked]),
+    );
   }
 
   Future<void> _pickUser() async {
@@ -374,9 +435,7 @@ class _MinistryNotificationConfigScreenState
     if (picked == null) return;
     if (_config!.customUserIds.contains(picked.$1)) return;
     _userNamesCache[picked.$1] = picked.$2;
-    _update((c) => c.copyWith(
-          customUserIds: [...c.customUserIds, picked.$1],
-        ));
+    _update((c) => c.copyWith(customUserIds: [...c.customUserIds, picked.$1]));
   }
 }
 
@@ -406,7 +465,7 @@ class _UserSearchDialogState extends ConsumerState<_UserSearchDialog> {
               autofocus: true,
               decoration: const InputDecoration(
                 labelText: 'Buscar (mín. 3 letras)',
-                prefixIcon: Icon(Icons.search),
+                prefixIcon: Icon(AppIcons.search),
                 border: OutlineInputBorder(),
               ),
               onChanged: (v) => setState(() => _query = v),
@@ -421,7 +480,8 @@ class _UserSearchDialogState extends ConsumerState<_UserSearchDialog> {
                       data: (members) {
                         if (members.isEmpty) {
                           return const Center(
-                              child: Text('Ninguém encontrado.'));
+                            child: Text('Ninguém encontrado.'),
+                          );
                         }
                         return ListView.builder(
                           itemCount: members.length,
@@ -433,14 +493,15 @@ class _UserSearchDialogState extends ConsumerState<_UserSearchDialog> {
                               subtitle: (m.email.isNotEmpty)
                                   ? Text(m.email)
                                   : null,
-                              onTap: () => Navigator.of(context)
-                                  .pop((m.id, m.displayName)),
+                              onTap: () => Navigator.of(
+                                context,
+                              ).pop((m.id, m.displayName)),
                             );
                           },
                         );
                       },
-                      loading: () => const Center(
-                          child: CircularProgressIndicator()),
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
                       error: (e, _) => Center(child: Text('Erro: $e')),
                     ),
             ),

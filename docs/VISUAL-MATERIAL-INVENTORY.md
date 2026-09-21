@@ -22,7 +22,7 @@ um ajuste de inventário, não como uma remoção presumida.
 | --- | ---: | ---: | --- |
 | Members | 207 | 4 | Listagem migrada; perfil e formulário ainda pendentes |
 | Visitors | 34 | 4 | Slice completo: listagem, registro de visita, follow-up e estatísticas migrados |
-| Ministries | 295 | 29 | Listagem e workspace compartilhado migrados nesta onda; detalhes e submódulos ainda pendentes |
+| Ministries | 295 | 29 | Listagem, workspace compartilhado, detalhe/formulário, Batismo e o dashboard Diaconato migrados; Raízes e telas operacionais do Diaconato ainda pendentes |
 | Events | 158 | 9 | Pendente |
 | Financeiro | 105 | 13 | Pendente |
 | Financeiro legado | 53 | 5 | Pendente |
@@ -112,3 +112,19 @@ persistência ou contratos de dados.
 
 Não houve alteração em rotas, permissões, providers, repositórios,
 persistência, fila de mensagens, geração de PDF ou contratos de dados.
+
+## Onda visual — Diaconato e notificações de ministério
+
+- `diaconato_home_screen.dart` agora usa `GlassCard` no último culto, estado
+  vazio, alerta de visitantes, erro e atalhos. Os indicadores e atalhos usam
+  semânticas de `AppIcons`, preservando os links e o dispatch existentes.
+- `ministry_notification_config_screen.dart` agora organiza contexto, público
+  e gatilhos em `GlassCard`; ações de salvar, busca e adição usam `AppIcons`.
+- O catálogo ganhou somente semânticas reutilizáveis de presença, ceia,
+  ausência, captação, sincronização e bloqueio.
+- A cobertura focada foi adicionada em
+  `test/features/ministries/diaconato_notification_visual_test.dart`, com
+  fakes sem rede e validação após rolagem das listas lazy.
+
+Não houve alteração em rotas, permissões, providers, repositórios,
+persistência ou contratos de dados.
