@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../../../core/design/app_icons.dart';
 import '../../../../../../core/design/community_design.dart';
 import '../../../../../../core/widgets/app_filter_bar.dart';
+import '../../../../../../core/widgets/glass_card.dart';
 import '../../../../../../core/widgets/status_badge.dart';
 import '../../../data/baptism_repository.dart';
 import '../../../domain/baptism_attendance_roll.dart';
@@ -106,11 +107,7 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
         );
       } else {
         await repo.markAttendance([
-          (
-            meetingId: roll.meeting.id,
-            studentId: student.id,
-            status: status,
-          ),
+          (meetingId: roll.meeting.id, studentId: student.id, status: status),
         ]);
       }
       if (!mounted) return;
@@ -199,9 +196,9 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
   }
 
   void _showError(Object error) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Não foi possível salvar: $error')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Não foi possível salvar: $error')));
   }
 
   Future<T?> _pickOption<T>({
@@ -226,8 +223,9 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
                 title,
-                style: CommunityDesign.titleStyle(context)
-                    .copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+                style: CommunityDesign.titleStyle(
+                  context,
+                ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
               ),
             ),
             const SizedBox(height: 8),
@@ -257,17 +255,19 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
 
   @override
   Widget build(BuildContext context) {
-    final rollsAsync = ref.watch(baptismMeetingRollsProvider(widget.ministryId));
-    final turmas = ref.watch(baptismTurmasProvider(widget.ministryId)).maybeWhen(
-          data: (t) => t,
-          orElse: () => const <BaptismTurma>[],
-        );
+    final rollsAsync = ref.watch(
+      baptismMeetingRollsProvider(widget.ministryId),
+    );
+    final turmas = ref
+        .watch(baptismTurmasProvider(widget.ministryId))
+        .maybeWhen(data: (t) => t, orElse: () => const <BaptismTurma>[]);
 
     bool can(BaptismWriteAction action) => ref
         .watch(
-          baptismCanWriteProvider(
-            (ministryId: widget.ministryId, action: action),
-          ),
+          baptismCanWriteProvider((
+            ministryId: widget.ministryId,
+            action: action,
+          )),
         )
         .maybeWhen(data: (v) => v, orElse: () => false);
 
@@ -340,7 +340,8 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
                 const _EmptyState(
                   icon: Icons.groups_2_outlined,
                   title: 'Nenhuma turma cadastrada',
-                  message: 'O encontro pertence a uma turma. Cadastre a '
+                  message:
+                      'O encontro pertence a uma turma. Cadastre a '
                       'primeira turma na aba Alunos e a chamada passa a '
                       'fazer sentido aqui.',
                 )
@@ -417,7 +418,7 @@ class _MeetingCard extends StatelessWidget {
   final Set<String> busyKeys;
   final VoidCallback onToggleExpanded;
   final void Function(BaptismStudent student, BaptismAttendanceStatus status)
-      onSetStatus;
+  onSetStatus;
   final VoidCallback onMarkRemaining;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -441,116 +442,114 @@ class _MeetingCard extends StatelessWidget {
     final meeting = roll.meeting;
     final turma = meeting.turmaName;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor),
-      ),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: onToggleExpanded,
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          meeting.title,
-                          style: CommunityDesign.titleStyle(context).copyWith(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GlassCard(
+        padding: EdgeInsets.zero,
+        child: Column(
+          children: [
+            InkWell(
+              onTap: onToggleExpanded,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            meeting.title,
+                            style: CommunityDesign.titleStyle(context).copyWith(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          [
-                            DateFormat('dd/MM/yyyy').format(meeting.day),
-                            if (turma != null && turma.isNotEmpty) turma,
-                          ].join(' · '),
-                          style: CommunityDesign.metaStyle(context),
-                        ),
-                        const SizedBox(height: 8),
-                        _RollSummary(roll: roll),
-                      ],
+                          const SizedBox(height: 4),
+                          Text(
+                            [
+                              DateFormat('dd/MM/yyyy').format(meeting.day),
+                              if (turma != null && turma.isNotEmpty) turma,
+                            ].join(' · '),
+                            style: CommunityDesign.metaStyle(context),
+                          ),
+                          const SizedBox(height: 8),
+                          _RollSummary(roll: roll),
+                        ],
+                      ),
                     ),
-                  ),
-                  if (canEdit || canDelete)
-                    PopupMenuButton<String>(
-                      itemBuilder: (context) => [
-                        if (canEdit)
-                          const PopupMenuItem(
-                            value: 'edit',
-                            child: Text('Editar'),
-                          ),
-                        if (canDelete)
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Text('Excluir'),
-                          ),
-                      ],
-                      onSelected: (value) {
-                        switch (value) {
-                          case 'edit':
-                            onEdit();
-                          case 'delete':
-                            onDelete();
-                        }
-                      },
+                    if (canEdit || canDelete)
+                      PopupMenuButton<String>(
+                        itemBuilder: (context) => [
+                          if (canEdit)
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Text('Editar'),
+                            ),
+                          if (canDelete)
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Text('Excluir'),
+                            ),
+                        ],
+                        onSelected: (value) {
+                          switch (value) {
+                            case 'edit':
+                              onEdit();
+                            case 'delete':
+                              onDelete();
+                          }
+                        },
+                      ),
+                    Icon(
+                      expanded ? AppIcons.expandLess : AppIcons.expandMore,
+                      color: theme.hintColor,
                     ),
-                  Icon(
-                    expanded ? AppIcons.expandLess : AppIcons.expandMore,
-                    color: theme.hintColor,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          if (expanded) ...[
-            Divider(height: 1, color: theme.dividerColor),
-            if (roll.students.isEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                child: Text(
-                  'Nenhum aluno nesta turma ainda. A chamada aparece assim '
-                  'que alguém entrar nela.',
-                  style: CommunityDesign.metaStyle(context),
-                ),
-              )
-            else ...[
-              for (final student in roll.students)
-                _StudentRollTile(
-                  student: student,
-                  status: roll.statusOf(student),
-                  canEdit: canEdit,
-                  busy: busyKeys.contains('${roll.meeting.id}:${student.id}'),
-                  onSetStatus: (status) => onSetStatus(student, status),
-                ),
-              if (canEdit && roll.unmarked > 0)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(0, 0, 8, 8),
-                    child: TextButton.icon(
-                      onPressed: onMarkRemaining,
-                      icon: const Icon(Icons.done_all, size: 18),
-                      label: Text(
-                        roll.isUntouched
-                            ? 'Marcar todos presentes'
-                            : 'Marcar os ${roll.unmarked} restantes',
+            if (expanded) ...[
+              Divider(height: 1, color: theme.dividerColor),
+              if (roll.students.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                  child: Text(
+                    'Nenhum aluno nesta turma ainda. A chamada aparece assim '
+                    'que alguém entrar nela.',
+                    style: CommunityDesign.metaStyle(context),
+                  ),
+                )
+              else ...[
+                for (final student in roll.students)
+                  _StudentRollTile(
+                    student: student,
+                    status: roll.statusOf(student),
+                    canEdit: canEdit,
+                    busy: busyKeys.contains('${roll.meeting.id}:${student.id}'),
+                    onSetStatus: (status) => onSetStatus(student, status),
+                  ),
+                if (canEdit && roll.unmarked > 0)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(0, 0, 8, 8),
+                      child: TextButton.icon(
+                        onPressed: onMarkRemaining,
+                        icon: const Icon(AppIcons.doneAll, size: 18),
+                        label: Text(
+                          roll.isUntouched
+                              ? 'Marcar todos presentes'
+                              : 'Marcar os ${roll.unmarked} restantes',
+                        ),
                       ),
                     ),
                   ),
-                ),
+              ],
             ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -640,8 +639,9 @@ class _StudentRollTile extends StatelessWidget {
           Expanded(
             child: Text(
               student.fullName,
-              style:
-                  CommunityDesign.contentStyle(context).copyWith(fontSize: 14),
+              style: CommunityDesign.contentStyle(
+                context,
+              ).copyWith(fontSize: 14),
             ),
           ),
           if (busy)
@@ -694,17 +694,17 @@ class _StatusDot extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return switch (status) {
       BaptismAttendanceStatus.presente => (
-          icon: Icons.check,
-          color: scheme.primary,
-        ),
+        icon: Icons.check,
+        color: scheme.primary,
+      ),
       BaptismAttendanceStatus.ausente => (
-          icon: Icons.close,
-          color: scheme.error,
-        ),
+        icon: Icons.close,
+        color: scheme.error,
+      ),
       BaptismAttendanceStatus.justificado => (
-          icon: Icons.event_busy_outlined,
-          color: scheme.tertiary,
-        ),
+        icon: Icons.event_busy_outlined,
+        color: scheme.tertiary,
+      ),
     };
   }
 
@@ -721,8 +721,9 @@ class _StatusDot extends StatelessWidget {
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
         padding: EdgeInsets.zero,
         style: IconButton.styleFrom(
-          backgroundColor:
-              selected ? look.color.withValues(alpha: 0.14) : Colors.transparent,
+          backgroundColor: selected
+              ? look.color.withValues(alpha: 0.14)
+              : Colors.transparent,
           shape: const CircleBorder(),
         ),
         icon: Icon(
@@ -762,7 +763,8 @@ class _MeetingFormSheetState extends ConsumerState<_MeetingFormSheet> {
     _title = TextEditingController(text: meeting?.title ?? '');
     _notes = TextEditingController(text: meeting?.notes ?? '');
     _date = meeting?.day ?? _today();
-    _turmaId = meeting?.turmaId ??
+    _turmaId =
+        meeting?.turmaId ??
         (widget.turmas.length == 1 ? widget.turmas.first.id : null);
   }
 
@@ -867,8 +869,9 @@ class _MeetingFormSheetState extends ConsumerState<_MeetingFormSheet> {
             children: [
               Text(
                 widget.meeting == null ? 'Novo encontro' : 'Editar encontro',
-                style: CommunityDesign.titleStyle(context)
-                    .copyWith(fontSize: 18, fontWeight: FontWeight.w700),
+                style: CommunityDesign.titleStyle(
+                  context,
+                ).copyWith(fontSize: 18, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -889,10 +892,7 @@ class _MeetingFormSheetState extends ConsumerState<_MeetingFormSheet> {
                 decoration: const InputDecoration(labelText: 'Turma'),
                 items: [
                   for (final t in widget.turmas)
-                    DropdownMenuItem<String?>(
-                      value: t.id,
-                      child: Text(t.name),
-                    ),
+                    DropdownMenuItem<String?>(value: t.id, child: Text(t.name)),
                 ],
                 onChanged: (v) => setState(() => _turmaId = v),
                 validator: (v) => v == null ? 'Escolha a turma' : null,
@@ -971,8 +971,9 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(left: 4),
       child: Text(
         '${label.toUpperCase()} · $suffix',
-        style: CommunityDesign.metaStyle(context)
-            .copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.4),
+        style: CommunityDesign.metaStyle(
+          context,
+        ).copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.4),
       ),
     );
   }
@@ -1015,8 +1016,9 @@ class _EmptyState extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: CommunityDesign.titleStyle(context)
-                .copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+            style: CommunityDesign.titleStyle(
+              context,
+            ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
           Text(
@@ -1052,14 +1054,18 @@ class _PresencaError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline,
-                size: 40, color: Theme.of(context).hintColor),
+            Icon(
+              Icons.error_outline,
+              size: 40,
+              color: Theme.of(context).hintColor,
+            ),
             const SizedBox(height: 12),
             Text(
               'Não foi possível carregar a presença.',
               textAlign: TextAlign.center,
-              style: CommunityDesign.titleStyle(context)
-                  .copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
             Text(
@@ -1069,7 +1075,9 @@ class _PresencaError extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             FilledButton(
-                onPressed: onRetry, child: const Text('Tentar de novo')),
+              onPressed: onRetry,
+              child: const Text('Tentar de novo'),
+            ),
           ],
         ),
       ),
