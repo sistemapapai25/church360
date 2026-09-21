@@ -23,7 +23,7 @@ um ajuste de inventário, não como uma remoção presumida.
 | Members | 207 | 4 | Listagem migrada; perfil e formulário ainda pendentes |
 | Visitors | 34 | 4 | Slice completo: listagem, registro de visita, follow-up e estatísticas migrados |
 | Ministries | 295 | 29 | Listagem, workspace compartilhado, detalhe/formulário, Batismo, Diaconato e Raízes migrados |
-| Events | 158 | 9 | Pendente |
+| Events | 158 | 9 | Listagem migrada nesta fase; detalhe, formulário e registro pendentes |
 | Financeiro | 105 | 13 | Pendente |
 | Financeiro legado | 53 | 5 | Pendente |
 | Community | 85 | 2 | Pendente; preservar Font Awesome |
@@ -143,6 +143,20 @@ persistência, fila de mensagens, geração de PDF ou contratos de dados.
 - A cobertura focada foi adicionada em
   `test/features/ministries/diaconato_notification_visual_test.dart`, com
   fakes sem rede e validação após rolagem das listas lazy.
+
+Não houve alteração em rotas, permissões, providers, repositórios,
+persistência ou contratos de dados.
+
+## Onda visual — Events, listagem
+
+- `events_list_screen.dart` agora reutiliza `GlassCard` nos estados vazio e
+  nos cards de evento, `StatusBadge` para o ciclo do evento e `AppIcons` para
+  navegação, filtro, seleção, ações, metadados e estados de erro.
+- Filtros Próximos/Ativos/Todos, seleção em lote, permissões, links de
+  inscrição, exclusão de ocorrências futuras e roteamento foram preservados.
+- A cobertura focada foi adicionada em
+  `test/features/events/events_list_visual_test.dart`, com providers em
+  memória e sem acesso à rede.
 
 Não houve alteração em rotas, permissões, providers, repositórios,
 persistência ou contratos de dados.
