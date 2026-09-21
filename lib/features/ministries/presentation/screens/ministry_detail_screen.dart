@@ -11,6 +11,9 @@ import '../../../../core/design/community_design.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../notifications/presentation/screens/ministry_notification_config_screen.dart';
 import '../../shared/presentation/widgets/ministry_member_actions.dart';
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/status_badge.dart';
 
 /// Tela de detalhes do ministério
 class MinistryDetailScreen extends ConsumerWidget {
@@ -28,18 +31,20 @@ class MinistryDetailScreen extends ConsumerWidget {
           return Scaffold(
             backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
             appBar: AppBar(
-            backgroundColor: CommunityDesign.headerColor(context),
-            elevation: 0,
-            title: Text(
-              'Ministério',
-              style: CommunityDesign.titleStyle(context),
+              backgroundColor: CommunityDesign.headerColor(context),
+              elevation: 0,
+              title: Text(
+                'Ministério',
+                style: CommunityDesign.titleStyle(context),
+              ),
             ),
-          ),
             body: const Center(child: Text('Ministério não encontrado')),
           );
         }
 
-        final canManageAllAsync = ref.watch(currentUserHasPermissionProvider('ministries.edit'));
+        final canManageAllAsync = ref.watch(
+          currentUserHasPermissionProvider('ministries.edit'),
+        );
         final membershipAsync = ref.watch(currentMemberMinistriesProvider);
 
         return canManageAllAsync.when(
@@ -58,7 +63,7 @@ class MinistryDetailScreen extends ConsumerWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: const [
-                          Icon(Icons.lock_outline, size: 48, color: Colors.red),
+                          Icon(AppIcons.lock, size: 48, color: Colors.red),
                           SizedBox(height: 12),
                           Text('Acesso restrito ao seu ministério'),
                         ],
@@ -121,58 +126,60 @@ class _MinistryDetailContent extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // Header com informações do ministério
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.all(20),
-            decoration: CommunityDesign.overlayDecoration(colorScheme),
-            child: Column(
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: color.withValues(alpha: 0.2),
-                      width: 2,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: GlassCard(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: color.withValues(alpha: 0.2),
+                        width: 2,
+                      ),
                     ),
+                    child: Icon(AppIcons.church, color: color, size: 44),
                   ),
-                  child: Icon(Icons.church, color: color, size: 44),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  ministry.name,
-                  style: CommunityDesign.titleStyle(
-                    context,
-                  ).copyWith(fontSize: 24, fontWeight: FontWeight.w800),
-                  textAlign: TextAlign.center,
-                ),
-                if (ministry.description != null) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
                   Text(
-                    ministry.description!,
-                    style: CommunityDesign.metaStyle(
+                    ministry.name,
+                    style: CommunityDesign.titleStyle(
                       context,
-                    ).copyWith(fontSize: 16),
+                    ).copyWith(fontSize: 24, fontWeight: FontWeight.w800),
                     textAlign: TextAlign.center,
                   ),
-                ],
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CommunityDesign.badge(
-                      context,
-                      ministry.isActive ? 'Ativo' : 'Inativo',
-                      ministry.isActive ? Colors.green : Colors.grey,
-                      icon: ministry.isActive
-                          ? Icons.check_circle
-                          : Icons.cancel,
+                  if (ministry.description != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      ministry.description!,
+                      style: CommunityDesign.metaStyle(
+                        context,
+                      ).copyWith(fontSize: 16),
+                      textAlign: TextAlign.center,
                     ),
                   ],
-                ),
-              ],
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      StatusBadge(
+                        label: ministry.isActive ? 'Ativo' : 'Inativo',
+                        tone: ministry.isActive
+                            ? AppStatusTone.active
+                            : AppStatusTone.dropped,
+                        icon: ministry.isActive
+                            ? AppIcons.checkCircle
+                            : AppIcons.cancel,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -195,14 +202,14 @@ class _MinistryDetailContent extends ConsumerWidget {
               if (!hasPermission) return const SizedBox.shrink();
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Card(
+                child: GlassCard(
                   child: ListTile(
-                    leading: const Icon(Icons.notifications_active_outlined),
+                    leading: const Icon(AppIcons.notificationsActive),
                     title: const Text('Notificações de mudança'),
                     subtitle: const Text(
                       'Quem é avisado quando algo muda na agenda do ministério',
                     ),
-                    trailing: const Icon(Icons.arrow_forward_ios),
+                    trailing: const Icon(AppIcons.forward),
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -240,7 +247,7 @@ class _MinistryDetailContent extends ConsumerWidget {
                     if (!hasPermission) return const SizedBox.shrink();
                     return ElevatedButton.icon(
                       onPressed: () => _showAddMemberDialog(context, ref),
-                      icon: const Icon(Icons.add, size: 18),
+                      icon: const Icon(AppIcons.add, size: 18),
                       label: const Text('Adicionar'),
                       style: CommunityDesign.pillButtonStyle(
                         context,
@@ -286,7 +293,7 @@ class _MinistryDetailContent extends ConsumerWidget {
                           onPressed: () => context.push(
                             '/ministries/${ministry.id}/scale-history',
                           ),
-                          icon: const Icon(Icons.history),
+                          icon: const Icon(AppIcons.history),
                           tooltip: 'Abrir Histórico',
                         );
                       },
@@ -301,7 +308,7 @@ class _MinistryDetailContent extends ConsumerWidget {
                           onPressed: () => context.push(
                             '/ministries/${ministry.id}/auto-scheduler',
                           ),
-                          icon: const Icon(Icons.hub, size: 18),
+                          icon: const Icon(AppIcons.autoSchedule, size: 18),
                           label: const Text('Gerar'),
                           style: CommunityDesign.pillButtonStyle(
                             context,
@@ -333,20 +340,13 @@ class _MinistryDetailContent extends ConsumerWidget {
   Widget _buildHeader(BuildContext context, WidgetRef ref) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 60, 16, 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+      decoration: CommunityDesign.overlayDecoration(
+        Theme.of(context).colorScheme,
       ),
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(AppIcons.back),
             onPressed: () => context.pop(),
           ),
           const SizedBox(width: 8),
@@ -364,7 +364,7 @@ class _MinistryDetailContent extends ConsumerWidget {
                 builder: (context, hasPermission) {
                   if (!hasPermission) return const SizedBox.shrink();
                   return IconButton(
-                    icon: const Icon(Icons.edit),
+                    icon: const Icon(AppIcons.edit),
                     onPressed: () =>
                         context.push('/ministries/${ministry.id}/edit'),
                     tooltip: 'Editar Ministério',
@@ -377,7 +377,7 @@ class _MinistryDetailContent extends ConsumerWidget {
                 builder: (context, hasPermission) {
                   if (!hasPermission) return const SizedBox.shrink();
                   return IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
+                    icon: const Icon(AppIcons.delete, color: Colors.red),
                     onPressed: () => _confirmDelete(context, ref),
                     tooltip: 'Deletar Ministério',
                   );
@@ -465,30 +465,29 @@ class _MembersList extends ConsumerWidget {
     return membersAsync.when(
       data: (members) {
         if (members.isEmpty) {
-          return Container(
+          return SizedBox(
             width: double.infinity,
-            padding: const EdgeInsets.all(40),
-            decoration: CommunityDesign.overlayDecoration(
-              Theme.of(context).colorScheme,
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.groups,
-                  size: 48,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.outline.withValues(alpha: 0.5),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Nenhum membro neste ministério',
-                  style: CommunityDesign.titleStyle(
-                    context,
-                  ).copyWith(fontSize: 16),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+            child: GlassCard(
+              padding: const EdgeInsets.all(40),
+              child: Column(
+                children: [
+                  Icon(
+                    AppIcons.groupsFilled,
+                    size: 48,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.outline.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Nenhum membro neste ministério',
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           );
         }
@@ -514,129 +513,142 @@ class _MemberCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
     final roleColor = _getRoleColor(member.role);
     final memberAsync = ref.watch(memberByIdProvider(member.memberId));
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: CommunityDesign.overlayDecoration(colorScheme),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: roleColor.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: roleColor.withValues(alpha: 0.2),
-              width: 1,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassCard(
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
+          leading: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: roleColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: roleColor.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            child: memberAsync.when(
+              data: (m) {
+                final rawUrl = m?.photoUrl;
+                String? resolvedUrl;
+                if (rawUrl != null && rawUrl.trim().isNotEmpty) {
+                  final parsed = Uri.tryParse(rawUrl.trim());
+                  if (parsed != null && parsed.hasScheme) {
+                    resolvedUrl = rawUrl.trim();
+                  } else {
+                    resolvedUrl = Supabase.instance.client.storage
+                        .from('member-photos')
+                        .getPublicUrl(rawUrl.trim());
+                  }
+                }
+
+                if (resolvedUrl != null && resolvedUrl.isNotEmpty) {
+                  return ClipOval(
+                    child: Image.network(
+                      resolvedUrl,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(
+                          _getRoleIcon(member.role),
+                          color: roleColor,
+                          size: 24,
+                        );
+                      },
+                    ),
+                  );
+                }
+
+                return Icon(
+                  _getRoleIcon(member.role),
+                  color: roleColor,
+                  size: 24,
+                );
+              },
+              loading: () =>
+                  Icon(_getRoleIcon(member.role), color: roleColor, size: 24),
+              error: (error, stackTrace) =>
+                  Icon(_getRoleIcon(member.role), color: roleColor, size: 24),
             ),
           ),
-          child: memberAsync.when(
-            data: (m) {
-              final rawUrl = m?.photoUrl;
-              String? resolvedUrl;
-              if (rawUrl != null && rawUrl.trim().isNotEmpty) {
-                final parsed = Uri.tryParse(rawUrl.trim());
-                if (parsed != null && parsed.hasScheme) {
-                  resolvedUrl = rawUrl.trim();
-                } else {
-                  resolvedUrl = Supabase.instance.client.storage
-                      .from('member-photos')
-                      .getPublicUrl(rawUrl.trim());
-                }
-              }
-
-              if (resolvedUrl != null && resolvedUrl.isNotEmpty) {
-                return ClipOval(
-                  child: Image.network(
-                    resolvedUrl,
-                    width: 48,
-                    height: 48,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Icon(_getRoleIcon(member.role), color: roleColor, size: 24);
-                    },
-                  ),
-                );
-              }
-
-              return Icon(_getRoleIcon(member.role), color: roleColor, size: 24);
-            },
-            loading: () => Icon(_getRoleIcon(member.role), color: roleColor, size: 24),
-            error: (error, stackTrace) => Icon(_getRoleIcon(member.role), color: roleColor, size: 24),
+          title: Text(
+            member.memberName,
+            style: CommunityDesign.titleStyle(context).copyWith(fontSize: 16),
           ),
-        ),
-        title: Text(
-          member.memberName,
-          style: CommunityDesign.titleStyle(context).copyWith(fontSize: 16),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Row(
-            children: [
-              CommunityDesign.badge(
-                context,
-                member.cargoName == null || member.cargoName!.isEmpty
-                    ? _getRoleLabel(member.role)
-                    : member.cargoName!,
-                roleColor,
-              ),
-            ],
-          ),
-        ),
-        trailing: PermissionBuilder(
-          permission: 'ministries.manage_members',
-          builder: (context, hasPermission) {
-            if (!hasPermission) return const SizedBox.shrink();
-            return PopupMenuButton(
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  child: const Row(
-                    children: [
-                      Icon(Icons.edit),
-                      SizedBox(width: 8),
-                      Text('Editar Função'),
-                    ],
-                  ),
-                  onTap: () {
-                    Future.microtask(() {
-                      if (!context.mounted) return;
-                      showMinistryEditRoleDialog(
-                        context: context,
-                        ref: ref,
-                        member: member,
-                        ministryId: ministryId,
-                      );
-                    });
-                  },
-                ),
-                PopupMenuItem(
-                  child: const Row(
-                    children: [
-                      Icon(Icons.delete, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Remover', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
-                  onTap: () {
-                    Future.microtask(() {
-                      if (!context.mounted) return;
-                      confirmRemoveMinistryMember(
-                        context: context,
-                        ref: ref,
-                        member: member,
-                        ministryId: ministryId,
-                      );
-                    });
-                  },
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              children: [
+                CommunityDesign.badge(
+                  context,
+                  member.cargoName == null || member.cargoName!.isEmpty
+                      ? _getRoleLabel(member.role)
+                      : member.cargoName!,
+                  roleColor,
                 ),
               ],
-            );
-          },
-          loadingWidget: const SizedBox.shrink(),
+            ),
+          ),
+          trailing: PermissionBuilder(
+            permission: 'ministries.manage_members',
+            builder: (context, hasPermission) {
+              if (!hasPermission) return const SizedBox.shrink();
+              return PopupMenuButton(
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    child: const Row(
+                      children: [
+                        Icon(AppIcons.edit),
+                        SizedBox(width: 8),
+                        Text('Editar Função'),
+                      ],
+                    ),
+                    onTap: () {
+                      Future.microtask(() {
+                        if (!context.mounted) return;
+                        showMinistryEditRoleDialog(
+                          context: context,
+                          ref: ref,
+                          member: member,
+                          ministryId: ministryId,
+                        );
+                      });
+                    },
+                  ),
+                  PopupMenuItem(
+                    child: const Row(
+                      children: [
+                        Icon(AppIcons.delete, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Remover', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                    onTap: () {
+                      Future.microtask(() {
+                        if (!context.mounted) return;
+                        confirmRemoveMinistryMember(
+                          context: context,
+                          ref: ref,
+                          member: member,
+                          ministryId: ministryId,
+                        );
+                      });
+                    },
+                  ),
+                ],
+              );
+            },
+            loadingWidget: const SizedBox.shrink(),
+          ),
         ),
       ),
     );
@@ -656,11 +668,11 @@ class _MemberCard extends ConsumerWidget {
   IconData _getRoleIcon(MinistryRole role) {
     switch (role) {
       case MinistryRole.leader:
-        return Icons.security;
+        return AppIcons.security;
       case MinistryRole.coordinator:
-        return Icons.supervisor_account;
+        return AppIcons.supervisor;
       case MinistryRole.member:
-        return Icons.person;
+        return AppIcons.personFilled;
     }
   }
 
@@ -668,7 +680,6 @@ class _MemberCard extends ConsumerWidget {
     return role.label;
   }
 }
-
 
 /// Lista de escalas do ministério
 class _SchedulesList extends ConsumerWidget {
@@ -684,31 +695,32 @@ class _SchedulesList extends ConsumerWidget {
     return schedulesAsync.when(
       data: (schedules) {
         if (schedules.isEmpty) {
-          return Container(
+          return SizedBox(
             width: double.infinity,
-            padding: const EdgeInsets.all(40),
-            decoration: CommunityDesign.overlayDecoration(colorScheme),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.calendar_today,
-                  size: 48,
-                  color: colorScheme.outline.withValues(alpha: 0.5),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Nenhuma escala registrada',
-                  style: CommunityDesign.titleStyle(
-                    context,
-                  ).copyWith(fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Este ministério ainda não foi escalado para nenhum evento',
-                  style: CommunityDesign.metaStyle(context),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+            child: GlassCard(
+              padding: const EdgeInsets.all(40),
+              child: Column(
+                children: [
+                  Icon(
+                    AppIcons.calendarFilled,
+                    size: 48,
+                    color: colorScheme.outline.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Nenhuma escala registrada',
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Este ministério ainda não foi escalado para nenhum evento',
+                    style: CommunityDesign.metaStyle(context),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           );
         }
@@ -727,73 +739,75 @@ class _SchedulesList extends ConsumerWidget {
             final eventSchedules = entry.value;
             final eventName = eventSchedules.first.eventName;
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: CommunityDesign.overlayDecoration(colorScheme),
-              child: ExpansionTile(
-                tilePadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 4,
-                ),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primary.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: GlassCard(
+                child: ExpansionTile(
+                  tilePadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
                   ),
-                  child: Icon(
-                    Icons.event,
-                    color: colorScheme.primary,
-                    size: 20,
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      AppIcons.eventFilled,
+                      color: colorScheme.primary,
+                      size: 20,
+                    ),
                   ),
-                ),
-                title: Text(
-                  eventName,
-                  style: CommunityDesign.titleStyle(
-                    context,
-                  ).copyWith(fontSize: 15),
-                ),
-                subtitle: Text(
-                  '${eventSchedules.length} ${eventSchedules.length == 1 ? 'membro escalado' : 'membros escalados'}',
-                  style: CommunityDesign.metaStyle(context),
-                ),
-                shape: const RoundedRectangleBorder(side: BorderSide.none),
-                childrenPadding: const EdgeInsets.only(bottom: 8),
-                children: eventSchedules.map((schedule) {
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-                    leading: CircleAvatar(
-                      radius: 14,
-                      backgroundColor: colorScheme.surfaceContainerHighest,
-                      child: Icon(
-                        Icons.person,
-                        size: 16,
-                        color: colorScheme.onSurfaceVariant,
+                  title: Text(
+                    eventName,
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(fontSize: 15),
+                  ),
+                  subtitle: Text(
+                    '${eventSchedules.length} ${eventSchedules.length == 1 ? 'membro escalado' : 'membros escalados'}',
+                    style: CommunityDesign.metaStyle(context),
+                  ),
+                  shape: const RoundedRectangleBorder(side: BorderSide.none),
+                  childrenPadding: const EdgeInsets.only(bottom: 8),
+                  children: eventSchedules.map((schedule) {
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 24,
                       ),
-                    ),
-                    title: Text(
-                      schedule.memberName,
-                      style: CommunityDesign.titleStyle(
-                        context,
-                      ).copyWith(fontSize: 14),
-                    ),
-                    subtitle: schedule.notes != null
-                        ? Text(
-                            schedule.notes!,
-                            style: CommunityDesign.metaStyle(context),
-                          )
-                        : null,
-                  );
-                }).toList(),
+                      leading: CircleAvatar(
+                        radius: 14,
+                        backgroundColor: colorScheme.surfaceContainerHighest,
+                        child: Icon(
+                          AppIcons.personFilled,
+                          size: 16,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      title: Text(
+                        schedule.memberName,
+                        style: CommunityDesign.titleStyle(
+                          context,
+                        ).copyWith(fontSize: 14),
+                      ),
+                      subtitle: schedule.notes != null
+                          ? Text(
+                              schedule.notes!,
+                              style: CommunityDesign.metaStyle(context),
+                            )
+                          : null,
+                    );
+                  }).toList(),
+                ),
               ),
             );
           }).toList(),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => Container(
+      error: (error, _) => GlassCard(
         padding: const EdgeInsets.all(16),
-        decoration: CommunityDesign.overlayDecoration(colorScheme),
         child: Text(
           'Erro ao carregar escalas: $error',
           style: const TextStyle(color: Colors.red),
@@ -821,13 +835,9 @@ class _SpecializedModuleCta extends StatelessWidget {
     return InkWell(
       onTap: () => context.push(route),
       borderRadius: BorderRadius.circular(16),
-      child: Container(
+      child: GlassCard(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
-        ),
+        accentColor: color,
         child: Row(
           children: [
             Container(
@@ -846,20 +856,16 @@ class _SpecializedModuleCta extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: CommunityDesign.titleStyle(context).copyWith(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(fontSize: 15, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    description,
-                    style: CommunityDesign.metaStyle(context),
-                  ),
+                  Text(description, style: CommunityDesign.metaStyle(context)),
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios, color: color),
+            Icon(AppIcons.forward, color: color),
           ],
         ),
       ),
@@ -872,19 +878,19 @@ class _SpecializedModuleCta extends StatelessWidget {
         return (
           'Abrir módulo Raízes',
           'Dashboard de visitantes, novas decisões e demandas de contato.',
-          Icons.eco_outlined,
+          AppIcons.volunteer,
         );
       case MinistryType.diaconato:
         return (
           'Abrir módulo Diaconato',
           'Checklist de presença, ausentes e entregas de ceia.',
-          Icons.volunteer_activism_outlined,
+          AppIcons.volunteer,
         );
       case MinistryType.batismo:
         return (
           'Abrir módulo Batismo',
           'Equipe, alunos, turmas, presença e o caixa do ministério.',
-          Icons.water_drop_outlined,
+          AppIcons.water,
         );
       case MinistryType.generic:
       case MinistryType.kids:
@@ -893,7 +899,7 @@ class _SpecializedModuleCta extends StatelessWidget {
         return (
           'Abrir módulo',
           'Tela especializada deste ministério.',
-          Icons.dashboard_outlined,
+          AppIcons.dashboard,
         );
     }
   }

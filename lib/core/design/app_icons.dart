@@ -27,6 +27,11 @@ abstract final class AppIcons {
   static const visitor = Icons.person_add_alt;
   static const edit = Icons.edit_outlined;
   static const delete = Icons.delete_outline;
+  static const description = Icons.description_outlined;
+  static const lock = Icons.lock_outline;
+  static const cancel = Icons.cancel_outlined;
+  static const supervisor = Icons.supervisor_account_outlined;
+  static const security = Icons.security_outlined;
   static const message = Icons.chat_outlined;
   static const article = Icons.article_outlined;
   static const microphone = Icons.mic_outlined;
