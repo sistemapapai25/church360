@@ -16,9 +16,12 @@ import '../../../members/presentation/providers/members_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/widgets/share_link_dialog.dart';
 import '../../../../core/widgets/pearl_fab.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/status_badge.dart';
 
 /// VIS-02/VIS-03: o evento tem algum dos dois controles de audiência
 /// restrito? Os dois são independentes — basta um deles sair de `'all'`
@@ -42,7 +45,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   late TabController _tabController;
 
   bool _isRegistrationShareEnabled(Event event) {
-    return event.requiresRegistration && event.status == 'published' && !event.isPast;
+    return event.requiresRegistration &&
+        event.status == 'published' &&
+        !event.isPast;
   }
 
   String _buildEventRegistrationShareUrl(String eventId) {
@@ -183,11 +188,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   Widget _buildRestrictedScreen(BuildContext context) {
     return _buildAccessStateScreen(
       context,
-      icon: Icons.lock_outline,
+      icon: AppIcons.lock,
       heading: 'Você não tem acesso a este evento',
       supportingText:
           'Este evento é restrito e você não está entre os públicos escolhidos. Se acha que deveria participar, fale com o responsável pelo evento.',
-      primaryIcon: Icons.calendar_today,
+      primaryIcon: AppIcons.calendarFilled,
       primaryLabel: 'Voltar para a Agenda',
       onPrimary: () => context.go('/schedule'),
     );
@@ -196,11 +201,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   Widget _buildNotFoundScreen(BuildContext context) {
     return _buildAccessStateScreen(
       context,
-      icon: Icons.event_busy_outlined,
+      icon: AppIcons.eventBusy,
       heading: 'Evento não encontrado',
       supportingText:
           'Este link pode estar incorreto, ou o evento pode ter sido removido.',
-      primaryIcon: Icons.calendar_today,
+      primaryIcon: AppIcons.calendarFilled,
       primaryLabel: 'Voltar para a Agenda',
       onPrimary: () => context.go('/schedule'),
     );
@@ -216,11 +221,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     final destino = Uri.encodeComponent('/events/${widget.eventId}');
     return _buildAccessStateScreen(
       context,
-      icon: Icons.login,
+      icon: AppIcons.login,
       heading: 'Entre para ver este evento',
       supportingText:
           'Este evento não está aberto ao público. Faça login e você volta direto para ele.',
-      primaryIcon: Icons.login,
+      primaryIcon: AppIcons.login,
       primaryLabel: 'Entrar',
       onPrimary: () => context.go('/login?redirect=$destino'),
       secondaryLabel: 'Voltar para a Agenda',
@@ -235,10 +240,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   Widget _buildAccessErrorScreen(BuildContext context, Object error) {
     return _buildAccessStateScreen(
       context,
-      icon: Icons.cloud_off_outlined,
+      icon: AppIcons.cloudOff,
       heading: 'Não foi possível carregar este evento.',
       supportingText: AppErrorHandler.userMessage(error, feature: 'events'),
-      primaryIcon: Icons.refresh,
+      primaryIcon: AppIcons.refresh,
       primaryLabel: 'Tentar novamente',
       onPrimary: () {
         ref.invalidate(eventByIdProvider(widget.eventId));
@@ -336,7 +341,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
               child: IconButton(
                 tooltip: 'Voltar',
                 onPressed: () => _handleBack(context),
-                icon: const Icon(Icons.arrow_back),
+                icon: const Icon(AppIcons.back),
               ),
             ),
             title: Row(
@@ -361,7 +366,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
                     ],
                   ),
                   child: Icon(
-                    Icons.event,
+                    AppIcons.eventFilled,
                     size: 18,
                     color: Theme.of(context).colorScheme.primary,
                   ),
@@ -401,7 +406,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
                 tooltip: _isRegistrationShareEnabled(event)
                     ? 'Compartilhar link de inscrição'
                     : 'Compartilhar informações do evento',
-                icon: const Icon(Icons.share),
+                icon: const Icon(AppIcons.share),
                 onPressed: () => _isRegistrationShareEnabled(event)
                     ? _shareRegistrationLink(event)
                     : _shareEventInfoLink(event),
@@ -496,7 +501,7 @@ class _InfoTab extends ConsumerWidget {
                       ).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(18),
                     ),
-                    child: const Icon(Icons.broken_image, size: 48),
+                    child: const Icon(AppIcons.imageBroken, size: 48),
                   );
                 },
               ),
@@ -529,41 +534,41 @@ class _InfoTab extends ConsumerWidget {
 
           // Informações
           _InfoCard(
-            icon: Icons.calendar_today,
+            icon: AppIcons.calendarFilled,
             title: 'Data de Início',
             value: DateFormat('dd/MM/yyyy').format(event.startDate),
           ),
           _InfoCard(
-            icon: Icons.access_time,
+            icon: AppIcons.accessTime,
             title: 'Horário de Início',
             value: DateFormat('HH:mm').format(event.startDate),
           ),
           if (event.endDate != null)
             _InfoCard(
-              icon: Icons.event_available,
+              icon: AppIcons.eventAvailable,
               title: 'Data de Término',
               value: DateFormat('dd/MM/yyyy HH:mm').format(event.endDate!),
             ),
           if (event.location != null)
             _InfoCard(
-              icon: Icons.location_on,
+              icon: AppIcons.location,
               title: 'Local',
               value: event.location!,
             ),
           if (event.eventType != null)
             _InfoCard(
-              icon: Icons.category,
+              icon: AppIcons.category,
               title: 'Tipo',
               value: event.eventType!,
             ),
           if (event.maxCapacity != null)
             _InfoCard(
-              icon: Icons.groups,
+              icon: AppIcons.groupsFilled,
               title: 'Capacidade Máxima',
               value: '${event.maxCapacity} pessoas',
             ),
           _InfoCard(
-            icon: Icons.app_registration,
+            icon: AppIcons.registration,
             title: 'Requer Inscrição',
             value: event.requiresRegistration ? 'Sim' : 'Não',
           ),
@@ -575,7 +580,7 @@ class _InfoTab extends ConsumerWidget {
             // antecipa o teto; quem decide a vaga é a RPC
             // `register_member_in_event` (Plano 05).
             _InfoCard(
-              icon: Icons.how_to_reg,
+              icon: AppIcons.howToReg,
               title: 'Inscritos',
               value: capacidadeMaxima == null
                   ? '$totalInscritos inscritos'
@@ -599,13 +604,16 @@ class _InfoTab extends ConsumerWidget {
                 // `error` sempre aparece acompanhado dele.
                 child: Row(
                   children: [
-                    Icon(Icons.event_busy, color: colorScheme.onErrorContainer),
+                    Icon(
+                      AppIcons.eventBusy,
+                      color: colorScheme.onErrorContainer,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Evento lotado',
-                      style: CommunityDesign.titleStyle(context).copyWith(
-                        color: colorScheme.onErrorContainer,
-                      ),
+                      style: CommunityDesign.titleStyle(
+                        context,
+                      ).copyWith(color: colorScheme.onErrorContainer),
                     ),
                   ],
                 ),
@@ -628,13 +636,10 @@ class _InfoTab extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  icon: const Icon(Icons.check_circle),
+                  icon: const Icon(AppIcons.checkCircle),
                   label: const Text(
                     'INSCRITO — VER MEU INGRESSO',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -648,7 +653,8 @@ class _InfoTab extends ConsumerWidget {
                     border: Border.all(color: Colors.grey[300] ?? Colors.grey),
                   ),
                   child: QrImageView(
-                    data: myRegistration.qrCode ??
+                    data:
+                        myRegistration.qrCode ??
                         'EVENT_TICKET:${event.id}:${currentMember!.id}',
                     version: QrVersions.auto,
                     size: 180.0,
@@ -718,10 +724,10 @@ class _InfoTab extends ConsumerWidget {
               )
             : Icon(
                 inelegivel
-                    ? Icons.lock_outline
+                    ? AppIcons.lock
                     : event.isFree
-                    ? Icons.card_giftcard
-                    : Icons.confirmation_number,
+                    ? AppIcons.gift
+                    : AppIcons.registration,
               ),
         label: Text(
           carregando
@@ -763,38 +769,37 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: CommunityDesign.overlayDecoration(
-        Theme.of(context).colorScheme,
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          Icon(icon, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassCard(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Icon(icon, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: valueColor,
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: valueColor,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -833,11 +838,7 @@ class _RestrictionBadge extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.lock_outline,
-              size: 18,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            Icon(AppIcons.lock, size: 18, color: colorScheme.onSurfaceVariant),
             const SizedBox(width: 8),
             Flexible(
               child: Column(
@@ -875,32 +876,27 @@ class _RestrictionBadge extends ConsumerWidget {
   /// identificador interno.
   List<String> _nomesDosAlvosDeVisibilidade(WidgetRef ref) {
     final audiencia = ref
-        .watch(
-          eventAudienceProvider((eventId: event.id, role: 'visibility')),
-        )
+        .watch(eventAudienceProvider((eventId: event.id, role: 'visibility')))
         .valueOrNull;
     if (audiencia == null || audiencia.isEmpty) return const [];
 
     // Cada catálogo só é consultado se houver alvo daquele tipo.
-    final grupos = audiencia.any(
-      (a) => a.targetKind == EventAudienceTargetKind.group,
-    )
+    final grupos =
+        audiencia.any((a) => a.targetKind == EventAudienceTargetKind.group)
         ? {
             for (final g in ref.watch(allGroupsProvider).valueOrNull ?? [])
               g.id: g.name,
           }
         : const {};
-    final ministerios = audiencia.any(
-      (a) => a.targetKind == EventAudienceTargetKind.ministry,
-    )
+    final ministerios =
+        audiencia.any((a) => a.targetKind == EventAudienceTargetKind.ministry)
         ? {
             for (final m in ref.watch(allMinistriesProvider).valueOrNull ?? [])
               m.id: m.name,
           }
         : const {};
-    final cargos = audiencia.any(
-      (a) => a.targetKind == EventAudienceTargetKind.role,
-    )
+    final cargos =
+        audiencia.any((a) => a.targetKind == EventAudienceTargetKind.role)
         ? {
             for (final c in ref.watch(allRolesProvider).valueOrNull ?? [])
               c.id: c.name,
@@ -932,23 +928,16 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    String label = event.statusText;
-    Color color;
-
-    if (event.status == 'cancelled') {
-      color = colorScheme.error;
-    } else if (event.status == 'completed' || event.isPast) {
-      color = colorScheme.onSurfaceVariant;
-    } else if (event.isOngoing) {
-      color = const Color(0xFF38A169); // Verde sucesso
-    } else if (event.isUpcoming) {
-      color = colorScheme.primary;
-    } else {
-      color = colorScheme.tertiary;
-    }
-
-    return CommunityDesign.badge(context, label.toUpperCase(), color);
+    final tone = event.status == 'cancelled'
+        ? AppStatusTone.dropped
+        : event.status == 'completed' || event.isPast
+        ? AppStatusTone.done
+        : AppStatusTone.active;
+    return StatusBadge(
+      label: event.statusText,
+      tone: tone,
+      icon: AppIcons.event,
+    );
   }
 }
 
@@ -973,7 +962,7 @@ class _RegistrationsTab extends ConsumerWidget {
 
     if (!event.requiresRegistration) {
       return const _RegistrationsEmptyState(
-        icon: Icons.info_outline,
+        icon: AppIcons.info,
         heading: 'Este evento não requer inscrição',
         body:
             'Ative "Requer inscrição" na edição do evento para controlar a lista de participantes.',
@@ -999,7 +988,7 @@ class _RegistrationsTab extends ConsumerWidget {
       data: (registrations) {
         if (registrations.isEmpty) {
           return _RegistrationsEmptyState(
-            icon: Icons.groups,
+            icon: AppIcons.groupsFilled,
             heading: 'Nenhum inscrito ainda',
             body: podeGerenciar
                 ? 'Adicione o primeiro inscrito ou compartilhe o link de inscrição do evento.'
@@ -1015,7 +1004,7 @@ class _RegistrationsTab extends ConsumerWidget {
                       onPressed: event.isFull
                           ? null
                           : () => _showAddRegistrationDialog(context, event),
-                      icon: const Icon(Icons.person_add),
+                      icon: const Icon(AppIcons.personAdd),
                       label: const Text('Adicionar primeiro inscrito'),
                     ),
                   )
@@ -1034,101 +1023,103 @@ class _RegistrationsTab extends ConsumerWidget {
                 itemCount: registrations.length,
                 itemBuilder: (context, index) {
                   final registration = registrations[index];
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: CommunityDesign.overlayDecoration(
-                      Theme.of(context).colorScheme,
-                    ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        child: Text(
-                          registration.memberName
-                                  ?.substring(0, 1)
-                                  .toUpperCase() ??
-                              '?',
-                        ),
-                      ),
-                      title: Text(
-                        registration.memberName ?? 'Membro desconhecido',
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Inscrito em: ${DateFormat('dd/MM/yyyy HH:mm').format(registration.registeredAt)}',
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: GlassCard(
+                      padding: EdgeInsets.zero,
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          child: Text(
+                            registration.memberName
+                                    ?.substring(0, 1)
+                                    .toUpperCase() ??
+                                '?',
                           ),
-                          if (registration.isCheckedIn)
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.check_circle,
-                                  size: 16,
-                                  color: _checkInColor,
-                                ),
-                                const SizedBox(width: 4),
-                                // Estado de check-in tem ícone E texto: nunca
-                                // transmitido só por cor.
-                                Text(
-                                  'Check-in: ${DateFormat('dd/MM/yyyy HH:mm').format(registration.checkedInAt!)}',
-                                  style: const TextStyle(color: _checkInColor),
-                                ),
-                              ],
+                        ),
+                        title: Text(
+                          registration.memberName ?? 'Membro desconhecido',
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Inscrito em: ${DateFormat('dd/MM/yyyy HH:mm').format(registration.registeredAt)}',
                             ),
-                        ],
-                      ),
-                      // Sem autorização, o trailing inteiro fica ausente —
-                      // ausência silenciosa, como no resto do app.
-                      trailing: podeGerenciar
-                          ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Botão de check-in
-                                if (!registration.isCheckedIn)
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.check_circle,
+                            if (registration.isCheckedIn)
+                              Row(
+                                children: [
+                                  const Icon(
+                                    AppIcons.checkCircle,
+                                    size: 16,
+                                    color: _checkInColor,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  // Estado de check-in tem ícone E texto: nunca
+                                  // transmitido só por cor.
+                                  Text(
+                                    'Check-in: ${DateFormat('dd/MM/yyyy HH:mm').format(registration.checkedInAt!)}',
+                                    style: const TextStyle(
                                       color: _checkInColor,
                                     ),
-                                    onPressed: () => _doCheckIn(
-                                      context,
-                                      ref,
-                                      event.id,
-                                      registration.memberId,
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                        // Sem autorização, o trailing inteiro fica ausente —
+                        // ausência silenciosa, como no resto do app.
+                        trailing: podeGerenciar
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Botão de check-in
+                                  if (!registration.isCheckedIn)
+                                    IconButton(
+                                      icon: const Icon(
+                                        AppIcons.checkCircle,
+                                        color: _checkInColor,
+                                      ),
+                                      onPressed: () => _doCheckIn(
+                                        context,
+                                        ref,
+                                        event.id,
+                                        registration.memberId,
+                                      ),
+                                      tooltip: 'Fazer check-in',
+                                    )
+                                  else
+                                    IconButton(
+                                      icon: Icon(
+                                        AppIcons.cancel,
+                                        color: colorScheme.tertiary,
+                                      ),
+                                      onPressed: () => _cancelCheckIn(
+                                        context,
+                                        ref,
+                                        event.id,
+                                        registration.memberId,
+                                      ),
+                                      tooltip: 'Cancelar check-in',
                                     ),
-                                    tooltip: 'Fazer check-in',
-                                  )
-                                else
+                                  // Botão de remover
                                   IconButton(
                                     icon: Icon(
-                                      Icons.cancel,
-                                      color: colorScheme.tertiary,
+                                      AppIcons.delete,
+                                      color: colorScheme.error,
                                     ),
-                                    onPressed: () => _cancelCheckIn(
+                                    onPressed: () => _confirmRemoveRegistration(
                                       context,
                                       ref,
                                       event.id,
                                       registration.memberId,
+                                      registration.memberName ?? 'este membro',
                                     ),
-                                    tooltip: 'Cancelar check-in',
+                                    tooltip: 'Remover inscrito',
                                   ),
-                                // Botão de remover
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.delete,
-                                    color: colorScheme.error,
-                                  ),
-                                  onPressed: () => _confirmRemoveRegistration(
-                                    context,
-                                    ref,
-                                    event.id,
-                                    registration.memberId,
-                                    registration.memberName ?? 'este membro',
-                                  ),
-                                  tooltip: 'Remover inscrito',
-                                ),
-                              ],
-                            )
-                          : null,
+                                ],
+                              )
+                            : null,
+                      ),
                     ),
                   );
                 },
@@ -1148,10 +1139,8 @@ class _RegistrationsTab extends ConsumerWidget {
                   onPressed: event.isFull
                       ? null
                       : () => _showAddRegistrationDialog(context, event),
-                  tooltip: event.isFull
-                      ? _lotadoTooltip
-                      : 'Adicionar inscrito',
-                  icon: Icons.person_add,
+                  tooltip: event.isFull ? _lotadoTooltip : 'Adicionar inscrito',
+                  icon: AppIcons.personAdd,
                 ),
               ),
           ],
@@ -1159,7 +1148,7 @@ class _RegistrationsTab extends ConsumerWidget {
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => _RegistrationsEmptyState(
-        icon: Icons.error_outline,
+        icon: AppIcons.error,
         iconColor: colorScheme.error,
         heading: 'Não foi possível carregar os inscritos.',
         action: OutlinedButton(
@@ -1222,9 +1211,9 @@ class _RegistrationsTab extends ConsumerWidget {
       ref.invalidate(eventRegistrationsProvider(eventId));
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Check-in realizado.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Check-in realizado.')));
       }
     } catch (e) {
       if (context.mounted) {
@@ -1353,9 +1342,9 @@ class _RegistrationsTab extends ConsumerWidget {
       ref.invalidate(eventByIdProvider(eventId));
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Inscrito removido.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Inscrito removido.')));
       }
     } catch (e) {
       if (context.mounted) {
@@ -1457,103 +1446,98 @@ class _SchedulesTab extends ConsumerWidget {
           required String ministryName,
           required List<MinistrySchedule> ministrySchedules,
         }) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: CommunityDesign.overlayDecoration(
-              Theme.of(context).colorScheme,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.1),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(CommunityDesign.radius),
-                      topRight: Radius.circular(CommunityDesign.radius),
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: GlassCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.1),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(CommunityDesign.radius),
+                        topRight: Radius.circular(CommunityDesign.radius),
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.church, color: Colors.blue),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          ministryName,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '${ministrySchedules.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                PermissionBuilder(
-                  permission: 'ministries.manage_schedule',
-                  builder: (context, hasPermission) {
-                    if (!hasPermission) return const SizedBox.shrink();
-                    return Column(
+                    child: Row(
                       children: [
-                        ListTile(
-                          leading: const Icon(
-                            Icons.person_add,
-                            color: Colors.blue,
-                          ),
-                          title: const Text('Adicionar membro'),
-                          subtitle: const Text(
-                            'Adicionar/ajustar escala deste ministério',
-                          ),
-                          trailing: const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 16,
-                          ),
-                          onTap: () => _openMinistryAutoScheduler(
-                            context,
-                            ministryId,
+                        const Icon(AppIcons.church, color: Colors.blue),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            ministryName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                        Divider(
-                          height: 1,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .outlineVariant
-                              .withValues(alpha: 0.2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.blue,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${ministrySchedules.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
-                    );
-                  },
-                ),
-                if (ministrySchedules.isNotEmpty)
-                  ...ministrySchedules.map((schedule) {
-                    return ListTile(
-                      leading: const CircleAvatar(
-                        child: Icon(Icons.person),
-                      ),
-                      title: Text(schedule.memberName),
-                      subtitle:
-                          schedule.notes != null ? Text(schedule.notes!) : null,
-                    );
-                  }),
-              ],
+                    ),
+                  ),
+                  PermissionBuilder(
+                    permission: 'ministries.manage_schedule',
+                    builder: (context, hasPermission) {
+                      if (!hasPermission) return const SizedBox.shrink();
+                      return Column(
+                        children: [
+                          ListTile(
+                            leading: const Icon(
+                              AppIcons.personAdd,
+                              color: Colors.blue,
+                            ),
+                            title: const Text('Adicionar membro'),
+                            subtitle: const Text(
+                              'Adicionar/ajustar escala deste ministério',
+                            ),
+                            trailing: const Icon(AppIcons.forward, size: 16),
+                            onTap: () =>
+                                _openMinistryAutoScheduler(context, ministryId),
+                          ),
+                          Divider(
+                            height: 1,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.outlineVariant.withValues(alpha: 0.2),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  if (ministrySchedules.isNotEmpty)
+                    ...ministrySchedules.map((schedule) {
+                      return ListTile(
+                        leading: const CircleAvatar(
+                          child: Icon(AppIcons.personFilled),
+                        ),
+                        title: Text(schedule.memberName),
+                        subtitle: schedule.notes != null
+                            ? Text(schedule.notes!)
+                            : null,
+                      );
+                    }),
+                ],
+              ),
             ),
           );
         }
@@ -1563,9 +1547,7 @@ class _SchedulesTab extends ConsumerWidget {
           children: [
             // Lista de escalas agrupadas por ministério
             if (schedulesByMinistry.isEmpty)
-              _EmptySchedulesContent(
-                buildMinistryCard: buildMinistryCard,
-              )
+              _EmptySchedulesContent(buildMinistryCard: buildMinistryCard)
             else
               ...schedulesByMinistry.entries.map((entry) {
                 final ministrySchedules = entry.value;
@@ -1597,7 +1579,8 @@ class _EmptySchedulesContent extends ConsumerWidget {
     required String ministryId,
     required String ministryName,
     required List<MinistrySchedule> ministrySchedules,
-  }) buildMinistryCard;
+  })
+  buildMinistryCard;
 
   const _EmptySchedulesContent({required this.buildMinistryCard});
 
@@ -1607,18 +1590,11 @@ class _EmptySchedulesContent extends ConsumerWidget {
 
     return Column(
       children: [
-        Container(
-          decoration: CommunityDesign.overlayDecoration(
-            Theme.of(context).colorScheme,
-          ),
+        GlassCard(
           padding: const EdgeInsets.all(32),
           child: Column(
             children: [
-              Icon(
-                Icons.calendar_today,
-                size: 48,
-                color: Colors.grey[400],
-              ),
+              Icon(AppIcons.calendarFilled, size: 48, color: Colors.grey[400]),
               const SizedBox(height: 16),
               Text(
                 'Nenhum membro escalado',
