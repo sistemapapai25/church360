@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../core/design/community_design.dart';
+import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/widgets/pearl_fab.dart';
+import '../../../../../core/widgets/glass_card.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../../domain/models/visitor_recommendation.dart';
 import '../providers/raizes_dashboard_provider.dart';
@@ -60,7 +62,7 @@ class _RecommendationsContentState
             count == 0
                 ? 'Nenhum match encontrado. Cadastre padrinhos com critérios.'
                 : '$count sugestão${count == 1 ? '' : 'ões'} avaliada'
-                    '${count == 1 ? '' : 's'}.',
+                      '${count == 1 ? '' : 's'}.',
           ),
           backgroundColor: Colors.green,
         ),
@@ -95,7 +97,9 @@ class _RecommendationsContentState
           ),
         );
       } else {
-        _showError('Não foi possível aceitar (sem tenant ou recomendação inválida).');
+        _showError(
+          'Não foi possível aceitar (sem tenant ou recomendação inválida).',
+        );
       }
     } catch (e) {
       _showError('Erro ao aceitar: $e');
@@ -125,9 +129,9 @@ class _RecommendationsContentState
       await repo.archiveRecommendation(rec.id);
       if (!mounted) return;
       ref.invalidate(raizesRecommendationsProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Indicação arquivada.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Indicação arquivada.')));
     } catch (e) {
       _showError('Erro ao arquivar: $e');
     }
@@ -157,13 +161,13 @@ class _RecommendationsContentState
         backgroundColor: CommunityDesign.headerColor(context),
         title: const Text('Indicações de Padrinhos'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.back),
           onPressed: () => context.pop(),
         ),
       ),
       floatingActionButton: PearlFab(
         onPressed: _generateRecommendations,
-        icon: Icons.auto_awesome,
+        icon: AppIcons.autoAwesome,
         label: _generating ? 'Gerando...' : 'Gerar sugestões',
         loading: _generating,
       ),
@@ -220,14 +224,14 @@ class _RecommendationsContentState
     }
     final groups = byId.entries.map((e) {
       final sorted = [...e.value]..sort((a, b) => b.score.compareTo(a.score));
-      return _VisitorGroup(
-        visitorId: e.key,
-        recommendations: sorted,
-      );
+      return _VisitorGroup(visitorId: e.key, recommendations: sorted);
     }).toList();
     // Ordem entre grupos: maior score do top-1 primeiro.
-    groups.sort((a, b) =>
-        b.recommendations.first.score.compareTo(a.recommendations.first.score));
+    groups.sort(
+      (a, b) => b.recommendations.first.score.compareTo(
+        a.recommendations.first.score,
+      ),
+    );
     return groups;
   }
 }
@@ -235,10 +239,7 @@ class _RecommendationsContentState
 class _VisitorGroup {
   final String visitorId;
   final List<VisitorRecommendation> recommendations;
-  const _VisitorGroup({
-    required this.visitorId,
-    required this.recommendations,
-  });
+  const _VisitorGroup({required this.visitorId, required this.recommendations});
 }
 
 // =====================================================
@@ -297,9 +298,7 @@ class _VisitorGroupCard extends StatelessWidget {
         ? first.visitorFirstName!.trim().substring(0, 1).toUpperCase()
         : '?';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: CommunityDesign.overlayDecoration(cs),
+    return GlassCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,10 +328,9 @@ class _VisitorGroupCard extends StatelessWidget {
                   children: [
                     Text(
                       first.visitorDisplayName,
-                      style: CommunityDesign.titleStyle(context).copyWith(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                      ),
+                      style: CommunityDesign.titleStyle(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.w800, fontSize: 16),
                     ),
                     Text(
                       '${group.recommendations.length} sugestão'
@@ -345,12 +343,14 @@ class _VisitorGroupCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          ...group.recommendations.map((r) => _MatchTile(
-                rec: r,
-                onAccept: () => onAccept(r),
-                onReject: () => onReject(r),
-                onArchive: () => onArchive(r),
-              )),
+          ...group.recommendations.map(
+            (r) => _MatchTile(
+              rec: r,
+              onAccept: () => onAccept(r),
+              onReject: () => onReject(r),
+              onArchive: () => onArchive(r),
+            ),
+          ),
         ],
       ),
     );
@@ -380,14 +380,9 @@ class _MatchTile extends StatelessWidget {
         ? rec.sponsorFirstName!.trim().substring(0, 1).toUpperCase()
         : '?';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+    return GlassCard(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: accent.withValues(alpha: 0.4)),
-      ),
+      accentColor: accent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -443,14 +438,18 @@ class _MatchTile extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.check_circle,
-                        size: 14, color: Colors.green.shade700),
+                    Icon(
+                      AppIcons.checkCircle,
+                      size: 14,
+                      color: Colors.green.shade700,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         formatRecommendationReason(r),
-                        style: CommunityDesign.metaStyle(context)
-                            .copyWith(fontSize: 12),
+                        style: CommunityDesign.metaStyle(
+                          context,
+                        ).copyWith(fontSize: 12),
                       ),
                     ),
                   ],
@@ -465,12 +464,14 @@ class _MatchTile extends StatelessWidget {
                 Expanded(
                   child: FilledButton.icon(
                     onPressed: onAccept,
-                    icon: const Icon(Icons.check, size: 16),
+                    icon: const Icon(AppIcons.check, size: 16),
                     label: const Text('Aceitar'),
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.green,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                     ),
                   ),
                 ),
@@ -478,12 +479,14 @@ class _MatchTile extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: onReject,
-                    icon: const Icon(Icons.close, size: 16),
+                    icon: const Icon(AppIcons.close, size: 16),
                     label: const Text('Recusar'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: cs.error,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                     ),
                   ),
                 ),
@@ -491,7 +494,7 @@ class _MatchTile extends StatelessWidget {
                 IconButton(
                   tooltip: 'Arquivar',
                   onPressed: onArchive,
-                  icon: const Icon(Icons.archive_outlined, size: 18),
+                  icon: const Icon(AppIcons.archive, size: 18),
                 ),
               ],
             ),
@@ -524,8 +527,8 @@ class _ScoreBadge extends StatelessWidget {
     final color = score >= 60
         ? Colors.green
         : score >= 30
-            ? Colors.orange
-            : Colors.grey;
+        ? Colors.orange
+        : Colors.grey;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -557,7 +560,7 @@ class _EmptyState extends StatelessWidget {
       children: [
         Center(
           child: Icon(
-            isPending ? Icons.auto_awesome : Icons.inbox_outlined,
+            isPending ? AppIcons.autoAwesome : AppIcons.inbox,
             size: 56,
             color: cs.onSurface.withValues(alpha: 0.2),
           ),
@@ -566,10 +569,9 @@ class _EmptyState extends StatelessWidget {
         Text(
           isPending ? 'Nenhuma indicação pendente' : 'Lista vazia',
           textAlign: TextAlign.center,
-          style: CommunityDesign.titleStyle(context).copyWith(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
+          style: CommunityDesign.titleStyle(
+            context,
+          ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
         Text(
@@ -595,9 +597,7 @@ class _ErrorView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(40),
       children: [
-        const Center(
-          child: Icon(Icons.error_outline, size: 56, color: Colors.red),
-        ),
+        const Center(child: Icon(AppIcons.error, size: 56, color: Colors.red)),
         const SizedBox(height: 16),
         Text(
           'Erro ao carregar indicações',
@@ -614,7 +614,7 @@ class _ErrorView extends StatelessWidget {
         Center(
           child: FilledButton.icon(
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh, size: 16),
+            icon: const Icon(AppIcons.refresh, size: 16),
             label: const Text('Tentar novamente'),
           ),
         ),

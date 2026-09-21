@@ -4,7 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../core/design/community_design.dart';
+import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/utils/whatsapp_launcher.dart';
+import '../../../../../core/widgets/glass_card.dart';
+import '../../../../../core/widgets/status_badge.dart';
 import '../../../../worship/domain/models/worship_service.dart';
 import '../../../../worship/presentation/providers/worship_provider.dart';
 import '../../../domain/models/ministry.dart';
@@ -171,7 +174,8 @@ class _CommunionBatchContentState
       if (!mounted) return;
       setState(() {
         _items = [
-          for (final i in _items) if (i.id == item.id) updated else i,
+          for (final i in _items)
+            if (i.id == item.id) updated else i,
         ];
       });
     } catch (e) {
@@ -210,12 +214,14 @@ class _CommunionBatchContentState
       case WhatsAppLaunchResult.launched:
         try {
           final repo = ref.read(diaconatoAttendanceRepositoryProvider);
-          final updated =
-              await repo.markCommunionItemWhatsappReminderSent(item.id);
+          final updated = await repo.markCommunionItemWhatsappReminderSent(
+            item.id,
+          );
           if (!mounted) return;
           setState(() {
             _items = [
-              for (final i in _items) if (i.id == item.id) updated else i,
+              for (final i in _items)
+                if (i.id == item.id) updated else i,
             ];
           });
         } catch (_) {
@@ -260,7 +266,8 @@ class _CommunionBatchContentState
       if (!mounted) return;
       setState(() {
         _items = [
-          for (final i in _items) if (i.id == item.id) updated else i,
+          for (final i in _items)
+            if (i.id == item.id) updated else i,
         ];
       });
     } catch (e) {
@@ -313,7 +320,7 @@ class _CommunionBatchContentState
         backgroundColor: CommunityDesign.headerColor(context),
         title: const Text('Lote de ceia'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.back),
           onPressed: () => context.pop(),
         ),
         actions: [
@@ -326,7 +333,7 @@ class _CommunionBatchContentState
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.sync),
+                : const Icon(AppIcons.sync),
           ),
         ],
       ),
@@ -351,8 +358,8 @@ class _CommunionBatchContentState
   Widget _buildBody(BuildContext context) {
     final batch = _batch!;
     final stats = _computeStats(_items);
-    final allTerminal = _items.isNotEmpty &&
-        _items.every((i) => _isTerminal(i.status));
+    final allTerminal =
+        _items.isNotEmpty && _items.every((i) => _isTerminal(i.status));
 
     return Column(
       children: [
@@ -360,11 +367,7 @@ class _CommunionBatchContentState
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             children: [
-              _HeaderCard(
-                service: _service,
-                batch: batch,
-                stats: stats,
-              ),
+              _HeaderCard(service: _service, batch: batch, stats: stats),
               const SizedBox(height: 20),
               if (_items.isEmpty)
                 _EmptyHint(
@@ -475,8 +478,10 @@ class _HeaderCard extends StatelessWidget {
     final s = service;
     final dateLabel = s == null
         ? _capitalize(
-            DateFormat("EEE, d 'de' MMM 'de' y", 'pt_BR')
-                .format(batch.serviceDate),
+            DateFormat(
+              "EEE, d 'de' MMM 'de' y",
+              'pt_BR',
+            ).format(batch.serviceDate),
           )
         : _capitalize(
             DateFormat("EEE, d 'de' MMM 'de' y", 'pt_BR').format(s.serviceDate),
@@ -491,8 +496,7 @@ class _HeaderCard extends StatelessWidget {
 
     final closed = batch.status == CommunionBatchStatus.closed;
 
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(cs),
+    return GlassCard(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -503,13 +507,13 @@ class _HeaderCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: (closed ? Colors.grey : cs.primary).withValues(alpha: 0.12),
+                  color: (closed ? Colors.grey : cs.primary).withValues(
+                    alpha: 0.12,
+                  ),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  closed
-                      ? Icons.lock_outline
-                      : Icons.takeout_dining_outlined,
+                  closed ? AppIcons.lock : AppIcons.communion,
                   color: closed ? Colors.grey : cs.primary,
                 ),
               ),
@@ -520,10 +524,9 @@ class _HeaderCard extends StatelessWidget {
                   children: [
                     Text(
                       dateLabel,
-                      style: CommunityDesign.titleStyle(context).copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
+                      style: CommunityDesign.titleStyle(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.w700, fontSize: 16),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -661,86 +664,84 @@ class _ItemTile extends ConsumerWidget {
             orElse: () => 'Responsável',
           );
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-      decoration: BoxDecoration(
-        color: delivered ? Colors.green.withValues(alpha: 0.05) : cs.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accent, width: delivered ? 1.4 : 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: cs.primary.withValues(alpha: 0.1),
-                backgroundImage: (person?.photoUrl ?? '').trim().isNotEmpty
-                    ? NetworkImage(person!.photoUrl!)
-                    : null,
-                child: (person?.photoUrl ?? '').trim().isEmpty
-                    ? Text(
-                        person?.initial ?? '?',
-                        style: TextStyle(
-                          color: cs.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      person?.displayName ?? 'Pessoa removida',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        _ReasonChip(reason: item.reason),
-                        const SizedBox(width: 6),
-                        _StatusBadge(status: item.status),
-                      ],
-                    ),
-                  ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GlassCard(
+        accentColor: delivered ? Colors.green : accent,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: cs.primary.withValues(alpha: 0.1),
+                  backgroundImage: (person?.photoUrl ?? '').trim().isNotEmpty
+                      ? NetworkImage(person!.photoUrl!)
+                      : null,
+                  child: (person?.photoUrl ?? '').trim().isEmpty
+                      ? Text(
+                          person?.initial ?? '?',
+                          style: TextStyle(
+                            color: cs.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        )
+                      : null,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _AssigneePicker(
-                  ministryId: ministryId,
-                  currentAssigneeName: assigneeName,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        person?.displayName ?? 'Pessoa removida',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          _ReasonChip(reason: item.reason),
+                          const SizedBox(width: 6),
+                          _StatusBadge(status: item.status),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _AssigneePicker(
+                    ministryId: ministryId,
+                    currentAssigneeName: assigneeName,
+                    enabled: !batchClosed,
+                    onChanged: onAssign,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _StatusMenu(
+                  current: item.status,
                   enabled: !batchClosed,
-                  onChanged: onAssign,
+                  onChanged: onStatus,
                 ),
-              ),
-              const SizedBox(width: 8),
-              _StatusMenu(
-                current: item.status,
-                enabled: !batchClosed,
-                onChanged: onStatus,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          _WhatsAppItemRow(
-            phone: person?.phone,
-            sentAt: item.reminderWhatsappSentAt,
-            enabled: !batchClosed,
-            onPressed: onSendWhatsApp,
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: 8),
+            _WhatsAppItemRow(
+              phone: person?.phone,
+              sentAt: item.reminderWhatsappSentAt,
+              enabled: !batchClosed,
+              onPressed: onSendWhatsApp,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -782,7 +783,7 @@ class _WhatsAppItemRow extends StatelessWidget {
       children: [
         OutlinedButton.icon(
           onPressed: (enabled && hasPhone) ? onPressed : null,
-          icon: const Icon(Icons.chat_bubble_outline, size: 14),
+          icon: const Icon(AppIcons.chat, size: 14),
           label: Text(
             wasSent ? 'Reenviar WhatsApp' : 'Enviar WhatsApp',
             style: const TextStyle(fontSize: 12),
@@ -804,9 +805,9 @@ class _WhatsAppItemRow extends StatelessWidget {
           Expanded(
             child: Text(
               'Sem telefone',
-              style: CommunityDesign.metaStyle(context).copyWith(
-                fontStyle: FontStyle.italic,
-              ),
+              style: CommunityDesign.metaStyle(
+                context,
+              ).copyWith(fontStyle: FontStyle.italic),
             ),
           )
         else if (wasSent)
@@ -862,37 +863,14 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _color(status);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        status.label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
+    return StatusBadge(
+      label: status.label,
+      tone: switch (status) {
+        CommunionDeliveryStatus.delivered => AppStatusTone.done,
+        CommunionDeliveryStatus.cancelled => AppStatusTone.dropped,
+        _ => AppStatusTone.active,
+      },
     );
-  }
-
-  Color _color(CommunionDeliveryStatus s) {
-    switch (s) {
-      case CommunionDeliveryStatus.pending:
-        return Colors.orange;
-      case CommunionDeliveryStatus.assigned:
-        return Colors.blue;
-      case CommunionDeliveryStatus.delivered:
-        return Colors.green;
-      case CommunionDeliveryStatus.notFound:
-        return Colors.redAccent;
-      case CommunionDeliveryStatus.cancelled:
-        return Colors.grey;
-    }
   }
 }
 
@@ -927,9 +905,7 @@ class _AssigneePicker extends ConsumerWidget {
               onChanged(picked.value);
             },
       icon: Icon(
-        currentAssigneeName == null
-            ? Icons.person_add_alt
-            : Icons.person_outlined,
+        currentAssigneeName == null ? AppIcons.personAdd : AppIcons.person,
         size: 16,
       ),
       label: Text(
@@ -985,37 +961,36 @@ class _AssigneePicker extends ConsumerWidget {
                   child: members.isEmpty
                       ? const Padding(
                           padding: EdgeInsets.all(24),
-                          child: Text(
-                            'Nenhum membro neste ministério ainda.',
-                          ),
+                          child: Text('Nenhum membro neste ministério ainda.'),
                         )
                       : ListView.separated(
                           shrinkWrap: true,
                           itemCount: members.length + 1,
-                          separatorBuilder: (_, __) =>
-                              const Divider(height: 1),
+                          separatorBuilder: (_, __) => const Divider(height: 1),
                           itemBuilder: (ctx, i) {
                             if (i == 0) {
                               return ListTile(
-                                leading: const Icon(Icons.clear),
+                                leading: const Icon(AppIcons.clear),
                                 title: const Text('Desatribuir'),
-                                onTap: () => Navigator.of(ctx).pop(
-                                  const _PickedMember(value: null),
-                                ),
+                                onTap: () => Navigator.of(
+                                  ctx,
+                                ).pop(const _PickedMember(value: null)),
                               );
                             }
                             final m = members[i - 1];
                             return ListTile(
-                              leading: const Icon(Icons.person),
-                              title: Text(m.memberName.isEmpty
-                                  ? 'Membro do ministério'
-                                  : m.memberName),
-                              subtitle:
-                                  m.role == MinistryRole.member
-                                      ? null
-                                      : Text(m.role.label),
-                              onTap: () => Navigator.of(ctx)
-                                  .pop(_PickedMember(value: m)),
+                              leading: const Icon(AppIcons.personFilled),
+                              title: Text(
+                                m.memberName.isEmpty
+                                    ? 'Membro do ministério'
+                                    : m.memberName,
+                              ),
+                              subtitle: m.role == MinistryRole.member
+                                  ? null
+                                  : Text(m.role.label),
+                              onTap: () => Navigator.of(
+                                ctx,
+                              ).pop(_PickedMember(value: m)),
                             );
                           },
                         ),
@@ -1050,7 +1025,7 @@ class _StatusMenu extends StatelessWidget {
     return PopupMenuButton<CommunionDeliveryStatus>(
       enabled: enabled,
       tooltip: 'Mudar status',
-      icon: const Icon(Icons.more_vert),
+      icon: const Icon(AppIcons.more),
       onSelected: onChanged,
       itemBuilder: (_) {
         return CommunionDeliveryStatus.values.map((s) {
@@ -1058,10 +1033,7 @@ class _StatusMenu extends StatelessWidget {
             value: s,
             child: Row(
               children: [
-                Icon(
-                  s == current ? Icons.check : Icons.circle_outlined,
-                  size: 16,
-                ),
+                Icon(s == current ? AppIcons.check : AppIcons.circle, size: 16),
                 const SizedBox(width: 8),
                 Text(s.label),
               ],
@@ -1120,10 +1092,9 @@ class _StickyFooter extends StatelessWidget {
               ),
               Text(
                 '${stats.delivered} de ${stats.total}',
-                style: CommunityDesign.titleStyle(context).copyWith(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                ),
+                style: CommunityDesign.titleStyle(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w800, fontSize: 18),
               ),
             ],
           ),
@@ -1131,13 +1102,13 @@ class _StickyFooter extends StatelessWidget {
           if (closed)
             OutlinedButton.icon(
               onPressed: onToggleClose,
-              icon: const Icon(Icons.lock_open, size: 16),
+              icon: const Icon(AppIcons.lockOpen, size: 16),
               label: const Text('Reabrir'),
             )
           else
             FilledButton.icon(
               onPressed: canClose ? onToggleClose : null,
-              icon: const Icon(Icons.lock_outline, size: 16),
+              icon: const Icon(AppIcons.lock, size: 16),
               label: const Text('Fechar lote'),
             ),
         ],
@@ -1152,19 +1123,11 @@ class _EmptyHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    return GlassCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        text,
-        style: CommunityDesign.metaStyle(context),
+      child: SizedBox(
+        width: double.infinity,
+        child: Text(text, style: CommunityDesign.metaStyle(context)),
       ),
     );
   }
@@ -1183,10 +1146,12 @@ class _ErrorView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const Icon(AppIcons.error, size: 48, color: Colors.red),
           const SizedBox(height: 16),
-          Text('Erro ao carregar lote',
-              style: CommunityDesign.titleStyle(context)),
+          Text(
+            'Erro ao carregar lote',
+            style: CommunityDesign.titleStyle(context),
+          ),
           const SizedBox(height: 8),
           Text(
             message,
@@ -1196,7 +1161,7 @@ class _ErrorView extends StatelessWidget {
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(AppIcons.refresh),
             label: const Text('Tentar novamente'),
           ),
         ],

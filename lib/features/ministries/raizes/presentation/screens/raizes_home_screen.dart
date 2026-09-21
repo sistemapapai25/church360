@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../core/design/community_design.dart';
+import '../../../../../core/design/app_icons.dart';
+import '../../../../../core/widgets/glass_card.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../../domain/models/raizes_dashboard_stats.dart';
@@ -28,6 +30,7 @@ class RaizesHomeScreen extends ConsumerWidget {
     );
   }
 }
+
 class _RaizesContent extends ConsumerStatefulWidget {
   final String ministryId;
 
@@ -47,13 +50,16 @@ class _RaizesContentState extends ConsumerState<_RaizesContent> {
     // como notificadas (não afeta contagens, mas é seguro).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final repo = ref.read(raizesRepositoryProvider);
-      repo.dispatchVisitReminders().then((created) {
-        if (created > 0 && mounted) {
-          ref.invalidate(raizesDashboardStatsProvider(widget.ministryId));
-        }
-      }).catchError((_) {
-        // Silencioso: o usuário ainda vê o dashboard; lembrete não bloqueia.
-      });
+      repo
+          .dispatchVisitReminders()
+          .then((created) {
+            if (created > 0 && mounted) {
+              ref.invalidate(raizesDashboardStatsProvider(widget.ministryId));
+            }
+          })
+          .catchError((_) {
+            // Silencioso: o usuário ainda vê o dashboard; lembrete não bloqueia.
+          });
     });
   }
 
@@ -73,12 +79,12 @@ class _RaizesContentState extends ConsumerState<_RaizesContent> {
           orElse: () => const Text('Raízes'),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.back),
           onPressed: () => context.pop(),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(AppIcons.refresh),
             tooltip: 'Recarregar',
             onPressed: () =>
                 ref.invalidate(raizesDashboardStatsProvider(ministryId)),
@@ -95,8 +101,9 @@ class _RaizesContentState extends ConsumerState<_RaizesContent> {
           children: [
             Text(
               'Dashboard',
-              style: CommunityDesign.titleStyle(context)
-                  .copyWith(fontSize: 20, fontWeight: FontWeight.w800),
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontSize: 20, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
             statsAsync.when(
@@ -110,17 +117,17 @@ class _RaizesContentState extends ConsumerState<_RaizesContent> {
             ),
             const SizedBox(height: 24),
             _PrimaryActionCard(
-              icon: Icons.event_available_outlined,
+              icon: AppIcons.eventAvailable,
               title: 'Agenda de visitas',
               description:
                   'Criar visitas, atribuir responsáveis e acompanhar status. Lembretes internos disparam ao abrir este módulo.',
-              onTap: () => context.push(
-                  '/ministries/$ministryId/raizes/visits'),
+              onTap: () =>
+                  context.push('/ministries/$ministryId/raizes/visits'),
               color: Colors.deepPurple,
             ),
             const SizedBox(height: 12),
             _PrimaryActionCard(
-              icon: Icons.person_search,
+              icon: AppIcons.personSearch,
               title: 'Ver visitantes',
               description:
                   'Abrir a lista completa de visitantes com os filtros do Raízes (primeira visita, salvação, follow-up, faixa etária).',
@@ -129,17 +136,16 @@ class _RaizesContentState extends ConsumerState<_RaizesContent> {
             ),
             const SizedBox(height: 12),
             _PrimaryActionCard(
-              icon: Icons.person_add,
+              icon: AppIcons.personAdd,
               title: 'Cadastrar novo visitante',
-              description:
-                  'Abre o formulário pré-configurado para visitantes.',
-              onTap: () => context.push(
-                  '/members/new?status=visitor&type=visitante'),
+              description: 'Abre o formulário pré-configurado para visitantes.',
+              onTap: () =>
+                  context.push('/members/new?status=visitor&type=visitante'),
               color: colorScheme.tertiary,
             ),
             const SizedBox(height: 12),
             _PrimaryActionCard(
-              icon: Icons.diversity_3_outlined,
+              icon: AppIcons.sponsors,
               title: 'Cadastro de padrinhos',
               description:
                   'Cadastre membros do ministério como padrinho/madrinha com critérios para alimentar o algoritmo de indicações.',
@@ -149,12 +155,13 @@ class _RaizesContentState extends ConsumerState<_RaizesContent> {
             ),
             const SizedBox(height: 12),
             _PrimaryActionCard(
-              icon: Icons.recommend_outlined,
+              icon: AppIcons.recommendations,
               title: 'Indicações de padrinhos',
               description:
                   'Sugestões automáticas de padrinho/madrinha por perfil. Aceitar marca o mentor do visitante.',
               onTap: () => context.push(
-                  '/ministries/$ministryId/raizes/recommendations'),
+                '/ministries/$ministryId/raizes/recommendations',
+              ),
               color: Colors.amber.shade800,
             ),
           ],
@@ -174,43 +181,43 @@ class _StatsGrid extends StatelessWidget {
       _StatItem(
         title: 'Visitas hoje',
         value: stats.visitsToday,
-        icon: Icons.today_outlined,
+        icon: AppIcons.today,
         color: Colors.deepPurple,
       ),
       _StatItem(
         title: 'Visitas atrasadas',
         value: stats.visitsOverdue,
-        icon: Icons.event_busy_outlined,
+        icon: AppIcons.eventBusy,
         color: Colors.red,
       ),
       _StatItem(
         title: 'Visitantes ativos',
         value: stats.totalActiveVisitors,
-        icon: Icons.groups,
+        icon: AppIcons.groupsFilled,
         color: Colors.indigo,
       ),
       _StatItem(
         title: 'Querem contato',
         value: stats.wantingContactPending,
-        icon: Icons.mark_chat_unread_outlined,
+        icon: AppIcons.unread,
         color: Colors.orange,
       ),
       _StatItem(
         title: 'Sem padrinho',
         value: stats.withoutMentor,
-        icon: Icons.person_off_outlined,
+        icon: AppIcons.personOff,
         color: Colors.redAccent,
       ),
       _StatItem(
         title: 'Decisões (30d)',
         value: stats.newSalvationsLast30Days,
-        icon: Icons.favorite_outline,
+        icon: AppIcons.favorite,
         color: Colors.pink,
       ),
       _StatItem(
         title: 'Novos visitantes (30d)',
         value: stats.newVisitorsLast30Days,
-        icon: Icons.fiber_new_outlined,
+        icon: AppIcons.newPerson,
         color: Colors.teal,
       ),
     ];
@@ -241,10 +248,8 @@ class _StatsGridSkeleton extends StatelessWidget {
       childAspectRatio: 1.55,
       children: List.generate(
         4,
-        (_) => Container(
-          decoration: CommunityDesign.overlayDecoration(
-            Theme.of(context).colorScheme,
-          ),
+        (_) => GlassCard(
+          padding: EdgeInsets.zero,
           child: const Center(
             child: SizedBox(
               width: 22,
@@ -266,20 +271,19 @@ class _StatsError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.all(16),
-      decoration: CommunityDesign.overlayDecoration(
-        Theme.of(context).colorScheme,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: const [
-              Icon(Icons.error_outline, color: Colors.red),
+              Icon(AppIcons.error, color: Colors.red),
               SizedBox(width: 8),
-              Text('Falha ao carregar KPIs',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
+              Text(
+                'Falha ao carregar KPIs',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -294,7 +298,7 @@ class _StatsError extends StatelessWidget {
             alignment: Alignment.centerRight,
             child: OutlinedButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh, size: 18),
+              icon: const Icon(AppIcons.refresh, size: 18),
               label: const Text('Tentar de novo'),
             ),
           ),
@@ -324,11 +328,8 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.all(14),
-      decoration: CommunityDesign.overlayDecoration(
-        Theme.of(context).colorScheme,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -349,8 +350,9 @@ class _StatCard extends StatelessWidget {
           ),
           Text(
             item.title,
-            style: CommunityDesign.metaStyle(context)
-                .copyWith(fontWeight: FontWeight.w600),
+            style: CommunityDesign.metaStyle(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -375,48 +377,38 @@ class _PrimaryActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return GlassCard(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: CommunityDesign.overlayDecoration(
-          Theme.of(context).colorScheme,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 22),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: CommunityDesign.titleStyle(context).copyWith(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    description,
-                    style: CommunityDesign.metaStyle(context),
-                  ),
-                ],
-              ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 2),
+                Text(description, style: CommunityDesign.metaStyle(context)),
+              ],
             ),
-            const Icon(Icons.arrow_forward_ios, color: Colors.grey),
-          ],
-        ),
+          ),
+          const Icon(AppIcons.forward, color: Colors.grey),
+        ],
       ),
     );
   }

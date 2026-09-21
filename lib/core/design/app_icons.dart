@@ -16,6 +16,7 @@ abstract final class AppIcons {
   static const forward = Icons.arrow_forward_ios;
   static const close = Icons.close;
   static const add = Icons.add;
+  static const remove = Icons.remove;
   static const more = Icons.more_vert;
   static const home = Icons.home_outlined;
   static const bible = Icons.menu_book_outlined;
@@ -33,6 +34,7 @@ abstract final class AppIcons {
   static const supervisor = Icons.supervisor_account_outlined;
   static const security = Icons.security_outlined;
   static const message = Icons.chat_outlined;
+  static const chat = Icons.chat_bubble_outline;
   static const article = Icons.article_outlined;
   static const microphone = Icons.mic_outlined;
   static const touch = Icons.touch_app_outlined;
@@ -72,6 +74,7 @@ abstract final class AppIcons {
   static const checkBox = Icons.check_box;
   static const checkBoxOutline = Icons.check_box_outline_blank;
   static const radio = Icons.radio_button_unchecked;
+  static const circle = Icons.circle_outlined;
   static const doneAll = Icons.done_all;
   static const checkCircle = Icons.check_circle;
   static const save = Icons.save_outlined;
@@ -133,4 +136,14 @@ abstract final class AppIcons {
   static const addCircle = Icons.add_circle_outline;
   static const sync = Icons.sync;
   static const lockOpen = Icons.lock_open;
+  static const today = Icons.today_outlined;
+  static const unread = Icons.mark_chat_unread_outlined;
+  static const personSearch = Icons.person_search;
+  static const personOff = Icons.person_off_outlined;
+  static const newPerson = Icons.fiber_new_outlined;
+  static const recommendations = Icons.recommend_outlined;
+  static const sponsors = Icons.diversity_3_outlined;
+  static const archive = Icons.archive_outlined;
+  static const inbox = Icons.inbox_outlined;
+  static const autoAwesome = Icons.auto_awesome;
 }

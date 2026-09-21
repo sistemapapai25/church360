@@ -569,6 +569,69 @@ avisos de migração futura do runner Node 20/Ubuntu 26.
 - `docs/VISUAL-MATERIAL-INVENTORY.md`
 - `SESSION-WRAP.md` (este handoff)
 
+## Onda visual — submódulos especializados do Ministries
+
+Timestamp: 2026-09-21, America/Sao_Paulo (UTC-03).
+
+### O que foi entregue
+
+- `diaconato_checklist_screen.dart`, `diaconato_absentees_screen.dart` e
+  `diaconato_communion_batch_screen.dart` agora usam `GlassCard` nas
+  superfícies operacionais e o catálogo `AppIcons`; o lote de ceia usa
+  `StatusBadge` para o ciclo de entrega.
+- `raizes_home_screen.dart`, `raizes_visits_screen.dart`,
+  `raizes_recommendations_screen.dart` e `raizes_sponsors_screen.dart` agora
+  usam `GlassCard`, `StatusBadge` e `AppIcons` nas grades, ações, cards,
+  estados e operações de Raízes.
+- O teste focado
+  `test/features/ministries/diaconato_raizes_visual_test.dart` cobre o
+  dashboard de Raízes e o checklist do Diaconato com repositórios em memória.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios,
+persistência, dispatches ou contratos de dados.
+
+### Verificação local
+
+- Teste focado: **2 passed**.
+- Suite completa após a inclusão dos testes: **518 passed**.
+- `flutter analyze --no-pub` nos oito arquivos de tela, catálogo e teste:
+  sem issues.
+- `git diff --check`: passou.
+- `flutter build web --release --no-pub`: passou.
+- Avisos Wasm permanecem apenas nas dependências conhecidas
+  (`audioplayers_web`, `dart:html`, `package:js` e `image`).
+
+### Estado Git e próximo passo
+
+- Implementação consolidada em commit local sobre
+  `feat/visual-wave-9-diaconato-notifications`; ainda não há PR ou deploy
+  desta rodada.
+- Os sete registradores Flutter gerados continuam modificados localmente e
+  fora do recorte:
+  `linux/flutter/generated_plugin_registrant.cc`,
+  `linux/flutter/generated_plugin_registrant.h`,
+  `linux/flutter/generated_plugins.cmake`,
+  `macos/Flutter/GeneratedPluginRegistrant.swift`,
+  `windows/flutter/generated_plugin_registrant.cc`,
+  `windows/flutter/generated_plugin_registrant.h` e
+  `windows/flutter/generated_plugins.cmake`.
+- Próxima ação: rerun da suite completa com os 2 testes novos, revisar o diff,
+  criar PR da onda especializada e só então publicar o deploy.
+
+### Arquivos intencionais desta onda
+
+- `lib/core/design/app_icons.dart`
+- `lib/features/ministries/diaconato/presentation/screens/diaconato_checklist_screen.dart`
+- `lib/features/ministries/diaconato/presentation/screens/diaconato_absentees_screen.dart`
+- `lib/features/ministries/diaconato/presentation/screens/diaconato_communion_batch_screen.dart`
+- `lib/features/ministries/raizes/presentation/screens/raizes_home_screen.dart`
+- `lib/features/ministries/raizes/presentation/screens/raizes_visits_screen.dart`
+- `lib/features/ministries/raizes/presentation/screens/raizes_recommendations_screen.dart`
+- `lib/features/ministries/raizes/presentation/screens/raizes_sponsors_screen.dart`
+- `test/features/ministries/diaconato_raizes_visual_test.dart`
+- `docs/VISUAL-MATERIAL-INVENTORY.md`
+- `SESSION-WRAP.md` (este handoff)
+
 ## Final closeout — visual wave 8 Batismo, submódulos
 
 Timestamp: 2026-09-21 14:12:49 BRT (America/Sao_Paulo, UTC-03).
