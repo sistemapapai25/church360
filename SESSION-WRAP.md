@@ -776,6 +776,43 @@ os avisos conhecidos de migração do Node 20/Ubuntu 26.
 - `docs/VISUAL-MATERIAL-INVENTORY.md`
 - `SESSION-WRAP.md` (este handoff)
 
+## Final closeout — visual wave 10 Events, listagem
+
+Timestamp: 2026-09-21, America/Sao_Paulo (UTC-03).
+
+### Git, merge e produção
+
+- Commit de implementação: `904db39`, `feat: standardize events list surfaces`.
+- PR #135: https://github.com/sistemapapai25/church360/pull/135.
+- Merge em `main`: `088aa23b10c27f19abd94fb725198f840e3d99c1`.
+- Workflow de produção: run `35648463575`, sucesso em 3m11s:
+  https://github.com/sistemapapai25/church360/actions/runs/35648463575.
+- Deploy Vercel Ready:
+  `https://church360-aci5ut07q-gabriels-projects-ec03504d.vercel.app`.
+- Alias de produção confirmado: `https://app.church360.com.br`.
+
+### Verificação
+
+- Teste focado: **2 passed**.
+- `flutter test --no-pub -j 1`: **539 passed** contra o `main` mais recente.
+- `flutter analyze --no-pub` nos arquivos da listagem e teste: sem issues.
+- `git diff --check`: passou.
+- `flutter build web --release --no-pub`: passou.
+- Permanecem apenas os avisos Wasm conhecidos de `audioplayers_web`,
+  `dart:html`, `package:js` e `image`.
+
+### Próximo agente
+
+- `EventsListScreen` está concluída; continuam pendentes `event_detail_screen.dart`,
+  `event_form_screen.dart`, `event_registration_screen.dart` e os diálogos/widgets
+  especializados de Events.
+- Depois de Events, seguir para Financeiro, Financeiro legado, Community e
+  concluir Reports conforme a tabela de `docs/VISUAL-MATERIAL-INVENTORY.md`.
+- Preservar os sete registradores Flutter gerados modificados localmente e
+  mantê-los fora dos commits.
+- A validação visual autenticada em produção continua limitada pelo SSO da
+  Vercel neste ambiente.
+
 ## Final closeout — visual wave 9 Diaconato e Raízes
 
 Timestamp: 2026-09-21, America/Sao_Paulo (UTC-03).
