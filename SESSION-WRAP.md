@@ -900,3 +900,15 @@ Timestamp: 2026-09-21 17:36, America/Sao_Paulo (UTC-03).
   com uma sessão autenticada quando possível e continuar a próxima fatia
   visual de Events (`event_detail_screen.dart`, `event_form_screen.dart` e
   `event_registration_screen.dart`).
+
+## Confirmação do merge final
+
+Timestamp: 2026-09-21 17:40, America/Sao_Paulo (UTC-03).
+
+- O commit deste fechamento foi `0d6cc47`.
+- PR #137 foi mergeado em `main` com o commit `39ac4c8379365fe533f7746df86c7f16bd3d74fa`:
+  https://github.com/sistemapapai25/church360/pull/137.
+- O `main` remoto agora contém este wrap atualizado; o checkout local
+  continua na branch de trabalho porque `main` está ativo em outro worktree.
+- Os sete registradores Flutter continuam apenas como modificações locais,
+  sem staging e sem commit.
