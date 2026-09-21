@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/app_filter_bar.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/status_badge.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 
 import '../providers/ministries_provider.dart';
@@ -29,9 +33,14 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canCreateAsync = ref.watch(currentUserHasPermissionProvider('ministries.create'));
+    final canCreateAsync = ref.watch(
+      currentUserHasPermissionProvider('ministries.create'),
+    );
     final canSeeAllAsync = ref.watch(ministriesCanSeeAllProvider);
-    final canSeeAll = canSeeAllAsync.maybeWhen(data: (v) => v, orElse: () => false);
+    final canSeeAll = canSeeAllAsync.maybeWhen(
+      data: (v) => v,
+      orElse: () => false,
+    );
 
     final ministriesAsync = ref.watch(visibleMinistriesProvider);
 
@@ -58,7 +67,7 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                 Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back),
+                      icon: const Icon(AppIcons.back),
                       tooltip: 'Voltar',
                       onPressed: () => context.pop(),
                     ),
@@ -80,7 +89,7 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                         ],
                       ),
                       child: Icon(
-                        Icons.church,
+                        AppIcons.church,
                         size: 24,
                         color: Theme.of(context).colorScheme.primary,
                       ),
@@ -108,7 +117,7 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                       data: (canCreate) => canCreate
                           ? ElevatedButton.icon(
                               onPressed: () => context.push('/ministries/new'),
-                              icon: const Icon(Icons.add, size: 18),
+                              icon: const Icon(AppIcons.add, size: 18),
                               label: const Text('Novo'),
                               style: CommunityDesign.pillButtonStyle(
                                 context,
@@ -141,7 +150,7 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.church_outlined,
+                          AppIcons.church,
                           size: 64,
                           color: Theme.of(
                             context,
@@ -161,7 +170,7 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                                   onPressed: () {
                                     context.push('/ministries/new');
                                   },
-                                  icon: const Icon(Icons.add, size: 18),
+                                  icon: const Icon(AppIcons.add, size: 18),
                                   label: const Text(
                                     'Criar Primeiro Ministério',
                                   ),
@@ -182,74 +191,13 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Container(
-                        decoration: CommunityDesign.overlayDecoration(
-                          Theme.of(context).colorScheme,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.search, size: 20),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Buscar Ministérios',
-                                    style: CommunityDesign.titleStyle(context)
-                                        .copyWith(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              TextField(
-                                controller: _searchController,
-                                onChanged: (value) =>
-                                    setState(() => _searchQuery = value.trim()),
-                                decoration: InputDecoration(
-                                  hintText: 'Digite o nome ou descrição...',
-                                  hintStyle: CommunityDesign.metaStyle(context),
-                                  prefixIcon: const Icon(
-                                    Icons.search,
-                                    size: 20,
-                                  ),
-                                  suffixIcon: _searchQuery.trim().isNotEmpty
-                                      ? IconButton(
-                                          icon: const Icon(Icons.clear),
-                                          onPressed: () {
-                                            setState(() {
-                                              _searchController.clear();
-                                              _searchQuery = '';
-                                            });
-                                          },
-                                        )
-                                      : null,
-                                  filled: true,
-                                  fillColor: Theme.of(context)
-                                      .colorScheme
-                                      .surfaceContainerHighest
-                                      .withValues(alpha: 0.3),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .outline
-                                          .withValues(alpha: 0.1),
-                                    ),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                      child: GlassCard(
+                        padding: const EdgeInsets.all(16),
+                        child: AppFilterBar(
+                          searchController: _searchController,
+                          searchHint: 'Buscar por nome ou descrição...',
+                          onSearchChanged: (value) =>
+                              setState(() => _searchQuery = value.trim()),
                         ),
                       ),
                     ),
@@ -283,11 +231,7 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 48,
-                        color: Colors.red,
-                      ),
+                      const Icon(AppIcons.error, size: 48, color: Colors.red),
                       const SizedBox(height: 16),
                       Text(
                         'Erro ao carregar ministérios',
@@ -306,7 +250,7 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                           ref.invalidate(currentMemberMinistriesProvider);
                           ref.invalidate(allMinistriesProvider);
                         },
-                        icon: const Icon(Icons.refresh, size: 18),
+                        icon: const Icon(AppIcons.refresh, size: 18),
                         label: const Text('Tentar Novamente'),
                         style: CommunityDesign.pillButtonStyle(
                           context,
@@ -337,152 +281,141 @@ class _MinistryCard extends ConsumerWidget {
     final membersAsync = ref.watch(ministryMembersProvider(ministry.id));
     final icon = ministryIconData(ministry.icon);
 
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(
-        Theme.of(context).colorScheme,
-      ),
-      child: InkWell(
-        onTap: () {
-          // Ministerio com modulo proprio (Batismo, Raizes, Diaconato) abre
-          // direto no modulo: a ficha deixou de ser a porta de entrada e
-          // passou a ser um destino de dentro dele.
-          context.push(
-            ministry.specializedRoute() ?? '/ministries/${ministry.id}',
-          );
-        },
-        borderRadius: BorderRadius.circular(CommunityDesign.radius),
-        child: Padding(
-          padding: CommunityDesign.overlayPadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      onTap: () {
+        // Ministerio com modulo proprio (Batismo, Raizes, Diaconato) abre
+        // direto no modulo: a ficha deixou de ser a porta de entrada e
+        // passou a ser um destino de dentro dele.
+        context.push(
+          ministry.specializedRoute() ?? '/ministries/${ministry.id}',
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  // Ícone colorido
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(icon, color: color, size: 24),
-                  ),
-                  const SizedBox(width: 16),
+              // Ícone colorido
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 16),
 
-                  // Nome e descrição
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              // Nome e descrição
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                ministry.name,
-                                style: CommunityDesign.titleStyle(context)
-                                    .copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                    ),
-                              ),
+                        Expanded(
+                          child: Text(
+                            ministry.name,
+                            style: CommunityDesign.titleStyle(context).copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
                             ),
-                            if (!ministry.isActive)
-                              CommunityDesign.badge(
-                                context,
-                                'Inativo',
-                                Colors.grey,
-                              ),
-                          ],
-                        ),
-                        if (ministry.description != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            ministry.description!,
-                            style: CommunityDesign.metaStyle(context),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ],
+                        ),
+                        if (!ministry.isActive)
+                          const StatusBadge.dropped(label: 'Inativo'),
                       ],
                     ),
-                  ),
-
-                  // Seta
-                  const Icon(Icons.arrow_forward_ios, color: Colors.grey),
-                ],
+                    if (ministry.description != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        ministry.description!,
+                        style: CommunityDesign.metaStyle(context),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
               ),
 
-              // Contagem de membros
-              const SizedBox(height: 12),
-              membersAsync.when(
-                data: (members) {
-                  if (members.isEmpty) {
-                    return Text(
-                      'Nenhum membro',
-                      style: CommunityDesign.metaStyle(context),
-                    );
-                  }
+              // Seta
+              const Icon(AppIcons.forward, color: Colors.grey),
+            ],
+          ),
 
-                  final leaders = members
-                      .where((m) => m.role == MinistryRole.leader)
-                      .length;
-                  final sortedNames = members
+          // Contagem de membros
+          const SizedBox(height: 12),
+          membersAsync.when(
+            data: (members) {
+              if (members.isEmpty) {
+                return Text(
+                  'Nenhum membro',
+                  style: CommunityDesign.metaStyle(context),
+                );
+              }
+
+              final leaders = members
+                  .where((m) => m.role == MinistryRole.leader)
+                  .length;
+              final sortedNames =
+                  members
                       .map((m) => m.memberName)
                       .where((n) => n.trim().isNotEmpty)
                       .toList()
-                    ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-                  final visibleNames = sortedNames.take(8).toList();
-                  final overflow = sortedNames.length - visibleNames.length;
+                    ..sort(
+                      (a, b) => a.toLowerCase().compareTo(b.toLowerCase()),
+                    );
+              final visibleNames = sortedNames.take(8).toList();
+              final overflow = sortedNames.length - visibleNames.length;
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Icon(Icons.groups, size: 16, color: Colors.grey[600]),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${members.length} ${members.length == 1 ? 'membro' : 'membros'}',
-                            style: CommunityDesign.metaStyle(
-                              context,
-                            ).copyWith(fontWeight: FontWeight.w500),
-                          ),
-                          if (leaders > 0) ...[
-                            const SizedBox(width: 12),
-                            Text(
-                              '$leaders ${leaders == 1 ? 'líder' : 'líderes'}',
-                              style: CommunityDesign.metaStyle(context),
-                            ),
-                          ],
-                        ],
+                      const Icon(AppIcons.groups, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${members.length} ${members.length == 1 ? 'membro' : 'membros'}',
+                        style: CommunityDesign.metaStyle(
+                          context,
+                        ).copyWith(fontWeight: FontWeight.w500),
                       ),
-                      if (visibleNames.isNotEmpty) ...[
-                        const SizedBox(height: 6),
+                      if (leaders > 0) ...[
+                        const SizedBox(width: 12),
                         Text(
-                          overflow > 0
-                              ? '${visibleNames.join(', ')} (+$overflow)'
-                              : visibleNames.join(', '),
+                          '$leaders ${leaders == 1 ? 'líder' : 'líderes'}',
                           style: CommunityDesign.metaStyle(context),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ],
-                  );
-                },
-                loading: () => const SizedBox(
-                  height: 16,
-                  width: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                error: (_, __) => const SizedBox.shrink(),
-              ),
-            ],
+                  ),
+                  if (visibleNames.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      overflow > 0
+                          ? '${visibleNames.join(', ')} (+$overflow)'
+                          : visibleNames.join(', '),
+                      style: CommunityDesign.metaStyle(context),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              );
+            },
+            loading: () => const SizedBox(
+              height: 16,
+              width: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            error: (_, __) => const SizedBox.shrink(),
           ),
-        ),
+        ],
       ),
     );
   }
-
 }

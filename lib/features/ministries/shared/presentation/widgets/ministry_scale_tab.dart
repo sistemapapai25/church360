@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/app_filter_bar.dart';
+import '../../../../../core/widgets/glass_card.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
 import '../../../domain/models/ministry.dart';
 import '../../../presentation/providers/ministries_provider.dart';
@@ -104,7 +106,7 @@ class _MinistryScaleTabState extends ConsumerState<MinistryScaleTab> {
                   if (canManage)
                     AppFilterAction(
                       label: 'Regras',
-                      icon: Icons.tune,
+                      icon: AppIcons.tune,
                       onPressed: () => context.push(
                         '/ministries/${widget.ministryId}/schedule-rules',
                       ),
@@ -113,7 +115,7 @@ class _MinistryScaleTabState extends ConsumerState<MinistryScaleTab> {
                 primaryAction: canManage
                     ? AppFilterAction(
                         label: 'Gerar escala',
-                        icon: Icons.hub,
+                        icon: AppIcons.autoSchedule,
                         onPressed: () => context.push(
                           '/ministries/${widget.ministryId}/auto-scheduler',
                         ),
@@ -181,82 +183,81 @@ class _EventScaleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final borderColor = dark ? AppTheme.darkBorder : AppTheme.border;
     final accent = dark ? AppTheme.darkRing : AppTheme.primary;
 
     final count = group.entries.length;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: CommunityDesign.cardSurfaceColor(colorScheme),
-        border: Border.all(color: borderColor),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Theme(
-        // O ExpansionTile do Material desenha um divisor próprio em cima e
-        // embaixo; sem isso ele corta a borda do card.
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          leading: Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(12),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GlassCard(
+        padding: EdgeInsets.zero,
+        child: Theme(
+          // O ExpansionTile do Material desenha um divisor próprio em cima e
+          // embaixo; sem isso ele corta a borda do card.
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 4,
             ),
-            child: Icon(Icons.event_outlined, size: 19, color: accent),
-          ),
-          title: Text(
-            group.eventName.trim().isEmpty ? 'Evento' : group.eventName,
-            style: CommunityDesign.titleStyle(
-              context,
-            ).copyWith(fontSize: 14, fontWeight: FontWeight.w700),
-          ),
-          subtitle: Text(
-            [
-              if (_formatDate(group.startDate) != null)
-                _formatDate(group.startDate)!,
-              count == 1 ? '1 escalado' : '$count escalados',
-            ].join(' · '),
-            style: CommunityDesign.metaStyle(context),
-          ),
-          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          children: [
-            for (final entry in group.entries)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.person_outline,
-                      size: 16,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        entry.memberName.trim().isEmpty
-                            ? 'Sem nome'
-                            : entry.memberName,
-                        style: CommunityDesign.titleStyle(
-                          context,
-                        ).copyWith(fontSize: 13),
-                      ),
-                    ),
-                    if (entry.functionName != null &&
-                        entry.functionName!.trim().isNotEmpty)
-                      Text(
-                        entry.functionName!,
-                        style: CommunityDesign.metaStyle(context),
-                      ),
-                  ],
-                ),
+            leading: Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
               ),
-          ],
+              child: Icon(AppIcons.event, size: 19, color: accent),
+            ),
+            title: Text(
+              group.eventName.trim().isEmpty ? 'Evento' : group.eventName,
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+            subtitle: Text(
+              [
+                if (_formatDate(group.startDate) != null)
+                  _formatDate(group.startDate)!,
+                count == 1 ? '1 escalado' : '$count escalados',
+              ].join(' · '),
+              style: CommunityDesign.metaStyle(context),
+            ),
+            childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            children: [
+              for (final entry in group.entries)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Icon(
+                        AppIcons.person,
+                        size: 16,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          entry.memberName.trim().isEmpty
+                              ? 'Sem nome'
+                              : entry.memberName,
+                          style: CommunityDesign.titleStyle(
+                            context,
+                          ).copyWith(fontSize: 13),
+                        ),
+                      ),
+                      if (entry.functionName != null &&
+                          entry.functionName!.trim().isNotEmpty)
+                        Text(
+                          entry.functionName!,
+                          style: CommunityDesign.metaStyle(context),
+                        ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -281,41 +282,34 @@ class _ScaleHistoryLink extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final accent = dark ? AppTheme.darkRing : AppTheme.primary;
 
-    return InkWell(
+    return GlassCardAccent(
+      accentColor: accent,
+      padding: const EdgeInsets.all(14),
       onTap: () => context.push('/ministries/$ministryId/scale-history'),
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.08),
-          border: Border.all(color: accent.withValues(alpha: 0.3)),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.history, size: 20, color: accent),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Abrir histórico completo',
-                    style: CommunityDesign.titleStyle(
-                      context,
-                    ).copyWith(fontSize: 14, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Escalas anteriores, com filtro por período.',
-                    style: CommunityDesign.metaStyle(context),
-                  ),
-                ],
-              ),
+      child: Row(
+        children: [
+          Icon(AppIcons.history, size: 20, color: accent),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Abrir histórico completo',
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Escalas anteriores, com filtro por período.',
+                  style: CommunityDesign.metaStyle(context),
+                ),
+              ],
             ),
-            Icon(Icons.arrow_forward_ios, size: 14, color: accent),
-          ],
-        ),
+          ),
+          Icon(AppIcons.forward, size: 14, color: accent),
+        ],
       ),
     );
   }
@@ -334,7 +328,7 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         children: [
           Icon(
-            Icons.calendar_month_outlined,
+            AppIcons.calendar,
             size: 36,
             color: Theme.of(context).disabledColor,
           ),
@@ -370,7 +364,7 @@ class _ScaleError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 40),
+            const Icon(AppIcons.error, size: 40),
             const SizedBox(height: 12),
             Text(
               'Não foi possível carregar as escalas.',
