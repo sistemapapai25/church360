@@ -323,6 +323,53 @@ Timestamp: 2026-09-20 01:23:37 BRT (America/Sao_Paulo, UTC-03).
 - `docs/VISUAL-MATERIAL-INVENTORY.md`
 - `SESSION-WRAP.md` (this handoff)
 
+## Visual wave 9 — Diaconato dashboard and ministry notifications
+
+Timestamp: 2026-09-21, America/Sao_Paulo (UTC-03).
+
+### What was delivered
+
+- `diaconato_home_screen.dart` now reuses `GlassCard` for the last-count
+  hero, empty/error states, visitor-capture alert, and navigation shortcuts.
+- The Diaconato dashboard shortcuts and KPI symbols now consume the semantic
+  `AppIcons` catalog; existing routes and the idempotent communion dispatch
+  remain unchanged.
+- `ministry_notification_config_screen.dart` now groups its context,
+  recipients, custom selectors, and notification triggers into `GlassCard`
+  sections, with shared semantic icons for save, search, add, notifications,
+  and tuning.
+- `AppIcons` gained reusable Diaconato semantics for fact-check, absence,
+  communion, capture, sync, and lock-open actions.
+- Added focused widget coverage in
+  `test/features/ministries/diaconato_notification_visual_test.dart` using
+  offline repository fakes and validating lazy-list content after scrolling.
+
+No routes, permissions, providers, repositories, persistence, or data
+contracts were changed.
+
+### Verification
+
+Passed:
+
+- Focused visual tests: **2 passed**.
+- Full Flutter suite: **516 passed**.
+- Targeted `flutter analyze --no-pub`: no issues.
+- `git diff --check`: passed.
+- `flutter build web --release --no-pub`: passed.
+
+The known Wasm dry-run warnings remain for `audioplayers_web`, `dart:html`,
+`package:js`, and `image`; the normal JavaScript build succeeded.
+
+### Git state and next step
+
+- Implementation branch: `feat/visual-wave-9-diaconato-notifications`, based
+  on `ebaf99d`.
+- The seven generated Flutter plugin registrant files remain local-only and
+  must stay out of the commit.
+- Raízes and the operational Diaconato screens remain for the next slice;
+  authenticated production screenshots are still limited by the Vercel SSO
+  gate in this environment.
+
 ### Next agent should start here
 
 1. Preserve the seven generated registrant modifications; do not stage them.
