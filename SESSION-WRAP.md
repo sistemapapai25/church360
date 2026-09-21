@@ -426,3 +426,98 @@ Passed:
 5. Do not claim authenticated production screen validation from this
    environment while the Vercel SSO gate prevents access without a user
    session.
+
+## Final closeout — visual wave 6 Ministries, primeiro recorte
+
+Timestamp: 2026-09-21 01:58:37 BRT (America/Sao_Paulo, UTC-03).
+
+### O que foi entregue
+
+O primeiro recorte de Ministries foi concluído e mantém o escopo
+visual/component-level da cascata:
+
+- `ministries_list_screen.dart` passou a usar `AppIcons`, `GlassCard`,
+  `AppFilterBar` e `StatusBadge` para busca, cards, ações, erro e status
+  inativo. Busca por nome/descrição, ordenação alfabética, consulta de
+  membros e roteamento de ministérios especializados foram preservados.
+- `ministry_team_tab.dart` e `ministry_scale_tab.dart` passaram a reutilizar
+  `GlassCard` nas superfícies repetidas e `AppIcons` nas ações, eventos,
+  histórico, membros, busca e estados vazios/erro.
+- `AppIcons` ganhou as semânticas compartilháveis `personRemove`, `tune`,
+  `autoSchedule` e `history`.
+- Foi adicionada cobertura visual em
+  `test/features/ministries/ministries_list_visual_test.dart`.
+- O inventário visual foi atualizado para registrar a situação parcial de
+  Ministries e apontar o próximo recorte.
+
+Não houve mudança em banco, rotas, permissões, providers, repositórios,
+persistência ou contratos de dados. Os identificadores de ícones persistidos
+dos ministérios continuam sendo resolvidos por `ministryIconData` e não foram
+misturados ao catálogo semântico.
+
+### Verificação
+
+Passou:
+
+- `flutter test --no-pub test/features/ministries/ministries_list_visual_test.dart` — 2 passed.
+- Suite focada de shell/Equipe/Escala — 27 passed.
+- `flutter test --no-pub -j 1` — **512 passed**.
+- `flutter analyze --no-pub` nos cinco arquivos Dart alterados — sem issues.
+- `git diff --check` — passou.
+- `flutter build web --release --no-pub` — passou.
+- `pwsh -File .\deploy-vercel.ps1` — build local passou; a publicação direta
+  falhou apenas porque a sessão local da Vercel não está autorizada no
+  projeto. O script oficial do repositório imprimiu a mensagem final apesar
+  dessa falha de CLI, portanto o resultado foi validado pelo workflow remoto,
+  não por essa mensagem.
+
+Os avisos Wasm continuam sendo os conhecidos de `audioplayers_web`,
+`dart:html`, `package:js` e `image`. O GitHub Actions também reportou apenas
+avisos de migração futura do runner Node 20/Ubuntu 26.
+
+### Git, merge e produção
+
+- Commit da implementação: `75e2da7`, `feat: standardize ministries shared surfaces`.
+- PR #128: https://github.com/sistemapapai25/church360/pull/128.
+- PR #128 mergeado em `main` com `b769186f551d9de3c3901f74fec59d4989f395bf`.
+- Workflow de produção: run `35562625691`, concluído com sucesso em 3m07s:
+  https://github.com/sistemapapai25/church360/actions/runs/35562625691.
+- Aliases verificados após o deploy:
+  `https://app.church360.com.br` e
+  `https://church360-app.vercel.app`.
+- Smoke test: `https://app.church360.com.br/login` respondeu `200 OK`;
+  `https://church360-app-gabriels-projects-ec03504d.vercel.app/login`
+  respondeu `302 Found` para o SSO de proteção da Vercel.
+- O ID/URL único da implantação não foi capturado porque a CLI local está
+  autenticada como `rgagithub-1384`, sem autorização para o time/projeto;
+  o workflow remoto é a fonte autorizada do deploy desta onda.
+
+### Estado local e próximo passo
+
+- Branch de handoff: `chore/session-wrap-wave-5`, baseada na implementação
+  mergeada e usada para publicar este wrap.
+- Os sete registradores Flutter gerados continuam modificados localmente e
+  fora de todos os commits:
+  `linux/flutter/generated_plugin_registrant.cc`,
+  `linux/flutter/generated_plugin_registrant.h`,
+  `linux/flutter/generated_plugins.cmake`,
+  `macos/Flutter/GeneratedPluginRegistrant.swift`,
+  `windows/flutter/generated_plugin_registrant.cc`,
+  `windows/flutter/generated_plugin_registrant.h` e
+  `windows/flutter/generated_plugins.cmake`.
+- O próximo recorte deve revisar `ministry_detail_screen.dart`,
+  `ministry_form_screen.dart` e depois os submódulos de Ministries de maior
+  tráfego antes da migração de Events.
+- A validação visual autenticada continua limitada pelo SSO da Vercel; não
+  foram declaradas screenshots de telas internas reais como evidência desta
+  onda.
+
+### Arquivos intencionais desta onda
+
+- `lib/core/design/app_icons.dart`
+- `lib/features/ministries/presentation/screens/ministries_list_screen.dart`
+- `lib/features/ministries/shared/presentation/widgets/ministry_team_tab.dart`
+- `lib/features/ministries/shared/presentation/widgets/ministry_scale_tab.dart`
+- `test/features/ministries/ministries_list_visual_test.dart`
+- `docs/VISUAL-MATERIAL-INVENTORY.md`
+- `SESSION-WRAP.md` (este handoff)
