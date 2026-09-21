@@ -23,7 +23,7 @@ um ajuste de inventário, não como uma remoção presumida.
 | Members | 207 | 4 | Listagem migrada; perfil e formulário ainda pendentes |
 | Visitors | 34 | 4 | Slice completo: listagem, registro de visita, follow-up e estatísticas migrados |
 | Ministries | 295 | 29 | Listagem, workspace compartilhado, detalhe/formulário, Batismo, Diaconato e Raízes migrados |
-| Events | 158 | 9 | Listagem migrada nesta fase; detalhe, formulário e registro pendentes |
+| Events | 158 | 9 | Listagem, detalhe, formulário e registro migrados; diálogos/widgets especializados pendentes |
 | Financeiro | 105 | 13 | Pendente |
 | Financeiro legado | 53 | 5 | Pendente |
 | Community | 85 | 2 | Pendente; preservar Font Awesome |
@@ -160,3 +160,22 @@ persistência ou contratos de dados.
 
 Não houve alteração em rotas, permissões, providers, repositórios,
 persistência ou contratos de dados.
+
+## Onda visual — Events, detalhe, formulário e registro
+
+- `event_detail_screen.dart` agora usa `AppIcons` nos estados de acesso,
+  informações, inscritos e escalas; os cards de informação, inscrições,
+  escalas e estados vazios reutilizam `GlassCard`, e o ciclo do evento usa
+  `StatusBadge`.
+- `event_form_screen.dart` usa o catálogo semântico nos campos, audiência,
+  lembretes, séries e ações; o formulário inteiro reutiliza a superfície
+  `GlassCard` sem alterar o fluxo de criação/edição ou de séries.
+- `event_registration_screen.dart` usa `AppIcons` nos caminhos de membro e
+  convidado; os formulários e o ingresso confirmado reutilizam `GlassCard`.
+- Foi adicionada cobertura focada em
+  `test/features/events/events_visual_surfaces_test.dart`, com eventos e
+  providers em memória, sem acesso à rede.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios,
+persistência, regras de audiência, capacidade, inscrição ou contratos de
+dados.

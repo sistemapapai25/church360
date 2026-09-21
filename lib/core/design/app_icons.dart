@@ -69,7 +69,17 @@ abstract final class AppIcons {
   static const eventFilled = Icons.event;
   static const eventBusy = Icons.event_busy;
   static const eventAvailable = Icons.event_available;
+  static const calendarMonth = Icons.calendar_view_month;
   static const location = Icons.location_on;
+  static const image = Icons.image_outlined;
+  static const money = Icons.attach_money;
+  static const gift = Icons.card_giftcard;
+  static const repeat = Icons.repeat;
+  static const manageAccounts = Icons.manage_accounts;
+  static const flag = Icons.flag_outlined;
+  static const warningRound = Icons.warning_amber_rounded;
+  static const cloudOff = Icons.cloud_off_outlined;
+  static const login = Icons.login;
   static const check = Icons.check;
   static const checkBox = Icons.check_box;
   static const checkBoxOutline = Icons.check_box_outline_blank;

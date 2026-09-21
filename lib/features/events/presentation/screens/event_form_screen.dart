@@ -7,7 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../providers/events_provider.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
 import '../../../permissions/providers/permissions_providers.dart';
@@ -290,7 +292,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.edit),
+                                  icon: const Icon(AppIcons.edit),
                                   onPressed: () async {
                                     final controller = TextEditingController(
                                       text: label,
@@ -360,7 +362,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                   },
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.delete),
+                                  icon: const Icon(AppIcons.delete),
                                   onPressed: () async {
                                     try {
                                       final repo = ref.read(
@@ -476,8 +478,8 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                             final name = newNameController.text.trim();
                             if (name.isEmpty) {
                               setStateDialog(
-                                () => _managingError =
-                                    'Informe o nome do local.',
+                                () =>
+                                    _managingError = 'Informe o nome do local.',
                               );
                               return;
                             }
@@ -508,7 +510,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                           return ListTile(
                             title: Text(name),
                             trailing: IconButton(
-                              icon: const Icon(Icons.delete),
+                              icon: const Icon(AppIcons.delete),
                               onPressed: () async {
                                 try {
                                   final repo = ref.read(
@@ -528,7 +530,8 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                   setStateDialog(() => _managingError = '');
                                 } catch (e) {
                                   setStateDialog(
-                                    () => _managingError = 'Erro ao excluir: $e',
+                                    () =>
+                                        _managingError = 'Erro ao excluir: $e',
                                   );
                                 }
                               },
@@ -600,9 +603,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
 
         try {
           final repo = ref.read(eventsRepositoryProvider);
-          final responsibles = await repo.getEventResponsibles(
-            widget.eventId!,
-          );
+          final responsibles = await repo.getEventResponsibles(widget.eventId!);
           _responsibles = await _withAudienceNames(responsibles);
           _visibilityTargets = await _withAudienceNames(
             await repo.getEventAudience(widget.eventId!, 'visibility'),
@@ -868,9 +869,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   Widget _buildSeriesChangeWarning(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final data = _dataDeEncerramentoEfetiva;
-    final dataBr = data == null
-        ? ''
-        : DateFormat('dd/MM/yyyy').format(data);
+    final dataBr = data == null ? '' : DateFormat('dd/MM/yyyy').format(data);
 
     final texto = switch (_seriesChange) {
       SeriesChangeKind.pattern =>
@@ -894,11 +893,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.warning_amber_rounded,
-            size: 20,
-            color: cs.onTertiaryContainer,
-          ),
+          Icon(AppIcons.warningRound, size: 20, color: cs.onTertiaryContainer),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -952,11 +947,10 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   /// a mostrar o que a série realmente tem, em vez de crashar ao abrir a
   /// ocorrência.
   List<DropdownMenuItem<int>> _intervalItems(int minimo) {
-    final valores =
-        <int>{for (var i = minimo; i <= 4; i++) i, _intervalWeeks}
-            .where((v) => v >= 1)
-            .toList()
-          ..sort();
+    final valores = <int>{
+      for (var i = minimo; i <= 4; i++) i,
+      _intervalWeeks,
+    }.where((v) => v >= 1).toList()..sort();
     return [
       for (final v in valores)
         DropdownMenuItem(
@@ -987,26 +981,19 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
           initialValue: _fixedPatternGroup,
           decoration: InputDecoration(
             labelText: 'Padrão',
-            prefixIcon: const Icon(Icons.repeat),
+            prefixIcon: const Icon(AppIcons.repeat),
             filled: true,
             fillColor: Theme.of(context).cardColor,
             border: OutlineInputBorder(),
           ),
           items: const [
-            DropdownMenuItem(
-              value: 'semanal',
-              child: Text('Semanal'),
-            ),
-            DropdownMenuItem(
-              value: 'variavel',
-              child: Text('Variável'),
-            ),
+            DropdownMenuItem(value: 'semanal', child: Text('Semanal')),
+            DropdownMenuItem(value: 'variavel', child: Text('Variável')),
           ],
           onChanged: enabled
               ? (v) => setState(() {
                   _fixedPatternGroup = v ?? 'semanal';
-                  if (_fixedPatternGroup == 'variavel' &&
-                      _intervalWeeks < 2) {
+                  if (_fixedPatternGroup == 'variavel' && _intervalWeeks < 2) {
                     _intervalWeeks = 2;
                   }
                 })
@@ -1075,7 +1062,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
             initialValue: _variableType,
             decoration: const InputDecoration(
               labelText: 'Tipo variável',
-              prefixIcon: Icon(Icons.tune),
+              prefixIcon: Icon(AppIcons.tune),
               border: OutlineInputBorder(),
             ),
             items: const [
@@ -1083,10 +1070,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                 value: 'quinzenal',
                 child: Text('Quinzenal (mesmo dia)'),
               ),
-              DropdownMenuItem(
-                value: 'dias',
-                child: Text('Por dias corridos'),
-              ),
+              DropdownMenuItem(value: 'dias', child: Text('Por dias corridos')),
               DropdownMenuItem(
                 value: 'unico',
                 child: Text('Único (próxima ocorrência)'),
@@ -1095,8 +1079,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
             onChanged: enabled
                 ? (v) => setState(() {
                     _variableType = v ?? 'quinzenal';
-                    if (_variableType == 'quinzenal' &&
-                        _intervalWeeks < 2) {
+                    if (_variableType == 'quinzenal' && _intervalWeeks < 2) {
                       _intervalWeeks = 2;
                     }
                     if (_variableType == 'dias') {
@@ -1239,7 +1222,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
             initialValue: _variableMonthlyOrdinal,
             decoration: const InputDecoration(
               labelText: 'Semana do mês',
-              prefixIcon: Icon(Icons.calendar_view_month),
+              prefixIcon: Icon(AppIcons.calendarMonth),
               border: OutlineInputBorder(),
             ),
             items: _ordinalItems(),
@@ -1262,16 +1245,14 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
               alignment: Alignment.centerLeft,
               child: OutlinedButton.icon(
                 onPressed: enabled ? _pickRecurrenceEndDate : null,
-                icon: const Icon(Icons.event_busy),
-                label: const Text(
-                  'Escolher data de encerramento',
-                ),
+                icon: const Icon(AppIcons.eventBusy),
+                label: const Text('Escolher data de encerramento'),
               ),
             )
           else
             Row(
               children: [
-                const Icon(Icons.event_busy),
+                const Icon(AppIcons.eventBusy),
                 const SizedBox(width: 8),
                 Expanded(
                   child: InkWell(
@@ -1279,14 +1260,12 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                     child: Text(
                       'Repetir até '
                       '${DateFormat('dd/MM/yyyy').format(_recurrenceEndDate!)}',
-                      style: CommunityDesign.contentStyle(
-                        context,
-                      ),
+                      style: CommunityDesign.contentStyle(context),
                     ),
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(AppIcons.close),
                   tooltip: 'Limpar data de encerramento',
                   onPressed: enabled
                       ? () => setState(() => _recurrenceEndDate = null)
@@ -1302,9 +1281,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurfaceVariant,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -1325,7 +1302,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 18, color: cs.error),
+          Icon(AppIcons.error, size: 18, color: cs.error),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -1344,9 +1321,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
       );
     }
 
-    final data = DateFormat(
-      'dd/MM/yyyy',
-    ).format(_startDate ?? DateTime.now());
+    final data = DateFormat('dd/MM/yyyy').format(_startDate ?? DateTime.now());
     final padrao = _series?.patternLabel;
 
     return Column(
@@ -1360,7 +1335,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
             context,
             'Série',
             cs.primary,
-            icon: Icons.repeat,
+            icon: AppIcons.repeat,
           ),
         ),
         const SizedBox(height: 8),
@@ -1380,9 +1355,11 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
 
   Widget _buildFormBody(BuildContext context) {
     return _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: GlassCard(
+              padding: const EdgeInsets.all(20),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -1390,7 +1367,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                   children: [
                     OutlinedButton.icon(
                       onPressed: () => context.push('/home/banners'),
-                      icon: const Icon(Icons.image_outlined),
+                      icon: const Icon(AppIcons.image),
                       label: const Text('Gerenciar Banners'),
                     ),
                     const SizedBox(height: 16),
@@ -1399,7 +1376,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                       controller: _nameController,
                       decoration: InputDecoration(
                         labelText: 'Nome do Evento *',
-                        prefixIcon: const Icon(Icons.event),
+                        prefixIcon: const Icon(AppIcons.eventFilled),
                         filled: true,
                         fillColor: Theme.of(context).cardColor,
                         border: const OutlineInputBorder(),
@@ -1418,7 +1395,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                       controller: _descriptionController,
                       decoration: InputDecoration(
                         labelText: 'Descrição',
-                        prefixIcon: const Icon(Icons.description),
+                        prefixIcon: const Icon(AppIcons.description),
                         filled: true,
                         fillColor: Theme.of(context).cardColor,
                         border: const OutlineInputBorder(),
@@ -1453,7 +1430,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                 : _eventTypeController.text,
                             decoration: InputDecoration(
                               labelText: 'Tipo de Evento',
-                              prefixIcon: const Icon(Icons.category),
+                              prefixIcon: const Icon(AppIcons.category),
                               filled: true,
                               fillColor: Theme.of(context).cardColor,
                               border: const OutlineInputBorder(),
@@ -1483,7 +1460,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                               );
                             }
                           },
-                          icon: const Icon(Icons.add),
+                          icon: const Icon(AppIcons.add),
                           label: const Text('Adicionar tipo'),
                         ),
                       ],
@@ -1586,14 +1563,14 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                     if (!_isFixed)
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.calendar_today),
+                        leading: const Icon(AppIcons.calendarFilled),
                         title: const Text('Data de Início *'),
                         subtitle: Text(
                           _startDate != null
                               ? DateFormat('dd/MM/yyyy').format(_startDate!)
                               : 'Selecione a data',
                         ),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                        trailing: const Icon(AppIcons.forward, size: 16),
                         onTap: _pickStartDate,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -1605,7 +1582,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                     // Horário de início
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.access_time),
+                      leading: const Icon(AppIcons.accessTime),
                       title: const Text('Horário de Início *'),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1636,7 +1613,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                           ],
                         ],
                       ),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      trailing: const Icon(AppIcons.forward, size: 16),
                       onTap: _pickStartTime,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -1649,7 +1626,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                     if (!_isFixed)
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.event_available),
+                        leading: const Icon(AppIcons.eventAvailable),
                         title: const Text('Data de Término (opcional)'),
                         subtitle: Text(
                           _endDate != null
@@ -1661,13 +1638,13 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                           children: [
                             if (_endDate != null)
                               IconButton(
-                                icon: const Icon(Icons.clear, size: 20),
+                                icon: const Icon(AppIcons.clear, size: 20),
                                 onPressed: () => setState(() {
                                   _endDate = null;
                                   _endTime = null;
                                 }),
                               ),
-                            const Icon(Icons.arrow_forward_ios, size: 16),
+                            const Icon(AppIcons.forward, size: 16),
                           ],
                         ),
                         onTap: _pickEndDate,
@@ -1682,14 +1659,14 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                     if (_endDate != null && !_isFixed)
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.access_time),
+                        leading: const Icon(AppIcons.accessTime),
                         title: const Text('Horário de Término'),
                         subtitle: Text(
                           _endTime != null
                               ? _endTime!.format(context)
                               : 'Selecione o horário',
                         ),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                        trailing: const Icon(AppIcons.forward, size: 16),
                         onTap: _pickEndTime,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -1733,7 +1710,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                         _locationController.text = value,
                                     decoration: const InputDecoration(
                                       labelText: 'Local',
-                                      prefixIcon: Icon(Icons.location_on),
+                                      prefixIcon: Icon(AppIcons.location),
                                       border: OutlineInputBorder(),
                                     ),
                                   );
@@ -1744,7 +1721,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                         IconButton(
                           tooltip: 'Gerenciar locais',
                           onPressed: _manageEventLocations,
-                          icon: const Icon(Icons.edit_location_alt_outlined),
+                          icon: const Icon(AppIcons.location),
                         ),
                       ],
                     ),
@@ -1755,7 +1732,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                       controller: _maxCapacityController,
                       decoration: const InputDecoration(
                         labelText: 'Capacidade Máxima',
-                        prefixIcon: Icon(Icons.groups),
+                        prefixIcon: Icon(AppIcons.groupsFilled),
                         border: OutlineInputBorder(),
                         hintText: 'Deixe vazio para ilimitado',
                       ),
@@ -1810,8 +1787,10 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Icon(
-                              Icons.manage_accounts,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              AppIcons.manageAccounts,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -1823,7 +1802,9 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
-                                      color: Theme.of(context).colorScheme.onSurface,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -1833,7 +1814,9 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w400,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                 ],
@@ -1849,21 +1832,27 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                         children: [
                           for (final responsible in _responsibles)
                             InputChip(
-                              avatar: Icon(
-                                switch (responsible.targetKind) {
-                                  EventAudienceTargetKind.person => Icons.person,
-                                  EventAudienceTargetKind.group => Icons.group,
-                                  EventAudienceTargetKind.ministry => Icons.church,
-                                  EventAudienceTargetKind.role => Icons.badge,
-                                },
-                                size: 18,
+                              avatar: Icon(switch (responsible.targetKind) {
+                                EventAudienceTargetKind.person =>
+                                  AppIcons.personFilled,
+                                EventAudienceTargetKind.group => AppIcons.group,
+                                EventAudienceTargetKind.ministry =>
+                                  AppIcons.church,
+                                EventAudienceTargetKind.role => AppIcons.badge,
+                              }, size: 18),
+                              label: Text(
+                                responsible.displayName ?? responsible.targetId,
                               ),
-                              label: Text(responsible.displayName ?? responsible.targetId),
                               onDeleted: () {
                                 setState(() {
                                   _responsibles = _responsibles
-                                      .where((r) => r.targetId != responsible.targetId ||
-                                          r.targetKind != responsible.targetKind)
+                                      .where(
+                                        (r) =>
+                                            r.targetId !=
+                                                responsible.targetId ||
+                                            r.targetKind !=
+                                                responsible.targetKind,
+                                      )
                                       .toList();
                                 });
                               },
@@ -1882,7 +1871,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                           setState(() => _responsibles = result);
                         }
                       },
-                      icon: const Icon(Icons.add),
+                      icon: const Icon(AppIcons.add),
                       label: const Text('Adicionar responsável'),
                     ),
                     const SizedBox(height: 24),
@@ -1922,12 +1911,12 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                         ButtonSegment(
                           value: 'all',
                           label: Text('Toda a igreja'),
-                          icon: Icon(Icons.public),
+                          icon: Icon(AppIcons.public),
                         ),
                         ButtonSegment(
                           value: 'restricted',
                           label: Text('Somente alvos escolhidos'),
-                          icon: Icon(Icons.lock_outline),
+                          icon: Icon(AppIcons.lock),
                         ),
                       ],
                       selected: {_visibilityScope},
@@ -1944,7 +1933,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Icon(
-                                Icons.warning_amber_rounded,
+                                AppIcons.warningRound,
                                 color: Theme.of(context).colorScheme.error,
                               ),
                               const SizedBox(width: 12),
@@ -1970,25 +1959,27 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                           children: [
                             for (final target in _visibilityTargets)
                               InputChip(
-                                avatar: Icon(
-                                  switch (target.targetKind) {
-                                    EventAudienceTargetKind.person =>
-                                      Icons.person,
-                                    EventAudienceTargetKind.group =>
-                                      Icons.group,
-                                    EventAudienceTargetKind.ministry =>
-                                      Icons.church,
-                                    EventAudienceTargetKind.role =>
-                                      Icons.badge,
-                                  },
-                                  size: 18,
+                                avatar: Icon(switch (target.targetKind) {
+                                  EventAudienceTargetKind.person =>
+                                    AppIcons.personFilled,
+                                  EventAudienceTargetKind.group =>
+                                    AppIcons.group,
+                                  EventAudienceTargetKind.ministry =>
+                                    AppIcons.church,
+                                  EventAudienceTargetKind.role =>
+                                    AppIcons.badge,
+                                }, size: 18),
+                                label: Text(
+                                  target.displayName ?? target.targetId,
                                 ),
-                                label: Text(target.displayName ?? target.targetId),
                                 onDeleted: () {
                                   setState(() {
                                     _visibilityTargets = _visibilityTargets
-                                        .where((t) => t.targetId != target.targetId ||
-                                            t.targetKind != target.targetKind)
+                                        .where(
+                                          (t) =>
+                                              t.targetId != target.targetId ||
+                                              t.targetKind != target.targetKind,
+                                        )
                                         .toList();
                                   });
                                 },
@@ -2014,7 +2005,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                             setState(() => _visibilityTargets = result);
                           }
                         },
-                        icon: const Icon(Icons.add),
+                        icon: const Icon(AppIcons.add),
                         label: const Text('Adicionar alvo de visibilidade'),
                       ),
                     ],
@@ -2059,7 +2050,9 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -2069,12 +2062,12 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                           ButtonSegment(
                             value: 'all',
                             label: Text('Toda a igreja'),
-                            icon: Icon(Icons.public),
+                            icon: Icon(AppIcons.public),
                           ),
                           ButtonSegment(
                             value: 'restricted',
                             label: Text('Somente alvos escolhidos'),
-                            icon: Icon(Icons.lock_outline),
+                            icon: Icon(AppIcons.lock),
                           ),
                         ],
                         selected: {_registrationScope},
@@ -2093,7 +2086,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Icon(
-                                  Icons.warning_amber_rounded,
+                                  AppIcons.warningRound,
                                   color: Theme.of(context).colorScheme.error,
                                 ),
                                 const SizedBox(width: 12),
@@ -2104,8 +2097,9 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w400,
-                                      color:
-                                          Theme.of(context).colorScheme.error,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
                                     ),
                                   ),
                                 ),
@@ -2119,30 +2113,30 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                             children: [
                               for (final target in _registrationTargets)
                                 InputChip(
-                                  avatar: Icon(
-                                    switch (target.targetKind) {
-                                      EventAudienceTargetKind.person =>
-                                        Icons.person,
-                                      EventAudienceTargetKind.group =>
-                                        Icons.group,
-                                      EventAudienceTargetKind.ministry =>
-                                        Icons.church,
-                                      EventAudienceTargetKind.role =>
-                                        Icons.badge,
-                                    },
-                                    size: 18,
+                                  avatar: Icon(switch (target.targetKind) {
+                                    EventAudienceTargetKind.person =>
+                                      AppIcons.personFilled,
+                                    EventAudienceTargetKind.group =>
+                                      AppIcons.group,
+                                    EventAudienceTargetKind.ministry =>
+                                      AppIcons.church,
+                                    EventAudienceTargetKind.role =>
+                                      AppIcons.badge,
+                                  }, size: 18),
+                                  label: Text(
+                                    target.displayName ?? target.targetId,
                                   ),
-                                  label:
-                                      Text(target.displayName ?? target.targetId),
                                   onDeleted: () {
                                     setState(() {
                                       _registrationTargets =
                                           _registrationTargets
-                                              .where((t) =>
-                                                  t.targetId !=
-                                                      target.targetId ||
-                                                  t.targetKind !=
-                                                      target.targetKind)
+                                              .where(
+                                                (t) =>
+                                                    t.targetId !=
+                                                        target.targetId ||
+                                                    t.targetKind !=
+                                                        target.targetKind,
+                                              )
                                               .toList();
                                     });
                                   },
@@ -2168,7 +2162,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                               setState(() => _registrationTargets = result);
                             }
                           },
-                          icon: const Icon(Icons.add),
+                          icon: const Icon(AppIcons.add),
                           label: const Text('Adicionar alvo de elegibilidade'),
                         ),
                       ],
@@ -2213,8 +2207,10 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Icon(
-                              Icons.notifications_off_outlined,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              AppIcons.visibilityOff,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -2226,7 +2222,9 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
-                                      color: Theme.of(context).colorScheme.onSurface,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -2237,7 +2235,9 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w400,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                 ],
@@ -2254,7 +2254,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                           for (final reminder in _reminders)
                             InputChip(
                               avatar: const Icon(
-                                Icons.notifications_active_outlined,
+                                AppIcons.notificationsActive,
                                 size: 18,
                               ),
                               label: Text(reminder.label),
@@ -2262,7 +2262,8 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                 setState(() {
                                   _reminders = _reminders
                                       .where(
-                                        (r) => r.offsetMinutes !=
+                                        (r) =>
+                                            r.offsetMinutes !=
                                             reminder.offsetMinutes,
                                       )
                                       .toList();
@@ -2292,7 +2293,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                           });
                         }
                       },
-                      icon: const Icon(Icons.add),
+                      icon: const Icon(AppIcons.add),
                       label: const Text('Adicionar lembrete'),
                     ),
                     const SizedBox(height: 24),
@@ -2330,7 +2331,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                       initialValue: _status,
                       decoration: const InputDecoration(
                         labelText: 'Status',
-                        prefixIcon: Icon(Icons.flag),
+                        prefixIcon: Icon(AppIcons.flag),
                         border: OutlineInputBorder(),
                       ),
                       items: const [
@@ -2372,7 +2373,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                         onPressed: _seriesProgressTotal != null
                             ? null
                             : _saveEvent,
-                        icon: const Icon(Icons.save),
+                        icon: const Icon(AppIcons.save),
                         label: Text(
                           _isEditMode ? 'Salvar Alterações' : 'Criar Evento',
                         ),
@@ -2384,7 +2385,8 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                   ],
                 ),
               ),
-            );
+            ),
+          );
   }
 
   Future<void> _pickStartDate() async {
@@ -2846,7 +2848,9 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
             )),
           );
         } else {
-          final created = await ref.read(eventsRepositoryProvider).createEvent(data);
+          final created = await ref
+              .read(eventsRepositoryProvider)
+              .createEvent(data);
           await _persistAudienceAndScopes(created.id);
         }
 
@@ -3107,7 +3111,9 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
     final deteccaoLocal = _seriesChange;
 
     final patternGroup = _fixedPatternGroup;
-    final variableType = _fixedPatternGroup == 'variavel' ? _variableType : null;
+    final variableType = _fixedPatternGroup == 'variavel'
+        ? _variableType
+        : null;
     final weekdays = _fixedWeekdays.toList()..sort();
 
     final EventSeriesImpact previa;
@@ -3132,7 +3138,8 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              mensagem ?? 'Não foi possível calcular o impacto desta alteração.',
+              mensagem ??
+                  'Não foi possível calcular o impacto desta alteração.',
             ),
           ),
         );
@@ -3497,9 +3504,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
       await repo.setEventAudience(
         eventId,
         'registration',
-        _registrationScope == 'restricted'
-            ? _registrationTargets
-            : const [],
+        _registrationScope == 'restricted' ? _registrationTargets : const [],
       );
       // NOTIF-02 (D-02/D-03): grava a lista de lembretes tal como está no
       // estado local — vazia é estado válido e só deleta, sem inserir nada.
@@ -3551,11 +3556,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   /// Teto duro do período de repetição (A-03): hoje + 24 meses.
   DateTime _maxRecurrenceEndDate() {
     final hoje = DateTime.now();
-    return DateTime(
-      hoje.year,
-      hoje.month + _maxRecurrenceMonths,
-      hoje.day,
-    );
+    return DateTime(hoje.year, hoje.month + _maxRecurrenceMonths, hoje.day);
   }
 
   /// Fim do horizonte de geração.
