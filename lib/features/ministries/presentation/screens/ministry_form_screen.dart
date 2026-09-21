@@ -6,6 +6,8 @@ import '../providers/ministries_provider.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
 
 /// Tela de formulário de ministério (criar/editar)
 class MinistryFormScreen extends ConsumerStatefulWidget {
@@ -84,13 +86,12 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
         backgroundColor: Theme.of(context).colorScheme.surface,
         title: Text(
           isEditing ? 'Editar Ministério' : 'Novo Ministério',
-          style: CommunityDesign.titleStyle(context).copyWith(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: CommunityDesign.titleStyle(
+            context,
+          ).copyWith(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.back),
           onPressed: () => context.pop(),
         ),
         actions: [
@@ -114,7 +115,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
                 child: Center(
                   child: ElevatedButton.icon(
                     onPressed: _saveMinistry,
-                    icon: const Icon(Icons.check, size: 18),
+                    icon: const Icon(AppIcons.check, size: 18),
                     label: const Text('Salvar'),
                     style: CommunityDesign.pillButtonStyle(
                       context,
@@ -134,304 +135,287 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
             key: _formKey,
             child: Column(
               children: [
-                  // Dados Básicos
-                  Container(
-                    decoration: CommunityDesign.overlayDecoration(
-                      Theme.of(context).colorScheme,
-                    ),
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Dados Básicos',
-                          style: CommunityDesign.titleStyle(
-                            context,
-                          ).copyWith(fontSize: 18),
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _nameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Nome do Ministério *',
-                            hintText: 'Ex: Louvor, Infantil, Jovens',
-                            prefixIcon: Icon(Icons.church),
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Nome é obrigatório';
-                            }
-                            return null;
-                          },
-                          textCapitalization: TextCapitalization.words,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _descriptionController,
-                          decoration: const InputDecoration(
-                            labelText: 'Descrição (opcional)',
-                            hintText: 'Descreva o propósito do ministério',
-                            prefixIcon: Icon(Icons.description),
-                            border: OutlineInputBorder(),
-                          ),
-                          maxLines: 3,
-                          maxLength: 500,
-                          textCapitalization: TextCapitalization.sentences,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Cor
-                  Container(
-                    decoration: CommunityDesign.overlayDecoration(
-                      Theme.of(context).colorScheme,
-                    ),
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Cor do Ministério',
-                          style: CommunityDesign.titleStyle(
-                            context,
-                          ).copyWith(fontSize: 18),
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: _colors.map((colorData) {
-                            final colorValue = int.parse(
-                              colorData['value'] as String,
-                            );
-                            final color = Color(colorValue);
-                            final isSelected =
-                                _selectedColor == colorData['value'];
-
-                            return InkWell(
-                              onTap: () {
-                                setState(() {
-                                  _selectedColor = colorData['value'] as String;
-                                });
-                              },
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                width: 60,
-                                height: 60,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? Colors.black
-                                        : Colors.transparent,
-                                    width: 3,
-                                  ),
-                                ),
-                                child: isSelected
-                                    ? const Icon(
-                                        Icons.check,
-                                        color: Colors.white,
-                                        size: 32,
-                                      )
-                                    : null,
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  if (widget.ministryId != null) ...[
-                    Container(
-                      decoration: CommunityDesign.overlayDecoration(
-                        Theme.of(context).colorScheme,
-                      ),
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Funções e Quantidades',
-                            style: CommunityDesign.titleStyle(
-                              context,
-                            ).copyWith(fontSize: 18),
-                          ),
-                          const SizedBox(height: 12),
-                          if (_isLoadingFunctions)
-                            const LinearProgressIndicator()
-                          else ...[
-                            ..._functionRequirements.entries.map(
-                              (e) => Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Row(
-                                  children: [
-                                    Expanded(child: Text(e.key)),
-                                    const SizedBox(width: 8),
-                                    SizedBox(
-                                      width: 80,
-                                      child: TextFormField(
-                                        initialValue: e.value.toString(),
-                                        decoration: const InputDecoration(
-                                          labelText: 'Qtd',
-                                          border: OutlineInputBorder(),
-                                        ),
-                                        keyboardType: TextInputType.number,
-                                        onChanged: (v) {
-                                          final n = int.tryParse(v);
-                                          setState(
-                                            () => _functionRequirements[e.key] =
-                                                (n ?? e.value).clamp(0, 99),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _newFunctionController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Nova função',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                FilledButton.icon(
-                                  onPressed: () {
-                                    final name = _newFunctionController.text
-                                        .trim();
-                                    if (name.isEmpty) return;
-                                    setState(() {
-                                      _functionRequirements.putIfAbsent(
-                                        name,
-                                        () => 1,
-                                      );
-                                      _newFunctionController.clear();
-                                    });
-                                  },
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('Adicionar'),
-                                  style: CommunityDesign.pillButtonStyle(
-                                    context,
-                                    Theme.of(context).colorScheme.primary,
-                                    compact: true,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // Status ativo/inativo
-                  Container(
-                    decoration: CommunityDesign.overlayDecoration(
-                      Theme.of(context).colorScheme,
-                    ),
-                    child: SwitchListTile(
-                      title: Text(
-                        'Ministério Ativo',
+                // Dados Básicos
+                GlassCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Dados Básicos',
                         style: CommunityDesign.titleStyle(
                           context,
-                        ).copyWith(fontSize: 16),
+                        ).copyWith(fontSize: 18),
                       ),
-                      subtitle: Text(
-                        _isActive
-                            ? 'Ministério está ativo e visível'
-                            : 'Ministério está inativo',
-                        style: CommunityDesign.metaStyle(context),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _nameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Nome do Ministério *',
+                          hintText: 'Ex: Louvor, Infantil, Jovens',
+                          prefixIcon: Icon(AppIcons.church),
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Nome é obrigatório';
+                          }
+                          return null;
+                        },
+                        textCapitalization: TextCapitalization.words,
                       ),
-                      value: _isActive,
-                      onChanged: (value) {
-                        setState(() {
-                          _isActive = value;
-                        });
-                      },
-                    ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _descriptionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Descrição (opcional)',
+                          hintText: 'Descreva o propósito do ministério',
+                          prefixIcon: Icon(AppIcons.description),
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 3,
+                        maxLength: 500,
+                        textCapitalization: TextCapitalization.sentences,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
+                ),
+                const SizedBox(height: 16),
 
-                  // Preview
-                  Container(
-                    decoration: CommunityDesign.overlayDecoration(
-                      Theme.of(context).colorScheme,
-                    ),
+                // Cor
+                GlassCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Cor do Ministério',
+                        style: CommunityDesign.titleStyle(
+                          context,
+                        ).copyWith(fontSize: 18),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: _colors.map((colorData) {
+                          final colorValue = int.parse(
+                            colorData['value'] as String,
+                          );
+                          final color = Color(colorValue);
+                          final isSelected =
+                              _selectedColor == colorData['value'];
+
+                          return InkWell(
+                            onTap: () {
+                              setState(() {
+                                _selectedColor = colorData['value'] as String;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: color,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? Colors.black
+                                      : Colors.transparent,
+                                  width: 3,
+                                ),
+                              ),
+                              child: isSelected
+                                  ? const Icon(
+                                      AppIcons.check,
+                                      color: Colors.white,
+                                      size: 32,
+                                    )
+                                  : null,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                if (widget.ministryId != null) ...[
+                  GlassCard(
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Preview',
-                          style: CommunityDesign.metaStyle(
+                          'Funções e Quantidades',
+                          style: CommunityDesign.titleStyle(
                             context,
-                          ).copyWith(fontWeight: FontWeight.bold),
+                          ).copyWith(fontSize: 18),
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: Color(
-                                  int.parse(_selectedColor),
-                                ).withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                Icons.church,
-                                color: Color(int.parse(_selectedColor)),
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                        if (_isLoadingFunctions)
+                          const LinearProgressIndicator()
+                        else ...[
+                          ..._functionRequirements.entries.map(
+                            (e) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    _nameController.text.isEmpty
-                                        ? 'Nome do Ministério'
-                                        : _nameController.text,
-                                    style: CommunityDesign.titleStyle(
-                                      context,
-                                    ).copyWith(fontSize: 18),
-                                  ),
-                                  if (_descriptionController
-                                      .text
-                                      .isNotEmpty) ...[
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _descriptionController.text,
-                                      style: CommunityDesign.metaStyle(context),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
+                                  Expanded(child: Text(e.key)),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 80,
+                                    child: TextFormField(
+                                      initialValue: e.value.toString(),
+                                      decoration: const InputDecoration(
+                                        labelText: 'Qtd',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      keyboardType: TextInputType.number,
+                                      onChanged: (v) {
+                                        final n = int.tryParse(v);
+                                        setState(
+                                          () => _functionRequirements[e.key] =
+                                              (n ?? e.value).clamp(0, 99),
+                                        );
+                                      },
                                     ),
-                                  ],
+                                  ),
                                 ],
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _newFunctionController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Nova função',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              FilledButton.icon(
+                                onPressed: () {
+                                  final name = _newFunctionController.text
+                                      .trim();
+                                  if (name.isEmpty) return;
+                                  setState(() {
+                                    _functionRequirements.putIfAbsent(
+                                      name,
+                                      () => 1,
+                                    );
+                                    _newFunctionController.clear();
+                                  });
+                                },
+                                icon: const Icon(AppIcons.add),
+                                label: const Text('Adicionar'),
+                                style: CommunityDesign.pillButtonStyle(
+                                  context,
+                                  Theme.of(context).colorScheme.primary,
+                                  compact: true,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 16),
+                ],
+
+                // Status ativo/inativo
+                GlassCard(
+                  child: SwitchListTile(
+                    title: Text(
+                      'Ministério Ativo',
+                      style: CommunityDesign.titleStyle(
+                        context,
+                      ).copyWith(fontSize: 16),
+                    ),
+                    subtitle: Text(
+                      _isActive
+                          ? 'Ministério está ativo e visível'
+                          : 'Ministério está inativo',
+                      style: CommunityDesign.metaStyle(context),
+                    ),
+                    value: _isActive,
+                    onChanged: (value) {
+                      setState(() {
+                        _isActive = value;
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Preview
+                GlassCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Preview',
+                        style: CommunityDesign.metaStyle(
+                          context,
+                        ).copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: Color(
+                                int.parse(_selectedColor),
+                              ).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              AppIcons.church,
+                              color: Color(int.parse(_selectedColor)),
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _nameController.text.isEmpty
+                                      ? 'Nome do Ministério'
+                                      : _nameController.text,
+                                  style: CommunityDesign.titleStyle(
+                                    context,
+                                  ).copyWith(fontSize: 18),
+                                ),
+                                if (_descriptionController.text.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _descriptionController.text,
+                                    style: CommunityDesign.metaStyle(context),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 32),
               ],
             ),
           ),

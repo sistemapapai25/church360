@@ -53,13 +53,13 @@ Foram adicionados quatro testes de widget para proteger essas superfícies.
 
 ## Próximo recorte
 
-O primeiro recorte de Ministries agora cobre a listagem principal, a barra de
-busca, os cards, o shell do workspace e os tabs compartilhados de Equipe e
-Escala. Rotas, permissões, consultas e submódulos especializados continuam
-preservados. O próximo recorte deve revisar `ministry_detail_screen.dart`,
-`ministry_form_screen.dart` e os submódulos de alto tráfego antes de avançar
-para Events. Autenticação e dados reais continuam sendo limitações da
-validação visual local.
+O recorte de Ministries agora cobre a listagem principal, a barra de busca, os
+cards, o shell do workspace, os tabs compartilhados de Equipe e Escala, o
+detalhe e o formulário de ministério. Rotas, permissões, consultas e
+submódulos especializados continuam preservados. O próximo recorte deve
+revisar os submódulos de alto tráfego antes de avançar para Events.
+Autenticação e dados reais continuam sendo limitações da validação visual
+local.
 
 ## Onda visual — Ministries, primeiro recorte
 
@@ -76,6 +76,22 @@ validação visual local.
   `test/features/ministries/ministries_list_visual_test.dart`; os testes
   existentes do shell, Equipe e Escala continuam cobrindo os fluxos de
   permissões, busca, expansão e responsividade.
+
+Não houve alteração em rotas, permissões, providers, repositórios,
+persistência ou contratos de dados.
+
+## Onda visual — Ministries, detalhe e formulário
+
+- `ministry_detail_screen.dart` agora reutiliza `GlassCard` no cabeçalho,
+  notificações, membros, escalas, estados vazios e CTA especializado; o
+  status do ministério usa `StatusBadge`.
+- `ministry_form_screen.dart` reutiliza `GlassCard` nas seções de dados, cor,
+  funções, status e preview.
+- `AppIcons` ganhou as semânticas compartilháveis de descrição, bloqueio,
+  cancelamento, supervisão e segurança; não houve alteração em identificadores
+  de ícones persistidos.
+- A cobertura focada foi adicionada em
+  `test/features/ministries/ministry_detail_form_visual_test.dart`.
 
 Não houve alteração em rotas, permissões, providers, repositórios,
 persistência ou contratos de dados.
