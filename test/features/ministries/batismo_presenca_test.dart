@@ -1,4 +1,5 @@
 import 'package:church360_app/core/theme/app_theme.dart';
+import 'package:church360_app/core/widgets/glass_card.dart';
 import 'package:church360_app/features/ministries/batismo/domain/baptism_attendance_roll.dart';
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_attendance.dart';
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_meeting.dart';
@@ -13,10 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _ministryId = 'm1';
 
-BaptismStudent _student(
-  String name, {
-  String turmaId = 'turma-1',
-}) {
+BaptismStudent _student(String name, {String turmaId = 'turma-1'}) {
   return BaptismStudent(
     id: 'id-$name',
     tenantId: 't1',
@@ -81,15 +79,22 @@ Widget _host({
 }) {
   return ProviderScope(
     overrides: [
-      baptismStudentsProvider(_ministryId).overrideWith((ref) async => students),
+      baptismStudentsProvider(
+        _ministryId,
+      ).overrideWith((ref) async => students),
       baptismTurmasProvider(_ministryId).overrideWith((ref) async => turmas),
-      baptismMeetingsProvider(_ministryId).overrideWith((ref) async => meetings),
-      baptismAttendanceProvider(_ministryId)
-          .overrideWith((ref) async => attendance),
+      baptismMeetingsProvider(
+        _ministryId,
+      ).overrideWith((ref) async => meetings),
+      baptismAttendanceProvider(
+        _ministryId,
+      ).overrideWith((ref) async => attendance),
       ministryByIdProvider(_ministryId).overrideWith((ref) async => null),
       for (final action in BaptismWriteAction.values)
-        baptismCanWriteProvider((ministryId: _ministryId, action: action))
-            .overrideWith((ref) async => canWrite),
+        baptismCanWriteProvider((
+          ministryId: _ministryId,
+          action: action,
+        )).overrideWith((ref) async => canWrite),
     ],
     child: MaterialApp(
       theme: AppTheme.lightTheme,
@@ -162,10 +167,11 @@ void main() {
     });
 
     test('os três códigos espelham o CHECK do banco', () {
-      expect(
-        BaptismAttendanceStatus.values.map((s) => s.code).toList(),
-        ['presente', 'ausente', 'justificado'],
-      );
+      expect(BaptismAttendanceStatus.values.map((s) => s.code).toList(), [
+        'presente',
+        'ausente',
+        'justificado',
+      ]);
     });
   });
 
@@ -256,15 +262,19 @@ void main() {
         attendance: const [],
       );
 
-      expect(
-        rolls.map((r) => r.meeting.title).toList(),
-        ['Manhã', 'Noite', 'Aula 1'],
-      );
+      expect(rolls.map((r) => r.meeting.title).toList(), [
+        'Manhã',
+        'Noite',
+        'Aula 1',
+      ]);
     });
 
     test('marcação de outro encontro não vaza para este', () {
       final rolls = buildBaptismMeetingRolls(
-        meetings: [_meeting('e1'), _meeting('e2', title: 'Aula 2')],
+        meetings: [
+          _meeting('e1'),
+          _meeting('e2', title: 'Aula 2'),
+        ],
         students: [_student('Ana')],
         attendance: [
           _attendance('e2', 'id-Ana', BaptismAttendanceStatus.presente),
@@ -290,8 +300,9 @@ void main() {
       expect(find.text('Novo encontro'), findsNothing);
     });
 
-    testWidgets('turma sem encontro mostra estado vazio próprio',
-        (tester) async {
+    testWidgets('turma sem encontro mostra estado vazio próprio', (
+      tester,
+    ) async {
       await _pumpTab(
         tester,
         _host(
@@ -306,8 +317,9 @@ void main() {
       expect(find.text('Registrar o primeiro encontro'), findsOneWidget);
     });
 
-    testWidgets('encontro em branco diz que a chamada não foi feita',
-        (tester) async {
+    testWidgets('encontro em branco diz que a chamada não foi feita', (
+      tester,
+    ) async {
       await _pumpTab(
         tester,
         _host(
@@ -325,8 +337,9 @@ void main() {
       expect(find.textContaining('FALTARAM'), findsNothing);
     });
 
-    testWidgets('resumo separa presentes, faltas e quem ficou sem marca',
-        (tester) async {
+    testWidgets('resumo separa presentes, faltas e quem ficou sem marca', (
+      tester,
+    ) async {
       await _pumpTab(
         tester,
         _host(
@@ -346,8 +359,31 @@ void main() {
       expect(find.textContaining('1 SEM MARCA'), findsOneWidget);
     });
 
-    testWidgets('sem permissão de escrita não oferece criar encontro',
-        (tester) async {
+    // A onda 8 da cascata visual repintou Checklist, Relatorios e WhatsApp
+    // para GlassCard enquanto esta aba nascia do gabarito antigo. Este
+    // teste trava o alinhamento: um card de vidro por encontro.
+    testWidgets('cada encontro e um GlassCard, como as abas vizinhas', (
+      tester,
+    ) async {
+      await _pumpTab(
+        tester,
+        _host(
+          meetings: [
+            _meeting('e1', title: 'Aula 1'),
+            _meeting('e2', title: 'Aula 2'),
+          ],
+          students: [_student('Ana')],
+          attendance: const [],
+          turmas: [_turma('turma-1', 'Turma A')],
+        ),
+      );
+
+      expect(find.byType(GlassCard), findsNWidgets(2));
+    });
+
+    testWidgets('sem permissão de escrita não oferece criar encontro', (
+      tester,
+    ) async {
       await _pumpTab(
         tester,
         _host(
@@ -369,7 +405,10 @@ void main() {
         tester,
         _host(
           meetings: [_meeting('e1', title: 'Aula 1')],
-          students: [_student('Ana'), _student('Bruno', turmaId: 'turma-2')],
+          students: [
+            _student('Ana'),
+            _student('Bruno', turmaId: 'turma-2'),
+          ],
           attendance: const [],
           turmas: [_turma('turma-1', 'Turma A'), _turma('turma-2', 'Turma B')],
         ),
