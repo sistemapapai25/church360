@@ -11,15 +11,17 @@ import '../../domain/models/baptism_student.dart';
 import '../providers/baptism_providers.dart';
 import 'tabs/batismo_alunos_tab.dart';
 import 'tabs/batismo_checklist_tab.dart';
+import 'tabs/batismo_presenca_tab.dart';
 import 'tabs/batismo_relatorios_tab.dart';
 import 'tabs/batismo_whatsapp_tab.dart';
 
 /// Workspace do Batismo nas Águas (Etapa 4 do plano).
 ///
 /// As oito abas aparecem desde já. Equipe, Escala, Alunos, Checklist,
-/// WhatsApp e Relatórios estão prontas; Financeiro chega nas Etapas 2 e 5, e
-/// Presença depois. Até lá elas mostram um estado vazio honesto, para que a
-/// estrutura do módulo fique visível e o que falta fique explícito.
+/// Presença, WhatsApp e Relatórios estão prontas; só o Financeiro segue
+/// como placeholder, por decisão de quem cuida do módulo. Até lá ele mostra
+/// um estado vazio honesto, para que a estrutura fique visível e o que
+/// falta fique explícito.
 class BatismoHomeScreen extends ConsumerWidget {
   final String ministryId;
 
@@ -115,9 +117,9 @@ class _BatismoWorkspace extends ConsumerWidget {
           label: 'Checklist',
           builder: (_) => BatismoChecklistTab(ministryId: ministryId),
         ),
-        const MinistryWorkspaceTab(
+        MinistryWorkspaceTab(
           label: 'Presença',
-          builder: _presencaPlaceholder,
+          builder: (_) => BatismoPresencaTab(ministryId: ministryId),
         ),
         MinistryWorkspaceTab(
           label: 'WhatsApp',
@@ -139,11 +141,4 @@ Widget _financeiroPlaceholder(BuildContext context) =>
       description:
           'Entradas, saídas e alvos do departamento, com a saída esperando '
           'confirmação de quem responde pelo financeiro.',
-    );
-
-Widget _presencaPlaceholder(BuildContext context) =>
-    const MinistryTabPlaceholder(
-      icon: Icons.how_to_reg_outlined,
-      title: 'Presença nas aulas',
-      description: 'Chamada por aula e o acompanhamento de quem está faltando.',
     );

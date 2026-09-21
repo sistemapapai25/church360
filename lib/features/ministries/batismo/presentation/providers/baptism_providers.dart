@@ -4,8 +4,11 @@ import '../../../../events/presentation/providers/events_provider.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../data/baptism_repository.dart';
+import '../../domain/baptism_attendance_roll.dart';
 import '../../domain/baptism_checklist_progress.dart';
+import '../../domain/models/baptism_attendance.dart';
 import '../../domain/models/baptism_checklist.dart';
+import '../../domain/models/baptism_meeting.dart';
 import '../../domain/models/baptism_public_info.dart';
 import '../../domain/models/baptism_student.dart';
 import '../../domain/models/baptism_turma.dart';
@@ -101,6 +104,50 @@ final baptismChecklistTallyProvider =
   return baptismChecklistTallyByStudent(progress);
 });
 
+/// Encontros de todas as turmas do ministério.
+///
+/// Depende das turmas de propósito: `baptism_meeting` não duplica
+/// `ministry_id` (a cadeia é encontro → turma → ministério), então é a
+/// lista de turmas que define quais encontros buscar. Assim, criar uma
+/// turma e invalidar as turmas já refaz os encontros.
+final baptismMeetingsProvider =
+    FutureProvider.family<List<BaptismMeeting>, String>((ref, ministryId) async {
+  final turmas = await ref.watch(baptismTurmasProvider(ministryId).future);
+  if (turmas.isEmpty) return const [];
+  final repo = ref.watch(baptismRepositoryProvider);
+  return repo.getMeetings([for (final t in turmas) t.id]);
+});
+
+/// Marcações de presença de todos os encontros do ministério.
+final baptismAttendanceProvider =
+    FutureProvider.family<List<BaptismAttendance>, String>(
+        (ref, ministryId) async {
+  final meetings = await ref.watch(baptismMeetingsProvider(ministryId).future);
+  if (meetings.isEmpty) return const [];
+  final repo = ref.watch(baptismRepositoryProvider);
+  return repo.getAttendance([for (final m in meetings) m.id]);
+});
+
+/// A chamada de cada encontro, já com alunos e marcações casados.
+///
+/// É o que a aba Presença consome. Espelha o
+/// `baptismChecklistProgressProvider`: a composição mora numa camada pura
+/// (`buildBaptismMeetingRolls`) e a tela só desenha.
+final baptismMeetingRollsProvider =
+    FutureProvider.family<List<BaptismMeetingRoll>, String>(
+        (ref, ministryId) async {
+  final meetings = await ref.watch(baptismMeetingsProvider(ministryId).future);
+  final students = await ref.watch(baptismStudentsProvider(ministryId).future);
+  final attendance =
+      await ref.watch(baptismAttendanceProvider(ministryId).future);
+
+  return buildBaptismMeetingRolls(
+    meetings: meetings,
+    students: students,
+    attendance: attendance,
+  );
+});
+
 /// As três ações de escrita do módulo, com o código RBAC de cada uma.
 enum BaptismWriteAction {
   create('baptism.create'),
@@ -146,4 +193,10 @@ void invalidateBaptismData(WidgetRef ref, String ministryId) {
   ref.invalidate(baptismChecklistEntriesProvider(ministryId));
   ref.invalidate(baptismChecklistProgressProvider(ministryId));
   ref.invalidate(baptismChecklistTallyProvider(ministryId));
+  // A presença entra aqui pela mesma razão: invalidar só os encontros
+  // deixaria a chamada com o estado anterior na tela, porque `invalidate`
+  // não sobe para quem depende.
+  ref.invalidate(baptismMeetingsProvider(ministryId));
+  ref.invalidate(baptismAttendanceProvider(ministryId));
+  ref.invalidate(baptismMeetingRollsProvider(ministryId));
 }

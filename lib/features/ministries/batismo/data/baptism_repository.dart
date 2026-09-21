@@ -2,7 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/supabase_constants.dart';
+import '../domain/models/baptism_attendance.dart';
 import '../domain/models/baptism_checklist.dart';
+import '../domain/models/baptism_meeting.dart';
 import '../domain/models/baptism_member_suggestion.dart';
 import '../domain/models/baptism_public_info.dart';
 import '../domain/models/baptism_student.dart';
@@ -354,6 +356,136 @@ class BaptismRepository {
         .delete()
         .eq('student_id', studentId)
         .eq('item_id', itemId);
+  }
+
+  // -------------------------------------------------------------------
+  // Presença — encontros
+  // -------------------------------------------------------------------
+
+  /// Encontros das turmas informadas, do mais recente para o mais antigo.
+  ///
+  /// Recebe os ids das turmas em vez de filtrar por `ministry_id` dentro
+  /// de um embed (`encontro → turma → ministry_id`) pela mesma razão de
+  /// [getChecklistEntries]: filtro sobre embed aninhado depende de detalhe
+  /// de versão do PostgREST e, quando falha, falha devolvendo lista
+  /// errada em vez de erro. `baptism_meeting` não duplica `ministry_id` —
+  /// a cadeia é encontro → turma → ministério, igual à do helper de RLS.
+  Future<List<BaptismMeeting>> getMeetings(List<String> turmaIds) async {
+    if (turmaIds.isEmpty) return const [];
+
+    final response = await _supabase
+        .from('baptism_meeting')
+        .select('*, baptism_turma(name)')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .inFilter('turma_id', turmaIds)
+        .order('meeting_date', ascending: false);
+
+    return (response as List)
+        .map((row) => BaptismMeeting.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  Future<BaptismMeeting> createMeeting(BaptismMeeting meeting) async {
+    final payload = meeting.toWriteJson()
+      ..['tenant_id'] = SupabaseConstants.currentTenantId;
+
+    final response = await _supabase
+        .from('baptism_meeting')
+        .insert(payload)
+        .select('*, baptism_turma(name)')
+        .single();
+
+    return BaptismMeeting.fromJson(Map<String, dynamic>.from(response));
+  }
+
+  Future<BaptismMeeting> updateMeeting(BaptismMeeting meeting) async {
+    final response = await _supabase
+        .from('baptism_meeting')
+        .update(meeting.toWriteJson())
+        .eq('id', meeting.id)
+        .select('*, baptism_turma(name)')
+        .single();
+
+    return BaptismMeeting.fromJson(Map<String, dynamic>.from(response));
+  }
+
+  /// Apaga o encontro. A chamada dele vai junto
+  /// (`ON DELETE CASCADE` em `baptism_attendance.meeting_id`).
+  Future<void> deleteMeeting(String meetingId) async {
+    await _supabase.from('baptism_meeting').delete().eq('id', meetingId);
+  }
+
+  // -------------------------------------------------------------------
+  // Presença — a chamada
+  // -------------------------------------------------------------------
+
+  /// Marcações dos encontros informados.
+  Future<List<BaptismAttendance>> getAttendance(
+    List<String> meetingIds,
+  ) async {
+    if (meetingIds.isEmpty) return const [];
+
+    final response = await _supabase
+        .from('baptism_attendance')
+        .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .inFilter('meeting_id', meetingIds);
+
+    return (response as List)
+        .map((row) => BaptismAttendance.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  /// Grava a chamada — a turma inteira numa operação só.
+  ///
+  /// `onConflict` é obrigatório e não é zelo: sem ele o PostgREST infere a
+  /// PK, o upsert vira INSERT e estoura 409 na UNIQUE
+  /// `(meeting_id, student_id)` — foi o que quebrou o lote do CHU-317 em
+  /// produção.
+  ///
+  /// Diferente de [markChecklistItems], aqui **não** entra
+  /// `ignoreDuplicates`: no checklist a linha só existe ou não existe, e
+  /// remarcar não muda nada; aqui a linha carrega um `status`, e trocar
+  /// "faltou" por "presente" é justamente reescrever uma linha que já
+  /// existe. Com `ignoreDuplicates: true` a correção seria engolida em
+  /// silêncio.
+  Future<void> markAttendance(
+    List<({String meetingId, String studentId, BaptismAttendanceStatus status})>
+        marks,
+  ) async {
+    if (marks.isEmpty) return;
+
+    await _supabase.from('baptism_attendance').upsert(
+      [
+        for (final mark in marks)
+          {
+            'tenant_id': SupabaseConstants.currentTenantId,
+            'meeting_id': mark.meetingId,
+            'student_id': mark.studentId,
+            'status': mark.status.code,
+          },
+      ],
+      onConflict: 'meeting_id,student_id',
+    );
+  }
+
+  /// Desmarca um aluno: apaga a linha, devolvendo-o a "não-marcado".
+  ///
+  /// Pede `baptism.edit` no banco, não `baptism.delete` — desmarcar é a
+  /// outra metade de marcar, e separar as duas deixaria a chamada
+  /// irreversível para a maioria dos cargos.
+  ///
+  /// Apagar é diferente de marcar `ausente`: quem faltou tem linha; quem
+  /// foi desmarcado volta a não ter nenhuma.
+  Future<void> unmarkAttendance({
+    required String meetingId,
+    required String studentId,
+  }) async {
+    await _supabase
+        .from('baptism_attendance')
+        .delete()
+        .eq('meeting_id', meetingId)
+        .eq('student_id', studentId);
   }
 
   /// `birth_date` é `DATE` no banco: mandar um timestamp reintroduziria o
