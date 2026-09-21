@@ -4,10 +4,13 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/utils/share_link_utils.dart';
 
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/share_link_dialog.dart';
 import '../../../../core/widgets/pearl_fab.dart';
+import '../../../../core/widgets/status_badge.dart';
 
 import '../../../permissions/providers/permissions_providers.dart';
 import '../providers/events_provider.dart';
@@ -45,7 +48,9 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
   String? _seriesActionEventId;
 
   bool _isRegistrationShareEnabled(Event event) {
-    return event.requiresRegistration && event.status == 'published' && !event.isPast;
+    return event.requiresRegistration &&
+        event.status == 'published' &&
+        !event.isPast;
   }
 
   String _buildEventRegistrationShareUrl(String eventId) {
@@ -295,7 +300,8 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
       if (!mounted) return;
       _showSeriesError(
         e,
-        fallback: 'Não foi possível excluir as ocorrências futuras. Verifique '
+        fallback:
+            'Não foi possível excluir as ocorrências futuras. Verifique '
             'a conexão e tente novamente.',
       );
     }
@@ -364,7 +370,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                       context.go('/home');
                     }
                   },
-                  icon: const Icon(Icons.arrow_back),
+                  icon: const Icon(AppIcons.back),
                 ),
               ),
               title: Padding(
@@ -391,7 +397,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                         ],
                       ),
                       child: Icon(
-                        Icons.event,
+                        AppIcons.event,
                         size: 18,
                         color: Theme.of(context).colorScheme.primary,
                       ),
@@ -436,7 +442,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                   ),
                   IconButton(
                     tooltip: 'Excluir selecionados',
-                    icon: const Icon(Icons.delete, color: Colors.red),
+                    icon: const Icon(AppIcons.delete, color: Colors.red),
                     onPressed: _selectedIds.isEmpty
                         ? null
                         : _confirmDeleteSelected,
@@ -447,11 +453,15 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                     tooltip: _selectionMode
                         ? 'Cancelar seleção'
                         : 'Selecionar vários',
-                    icon: Icon(_selectionMode ? Icons.close : Icons.checklist),
+                    icon: Icon(
+                      _selectionMode ? AppIcons.close : AppIcons.checklist,
+                    ),
                     onPressed: _toggleSelectionMode,
                   ),
                 if (!_selectionMode) ...[
                   PopupMenuButton<String>(
+                    icon: const Icon(AppIcons.filter),
+                    tooltip: 'Filtrar eventos',
                     initialValue: _filter,
                     onSelected: (value) {
                       setState(() => _filter = value);
@@ -471,7 +481,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                   if (canCrud && (canCreate || canEdit))
                     IconButton(
                       tooltip: 'Gerenciar Tipos',
-                      icon: const Icon(Icons.category),
+                      icon: const Icon(AppIcons.category),
                       onPressed: () {
                         context.push('/events/types');
                       },
@@ -490,20 +500,16 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                   horizontal: 24,
                   vertical: 8,
                 ),
-                child: Container(
+                child: GlassCard(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 20,
-                  ),
-                  decoration: CommunityDesign.overlayDecoration(
-                    cs,
-                    hovered: true,
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.event,
+                        AppIcons.event,
                         size: 64,
                         color: cs.primary.withValues(alpha: 0.28),
                       ),
@@ -523,7 +529,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                               ),
                             );
                           },
-                          icon: const Icon(Icons.add),
+                          icon: const Icon(AppIcons.add),
                           label: const Text('Criar Primeiro Evento'),
                         ),
                       ],
@@ -545,314 +551,292 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
               itemCount: events.length,
               itemBuilder: (context, index) {
                 final event = events[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: CommunityDesign.overlayDecoration(
-                    Theme.of(context).colorScheme,
-                    hovered: true,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(CommunityDesign.radius),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          if (_selectionMode) {
-                            _toggleSelected(event.id);
-                            return;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: GlassCard(
+                    padding: EdgeInsets.zero,
+                    onTap: () {
+                      if (_selectionMode) {
+                        _toggleSelected(event.id);
+                        return;
+                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              EventDetailScreen(eventId: event.id),
+                        ),
+                      );
+                    },
+                    onLongPress: (canCrud && canDelete)
+                        ? () {
+                            if (!_selectionMode) {
+                              setState(() {
+                                _selectionMode = true;
+                                _selectedIds.add(event.id);
+                              });
+                            }
                           }
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  EventDetailScreen(eventId: event.id),
-                            ),
-                          );
-                        },
-                        onLongPress: (canCrud && canDelete)
-                            ? () {
-                                if (!_selectionMode) {
-                                  setState(() {
-                                    _selectionMode = true;
-                                    _selectedIds.add(event.id);
-                                  });
-                                }
-                              }
-                            : null,
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        : null,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header com nome e status
+                          Row(
                             children: [
-                              // Header com nome e status
-                              Row(
-                                children: [
-                                  if (_selectionMode && canCrud && canDelete)
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        right: 4,
-                                      ),
-                                      child: Checkbox(
-                                        value: _selectedIds.contains(
-                                          event.id,
-                                        ),
-                                        onChanged: (_) =>
-                                            _toggleSelected(event.id),
-                                      ),
-                                    ),
-                                  Expanded(
-                                    child: Text(
-                                      event.name,
-                                      style: CommunityDesign.titleStyle(
-                                        context,
-                                      ),
-                                    ),
+                              if (_selectionMode && canCrud && canDelete)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 4),
+                                  child: Checkbox(
+                                    value: _selectedIds.contains(event.id),
+                                    onChanged: (_) => _toggleSelected(event.id),
                                   ),
-                                  const SizedBox(width: 8),
-                                  _StatusChip(event: event),
-                                  if (!_selectionMode) ...[
-                                    const SizedBox(width: 4),
-                                    IconButton(
-                                      tooltip: _isRegistrationShareEnabled(event)
-                                          ? 'Compartilhar inscrição'
-                                          : 'Compartilhar evento',
-                                      icon: const Icon(Icons.share, size: 18),
-                                      onPressed: () => _isRegistrationShareEnabled(event)
-                                          ? _shareRegistrationLink(event)
-                                          : _shareEventInfoLink(event),
-                                    ),
-                                    if (canCrud && (canEdit || canDelete))
-                                      PopupMenuButton<String>(
-                                        tooltip: 'Mais opções',
-                                        icon: const Icon(
-                                          Icons.more_vert,
-                                          size: 18,
-                                        ),
-                                        onSelected: (value) {
-                                          switch (value) {
-                                            case 'edit':
-                                              if (!canEdit) return;
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      EventFormScreen(
+                                ),
+                              Expanded(
+                                child: Text(
+                                  event.name,
+                                  style: CommunityDesign.titleStyle(context),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _StatusChip(event: event),
+                              if (!_selectionMode) ...[
+                                const SizedBox(width: 4),
+                                IconButton(
+                                  tooltip: _isRegistrationShareEnabled(event)
+                                      ? 'Compartilhar inscrição'
+                                      : 'Compartilhar evento',
+                                  icon: const Icon(AppIcons.share, size: 18),
+                                  onPressed: () =>
+                                      _isRegistrationShareEnabled(event)
+                                      ? _shareRegistrationLink(event)
+                                      : _shareEventInfoLink(event),
+                                ),
+                                if (canCrud && (canEdit || canDelete))
+                                  PopupMenuButton<String>(
+                                    tooltip: 'Mais opções',
+                                    icon: const Icon(AppIcons.more, size: 18),
+                                    onSelected: (value) {
+                                      switch (value) {
+                                        case 'edit':
+                                          if (!canEdit) return;
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  EventFormScreen(
                                                     eventId: event.id,
                                                   ),
+                                            ),
+                                          ).then((_) {
+                                            ref.invalidate(allEventsProvider);
+                                            ref.invalidate(
+                                              activeEventsProvider,
+                                            );
+                                            ref.invalidate(
+                                              upcomingEventsProvider,
+                                            );
+                                          });
+                                          break;
+                                        case 'delete':
+                                          if (!canDelete) return;
+                                          _confirmDeleteEvent(event);
+                                          break;
+                                        case 'delete_batch':
+                                          if (!canDelete) return;
+                                          _confirmDeleteBatch(event);
+                                          break;
+                                      }
+                                    },
+                                    itemBuilder: (context) => [
+                                      if (canEdit)
+                                        const PopupMenuItem(
+                                          value: 'edit',
+                                          child: Row(
+                                            children: [
+                                              Icon(AppIcons.edit, size: 18),
+                                              SizedBox(width: 8),
+                                              Text('Editar'),
+                                            ],
+                                          ),
+                                        ),
+                                      if (canDelete)
+                                        const PopupMenuItem(
+                                          value: 'delete',
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                AppIcons.delete,
+                                                size: 18,
+                                                color: Colors.red,
+                                              ),
+                                              SizedBox(width: 8),
+                                              Text(
+                                                'Excluir',
+                                                style: TextStyle(
+                                                  color: Colors.red,
                                                 ),
-                                              ).then((_) {
-                                                ref.invalidate(allEventsProvider);
-                                                ref.invalidate(activeEventsProvider);
-                                                ref.invalidate(upcomingEventsProvider);
-                                              });
-                                              break;
-                                            case 'delete':
-                                              if (!canDelete) return;
-                                              _confirmDeleteEvent(event);
-                                              break;
-                                            case 'delete_batch':
-                                              if (!canDelete) return;
-                                              _confirmDeleteBatch(event);
-                                              break;
-                                          }
-                                        },
-                                        itemBuilder: (context) => [
-                                          if (canEdit)
-                                            const PopupMenuItem(
-                                              value: 'edit',
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.edit, size: 18),
-                                                  SizedBox(width: 8),
-                                                  Text('Editar'),
-                                                ],
                                               ),
-                                            ),
-                                          if (canDelete)
-                                            const PopupMenuItem(
-                                              value: 'delete',
-                                              child: Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.delete,
-                                                    size: 18,
-                                                    color: Colors.red,
-                                                  ),
-                                                  SizedBox(width: 8),
-                                                  Text(
-                                                    'Excluir',
-                                                    style: TextStyle(
-                                                      color: Colors.red,
-                                                    ),
-                                                  ),
-                                                ],
+                                            ],
+                                          ),
+                                        ),
+                                      // Fase 6 — REC-05/A-01. FRONTEIRA DE
+                                      // ESCOPO: só ESTE item troca o
+                                      // `Colors.red` cru por
+                                      // `colorScheme.error`. Os demais
+                                      // destrutivos deste arquivo
+                                      // (exclusão de evento único e
+                                      // seleção em massa, logo acima)
+                                      // ficam como estão — estão fora de
+                                      // REC-05 e o CLAUDE.md proíbe
+                                      // limpeza geral não relacionada.
+                                      if (canDelete && event.batchId != null)
+                                        PopupMenuItem(
+                                          value: 'delete_batch',
+                                          enabled:
+                                              _seriesActionEventId != event.id,
+                                          child: Row(
+                                            children: [
+                                              if (_seriesActionEventId ==
+                                                  event.id)
+                                                const SizedBox(
+                                                  width: 16,
+                                                  height: 16,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                      ),
+                                                )
+                                              else
+                                                Icon(
+                                                  AppIcons.delete,
+                                                  size: 18,
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.error,
+                                                ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'Excluir ocorrências futuras',
+                                                style: TextStyle(
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.error,
+                                                ),
                                               ),
-                                            ),
-                                          // Fase 6 — REC-05/A-01. FRONTEIRA DE
-                                          // ESCOPO: só ESTE item troca o
-                                          // `Colors.red` cru por
-                                          // `colorScheme.error`. Os demais
-                                          // destrutivos deste arquivo
-                                          // (exclusão de evento único e
-                                          // seleção em massa, logo acima)
-                                          // ficam como estão — estão fora de
-                                          // REC-05 e o CLAUDE.md proíbe
-                                          // limpeza geral não relacionada.
-                                          if (canDelete && event.batchId != null)
-                                            PopupMenuItem(
-                                              value: 'delete_batch',
-                                              enabled:
-                                                  _seriesActionEventId !=
-                                                  event.id,
-                                              child: Row(
-                                                children: [
-                                                  if (_seriesActionEventId ==
-                                                      event.id)
-                                                    const SizedBox(
-                                                      width: 16,
-                                                      height: 16,
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                            strokeWidth: 2,
-                                                          ),
-                                                    )
-                                                  else
-                                                    Icon(
-                                                      Icons.delete_sweep,
-                                                      size: 18,
-                                                      color: Theme.of(context)
-                                                          .colorScheme
-                                                          .error,
-                                                    ),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    'Excluir ocorrências futuras',
-                                                    style: TextStyle(
-                                                      color: Theme.of(context)
-                                                          .colorScheme
-                                                          .error,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                  ],
-                                ],
-                              ),
-
-                              if (event.description != null &&
-                                  event.description!.isNotEmpty) ...[
-                                const SizedBox(height: 6),
-                                Text(
-                                  event.description!,
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurface
-                                            .withValues(alpha: 0.7),
-                                      ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-
-                              const SizedBox(height: 10),
-
-                              // Informações do evento
-                              Row(
-                                children: [
-                                  Text(
-                                    DateFormat(
-                                      'dd/MM/yyyy',
-                                    ).format(event.startDate),
-                                    style: CommunityDesign.metaStyle(context),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Icon(
-                                    Icons.access_time,
-                                    size: 14,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withValues(alpha: 0.6),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    DateFormat('HH:mm').format(event.startDate),
-                                    style: CommunityDesign.metaStyle(context),
-                                  ),
-                                ],
-                              ),
-
-                              if (event.location != null) ...[
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.location_on,
-                                      size: 14,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface
-                                          .withValues(alpha: 0.6),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        event.location!,
-                                        style: CommunityDesign.metaStyle(
-                                          context,
+                                            ],
+                                          ),
                                         ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-
-                              if (event.requiresRegistration) ...[
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.groups,
-                                      size: 14,
-                                      color: Colors.blue[700],
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '${event.registrationCount ?? 0} inscritos',
-                                      style: TextStyle(
-                                        color: Colors.blue[700],
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    if (event.maxCapacity != null) ...[
-                                      Text(
-                                        ' / ${event.maxCapacity}',
-                                        style: CommunityDesign.metaStyle(
-                                          context,
-                                        ),
-                                      ),
-                                      if (event.isFull) ...[
-                                        const SizedBox(width: 8),
-                                        CommunityDesign.badge(
-                                          context,
-                                          'LOTADO',
-                                          Colors.red,
-                                        ),
-                                      ],
                                     ],
-                                  ],
-                                ),
+                                  ),
                               ],
                             ],
                           ),
-                        ),
+
+                          if (event.description != null &&
+                              event.description!.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              event.description!,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.7),
+                                  ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+
+                          const SizedBox(height: 10),
+
+                          // Informações do evento
+                          Row(
+                            children: [
+                              Text(
+                                DateFormat(
+                                  'dd/MM/yyyy',
+                                ).format(event.startDate),
+                                style: CommunityDesign.metaStyle(context),
+                              ),
+                              const SizedBox(width: 12),
+                              Icon(
+                                AppIcons.accessTime,
+                                size: 14,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.6),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                DateFormat('HH:mm').format(event.startDate),
+                                style: CommunityDesign.metaStyle(context),
+                              ),
+                            ],
+                          ),
+
+                          if (event.location != null) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(
+                                  AppIcons.location,
+                                  size: 14,
+                                  color: Theme.of(context).colorScheme.onSurface
+                                      .withValues(alpha: 0.6),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    event.location!,
+                                    style: CommunityDesign.metaStyle(context),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+
+                          if (event.requiresRegistration) ...[
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Icon(
+                                  AppIcons.groups,
+                                  size: 14,
+                                  color: Colors.blue[700],
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${event.registrationCount ?? 0} inscritos',
+                                  style: TextStyle(
+                                    color: Colors.blue[700],
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (event.maxCapacity != null) ...[
+                                  Text(
+                                    ' / ${event.maxCapacity}',
+                                    style: CommunityDesign.metaStyle(context),
+                                  ),
+                                  if (event.isFull) ...[
+                                    const SizedBox(width: 8),
+                                    CommunityDesign.badge(
+                                      context,
+                                      'LOTADO',
+                                      Colors.red,
+                                    ),
+                                  ],
+                                ],
+                              ],
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),
@@ -866,7 +850,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const Icon(AppIcons.error, size: 64, color: Colors.red),
               const SizedBox(height: 16),
               Text('Erro ao carregar eventos: $error'),
               const SizedBox(height: 16),
@@ -892,7 +876,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                   ),
                 );
               },
-              icon: Icons.add,
+              icon: AppIcons.add,
               label: 'Novo Evento',
             )
           : null,
@@ -1084,11 +1068,11 @@ class _EventTypesManageScreenState
                             children: [
                               IconButton(
                                 onPressed: () => _editLabel(code, label),
-                                icon: const Icon(Icons.edit),
+                                icon: const Icon(AppIcons.edit),
                               ),
                               IconButton(
                                 onPressed: () => _delete(code),
-                                icon: const Icon(Icons.delete),
+                                icon: const Icon(AppIcons.delete),
                               ),
                             ],
                           ),
@@ -1112,20 +1096,12 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     String label = event.statusText ?? '';
-    Color color;
+    final tone = event.status == 'cancelled'
+        ? AppStatusTone.dropped
+        : event.status == 'completed' || event.isPast
+        ? AppStatusTone.done
+        : AppStatusTone.active;
 
-    if (event.status == 'cancelled') {
-      color = Colors.red;
-    } else if (event.status == 'completed' || event.isPast) {
-      color = Colors.grey.shade700;
-    } else if (event.isOngoing) {
-      color = Colors.green.shade700;
-    } else if (event.isUpcoming) {
-      color = Colors.blue.shade700;
-    } else {
-      color = Colors.orange.shade700;
-    }
-
-    return CommunityDesign.badge(context, label.toUpperCase(), color);
+    return StatusBadge(label: label, tone: tone, icon: AppIcons.event);
   }
 }

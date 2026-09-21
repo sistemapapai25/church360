@@ -775,3 +775,37 @@ os avisos conhecidos de migração do Node 20/Ubuntu 26.
 - `test/features/ministries/ministry_detail_form_visual_test.dart`
 - `docs/VISUAL-MATERIAL-INVENTORY.md`
 - `SESSION-WRAP.md` (este handoff)
+
+## Final closeout — visual wave 9 Diaconato e Raízes
+
+Timestamp: 2026-09-21, America/Sao_Paulo (UTC-03).
+
+### Git, merge e produção
+
+- Commit de implementação: `73f277f`, `feat: standardize diaconato and raizes surfaces`.
+- PR #134: https://github.com/sistemapapai25/church360/pull/134.
+- Merge em `main`: `2faaf73e6990f4d132c2df3f583a0412e6aa50f2`.
+- Workflow de produção: run `35638655135`, sucesso em 3m17s:
+  https://github.com/sistemapapai25/church360/actions/runs/35638655135.
+- Deploy Vercel Ready:
+  `https://church360-iy217ns4l-gabriels-projects-ec03504d.vercel.app`.
+- Alias de produção confirmado: `https://app.church360.com.br`.
+
+### Verificação
+
+- `flutter test --no-pub -j 1`: **518 passed** na branch da onda.
+- `flutter analyze --no-pub` nos oito arquivos de tela, catálogo e teste:
+  sem issues.
+- `git diff --check`: passou.
+- `flutter build web --release --no-pub`: passou.
+- Os avisos Wasm conhecidos continuam nas dependências `audioplayers_web`,
+  `dart:html`, `package:js` e `image`.
+
+### Estado local e próxima fase
+
+- A próxima branch é `feat/visual-wave-10-events`, baseada em `origin/main` no
+  merge `2faaf73`.
+- A primeira fatia de Events cobre `events_list_screen.dart`; detalhe,
+  formulário, registro e diálogos especializados continuam pendentes.
+- Os sete registradores Flutter gerados continuam locais e não devem ser
+  incluídos em commits.
