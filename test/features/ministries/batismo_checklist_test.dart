@@ -1,4 +1,5 @@
 import 'package:church360_app/core/theme/app_theme.dart';
+import 'package:church360_app/core/widgets/glass_card.dart';
 import 'package:church360_app/features/ministries/batismo/domain/baptism_checklist_progress.dart';
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_checklist.dart';
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_student.dart';
@@ -78,16 +79,22 @@ Widget _host({
 }) {
   return ProviderScope(
     overrides: [
-      baptismStudentsProvider(_ministryId).overrideWith((ref) async => students),
+      baptismStudentsProvider(
+        _ministryId,
+      ).overrideWith((ref) async => students),
       baptismTurmasProvider(_ministryId).overrideWith((ref) async => turmas),
-      baptismChecklistItemsProvider(_ministryId)
-          .overrideWith((ref) async => items),
-      baptismChecklistEntriesProvider(_ministryId)
-          .overrideWith((ref) async => entries),
+      baptismChecklistItemsProvider(
+        _ministryId,
+      ).overrideWith((ref) async => items),
+      baptismChecklistEntriesProvider(
+        _ministryId,
+      ).overrideWith((ref) async => entries),
       ministryByIdProvider(_ministryId).overrideWith((ref) async => null),
       for (final action in BaptismWriteAction.values)
-        baptismCanWriteProvider((ministryId: _ministryId, action: action))
-            .overrideWith((ref) async => canEdit),
+        baptismCanWriteProvider((
+          ministryId: _ministryId,
+          action: action,
+        )).overrideWith((ref) async => canEdit),
     ],
     child: MaterialApp(
       theme: AppTheme.lightTheme,
@@ -157,7 +164,10 @@ void main() {
   group('buildBaptismChecklistProgress', () {
     test('conta só as etapas que se aplicam ao aluno', () {
       final progress = buildBaptismChecklistProgress(
-        students: [_student('Ana'), _student('Bruno', turmaId: 'turma-2')],
+        students: [
+          _student('Ana'),
+          _student('Bruno', turmaId: 'turma-2'),
+        ],
         items: [
           _item('geral'),
           _item('so-t1', turmaId: 'turma-1'),
@@ -192,7 +202,10 @@ void main() {
       // movido para a turma-2. A linha continua no banco.
       final progress = buildBaptismChecklistProgress(
         students: [_student('Ana', turmaId: 'turma-2')],
-        items: [_item('geral'), _item('so-t1', turmaId: 'turma-1')],
+        items: [
+          _item('geral'),
+          _item('so-t1', turmaId: 'turma-1'),
+        ],
         entries: [_entry('id-Ana', 'so-t1')],
       );
 
@@ -223,10 +236,11 @@ void main() {
         entries: const [],
       );
 
-      expect(
-        progress.single.items.map((i) => i.title).toList(),
-        ['Primeira', 'Alfa', 'Zeta'],
-      );
+      expect(progress.single.items.map((i) => i.title).toList(), [
+        'Primeira',
+        'Alfa',
+        'Zeta',
+      ]);
     });
 
     test('tally reduz a feitas/total por aluno', () {
@@ -247,11 +261,7 @@ void main() {
     testWidgets('sem etapa cadastrada explica o que a aba faz', (tester) async {
       await _pumpTab(
         tester,
-        _host(
-          students: [_student('Ana')],
-          items: const [],
-          entries: const [],
-        ),
+        _host(students: [_student('Ana')], items: const [], entries: const []),
       );
 
       expect(find.text('Nenhuma etapa cadastrada'), findsOneWidget);
@@ -274,6 +284,7 @@ void main() {
       expect(find.text('Bruno'), findsOneWidget);
       expect(find.text('1/2'), findsOneWidget);
       expect(find.text('0/2'), findsOneWidget);
+      expect(find.byType(GlassCard), findsNWidgets(3));
     });
 
     testWidgets('expandir mostra as etapas daquele aluno', (tester) async {
@@ -281,7 +292,10 @@ void main() {
         tester,
         _host(
           students: [_student('Ana')],
-          items: [_item('i1', title: 'Entrevista'), _item('i2', title: 'Aula 1')],
+          items: [
+            _item('i1', title: 'Entrevista'),
+            _item('i2', title: 'Aula 1'),
+          ],
           entries: [_entry('id-Ana', 'i1')],
         ),
       );
@@ -342,8 +356,9 @@ void main() {
       );
     });
 
-    testWidgets('catálogo aparece mesmo sem nenhum aluno cadastrado',
-        (tester) async {
+    testWidgets('catálogo aparece mesmo sem nenhum aluno cadastrado', (
+      tester,
+    ) async {
       // O caso que motivou a mudança: em produção a etapa foi criada, a
       // tabela de alunos estava vazia, e a aba não mostrava nada —
       // parecia que a etapa não tinha sido salva.
@@ -365,8 +380,9 @@ void main() {
       expect(find.text('Nenhum aluno neste filtro'), findsNothing);
     });
 
-    testWidgets('catálogo diz o alcance de etapa presa a uma turma',
-        (tester) async {
+    testWidgets('catálogo diz o alcance de etapa presa a uma turma', (
+      tester,
+    ) async {
       await _pumpTab(
         tester,
         _host(
@@ -380,8 +396,9 @@ void main() {
       expect(find.text('Só a turma Batizandos 2026'), findsOneWidget);
     });
 
-    testWidgets('zero aluno e filtro sem resultado dão mensagens diferentes',
-        (tester) async {
+    testWidgets('zero aluno e filtro sem resultado dão mensagens diferentes', (
+      tester,
+    ) async {
       await _pumpTab(
         tester,
         _host(
@@ -412,15 +429,18 @@ void main() {
       );
     }
 
-    testWidgets('mostra a pílula de etapas quando há checklist', (tester) async {
+    testWidgets('mostra a pílula de etapas quando há checklist', (
+      tester,
+    ) async {
       await tester.pumpWidget(host((done: 2, total: 5)));
       await tester.pumpAndSettle();
 
       expect(find.text('2/5 etapas'), findsOneWidget);
     });
 
-    testWidgets('sem checklist ou com total zero não mostra nada',
-        (tester) async {
+    testWidgets('sem checklist ou com total zero não mostra nada', (
+      tester,
+    ) async {
       await tester.pumpWidget(host(null));
       await tester.pumpAndSettle();
       expect(find.textContaining('etapas'), findsNothing);

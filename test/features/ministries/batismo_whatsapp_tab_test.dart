@@ -1,4 +1,5 @@
 import 'package:church360_app/core/theme/app_theme.dart';
+import 'package:church360_app/core/widgets/glass_card.dart';
 import 'package:church360_app/features/dispatch/presentation/providers/dispatch_providers.dart';
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_student.dart';
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_turma.dart';
@@ -48,7 +49,9 @@ Widget _host({
 }) {
   return ProviderScope(
     overrides: [
-      baptismStudentsProvider(_ministryId).overrideWith((ref) async => students),
+      baptismStudentsProvider(
+        _ministryId,
+      ).overrideWith((ref) async => students),
       baptismTurmasProvider(_ministryId).overrideWith((ref) async => turmas),
       // Sem estes dois a aba tentaria falar com o Supabase no teste.
       ministryByIdProvider(_ministryId).overrideWith((ref) async => null),
@@ -80,20 +83,22 @@ void main() {
       expect(studentHasWhatsAppPhone(_student('Ana', phone: '   ')), isFalse);
     });
 
-    test('numero curto demais nao serve — o campo esta preenchido e nao disca',
-        () {
-      // "(11)" tem digito e mesmo assim nao disca: o launcher montaria
-      // wa.me/5511.
-      expect(studentHasWhatsAppPhone(_student('Ana', phone: '(11) ')), isFalse);
-      expect(
-        studentPhoneState(_student('Ana', phone: '(11) ')),
-        StudentPhoneState.incomplete,
-      );
-      expect(
-        studentPhoneState(_student('Ana')),
-        StudentPhoneState.missing,
-      );
-    });
+    test(
+      'numero curto demais nao serve — o campo esta preenchido e nao disca',
+      () {
+        // "(11)" tem digito e mesmo assim nao disca: o launcher montaria
+        // wa.me/5511.
+        expect(
+          studentHasWhatsAppPhone(_student('Ana', phone: '(11) ')),
+          isFalse,
+        );
+        expect(
+          studentPhoneState(_student('Ana', phone: '(11) ')),
+          StudentPhoneState.incomplete,
+        );
+        expect(studentPhoneState(_student('Ana')), StudentPhoneState.missing);
+      },
+    );
 
     test('numero ja internacional serve como esta', () {
       expect(
@@ -133,10 +138,7 @@ void main() {
     });
 
     test('variavel desconhecida sai em branco, nao sai crua', () {
-      final out = renderBatismoMessage(
-        'Aula em {event_date}.',
-        student: ana,
-      );
+      final out = renderBatismoMessage('Aula em {event_date}.', student: ana);
 
       expect(out, 'Aula em .');
     });
@@ -187,6 +189,7 @@ void main() {
     );
 
     expect(find.text('2 de 3 alunos ativos têm telefone'), findsOneWidget);
+    expect(find.byType(GlassCard), findsWidgets);
   });
 
   testWidgets('aluno sem telefone aparece com o motivo e o botao apagado', (
@@ -204,10 +207,7 @@ void main() {
     );
 
     expect(find.text('Carla Dias'), findsOneWidget);
-    expect(
-      find.text('Sexta 19h · Sem telefone cadastrado'),
-      findsOneWidget,
-    );
+    expect(find.text('Sexta 19h · Sem telefone cadastrado'), findsOneWidget);
 
     // Quem tem telefone vem primeiro na lista; o ultimo botao e o da Carla.
     final buttons = tester

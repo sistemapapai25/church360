@@ -522,6 +522,70 @@ avisos de migração futura do runner Node 20/Ubuntu 26.
 - `docs/VISUAL-MATERIAL-INVENTORY.md`
 - `SESSION-WRAP.md` (este handoff)
 
+## Final closeout — visual wave 8 Batismo, submódulos
+
+Timestamp: 2026-09-21 14:12:49 BRT (America/Sao_Paulo, UTC-03).
+
+### O que foi entregue
+
+- `batismo_checklist_tab.dart` agora reutiliza `GlassCard` no catálogo de
+  etapas e nos cards de progresso por aluno; filtros, estados, ações e
+  checkboxes usam `AppIcons`.
+- `batismo_relatorios_tab.dart` e `batismo_whatsapp_tab.dart` passaram a usar
+  o catálogo semântico nos controles de relatório, PDF, compartilhamento,
+  filtros, mensagens, busca e estados de erro, preservando os `GlassCard` que
+  já existiam.
+- `AppIcons` ganhou as semânticas compartilháveis de checklist, pendência,
+  relatório, PDF, compartilhamento, troca de turma, marcação e fixação.
+- Os testes existentes de Checklist, Relatórios e WhatsApp ganharam
+  expectativas visuais para as superfícies compartilhadas.
+- Foi corrigido um `if` sem chaves no WhatsApp, sem mudança de comportamento.
+
+Não houve alteração em rotas, permissões, providers, repositórios,
+persistência, fila de mensagens, geração de PDF ou contratos de dados.
+
+### Verificação
+
+Passou:
+
+- Testes focados de Batismo: **55 passed**.
+- `flutter test --no-pub -j 1`: **514 passed**.
+- `flutter analyze --no-pub` nos sete arquivos Dart alterados: sem issues.
+- `git diff --check`: passou.
+- `flutter build web --release --no-pub`: passou.
+
+Os avisos Wasm continuam sendo os conhecidos de `audioplayers_web`,
+`dart:html`, `package:js` e `image`; o build JavaScript normal foi gerado.
+
+### Estado Git e próximo passo
+
+- Branch de implementação: `feat/visual-wave-8-baptism-submodules`, baseada
+  no handoff `b83b8f6` / `origin/main` em `846a819`.
+- Os sete registradores Flutter continuam modificados localmente e não foram
+  incluídos no recorte:
+  `linux/flutter/generated_plugin_registrant.cc`,
+  `linux/flutter/generated_plugin_registrant.h`,
+  `linux/flutter/generated_plugins.cmake`,
+  `macos/Flutter/GeneratedPluginRegistrant.swift`,
+  `windows/flutter/generated_plugin_registrant.cc`,
+  `windows/flutter/generated_plugin_registrant.h` e
+  `windows/flutter/generated_plugins.cmake`.
+- O próximo recorte deve concluir a auditoria dos submódulos restantes de
+  Ministries, como Diaconato, Raízes e notificações, antes de avançar para
+  Events. A validação visual autenticada continua limitada pelo SSO da Vercel.
+
+### Arquivos intencionais desta onda
+
+- `lib/core/design/app_icons.dart`
+- `lib/features/ministries/batismo/presentation/screens/tabs/batismo_checklist_tab.dart`
+- `lib/features/ministries/batismo/presentation/screens/tabs/batismo_relatorios_tab.dart`
+- `lib/features/ministries/batismo/presentation/screens/tabs/batismo_whatsapp_tab.dart`
+- `test/features/ministries/batismo_checklist_test.dart`
+- `test/features/ministries/batismo_relatorios_tab_test.dart`
+- `test/features/ministries/batismo_whatsapp_tab_test.dart`
+- `docs/VISUAL-MATERIAL-INVENTORY.md`
+- `SESSION-WRAP.md` (este handoff)
+
 ## Final closeout — visual wave 7 Ministries, detalhe e formulário
 
 Timestamp: 2026-09-21 14:00:00 BRT (America/Sao_Paulo, UTC-03).

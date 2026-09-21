@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../../core/design/app_icons.dart';
 import '../../../../../../core/design/community_design.dart';
 import '../../../../../../core/theme/app_theme.dart';
 import '../../../../../../core/utils/whatsapp_launcher.dart';
@@ -67,7 +68,9 @@ StudentPhoneState studentPhoneState(BaptismStudent student) {
   if (digits.startsWith('55') && digits.length >= 12) {
     return StudentPhoneState.usable;
   }
-  if (digits.length == 10 || digits.length == 11) return StudentPhoneState.usable;
+  if (digits.length == 10 || digits.length == 11) {
+    return StudentPhoneState.usable;
+  }
   return StudentPhoneState.incomplete;
 }
 
@@ -212,10 +215,9 @@ class _BatismoWhatsAppTabState extends ConsumerState<BatismoWhatsAppTab> {
       final phoneA = studentHasWhatsAppPhone(a);
       final phoneB = studentHasWhatsAppPhone(b);
       if (phoneA != phoneB) return phoneA ? -1 : 1;
-      return a.fullName
-          .trim()
-          .toLowerCase()
-          .compareTo(b.fullName.trim().toLowerCase());
+      return a.fullName.trim().toLowerCase().compareTo(
+        b.fullName.trim().toLowerCase(),
+      );
     });
 
     return filtered;
@@ -338,8 +340,9 @@ class _BatismoWhatsAppTabState extends ConsumerState<BatismoWhatsAppTab> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
                 title,
-                style: CommunityDesign.titleStyle(context)
-                    .copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+                style: CommunityDesign.titleStyle(
+                  context,
+                ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
               ),
             ),
             const SizedBox(height: 8),
@@ -347,7 +350,7 @@ class _BatismoWhatsAppTabState extends ConsumerState<BatismoWhatsAppTab> {
               ListTile(
                 title: Text(option.$2),
                 trailing: option.$1 == current
-                    ? const Icon(Icons.check, size: 18)
+                    ? const Icon(AppIcons.check, size: 18)
                     : null,
                 onTap: () => Navigator.of(context).pop(option.$1),
               ),
@@ -381,19 +384,17 @@ class _BatismoWhatsAppTabState extends ConsumerState<BatismoWhatsAppTab> {
   @override
   Widget build(BuildContext context) {
     final studentsAsync = ref.watch(baptismStudentsProvider(widget.ministryId));
-    final turmas =
-        ref.watch(baptismTurmasProvider(widget.ministryId)).maybeWhen(
-              data: (t) => t,
-              orElse: () => const <BaptismTurma>[],
-            );
-    final ministryName =
-        ref.watch(ministryByIdProvider(widget.ministryId)).maybeWhen(
-              data: (m) => m?.name,
-              orElse: () => null,
-            );
+    final turmas = ref
+        .watch(baptismTurmasProvider(widget.ministryId))
+        .maybeWhen(data: (t) => t, orElse: () => const <BaptismTurma>[]);
+    final ministryName = ref
+        .watch(ministryByIdProvider(widget.ministryId))
+        .maybeWhen(data: (m) => m?.name, orElse: () => null);
     // Modelos são um conforto, não um requisito: se a consulta falhar ou o
     // usuário não puder lê-los, a aba segue funcionando com texto livre.
-    final templates = ref.watch(allMessageTemplatesProvider).maybeWhen(
+    final templates = ref
+        .watch(allMessageTemplatesProvider)
+        .maybeWhen(
           data: (list) => list.where((t) => t.isActive).toList(),
           orElse: () => const <MessageTemplate>[],
         );
@@ -426,13 +427,13 @@ class _BatismoWhatsAppTabState extends ConsumerState<BatismoWhatsAppTab> {
                 filters: [
                   AppFilterButton(
                     label: _status?.label ?? 'Todos os status',
-                    icon: Icons.flag_outlined,
+                    icon: AppIcons.followUp,
                     active: _status != null,
                     onTap: _pickStatus,
                   ),
                   AppFilterButton(
                     label: _turmaLabel(turmas),
-                    icon: Icons.groups_2_outlined,
+                    icon: AppIcons.group,
                     active: _turmaId != _TurmaFilter.all,
                     onTap: () => _pickTurma(turmas),
                   ),
@@ -448,8 +449,9 @@ class _BatismoWhatsAppTabState extends ConsumerState<BatismoWhatsAppTab> {
                 previewStudent: visible.isEmpty ? null : visible.first,
                 ministryName: ministryName,
                 readyCount: withPhone,
-                onSendToMany:
-                    withPhone == 0 ? null : () => _sendToMany(visible, ministryName),
+                onSendToMany: withPhone == 0
+                    ? null
+                    : () => _sendToMany(visible, ministryName),
               ),
               const SizedBox(height: 14),
               _PhoneCountLine(
@@ -530,7 +532,9 @@ class _MessageComposer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final muted = dark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    final muted = dark
+        ? AppTheme.darkMutedForeground
+        : AppTheme.mutedForeground;
     final unresolved = unresolvedBatismoVariables(controller.text);
     final student = previewStudent;
 
@@ -544,13 +548,14 @@ class _MessageComposer extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Mensagem',
-                  style: CommunityDesign.titleStyle(context)
-                      .copyWith(fontSize: 15, fontWeight: FontWeight.w700),
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontSize: 15, fontWeight: FontWeight.w700),
                 ),
               ),
               TextButton.icon(
                 onPressed: onPickTemplate,
-                icon: const Icon(Icons.description_outlined, size: 18),
+                icon: const Icon(AppIcons.description, size: 18),
                 label: Text(templateName ?? 'Escolher modelo'),
               ),
             ],
@@ -570,7 +575,10 @@ class _MessageComposer extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Text('Toque para inserir:', style: CommunityDesign.metaStyle(context)),
+          Text(
+            'Toque para inserir:',
+            style: CommunityDesign.metaStyle(context),
+          ),
           const SizedBox(height: 6),
           Wrap(
             spacing: 6,
@@ -590,12 +598,12 @@ class _MessageComposer extends StatelessWidget {
           if (unresolved.isNotEmpty) ...[
             const SizedBox(height: 10),
             _Notice(
-              icon: Icons.info_outline,
+              icon: AppIcons.info,
               text: unresolved.length == 1
                   ? 'A variável {${unresolved.first}} não existe nesta aba e '
-                      'vai sair em branco na mensagem.'
+                        'vai sair em branco na mensagem.'
                   : 'Estas variáveis não existem nesta aba e vão sair em '
-                      'branco: ${unresolved.map((v) => '{$v}').join(', ')}.',
+                        'branco: ${unresolved.map((v) => '{$v}').join(', ')}.',
             ),
           ],
           if (student != null) ...[
@@ -619,7 +627,7 @@ class _MessageComposer extends StatelessWidget {
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: onSendToMany,
-              icon: const Icon(Icons.forum_outlined, size: 18),
+              icon: const Icon(AppIcons.message, size: 18),
               label: Text(
                 readyCount == 0
                     ? 'Ninguém desta seleção tem telefone'
@@ -665,13 +673,14 @@ class _TemplateSheet extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
               'Modelo de mensagem',
-              style: CommunityDesign.titleStyle(context)
-                  .copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ),
           const SizedBox(height: 8),
           ListTile(
-            leading: const Icon(Icons.edit_outlined),
+            leading: const Icon(AppIcons.edit),
             title: const Text('Escrever na hora'),
             subtitle: const Text('Volta para a saudação padrão'),
             onTap: () => Navigator.of(context).pop(
@@ -701,7 +710,7 @@ class _TemplateSheet extends StatelessWidget {
                 children: [
                   for (final t in templates)
                     ListTile(
-                      leading: const Icon(Icons.description_outlined),
+                      leading: const Icon(AppIcons.description),
                       title: Text(t.name),
                       subtitle: Text(
                         t.content,
@@ -801,8 +810,9 @@ class _QueueDialogState extends State<_QueueDialog> {
         children: [
           Text(
             student.fullName,
-            style: CommunityDesign.titleStyle(context)
-                .copyWith(fontSize: 15, fontWeight: FontWeight.w700),
+            style: CommunityDesign.titleStyle(
+              context,
+            ).copyWith(fontSize: 15, fontWeight: FontWeight.w700),
           ),
           if (student.phone != null) ...[
             const SizedBox(height: 2),
@@ -817,10 +827,7 @@ class _QueueDialogState extends State<_QueueDialog> {
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
           child: const Text('Parar'),
         ),
-        TextButton(
-          onPressed: _busy ? null : _skip,
-          child: const Text('Pular'),
-        ),
+        TextButton(onPressed: _busy ? null : _skip, child: const Text('Pular')),
         FilledButton(
           onPressed: _busy ? null : _open,
           child: const Text('Abrir conversa'),
@@ -891,8 +898,9 @@ class _PhoneCountLine extends StatelessWidget {
     final status = statusLabel?.toLowerCase();
     final plural = total != 1;
     final noun = plural ? 'alunos' : 'aluno';
-    final qualified =
-        status == null ? noun : '$noun $status${plural ? 's' : ''}';
+    final qualified = status == null
+        ? noun
+        : '$noun $status${plural ? 's' : ''}';
 
     final String text;
     if (total == 0) {
@@ -903,7 +911,8 @@ class _PhoneCountLine extends StatelessWidget {
       final incompleteSuffix = incomplete == 0
           ? ''
           : ' · $incomplete com telefone incompleto';
-      text = '$withPhone de $total $qualified '
+      text =
+          '$withPhone de $total $qualified '
           '${withPhone == 1 ? 'tem' : 'têm'} telefone$incompleteSuffix';
     }
 
@@ -925,7 +934,9 @@ class _StudentRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final accent = dark ? AppTheme.darkRing : AppTheme.primary;
-    final muted = dark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    final muted = dark
+        ? AppTheme.darkMutedForeground
+        : AppTheme.mutedForeground;
     final phone = student.phone?.trim() ?? '';
     final hasPhone = onSend != null;
     final state = studentPhoneState(student);
@@ -951,15 +962,16 @@ class _StudentRow extends StatelessWidget {
                 children: [
                   Text(
                     student.fullName,
-                    style: CommunityDesign.titleStyle(context)
-                        .copyWith(fontSize: 15, fontWeight: FontWeight.w700),
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     meta,
-                    style: CommunityDesign.metaStyle(context).copyWith(
-                      color: hasPhone ? null : muted,
-                    ),
+                    style: CommunityDesign.metaStyle(
+                      context,
+                    ).copyWith(color: hasPhone ? null : muted),
                   ),
                 ],
               ),
@@ -974,7 +986,7 @@ class _StudentRow extends StatelessWidget {
                 StudentPhoneState.missing => 'Aluno sem telefone cadastrado',
               },
               icon: Icon(
-                Icons.chat_outlined,
+                AppIcons.message,
                 color: hasPhone ? accent : Theme.of(context).disabledColor,
               ),
             ),
@@ -998,9 +1010,7 @@ class _Notice extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
         const SizedBox(width: 6),
-        Expanded(
-          child: Text(text, style: CommunityDesign.metaStyle(context)),
-        ),
+        Expanded(child: Text(text, style: CommunityDesign.metaStyle(context))),
       ],
     );
   }
@@ -1018,7 +1028,8 @@ class _EmptyState extends StatelessWidget {
     if (hasStudents) {
       message = 'Nenhum aluno encontrado com esses filtros.';
     } else if (!hasTurmas) {
-      message = 'Crie a primeira turma e cadastre alunos para poder falar '
+      message =
+          'Crie a primeira turma e cadastre alunos para poder falar '
           'com eles por aqui.';
     } else {
       message = 'Nenhum aluno cadastrado ainda.';
@@ -1029,7 +1040,7 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         children: [
           Icon(
-            hasStudents ? Icons.search_off : Icons.chat_outlined,
+            hasStudents ? AppIcons.searchEmpty : AppIcons.message,
             size: 36,
             color: Theme.of(context).disabledColor,
           ),
@@ -1059,7 +1070,7 @@ class _WhatsAppError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 40),
+            const Icon(AppIcons.error, size: 40),
             const SizedBox(height: 12),
             Text(
               'Não foi possível carregar os alunos.',
