@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../core/design/community_design.dart';
+import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/utils/whatsapp_launcher.dart';
+import '../../../../../core/widgets/glass_card.dart';
+import '../../../../../core/widgets/status_badge.dart';
 import '../../../../../core/widgets/pearl_fab.dart';
 import '../../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../presentation/providers/ministries_provider.dart';
@@ -59,12 +62,12 @@ class _VisitsContentState extends ConsumerState<_VisitsContent> {
           orElse: () => const Text('Agenda de visitas'),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.back),
           onPressed: () => context.pop(),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(AppIcons.refresh),
             tooltip: 'Recarregar',
             onPressed: () => ref.invalidate(raizesVisitsProvider(args)),
           ),
@@ -75,7 +78,7 @@ class _VisitsContentState extends ConsumerState<_VisitsContent> {
         showLoading: false,
         child: PearlFab(
           onPressed: () => _openCreateDialog(context),
-          icon: Icons.add,
+          icon: AppIcons.add,
           label: 'Nova visita',
         ),
       ),
@@ -105,8 +108,7 @@ class _VisitsContentState extends ConsumerState<_VisitsContent> {
                           onSendWhatsApp: () => _sendWhatsApp(visits[i]),
                         ),
                       ),
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
+                loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => _ErrorBox(
                   message: '$e',
                   onRetry: () => ref.invalidate(raizesVisitsProvider(args)),
@@ -126,9 +128,11 @@ class _VisitsContentState extends ConsumerState<_VisitsContent> {
     );
     if (created == true && mounted) {
       // Invalida lista atual e KPIs do dashboard.
-      ref.invalidate(raizesVisitsProvider(
-        RaizesVisitsArgs(ministryId: widget.ministryId, filter: _filter),
-      ));
+      ref.invalidate(
+        raizesVisitsProvider(
+          RaizesVisitsArgs(ministryId: widget.ministryId, filter: _filter),
+        ),
+      );
       ref.invalidate(raizesDashboardStatsProvider(widget.ministryId));
     }
   }
@@ -151,7 +155,9 @@ class _VisitsContentState extends ConsumerState<_VisitsContent> {
     final mm = visit.scheduledDate.month.toString().padLeft(2, '0');
     final timePart = visit.scheduledTime != null
         ? ' às ${visit.scheduledTime!.split(':').take(2).join(':')}'
-        : (visit.period != null ? ' (${visit.period!.label.toLowerCase()})' : '');
+        : (visit.period != null
+              ? ' (${visit.period!.label.toLowerCase()})'
+              : '');
     final greet = firstName.isEmpty ? 'Olá' : 'Olá $firstName';
     final message =
         '$greet! Sou da igreja e gostaria de te visitar no dia $dd/$mm$timePart. '
@@ -166,9 +172,11 @@ class _VisitsContentState extends ConsumerState<_VisitsContent> {
           final repo = ref.read(raizesRepositoryProvider);
           await repo.markVisitWhatsappReminderSent(visit.id);
           if (!mounted) return;
-          ref.invalidate(raizesVisitsProvider(
-            RaizesVisitsArgs(ministryId: widget.ministryId, filter: _filter),
-          ));
+          ref.invalidate(
+            raizesVisitsProvider(
+              RaizesVisitsArgs(ministryId: widget.ministryId, filter: _filter),
+            ),
+          );
         } catch (_) {
           // Falha ao marcar é silenciosa — o WhatsApp já foi aberto.
         }
@@ -205,13 +213,12 @@ class _VisitsContentState extends ConsumerState<_VisitsContent> {
     final repo = ref.read(raizesRepositoryProvider);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await repo.updateVisitStatus(
-        visitId: visit.id,
-        status: newStatus,
+      await repo.updateVisitStatus(visitId: visit.id, status: newStatus);
+      ref.invalidate(
+        raizesVisitsProvider(
+          RaizesVisitsArgs(ministryId: widget.ministryId, filter: _filter),
+        ),
       );
-      ref.invalidate(raizesVisitsProvider(
-        RaizesVisitsArgs(ministryId: widget.ministryId, filter: _filter),
-      ));
       ref.invalidate(raizesDashboardStatsProvider(widget.ministryId));
       messenger.showSnackBar(
         SnackBar(content: Text('Status atualizado: ${newStatus.label}')),
@@ -240,7 +247,11 @@ class _FilterBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Row(
         children: [
-          _chip(context, RaizesVisitsFilter.todayAndOverdue, 'Hoje + atrasadas'),
+          _chip(
+            context,
+            RaizesVisitsFilter.todayAndOverdue,
+            'Hoje + atrasadas',
+          ),
           const SizedBox(width: 8),
           _chip(context, RaizesVisitsFilter.upcoming, 'Próximas'),
           const SizedBox(width: 8),
@@ -250,11 +261,7 @@ class _FilterBar extends StatelessWidget {
     );
   }
 
-  Widget _chip(
-    BuildContext context,
-    RaizesVisitsFilter f,
-    String label,
-  ) {
+  Widget _chip(BuildContext context, RaizesVisitsFilter f, String label) {
     final selected = value == f;
     return ChoiceChip(
       label: Text(label),
@@ -279,24 +286,9 @@ class _VisitCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final overdue = visit.isOverdue;
     final today = visit.isToday;
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: overdue
-              ? Colors.red.withValues(alpha: 0.4)
-              : Colors.black.withValues(alpha: 0.06),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      accentColor: overdue ? Colors.red : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -321,19 +313,26 @@ class _VisitCard extends StatelessWidget {
             children: [
               _meta(
                 context,
-                Icons.calendar_today,
+                AppIcons.calendarFilled,
                 _formatDate(visit.scheduledDate) +
-                    (today ? ' (hoje)' : overdue ? ' (atrasada)' : ''),
+                    (today
+                        ? ' (hoje)'
+                        : overdue
+                        ? ' (atrasada)'
+                        : ''),
                 color: overdue ? Colors.red : null,
               ),
               if (visit.scheduledTime != null)
-                _meta(context, Icons.access_time,
-                    _formatTime(visit.scheduledTime!)),
+                _meta(
+                  context,
+                  AppIcons.accessTime,
+                  _formatTime(visit.scheduledTime!),
+                ),
               if (visit.period != null && visit.scheduledTime == null)
-                _meta(context, Icons.schedule, visit.period!.label),
+                _meta(context, AppIcons.schedule, visit.period!.label),
               _meta(
                 context,
-                Icons.person,
+                AppIcons.personFilled,
                 visit.assignedToName ?? 'Sem responsável',
                 color: visit.assignedTo == null ? Colors.orange : null,
               ),
@@ -419,7 +418,7 @@ class _WhatsAppRow extends StatelessWidget {
       children: [
         OutlinedButton.icon(
           onPressed: hasPhone ? onPressed : null,
-          icon: const Icon(Icons.chat_bubble_outline, size: 16),
+          icon: const Icon(AppIcons.chat, size: 16),
           label: Text(wasSent ? 'Reenviar WhatsApp' : 'Enviar WhatsApp'),
           style: OutlinedButton.styleFrom(
             foregroundColor: const Color(0xFF25D366),
@@ -435,9 +434,9 @@ class _WhatsAppRow extends StatelessWidget {
         if (!hasPhone)
           Text(
             'Sem telefone',
-            style: CommunityDesign.metaStyle(context).copyWith(
-              fontStyle: FontStyle.italic,
-            ),
+            style: CommunityDesign.metaStyle(
+              context,
+            ).copyWith(fontStyle: FontStyle.italic),
           )
         else if (wasSent)
           Text(
@@ -462,38 +461,14 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _colorFor(status);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Text(
-        status.label,
-        style: TextStyle(
-          color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+    return StatusBadge(
+      label: status.label,
+      tone: switch (status) {
+        RaizesVisitStatus.completed => AppStatusTone.done,
+        RaizesVisitStatus.cancelled => AppStatusTone.dropped,
+        _ => AppStatusTone.active,
+      },
     );
-  }
-
-  Color _colorFor(RaizesVisitStatus s) {
-    switch (s) {
-      case RaizesVisitStatus.pending:
-        return Colors.amber.shade800;
-      case RaizesVisitStatus.confirmed:
-        return Colors.blue.shade700;
-      case RaizesVisitStatus.completed:
-        return Colors.green.shade700;
-      case RaizesVisitStatus.reschedule:
-        return Colors.deepOrange;
-      case RaizesVisitStatus.cancelled:
-        return Colors.grey;
-    }
   }
 }
 
@@ -516,8 +491,10 @@ class _StatusActions extends StatelessWidget {
               onPressed: () => onChange(s),
               style: OutlinedButton.styleFrom(
                 visualDensity: VisualDensity.compact,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
               ),
               child: Text(s.label, style: const TextStyle(fontSize: 12)),
             ),
@@ -542,10 +519,7 @@ class _StatusActions extends StatelessWidget {
           RaizesVisitStatus.cancelled,
         ];
       case RaizesVisitStatus.reschedule:
-        return const [
-          RaizesVisitStatus.pending,
-          RaizesVisitStatus.cancelled,
-        ];
+        return const [RaizesVisitStatus.pending, RaizesVisitStatus.cancelled];
       case RaizesVisitStatus.completed:
       case RaizesVisitStatus.cancelled:
         return const [];
@@ -568,12 +542,17 @@ class _EmptyState extends StatelessWidget {
     return ListView(
       children: [
         const SizedBox(height: 80),
-        Icon(Icons.event_available,
-            size: 56, color: Theme.of(context).disabledColor),
+        Icon(
+          AppIcons.eventAvailable,
+          size: 56,
+          color: Theme.of(context).disabledColor,
+        ),
         const SizedBox(height: 12),
         Center(
-          child: Text(msg,
-              style: TextStyle(color: Theme.of(context).disabledColor)),
+          child: Text(
+            msg,
+            style: TextStyle(color: Theme.of(context).disabledColor),
+          ),
         ),
       ],
     );
@@ -590,7 +569,7 @@ class _ErrorBox extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        const Icon(Icons.error_outline, color: Colors.red, size: 32),
+        const Icon(AppIcons.error, color: Colors.red, size: 32),
         const SizedBox(height: 8),
         Text(message),
         const SizedBox(height: 12),
@@ -598,7 +577,7 @@ class _ErrorBox extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: OutlinedButton.icon(
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh, size: 18),
+            icon: const Icon(AppIcons.refresh, size: 18),
             label: const Text('Tentar de novo'),
           ),
         ),
@@ -616,8 +595,7 @@ class _CreateVisitDialog extends ConsumerStatefulWidget {
   const _CreateVisitDialog({required this.ministryId});
 
   @override
-  ConsumerState<_CreateVisitDialog> createState() =>
-      _CreateVisitDialogState();
+  ConsumerState<_CreateVisitDialog> createState() => _CreateVisitDialogState();
 }
 
 class _CreateVisitDialogState extends ConsumerState<_CreateVisitDialog> {
@@ -639,8 +617,9 @@ class _CreateVisitDialogState extends ConsumerState<_CreateVisitDialog> {
   @override
   Widget build(BuildContext context) {
     final visitorsAsync = ref.watch(raizesEligibleVisitorsProvider);
-    final assigneesAsync =
-        ref.watch(raizesEligibleAssigneesProvider(widget.ministryId));
+    final assigneesAsync = ref.watch(
+      raizesEligibleAssigneesProvider(widget.ministryId),
+    );
 
     return AlertDialog(
       title: const Text('Nova visita'),
@@ -690,7 +669,10 @@ class _CreateVisitDialogState extends ConsumerState<_CreateVisitDialog> {
           onPressed: (_saving || _visitorId == null) ? null : _save,
           child: _saving
               ? const SizedBox(
-                  width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : const Text('Criar'),
         ),
       ],
@@ -700,8 +682,10 @@ class _CreateVisitDialogState extends ConsumerState<_CreateVisitDialog> {
   Widget _visitorField(AsyncValue<List<Map<String, String>>> async) {
     return async.when(
       loading: () => const LinearProgressIndicator(),
-      error: (e, _) => Text('Falha ao carregar visitantes: $e',
-          style: const TextStyle(color: Colors.red)),
+      error: (e, _) => Text(
+        'Falha ao carregar visitantes: $e',
+        style: const TextStyle(color: Colors.red),
+      ),
       data: (list) {
         return DropdownButtonFormField<String>(
           initialValue: _visitorId,
@@ -710,10 +694,12 @@ class _CreateVisitDialogState extends ConsumerState<_CreateVisitDialog> {
             border: OutlineInputBorder(),
           ),
           items: list
-              .map((v) => DropdownMenuItem(
-                    value: v['id'],
-                    child: Text(v['name'] ?? ''),
-                  ))
+              .map(
+                (v) => DropdownMenuItem(
+                  value: v['id'],
+                  child: Text(v['name'] ?? ''),
+                ),
+              )
               .toList(),
           onChanged: (v) => setState(() => _visitorId = v),
         );
@@ -724,8 +710,10 @@ class _CreateVisitDialogState extends ConsumerState<_CreateVisitDialog> {
   Widget _assigneeField(AsyncValue<List<Map<String, String>>> async) {
     return async.when(
       loading: () => const LinearProgressIndicator(),
-      error: (e, _) => Text('Falha ao carregar responsáveis: $e',
-          style: const TextStyle(color: Colors.red)),
+      error: (e, _) => Text(
+        'Falha ao carregar responsáveis: $e',
+        style: const TextStyle(color: Colors.red),
+      ),
       data: (list) {
         return DropdownButtonFormField<String?>(
           initialValue: _assignedTo,
@@ -794,10 +782,12 @@ class _CreateVisitDialogState extends ConsumerState<_CreateVisitDialog> {
           labelText: 'Horário',
           border: OutlineInputBorder(),
         ),
-        child: Text(_time == null
-            ? '—'
-            : '${_time!.hour.toString().padLeft(2, '0')}:'
-                '${_time!.minute.toString().padLeft(2, '0')}'),
+        child: Text(
+          _time == null
+              ? '—'
+              : '${_time!.hour.toString().padLeft(2, '0')}:'
+                    '${_time!.minute.toString().padLeft(2, '0')}',
+        ),
       ),
     );
   }
@@ -810,7 +800,10 @@ class _CreateVisitDialogState extends ConsumerState<_CreateVisitDialog> {
         border: OutlineInputBorder(),
       ),
       items: <DropdownMenuItem<RaizesVisitPeriod?>>[
-        const DropdownMenuItem<RaizesVisitPeriod?>(value: null, child: Text('—')),
+        const DropdownMenuItem<RaizesVisitPeriod?>(
+          value: null,
+          child: Text('—'),
+        ),
         ...RaizesVisitPeriod.values.map(
           (p) => DropdownMenuItem<RaizesVisitPeriod?>(
             value: p,
@@ -841,10 +834,9 @@ class _CreateVisitDialogState extends ConsumerState<_CreateVisitDialog> {
         scheduledTime: _time == null
             ? null
             : '${_time!.hour.toString().padLeft(2, '0')}:'
-                '${_time!.minute.toString().padLeft(2, '0')}:00',
+                  '${_time!.minute.toString().padLeft(2, '0')}:00',
         period: _period,
-        notes:
-            _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+        notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
       );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {

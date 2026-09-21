@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../core/design/community_design.dart';
+import '../../../../../core/design/app_icons.dart';
+import '../../../../../core/widgets/glass_card.dart';
+import '../../../../../core/widgets/status_badge.dart';
 import '../../../../worship/domain/models/worship_service.dart';
 import '../../../../worship/presentation/providers/worship_provider.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
@@ -105,10 +108,9 @@ class _AbsenteesContentState extends ConsumerState<_AbsenteesContent> {
     final existingByUser = {for (final r in personRows) r.userId: r};
     for (final p in absentees) {
       final existing = existingByUser[p.userId];
-      final action =
-          (existing != null && !existing.present)
-              ? existing.absentAction
-              : DiaconatoAbsentAction.none;
+      final action = (existing != null && !existing.present)
+          ? existing.absentAction
+          : DiaconatoAbsentAction.none;
       triageSeeds[p.userId] = AbsenteeTriage(
         action: action,
         personType: p.personType,
@@ -193,7 +195,7 @@ class _AbsenteesContentState extends ConsumerState<_AbsenteesContent> {
         backgroundColor: CommunityDesign.headerColor(context),
         title: const Text('Ausentes'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.back),
           onPressed: () => context.pop(),
         ),
       ),
@@ -220,8 +222,9 @@ class _AbsenteesContentState extends ConsumerState<_AbsenteesContent> {
   }
 
   Widget _buildBody(BuildContext context, _AbsenteesData data) {
-    final triagedCount =
-        _triageByUser.values.where((t) => t.action != DiaconatoAbsentAction.none).length;
+    final triagedCount = _triageByUser.values
+        .where((t) => t.action != DiaconatoAbsentAction.none)
+        .length;
 
     return Column(
       children: [
@@ -262,7 +265,8 @@ class _AbsenteesContentState extends ConsumerState<_AbsenteesContent> {
                 ..._absentees.map(
                   (p) => _AbsenteeTile(
                     person: p,
-                    current: _triageByUser[p.userId]?.action ??
+                    current:
+                        _triageByUser[p.userId]?.action ??
                         DiaconatoAbsentAction.none,
                     onChanged: (a) => _setTriage(p.userId, a),
                   ),
@@ -290,10 +294,7 @@ class _AbsenteesData {
   final WorshipAttendanceCount count;
   final bool hasAnyPresentMark;
 
-  const _AbsenteesData({
-    required this.count,
-    required this.hasAnyPresentMark,
-  });
+  const _AbsenteesData({required this.count, required this.hasAnyPresentMark});
 }
 
 class _HeaderCard extends StatelessWidget {
@@ -327,8 +328,7 @@ class _HeaderCard extends StatelessWidget {
             if ((s.theme ?? '').trim().isNotEmpty) s.theme!.trim(),
           ].join(' · ');
 
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(cs),
+    return GlassCard(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,10 +342,7 @@ class _HeaderCard extends StatelessWidget {
                   color: cs.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  Icons.call_missed_outgoing_outlined,
-                  color: cs.primary,
-                ),
+                child: Icon(AppIcons.callMissed, color: cs.primary),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -354,10 +351,9 @@ class _HeaderCard extends StatelessWidget {
                   children: [
                     Text(
                       dateLabel,
-                      style: CommunityDesign.titleStyle(context).copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
+                      style: CommunityDesign.titleStyle(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.w700, fontSize: 16),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -456,17 +452,13 @@ class _UnregisteredBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GlassCard(
+      accentColor: Colors.orange,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.orange.withValues(alpha: 0.08),
-        border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.add_circle_outline, color: Colors.orange),
+          const Icon(AppIcons.addCircle, color: Colors.orange),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -485,7 +477,7 @@ class _UnregisteredBanner extends StatelessWidget {
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: onCapture,
-                  icon: const Icon(Icons.eco_outlined, size: 16),
+                  icon: const Icon(AppIcons.eco, size: 16),
                   label: const Text('Ir para Raízes'),
                 ),
               ],
@@ -505,17 +497,13 @@ class _NoChecklistBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
+    return GlassCard(
+      accentColor: cs.primary,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cs.primary.withValues(alpha: 0.06),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, color: cs.primary),
+          Icon(AppIcons.info, color: cs.primary),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -534,7 +522,7 @@ class _NoChecklistBanner extends StatelessWidget {
                 const SizedBox(height: 8),
                 FilledButton.tonalIcon(
                   onPressed: onOpenChecklist,
-                  icon: const Icon(Icons.checklist_outlined, size: 16),
+                  icon: const Icon(AppIcons.checklist, size: 16),
                   label: const Text('Abrir checklist'),
                 ),
               ],
@@ -561,78 +549,75 @@ class _AbsenteeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final triaged = current != DiaconatoAbsentAction.none;
-    final accent = triaged ? Colors.green : cs.onSurface.withValues(alpha: 0.12);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-      decoration: BoxDecoration(
-        color: triaged ? Colors.green.withValues(alpha: 0.05) : cs.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accent, width: triaged ? 1.4 : 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: cs.primary.withValues(alpha: 0.1),
-                backgroundImage: (person.photoUrl ?? '').trim().isNotEmpty
-                    ? NetworkImage(person.photoUrl!)
-                    : null,
-                child: (person.photoUrl ?? '').trim().isEmpty
-                    ? Text(
-                        person.initial,
-                        style: TextStyle(
-                          color: cs.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      person.displayName,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      person.personType == DiaconatoPersonType.member
-                          ? 'Membro'
-                          : 'Visitante',
-                      style: CommunityDesign.metaStyle(context)
-                          .copyWith(fontSize: 11),
-                    ),
-                  ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GlassCard(
+        accentColor: triaged ? Colors.green : null,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: cs.primary.withValues(alpha: 0.1),
+                  backgroundImage: (person.photoUrl ?? '').trim().isNotEmpty
+                      ? NetworkImage(person.photoUrl!)
+                      : null,
+                  child: (person.photoUrl ?? '').trim().isEmpty
+                      ? Text(
+                          person.initial,
+                          style: TextStyle(
+                            color: cs.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        )
+                      : null,
                 ),
-              ),
-              if (triaged)
-                Icon(Icons.check_circle, size: 18, color: Colors.green),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: DiaconatoAbsentAction.values.map((action) {
-              return ChoiceChip(
-                label: Text(action.label),
-                selected: current == action,
-                onSelected: (_) => onChanged(action),
-                visualDensity: VisualDensity.compact,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              );
-            }).toList(),
-          ),
-        ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        person.displayName,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        person.personType == DiaconatoPersonType.member
+                            ? 'Membro'
+                            : 'Visitante',
+                        style: CommunityDesign.metaStyle(
+                          context,
+                        ).copyWith(fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                if (triaged)
+                  StatusBadge.done(label: 'Triado', icon: AppIcons.checkCircle),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: DiaconatoAbsentAction.values.map((action) {
+                return ChoiceChip(
+                  label: Text(action.label),
+                  selected: current == action,
+                  onSelected: (_) => onChanged(action),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                );
+              }).toList(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -678,14 +663,12 @@ class _StickyFooter extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Triados',
-                  style: CommunityDesign.metaStyle(context)),
+              Text('Triados', style: CommunityDesign.metaStyle(context)),
               Text(
                 '$triaged de $total',
-                style: CommunityDesign.titleStyle(context).copyWith(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                ),
+                style: CommunityDesign.titleStyle(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w800, fontSize: 18),
               ),
             ],
           ),
@@ -701,12 +684,14 @@ class _StickyFooter extends StatelessWidget {
                       color: Colors.white,
                     ),
                   )
-                : Icon(dirty ? Icons.save_outlined : Icons.check),
-            label: Text(saving
-                ? 'Salvando...'
-                : dirty
-                    ? 'Salvar'
-                    : 'Salvo'),
+                : Icon(dirty ? AppIcons.save : AppIcons.check),
+            label: Text(
+              saving
+                  ? 'Salvando...'
+                  : dirty
+                  ? 'Salvar'
+                  : 'Salvo',
+            ),
           ),
         ],
       ),
@@ -720,19 +705,11 @@ class _EmptyHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    return GlassCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        text,
-        style: CommunityDesign.metaStyle(context),
+      child: SizedBox(
+        width: double.infinity,
+        child: Text(text, style: CommunityDesign.metaStyle(context)),
       ),
     );
   }
@@ -751,10 +728,12 @@ class _ErrorView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const Icon(AppIcons.error, size: 48, color: Colors.red),
           const SizedBox(height: 16),
-          Text('Erro ao carregar ausentes',
-              style: CommunityDesign.titleStyle(context)),
+          Text(
+            'Erro ao carregar ausentes',
+            style: CommunityDesign.titleStyle(context),
+          ),
           const SizedBox(height: 8),
           Text(
             message,
@@ -764,7 +743,7 @@ class _ErrorView extends StatelessWidget {
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(AppIcons.refresh),
             label: const Text('Tentar novamente'),
           ),
         ],

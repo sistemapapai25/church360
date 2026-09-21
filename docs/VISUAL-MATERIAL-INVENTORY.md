@@ -22,7 +22,7 @@ um ajuste de inventário, não como uma remoção presumida.
 | --- | ---: | ---: | --- |
 | Members | 207 | 4 | Listagem migrada; perfil e formulário ainda pendentes |
 | Visitors | 34 | 4 | Slice completo: listagem, registro de visita, follow-up e estatísticas migrados |
-| Ministries | 295 | 29 | Listagem, workspace compartilhado, detalhe/formulário, Batismo e o dashboard Diaconato migrados; Raízes e telas operacionais do Diaconato ainda pendentes |
+| Ministries | 295 | 29 | Listagem, workspace compartilhado, detalhe/formulário, Batismo, Diaconato e Raízes migrados |
 | Events | 158 | 9 | Pendente |
 | Financeiro | 105 | 13 | Pendente |
 | Financeiro legado | 53 | 5 | Pendente |
@@ -79,6 +79,24 @@ local.
 
 Não houve alteração em rotas, permissões, providers, repositórios,
 persistência ou contratos de dados.
+
+## Onda visual — submódulos especializados do Ministries
+
+- As telas operacionais do Diaconato (`Checklist`, `Ausentes` e `Lote de
+  ceia`) agora reutilizam `GlassCard` nas superfícies de contexto, pessoas,
+  triagem, itens, estados vazios e erro. A entrega de ceia também usa
+  `StatusBadge` para o ciclo de status.
+- As quatro telas de Raízes (`Dashboard`, `Agenda de visitas`, `Indicações de
+  padrinhos` e `Padrinhos`) agora reutilizam `GlassCard` nas grades, ações,
+  cards de visita, recomendações e perfis; status de visita usa o badge
+  compartilhado.
+- O catálogo `AppIcons` ganhou apenas semânticas compartilháveis para Raízes,
+  ceia, agenda, padrinhos, recomendações e estados auxiliares. Nenhum ícone
+  persistido de ministério, rota, permissão, provider, repositório ou contrato
+  de dados foi alterado.
+- A cobertura focada em
+  `test/features/ministries/diaconato_raizes_visual_test.dart` protege o
+  dashboard de Raízes e o checklist do Diaconato com repositórios em memória.
 
 ## Onda visual — Ministries, detalhe e formulário
 

@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../core/design/community_design.dart';
+import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/widgets/pearl_fab.dart';
+import '../../../../../core/widgets/glass_card.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../../domain/models/raizes_sponsor_profile.dart';
 import '../providers/raizes_dashboard_provider.dart';
@@ -46,10 +48,8 @@ class _SponsorsContentState extends ConsumerState<_SponsorsContent> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => _SponsorFormSheet(
-        ministryId: widget.ministryId,
-        editing: editing,
-      ),
+      builder: (ctx) =>
+          _SponsorFormSheet(ministryId: widget.ministryId, editing: editing),
     );
     if (saved == true && mounted) {
       ref.invalidate(raizesSponsorsProvider(widget.ministryId));
@@ -104,9 +104,9 @@ class _SponsorsContentState extends ConsumerState<_SponsorsContent> {
       ref.invalidate(
         raizesEligibleSponsorCandidatesProvider(widget.ministryId),
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Padrinho removido.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Padrinho removido.')));
     } catch (e) {
       _showError('Erro ao remover: $e');
     }
@@ -132,13 +132,13 @@ class _SponsorsContentState extends ConsumerState<_SponsorsContent> {
         backgroundColor: CommunityDesign.headerColor(context),
         title: const Text('Padrinhos'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.back),
           onPressed: () => context.pop(),
         ),
       ),
       floatingActionButton: PearlFab(
         onPressed: () => _openForm(),
-        icon: Icons.person_add,
+        icon: AppIcons.personAdd,
         label: 'Novo padrinho',
       ),
       body: RefreshIndicator(
@@ -197,103 +197,101 @@ class _SponsorCard extends StatelessWidget {
     final photo = (sponsor.userPhotoUrl ?? '').trim();
     final criteriaChips = _buildCriteriaSummary(context);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: CommunityDesign.overlayDecoration(cs).copyWith(
-        color: sponsor.isActive
-            ? null
-            : cs.surfaceContainerHighest.withValues(alpha: 0.4),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(CommunityDesign.radius),
-          onTap: onEdit,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 22,
-                      backgroundColor: cs.primary.withValues(alpha: 0.1),
-                      backgroundImage:
-                          photo.isNotEmpty ? NetworkImage(photo) : null,
-                      child: photo.isEmpty
-                          ? Text(
-                              sponsor.initial,
-                              style: TextStyle(
-                                color: cs.primary,
-                                fontWeight: FontWeight.w700,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassCard(
+        accentColor: sponsor.isActive ? null : cs.error,
+        padding: EdgeInsets.zero,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(CommunityDesign.radius),
+            onTap: onEdit,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundColor: cs.primary.withValues(alpha: 0.1),
+                        backgroundImage: photo.isNotEmpty
+                            ? NetworkImage(photo)
+                            : null,
+                        child: photo.isEmpty
+                            ? Text(
+                                sponsor.initial,
+                                style: TextStyle(
+                                  color: cs.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              sponsor.displayName,
+                              style: CommunityDesign.titleStyle(context)
+                                  .copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16,
+                                  ),
+                            ),
+                            if (!sponsor.isActive)
+                              Text(
+                                'Inativo',
+                                style: CommunityDesign.metaStyle(
+                                  context,
+                                ).copyWith(color: cs.error),
                               ),
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            sponsor.displayName,
-                            style: CommunityDesign.titleStyle(context).copyWith(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
+                          ],
+                        ),
+                      ),
+                      Switch.adaptive(
+                        value: sponsor.isActive,
+                        onChanged: (_) => onToggleActive(),
+                      ),
+                      PopupMenuButton<String>(
+                        tooltip: 'Ações',
+                        onSelected: (v) {
+                          if (v == 'delete') onDelete();
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(AppIcons.delete, size: 18),
+                                SizedBox(width: 8),
+                                Text('Remover'),
+                              ],
                             ),
                           ),
-                          if (!sponsor.isActive)
-                            Text(
-                              'Inativo',
-                              style: CommunityDesign.metaStyle(context)
-                                  .copyWith(color: cs.error),
-                            ),
                         ],
                       ),
-                    ),
-                    Switch.adaptive(
-                      value: sponsor.isActive,
-                      onChanged: (_) => onToggleActive(),
-                    ),
-                    PopupMenuButton<String>(
-                      tooltip: 'Ações',
-                      onSelected: (v) {
-                        if (v == 'delete') onDelete();
-                      },
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete, size: 18),
-                              SizedBox(width: 8),
-                              Text('Remover'),
-                            ],
-                          ),
-                        ),
-                      ],
+                    ],
+                  ),
+                  if (criteriaChips.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Wrap(spacing: 6, runSpacing: 6, children: criteriaChips),
+                  ],
+                  if ((sponsor.notes ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      sponsor.notes!.trim(),
+                      style: CommunityDesign.metaStyle(context),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                ),
-                if (criteriaChips.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: criteriaChips,
-                  ),
                 ],
-                if ((sponsor.notes ?? '').trim().isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    sponsor.notes!.trim(),
-                    style: CommunityDesign.metaStyle(context),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
+              ),
             ),
           ),
         ),
@@ -311,24 +309,30 @@ class _SponsorCard extends StatelessWidget {
     }
 
     for (final g in sponsor.genders) {
-      chips.add(_CriteriaChip(
-        label: SponsorCriteriaOptions.genders[g] ?? g,
-        color: Colors.pink,
-      ));
+      chips.add(
+        _CriteriaChip(
+          label: SponsorCriteriaOptions.genders[g] ?? g,
+          color: Colors.pink,
+        ),
+      );
     }
 
     for (final m in sponsor.maritalStatuses) {
-      chips.add(_CriteriaChip(
-        label: SponsorCriteriaOptions.maritalStatuses[m] ?? m,
-        color: Colors.purple,
-      ));
+      chips.add(
+        _CriteriaChip(
+          label: SponsorCriteriaOptions.maritalStatuses[m] ?? m,
+          color: Colors.purple,
+        ),
+      );
     }
 
     for (final l in sponsor.lifeStages) {
-      chips.add(_CriteriaChip(
-        label: SponsorCriteriaOptions.lifeStages[l] ?? l,
-        color: Colors.teal,
-      ));
+      chips.add(
+        _CriteriaChip(
+          label: SponsorCriteriaOptions.lifeStages[l] ?? l,
+          color: Colors.teal,
+        ),
+      );
     }
 
     for (final i in sponsor.interests) {
@@ -372,10 +376,7 @@ class _SponsorFormSheet extends ConsumerStatefulWidget {
   final String ministryId;
   final RaizesSponsorProfile? editing;
 
-  const _SponsorFormSheet({
-    required this.ministryId,
-    this.editing,
-  });
+  const _SponsorFormSheet({required this.ministryId, this.editing});
 
   @override
   ConsumerState<_SponsorFormSheet> createState() => _SponsorFormSheetState();
@@ -486,9 +487,7 @@ class _SponsorFormSheetState extends ConsumerState<_SponsorFormSheet> {
           lifeStages: _lifeStages.toList(),
           interests: _interests,
           isActive: _isActive,
-          notes: _notesCtrl.text.trim().isEmpty
-              ? null
-              : _notesCtrl.text.trim(),
+          notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
         );
       }
       if (!mounted) return;
@@ -533,10 +532,9 @@ class _SponsorFormSheetState extends ConsumerState<_SponsorFormSheet> {
               ),
               Text(
                 _isEdit ? 'Editar padrinho' : 'Novo padrinho',
-                style: CommunityDesign.titleStyle(context).copyWith(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: CommunityDesign.titleStyle(
+                  context,
+                ).copyWith(fontSize: 18, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 16),
               if (_isEdit)
@@ -558,9 +556,9 @@ class _SponsorFormSheetState extends ConsumerState<_SponsorFormSheet> {
               const SizedBox(height: 16),
               Text(
                 'Idade preferida (opcional)',
-                style: CommunityDesign.metaStyle(context).copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: CommunityDesign.metaStyle(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 6),
               Row(
@@ -632,9 +630,9 @@ class _SponsorFormSheetState extends ConsumerState<_SponsorFormSheet> {
               const SizedBox(height: 16),
               Text(
                 'Interesses',
-                style: CommunityDesign.metaStyle(context).copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: CommunityDesign.metaStyle(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 6),
               Row(
@@ -652,7 +650,7 @@ class _SponsorFormSheetState extends ConsumerState<_SponsorFormSheet> {
                   const SizedBox(width: 8),
                   IconButton.filledTonal(
                     onPressed: _addInterest,
-                    icon: const Icon(Icons.add),
+                    icon: const Icon(AppIcons.add),
                     tooltip: 'Adicionar interesse',
                   ),
                 ],
@@ -666,8 +664,7 @@ class _SponsorFormSheetState extends ConsumerState<_SponsorFormSheet> {
                       .map(
                         (i) => InputChip(
                           label: Text(i),
-                          onDeleted: () =>
-                              setState(() => _interests.remove(i)),
+                          onDeleted: () => setState(() => _interests.remove(i)),
                         ),
                       )
                       .toList(),
@@ -698,8 +695,9 @@ class _SponsorFormSheetState extends ConsumerState<_SponsorFormSheet> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed:
-                          _saving ? null : () => Navigator.of(context).pop(),
+                      onPressed: _saving
+                          ? null
+                          : () => Navigator.of(context).pop(),
                       child: const Text('Cancelar'),
                     ),
                   ),
@@ -716,7 +714,7 @@ class _SponsorFormSheetState extends ConsumerState<_SponsorFormSheet> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Icon(Icons.save, size: 16),
+                          : const Icon(AppIcons.save, size: 16),
                       label: Text(_saving ? 'Salvando...' : 'Salvar'),
                       style: FilledButton.styleFrom(
                         backgroundColor: cs.primary,
@@ -745,10 +743,9 @@ class _ReadOnlyField extends StatelessWidget {
         labelText: label,
         border: const OutlineInputBorder(),
         filled: true,
-        fillColor: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.3),
+        fillColor: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
       ),
       child: Text(value),
     );
@@ -768,8 +765,9 @@ class _CandidatePicker extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final candidatesAsync =
-        ref.watch(raizesEligibleSponsorCandidatesProvider(ministryId));
+    final candidatesAsync = ref.watch(
+      raizesEligibleSponsorCandidatesProvider(ministryId),
+    );
 
     return candidatesAsync.when(
       data: (candidates) {
@@ -835,9 +833,9 @@ class _MultiChipField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: CommunityDesign.metaStyle(context).copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: CommunityDesign.metaStyle(
+            context,
+          ).copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
         Wrap(
@@ -877,7 +875,7 @@ class _EmptyState extends StatelessWidget {
       children: [
         Center(
           child: Icon(
-            Icons.diversity_3_outlined,
+            AppIcons.sponsors,
             size: 56,
             color: cs.onSurface.withValues(alpha: 0.2),
           ),
@@ -886,10 +884,9 @@ class _EmptyState extends StatelessWidget {
         Text(
           'Nenhum padrinho cadastrado',
           textAlign: TextAlign.center,
-          style: CommunityDesign.titleStyle(context).copyWith(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
+          style: CommunityDesign.titleStyle(
+            context,
+          ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
         Text(
@@ -902,7 +899,7 @@ class _EmptyState extends StatelessWidget {
         Center(
           child: FilledButton.icon(
             onPressed: onAdd,
-            icon: const Icon(Icons.person_add, size: 16),
+            icon: const Icon(AppIcons.personAdd, size: 16),
             label: const Text('Cadastrar primeiro padrinho'),
           ),
         ),
@@ -921,9 +918,7 @@ class _ErrorView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(40),
       children: [
-        const Center(
-          child: Icon(Icons.error_outline, size: 56, color: Colors.red),
-        ),
+        const Center(child: Icon(AppIcons.error, size: 56, color: Colors.red)),
         const SizedBox(height: 16),
         Text(
           'Erro ao carregar padrinhos',
@@ -940,7 +935,7 @@ class _ErrorView extends StatelessWidget {
         Center(
           child: FilledButton.icon(
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh, size: 16),
+            icon: const Icon(AppIcons.refresh, size: 16),
             label: const Text('Tentar novamente'),
           ),
         ),

@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../core/design/community_design.dart';
+import '../../../../../core/design/app_icons.dart';
+import '../../../../../core/widgets/glass_card.dart';
 import '../../../../worship/domain/models/worship_service.dart';
 import '../../../../worship/presentation/providers/worship_provider.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
@@ -232,7 +234,7 @@ class _DiaconatoChecklistContentState
         backgroundColor: CommunityDesign.headerColor(context),
         title: const Text('Checklist de presença'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.back),
           onPressed: () => context.pop(),
         ),
       ),
@@ -267,7 +269,9 @@ class _DiaconatoChecklistContentState
         .toList();
 
     final totalMarked =
-        _presentMemberIds.length + _presentVisitorIds.length + _unregisteredVisitors;
+        _presentMemberIds.length +
+        _presentVisitorIds.length +
+        _unregisteredVisitors;
 
     return Column(
       children: [
@@ -285,7 +289,7 @@ class _DiaconatoChecklistContentState
               _SectionHeader(
                 title: 'Membros',
                 badge: '${_presentMemberIds.length}/${members.length}',
-                icon: Icons.groups_outlined,
+                icon: AppIcons.groups,
               ),
               const SizedBox(height: 8),
               if (members.isEmpty)
@@ -302,7 +306,7 @@ class _DiaconatoChecklistContentState
               _SectionHeader(
                 title: 'Visitantes cadastrados',
                 badge: '${_presentVisitorIds.length}/${visitors.length}',
-                icon: Icons.person_add,
+                icon: AppIcons.visitor,
               ),
               const SizedBox(height: 8),
               if (visitors.isEmpty)
@@ -389,8 +393,7 @@ class _HeaderCard extends StatelessWidget {
             if ((s.theme ?? '').trim().isNotEmpty) s.theme!.trim(),
           ].join(' · ');
 
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(cs),
+    return GlassCard(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -404,7 +407,7 @@ class _HeaderCard extends StatelessWidget {
                   color: cs.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.event, color: cs.primary),
+                child: Icon(AppIcons.eventFilled, color: cs.primary),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -413,10 +416,9 @@ class _HeaderCard extends StatelessWidget {
                   children: [
                     Text(
                       dateLabel,
-                      style: CommunityDesign.titleStyle(context).copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
+                      style: CommunityDesign.titleStyle(
+                        context,
+                      ).copyWith(fontWeight: FontWeight.w700, fontSize: 16),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -527,10 +529,9 @@ class _SectionHeader extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           title,
-          style: CommunityDesign.titleStyle(context).copyWith(
-            fontWeight: FontWeight.w700,
-            fontSize: 15,
-          ),
+          style: CommunityDesign.titleStyle(
+            context,
+          ).copyWith(fontWeight: FontWeight.w700, fontSize: 15),
         ),
         const Spacer(),
         Container(
@@ -567,57 +568,52 @@ class _PersonTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final accent = present ? Colors.green : cs.onSurface.withValues(alpha: 0.12);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: present
-            ? Colors.green.withValues(alpha: 0.06)
-            : cs.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accent, width: present ? 1.4 : 1),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => onChanged(!present),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: cs.primary.withValues(alpha: 0.1),
-                  backgroundImage: (person.photoUrl ?? '').trim().isNotEmpty
-                      ? NetworkImage(person.photoUrl!)
-                      : null,
-                  child: (person.photoUrl ?? '').trim().isEmpty
-                      ? Text(
-                          person.initial,
-                          style: TextStyle(
-                            color: cs.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    person.displayName,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GlassCard(
+        accentColor: present ? Colors.green : null,
+        padding: EdgeInsets.zero,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => onChanged(!present),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: cs.primary.withValues(alpha: 0.1),
+                    backgroundImage: (person.photoUrl ?? '').trim().isNotEmpty
+                        ? NetworkImage(person.photoUrl!)
+                        : null,
+                    child: (person.photoUrl ?? '').trim().isEmpty
+                        ? Text(
+                            person.initial,
+                            style: TextStyle(
+                              color: cs.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          )
+                        : null,
                   ),
-                ),
-                Switch.adaptive(
-                  value: present,
-                  onChanged: onChanged,
-                  activeThumbColor: Colors.green,
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      person.displayName,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Switch.adaptive(
+                    value: present,
+                    onChanged: onChanged,
+                    activeThumbColor: Colors.green,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -641,23 +637,20 @@ class _UnregisteredCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(cs),
+    return GlassCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.add_circle_outline, color: Colors.orange, size: 18),
+              Icon(AppIcons.addCircle, color: Colors.orange, size: 18),
               const SizedBox(width: 8),
               Text(
                 'Visitantes não cadastrados',
-                style: CommunityDesign.titleStyle(context).copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                ),
+                style: CommunityDesign.titleStyle(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w700, fontSize: 15),
               ),
             ],
           ),
@@ -671,7 +664,7 @@ class _UnregisteredCard extends StatelessWidget {
             children: [
               IconButton.filledTonal(
                 onPressed: count > 0 ? () => onBump(-1) : null,
-                icon: const Icon(Icons.remove),
+                icon: const Icon(AppIcons.remove),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -685,8 +678,10 @@ class _UnregisteredCard extends StatelessWidget {
                   ],
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                   ),
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
@@ -698,7 +693,7 @@ class _UnregisteredCard extends StatelessWidget {
               const SizedBox(width: 8),
               IconButton.filledTonal(
                 onPressed: () => onBump(1),
-                icon: const Icon(Icons.add),
+                icon: const Icon(AppIcons.add),
               ),
             ],
           ),
@@ -746,16 +741,12 @@ class _StickyFooter extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Total no culto',
-                style: CommunityDesign.metaStyle(context),
-              ),
+              Text('Total no culto', style: CommunityDesign.metaStyle(context)),
               Text(
                 '$total ${total == 1 ? 'pessoa' : 'pessoas'}',
-                style: CommunityDesign.titleStyle(context).copyWith(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                ),
+                style: CommunityDesign.titleStyle(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w800, fontSize: 18),
               ),
             ],
           ),
@@ -771,12 +762,14 @@ class _StickyFooter extends StatelessWidget {
                       color: Colors.white,
                     ),
                   )
-                : Icon(dirty ? Icons.save_outlined : Icons.check),
-            label: Text(saving
-                ? 'Salvando...'
-                : dirty
-                    ? 'Salvar'
-                    : 'Salvo'),
+                : Icon(dirty ? AppIcons.save : AppIcons.check),
+            label: Text(
+              saving
+                  ? 'Salvando...'
+                  : dirty
+                  ? 'Salvar'
+                  : 'Salvo',
+            ),
           ),
         ],
       ),
@@ -790,19 +783,11 @@ class _EmptyHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    return GlassCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        text,
-        style: CommunityDesign.metaStyle(context),
+      child: SizedBox(
+        width: double.infinity,
+        child: Text(text, style: CommunityDesign.metaStyle(context)),
       ),
     );
   }
@@ -821,10 +806,12 @@ class _ErrorView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const Icon(AppIcons.error, size: 48, color: Colors.red),
           const SizedBox(height: 16),
-          Text('Erro ao carregar checklist',
-              style: CommunityDesign.titleStyle(context)),
+          Text(
+            'Erro ao carregar checklist',
+            style: CommunityDesign.titleStyle(context),
+          ),
           const SizedBox(height: 8),
           Text(
             message,
@@ -834,7 +821,7 @@ class _ErrorView extends StatelessWidget {
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(AppIcons.refresh),
             label: const Text('Tentar novamente'),
           ),
         ],
