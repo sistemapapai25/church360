@@ -95,3 +95,20 @@ persistência ou contratos de dados.
 
 Não houve alteração em rotas, permissões, providers, repositórios,
 persistência ou contratos de dados.
+
+## Onda visual — Batismo, submódulos de maior tráfego
+
+- `batismo_checklist_tab.dart` agora usa `GlassCard` no catálogo de etapas e
+  nos cards de progresso por aluno. Filtros, estados vazios, ações de etapa e
+  checkboxes passaram a consumir `AppIcons`.
+- `batismo_relatorios_tab.dart` e `batismo_whatsapp_tab.dart` preservam seus
+  `GlassCard` existentes e passaram a usar o catálogo semântico para relatórios,
+  PDF, compartilhamento, filtros, mensagens, busca e estados de erro.
+- `AppIcons` ganhou somente semânticas compartilháveis para checklist, espera,
+  PDF, compartilhamento, troca de turma, marcação e fixação. Ícones de marca e
+  identificadores persistidos de ministério continuam fora do catálogo.
+- A cobertura visual foi reforçada nos testes existentes de Checklist,
+  Relatórios e WhatsApp, incluindo a presença das superfícies `GlassCard`.
+
+Não houve alteração em rotas, permissões, providers, repositórios,
+persistência, fila de mensagens, geração de PDF ou contratos de dados.

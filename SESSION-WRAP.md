@@ -521,3 +521,147 @@ avisos de migração futura do runner Node 20/Ubuntu 26.
 - `test/features/ministries/ministries_list_visual_test.dart`
 - `docs/VISUAL-MATERIAL-INVENTORY.md`
 - `SESSION-WRAP.md` (este handoff)
+
+## Final closeout — visual wave 8 Batismo, submódulos
+
+Timestamp: 2026-09-21 14:12:49 BRT (America/Sao_Paulo, UTC-03).
+
+### O que foi entregue
+
+- `batismo_checklist_tab.dart` agora reutiliza `GlassCard` no catálogo de
+  etapas e nos cards de progresso por aluno; filtros, estados, ações e
+  checkboxes usam `AppIcons`.
+- `batismo_relatorios_tab.dart` e `batismo_whatsapp_tab.dart` passaram a usar
+  o catálogo semântico nos controles de relatório, PDF, compartilhamento,
+  filtros, mensagens, busca e estados de erro, preservando os `GlassCard` que
+  já existiam.
+- `AppIcons` ganhou as semânticas compartilháveis de checklist, pendência,
+  relatório, PDF, compartilhamento, troca de turma, marcação e fixação.
+- Os testes existentes de Checklist, Relatórios e WhatsApp ganharam
+  expectativas visuais para as superfícies compartilhadas.
+- Foi corrigido um `if` sem chaves no WhatsApp, sem mudança de comportamento.
+
+Não houve alteração em rotas, permissões, providers, repositórios,
+persistência, fila de mensagens, geração de PDF ou contratos de dados.
+
+### Verificação
+
+Passou:
+
+- Testes focados de Batismo: **55 passed**.
+- `flutter test --no-pub -j 1`: **514 passed**.
+- `flutter analyze --no-pub` nos sete arquivos Dart alterados: sem issues.
+- `git diff --check`: passou.
+- `flutter build web --release --no-pub`: passou.
+
+Os avisos Wasm continuam sendo os conhecidos de `audioplayers_web`,
+`dart:html`, `package:js` e `image`; o build JavaScript normal foi gerado.
+
+### Estado Git e próximo passo
+
+- Branch de implementação: `feat/visual-wave-8-baptism-submodules`, baseada
+  no handoff `b83b8f6` / `origin/main` em `846a819`.
+- Os sete registradores Flutter continuam modificados localmente e não foram
+  incluídos no recorte:
+  `linux/flutter/generated_plugin_registrant.cc`,
+  `linux/flutter/generated_plugin_registrant.h`,
+  `linux/flutter/generated_plugins.cmake`,
+  `macos/Flutter/GeneratedPluginRegistrant.swift`,
+  `windows/flutter/generated_plugin_registrant.cc`,
+  `windows/flutter/generated_plugin_registrant.h` e
+  `windows/flutter/generated_plugins.cmake`.
+- O próximo recorte deve concluir a auditoria dos submódulos restantes de
+  Ministries, como Diaconato, Raízes e notificações, antes de avançar para
+  Events. A validação visual autenticada continua limitada pelo SSO da Vercel.
+
+### Arquivos intencionais desta onda
+
+- `lib/core/design/app_icons.dart`
+- `lib/features/ministries/batismo/presentation/screens/tabs/batismo_checklist_tab.dart`
+- `lib/features/ministries/batismo/presentation/screens/tabs/batismo_relatorios_tab.dart`
+- `lib/features/ministries/batismo/presentation/screens/tabs/batismo_whatsapp_tab.dart`
+- `test/features/ministries/batismo_checklist_test.dart`
+- `test/features/ministries/batismo_relatorios_tab_test.dart`
+- `test/features/ministries/batismo_whatsapp_tab_test.dart`
+- `docs/VISUAL-MATERIAL-INVENTORY.md`
+- `SESSION-WRAP.md` (este handoff)
+
+## Final closeout — visual wave 7 Ministries, detalhe e formulário
+
+Timestamp: 2026-09-21 14:00:00 BRT (America/Sao_Paulo, UTC-03).
+
+### O que foi entregue
+
+- `ministry_detail_screen.dart` agora reutiliza `GlassCard` no cabeçalho,
+  notificações, membros, escalas, estados vazios e CTA especializado.
+- O status do ministério no detalhe usa `StatusBadge` com os tons compartilhados
+  de ativo/inativo.
+- `ministry_form_screen.dart` reutiliza `GlassCard` nas seções de dados, cor,
+  funções, status e preview.
+- `AppIcons` ganhou as semânticas compartilháveis de descrição, bloqueio,
+  cancelamento, supervisão e segurança; os identificadores de ícones
+  persistidos dos ministérios não foram alterados.
+- Foi adicionada cobertura visual em
+  `test/features/ministries/ministry_detail_form_visual_test.dart`.
+- O inventário visual foi atualizado para registrar o detalhe e o formulário
+  como concluídos. O próximo recorte são os submódulos de maior tráfego de
+  Ministries, antes de Events.
+
+Não houve mudança em banco, rotas, permissões, providers, repositórios,
+persistência ou contratos de dados.
+
+### Verificação
+
+Passou:
+
+- Teste focado de detalhe/formulário: **2 passed**.
+- `flutter test --no-pub -j 1`: **514 passed**.
+- `flutter analyze --no-pub` nos arquivos alterados e no teste: sem issues.
+- `git diff --check`: passou.
+- `flutter build web --release --no-pub`: passou.
+
+Os avisos Wasm continuam sendo os conhecidos de `audioplayers_web`,
+`dart:html`, `package:js` e `image`. O workflow remoto também reportou apenas
+os avisos conhecidos de migração do Node 20/Ubuntu 26.
+
+### Git, merge e produção
+
+- Commit da implementação: `c13c056`, `feat: standardize ministry detail and form surfaces`.
+- PR #129: https://github.com/sistemapapai25/church360/pull/129.
+- PR #129 mergeada em `main` com merge commit `846a81963d8dfbc0921e84c38f30dac6cc74db9a`.
+- Workflow de produção: run `35627811921`, concluído com sucesso em 3m17s:
+  https://github.com/sistemapapai25/church360/actions/runs/35627811921.
+- Implantação Vercel Ready:
+  `https://church360-1w9ig1yiy-gabriels-projects-ec03504d.vercel.app`.
+- Alias de projeto: `https://church360-app.vercel.app`.
+- Smoke test: o alias de projeto respondeu **200 OK**; a URL única de
+  implantação respondeu **302 Found** para o SSO de proteção da Vercel.
+- `https://app.church360.com.br/login` não resolveu neste shell nesta
+  tentativa (`000`, falha local de DNS); a limitação não indica falha do
+  deploy, que foi concluído e ficou Ready.
+
+### Estado local e próximo passo
+
+- Branch de handoff: `chore/session-wrap-wave-7`, baseada em `origin/main` no
+  merge `846a819` e usada para publicar este wrap.
+- Os sete registradores Flutter gerados continuam modificados localmente e
+  fora de todos os commits:
+  `linux/flutter/generated_plugin_registrant.cc`,
+  `linux/flutter/generated_plugin_registrant.h`,
+  `linux/flutter/generated_plugins.cmake`,
+  `macos/Flutter/GeneratedPluginRegistrant.swift`,
+  `windows/flutter/generated_plugin_registrant.cc`,
+  `windows/flutter/generated_plugin_registrant.h` e
+  `windows/flutter/generated_plugins.cmake`.
+- A validação visual autenticada continua limitada pelo SSO da Vercel; não
+  foram declaradas screenshots de telas internas reais como evidência desta
+  onda.
+
+### Arquivos intencionais desta onda
+
+- `lib/core/design/app_icons.dart`
+- `lib/features/ministries/presentation/screens/ministry_detail_screen.dart`
+- `lib/features/ministries/presentation/screens/ministry_form_screen.dart`
+- `test/features/ministries/ministry_detail_form_visual_test.dart`
+- `docs/VISUAL-MATERIAL-INVENTORY.md`
+- `SESSION-WRAP.md` (este handoff)

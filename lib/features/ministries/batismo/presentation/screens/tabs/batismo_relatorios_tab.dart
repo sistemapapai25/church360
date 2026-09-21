@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 
+import '../../../../../../core/design/app_icons.dart';
 import '../../../../../../core/design/community_design.dart';
 import '../../../../../../core/widgets/glass_card.dart';
 import '../../../../presentation/providers/ministries_provider.dart';
@@ -90,10 +91,8 @@ class _BatismoRelatoriosTabState extends ConsumerState<BatismoRelatoriosTab> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => _TurmaPicker(
-        turmas: turmas,
-        selectedId: _selectedTurma(turmas)?.id,
-      ),
+      builder: (context) =>
+          _TurmaPicker(turmas: turmas, selectedId: _selectedTurma(turmas)?.id),
     );
     if (picked != null && mounted) setState(() => _turmaId = picked);
   }
@@ -105,11 +104,10 @@ class _BatismoRelatoriosTabState extends ConsumerState<BatismoRelatoriosTab> {
     final studentsAsync = ref.watch(baptismStudentsProvider(widget.ministryId));
     final turmasAsync = ref.watch(baptismTurmasProvider(widget.ministryId));
     final ministryName =
-        ref.watch(ministryByIdProvider(widget.ministryId)).maybeWhen(
-              data: (m) => m?.name,
-              orElse: () => null,
-            ) ??
-            'Batismo nas Águas';
+        ref
+            .watch(ministryByIdProvider(widget.ministryId))
+            .maybeWhen(data: (m) => m?.name, orElse: () => null) ??
+        'Batismo nas Águas';
 
     if (studentsAsync.isLoading || turmasAsync.isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -149,7 +147,7 @@ class _BatismoRelatoriosTabState extends ConsumerState<BatismoRelatoriosTab> {
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
         children: [
           _ReportCard(
-            icon: Icons.groups_2_outlined,
+            icon: AppIcons.group,
             title: 'Relatório da turma',
             description:
                 'Lista nominal com situação, data de nascimento, idade e '
@@ -158,37 +156,38 @@ class _BatismoRelatoriosTabState extends ConsumerState<BatismoRelatoriosTab> {
             onOpen: turmaReport == null
                 ? null
                 : () => _emit(
-                      key: _kTurmaKey,
-                      filename: _filename('turma', turmaReport.turma.name),
-                      share: false,
-                      build: () => buildBaptismTurmaPdf(
-                        turmaReport,
-                        generatedAt: DateTime.now(),
-                      ),
+                    key: _kTurmaKey,
+                    filename: _filename('turma', turmaReport.turma.name),
+                    share: false,
+                    build: () => buildBaptismTurmaPdf(
+                      turmaReport,
+                      generatedAt: DateTime.now(),
                     ),
+                  ),
             onShare: turmaReport == null
                 ? null
                 : () => _emit(
-                      key: _kTurmaKey,
-                      filename: _filename('turma', turmaReport.turma.name),
-                      share: true,
-                      build: () => buildBaptismTurmaPdf(
-                        turmaReport,
-                        generatedAt: DateTime.now(),
-                      ),
+                    key: _kTurmaKey,
+                    filename: _filename('turma', turmaReport.turma.name),
+                    share: true,
+                    build: () => buildBaptismTurmaPdf(
+                      turmaReport,
+                      generatedAt: DateTime.now(),
                     ),
+                  ),
             child: turma == null
                 ? const _NoTurmasNote()
                 : _TurmaSelection(
                     turma: turma,
                     report: turmaReport!,
-                    onChange:
-                        turmas.length < 2 ? null : () => _pickTurma(turmas),
+                    onChange: turmas.length < 2
+                        ? null
+                        : () => _pickTurma(turmas),
                   ),
           ),
           const SizedBox(height: 12),
           _ReportCard(
-            icon: Icons.summarize_outlined,
+            icon: AppIcons.report,
             title: 'Resumo do ministério',
             description:
                 'Alunos por situação, alunos por turma e o total de turmas.',
@@ -278,8 +277,9 @@ class _ReportCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: CommunityDesign.titleStyle(context)
-                      .copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
               ),
             ],
@@ -300,7 +300,7 @@ class _ReportCard extends StatelessWidget {
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                      : const Icon(AppIcons.pdf, size: 18),
                   label: Text(busy ? 'Gerando...' : 'Abrir PDF'),
                 ),
               ),
@@ -308,7 +308,7 @@ class _ReportCard extends StatelessWidget {
               IconButton(
                 onPressed: busy ? null : onShare,
                 tooltip: 'Compartilhar PDF',
-                icon: const Icon(Icons.ios_share),
+                icon: const Icon(AppIcons.share),
               ),
             ],
           ),
@@ -334,22 +334,15 @@ class _TurmaSelection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final meta = [
-      formatTurmaPeriod(turma),
-      turma.status.label,
-    ].join(' · ');
+    final meta = [formatTurmaPeriod(turma), turma.status.label].join(' · ');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         OutlinedButton.icon(
           onPressed: onChange,
-          icon: const Icon(Icons.swap_horiz, size: 18),
-          label: Text(
-            turma.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          icon: const Icon(AppIcons.swap, size: 18),
+          label: Text(turma.name, maxLines: 1, overflow: TextOverflow.ellipsis),
           style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
         ),
         const SizedBox(height: 8),
@@ -372,9 +365,9 @@ class _MinistrySummary extends StatelessWidget {
     final turmaLine = report.turmaCount == 0
         ? 'Nenhuma turma cadastrada'
         : '${report.turmaCount} '
-            '${report.turmaCount == 1 ? 'turma' : 'turmas'} · '
-            '${report.activeTurmaCount} '
-            '${report.activeTurmaCount == 1 ? 'ativa' : 'ativas'}';
+              '${report.turmaCount == 1 ? 'turma' : 'turmas'} · '
+              '${report.activeTurmaCount} '
+              '${report.activeTurmaCount == 1 ? 'ativa' : 'ativas'}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,9 +395,9 @@ class _TallyText extends StatelessWidget {
     if (tally.total == 0) {
       return Text(
         emptyLabel,
-        style: CommunityDesign.metaStyle(context).copyWith(
-          color: Theme.of(context).disabledColor,
-        ),
+        style: CommunityDesign.metaStyle(
+          context,
+        ).copyWith(color: Theme.of(context).disabledColor),
       );
     }
 
@@ -416,8 +409,9 @@ class _TallyText extends StatelessWidget {
     return Text(
       '${tally.total} ${tally.total == 1 ? 'aluno' : 'alunos'} · '
       '${parts.join(' · ')}',
-      style: CommunityDesign.titleStyle(context)
-          .copyWith(fontSize: 13, fontWeight: FontWeight.w600),
+      style: CommunityDesign.titleStyle(
+        context,
+      ).copyWith(fontSize: 13, fontWeight: FontWeight.w600),
     );
   }
 }
@@ -429,9 +423,9 @@ class _NoTurmasNote extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       'Crie a primeira turma na aba Alunos para poder emitir este relatório.',
-      style: CommunityDesign.metaStyle(context).copyWith(
-        color: Theme.of(context).disabledColor,
-      ),
+      style: CommunityDesign.metaStyle(
+        context,
+      ).copyWith(color: Theme.of(context).disabledColor),
     );
   }
 }
@@ -448,7 +442,7 @@ class _PendingNote extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            Icons.schedule_outlined,
+            AppIcons.schedule,
             size: 16,
             color: Theme.of(context).disabledColor,
           ),
@@ -458,9 +452,9 @@ class _PendingNote extends StatelessWidget {
               'A lista de presença por encontro entra aqui quando a aba '
               'Presença existir — antes disso ela imprimiria 0% para todo '
               'aluno.',
-              style: CommunityDesign.metaStyle(context).copyWith(
-                color: Theme.of(context).disabledColor,
-              ),
+              style: CommunityDesign.metaStyle(
+                context,
+              ).copyWith(color: Theme.of(context).disabledColor),
             ),
           ),
         ],
@@ -492,8 +486,9 @@ class _TurmaPicker extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
               'Turma do relatório',
-              style: CommunityDesign.titleStyle(context)
-                  .copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ),
           const SizedBox(height: 8),
@@ -508,7 +503,7 @@ class _TurmaPicker extends StatelessWidget {
                       '${formatTurmaPeriod(t)} · ${t.status.label}',
                     ),
                     trailing: t.id == selectedId
-                        ? const Icon(Icons.check, size: 20)
+                        ? const Icon(AppIcons.check, size: 20)
                         : null,
                     onTap: () => Navigator.of(context).pop(t.id),
                   ),
@@ -535,7 +530,7 @@ class _ReportsError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 40),
+            const Icon(AppIcons.error, size: 40),
             const SizedBox(height: 12),
             Text(
               'Não foi possível carregar os dados dos relatórios.',

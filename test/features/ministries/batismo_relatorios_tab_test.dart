@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:church360_app/core/theme/app_theme.dart';
+import 'package:church360_app/core/widgets/glass_card.dart';
 import 'package:church360_app/features/ministries/batismo/domain/baptism_pdf_renderer.dart';
 import 'package:church360_app/features/ministries/batismo/domain/baptism_report_data.dart';
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_student.dart';
@@ -62,7 +63,9 @@ Widget _host({
 }) {
   return ProviderScope(
     overrides: [
-      baptismStudentsProvider(_ministryId).overrideWith((ref) async => students),
+      baptismStudentsProvider(
+        _ministryId,
+      ).overrideWith((ref) async => students),
       baptismTurmasProvider(_ministryId).overrideWith((ref) async => turmas),
       // Sem este a aba tentaria falar com o Supabase no teste.
       ministryByIdProvider(_ministryId).overrideWith((ref) async => null),
@@ -120,10 +123,7 @@ void main() {
         ],
       );
 
-      expect(
-        report.students.map((s) => s.fullName),
-        ['ana', 'Bruno', 'Carla'],
-      );
+      expect(report.students.map((s) => s.fullName), ['ana', 'Bruno', 'Carla']);
       expect(report.tally.total, 3);
       expect(report.isEmpty, isFalse);
     });
@@ -284,8 +284,7 @@ void main() {
       expectPdf(bytes);
     });
 
-    test('resumo do ministério gera um PDF, mesmo sem turma nenhuma',
-        () async {
+    test('resumo do ministério gera um PDF, mesmo sem turma nenhuma', () async {
       final comTurmas = BaptismMinistryReport.build(
         ministryName: 'Batismo nas Águas',
         turmas: [_turma('turma-1', 'Sexta 19h', start: DateTime(2026, 8, 1))],
@@ -406,8 +405,9 @@ void main() {
   });
 
   group('aba Relatórios', () {
-    testWidgets('mostra os dois relatórios com os números da turma',
-        (tester) async {
+    testWidgets('mostra os dois relatórios com os números da turma', (
+      tester,
+    ) async {
       await _pumpTab(
         tester,
         _host(
@@ -432,16 +432,15 @@ void main() {
       expect(find.text('01/08/2026 a 25/10/2026 · Ativa'), findsOneWidget);
       // A contagem aparece nos dois cards: turma e ministério.
       expect(find.text('2 alunos · 1 Ativo · 1 Concluído'), findsNWidgets(2));
+      expect(find.byType(GlassCard), findsNWidgets(2));
     });
 
-    testWidgets('sem turma, explica o que fazer em vez de oferecer o PDF',
-        (tester) async {
+    testWidgets('sem turma, explica o que fazer em vez de oferecer o PDF', (
+      tester,
+    ) async {
       await _pumpTab(tester, _host(turmas: const [], students: const []));
 
-      expect(
-        find.textContaining('Crie a primeira turma'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Crie a primeira turma'), findsOneWidget);
       expect(find.text('Nenhuma turma cadastrada'), findsOneWidget);
       expect(find.text('Nenhum aluno cadastrado ainda'), findsOneWidget);
 
@@ -457,8 +456,9 @@ void main() {
       expect(botoes.last.onPressed, isNotNull);
     });
 
-    testWidgets('com mais de uma turma, dá para trocar a turma do relatório',
-        (tester) async {
+    testWidgets('com mais de uma turma, dá para trocar a turma do relatório', (
+      tester,
+    ) async {
       await _pumpTab(
         tester,
         _host(

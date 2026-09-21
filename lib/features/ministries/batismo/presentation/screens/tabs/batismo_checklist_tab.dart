@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../../core/design/community_design.dart';
+import '../../../../../../core/design/app_icons.dart';
 import '../../../../../../core/widgets/app_filter_bar.dart';
+import '../../../../../../core/widgets/glass_card.dart';
 import '../../../data/baptism_repository.dart';
 import '../../../domain/baptism_checklist_progress.dart';
 import '../../../domain/models/baptism_checklist.dart';
@@ -190,8 +192,9 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
                 title,
-                style: CommunityDesign.titleStyle(context)
-                    .copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+                style: CommunityDesign.titleStyle(
+                  context,
+                ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
               ),
             ),
             const SizedBox(height: 8),
@@ -199,7 +202,7 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
               ListTile(
                 title: Text(option.$2),
                 trailing: option.$1 == current
-                    ? const Icon(Icons.check, size: 18)
+                    ? const Icon(AppIcons.check, size: 18)
                     : null,
                 onTap: () => Navigator.of(context).pop(option.$1),
               ),
@@ -221,8 +224,9 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
 
   @override
   Widget build(BuildContext context) {
-    final progressAsync =
-        ref.watch(baptismChecklistProgressProvider(widget.ministryId));
+    final progressAsync = ref.watch(
+      baptismChecklistProgressProvider(widget.ministryId),
+    );
     // O estado vazio pergunta ao CATÁLOGO, não aos alunos visíveis. Um
     // ministério com etapas só de uma turma, olhando alunos de outra,
     // diria "nenhuma etapa cadastrada" e mandaria cadastrar de novo o que
@@ -246,9 +250,10 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
 
     bool can(BaptismWriteAction action) => ref
         .watch(
-          baptismCanWriteProvider(
-            (ministryId: widget.ministryId, action: action),
-          ),
+          baptismCanWriteProvider((
+            ministryId: widget.ministryId,
+            action: action,
+          )),
         )
         .maybeWhen(data: (v) => v, orElse: () => false);
 
@@ -282,7 +287,7 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
                 filters: [
                   AppFilterButton(
                     label: _turmaLabel(turmas),
-                    icon: Icons.groups_2_outlined,
+                    icon: AppIcons.group,
                     active: _turmaId != _allTurmas,
                     onTap: () async {
                       final picked = await _pickOption<String>(
@@ -298,7 +303,7 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
                   ),
                   AppFilterButton(
                     label: _onlyPending ? 'Só pendentes' : 'Todos',
-                    icon: Icons.pending_actions_outlined,
+                    icon: AppIcons.pending,
                     active: _onlyPending,
                     onTap: () => setState(() => _onlyPending = !_onlyPending),
                   ),
@@ -306,7 +311,7 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
                 secondaryActions: [
                   AppFilterAction(
                     label: 'Etapas do curso',
-                    icon: Icons.checklist_outlined,
+                    icon: AppIcons.checklist,
                     onPressed: () => _openItems(
                       turmas: turmas,
                       canCreate: canCreate,
@@ -319,7 +324,7 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
               const SizedBox(height: 12),
               if (!hasActiveItems)
                 _EmptyState(
-                  icon: Icons.checklist_outlined,
+                  icon: AppIcons.checklist,
                   title: 'Nenhuma etapa cadastrada',
                   message: canCreate
                       ? 'O checklist é o processo do seu curso — entrevista, '
@@ -330,7 +335,7 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
                   action: canCreate
                       ? _EmptyStateAction(
                           label: 'Cadastrar a primeira etapa',
-                          icon: Icons.add,
+                          icon: AppIcons.add,
                           onPressed: () => _addItem(turmas),
                         )
                       : null,
@@ -357,9 +362,10 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
                 // cadastrar, o outro manda limpar o filtro.
                 if (progress.isEmpty)
                   _EmptyState(
-                    icon: Icons.person_add_alt_outlined,
+                    icon: AppIcons.personAdd,
                     title: 'Nenhum aluno cadastrado ainda',
-                    message: 'As etapas acima passam a valer assim que o '
+                    message:
+                        'As etapas acima passam a valer assim que o '
                         'primeiro aluno entrar numa turma. O cadastro de '
                         'alunos fica na aba Alunos.',
                   )
@@ -372,7 +378,7 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
                   const SizedBox(height: 8),
                   if (visible.isEmpty)
                     _EmptyState(
-                      icon: Icons.search_off_outlined,
+                      icon: AppIcons.searchEmpty,
                       title: 'Nenhum aluno neste filtro',
                       message: _onlyPending
                           ? 'Ninguém com etapa pendente no filtro atual.'
@@ -390,11 +396,8 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
                             _expanded.add(p.student.id);
                           }
                         }),
-                        onToggleItem: (item, done) => _toggle(
-                          student: p.student,
-                          item: item,
-                          done: done,
-                        ),
+                        onToggleItem: (item, done) =>
+                            _toggle(student: p.student, item: item, done: done),
                         onCompleteAll: () => _completeAll(p),
                       ),
                 ],
@@ -442,12 +445,8 @@ class _CatalogCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor),
-      ),
+    return GlassCard(
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -455,19 +454,17 @@ class _CatalogCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 12, 8, 4),
             child: Row(
               children: [
-                Icon(Icons.checklist_outlined, size: 18, color: theme.hintColor),
+                Icon(AppIcons.checklist, size: 18, color: theme.hintColor),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Etapas do curso (${items.length})',
-                    style: CommunityDesign.titleStyle(context)
-                        .copyWith(fontSize: 15, fontWeight: FontWeight.w700),
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                 ),
-                TextButton(
-                  onPressed: onManage,
-                  child: const Text('Gerenciar'),
-                ),
+                TextButton(onPressed: onManage, child: const Text('Gerenciar')),
               ],
             ),
           ),
@@ -475,15 +472,12 @@ class _CatalogCard extends StatelessWidget {
           for (final item in items)
             ListTile(
               dense: true,
-              leading: Icon(
-                Icons.radio_button_unchecked,
-                size: 18,
-                color: theme.hintColor,
-              ),
+              leading: Icon(AppIcons.radio, size: 18, color: theme.hintColor),
               title: Text(
                 item.title,
-                style: CommunityDesign.contentStyle(context)
-                    .copyWith(fontSize: 14),
+                style: CommunityDesign.contentStyle(
+                  context,
+                ).copyWith(fontSize: 14),
               ),
               subtitle: Text(
                 _scopeLabel(item),
@@ -497,7 +491,7 @@ class _CatalogCard extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(6, 0, 0, 6),
                 child: TextButton.icon(
                   onPressed: onAdd,
-                  icon: const Icon(Icons.add, size: 18),
+                  icon: const Icon(AppIcons.add, size: 18),
                   label: const Text('Adicionar etapa'),
                 ),
               ),
@@ -532,8 +526,9 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(left: 4),
       child: Text(
         '${label.toUpperCase()} · $suffix',
-        style: CommunityDesign.metaStyle(context)
-            .copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.4),
+        style: CommunityDesign.metaStyle(
+          context,
+        ).copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.4),
       ),
     );
   }
@@ -563,96 +558,98 @@ class _StudentChecklistCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor),
-      ),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: onToggleExpanded,
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          progress.student.fullName,
-                          style: CommunityDesign.titleStyle(context)
-                              .copyWith(fontSize: 15, fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: LinearProgressIndicator(
-                                  value: progress.ratio,
-                                  minHeight: 6,
-                                  backgroundColor: theme.dividerColor,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GlassCard(
+        padding: EdgeInsets.zero,
+        child: Column(
+          children: [
+            InkWell(
+              onTap: onToggleExpanded,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            progress.student.fullName,
+                            style: CommunityDesign.titleStyle(context).copyWith(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: progress.ratio,
+                                    minHeight: 6,
+                                    backgroundColor: theme.dividerColor,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              '${progress.done}/${progress.total}',
-                              style: CommunityDesign.metaStyle(context),
-                            ),
-                          ],
-                        ),
-                      ],
+                              const SizedBox(width: 10),
+                              Text(
+                                '${progress.done}/${progress.total}',
+                                style: CommunityDesign.metaStyle(context),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  Icon(
-                    expanded ? Icons.expand_less : Icons.expand_more,
-                    color: theme.hintColor,
-                  ),
-                ],
+                    Icon(
+                      expanded ? AppIcons.expandLess : AppIcons.expandMore,
+                      color: theme.hintColor,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          if (expanded) ...[
-            Divider(height: 1, color: theme.dividerColor),
-            if (progress.items.isEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                child: Text(
-                  'Nenhuma etapa se aplica à turma deste aluno.',
-                  style: CommunityDesign.metaStyle(context),
-                ),
-              )
-            else ...[
-              for (final item in progress.items)
-                _ItemTile(
-                  item: item,
-                  done: progress.isDone(item),
-                  canEdit: canEdit,
-                  busy: busyKeys.contains('${progress.student.id}:${item.id}'),
-                  onToggle: () => onToggleItem(item, progress.isDone(item)),
-                ),
-              if (canEdit && !progress.isComplete)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(0, 0, 8, 8),
-                    child: TextButton.icon(
-                      onPressed: onCompleteAll,
-                      icon: const Icon(Icons.done_all, size: 18),
-                      label: const Text('Marcar tudo'),
+            if (expanded) ...[
+              Divider(height: 1, color: theme.dividerColor),
+              if (progress.items.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                  child: Text(
+                    'Nenhuma etapa se aplica à turma deste aluno.',
+                    style: CommunityDesign.metaStyle(context),
+                  ),
+                )
+              else ...[
+                for (final item in progress.items)
+                  _ItemTile(
+                    item: item,
+                    done: progress.isDone(item),
+                    canEdit: canEdit,
+                    busy: busyKeys.contains(
+                      '${progress.student.id}:${item.id}',
+                    ),
+                    onToggle: () => onToggleItem(item, progress.isDone(item)),
+                  ),
+                if (canEdit && !progress.isComplete)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(0, 0, 8, 8),
+                      child: TextButton.icon(
+                        onPressed: onCompleteAll,
+                        icon: const Icon(AppIcons.doneAll, size: 18),
+                        label: const Text('Marcar tudo'),
+                      ),
                     ),
                   ),
-                ),
+              ],
             ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -688,7 +685,7 @@ class _ItemTile extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : Icon(
-              done ? Icons.check_box : Icons.check_box_outline_blank,
+              done ? AppIcons.checkBox : AppIcons.checkBoxOutline,
               color: done
                   ? Theme.of(context).colorScheme.primary
                   : Theme.of(context).hintColor,
@@ -704,11 +701,7 @@ class _ItemTile extends StatelessWidget {
               style: CommunityDesign.metaStyle(context),
             ),
       trailing: item.turmaId != null
-          ? Icon(
-              Icons.push_pin_outlined,
-              size: 16,
-              color: Theme.of(context).hintColor,
-            )
+          ? Icon(AppIcons.pushPin, size: 16, color: Theme.of(context).hintColor)
           : null,
     );
   }
@@ -751,8 +744,9 @@ class _EmptyState extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: CommunityDesign.titleStyle(context)
-                .copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+            style: CommunityDesign.titleStyle(
+              context,
+            ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
           Text(
@@ -788,14 +782,14 @@ class _ChecklistError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline,
-                size: 40, color: Theme.of(context).hintColor),
+            Icon(AppIcons.error, size: 40, color: Theme.of(context).hintColor),
             const SizedBox(height: 12),
             Text(
               'Não foi possível carregar o checklist.',
               textAlign: TextAlign.center,
-              style: CommunityDesign.titleStyle(context)
-                  .copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
             Text(
@@ -804,7 +798,10 @@ class _ChecklistError extends StatelessWidget {
               style: CommunityDesign.metaStyle(context),
             ),
             const SizedBox(height: 16),
-            FilledButton(onPressed: onRetry, child: const Text('Tentar de novo')),
+            FilledButton(
+              onPressed: onRetry,
+              child: const Text('Tentar de novo'),
+            ),
           ],
         ),
       ),
