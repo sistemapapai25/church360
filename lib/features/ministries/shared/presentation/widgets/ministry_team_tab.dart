@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/app_filter_bar.dart';
+import '../../../../../core/widgets/glass_card.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
 import '../../../domain/models/ministry.dart';
 import '../../../presentation/providers/ministries_provider.dart';
@@ -117,7 +119,7 @@ class _MinistryTeamTabState extends ConsumerState<MinistryTeamTab> {
                 primaryAction: canManage
                     ? AppFilterAction(
                         label: 'Incluir membro',
-                        icon: Icons.person_add_alt,
+                        icon: AppIcons.personAdd,
                         onPressed: _addMember,
                       )
                     : null,
@@ -204,9 +206,7 @@ class _TeamMemberTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final borderColor = dark ? AppTheme.darkBorder : AppTheme.border;
     final accent = dark ? AppTheme.darkRing : AppTheme.primary;
 
     final name = member.memberName.trim();
@@ -221,87 +221,84 @@ class _TeamMemberTile extends StatelessWidget {
 
     final hasActions = onEditRole != null || onRemove != null;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: EdgeInsets.fromLTRB(12, 12, hasActions ? 4 : 12, 12),
-      decoration: BoxDecoration(
-        color: CommunityDesign.cardSurfaceColor(colorScheme),
-        border: Border.all(color: borderColor),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.14),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              initial,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: accent,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GlassCard(
+        padding: EdgeInsets.fromLTRB(12, 12, hasActions ? 4 : 12, 12),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.14),
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                initial,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: accent,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name.isEmpty ? 'Sem nome' : name,
-                  style: CommunityDesign.titleStyle(
-                    context,
-                  ).copyWith(fontSize: 14, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 2),
-                Text(subtitle, style: CommunityDesign.metaStyle(context)),
-              ],
-            ),
-          ),
-          if (hasActions)
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, size: 20),
-              tooltip: 'Ações do membro',
-              onSelected: (value) {
-                if (value == 'role') onEditRole?.call();
-                if (value == 'remove') onRemove?.call();
-              },
-              itemBuilder: (context) => [
-                if (onEditRole != null)
-                  const PopupMenuItem(
-                    value: 'role',
-                    child: Row(
-                      children: [
-                        Icon(Icons.badge_outlined, size: 18),
-                        SizedBox(width: 10),
-                        Text('Alterar função'),
-                      ],
-                    ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name.isEmpty ? 'Sem nome' : name,
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(fontSize: 14, fontWeight: FontWeight.w700),
                   ),
-                if (onRemove != null)
-                  const PopupMenuItem(
-                    value: 'remove',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.person_remove_outlined,
-                          size: 18,
-                          color: Colors.red,
-                        ),
-                        SizedBox(width: 10),
-                        Text('Remover', style: TextStyle(color: Colors.red)),
-                      ],
-                    ),
-                  ),
-              ],
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: CommunityDesign.metaStyle(context)),
+                ],
+              ),
             ),
-        ],
+            if (hasActions)
+              PopupMenuButton<String>(
+                icon: const Icon(AppIcons.more, size: 20),
+                tooltip: 'Ações do membro',
+                onSelected: (value) {
+                  if (value == 'role') onEditRole?.call();
+                  if (value == 'remove') onRemove?.call();
+                },
+                itemBuilder: (context) => [
+                  if (onEditRole != null)
+                    const PopupMenuItem(
+                      value: 'role',
+                      child: Row(
+                        children: [
+                          Icon(AppIcons.badge, size: 18),
+                          SizedBox(width: 10),
+                          Text('Alterar função'),
+                        ],
+                      ),
+                    ),
+                  if (onRemove != null)
+                    const PopupMenuItem(
+                      value: 'remove',
+                      child: Row(
+                        children: [
+                          Icon(
+                            AppIcons.personRemove,
+                            size: 18,
+                            color: Colors.red,
+                          ),
+                          SizedBox(width: 10),
+                          Text('Remover', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -321,7 +318,7 @@ class _TeamError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 40),
+            const Icon(AppIcons.error, size: 40),
             const SizedBox(height: 12),
             Text(
               'Não foi possível carregar a equipe.',

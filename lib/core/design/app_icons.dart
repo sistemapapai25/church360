@@ -23,6 +23,7 @@ abstract final class AppIcons {
   static const person = Icons.person_outline;
   static const personFilled = Icons.person;
   static const personAdd = Icons.person_add_alt;
+  static const personRemove = Icons.person_remove_outlined;
   static const visitor = Icons.person_add_alt;
   static const edit = Icons.edit_outlined;
   static const delete = Icons.delete_outline;
@@ -106,4 +107,7 @@ abstract final class AppIcons {
   static const menu = Icons.menu;
   static const widgets = Icons.widgets_outlined;
   static const refresh = Icons.refresh;
+  static const tune = Icons.tune;
+  static const autoSchedule = Icons.hub;
+  static const history = Icons.history;
 }
