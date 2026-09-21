@@ -912,3 +912,82 @@ Timestamp: 2026-09-21 17:40, America/Sao_Paulo (UTC-03).
   continua na branch de trabalho porque `main` está ativo em outro worktree.
 - Os sete registradores Flutter continuam apenas como modificações locais,
   sem staging e sem commit.
+
+## Final closeout — visual wave 11 Events, detalhe/formulário/registro
+
+Timestamp: 2026-09-21 18:05:25 BRT (America/Sao_Paulo, UTC-03).
+
+### O que foi entregue
+
+- `event_detail_screen.dart` passou a usar `AppIcons` nos estados de acesso,
+  informações, inscritos e escalas; os cards de informação, inscritos,
+  escalas e estados vazios reutilizam `GlassCard`, e o status do evento usa
+  `StatusBadge`.
+- `event_form_screen.dart` passou a usar o catálogo semântico em campos,
+  audiência, lembretes, recorrência e ações; o corpo do formulário reutiliza
+  `GlassCard` sem alterar os fluxos de criação, edição ou séries.
+- `event_registration_screen.dart` passou a usar `AppIcons` nos caminhos de
+  membro e convidado; o formulário de convidado, a inscrição de membro e o
+  ingresso confirmado reutilizam `GlassCard`.
+- `AppIcons` foi ampliado apenas com semânticas compartilháveis necessárias
+  para Events: calendário mensal, imagem, dinheiro, cortesia, recorrência,
+  responsáveis, status, alerta, login e erro de rede.
+- A cobertura focada foi adicionada em
+  `test/features/events/events_visual_surfaces_test.dart`, usando providers
+  e eventos em memória, sem acesso à rede.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios,
+persistência, regras de audiência, capacidade, inscrição ou contratos de
+dados.
+
+### Verificação
+
+- `flutter test --no-pub -j 1` — **542 passed**.
+- `flutter test --no-pub test/features/events/events_visual_surfaces_test.dart test/features/events/events_list_visual_test.dart` — passou, **5 testes**.
+- `flutter analyze --no-pub` nos quatro arquivos Dart alterados — sem erros; permanecem 7 `info` preexistentes de `use_build_context_synchronously` no formulário.
+- `git diff --check` — passou.
+- `flutter build web --release --no-pub` — passou em 70,6 s.
+- O build manteve apenas os avisos Wasm conhecidos de `audioplayers_web`,
+  `dart:html`, `package:js` e `image`.
+
+### Git, merge e produção
+
+- Commit de implementação: `5094f50`, `feat: standardize event detail and registration surfaces`.
+- PR #139: https://github.com/sistemapapai25/church360/pull/139.
+- PR #139 mergeada em `main` com o commit `f45fd1a981df41a45584706e976398ab50c43836`.
+- Workflow de produção: run `35654143253`, sucesso em 3m07s:
+  https://github.com/sistemapapai25/church360/actions/runs/35654143253.
+- Deploy Vercel Ready:
+  `https://church360-f2rpmfcik-gabriels-projects-ec03504d.vercel.app`.
+- Alias publicado pelo workflow: `https://app.church360.com.br`.
+- Smoke test da URL única de deployment: `200 OK`. O domínio customizado
+  retornou `000` neste shell por falha local de DNS; a URL foi aliased pelo
+  Vercel e a validação autenticada continua dependente de uma sessão real.
+
+### Estado local e próximo passo
+
+- Esta atualização está sendo preparada na branch `chore/session-wrap-wave-11`,
+  baseada no `origin/main` em `f45fd1a`.
+- O único arquivo intencional desta atualização é `SESSION-WRAP.md`.
+- Os sete registradores Flutter gerados continuam modificados localmente,
+  fora do staging e de todos os commits:
+  `linux/flutter/generated_plugin_registrant.cc`,
+  `linux/flutter/generated_plugin_registrant.h`,
+  `linux/flutter/generated_plugins.cmake`,
+  `macos/Flutter/GeneratedPluginRegistrant.swift`,
+  `windows/flutter/generated_plugin_registrant.cc`,
+  `windows/flutter/generated_plugin_registrant.h` e
+  `windows/flutter/generated_plugins.cmake`.
+- O próximo recorte deve concluir os diálogos/widgets especializados de
+  Events e então iniciar Financeiro, preservando Font Awesome e os contratos
+  de dados existentes.
+
+### Arquivos intencionais da onda 11
+
+- `lib/core/design/app_icons.dart`
+- `lib/features/events/presentation/screens/event_detail_screen.dart`
+- `lib/features/events/presentation/screens/event_form_screen.dart`
+- `lib/features/events/presentation/screens/event_registration_screen.dart`
+- `test/features/events/events_visual_surfaces_test.dart`
+- `docs/VISUAL-MATERIAL-INVENTORY.md`
+- `SESSION-WRAP.md` (este handoff)
