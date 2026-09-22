@@ -11,8 +11,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../providers/community_providers.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/utils/share_link_utils.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/pearl_fab.dart';
 import '../../domain/models/community_post.dart';
 import '../../domain/models/classified.dart';
@@ -149,7 +151,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
         backgroundColor: CommunityDesign.headerColor(context),
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.back),
           tooltip: 'Voltar',
           onPressed: _handleBack,
         ),
@@ -167,7 +169,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                 ),
               ),
               child: Icon(
-                Icons.church_rounded,
+                AppIcons.church,
                 size: 16,
                 color: theme.colorScheme.primary,
               ),
@@ -383,7 +385,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
         backgroundColor: CommunityDesign.headerColor(context),
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.back),
           tooltip: 'Voltar',
           onPressed: _handleBack,
         ),
@@ -400,7 +402,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                 ),
               ),
               child: Icon(
-                Icons.church_rounded,
+                AppIcons.church,
                 size: 16,
                 color: colorScheme.primary,
               ),
@@ -434,10 +436,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              theme.colorScheme.surface,
-              theme.scaffoldBackgroundColor,
-            ],
+            colors: [theme.colorScheme.surface, theme.scaffoldBackgroundColor],
           ),
         ),
         child: Padding(
@@ -452,25 +451,25 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                   children: [
                     _buildSidebarItem(
                       0,
-                      Icons.dashboard,
+                      AppIcons.dashboard,
                       'Mural',
                       _tabAccentColorForIndex(0),
                     ),
                     _buildSidebarItem(
                       1,
-                      Icons.volunteer_activism,
+                      AppIcons.volunteer,
                       'Orações',
                       _tabAccentColorForIndex(1),
                     ),
                     _buildSidebarItem(
                       2,
-                      Icons.storefront,
+                      AppIcons.storefront,
                       'Classificados',
                       _tabAccentColorForIndex(2),
                     ),
                     _buildSidebarItem(
                       3,
-                      Icons.groups,
+                      AppIcons.groupsFilled,
                       'Membros',
                       _tabAccentColorForIndex(3),
                     ),
@@ -634,7 +633,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           if (!isMobile) {
             return PearlFab(
               onPressed: () => _showCreatePostDialog(context),
-              icon: Icons.add_comment,
+              icon: AppIcons.addComment,
               label: 'Novo Post',
               color: colorScheme.primary,
             );
@@ -642,7 +641,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           return _buildSocialFab(
             backgroundColor: const Color(0xFF2563EB),
             foregroundColor: Colors.white,
-            icon: Icons.add_comment,
+            icon: AppIcons.addComment,
             label: 'Novo Post',
             onTap: () => _showCreatePostDialog(context),
             breathe: true,
@@ -651,7 +650,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           if (!isMobile) {
             return PearlFab(
               onPressed: () => _showCreateClassifiedDialog(context),
-              icon: Icons.add_shopping_cart,
+              icon: AppIcons.addShoppingCart,
               label: 'Novo Anúncio',
               color: _classifiedOrange,
             );
@@ -659,7 +658,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           return _buildSocialFab(
             backgroundColor: const Color(0xFF2563EB),
             foregroundColor: Colors.white,
-            icon: Icons.add_shopping_cart,
+            icon: AppIcons.addShoppingCart,
             label: 'Novo Anúncio',
             onTap: () => _showCreateClassifiedDialog(context),
           );
@@ -800,7 +799,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                           ),
                           IconButton(
                             onPressed: () => Navigator.pop(context),
-                            icon: const Icon(Icons.close),
+                            icon: const Icon(AppIcons.close),
                             tooltip: 'Fechar',
                           ),
                         ],
@@ -898,7 +897,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                             child: TextButton.icon(
                               onPressed: () => Navigator.pop(context),
                               icon: Icon(
-                                Icons.close,
+                                AppIcons.close,
                                 size: 18,
                                 color: colorScheme.onSurfaceVariant,
                               ),
@@ -953,10 +952,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                                       }
                                     }
                                   },
-                                  icon: const Icon(
-                                    Icons.send_rounded,
-                                    size: 18,
-                                  ),
+                                  icon: const Icon(AppIcons.send, size: 18),
                                   style: _pillElevatedButtonStyle(
                                     backgroundColor: colorScheme.primary,
                                     foregroundColor: colorScheme.onPrimary,
@@ -1099,7 +1095,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
               TextButton.icon(
                 onPressed: () => Navigator.pop(context),
                 icon: Icon(
-                  Icons.close,
+                  AppIcons.close,
                   size: 18,
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -1143,7 +1139,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                         }
                       }
                     },
-                    icon: const Icon(Icons.send_rounded, size: 18),
+                    icon: const Icon(AppIcons.send, size: 18),
                     style: _pillElevatedButtonStyle(
                       backgroundColor: colorScheme.primary,
                       foregroundColor: colorScheme.onPrimary,
@@ -1353,7 +1349,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                             ),
                             IconButton(
                               onPressed: () => Navigator.pop(context),
-                              icon: const Icon(Icons.close),
+                              icon: const Icon(AppIcons.close),
                               tooltip: 'Fechar',
                             ),
                           ],
@@ -1453,10 +1449,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                                         color: colorScheme.primary,
                                       ),
                                     )
-                                  : const Icon(
-                                      Icons.add_photo_alternate_outlined,
-                                      size: 18,
-                                    ),
+                                  : const Icon(AppIcons.imageAdd, size: 18),
                               label: const Text('Adicionar'),
                               style: _pillTextButtonStyle(
                                 foregroundColor: colorScheme.primary,
@@ -1513,7 +1506,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                                             ),
                                           ),
                                           child: const Icon(
-                                            Icons.close,
+                                            AppIcons.close,
                                             size: 14,
                                             color: Colors.white,
                                           ),
@@ -1559,7 +1552,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                               child: TextButton.icon(
                                 onPressed: () => Navigator.pop(context),
                                 icon: Icon(
-                                  Icons.close,
+                                  AppIcons.close,
                                   size: 18,
                                   color: colorScheme.onSurfaceVariant,
                                 ),
@@ -1662,7 +1655,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                                     child: const Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.send_rounded, size: 18),
+                                        Icon(AppIcons.send, size: 18),
                                         SizedBox(width: 8),
                                         Text('Publicar'),
                                       ],
@@ -1805,10 +1798,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                                           color: colorScheme.primary,
                                         ),
                                       )
-                                    : const Icon(
-                                        Icons.add_photo_alternate_outlined,
-                                        size: 18,
-                                      ),
+                                    : const Icon(AppIcons.imageAdd, size: 18),
                                 label: const Text('Adicionar'),
                                 style: _pillTextButtonStyle(
                                   foregroundColor: colorScheme.primary,
@@ -1864,7 +1854,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                                                   BorderRadius.circular(999),
                                             ),
                                             child: const Icon(
-                                              Icons.close,
+                                              AppIcons.close,
                                               size: 14,
                                               color: Colors.white,
                                             ),
@@ -1913,7 +1903,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             TextButton.icon(
               onPressed: () => Navigator.pop(context),
               icon: Icon(
-                Icons.close,
+                AppIcons.close,
                 size: 18,
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -1994,7 +1984,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.send_rounded, size: 18),
+                      Icon(AppIcons.send, size: 18),
                       SizedBox(width: 8),
                       Text('Publicar'),
                     ],
@@ -2106,7 +2096,7 @@ class _CommunityMomentCardState extends ConsumerState<_CommunityMomentCard> {
 
     final moments = <_MomentItem>[
       _MomentItem(
-        icon: Icons.groups,
+        icon: AppIcons.groupsFilled,
         title: 'Momento da Comunidade',
         subtitle: 'Compartilhe, ore e participe hoje',
         accent: colorScheme.primary,
@@ -2119,7 +2109,7 @@ class _CommunityMomentCardState extends ConsumerState<_CommunityMomentCard> {
         final latest = prayers.first;
         moments.add(
           _MomentItem(
-            icon: Icons.volunteer_activism,
+            icon: AppIcons.volunteer,
             title: 'Último pedido ${_timeAgoLabel(latest.createdAt)}',
             subtitle: 'Vamos interceder como família',
             accent: const Color(0xFF1D6E45),
@@ -2130,7 +2120,7 @@ class _CommunityMomentCardState extends ConsumerState<_CommunityMomentCard> {
         final author = latest.authorNickname ?? latest.authorName ?? 'Alguém';
         moments.add(
           _MomentItem(
-            icon: Icons.chat_bubble_outline,
+            icon: AppIcons.chat,
             title: '$author postou ${_timeAgoLabel(latest.createdAt)}',
             subtitle: 'Veja o que está acontecendo no mural',
             accent: const Color(0xFF0B5FA5),
@@ -2144,7 +2134,7 @@ class _CommunityMomentCardState extends ConsumerState<_CommunityMomentCard> {
         final latest = classifieds.first;
         moments.add(
           _MomentItem(
-            icon: Icons.storefront,
+            icon: AppIcons.storefront,
             title: 'Novo anúncio ${_timeAgoLabel(latest.createdAt)}',
             subtitle: latest.title,
             accent: const Color(0xFF8A5B00),
@@ -2162,7 +2152,7 @@ class _CommunityMomentCardState extends ConsumerState<_CommunityMomentCard> {
             : DateFormat('d MMM', 'pt_BR').format(date);
         moments.add(
           _MomentItem(
-            icon: Icons.cake,
+            icon: AppIcons.cake,
             title: '🎂 $label',
             subtitle:
                 'Deseje felicidades para ${member.firstName ?? member.nickname ?? 'alguém'}',
@@ -2281,7 +2271,7 @@ class _BirthdaysSection extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(
             children: [
-              Icon(Icons.cake, color: colorScheme.tertiary),
+              Icon(AppIcons.cake, color: colorScheme.tertiary),
               const SizedBox(width: 8),
               Text(
                 'Aniversariantes do Mês',
@@ -2476,7 +2466,7 @@ class _MuralTabState extends ConsumerState<_MuralTab> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.article_outlined,
+                    AppIcons.article,
                     size: 64,
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                   ),
@@ -2529,7 +2519,7 @@ class _MuralTabState extends ConsumerState<_MuralTab> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.article_outlined,
+                  AppIcons.article,
                   size: 64,
                   color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
@@ -2597,8 +2587,6 @@ class _OverlayCardState extends State<_OverlayCard> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return MouseRegion(
       cursor: SystemMouseCursors.basic,
       onEnter: (_) => setState(() => _hovered = true),
@@ -2607,13 +2595,10 @@ class _OverlayCardState extends State<_OverlayCard> {
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
         transform: Matrix4.translationValues(0, _hovered ? -2 : 0, 0),
-        decoration: CommunityDesign.overlayDecoration(
-          colorScheme,
-          hovered: _hovered,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(CommunityDesign.radius),
-          child: Padding(padding: widget.padding, child: widget.child),
+        child: GlassCard(
+          padding: widget.padding,
+          radius: CommunityDesign.radius,
+          child: widget.child,
         ),
       ),
     );
@@ -3266,7 +3251,7 @@ class _PostCardState extends ConsumerState<_PostCard>
                       value: _PostOwnerMenuAction.edit,
                       child: Row(
                         children: [
-                          Icon(Icons.edit),
+                          Icon(AppIcons.edit),
                           SizedBox(width: 10),
                           Text('Editar'),
                         ],
@@ -3276,7 +3261,7 @@ class _PostCardState extends ConsumerState<_PostCard>
                       value: _PostOwnerMenuAction.delete,
                       child: Row(
                         children: [
-                          Icon(Icons.delete),
+                          Icon(AppIcons.delete),
                           SizedBox(width: 10),
                           Text('Excluir'),
                         ],
@@ -3437,7 +3422,7 @@ class _PostCardState extends ConsumerState<_PostCard>
                                           ),
                                         )
                                       : Icon(
-                                          Icons.thumb_up_outlined,
+                                          AppIcons.thumbUp,
                                           key: const ValueKey<String>('none'),
                                         ),
                                 ),
@@ -3483,7 +3468,7 @@ class _PostCardState extends ConsumerState<_PostCard>
                       duration: const Duration(milliseconds: 140),
                       curve: Curves.easeOut,
                       child: buildPillButton(
-                        icon: const Icon(Icons.mode_comment_outlined),
+                        icon: const Icon(AppIcons.modeComment),
                         label: isCompact ? null : const Text('Comentar'),
                         actionColor: muted,
                         onPressed: () {
@@ -3512,7 +3497,7 @@ class _PostCardState extends ConsumerState<_PostCard>
                   ),
                   Expanded(
                     child: buildPillButton(
-                      icon: const Icon(Icons.send),
+                      icon: const Icon(AppIcons.send),
                       label: isCompact ? null : const Text('Compartilhar'),
                       actionColor: muted,
                       onPressed: () {
@@ -3584,7 +3569,7 @@ class _MembersTab extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.groups_outlined,
+                        AppIcons.groups,
                         size: 64,
                         color: colorScheme.onSurfaceVariant.withValues(
                           alpha: 0.7,
@@ -3642,19 +3627,19 @@ class _MembersTab extends ConsumerWidget {
                         runSpacing: 8,
                         children: [
                           _ActivityPill(
-                            icon: Icons.groups,
+                            icon: AppIcons.groupsFilled,
                             text: '${activeMembers.length} membros ativos',
                             accent: const Color(0xFF4E6B85),
                           ),
                           _ActivityPill(
-                            icon: Icons.cake_outlined,
+                            icon: AppIcons.cake,
                             text: birthdaysThisMonth == 0
                                 ? 'Sem aniversários públicos este mês'
                                 : '$birthdaysThisMonth aniversários este mês',
                             accent: const Color(0xFF5A3BA6),
                           ),
                           _ActivityPill(
-                            icon: Icons.chat_bubble_outline,
+                            icon: AppIcons.chat,
                             text: contactsAllowed == 0
                                 ? 'WhatsApp liberado: ninguém'
                                 : 'WhatsApp liberado: $contactsAllowed',
@@ -3805,7 +3790,7 @@ class _ClassifiedsTab extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.storefront_outlined,
+                  AppIcons.storefront,
                   size: 64,
                   color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
@@ -3856,20 +3841,20 @@ class _ClassifiedsTab extends ConsumerWidget {
                     runSpacing: 8,
                     children: [
                       _ActivityPill(
-                        icon: Icons.storefront,
+                        icon: AppIcons.storefront,
                         text:
                             'Último anúncio ${_timeAgoLabel(latest.createdAt)}',
                         accent: accent,
                       ),
                       _ActivityPill(
-                        icon: Icons.new_releases_outlined,
+                        icon: AppIcons.newReleases,
                         text: weekCount == 0
                             ? 'Sem novos nesta semana'
                             : '$weekCount novos nesta semana',
                         accent: accent,
                       ),
                       _ActivityPill(
-                        icon: Icons.visibility_outlined,
+                        icon: AppIcons.visibility,
                         text: 'Total: ${classifieds.length}',
                         accent: accent,
                       ),
@@ -4496,7 +4481,7 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
                           value: _ClassifiedOwnerMenuAction.edit,
                           child: Row(
                             children: [
-                              Icon(Icons.edit),
+                              Icon(AppIcons.edit),
                               SizedBox(width: 10),
                               Text('Editar'),
                             ],
@@ -4506,7 +4491,7 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
                           value: _ClassifiedOwnerMenuAction.delete,
                           child: Row(
                             children: [
-                              Icon(Icons.delete),
+                              Icon(AppIcons.delete),
                               SizedBox(width: 10),
                               Text('Excluir'),
                             ],
@@ -4543,7 +4528,7 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
                       width: double.infinity,
                       child: classified.imageUrls.isEmpty
                           ? Icon(
-                              Icons.image,
+                              AppIcons.image,
                               size: 50,
                               color: colorScheme.onSurfaceVariant.withValues(
                                 alpha: 0.7,
@@ -4646,7 +4631,7 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
                       width: double.infinity,
                       child: classified.imageUrls.isEmpty
                           ? Icon(
-                              Icons.image,
+                              AppIcons.image,
                               size: 50,
                               color: colorScheme.onSurfaceVariant.withValues(
                                 alpha: 0.7,
@@ -4847,7 +4832,7 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
                                                   ),
                                                 )
                                               : Icon(
-                                                  Icons.thumb_up_outlined,
+                                                  AppIcons.thumbUp,
                                                   key: const ValueKey<String>(
                                                     'none',
                                                   ),
@@ -4901,7 +4886,7 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
                               duration: const Duration(milliseconds: 140),
                               curve: Curves.easeOut,
                               child: buildPillButton(
-                                icon: const Icon(Icons.mode_comment_outlined),
+                                icon: const Icon(AppIcons.modeComment),
                                 label: isCompact
                                     ? null
                                     : const Text('Comentar'),
@@ -4938,7 +4923,7 @@ class _ClassifiedCardState extends ConsumerState<_ClassifiedCard>
                           ),
                           Expanded(
                             child: buildPillButton(
-                              icon: const Icon(Icons.send),
+                              icon: const Icon(AppIcons.send),
                               label: isCompact
                                   ? null
                                   : const Text('Compartilhar'),
@@ -5037,7 +5022,7 @@ class _ImageGalleryDialogState extends State<_ImageGalleryDialog> {
               right: 6,
               child: IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: const Icon(AppIcons.close, color: Colors.white),
               ),
             ),
             if (urls.length > 1)
@@ -5363,7 +5348,7 @@ class _ClassifiedDetailsSheetState
                           value: _ClassifiedOwnerMenuAction.edit,
                           child: Row(
                             children: [
-                              Icon(Icons.edit),
+                              Icon(AppIcons.edit),
                               SizedBox(width: 10),
                               Text('Editar'),
                             ],
@@ -5373,7 +5358,7 @@ class _ClassifiedDetailsSheetState
                           value: _ClassifiedOwnerMenuAction.delete,
                           child: Row(
                             children: [
-                              Icon(Icons.delete),
+                              Icon(AppIcons.delete),
                               SizedBox(width: 10),
                               Text('Excluir'),
                             ],
@@ -5419,7 +5404,7 @@ class _ClassifiedDetailsSheetState
                   ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(AppIcons.close),
                     tooltip: 'Fechar',
                   ),
                 ],
@@ -5433,7 +5418,7 @@ class _ClassifiedDetailsSheetState
                       ? Container(
                           color: colorScheme.surfaceContainerHighest,
                           child: Icon(
-                            Icons.image,
+                            AppIcons.image,
                             size: 56,
                             color: colorScheme.onSurfaceVariant.withValues(
                               alpha: 0.7,
@@ -5552,7 +5537,7 @@ class _ClassifiedDetailsSheetState
                   child: Row(
                     children: [
                       Icon(
-                        Icons.verified_rounded,
+                        AppIcons.verified,
                         size: 18,
                         color: colorScheme.primary,
                       ),
@@ -5578,7 +5563,7 @@ class _ClassifiedDetailsSheetState
                 Row(
                   children: [
                     Icon(
-                      Icons.phone_in_talk_outlined,
+                      AppIcons.phoneInTalk,
                       size: 18,
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -5631,7 +5616,7 @@ class _ClassifiedDetailsSheetState
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: _isWorking ? null : _openEdit,
-                        icon: const Icon(Icons.edit),
+                        icon: const Icon(AppIcons.edit),
                         label: const Text('Editar'),
                       ),
                     ),
@@ -5863,7 +5848,7 @@ class _EditClassifiedSheetState extends ConsumerState<_EditClassifiedSheet> {
                   ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(AppIcons.close),
                     tooltip: 'Fechar',
                   ),
                 ],
@@ -5918,10 +5903,7 @@ class _EditClassifiedSheetState extends ConsumerState<_EditClassifiedSheet> {
                               color: colorScheme.primary,
                             ),
                           )
-                        : const Icon(
-                            Icons.add_photo_alternate_outlined,
-                            size: 18,
-                          ),
+                        : const Icon(AppIcons.imageAdd, size: 18),
                     label: const Text('Adicionar'),
                   ),
                 ],
@@ -5966,7 +5948,7 @@ class _EditClassifiedSheetState extends ConsumerState<_EditClassifiedSheet> {
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                                 child: const Icon(
-                                  Icons.close,
+                                  AppIcons.close,
                                   size: 14,
                                   color: Colors.white,
                                 ),
@@ -6012,7 +5994,7 @@ class _EditClassifiedSheetState extends ConsumerState<_EditClassifiedSheet> {
                           ? null
                           : () => Navigator.pop(context),
                       icon: Icon(
-                        Icons.close,
+                        AppIcons.close,
                         size: 18,
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -6029,7 +6011,7 @@ class _EditClassifiedSheetState extends ConsumerState<_EditClassifiedSheet> {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.save, size: 18),
+                          Icon(AppIcons.save, size: 18),
                           SizedBox(width: 8),
                           Text('Salvar'),
                         ],
@@ -6154,7 +6136,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                           ),
                           const Spacer(),
                           IconButton(
-                            icon: const Icon(Icons.close),
+                            icon: const Icon(AppIcons.close),
                             tooltip: 'Fechar',
                             onPressed: () => Navigator.pop(context),
                           ),
@@ -6328,7 +6310,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                                     ),
                                   ),
                                 )
-                              : const Icon(Icons.send_rounded, size: 18),
+                              : const Icon(AppIcons.send, size: 18),
                         ),
                       ),
                     ],
@@ -6452,7 +6434,7 @@ class _ClassifiedCommentsSheetState
                           ),
                           const Spacer(),
                           IconButton(
-                            icon: const Icon(Icons.close),
+                            icon: const Icon(AppIcons.close),
                             tooltip: 'Fechar',
                             onPressed: () => Navigator.pop(context),
                           ),
@@ -6625,7 +6607,7 @@ class _ClassifiedCommentsSheetState
                                     ),
                                   ),
                                 )
-                              : const Icon(Icons.send_rounded, size: 18),
+                              : const Icon(AppIcons.send, size: 18),
                         ),
                       ),
                     ],

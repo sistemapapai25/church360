@@ -26,7 +26,7 @@ um ajuste de inventário, não como uma remoção presumida.
 | Events | 158 | 9 | Listagem, detalhe, formulário e registro migrados; diálogos/widgets especializados pendentes |
 | Financeiro | 105 | 13 | Migrado nesta onda: telas, formulários, contas, categorias, comprovantes e widgets |
 | Financeiro legado | 53 | 5 | Migrado nesta onda: contribuições, despesas, metas e relatórios |
-| Community | 85 | 2 | Pendente; preservar Font Awesome |
+| Community | 85 | 2 | Migrado nesta onda: shell, mural, classificados, membros e moderação; preservar Font Awesome |
 | Reports (`core/screens/reports`) | 57 | 8 | Ícones compartilhados já parcialmente propagados |
 
 Os números por área são referências textuais e podem incluir símbolos que
@@ -212,3 +212,19 @@ dados.
 Não houve alteração em banco, rotas, permissões, providers, repositórios,
 persistência ou contratos de dados. Font Awesome, quando existente fora deste
 recorte, e identificadores persistidos de ministério permanecem intactos.
+
+## Onda visual — Community
+
+- `community_screen.dart` agora consome `AppIcons` em navegação, estados vazios,
+  ações do mural, classificados, membros, anexos, comentários e formulários.
+- O card local compartilhado do feed passou a reutilizar `GlassCard`, mantendo
+  o movimento sutil de hover; o WhatsApp continua usando Font Awesome para
+  preservar o símbolo de marca.
+- `community_admin_screen.dart` agora usa `GlassCard` nos itens de moderação e
+  o mesmo catálogo semântico nos tabs, estados vazios e ações de aprovação.
+- A cobertura focada em
+  `test/features/community/community_visual_surfaces_test.dart` valida o
+  mural vazio, a navegação semântica e o card de moderação com dados em memória.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios,
+persistência ou contratos de dados.
