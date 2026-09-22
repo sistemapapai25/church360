@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/financial_attachment.dart';
 import '../providers/financial_attachments_providers.dart';
@@ -65,7 +66,7 @@ class _ComprovantePreviewWidgetState
       child: Row(
         children: [
           Icon(
-            widget.attachment.isImage ? Icons.image : Icons.picture_as_pdf,
+            widget.attachment.isImage ? AppIcons.image : AppIcons.pdf,
             size: 20,
             color: _financialGreen,
           ),
@@ -81,7 +82,7 @@ class _ComprovantePreviewWidgetState
           
           // Zoom controls
           IconButton(
-            icon: const Icon(Icons.zoom_out, size: 20),
+            icon: const Icon(AppIcons.zoomOut, size: 20),
             onPressed: () {
               setState(() {
                 _scale = (_scale - 0.2).clamp(0.5, 3.0);
@@ -94,7 +95,7 @@ class _ComprovantePreviewWidgetState
             style: CommunityDesign.metaStyle(context),
           ),
           IconButton(
-            icon: const Icon(Icons.zoom_in, size: 20),
+            icon: const Icon(AppIcons.zoomIn, size: 20),
             onPressed: () {
               setState(() {
                 _scale = (_scale + 0.2).clamp(0.5, 3.0);
@@ -105,7 +106,7 @@ class _ComprovantePreviewWidgetState
           
           // Rotation control
           IconButton(
-            icon: const Icon(Icons.rotate_right, size: 20),
+            icon: const Icon(AppIcons.rotateRight, size: 20),
             onPressed: () {
               setState(() {
                 _rotation = (_rotation + 90) % 360;
@@ -160,7 +161,7 @@ class _ComprovantePreviewWidgetState
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.picture_as_pdf,
+            AppIcons.pdf,
             size: 64,
             color: Colors.grey[400],
           ),
@@ -189,7 +190,7 @@ class _ComprovantePreviewWidgetState
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.error_outline,
+            AppIcons.error,
             size: 48,
             color: Colors.red[300],
           ),

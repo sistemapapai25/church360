@@ -3,6 +3,7 @@
 // =====================================================
 
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +13,7 @@ import '../../domain/models/dashboard_data.dart';
 import '../../domain/models/lancamento.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/widgets/glass_card.dart';
 
 class FinanceiroDashboardScreen extends ConsumerStatefulWidget {
   const FinanceiroDashboardScreen({super.key});
@@ -104,17 +106,17 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
       appBar: AppBar(
         title: const Text('Financeiro'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.back),
           onPressed: _handleBack,
         ),
         actions: [
           IconButton(
             tooltip: 'Filtrar período',
-            icon: const Icon(Icons.filter_list),
+            icon: const Icon(AppIcons.filterList),
             onPressed: _pickPeriod,
           ),
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(AppIcons.add),
             onPressed: () => context.push('/financial/lancamentos/new'),
           ),
         ],
@@ -129,7 +131,7 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
       appBar: AppBar(
         title: const Text('Financeiro'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.back),
           onPressed: _handleBack,
         ),
         actions: [
@@ -137,7 +139,7 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: OutlinedButton.icon(
               onPressed: _pickPeriod,
-              icon: const Icon(Icons.filter_list, size: 18),
+              icon: const Icon(AppIcons.filterList, size: 18),
               label: Text(_formatPeriodLabel()),
               style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
             ),
@@ -146,7 +148,7 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: ElevatedButton.icon(
               onPressed: () => context.push('/financial/lancamentos/new'),
-              icon: const Icon(Icons.add, size: 18),
+              icon: const Icon(AppIcons.add, size: 18),
               label: const Text('Novo Lançamento'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _financialGreen,
@@ -182,7 +184,7 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const Icon(AppIcons.error, size: 48, color: Colors.red),
             const SizedBox(height: 16),
             Text(
               AppErrorHandler.userMessage(
@@ -251,7 +253,7 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
             _buildSummaryCard(
               title: 'Recebidas',
               value: _currencyFormat.format(dashboard.receitasRecebidas),
-              icon: Icons.arrow_upward,
+              icon: AppIcons.arrowUp,
               color: Colors.green,
               onTap: () => _openLancamentos(
                 tipo: TipoLancamento.receita,
@@ -261,7 +263,7 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
             _buildSummaryCard(
               title: 'Pagas',
               value: _currencyFormat.format(dashboard.despesasPagas),
-              icon: Icons.arrow_downward,
+              icon: AppIcons.arrowDown,
               color: Colors.red,
               onTap: () => _openLancamentos(
                 tipo: TipoLancamento.despesa,
@@ -271,14 +273,14 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
             _buildSummaryCard(
               title: 'Saldo Atual',
               value: _currencyFormat.format(saldoTotal),
-              icon: saldoTotal >= 0 ? Icons.trending_up : Icons.trending_down,
+              icon: saldoTotal >= 0 ? AppIcons.trendingUp : AppIcons.trendingDown,
               color: saldoTotal >= 0 ? _financialGreen : Colors.orange,
               onTap: () => context.push('/financial/contas'),
             ),
             _buildSummaryCard(
               title: 'Em Aberto',
               value: '${dashboard.lancamentosEmAberto}',
-              icon: Icons.pending_actions,
+              icon: AppIcons.pending,
               color: Colors.blue,
               onTap: () => _openLancamentos(status: StatusLancamento.emAberto),
             ),
@@ -289,10 +291,7 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
   }
 
   Widget _buildMonthlyForecastCard(DashboardData dashboard) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(colorScheme),
+    return GlassCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,15 +387,10 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
     required Color color,
     VoidCallback? onTap,
   }) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return InkWell(
+    return GlassCard(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(CommunityDesign.radius),
-      child: Container(
-        decoration: CommunityDesign.overlayDecoration(colorScheme),
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -426,7 +420,6 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
               ),
             ),
           ],
-        ),
       ),
     );
   }
@@ -446,12 +439,12 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
           children: [
             _buildQuickActionButton(
               label: 'Contas',
-              icon: Icons.account_balance,
+              icon: AppIcons.accountBalanceIcon,
               onTap: () => context.push('/financial/contas'),
             ),
             _buildQuickActionButton(
               label: 'Extrato',
-              icon: Icons.receipt_long,
+              icon: AppIcons.receipt,
               onTap: () => context.push('/financial/extrato'),
             ),
           ],
@@ -497,16 +490,12 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
   }
 
   Widget _buildVencidosAlert(DashboardData dashboard) {
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.orange.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(CommunityDesign.radius),
-        border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-      ),
+      accentColor: Colors.orange,
       child: Row(
         children: [
-          const Icon(Icons.warning_amber, color: Colors.orange, size: 24),
+          const Icon(AppIcons.warningAmber, color: Colors.orange, size: 24),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -580,15 +569,14 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
   }
 
   Widget _buildReceitasList(DashboardData dashboard, ColorScheme colorScheme) {
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(colorScheme),
+    return GlassCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.arrow_upward, color: Colors.green, size: 20),
+              const Icon(AppIcons.arrowUp, color: Colors.green, size: 20),
               const SizedBox(width: 8),
               const Text(
                 'Receitas por Categoria',
@@ -634,15 +622,14 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
   }
 
   Widget _buildDespesasList(DashboardData dashboard, ColorScheme colorScheme) {
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(colorScheme),
+    return GlassCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.arrow_downward, color: Colors.red, size: 20),
+              const Icon(AppIcons.arrowDown, color: Colors.red, size: 20),
               const SizedBox(width: 8),
               const Text(
                 'Despesas por Categoria',

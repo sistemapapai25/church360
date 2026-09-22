@@ -3,6 +3,7 @@
 // =====================================================
 
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +13,7 @@ import '../../domain/models/lancamento.dart';
 import '../utils/financeiro_exports.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/widgets/glass_card.dart';
 
 class ExtratoScreen extends ConsumerStatefulWidget {
   const ExtratoScreen({super.key});
@@ -38,7 +40,7 @@ class _ExtratoScreenState extends ConsumerState<ExtratoScreen> {
         appBar: AppBar(
           title: const Text('Extrato'),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(AppIcons.back),
             onPressed: () {
               if (context.canPop()) {
                 context.pop();
@@ -50,7 +52,7 @@ class _ExtratoScreenState extends ConsumerState<ExtratoScreen> {
           actions: [
             IconButton(
               tooltip: 'Exportar PDF',
-              icon: const Icon(Icons.picture_as_pdf_outlined),
+              icon: const Icon(AppIcons.pdf),
               onPressed: _lastLancamentos.isEmpty
                   ? null
                   : () => FinanceiroExports.exportLancamentosPdf(
@@ -62,7 +64,7 @@ class _ExtratoScreenState extends ConsumerState<ExtratoScreen> {
             ),
             IconButton(
               tooltip: 'Exportar CSV',
-              icon: const Icon(Icons.table_view_outlined),
+              icon: const Icon(AppIcons.tableView),
               onPressed: _lastLancamentos.isEmpty
                   ? null
                   : () => FinanceiroExports.exportLancamentosCsv(
@@ -179,12 +181,8 @@ class _ExtratoScreenState extends ConsumerState<ExtratoScreen> {
   }
 
   Widget _buildSummary(double totalReceitas, double totalDespesas, double saldo) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      margin: const EdgeInsets.all(16),
+    return GlassCard(
       padding: const EdgeInsets.all(16),
-      decoration: CommunityDesign.overlayDecoration(colorScheme),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
@@ -227,7 +225,7 @@ class _ExtratoScreenState extends ConsumerState<ExtratoScreen> {
   Widget _buildLancamentoItem(Lancamento lancamento) {
     return ListTile(
       leading: Icon(
-        lancamento.isDespesa ? Icons.arrow_downward : Icons.arrow_upward,
+        lancamento.isDespesa ? AppIcons.arrowDown : AppIcons.arrowUp,
         color: lancamento.isDespesa ? Colors.red : Colors.green,
       ),
       title: Text(lancamento.descricao ?? '-'),

@@ -3,6 +3,7 @@
 // =====================================================
 
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,6 +11,7 @@ import '../providers/financeiro_providers.dart';
 import '../../domain/models/categoria.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/widgets/glass_card.dart';
 
 class CategoriasScreen extends ConsumerWidget {
   const CategoriasScreen({super.key});
@@ -25,7 +27,7 @@ class CategoriasScreen extends ConsumerWidget {
         appBar: AppBar(
           title: const Text('Categorias'),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(AppIcons.back),
             onPressed: () {
               if (context.canPop()) {
                 context.pop();
@@ -50,7 +52,7 @@ class CategoriasScreen extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const Icon(AppIcons.error, size: 48, color: Colors.red),
             const SizedBox(height: 16),
             Text(
               AppErrorHandler.userMessage(
@@ -83,14 +85,12 @@ class CategoriasScreen extends ConsumerWidget {
   }
 
   Widget _buildCategoriaCard(BuildContext context, Categoria categoria) {
-    final colorScheme = Theme.of(context).colorScheme;
     final tipoColor = categoria.tipo == TipoCategoria.despesa ? Colors.red : Colors.green;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: CommunityDesign.overlayDecoration(colorScheme),
+    return GlassCard(
+      padding: EdgeInsets.zero,
       child: ExpansionTile(
-        leading: Icon(Icons.category, color: tipoColor),
+        leading: Icon(AppIcons.categoryIcon, color: tipoColor),
         title: Text(
           categoria.name,
           style: const TextStyle(fontWeight: FontWeight.w600),

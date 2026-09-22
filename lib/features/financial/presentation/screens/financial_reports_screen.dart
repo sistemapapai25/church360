@@ -1,9 +1,11 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../providers/financial_provider.dart';
 
@@ -47,7 +49,7 @@ class _FinancialReportsScreenState
         title: Text('Relatórios Financeiros', style: CommunityDesign.titleStyle(context)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.download),
+            icon: const Icon(AppIcons.download),
             onPressed: _exportReport,
             tooltip: 'Exportar Relatório',
           ),
@@ -219,7 +221,7 @@ class _FinancialReportsScreenState
                   child: _SummaryCard(
                     title: 'Receitas',
                     value: formatter.format(totalRevenue),
-                    icon: Icons.trending_up,
+                    icon: AppIcons.trendingUp,
                     color: Colors.green,
                   ),
                 ),
@@ -228,7 +230,7 @@ class _FinancialReportsScreenState
                   child: _SummaryCard(
                     title: 'Despesas',
                     value: formatter.format(totalExpenses),
-                    icon: Icons.trending_down,
+                    icon: AppIcons.trendingDown,
                     color: Colors.red,
                   ),
                 ),
@@ -237,7 +239,7 @@ class _FinancialReportsScreenState
                   child: _SummaryCard(
                     title: 'Saldo',
                     value: formatter.format(balance),
-                    icon: balance >= 0 ? Icons.check_circle : Icons.warning,
+                    icon: balance >= 0 ? AppIcons.checkCircle : AppIcons.warning,
                     color: balance >= 0 ? Colors.blue : Colors.orange,
                   ),
                 ),
@@ -766,11 +768,8 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return GlassCard(
+      child: Column(
           children: [
             Icon(icon, color: color, size: 32),
             const SizedBox(height: 8),
@@ -792,7 +791,6 @@ class _SummaryCard extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
           ],
-        ),
       ),
     );
   }

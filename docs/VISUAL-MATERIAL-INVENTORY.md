@@ -24,8 +24,8 @@ um ajuste de inventário, não como uma remoção presumida.
 | Visitors | 34 | 4 | Slice completo: listagem, registro de visita, follow-up e estatísticas migrados |
 | Ministries | 295 | 29 | Listagem, workspace compartilhado, detalhe/formulário, Batismo, Diaconato e Raízes migrados |
 | Events | 158 | 9 | Listagem, detalhe, formulário e registro migrados; diálogos/widgets especializados pendentes |
-| Financeiro | 105 | 13 | Pendente |
-| Financeiro legado | 53 | 5 | Pendente |
+| Financeiro | 105 | 13 | Migrado nesta onda: telas, formulários, contas, categorias, comprovantes e widgets |
+| Financeiro legado | 53 | 5 | Migrado nesta onda: contribuições, despesas, metas e relatórios |
 | Community | 85 | 2 | Pendente; preservar Font Awesome |
 | Reports (`core/screens/reports`) | 57 | 8 | Ícones compartilhados já parcialmente propagados |
 
@@ -194,3 +194,21 @@ dados.
   do servidor e escopo da série foram preservados.
 - Não houve alteração em banco, rotas, permissões, providers, RPCs,
   persistência ou contratos de dados.
+
+## Onda visual — Financeiro e Financeiro legado
+
+- As telas e widgets de `features/financeiro` agora usam `AppIcons` para
+  navegação, filtros, lançamentos, contas, categorias, comprovantes,
+  confiança de IA e ações de formulário.
+- Dashboard, listagem, extrato, contas e categorias reutilizam `GlassCard` nas
+  superfícies principais; o resumo dos relatórios legados também usa o mesmo
+  componente.
+- `features/financial` recebeu a mesma migração semântica para contribuições,
+  despesas, metas e relatórios, preservando o fluxo legado e seus contratos.
+- A cobertura focada em
+  `test/features/financeiro/financeiro_visual_surfaces_test.dart` valida os
+  cards do dashboard com providers em memória e o badge de confiança.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios,
+persistência ou contratos de dados. Font Awesome, quando existente fora deste
+recorte, e identificadores persistidos de ministério permanecem intactos.

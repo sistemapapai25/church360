@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -183,7 +184,7 @@ class _FinancialGoalFormScreenState
         actions: [
           if (widget.goalId != null)
             IconButton(
-              icon: const Icon(Icons.delete),
+              icon: const Icon(AppIcons.delete),
               onPressed: _deleteGoal,
             ),
         ],
@@ -199,7 +200,7 @@ class _FinancialGoalFormScreenState
               decoration: const InputDecoration(
                 labelText: 'Nome da Meta',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.flag),
+                prefixIcon: Icon(AppIcons.flag),
                 hintText: 'Ex: Reforma do Templo',
               ),
               validator: (value) {
@@ -217,7 +218,7 @@ class _FinancialGoalFormScreenState
               decoration: const InputDecoration(
                 labelText: 'Descrição (opcional)',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.description),
+                prefixIcon: Icon(AppIcons.description),
                 hintText: 'Descreva os detalhes da meta',
               ),
               maxLines: 3,
@@ -230,7 +231,7 @@ class _FinancialGoalFormScreenState
               decoration: const InputDecoration(
                 labelText: 'Valor Alvo',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.attach_money),
+                prefixIcon: Icon(AppIcons.attachMoney),
                 prefixText: 'R\$ ',
                 hintText: '0.00',
               ),
@@ -257,7 +258,7 @@ class _FinancialGoalFormScreenState
               decoration: const InputDecoration(
                 labelText: 'Valor Arrecadado Atual',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.savings),
+                prefixIcon: Icon(AppIcons.savings),
                 prefixText: 'R\$ ',
                 hintText: '0.00',
               ),
@@ -286,8 +287,8 @@ class _FinancialGoalFormScreenState
                 dateFormatter.format(_startDate),
                 style: const TextStyle(fontSize: 16),
               ),
-              leading: const Icon(Icons.calendar_today),
-              trailing: const Icon(Icons.edit),
+              leading: const Icon(AppIcons.calendar),
+              trailing: const Icon(AppIcons.edit),
               onTap: _selectStartDate,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
@@ -304,8 +305,8 @@ class _FinancialGoalFormScreenState
                 dateFormatter.format(_endDate),
                 style: const TextStyle(fontSize: 16),
               ),
-              leading: const Icon(Icons.event),
-              trailing: const Icon(Icons.edit),
+              leading: const Icon(AppIcons.event),
+              trailing: const Icon(AppIcons.edit),
               onTap: _selectEndDate,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
@@ -329,7 +330,7 @@ class _FinancialGoalFormScreenState
                 });
               },
               secondary: Icon(
-                _isActive ? Icons.check_circle : Icons.cancel,
+                _isActive ? AppIcons.checkCircle : AppIcons.cancel,
                 color: _isActive ? Colors.green : Colors.grey,
               ),
             ),
@@ -344,7 +345,7 @@ class _FinancialGoalFormScreenState
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.save),
+                  : const Icon(AppIcons.save),
               label: Text(
                 widget.goalId == null ? 'Criar Meta' : 'Salvar Alterações',
               ),

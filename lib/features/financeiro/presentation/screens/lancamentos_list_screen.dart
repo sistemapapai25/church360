@@ -3,6 +3,7 @@
 // =====================================================
 
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -13,6 +14,7 @@ import '../utils/financeiro_exports.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/widgets/pearl_fab.dart';
+import '../../../../core/widgets/glass_card.dart';
 
 class LancamentosListScreen extends ConsumerStatefulWidget {
   const LancamentosListScreen({super.key});
@@ -91,17 +93,17 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
       appBar: AppBar(
         title: const Text('Lançamentos'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.back),
           onPressed: _handleBack,
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list),
+            icon: const Icon(AppIcons.filterList),
             onPressed: _showFilterDialog,
           ),
           IconButton(
             tooltip: 'Exportar PDF',
-            icon: const Icon(Icons.picture_as_pdf_outlined),
+            icon: const Icon(AppIcons.pdf),
             onPressed: _lastLancamentos.isEmpty
                 ? null
                 : () => FinanceiroExports.exportLancamentosPdf(
@@ -115,7 +117,7 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
           ),
           IconButton(
             tooltip: 'Exportar CSV',
-            icon: const Icon(Icons.table_view_outlined),
+            icon: const Icon(AppIcons.tableView),
             onPressed: _lastLancamentos.isEmpty
                 ? null
                 : () => FinanceiroExports.exportLancamentosCsv(
@@ -128,7 +130,7 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
                     ),
           ),
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(AppIcons.add),
             onPressed: () => context.push('/financial/lancamentos/new'),
           ),
         ],
@@ -137,7 +139,7 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
       floatingActionButton: PearlFab(
         onPressed: () => context.push('/financial/lancamentos/new'),
         color: _financialGreen,
-        icon: Icons.add,
+        icon: AppIcons.add,
       ),
     );
   }
@@ -148,7 +150,7 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
       appBar: AppBar(
         title: const Text('Lançamentos'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.back),
           onPressed: _handleBack,
         ),
         actions: [
@@ -156,7 +158,7 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: OutlinedButton.icon(
               onPressed: _showFilterDialog,
-              icon: const Icon(Icons.filter_list, size: 18),
+              icon: const Icon(AppIcons.filterList, size: 18),
               label: const Text('Filtros'),
               style: OutlinedButton.styleFrom(
                 shape: const StadiumBorder(),
@@ -176,7 +178,7 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
                         tipo: _tipoFilter,
                         status: _statusFilter,
                       ),
-              icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+              icon: const Icon(AppIcons.pdf, size: 18),
               label: const Text('Exportar PDF'),
               style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
             ),
@@ -194,7 +196,7 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
                         tipo: _tipoFilter,
                         status: _statusFilter,
                       ),
-              icon: const Icon(Icons.table_view_outlined, size: 18),
+              icon: const Icon(AppIcons.tableView, size: 18),
               label: const Text('Exportar CSV'),
               style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
             ),
@@ -203,7 +205,7 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: ElevatedButton.icon(
               onPressed: () => context.push('/financial/lancamentos/new'),
-              icon: const Icon(Icons.add, size: 18),
+              icon: const Icon(AppIcons.add, size: 18),
               label: const Text('Novo Lançamento'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _financialGreen,
@@ -244,7 +246,7 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const Icon(AppIcons.error, size: 48, color: Colors.red),
             const SizedBox(height: 16),
             Text(
               AppErrorHandler.userMessage(
@@ -270,7 +272,7 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.receipt_long, size: 64, color: Colors.grey[400]),
+            Icon(AppIcons.receipt, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               'Nenhum lançamento encontrado',
@@ -279,7 +281,7 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () => context.push('/financial/lancamentos/new'),
-              icon: const Icon(Icons.add),
+              icon: const Icon(AppIcons.add),
               label: const Text('Criar Lançamento'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _financialGreen,
@@ -309,8 +311,8 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: Container(
-        decoration: CommunityDesign.overlayDecoration(colorScheme),
+      child: GlassCard(
+        padding: EdgeInsets.zero,
         child: DataTable(
           headingRowColor: WidgetStateProperty.all(
             colorScheme.surfaceContainerHighest,
@@ -354,13 +356,13 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.edit, size: 18),
+                        icon: const Icon(AppIcons.edit, size: 18),
                         onPressed: () => context.push('/financial/lancamentos/${lancamento.id}'),
                         tooltip: 'Editar',
                       ),
                       if (lancamento.status == StatusLancamento.emAberto)
                         IconButton(
-                          icon: const Icon(Icons.check_circle, size: 18),
+                          icon: const Icon(AppIcons.checkCircle, size: 18),
                           onPressed: () => _pagarLancamento(lancamento),
                           tooltip: 'Pagar',
                         ),
@@ -387,17 +389,10 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
   }
 
   Widget _buildLancamentoCard(Lancamento lancamento) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: CommunityDesign.overlayDecoration(colorScheme),
-      child: InkWell(
-        onTap: () => context.push('/financial/lancamentos/${lancamento.id}'),
-        borderRadius: BorderRadius.circular(CommunityDesign.radius),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+    return GlassCard(
+      onTap: () => context.push('/financial/lancamentos/${lancamento.id}'),
+      padding: const EdgeInsets.all(16),
+      child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -420,7 +415,7 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
               Row(
                 children: [
                   Icon(
-                    lancamento.isDespesa ? Icons.arrow_downward : Icons.arrow_upward,
+                    lancamento.isDespesa ? AppIcons.arrowDown : AppIcons.arrowUp,
                     size: 16,
                     color: lancamento.isDespesa ? Colors.red : Colors.green,
                   ),
@@ -438,7 +433,7 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+                  Icon(AppIcons.calendar, size: 14, color: Colors.grey[600]),
                   const SizedBox(width: 4),
                   Text(
                     _dateFormat.format(lancamento.vencimento),
@@ -446,7 +441,7 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
                   ),
                   if (lancamento.categoriaNome != null) ...[
                     const SizedBox(width: 12),
-                    Icon(Icons.category, size: 14, color: Colors.grey[600]),
+                    Icon(AppIcons.categoryIcon, size: 14, color: Colors.grey[600]),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
@@ -459,8 +454,6 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
                 ],
               ),
             ],
-          ),
-        ),
       ),
     );
   }
@@ -631,13 +624,13 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
                         const SizedBox(height: 12),
                         OutlinedButton.icon(
                           onPressed: pickStartDate,
-                          icon: const Icon(Icons.date_range),
+                          icon: const Icon(AppIcons.dateRange),
                           label: Text('Data inicial: ${_dateLabel(startDate)}'),
                         ),
                         const SizedBox(height: 8),
                         OutlinedButton.icon(
                           onPressed: pickEndDate,
-                          icon: const Icon(Icons.event),
+                          icon: const Icon(AppIcons.event),
                           label: Text('Data final: ${_dateLabel(endDate)}'),
                         ),
                       ],

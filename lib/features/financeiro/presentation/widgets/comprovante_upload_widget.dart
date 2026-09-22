@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -241,18 +242,18 @@ class _ComprovanteUploadWidgetState
     final attachment = widget.existingAttachment!;
     return Card(
       child: ListTile(
-        leading: const Icon(Icons.attach_file),
+        leading: const Icon(AppIcons.attachFile),
         title: Text(attachment.fileName),
         subtitle: Text(attachment.formattedFileSize),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: const Icon(Icons.visibility),
+              icon: const Icon(AppIcons.visibility),
               onPressed: _previewExistingAttachment,
             ),
             IconButton(
-              icon: const Icon(Icons.delete),
+              icon: const Icon(AppIcons.delete),
               onPressed: _removeExistingAttachment,
             ),
           ],
@@ -400,7 +401,7 @@ class _ComprovanteUploadWidgetState
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _pickFromCamera,
-                    icon: const Icon(Icons.camera_alt),
+                    icon: const Icon(AppIcons.camera),
                     label: const Text('Câmera'),
                   ),
                 ),
@@ -408,7 +409,7 @@ class _ComprovanteUploadWidgetState
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _pickFromGallery,
-                    icon: const Icon(Icons.photo_library),
+                    icon: const Icon(AppIcons.photoLibrary),
                     label: const Text('Galeria'),
                   ),
                 ),
@@ -417,7 +418,7 @@ class _ComprovanteUploadWidgetState
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: _pickFile,
-              icon: const Icon(Icons.upload_file),
+              icon: const Icon(AppIcons.uploadFile),
               label: const Text('Selecionar Arquivo (PDF/Imagem)'),
             ),
           ],

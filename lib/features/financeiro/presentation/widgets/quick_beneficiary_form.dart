@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 import 'package:flutter/services.dart';
 
 class QuickBeneficiaryForm extends StatefulWidget {
@@ -89,7 +90,7 @@ class _QuickBeneficiaryFormState extends State<QuickBeneficiaryForm> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.person_add, color: Colors.green),
+                  const Icon(AppIcons.personAdd, color: Colors.green),
                   const SizedBox(width: 12),
                   Text(
                     widget.title,
@@ -97,7 +98,7 @@ class _QuickBeneficiaryFormState extends State<QuickBeneficiaryForm> {
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(AppIcons.close),
                     onPressed: widget.onCancel,
                   ),
                 ],
@@ -172,7 +173,7 @@ class _QuickBeneficiaryFormState extends State<QuickBeneficiaryForm> {
                           labelText: 'Telefone / WhatsApp',
                           hintText: '(00) 00000-0000',
                           border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.phone),
+                          prefixIcon: Icon(AppIcons.phone),
                         ),
                         keyboardType: TextInputType.phone,
                         inputFormatters: [
@@ -189,7 +190,7 @@ class _QuickBeneficiaryFormState extends State<QuickBeneficiaryForm> {
                           labelText: 'E-mail',
                           hintText: 'exemplo@email.com',
                           border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.email),
+                          prefixIcon: Icon(AppIcons.email),
                         ),
                         keyboardType: TextInputType.emailAddress,
                         validator: (value) {
@@ -241,7 +242,7 @@ class _QuickBeneficiaryFormState extends State<QuickBeneficiaryForm> {
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
                     onPressed: _handleSave,
-                    icon: const Icon(Icons.check),
+                    icon: const Icon(AppIcons.check),
                     label: const Text('Salvar'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,

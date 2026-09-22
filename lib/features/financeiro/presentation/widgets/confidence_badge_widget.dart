@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../domain/models/financial_attachment.dart';
 
 /// Widget que exibe um badge de confiança baseado no confidence score
@@ -62,25 +63,25 @@ class ConfidenceBadgeWidget extends StatelessWidget {
         return _BadgeConfig(
           label: 'Alta Confiança',
           color: const Color(0xFF4CAF50), // Verde
-          icon: Icons.check_circle,
+          icon: AppIcons.checkCircle,
         );
       case ConfidenceLevel.medium:
         return _BadgeConfig(
           label: 'Média Confiança',
           color: const Color(0xFFFFA726), // Laranja
-          icon: Icons.warning_amber,
+          icon: AppIcons.warningAmber,
         );
       case ConfidenceLevel.low:
         return _BadgeConfig(
           label: 'Baixa Confiança',
           color: const Color(0xFFF44336), // Vermelho
-          icon: Icons.error_outline,
+          icon: AppIcons.error,
         );
       case ConfidenceLevel.unknown:
         return _BadgeConfig(
           label: 'Desconhecido',
           color: const Color(0xFF9E9E9E), // Cinza
-          icon: Icons.help_outline,
+          icon: AppIcons.help,
         );
     }
   }
@@ -114,7 +115,7 @@ class AiSuggestedBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.auto_awesome,
+            AppIcons.autoAwesome,
             size: 12,
             color: const Color(0xFF2196F3),
           ),
@@ -154,7 +155,7 @@ class DuplicateWarningWidget extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            Icons.warning_amber_rounded,
+            AppIcons.warningRound,
             color: const Color(0xFFFF9800),
             size: 24,
           ),

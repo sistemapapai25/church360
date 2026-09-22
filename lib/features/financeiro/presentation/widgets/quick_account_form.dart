@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 import 'package:flutter/services.dart';
 
 class QuickAccountForm extends StatefulWidget {
@@ -97,7 +98,7 @@ class _QuickAccountFormState extends State<QuickAccountForm> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.account_balance, color: Colors.orange),
+                  const Icon(AppIcons.accountBalanceIcon, color: Colors.orange),
                   const SizedBox(width: 12),
                   Text(
                     widget.title,
@@ -105,7 +106,7 @@ class _QuickAccountFormState extends State<QuickAccountForm> {
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(AppIcons.close),
                     onPressed: widget.onCancel,
                   ),
                 ],
@@ -269,7 +270,7 @@ class _QuickAccountFormState extends State<QuickAccountForm> {
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
                     onPressed: _handleSave,
-                    icon: const Icon(Icons.check),
+                    icon: const Icon(AppIcons.check),
                     label: const Text('Salvar'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.orange,
