@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -45,7 +46,7 @@ class _FinancialScreenState extends ConsumerState<FinancialScreen>
         title: Text('Financeiro', style: CommunityDesign.titleStyle(context)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.bar_chart),
+            icon: const Icon(AppIcons.barChart),
             onPressed: () {
               context.push('/financial-reports');
             },
@@ -55,9 +56,9 @@ class _FinancialScreenState extends ConsumerState<FinancialScreen>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'Contribuições', icon: Icon(Icons.attach_money)),
-            Tab(text: 'Despesas', icon: Icon(Icons.money_off)),
-            Tab(text: 'Metas', icon: Icon(Icons.flag)),
+            Tab(text: 'Contribuições', icon: Icon(AppIcons.attachMoney)),
+            Tab(text: 'Despesas', icon: Icon(AppIcons.moneyOff)),
+            Tab(text: 'Metas', icon: Icon(AppIcons.flag)),
           ],
         ),
       ),
@@ -89,7 +90,7 @@ class _FinancialScreenState extends ConsumerState<FinancialScreen>
               context.push('/financial-goals/new');
             }
           },
-          icon: Icons.add,
+          icon: AppIcons.add,
           label: _tabController.index == 0
               ? 'Nova Contribuição'
               : _tabController.index == 1
@@ -121,7 +122,7 @@ class _ContributionsTab extends ConsumerWidget {
                 'Total de Contribuições',
                 total,
                 Colors.green,
-                Icons.trending_up,
+                AppIcons.trendingUp,
               ),
               loading: () => const LinearProgressIndicator(),
               error: (_, __) => const SizedBox(),
@@ -133,7 +134,7 @@ class _ContributionsTab extends ConsumerWidget {
                   ? _buildEmptyState(
                       'Nenhuma contribuição registrada',
                       'Adicione a primeira contribuição',
-                      Icons.attach_money,
+                      AppIcons.attachMoney,
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.all(16),
@@ -323,17 +324,17 @@ class _ContributionCard extends StatelessWidget {
   IconData _getTypeIcon(ContributionType type) {
     switch (type) {
       case ContributionType.tithe:
-        return Icons.volunteer_activism;
+        return AppIcons.volunteer;
       case ContributionType.offering:
-        return Icons.card_giftcard;
+        return AppIcons.gift;
       case ContributionType.missions:
-        return Icons.public;
+        return AppIcons.public;
       case ContributionType.building:
-        return Icons.construction;
+        return AppIcons.construction;
       case ContributionType.special:
-        return Icons.celebration;
+        return AppIcons.celebration;
       case ContributionType.other:
-        return Icons.attach_money;
+        return AppIcons.attachMoney;
     }
   }
 }
@@ -358,7 +359,7 @@ class _ExpensesTab extends ConsumerWidget {
                 'Total de Despesas',
                 total,
                 Colors.red,
-                Icons.trending_down,
+                AppIcons.trendingDown,
               ),
               loading: () => const LinearProgressIndicator(),
               error: (_, __) => const SizedBox(),
@@ -370,7 +371,7 @@ class _ExpensesTab extends ConsumerWidget {
                   ? _buildEmptyState(
                       'Nenhuma despesa registrada',
                       'Adicione a primeira despesa',
-                      Icons.money_off,
+                      AppIcons.moneyOff,
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.all(16),
@@ -490,7 +491,7 @@ class _ExpenseCard extends StatelessWidget {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: Colors.red.withValues(alpha: 0.2),
-          child: const Icon(Icons.money_off, color: Colors.red),
+          child: const Icon(AppIcons.moneyOff, color: Colors.red),
         ),
         title: Text(
           expense.category,
@@ -550,7 +551,7 @@ class _GoalsTab extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.flag, size: 64, color: Colors.grey[400]),
+                  Icon(AppIcons.flag, size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   Text(
                     'Nenhuma meta ativa',

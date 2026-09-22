@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -174,7 +175,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         actions: [
           if (widget.expenseId != null)
             IconButton(
-              icon: const Icon(Icons.delete),
+              icon: const Icon(AppIcons.delete),
               onPressed: _deleteExpense,
             ),
         ],
@@ -208,7 +209,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Categoria',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.category),
+                    prefixIcon: Icon(AppIcons.categoryIcon),
                     hintText: 'Digite ou selecione uma categoria',
                   ),
                   validator: (value) {
@@ -228,7 +229,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               decoration: const InputDecoration(
                 labelText: 'Valor',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.attach_money),
+                prefixIcon: Icon(AppIcons.attachMoney),
                 prefixText: 'R\$ ',
               ),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -254,7 +255,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               decoration: const InputDecoration(
                 labelText: 'Método de Pagamento',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.payment),
+                prefixIcon: Icon(AppIcons.payment),
               ),
               items: PaymentMethod.values.map((method) {
                 return DropdownMenuItem(
@@ -280,8 +281,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                 DateFormat('dd/MM/yyyy').format(_selectedDate),
                 style: const TextStyle(fontSize: 16),
               ),
-              leading: const Icon(Icons.calendar_today),
-              trailing: const Icon(Icons.edit),
+              leading: const Icon(AppIcons.calendar),
+              trailing: const Icon(AppIcons.edit),
               onTap: _selectDate,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
@@ -296,7 +297,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               decoration: const InputDecoration(
                 labelText: 'Descrição',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.description),
+                prefixIcon: Icon(AppIcons.description),
               ),
               maxLines: 2,
               validator: (value) {
@@ -314,7 +315,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               decoration: const InputDecoration(
                 labelText: 'Notas (opcional)',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.note),
+                prefixIcon: Icon(AppIcons.note),
               ),
               maxLines: 3,
             ),
@@ -329,7 +330,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.save),
+                  : const Icon(AppIcons.save),
               label: Text(
                 widget.expenseId == null ? 'Criar' : 'Salvar',
               ),

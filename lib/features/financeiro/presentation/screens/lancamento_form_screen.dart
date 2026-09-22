@@ -3,6 +3,7 @@
 // =====================================================
 
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -131,7 +132,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
         appBar: AppBar(
           title: Text(_isEditMode ? 'Editar Lançamento' : 'Novo Lançamento'),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(AppIcons.back),
             onPressed: _handleBack,
           ),
         ),
@@ -192,11 +193,11 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
     return Row(
       children: [
         Expanded(
-          child: _buildTipoOption(TipoLancamento.despesa, 'Despesa', Icons.arrow_downward, Colors.red),
+          child: _buildTipoOption(TipoLancamento.despesa, 'Despesa', AppIcons.arrowDown, Colors.red),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: _buildTipoOption(TipoLancamento.receita, 'Receita', Icons.arrow_upward, Colors.green),
+          child: _buildTipoOption(TipoLancamento.receita, 'Receita', AppIcons.arrowUp, Colors.green),
         ),
       ],
     );
@@ -319,7 +320,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
                 const SizedBox(width: 8),
                 IconButton(
                   tooltip: 'Criar categoria',
-                  icon: const Icon(Icons.add_circle_outline),
+                  icon: const Icon(AppIcons.addCircleOutline),
                   onPressed: () async {
                     final created = await FinanceiroQuickCreate.createCategoria(
                       context,
@@ -334,7 +335,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
                 ),
                 IconButton(
                   tooltip: 'Editar categorias',
-                  icon: const Icon(Icons.edit),
+                  icon: const Icon(AppIcons.edit),
                   onPressed: selectedCategoriaId == null
                       ? null
                       : () async {
@@ -402,7 +403,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
                 const SizedBox(width: 8),
                 IconButton(
                   tooltip: 'Criar beneficiário',
-                  icon: const Icon(Icons.add_circle_outline),
+                  icon: const Icon(AppIcons.addCircleOutline),
                   onPressed: () async {
                     final created = await FinanceiroQuickCreate.createBeneficiario(
                       context,
@@ -416,7 +417,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
                 ),
                 IconButton(
                   tooltip: 'Editar beneficiário',
-                  icon: const Icon(Icons.edit),
+                  icon: const Icon(AppIcons.edit),
                   onPressed: selectedBeneficiarioId == null
                       ? null
                       : () async {
@@ -482,7 +483,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
                 const SizedBox(width: 8),
                 IconButton(
                   tooltip: 'Criar conta',
-                  icon: const Icon(Icons.add_circle_outline),
+                  icon: const Icon(AppIcons.addCircleOutline),
                   onPressed: () async {
                     final created = await FinanceiroQuickCreate.createConta(
                       context,
@@ -496,7 +497,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
                 ),
                 IconButton(
                   tooltip: 'Editar conta',
-                  icon: const Icon(Icons.edit),
+                  icon: const Icon(AppIcons.edit),
                   onPressed: selectedContaId == null
                       ? null
                       : () async {
@@ -542,7 +543,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(_dateFormat.format(_vencimento)),
-            const Icon(Icons.calendar_today, size: 20),
+            const Icon(AppIcons.calendar, size: 20),
           ],
         ),
       ),

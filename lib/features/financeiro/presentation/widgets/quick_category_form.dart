@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 
 class QuickCategoryForm extends StatefulWidget {
   final Function(Map<String, dynamic>) onSave;
@@ -83,7 +84,7 @@ class _QuickCategoryFormState extends State<QuickCategoryForm> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.category, color: Colors.blue),
+                  const Icon(AppIcons.categoryIcon, color: Colors.blue),
                   const SizedBox(width: 12),
                   Text(
                     widget.title,
@@ -91,7 +92,7 @@ class _QuickCategoryFormState extends State<QuickCategoryForm> {
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(AppIcons.close),
                     onPressed: widget.onCancel,
                   ),
                 ],
@@ -208,7 +209,7 @@ class _QuickCategoryFormState extends State<QuickCategoryForm> {
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
                     onPressed: _handleSave,
-                    icon: const Icon(Icons.check),
+                    icon: const Icon(AppIcons.check),
                     label: const Text('Salvar'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,

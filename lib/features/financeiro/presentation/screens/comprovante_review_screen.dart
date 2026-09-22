@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -82,13 +83,13 @@ class _ComprovanteReviewScreenState
         appBar: AppBar(
           title: const Text('Revisar Comprovante'),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(AppIcons.back),
             onPressed: _handleBack,
           ),
           actions: [
             // Botão de debug para forçar refresh
             IconButton(
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(AppIcons.refresh),
               tooltip: 'Recarregar dados',
               onPressed: () {
                 setState(() {
@@ -349,7 +350,7 @@ class _ComprovanteReviewScreenState
         children: [
           Row(
             children: [
-              const Icon(Icons.info_outline, size: 18),
+              const Icon(AppIcons.info, size: 18),
               const SizedBox(width: 8),
               Text('Informações do Arquivo',
                   style: CommunityDesign.titleStyle(context)),
@@ -460,7 +461,7 @@ class _ComprovanteReviewScreenState
       padding: CommunityDesign.overlayPadding,
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: Colors.red),
+          const Icon(AppIcons.error, color: Colors.red),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -591,7 +592,7 @@ class _ComprovanteReviewScreenState
             onTap: () => _selectDate(context),
             child: InputDecorator(
               decoration: const InputDecoration(
-                suffixIcon: Icon(Icons.calendar_today),
+                suffixIcon: Icon(AppIcons.calendar),
               ),
               child: Text(
                 _vencimento != null
@@ -738,32 +739,32 @@ class _ComprovanteReviewScreenState
       _ExtractedItem(
         label: 'Valor',
         value: _stringOrEmpty(extracted['valor']),
-        icon: Icons.payments_outlined,
+        icon: AppIcons.payments,
       ),
       _ExtractedItem(
         label: 'Data',
         value: _stringOrEmpty(extracted['data']),
-        icon: Icons.calendar_today,
+        icon: AppIcons.calendar,
       ),
       _ExtractedItem(
         label: 'Favorecido',
         value: _stringOrEmpty(extracted['recebedor_nome']),
-        icon: Icons.person,
+        icon: AppIcons.person,
       ),
       _ExtractedItem(
         label: 'Banco',
         value: _stringOrEmpty(extracted['banco']),
-        icon: Icons.account_balance_outlined,
+        icon: AppIcons.accountBalance,
       ),
       _ExtractedItem(
         label: 'Conta',
         value: _stringOrEmpty(extracted['conta']),
-        icon: Icons.credit_card,
+        icon: AppIcons.creditCard,
       ),
       _ExtractedItem(
         label: 'Pagamento',
         value: _stringOrEmpty(extracted['tipo_pagamento']),
-        icon: Icons.qr_code_2,
+        icon: AppIcons.qrCode,
       ),
     ].where((item) => item.value.isNotEmpty).toList();
 
@@ -781,7 +782,7 @@ class _ComprovanteReviewScreenState
           if (items.isNotEmpty) ...[
             Row(
               children: [
-                const Icon(Icons.auto_awesome,
+                const Icon(AppIcons.autoAwesome,
                     size: 18, color: Color(0xFF2196F3)),
                 const SizedBox(width: 8),
                 Text(
@@ -856,7 +857,7 @@ class _ComprovanteReviewScreenState
             const Spacer(),
             TextButton.icon(
               onPressed: onAdd,
-              icon: const Icon(Icons.add, size: 16),
+              icon: const Icon(AppIcons.add, size: 16),
               label: Text(addLabel ?? 'Novo'),
               style: CommunityDesign.pillButtonStyle(
                 context,
@@ -877,7 +878,7 @@ class _ComprovanteReviewScreenState
           child: _buildTipoOption(
             'Despesa',
             'despesa',
-            Icons.arrow_downward,
+            AppIcons.arrowDown,
             Colors.red,
           ),
         ),
@@ -886,7 +887,7 @@ class _ComprovanteReviewScreenState
           child: _buildTipoOption(
             'Receita',
             'receita',
-            Icons.arrow_upward,
+            AppIcons.arrowUp,
             Colors.green,
           ),
         ),

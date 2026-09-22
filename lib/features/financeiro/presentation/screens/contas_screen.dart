@@ -3,6 +3,7 @@
 // =====================================================
 
 import 'package:flutter/material.dart';
+import '../../../../core/design/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +12,7 @@ import '../providers/financeiro_providers.dart';
 import '../../domain/models/conta_financeira.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/widgets/glass_card.dart';
 
 class ContasScreen extends ConsumerWidget {
   const ContasScreen({super.key});
@@ -28,7 +30,7 @@ class ContasScreen extends ConsumerWidget {
         appBar: AppBar(
           title: const Text('Contas Financeiras'),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(AppIcons.back),
             onPressed: () {
               if (context.canPop()) {
                 context.pop();
@@ -53,7 +55,7 @@ class ContasScreen extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const Icon(AppIcons.error, size: 48, color: Colors.red),
             const SizedBox(height: 16),
             Text(
               AppErrorHandler.userMessage(
@@ -86,18 +88,14 @@ class ContasScreen extends ConsumerWidget {
   }
 
   Widget _buildContaCard(BuildContext context, ContaFinanceira conta, NumberFormat currencyFormat) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: CommunityDesign.overlayDecoration(colorScheme),
+    return GlassCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.account_balance, color: _financialGreen),
+              Icon(AppIcons.accountBalanceIcon, color: _financialGreen),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

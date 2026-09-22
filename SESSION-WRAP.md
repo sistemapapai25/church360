@@ -569,6 +569,39 @@ avisos de migração futura do runner Node 20/Ubuntu 26.
 - `docs/VISUAL-MATERIAL-INVENTORY.md`
 - `SESSION-WRAP.md` (este handoff)
 
+## Final closeout — visual wave 13 Financeiro
+
+Timestamp: 2026-09-22, America/Sao_Paulo (UTC-03).
+
+### O que foi entregue
+
+- O recorte `features/financeiro` foi migrado para o catálogo semântico
+  `AppIcons` em todas as telas e widgets financeiros, incluindo lançamentos,
+  contas, categorias, comprovantes e quick-create.
+- O recorte legado `features/financial` recebeu a mesma migração em
+  contribuições, despesas, metas e relatórios.
+- Dashboard, listagem, extrato, contas, categorias e o resumo dos relatórios
+  reutilizam `GlassCard` nas superfícies principais.
+- O teste focado
+  `test/features/financeiro/financeiro_visual_surfaces_test.dart` cobre o
+  dashboard com dados em memória e o badge de confiança.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios,
+persistência ou contratos de dados. Os sete registradores Flutter gerados
+continuam modificados localmente e fora de todos os commits.
+
+### Próximo passo
+
+- `flutter test --no-pub test/features/financeiro/financeiro_visual_surfaces_test.dart`:
+  **2 passed**.
+- `flutter test --no-pub -j 1`: **554 passed**.
+- `flutter analyze --no-pub` nos 19 arquivos Dart do recorte: sem issues.
+- `flutter build web --release --no-pub`: passou; permanecem apenas os avisos
+  Wasm conhecidos de `audioplayers_web`, `dart:html`, `package:js` e `image`.
+- `git diff --check`: passou.
+
+Após a promoção desta onda, seguir para Community, preservando Font Awesome.
+
 ## Final closeout — visual wave 12 Events, diálogos e widgets especializados
 
 Timestamp: 2026-09-22, America/Sao_Paulo (UTC-03).
