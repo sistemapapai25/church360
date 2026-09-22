@@ -602,6 +602,25 @@ continuam modificados localmente e fora de todos os commits.
 
 Após a promoção desta onda, seguir para Community, preservando Font Awesome.
 
+### Git, merge e produção
+
+- Commit da implementação: `70414ab`, `feat: standardize finance visual surfaces`.
+- PR #144: https://github.com/sistemapapai25/church360/pull/144.
+- PR #144 mergeada em `main` com o commit `c68c325029cfd719e7113066d6ddb83fc06ce8ec`.
+- Workflow de produção: run `35792124450`, sucesso em 3m09s:
+  https://github.com/sistemapapai25/church360/actions/runs/35792124450.
+- Deploy Vercel Ready:
+  `https://church360-hsef4j6re-gabriels-projects-ec03504d.vercel.app`.
+- Deployment ID: `dpl_D2BQzFymHe6VhTZ1bEKq14qTp4kG`.
+- Aliases confirmados: `https://app.church360.com.br`,
+  `https://church360-app.vercel.app` e o alias de projeto
+  `https://church360-app-gabriels-projects-ec03504d.vercel.app`.
+- O deployment protegido respondeu `302` para o SSO; a cadeia de SSO
+  respondeu `200 OK`. A validação autenticada continua dependendo de uma
+  sessão real.
+- Os sete registradores Flutter gerados permanecem modificados localmente e
+  fora de todos os commits.
+
 ## Final closeout — visual wave 12 Events, diálogos e widgets especializados
 
 Timestamp: 2026-09-22, America/Sao_Paulo (UTC-03).
