@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
+
 /// Presets rotulados em português, em minutos. D-02 não impõe limite de
 /// quantidade de lembretes; estes presets são só atalho — a entrada livre
 /// abaixo cobre qualquer offset dentro da faixa do servidor.
@@ -80,7 +83,9 @@ class _ReminderPickerState extends ConsumerState<ReminderPicker> {
   void _confirmCustom() {
     final rawValue = int.tryParse(_customValueController.text.trim());
     if (rawValue == null || rawValue <= 0) {
-      setState(() => _customError = 'Informe um número inteiro maior que zero.');
+      setState(
+        () => _customError = 'Informe um número inteiro maior que zero.',
+      );
       return;
     }
 
@@ -117,11 +122,9 @@ class _ReminderPickerState extends ConsumerState<ReminderPicker> {
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: mediaHeight * 0.85),
-        child: Container(
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-          ),
+        child: GlassCard(
+          padding: EdgeInsets.zero,
+          radius: 18,
           child: SingleChildScrollView(
             padding: EdgeInsets.only(
               left: 20,
@@ -138,7 +141,9 @@ class _ReminderPickerState extends ConsumerState<ReminderPicker> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.4,
+                      ),
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -157,7 +162,7 @@ class _ReminderPickerState extends ConsumerState<ReminderPicker> {
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(
-                      Icons.notifications_active_outlined,
+                      AppIcons.notificationsActive,
                       color: _isUsed(preset.minutes)
                           ? colorScheme.onSurfaceVariant.withValues(alpha: 0.4)
                           : colorScheme.primary,
@@ -166,7 +171,9 @@ class _ReminderPickerState extends ConsumerState<ReminderPicker> {
                       preset.label,
                       style: TextStyle(
                         color: _isUsed(preset.minutes)
-                            ? colorScheme.onSurfaceVariant.withValues(alpha: 0.5)
+                            ? colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.5,
+                              )
                             : colorScheme.onSurface,
                       ),
                     ),

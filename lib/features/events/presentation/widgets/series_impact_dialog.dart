@@ -29,6 +29,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/design/community_design.dart';
 import '../../domain/models/event_series_impact.dart';
 
@@ -129,11 +131,7 @@ String seriesImpactConfirmLabel(
 ///
 /// O número recebe peso, nunca tamanho próprio e nunca cor diferente do texto
 /// ao redor — a cor destrutiva é reservada à linha de inscrições canceladas.
-Widget _paragrafo(
-  BuildContext context,
-  List<InlineSpan> partes, {
-  Color? cor,
-}) {
+Widget _paragrafo(BuildContext context, List<InlineSpan> partes, {Color? cor}) {
   final base = CommunityDesign.contentStyle(context);
   return Text.rich(
     TextSpan(children: partes),
@@ -183,7 +181,8 @@ List<InlineSpan> _linhaFuturas(EventSeriesImpact impact, String eventName) {
 List<InlineSpan> _linhaPassadasPreservadas(int m) => m == 1
     ? const [
         TextSpan(
-          text: 'A ocorrência passada será preservada, com inscrições, '
+          text:
+              'A ocorrência passada será preservada, com inscrições, '
               'presença e escalas.',
         ),
       ]
@@ -191,7 +190,8 @@ List<InlineSpan> _linhaPassadasPreservadas(int m) => m == 1
         const TextSpan(text: 'As '),
         _numero(m),
         const TextSpan(
-          text: ' ocorrências passadas serão preservadas, com inscrições, '
+          text:
+              ' ocorrências passadas serão preservadas, com inscrições, '
               'presença e escalas.',
         ),
       ];
@@ -202,23 +202,17 @@ List<InlineSpan> _linhaPassadasPreservadas(int m) => m == 1
 ///
 /// `k == 0` substitui a linha em vez de omiti-la (regra de contagem do Plano
 /// 06-04); `k > 0` é a ÚNICA linha destrutiva do corpo.
-Widget _linhaInscricoesCanceladas(
-  BuildContext context,
-  ColorScheme cs,
-  int k,
-) {
+Widget _linhaInscricoesCanceladas(BuildContext context, ColorScheme cs, int k) {
   if (k == 0) {
-    return _paragrafo(
-      context,
-      [const TextSpan(text: 'Nenhuma pessoa inscrita será afetada.')],
-      cor: cs.onSurfaceVariant,
-    );
+    return _paragrafo(context, [
+      const TextSpan(text: 'Nenhuma pessoa inscrita será afetada.'),
+    ], cor: cs.onSurfaceVariant);
   }
 
   return Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Icon(Icons.person_off_outlined, size: 18, color: cs.error),
+      Icon(AppIcons.personOff, size: 18, color: cs.error),
       const SizedBox(width: 8),
       Expanded(
         child: _paragrafo(
@@ -226,7 +220,8 @@ Widget _linhaInscricoesCanceladas(
           k == 1
               ? [
                   const TextSpan(
-                    text: '1 inscrição será cancelada. A pessoa recebe um '
+                    text:
+                        '1 inscrição será cancelada. A pessoa recebe um '
                         'aviso com link para se inscrever na data '
                         'equivalente.',
                   ),
@@ -234,7 +229,8 @@ Widget _linhaInscricoesCanceladas(
               : [
                   _numero(k),
                   const TextSpan(
-                    text: ' inscrições serão canceladas. As pessoas recebem '
+                    text:
+                        ' inscrições serão canceladas. As pessoas recebem '
                         'um aviso com link para se inscrever na data '
                         'equivalente.',
                   ),
@@ -314,29 +310,29 @@ List<Widget> buildImpactBody(
           _paragrafo(context, [
             if (m == 1)
               const TextSpan(
-                text: 'A ocorrência passada será preservada, com inscrições, '
+                text:
+                    'A ocorrência passada será preservada, com inscrições, '
                     'presença e escalas.',
               )
             else ...[
               _numero(m),
               const TextSpan(
-                text: ' ocorrências passadas serão preservadas, com '
+                text:
+                    ' ocorrências passadas serão preservadas, com '
                     'inscrições, presença e escalas.',
               ),
             ],
           ]),
 
         if (k == 0)
-          _paragrafo(
-            context,
-            [const TextSpan(text: 'Nenhuma pessoa inscrita será afetada.')],
-            cor: cs.onSurfaceVariant,
-          )
+          _paragrafo(context, [
+            const TextSpan(text: 'Nenhuma pessoa inscrita será afetada.'),
+          ], cor: cs.onSurfaceVariant)
         else
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.person_off_outlined, size: 18, color: cs.error),
+              Icon(AppIcons.personOff, size: 18, color: cs.error),
               const SizedBox(width: 8),
               Expanded(
                 child: _paragrafo(
@@ -344,14 +340,16 @@ List<Widget> buildImpactBody(
                   k == 1
                       ? [
                           const TextSpan(
-                            text: '1 inscrição será cancelada e a pessoa '
+                            text:
+                                '1 inscrição será cancelada e a pessoa '
                                 'será avisada.',
                           ),
                         ]
                       : [
                           _numero(k),
                           const TextSpan(
-                            text: ' inscrições serão canceladas e as pessoas '
+                            text:
+                                ' inscrições serão canceladas e as pessoas '
                                 'serão avisadas.',
                           ),
                         ],
@@ -396,9 +394,7 @@ List<Widget> buildImpactBody(
         if (m > 0)
           _paragrafo(context, [
             if (m == 1)
-              const TextSpan(
-                text: 'A ocorrência passada não será alterada.',
-              )
+              const TextSpan(text: 'A ocorrência passada não será alterada.')
             else ...[
               const TextSpan(text: 'As '),
               _numero(m),
@@ -449,7 +445,9 @@ List<Widget> buildImpactBody(
       final n = impact.deletedCount;
       final m = impact.pastCount;
       final k = impact.affectedRegistrations;
-      final corte = newEndDate == null ? '' : ' depois de ${_dataBr.format(newEndDate)}';
+      final corte = newEndDate == null
+          ? ''
+          : ' depois de ${_dataBr.format(newEndDate)}';
 
       return [
         _paragrafo(context, [
@@ -503,7 +501,8 @@ List<Widget> buildImpactBody(
         if (impact.affectedSchedules > 0)
           _paragrafo(context, [
             const TextSpan(
-              text: 'As escalas de ministério das datas futuras vão junto '
+              text:
+                  'As escalas de ministério das datas futuras vão junto '
                   'para a data equivalente.',
             ),
           ]),
@@ -579,9 +578,9 @@ class _SeriesImpactDialogState extends State<SeriesImpactDialog> {
       elevation: 0,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560),
-        child: Container(
-          decoration: CommunityDesign.overlayDecoration(cs),
+        child: GlassCard(
           padding: CommunityDesign.overlayPadding,
+          radius: 20,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
