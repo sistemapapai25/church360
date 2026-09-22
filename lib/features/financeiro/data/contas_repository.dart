@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/conta_financeira.dart';
 import '../domain/models/dashboard_data.dart';
+import 'lancamentos_scope.dart';
 
 /// Repository de Contas Financeiras
 /// Responsável por toda comunicação com a tabela 'contas_financeiras' no Supabase
@@ -153,7 +154,10 @@ class ContasRepository {
           .eq('tenant_id', SupabaseConstants.currentTenantId)
           .gte('vencimento', inicio.toIso8601String().split('T')[0])
           .lte('vencimento', fim.toIso8601String().split('T')[0])
-          .isFilter('deleted_at', null);
+          .isFilter('deleted_at', null)
+          // Sem isto, uma saída de ministério que ninguém aprovou entraria
+          // em `despesasPrevistas` e derrubaria o saldo previsto da igreja.
+          .or(kLancamentosIgrejaScope);
 
       double receitasPrevistas = 0;
       double receitasRecebidas = 0;

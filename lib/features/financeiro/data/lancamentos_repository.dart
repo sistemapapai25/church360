@@ -5,6 +5,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/lancamento.dart';
+import 'lancamentos_scope.dart';
 
 /// Repository de Lançamentos Financeiros
 /// Responsável por toda comunicação com a tabela 'lancamentos' no Supabase
@@ -33,7 +34,9 @@ class LancamentosRepository {
             conta:contas_financeiras(nome)
           ''')
           .eq('tenant_id', SupabaseConstants.currentTenantId)
-          .isFilter('deleted_at', null);
+          .isFilter('deleted_at', null)
+          // Lista da igreja: o caixa do departamento tem aba própria.
+          .or(kLancamentosIgrejaScope);
 
       if (startDate != null) {
         query = query.gte('vencimento', startDate.toIso8601String().split('T')[0]);
@@ -222,6 +225,9 @@ class LancamentosRepository {
           .eq('status', 'EM_ABERTO')
           .lt('vencimento', hoje)
           .isFilter('deleted_at', null)
+          // Cobrar a igreja por uma saída de ministério que ainda espera
+          // aprovação seria cobrar por uma conta que talvez não exista.
+          .or(kLancamentosIgrejaScope)
           .order('vencimento', ascending: true);
 
       return (response as List).map((json) => Lancamento.fromJson(json)).toList();

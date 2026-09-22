@@ -39,6 +39,36 @@ enum StatusLancamento {
   }
 }
 
+/// Situação de aprovação de um lançamento de ministério.
+///
+/// É uma coluna separada de [StatusLancamento] de propósito: `status` é o
+/// ciclo de PAGAMENTO (em aberto / pago / cancelado), e reusá-lo faria
+/// "pendente de aprovação" e "pendente de pagamento" virarem a mesma coisa.
+///
+/// Quem decide o valor é o banco, nunca o app: o trigger
+/// `lancamentos_set_approval` sobrescreve o que vier no insert, e
+/// `lancamentos_guard_approval` recusa (42501) quem tentar mudar a coluna
+/// sem `ministry_finance.approve`.
+enum AprovacaoLancamento {
+  aprovado('APROVADO', 'Aprovado'),
+  pendente('PENDENTE', 'Aguardando aprovação'),
+  rejeitado('REJEITADO', 'Rejeitado');
+
+  final String value;
+  final String label;
+
+  const AprovacaoLancamento(this.value, this.label);
+
+  static AprovacaoLancamento fromValue(String? value) {
+    return AprovacaoLancamento.values.firstWhere(
+      (a) => a.value == value,
+      // Lançamento da igreja nasce APROVADO; tratar desconhecido como
+      // aprovado mantém o comportamento de antes desta coluna existir.
+      orElse: () => AprovacaoLancamento.aprovado,
+    );
+  }
+}
+
 /// Forma de pagamento
 enum FormaPagamento {
   pix('PIX', 'PIX'),
@@ -88,6 +118,13 @@ class Lancamento {
   final String tenantId;
   final String? createdBy;
 
+  // Caixa do ministério (21/09). `ministryId` nulo é lançamento da igreja —
+  // é ele que separa o livro-caixa geral do caixa do departamento.
+  final String? ministryId;
+  final AprovacaoLancamento approvalStatus;
+  final String? approvedBy;
+  final DateTime? approvedAt;
+
   // Recorrência (opcional)
   final bool isRecurring;
   final String? recurrenceFrequency; // MONTHLY | WEEKLY | YEARLY
@@ -127,6 +164,10 @@ class Lancamento {
     this.deletedAt,
     required this.tenantId,
     this.createdBy,
+    this.ministryId,
+    this.approvalStatus = AprovacaoLancamento.aprovado,
+    this.approvedBy,
+    this.approvedAt,
     this.isRecurring = false,
     this.recurrenceFrequency,
     this.recurrenceInterval = 1,
@@ -186,6 +227,14 @@ class Lancamento {
           : null,
       tenantId: json['tenant_id'] as String,
       createdBy: json['created_by'] as String?,
+      ministryId: json['ministry_id'] as String?,
+      approvalStatus: AprovacaoLancamento.fromValue(
+        json['approval_status'] as String?,
+      ),
+      approvedBy: json['approved_by'] as String?,
+      approvedAt: json['approved_at'] != null
+          ? DateTime.parse(json['approved_at'] as String)
+          : null,
       isRecurring: json['is_recurring'] as bool? ?? false,
       recurrenceFrequency: json['recurrence_frequency'] as String?,
       recurrenceInterval: json['recurrence_interval'] as int? ?? 1,
@@ -234,6 +283,12 @@ class Lancamento {
       'deleted_at': deletedAt?.toIso8601String(),
       'tenant_id': tenantId,
       'created_by': createdBy,
+      'ministry_id': ministryId,
+      // `approval_status`, `approved_by` e `approved_at` ficam de fora de
+      // propósito: são escritos pelo banco. Mandar approval_status num
+      // insert não adianta (o trigger sobrescreve) e mandá-lo num update
+      // sem `ministry_finance.approve` estoura 42501 — o app não pode
+      // eleger a si mesmo como aprovador.
       'is_recurring': isRecurring,
       'recurrence_frequency': recurrenceFrequency,
       'recurrence_interval': recurrenceInterval,
@@ -269,6 +324,10 @@ class Lancamento {
     DateTime? deletedAt,
     String? tenantId,
     String? createdBy,
+    String? ministryId,
+    AprovacaoLancamento? approvalStatus,
+    String? approvedBy,
+    DateTime? approvedAt,
     String? beneficiarioNome,
     String? categoriaNome,
     String? contaNome,
@@ -298,6 +357,10 @@ class Lancamento {
       deletedAt: deletedAt ?? this.deletedAt,
       tenantId: tenantId ?? this.tenantId,
       createdBy: createdBy ?? this.createdBy,
+      ministryId: ministryId ?? this.ministryId,
+      approvalStatus: approvalStatus ?? this.approvalStatus,
+      approvedBy: approvedBy ?? this.approvedBy,
+      approvedAt: approvedAt ?? this.approvedAt,
       beneficiarioNome: beneficiarioNome ?? this.beneficiarioNome,
       categoriaNome: categoriaNome ?? this.categoriaNome,
       contaNome: contaNome ?? this.contaNome,
@@ -310,4 +373,10 @@ class Lancamento {
   bool get isCancelado => status == StatusLancamento.cancelado;
   bool get isDespesa => tipo == TipoLancamento.despesa;
   bool get isReceita => tipo == TipoLancamento.receita;
+
+  /// Lançamento de um departamento, e não do caixa geral da igreja.
+  bool get isDeMinisterio => ministryId != null;
+  bool get isPendenteAprovacao =>
+      approvalStatus == AprovacaoLancamento.pendente;
+  bool get isRejeitado => approvalStatus == AprovacaoLancamento.rejeitado;
 }

@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../../../shared/presentation/widgets/ministry_scale_tab.dart';
-import '../../../shared/presentation/widgets/ministry_tab_placeholder.dart';
+import '../../../shared/presentation/widgets/ministry_finance_tab.dart';
 import '../../../shared/presentation/widgets/ministry_team_tab.dart';
 import '../../../shared/presentation/widgets/ministry_workspace_shell.dart';
 import '../../domain/models/baptism_student.dart';
@@ -17,11 +17,9 @@ import 'tabs/batismo_whatsapp_tab.dart';
 
 /// Workspace do Batismo nas Águas (Etapa 4 do plano).
 ///
-/// As oito abas aparecem desde já. Equipe, Escala, Alunos, Checklist,
-/// Presença, WhatsApp e Relatórios estão prontas; só o Financeiro segue
-/// como placeholder, por decisão de quem cuida do módulo. Até lá ele mostra
-/// um estado vazio honesto, para que a estrutura fique visível e o que
-/// falta fique explícito.
+/// As oito abas estão no ar. A última a entrar foi o Financeiro (22/09), o
+/// caixa do departamento: mora em `shared/` porque serve qualquer
+/// ministério, e o Batismo é só o primeiro a mostrá-la.
 class BatismoHomeScreen extends ConsumerWidget {
   final String ministryId;
 
@@ -104,9 +102,9 @@ class _BatismoWorkspace extends ConsumerWidget {
           label: 'Escala',
           builder: (_) => MinistryScaleTab(ministryId: ministryId),
         ),
-        const MinistryWorkspaceTab(
+        MinistryWorkspaceTab(
           label: 'Financeiro',
-          builder: _financeiroPlaceholder,
+          builder: (_) => MinistryFinanceTab(ministryId: ministryId),
         ),
         MinistryWorkspaceTab(
           label: 'Alunos',
@@ -133,12 +131,3 @@ class _BatismoWorkspace extends ConsumerWidget {
     );
   }
 }
-
-Widget _financeiroPlaceholder(BuildContext context) =>
-    const MinistryTabPlaceholder(
-      icon: Icons.account_balance_wallet_outlined,
-      title: 'Caixa do ministério',
-      description:
-          'Entradas, saídas e alvos do departamento, com a saída esperando '
-          'confirmação de quem responde pelo financeiro.',
-    );
