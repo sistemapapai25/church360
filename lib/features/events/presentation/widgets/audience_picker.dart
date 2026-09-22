@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
@@ -63,10 +65,7 @@ class AudiencePicker extends ConsumerStatefulWidget {
     required this.initialSelection,
     this.role = 'responsible',
     this.title = 'Adicionar responsável',
-    this.tabs = const [
-      AudienceTargetTab.people,
-      AudienceTargetTab.ministries,
-    ],
+    this.tabs = const [AudienceTargetTab.people, AudienceTargetTab.ministries],
   });
 
   @override
@@ -183,13 +182,9 @@ class _AudiencePickerState extends ConsumerState<AudiencePicker>
     return SafeArea(
       child: SizedBox(
         height: mediaHeight * 0.85,
-        child: Container(
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(18),
-            ),
-          ),
+        child: GlassCard(
+          padding: EdgeInsets.zero,
+          radius: 18,
           child: Column(
             children: [
               const SizedBox(height: 24),
@@ -226,11 +221,11 @@ class _AudiencePickerState extends ConsumerState<AudiencePicker>
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search),
+                    prefixIcon: const Icon(AppIcons.search),
                     hintText: 'Buscar...',
                     suffixIcon: _query.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear),
+                            icon: const Icon(AppIcons.clear),
                             onPressed: () {
                               setState(() {
                                 _searchController.clear();
@@ -246,9 +241,7 @@ class _AudiencePickerState extends ConsumerState<AudiencePicker>
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
-                  children: [
-                    for (final tab in widget.tabs) _viewFor(tab),
-                  ],
+                  children: [for (final tab in widget.tabs) _viewFor(tab)],
                 ),
               ),
               SafeArea(
@@ -296,7 +289,7 @@ class _SearchEmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.search_off, size: 40, color: colorScheme.outline),
+          Icon(AppIcons.searchEmpty, size: 40, color: colorScheme.outline),
           const SizedBox(height: 12),
           Text(
             'Nenhum resultado para "$query"',
@@ -459,11 +452,13 @@ class _PeopleTab extends ConsumerWidget {
               value: isSelected,
               activeColor: colorScheme.primary,
               secondary: CircleAvatar(
-                backgroundImage: (person.avatarUrl != null &&
+                backgroundImage:
+                    (person.avatarUrl != null &&
                         person.avatarUrl!.trim().isNotEmpty)
                     ? NetworkImage(person.avatarUrl!)
                     : null,
-                child: (person.avatarUrl == null ||
+                child:
+                    (person.avatarUrl == null ||
                         person.avatarUrl!.trim().isEmpty)
                     ? Text(person.initials)
                     : null,
@@ -510,8 +505,9 @@ class _GroupsTab extends ConsumerWidget {
         var filtered = groups;
         if (query.isNotEmpty) {
           final q = query.toLowerCase();
-          filtered =
-              filtered.where((g) => g.name.toLowerCase().contains(q)).toList();
+          filtered = filtered
+              .where((g) => g.name.toLowerCase().contains(q))
+              .toList();
         }
 
         if (filtered.isEmpty && query.isNotEmpty) {
@@ -520,7 +516,7 @@ class _GroupsTab extends ConsumerWidget {
 
         if (filtered.isEmpty) {
           return const _NoDataState(
-            icon: Icons.group_off,
+            icon: AppIcons.groupOff,
             title: 'Nenhum grupo cadastrado',
             description:
                 'Cadastre grupos em Grupos para poder usá-los como alvo aqui.',
@@ -542,7 +538,10 @@ class _GroupsTab extends ConsumerWidget {
             return CheckboxListTile(
               value: isSelected,
               activeColor: colorScheme.primary,
-              secondary: Icon(Icons.group, color: colorScheme.onSurfaceVariant),
+              secondary: Icon(
+                AppIcons.groups,
+                color: colorScheme.onSurfaceVariant,
+              ),
               title: Text(group.name),
               onChanged: (_) => onToggle(target),
             );
@@ -585,7 +584,9 @@ class _MinistriesTab extends ConsumerWidget {
         var filtered = ministries;
         if (query.isNotEmpty) {
           final q = query.toLowerCase();
-          filtered = filtered.where((m) => m.name.toLowerCase().contains(q)).toList();
+          filtered = filtered
+              .where((m) => m.name.toLowerCase().contains(q))
+              .toList();
         }
 
         if (filtered.isEmpty && query.isNotEmpty) {
@@ -607,7 +608,10 @@ class _MinistriesTab extends ConsumerWidget {
             return CheckboxListTile(
               value: isSelected,
               activeColor: colorScheme.primary,
-              secondary: Icon(Icons.church, color: colorScheme.onSurfaceVariant),
+              secondary: Icon(
+                AppIcons.church,
+                color: colorScheme.onSurfaceVariant,
+              ),
               title: Text(ministry.name),
               onChanged: (_) => onToggle(target),
             );
@@ -656,8 +660,9 @@ class _RolesTab extends ConsumerWidget {
         var filtered = roles;
         if (query.isNotEmpty) {
           final q = query.toLowerCase();
-          filtered =
-              filtered.where((r) => r.name.toLowerCase().contains(q)).toList();
+          filtered = filtered
+              .where((r) => r.name.toLowerCase().contains(q))
+              .toList();
         }
 
         // D-07: cargo já escolhido que foi desativado depois continua valendo
@@ -681,7 +686,7 @@ class _RolesTab extends ConsumerWidget {
 
         if (filtered.isEmpty && desativadosSelecionados.isEmpty) {
           return const _NoDataState(
-            icon: Icons.badge,
+            icon: AppIcons.badge,
             title: 'Nenhum cargo cadastrado',
             description:
                 'Cadastre cargos em Permissões > Cargos para poder restringir '
@@ -694,8 +699,7 @@ class _RolesTab extends ConsumerWidget {
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount:
-                    desativadosSelecionados.length + filtered.length,
+                itemCount: desativadosSelecionados.length + filtered.length,
                 itemBuilder: (context, index) {
                   if (index < desativadosSelecionados.length) {
                     final inativo = desativadosSelecionados[index];
@@ -703,7 +707,7 @@ class _RolesTab extends ConsumerWidget {
                       value: true,
                       activeColor: colorScheme.primary,
                       secondary: Icon(
-                        Icons.badge,
+                        AppIcons.badge,
                         color: colorScheme.onSurfaceVariant,
                       ),
                       title: Text(
@@ -714,7 +718,8 @@ class _RolesTab extends ConsumerWidget {
                     );
                   }
 
-                  final cargo = filtered[index - desativadosSelecionados.length];
+                  final cargo =
+                      filtered[index - desativadosSelecionados.length];
                   final target = EventAudience(
                     eventId: eventId,
                     role: role,
@@ -726,7 +731,7 @@ class _RolesTab extends ConsumerWidget {
                     value: isSelected,
                     activeColor: colorScheme.primary,
                     secondary: Icon(
-                      Icons.badge,
+                      AppIcons.badge,
                       color: colorScheme.onSurfaceVariant,
                     ),
                     title: Text(cargo.name),

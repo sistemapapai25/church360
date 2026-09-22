@@ -43,6 +43,7 @@ abstract final class AppIcons {
   static const group = Icons.groups_2_outlined;
   static const groups = Icons.groups_outlined;
   static const groupsFilled = Icons.groups;
+  static const groupOff = Icons.group_off;
   static const gender = Icons.wc_outlined;
   static const badge = Icons.badge_outlined;
   static const registration = Icons.how_to_reg_outlined;

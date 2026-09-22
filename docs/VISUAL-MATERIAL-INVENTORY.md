@@ -179,3 +179,18 @@ persistência ou contratos de dados.
 Não houve alteração em banco, rotas, permissões, providers, repositórios,
 persistência, regras de audiência, capacidade, inscrição ou contratos de
 dados.
+
+## Onda visual — Events, diálogos e widgets especializados
+
+- `AddRegistrationDialog` agora usa o catálogo `AppIcons` nos estados de
+  elegibilidade, busca, seleção e inscrição, preservando a fonte de membros,
+  as mensagens de capacidade e o fluxo de gravação.
+- `AudiencePicker` e `ReminderPicker` reutilizam `GlassCard` nos bottom sheets
+  e passaram a consumir as semânticas compartilhadas para busca, grupos,
+  ministérios, cargos, notificações e estados vazios.
+- `SeriesImpactDialog`, `SeriesProgressBarrier` e `SeriesScopeToggle` agora
+  usam as superfícies de vidro nos overlays e o catálogo semântico para
+  impacto destrutivo, ajuda e operação longa; gates, copy, contagens vindas
+  do servidor e escopo da série foram preservados.
+- Não houve alteração em banco, rotas, permissões, providers, RPCs,
+  persistência ou contratos de dados.

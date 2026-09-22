@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../members/domain/models/member_directory_entry.dart';
 import '../../../members/presentation/providers/members_provider.dart';
@@ -37,8 +38,7 @@ class AddRegistrationDialog extends ConsumerStatefulWidget {
       _AddRegistrationDialogState();
 }
 
-class _AddRegistrationDialogState
-    extends ConsumerState<AddRegistrationDialog> {
+class _AddRegistrationDialogState extends ConsumerState<AddRegistrationDialog> {
   String? _selectedMemberId;
   String _searchQuery = '';
   bool _submitting = false;
@@ -110,7 +110,7 @@ class _AddRegistrationDialogState
                 if (_inscricaoRestrita && directory.isEmpty) {
                   return _buildEmptyState(
                     context,
-                    icon: Icons.lock_outline,
+                    icon: AppIcons.lock,
                     heading: 'Nenhum membro elegível para este evento.',
                     body:
                         'A inscrição está restrita aos alvos escolhidos, e alvo do tipo cargo alcança apenas membros com conta de acesso ao aplicativo.',
@@ -120,7 +120,7 @@ class _AddRegistrationDialogState
                 if (availableMembers.isEmpty) {
                   return _buildEmptyState(
                     context,
-                    icon: Icons.how_to_reg,
+                    icon: AppIcons.howToReg,
                     heading: 'Todos já estão inscritos',
                     body:
                         'Não há mais ninguém no cadastro de membros para adicionar a este evento.',
@@ -139,10 +139,10 @@ class _AddRegistrationDialogState
                       controller: _searchController,
                       decoration: InputDecoration(
                         labelText: 'Buscar membro...',
-                        prefixIcon: const Icon(Icons.search),
+                        prefixIcon: const Icon(AppIcons.search),
                         suffixIcon: _searchQuery.trim().isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.clear),
+                                icon: const Icon(AppIcons.clear),
                                 onPressed: () {
                                   setState(() {
                                     _searchController.clear();
@@ -174,7 +174,7 @@ class _AddRegistrationDialogState
                           if (filtered.isEmpty) {
                             return _buildEmptyState(
                               context,
-                              icon: Icons.search_off,
+                              icon: AppIcons.searchEmpty,
                               heading: 'Nenhum resultado para "$_searchQuery"',
                               body:
                                   'Confira a grafia ou tente buscar pelo apelido.',
@@ -187,27 +187,35 @@ class _AddRegistrationDialogState
                               final m = filtered[index];
                               final isSelected = _selectedMemberId == m.id;
                               final hasAvatar =
-                                  m.avatarUrl != null && m.avatarUrl!.trim().isNotEmpty;
+                                  m.avatarUrl != null &&
+                                  m.avatarUrl!.trim().isNotEmpty;
                               final hasNickname =
-                                  m.nickname != null && m.nickname!.trim().isNotEmpty;
+                                  m.nickname != null &&
+                                  m.nickname!.trim().isNotEmpty;
                               return ListTile(
                                 leading: hasAvatar
                                     ? CircleAvatar(
-                                        backgroundImage: NetworkImage(m.avatarUrl!),
+                                        backgroundImage: NetworkImage(
+                                          m.avatarUrl!,
+                                        ),
                                       )
                                     : CircleAvatar(child: Text(m.initials)),
                                 title: Text(m.displayName),
-                                subtitle: hasNickname ? Text(m.nickname!) : null,
+                                subtitle: hasNickname
+                                    ? Text(m.nickname!)
+                                    : null,
                                 trailing: isSelected
                                     ? Icon(
-                                        Icons.check_circle,
+                                        AppIcons.checkCircle,
                                         color: colorScheme.primary,
                                       )
                                     : null,
                                 onTap: _submitting
                                     ? null
                                     : () {
-                                        setState(() => _selectedMemberId = m.id);
+                                        setState(
+                                          () => _selectedMemberId = m.id,
+                                        );
                                       },
                               );
                             },
@@ -352,9 +360,9 @@ class _AddRegistrationDialogState
 
       if (context.mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Inscrito adicionado.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Inscrito adicionado.')));
       }
     } catch (e) {
       // REG-04: a UI antecipa o teto, mas quem decide é a RPC. Se o servidor
@@ -394,7 +402,8 @@ class _AddRegistrationDialogState
           context,
           e,
           feature: 'events',
-          fallbackMessage: 'Não foi possível adicionar o inscrito. Tente novamente.',
+          fallbackMessage:
+              'Não foi possível adicionar o inscrito. Tente novamente.',
         );
       }
     } finally {

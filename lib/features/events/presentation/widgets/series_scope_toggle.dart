@@ -29,6 +29,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../domain/models/event_series.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../providers/events_provider.dart';
@@ -109,47 +111,53 @@ class _SeriesScopeToggleState extends ConsumerState<SeriesScopeToggle> {
   }
 
   Widget _blocoSerieLegada(BuildContext context, ColorScheme cs) {
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cs.tertiaryContainer,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.help_outline, size: 18, color: cs.onTertiaryContainer),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Padrão de repetição não registrado',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: cs.onTertiaryContainer,
-                  ),
+      accentColor: cs.tertiary,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: cs.tertiaryContainer.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(AppIcons.help, size: 18, color: cs.onTertiaryContainer),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Padrão de repetição não registrado',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onTertiaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Esta série foi criada antes desta atualização, então o '
+                      'padrão não ficou salvo. Você ainda pode aplicar alterações '
+                      'de campos comuns a todas as ocorrências futuras. Para mudar '
+                      'o padrão ou o período, exclua as ocorrências futuras e crie '
+                      'a série de novo.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        height: 1.5,
+                        color: cs.onTertiaryContainer,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Esta série foi criada antes desta atualização, então o '
-                  'padrão não ficou salvo. Você ainda pode aplicar alterações '
-                  'de campos comuns a todas as ocorrências futuras. Para mudar '
-                  'o padrão ou o período, exclua as ocorrências futuras e crie '
-                  'a série de novo.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    height: 1.5,
-                    color: cs.onTertiaryContainer,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/glass_card.dart';
 
 /// Fase 6 — S6 / IC-6 do `06-UI-SPEC.md`. Barreira de progresso da criação de
 /// uma série de eventos fixos.
@@ -39,9 +40,9 @@ class SeriesProgressBarrier extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 320),
-              child: Container(
+              child: GlassCard(
                 padding: CommunityDesign.overlayPadding,
-                decoration: CommunityDesign.overlayDecoration(colorScheme),
+                radius: 20,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
