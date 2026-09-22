@@ -569,6 +569,51 @@ avisos de migração futura do runner Node 20/Ubuntu 26.
 - `docs/VISUAL-MATERIAL-INVENTORY.md`
 - `SESSION-WRAP.md` (este handoff)
 
+## Final closeout — visual wave 12 Events, diálogos e widgets especializados
+
+Timestamp: 2026-09-22, America/Sao_Paulo (UTC-03).
+
+### O que foi entregue
+
+- `AddRegistrationDialog` passou a usar `AppIcons` nos estados de
+  elegibilidade, busca, seleção e inscrição.
+- `AudiencePicker` e `ReminderPicker` passaram a reutilizar `GlassCard` nos
+  bottom sheets e o catálogo semântico nos controles e estados vazios.
+- `SeriesImpactDialog`, `SeriesProgressBarrier` e `SeriesScopeToggle` passaram
+  a usar as superfícies de vidro e os ícones compartilhados nos overlays,
+  mantendo gates, copy, contagens do servidor e escopo da série.
+- O inventário visual foi atualizado. Não houve alteração em banco, rotas,
+  permissões, providers, RPCs, persistência ou contratos de dados.
+
+### Verificação
+
+- Testes focados relacionados a Events: **39 passed**.
+- `flutter test --no-pub -j 1`: **542 passed**.
+- `flutter analyze --no-pub` nos sete arquivos alterados: sem issues.
+- `git diff --check`: passou.
+- Workflow de produção concluiu com sucesso em 2m54s; o build web e o deploy
+  foram concluídos pelo GitHub Actions.
+
+### Git, merge e produção
+
+- Commit de implementação: `5381e07`, `feat: standardize event specialized widgets`.
+- PR #141: https://github.com/sistemapapai25/church360/pull/141.
+- PR #141 mergeada em `main` com o commit `583a039251457b19d408d3c82d98bff9be78c08f`.
+- Workflow de produção: run `35707447153`, sucesso:
+  https://github.com/sistemapapai25/church360/actions/runs/35707447153.
+- Deploy Vercel Ready:
+  `https://church360-m0p3a2lye-gabriels-projects-ec03504d.vercel.app`.
+- Alias publicado: `https://app.church360.com.br`.
+- Smoke test da URL única de deployment: **200 OK**. A validação autenticada
+  continua dependente de uma sessão real por causa da proteção SSO.
+
+### Próximo passo
+
+- Iniciar a próxima fatia visual de Financeiro, mantendo Font Awesome,
+  identificadores persistidos e contratos de dados intactos.
+- Os sete registradores Flutter gerados continuam modificados localmente e
+  fora do staging e de todos os commits.
+
 ## Onda visual — submódulos especializados do Ministries
 
 Timestamp: 2026-09-21, America/Sao_Paulo (UTC-03).
