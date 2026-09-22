@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
+import '../../financeiro/data/lancamentos_scope.dart';
 
 import '../domain/models/contribution.dart';
 
@@ -299,6 +300,7 @@ class FinancialRepository {
         .select(_lancamentosSelect)
         .eq('tipo', 'RECEITA')
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .or(kLancamentosIgrejaScope)
         .order('vencimento', ascending: false);
 
     return (response as List)
@@ -317,6 +319,7 @@ class FinancialRepository {
         .eq('tipo', 'RECEITA')
         .eq('beneficiario_id', beneficiaryId)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .or(kLancamentosIgrejaScope)
         .order('vencimento', ascending: false);
 
     return (response as List)
@@ -337,6 +340,7 @@ class FinancialRepository {
         .eq('tipo', 'RECEITA')
         .eq('categoria_id', categoryId)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .or(kLancamentosIgrejaScope)
         .order('vencimento', ascending: false);
 
     return (response as List)
@@ -356,6 +360,7 @@ class FinancialRepository {
         .gte('vencimento', startDate.toIso8601String().split('T')[0])
         .lte('vencimento', endDate.toIso8601String().split('T')[0])
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .or(kLancamentosIgrejaScope)
         .order('vencimento', ascending: false);
 
     return (response as List)
@@ -371,6 +376,7 @@ class FinancialRepository {
         .eq('tipo', 'RECEITA')
         .eq('id', id)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .or(kLancamentosIgrejaScope)
         .maybeSingle();
 
     if (response == null) return null;
@@ -474,7 +480,8 @@ class FinancialRepository {
         .from('lancamentos')
         .select('valor, valor_pago')
         .eq('tipo', 'RECEITA')
-        .eq('tenant_id', SupabaseConstants.currentTenantId);
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .or(kLancamentosIgrejaScope);
 
     double total = 0;
     for (final item in response as List) {
@@ -495,7 +502,8 @@ class FinancialRepository {
         .select('valor, valor_pago')
         .eq('tipo', 'RECEITA')
         .eq('categoria_id', categoryId)
-        .eq('tenant_id', SupabaseConstants.currentTenantId);
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .or(kLancamentosIgrejaScope);
 
     double total = 0;
     for (final item in response as List) {
@@ -515,7 +523,8 @@ class FinancialRepository {
         .eq('tipo', 'RECEITA')
         .gte('vencimento', startDate.toIso8601String().split('T')[0])
         .lte('vencimento', endDate.toIso8601String().split('T')[0])
-        .eq('tenant_id', SupabaseConstants.currentTenantId);
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .or(kLancamentosIgrejaScope);
 
     double total = 0;
     for (final item in response as List) {
@@ -617,6 +626,7 @@ class FinancialRepository {
         .select(_lancamentosSelect)
         .eq('tipo', 'DESPESA')
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .or(kLancamentosIgrejaScope)
         .order('vencimento', ascending: false);
 
     return (response as List)
@@ -634,6 +644,7 @@ class FinancialRepository {
         .eq('tipo', 'DESPESA')
         .eq('categoria_id', categoryId)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .or(kLancamentosIgrejaScope)
         .order('vencimento', ascending: false);
 
     return (response as List)
@@ -653,6 +664,7 @@ class FinancialRepository {
         .gte('vencimento', startDate.toIso8601String().split('T')[0])
         .lte('vencimento', endDate.toIso8601String().split('T')[0])
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .or(kLancamentosIgrejaScope)
         .order('vencimento', ascending: false);
 
     return (response as List)
@@ -757,7 +769,8 @@ class FinancialRepository {
         .from('lancamentos')
         .select('valor, valor_pago')
         .eq('tipo', 'DESPESA')
-        .eq('tenant_id', SupabaseConstants.currentTenantId);
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .or(kLancamentosIgrejaScope);
 
     double total = 0;
     for (final item in response as List) {
@@ -777,7 +790,8 @@ class FinancialRepository {
         .eq('tipo', 'DESPESA')
         .gte('vencimento', startDate.toIso8601String().split('T')[0])
         .lte('vencimento', endDate.toIso8601String().split('T')[0])
-        .eq('tenant_id', SupabaseConstants.currentTenantId);
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .or(kLancamentosIgrejaScope);
 
     double total = 0;
     for (final item in response as List) {
