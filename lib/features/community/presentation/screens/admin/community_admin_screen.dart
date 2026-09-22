@@ -5,16 +5,20 @@ import '../../providers/community_providers.dart';
 import '../../../domain/models/community_post.dart';
 import '../../../domain/models/classified.dart';
 import '../../../../../core/design/community_design.dart';
+import '../../../../../core/design/app_icons.dart';
+import '../../../../../core/widgets/glass_card.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
 
 class CommunityAdminScreen extends ConsumerStatefulWidget {
   const CommunityAdminScreen({super.key});
 
   @override
-  ConsumerState<CommunityAdminScreen> createState() => _CommunityAdminScreenState();
+  ConsumerState<CommunityAdminScreen> createState() =>
+      _CommunityAdminScreenState();
 }
 
-class _CommunityAdminScreenState extends ConsumerState<CommunityAdminScreen> with SingleTickerProviderStateMixin {
+class _CommunityAdminScreenState extends ConsumerState<CommunityAdminScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -34,27 +38,32 @@ class _CommunityAdminScreenState extends ConsumerState<CommunityAdminScreen> wit
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: Text('Gestão da Comunidade', style: CommunityDesign.titleStyle(context)),
+        title: Text(
+          'Gestão da Comunidade',
+          style: CommunityDesign.titleStyle(context),
+        ),
         backgroundColor: CommunityDesign.headerColor(context),
         iconTheme: IconThemeData(
-          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white
+              : Colors.black,
         ),
         bottom: TabBar(
           controller: _tabController,
           labelColor: Theme.of(context).colorScheme.primary,
           indicatorColor: Theme.of(context).colorScheme.primary,
           tabs: const [
-            Tab(text: 'Posts Pendentes', icon: Icon(Icons.pending_actions)),
-            Tab(text: 'Classificados Pendentes', icon: Icon(Icons.storefront)),
+            Tab(text: 'Posts Pendentes', icon: Icon(AppIcons.pending)),
+            Tab(
+              text: 'Classificados Pendentes',
+              icon: Icon(AppIcons.storefront),
+            ),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
-          _PendingPostsList(),
-          _PendingClassifiedsList(),
-        ],
+        children: const [_PendingPostsList(), _PendingClassifiedsList()],
       ),
     );
   }
@@ -74,7 +83,7 @@ class _PendingPostsList extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.check_circle, size: 64, color: Colors.green),
+                Icon(AppIcons.checkCircle, size: 64, color: Colors.green),
                 SizedBox(height: 16),
                 Text('Nenhum post pendente de aprovação!'),
               ],
@@ -87,66 +96,77 @@ class _PendingPostsList extends ConsumerWidget {
           itemCount: posts.length,
           itemBuilder: (context, index) {
             final CommunityPost post = posts[index];
-            return Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundImage: post.authorAvatarUrl != null
-                              ? NetworkImage(post.authorAvatarUrl!)
-                              : null,
-                          child: post.authorAvatarUrl == null
-                              ? const Icon(Icons.person)
-                              : null,
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              post.authorName ?? 'Anônimo',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            Text(
-                              DateFormat('dd/MM/yyyy HH:mm').format(post.createdAt),
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
-                        _buildTypeChip(context, post.type),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(post.content),
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton.icon(
-                          onPressed: () => _rejectPost(context, ref, post.id),
-                          icon: const Icon(Icons.close, color: Colors.red),
-                          label: const Text('Rejeitar', style: TextStyle(color: Colors.red)),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: () => _approvePost(context, ref, post.id),
-                          icon: const Icon(Icons.check),
-                          label: const Text('Aprovar'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: GlassCard(
+                padding: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundImage: post.authorAvatarUrl != null
+                                ? NetworkImage(post.authorAvatarUrl!)
+                                : null,
+                            child: post.authorAvatarUrl == null
+                                ? const Icon(AppIcons.personFilled)
+                                : null,
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                post.authorName ?? 'Anônimo',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                DateFormat(
+                                  'dd/MM/yyyy HH:mm',
+                                ).format(post.createdAt),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                          const Spacer(),
+                          _buildTypeChip(context, post.type),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(post.content),
+                      const SizedBox(height: 16),
+                      const Divider(),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton.icon(
+                            onPressed: () => _rejectPost(context, ref, post.id),
+                            icon: const Icon(AppIcons.close, color: Colors.red),
+                            label: const Text(
+                              'Rejeitar',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: () =>
+                                _approvePost(context, ref, post.id),
+                            icon: const Icon(AppIcons.check),
+                            label: const Text('Aprovar'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -175,20 +195,29 @@ class _PendingPostsList extends ConsumerWidget {
         color = Colors.blue;
     }
     return Chip(
-      label: Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+      label: Text(
+        label,
+        style: const TextStyle(color: Colors.white, fontSize: 12),
+      ),
       backgroundColor: color,
       padding: EdgeInsets.zero,
       visualDensity: VisualDensity.compact,
     );
   }
 
-  Future<void> _approvePost(BuildContext context, WidgetRef ref, String id) async {
+  Future<void> _approvePost(
+    BuildContext context,
+    WidgetRef ref,
+    String id,
+  ) async {
     final hasPermission = await ref.read(
       currentUserHasPermissionProvider('community.moderate').future,
     );
     if (!hasPermission) return;
     try {
-      await ref.read(communityRepositoryProvider).updatePostStatus(id, 'approved');
+      await ref
+          .read(communityRepositoryProvider)
+          .updatePostStatus(id, 'approved');
       ref.invalidate(pendingPostsProvider);
       ref.invalidate(communityPostsProvider);
       if (context.mounted) {
@@ -198,31 +227,37 @@ class _PendingPostsList extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao aprovar: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao aprovar: $e')));
       }
     }
   }
 
-  Future<void> _rejectPost(BuildContext context, WidgetRef ref, String id) async {
+  Future<void> _rejectPost(
+    BuildContext context,
+    WidgetRef ref,
+    String id,
+  ) async {
     final hasPermission = await ref.read(
       currentUserHasPermissionProvider('community.moderate').future,
     );
     if (!hasPermission) return;
     try {
-      await ref.read(communityRepositoryProvider).updatePostStatus(id, 'rejected');
+      await ref
+          .read(communityRepositoryProvider)
+          .updatePostStatus(id, 'rejected');
       ref.invalidate(pendingPostsProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post rejeitado.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Post rejeitado.')));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao rejeitar: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao rejeitar: $e')));
       }
     }
   }
@@ -242,7 +277,7 @@ class _PendingClassifiedsList extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.check_circle, size: 64, color: Colors.green),
+                Icon(AppIcons.checkCircle, size: 64, color: Colors.green),
                 SizedBox(height: 16),
                 Text('Nenhum classificado pendente!'),
               ],
@@ -255,78 +290,95 @@ class _PendingClassifiedsList extends ConsumerWidget {
           itemCount: items.length,
           itemBuilder: (context, index) {
             final Classified item = items[index];
-            return Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundImage: item.authorAvatarUrl != null
-                              ? NetworkImage(item.authorAvatarUrl!)
-                              : null,
-                          child: item.authorAvatarUrl == null
-                              ? const Icon(Icons.person)
-                              : null,
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.authorName ?? 'Anônimo',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            Text(
-                              DateFormat('dd/MM/yyyy HH:mm').format(item.createdAt),
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
-                        if (item.price != null)
-                          Chip(
-                            label: Text(
-                              'R\$ ${item.price!.toStringAsFixed(2)}',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            backgroundColor: Colors.green.shade100,
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: GlassCard(
+                padding: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundImage: item.authorAvatarUrl != null
+                                ? NetworkImage(item.authorAvatarUrl!)
+                                : null,
+                            child: item.authorAvatarUrl == null
+                                ? const Icon(AppIcons.personFilled)
+                                : null,
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      item.title,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(item.description),
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton.icon(
-                          onPressed: () => _rejectClassified(context, ref, item.id),
-                          icon: const Icon(Icons.close, color: Colors.red),
-                          label: const Text('Rejeitar', style: TextStyle(color: Colors.red)),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: () => _approveClassified(context, ref, item.id),
-                          icon: const Icon(Icons.check),
-                          label: const Text('Aprovar'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.authorName ?? 'Anônimo',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                DateFormat(
+                                  'dd/MM/yyyy HH:mm',
+                                ).format(item.createdAt),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
                           ),
+                          const Spacer(),
+                          if (item.price != null)
+                            Chip(
+                              label: Text(
+                                'R\$ ${item.price!.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              backgroundColor: Colors.green.shade100,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        item.title,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(item.description),
+                      const SizedBox(height: 16),
+                      const Divider(),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton.icon(
+                            onPressed: () =>
+                                _rejectClassified(context, ref, item.id),
+                            icon: const Icon(AppIcons.close, color: Colors.red),
+                            label: const Text(
+                              'Rejeitar',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: () =>
+                                _approveClassified(context, ref, item.id),
+                            icon: const Icon(AppIcons.check),
+                            label: const Text('Aprovar'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -338,13 +390,19 @@ class _PendingClassifiedsList extends ConsumerWidget {
     );
   }
 
-  Future<void> _approveClassified(BuildContext context, WidgetRef ref, String id) async {
+  Future<void> _approveClassified(
+    BuildContext context,
+    WidgetRef ref,
+    String id,
+  ) async {
     final hasPermission = await ref.read(
       currentUserHasPermissionProvider('community.moderate').future,
     );
     if (!hasPermission) return;
     try {
-      await ref.read(communityRepositoryProvider).updateClassifiedStatus(id, 'approved');
+      await ref
+          .read(communityRepositoryProvider)
+          .updateClassifiedStatus(id, 'approved');
       ref.invalidate(pendingClassifiedsProvider);
       ref.invalidate(classifiedsProvider);
       if (context.mounted) {
@@ -354,20 +412,26 @@ class _PendingClassifiedsList extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao aprovar: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao aprovar: $e')));
       }
     }
   }
 
-  Future<void> _rejectClassified(BuildContext context, WidgetRef ref, String id) async {
+  Future<void> _rejectClassified(
+    BuildContext context,
+    WidgetRef ref,
+    String id,
+  ) async {
     final hasPermission = await ref.read(
       currentUserHasPermissionProvider('community.moderate').future,
     );
     if (!hasPermission) return;
     try {
-      await ref.read(communityRepositoryProvider).updateClassifiedStatus(id, 'rejected');
+      await ref
+          .read(communityRepositoryProvider)
+          .updateClassifiedStatus(id, 'rejected');
       ref.invalidate(pendingClassifiedsProvider);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -376,9 +440,9 @@ class _PendingClassifiedsList extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao rejeitar: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao rejeitar: $e')));
       }
     }
   }

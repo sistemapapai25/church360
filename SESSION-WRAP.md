@@ -621,6 +621,45 @@ Após a promoção desta onda, seguir para Community, preservando Font Awesome.
 - Os sete registradores Flutter gerados permanecem modificados localmente e
   fora de todos os commits.
 
+## Final closeout — visual wave 14 Community
+
+Timestamp: 2026-09-22 19:46:48 BRT (America/Sao_Paulo, UTC-03).
+
+### O que foi entregue
+
+- `community_screen.dart` passou a usar o catálogo `AppIcons` em navegação,
+  estados vazios, ações do mural, classificados, membros, anexos,
+  comentários e formulários.
+- O card local compartilhado do feed foi substituído por `GlassCard`,
+  preservando o hover e o comportamento existente.
+- `community_admin_screen.dart` passou a reutilizar `GlassCard` nos cards de
+  moderação e `AppIcons` nos tabs, estados vazios e ações.
+- Os ícones Font Awesome do WhatsApp foram preservados como símbolos de marca.
+- Foi adicionada cobertura focada em
+  `test/features/community/community_visual_surfaces_test.dart`, sem rede e
+  com providers em memória.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios,
+persistência ou contratos de dados.
+
+### Verificação
+
+- Teste focado da Community: **2 passed**.
+- Suíte completa: **556 passed**.
+- `flutter analyze --no-pub` nos quatro arquivos alterados: sem issues.
+- `git diff --check`: passou.
+- `flutter build web --release --no-pub`: passou; permanecem apenas os avisos
+  Wasm conhecidos de `audioplayers_web`, `dart:html`, `package:js` e `image`.
+
+### Estado Git e próximo passo
+
+- Branch de implementação: `feat/visual-wave-14-community`, baseada em
+  `origin/main` no merge `5c0fefa`.
+- Os sete registradores Flutter gerados continuam modificados localmente e
+  fora do staging e de todos os commits.
+- Depois do merge e deploy desta onda, iniciar a auditoria final de Reports e
+  dos consumidores Material restantes fora dos módulos já fechados.
+
 ## Final closeout — visual wave 12 Events, diálogos e widgets especializados
 
 Timestamp: 2026-09-22, America/Sao_Paulo (UTC-03).

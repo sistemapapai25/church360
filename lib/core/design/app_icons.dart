@@ -59,6 +59,16 @@ abstract final class AppIcons {
   static const student = Icons.school_outlined;
   static const addPerson = Icons.person_add_alt;
   static const ministry = Icons.volunteer_activism_outlined;
+  static const storefront = Icons.storefront_outlined;
+  static const addComment = Icons.add_comment_outlined;
+  static const addShoppingCart = Icons.add_shopping_cart_outlined;
+  static const thumbUp = Icons.thumb_up_outlined;
+  static const modeComment = Icons.mode_comment_outlined;
+  static const send = Icons.send_outlined;
+  static const imageAdd = Icons.add_photo_alternate_outlined;
+  static const newReleases = Icons.new_releases_outlined;
+  static const phoneInTalk = Icons.phone_in_talk_outlined;
+  static const verified = Icons.verified_rounded;
   static const study = Icons.menu_book_outlined;
   static const info = Icons.info_outline;
   static const status = Icons.flag_outlined;
