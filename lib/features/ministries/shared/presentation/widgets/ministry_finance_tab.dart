@@ -111,6 +111,123 @@ class _MinistryFinanceBodyState extends ConsumerState<_MinistryFinanceBody> {
     if (saved && mounted) invalidateMinistryFinance(ref, widget.ministryId);
   }
 
+  Future<void> _editar(Lancamento lancamento) async {
+    final catalog = await ref.read(
+      ministryFinanceCatalogProvider(widget.ministryId).future,
+    );
+    if (!mounted) return;
+
+    final saved = await showMinistryFinanceFormSheet(
+      context: context,
+      ministryId: widget.ministryId,
+      catalog: catalog,
+      lancamento: lancamento,
+      podeAprovar: widget.access.canApprove,
+    );
+    if (!saved || !mounted) return;
+
+    invalidateMinistryFinance(ref, widget.ministryId);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          widget.access.canApprove
+              ? 'Lançamento atualizado.'
+              : 'Pedido de edição enviado para aprovação.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _excluir(Lancamento lancamento) async {
+    final motivo = TextEditingController();
+    final podeAprovar = widget.access.canApprove;
+
+    final confirmou = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(podeAprovar ? 'Excluir lançamento?' : 'Pedir exclusão?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              podeAprovar
+                  ? 'O lançamento sai do caixa do ministério. O histórico '
+                        'fica guardado.'
+                  : 'O lançamento continua no caixa até alguém com permissão '
+                        'de aprovação decidir.',
+            ),
+            if (!podeAprovar) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: motivo,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Motivo do pedido',
+                  hintText: 'Ajuda quem vai decidir. Opcional.',
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(podeAprovar ? 'Excluir' : 'Pedir'),
+          ),
+        ],
+      ),
+    );
+
+    final razao = motivo.text.trim();
+    motivo.dispose();
+    if (confirmou != true || !mounted) return;
+
+    try {
+      final repo = ref.read(ministryFinanceRepositoryProvider);
+      await repo.requestDelete(
+        id: lancamento.id,
+        motivo: razao.isEmpty ? null : razao,
+      );
+      if (!mounted) return;
+      invalidateMinistryFinance(ref, widget.ministryId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            podeAprovar
+                ? 'Lançamento excluído.'
+                : 'Pedido de exclusão enviado para aprovação.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  /// Decide um pedido de edição ou exclusão — diferente de [_decidir], que
+  /// decide a saída nascida pendente pela trava D6.
+  Future<void> _decidirPedido(Lancamento lancamento, bool aprovado) async {
+    try {
+      final repo = ref.read(ministryFinanceRepositoryProvider);
+      await repo.resolveChange(id: lancamento.id, aprovado: aprovado);
+      if (!mounted) return;
+      invalidateMinistryFinance(ref, widget.ministryId);
+      final acao = lancamento.pediuExclusao ? 'Exclusão' : 'Edição';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$acao ${aprovado ? 'aprovada' : 'recusada'}.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
   Future<void> _decidir(Lancamento lancamento, bool aprovado) async {
     try {
       final repo = ref.read(ministryFinanceRepositoryProvider);
@@ -147,9 +264,13 @@ class _MinistryFinanceBodyState extends ConsumerState<_MinistryFinanceBody> {
         // muda quando alguém digita no campo de busca seria mentira.
         final summary = MinistryFinanceSummary.from(todos);
         final visiveis = _apply(todos);
-        final pendentes = visiveis.where((l) => l.isPendenteAprovacao).toList();
+        // A fila junta as duas coisas que esperam alguém decidir: a saída
+        // que nasceu pendente (trava D6) e o pedido de edição/exclusão.
+        // Separá-las faria a mesma pessoa procurar decisão em dois lugares
+        // da mesma tela.
+        final pendentes = visiveis.where((l) => l.esperaDecisao).toList();
         final demais = visiveis
-            .where((l) => !l.isPendenteAprovacao)
+            .where((l) => !l.esperaDecisao)
             .toList(growable: false);
 
         return RefreshIndicator(
@@ -205,17 +326,37 @@ class _MinistryFinanceBodyState extends ConsumerState<_MinistryFinanceBody> {
                   _LancamentoTile(
                     lancamento: l,
                     onAprovar: widget.access.canApprove
-                        ? () => _decidir(l, true)
+                        ? () => l.temPedidoAberto
+                              ? _decidirPedido(l, true)
+                              : _decidir(l, true)
                         : null,
                     onRejeitar: widget.access.canApprove
-                        ? () => _decidir(l, false)
+                        ? () => l.temPedidoAberto
+                              ? _decidirPedido(l, false)
+                              : _decidir(l, false)
+                        : null,
+                    // Lançamento com pedido em aberto não aceita outro: o
+                    // banco recusa com 23505, e oferecer o menu seria
+                    // prometer o que a RPC nega.
+                    onEditar: widget.access.canCreate && !l.temPedidoAberto
+                        ? () => _editar(l)
+                        : null,
+                    onExcluir: widget.access.canCreate && !l.temPedidoAberto
+                        ? () => _excluir(l)
                         : null,
                   ),
                 const SizedBox(height: 20),
               ],
               if (demais.isNotEmpty) ...[
                 _SectionLabel('Movimentação (${demais.length})'),
-                for (final l in demais) _LancamentoTile(lancamento: l),
+                for (final l in demais)
+                  _LancamentoTile(
+                    lancamento: l,
+                    onEditar: widget.access.canCreate ? () => _editar(l) : null,
+                    onExcluir: widget.access.canCreate
+                        ? () => _excluir(l)
+                        : null,
+                  ),
               ],
             ],
           ),
@@ -365,11 +506,15 @@ class _LancamentoTile extends StatelessWidget {
   final Lancamento lancamento;
   final VoidCallback? onAprovar;
   final VoidCallback? onRejeitar;
+  final VoidCallback? onEditar;
+  final VoidCallback? onExcluir;
 
   const _LancamentoTile({
     required this.lancamento,
     this.onAprovar,
     this.onRejeitar,
+    this.onEditar,
+    this.onExcluir,
   });
 
   @override
@@ -434,6 +579,47 @@ class _LancamentoTile extends StatelessWidget {
                     color: cor,
                   ),
                 ),
+                if (onEditar != null || onExcluir != null)
+                  PopupMenuButton<String>(
+                    tooltip: 'Ações',
+                    icon: const Icon(AppIcons.more, size: 18),
+                    padding: EdgeInsets.zero,
+                    onSelected: (v) {
+                      if (v == 'editar') onEditar?.call();
+                      if (v == 'excluir') onExcluir?.call();
+                    },
+                    itemBuilder: (_) => [
+                      if (onEditar != null)
+                        const PopupMenuItem(
+                          value: 'editar',
+                          child: Row(
+                            children: [
+                              Icon(AppIcons.edit, size: 16),
+                              SizedBox(width: 10),
+                              Text('Editar'),
+                            ],
+                          ),
+                        ),
+                      if (onExcluir != null)
+                        const PopupMenuItem(
+                          value: 'excluir',
+                          child: Row(
+                            children: [
+                              Icon(
+                                AppIcons.delete,
+                                size: 16,
+                                color: AppTheme.errorColor,
+                              ),
+                              SizedBox(width: 10),
+                              Text(
+                                'Excluir',
+                                style: TextStyle(color: AppTheme.errorColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
               ],
             ),
             const SizedBox(height: 8),
@@ -451,8 +637,30 @@ class _LancamentoTile extends StatelessWidget {
                   },
                 ),
                 _StatusChip(label: lancamento.status.label, color: muted),
+                if (lancamento.pendingChange != null)
+                  _StatusChip(
+                    label: lancamento.pendingChange!.label,
+                    color: AppTheme.warningColor,
+                  ),
               ],
             ),
+            // O motivo do pedido fica à vista de quem vai decidir: sem ele,
+            // aprovar ou recusar vira adivinhação.
+            if (lancamento.temPedidoAberto &&
+                lancamento.changeReason != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Motivo: ${lancamento.changeReason}',
+                style: CommunityDesign.metaStyle(context),
+              ),
+            ],
+            if (lancamento.pediuEdicao) ...[
+              const SizedBox(height: 6),
+              Text(
+                _resumoPedido(lancamento),
+                style: CommunityDesign.metaStyle(context),
+              ),
+            ],
             if (onAprovar != null || onRejeitar != null) ...[
               const SizedBox(height: 10),
               Row(
@@ -481,6 +689,32 @@ class _LancamentoTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// O que a edição pedida muda, em uma linha.
+///
+/// Lê `pending_payload`, que guarda **só os campos alterados** — por isso
+/// dá para dizer o que muda sem comparar linha com linha.
+String _resumoPedido(Lancamento l) {
+  final payload = l.pendingPayload;
+  if (payload == null || payload.isEmpty) return 'Edição pedida.';
+
+  const rotulos = {
+    'valor': 'valor',
+    'vencimento': 'data',
+    'categoria_id': 'rubrica',
+    'beneficiario_id': 'beneficiário',
+    'descricao': 'descrição',
+  };
+
+  final campos = payload.keys
+      .map((k) => rotulos[k] ?? k)
+      .toList(growable: false);
+
+  if (campos.length == 1) return 'Pede mudança de ${campos.first}.';
+  final ultimo = campos.last;
+  final resto = campos.sublist(0, campos.length - 1).join(', ');
+  return 'Pede mudança de $resto e $ultimo.';
 }
 
 class _StatusChip extends StatelessWidget {

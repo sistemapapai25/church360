@@ -7,15 +7,28 @@ import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/pearl_button.dart';
 import '../../../../financeiro/domain/models/lancamento.dart';
+import '../../data/ministry_finance_repository.dart';
 import '../../domain/ministry_finance.dart';
 import '../providers/ministry_finance_providers.dart';
 
 /// Abre o formulário de lançamento do caixa do ministério numa folha
 /// inferior. Devolve `true` quando gravou — quem chamou invalida as listas.
+///
+/// Com [lancamento] preenchido a folha abre em modo **edição**. Nela o tipo
+/// (entrada/saída) fica travado: trocá-lo numa linha já aprovada criaria uma
+/// saída aprovada que nunca passou pela fila, e o banco recusa a chave com
+/// `22023`. Quem errou o tipo exclui e lança de novo.
+///
+/// [podeAprovar] muda só o texto e o aviso: quem tem `ministry_finance.approve`
+/// vê "Salvar" porque o banco aplica na hora; quem não tem vê "Pedir edição",
+/// porque o que sai daqui é um pedido. A decisão de verdade é do banco, não
+/// deste booleano — ele só evita prometer na tela o que a RPC faria diferente.
 Future<bool> showMinistryFinanceFormSheet({
   required BuildContext context,
   required String ministryId,
   required MinistryFinanceCatalog catalog,
+  Lancamento? lancamento,
+  bool podeAprovar = false,
 }) async {
   final saved = await showModalBottomSheet<bool>(
     context: context,
@@ -23,8 +36,12 @@ Future<bool> showMinistryFinanceFormSheet({
     useSafeArea: true,
     constraints: const BoxConstraints(maxWidth: 640),
     backgroundColor: Colors.transparent,
-    builder: (_) =>
-        _MinistryFinanceFormSheet(ministryId: ministryId, catalog: catalog),
+    builder: (_) => _MinistryFinanceFormSheet(
+      ministryId: ministryId,
+      catalog: catalog,
+      lancamento: lancamento,
+      podeAprovar: podeAprovar,
+    ),
   );
   return saved ?? false;
 }
@@ -32,10 +49,14 @@ Future<bool> showMinistryFinanceFormSheet({
 class _MinistryFinanceFormSheet extends ConsumerStatefulWidget {
   final String ministryId;
   final MinistryFinanceCatalog catalog;
+  final Lancamento? lancamento;
+  final bool podeAprovar;
 
   const _MinistryFinanceFormSheet({
     required this.ministryId,
     required this.catalog,
+    this.lancamento,
+    this.podeAprovar = false,
   });
 
   @override
@@ -48,6 +69,7 @@ class _MinistryFinanceFormSheetState
   final _formKey = GlobalKey<FormState>();
   final _valor = TextEditingController();
   final _descricao = TextEditingController();
+  final _motivo = TextEditingController();
 
   TipoLancamento _tipo = TipoLancamento.despesa;
   String? _categoriaId;
@@ -59,6 +81,25 @@ class _MinistryFinanceFormSheetState
 
   bool get _isSaida => _tipo == TipoLancamento.despesa;
 
+  /// Editando um lançamento que já existe, e não criando um novo.
+  bool get _editando => widget.lancamento != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final l = widget.lancamento;
+    if (l == null) return;
+
+    _tipo = l.tipo;
+    _categoriaId = l.categoriaId;
+    _beneficiarioId = l.beneficiarioId;
+    _data = l.vencimento;
+    _descricao.text = l.descricao ?? '';
+    // Duas casas, e com ponto: `_parseValor` aceita as duas formas, e assim
+    // o campo abre com o mesmo número que a lista mostra.
+    _valor.text = l.valor.toStringAsFixed(2);
+  }
+
   List<MinistryFinanceOption> get _categorias =>
       widget.catalog.categoriasDe(_tipo);
 
@@ -66,6 +107,7 @@ class _MinistryFinanceFormSheetState
   void dispose() {
     _valor.dispose();
     _descricao.dispose();
+    _motivo.dispose();
     super.dispose();
   }
 
@@ -127,6 +169,11 @@ class _MinistryFinanceFormSheetState
 
     try {
       final repo = ref.read(ministryFinanceRepositoryProvider);
+      if (_editando) {
+        await _pedirEdicao(repo);
+        if (mounted) Navigator.of(context).pop(true);
+        return;
+      }
       await repo.createLancamento(
         ministryId: widget.ministryId,
         tipo: _tipo,
@@ -149,6 +196,36 @@ class _MinistryFinanceFormSheetState
       }
     }
   }
+
+  /// Manda **só o que mudou**.
+  ///
+  /// Campo que não mudou fica fora do payload de propósito: o pedido que
+  /// chega para quem aprova tem de dizer o que está sendo alterado, e um
+  /// payload com a linha inteira transformaria "mudou o valor" em "mudou
+  /// tudo" aos olhos de quem decide.
+  Future<void> _pedirEdicao(MinistryFinanceRepository repo) async {
+    final l = widget.lancamento!;
+    final valor = _parseValor(_valor.text)!;
+    final descricao = _descricao.text.trim();
+    final descricaoAtual = l.descricao?.trim() ?? '';
+
+    await repo.requestEdit(
+      id: l.id,
+      categoriaId: _categoriaId != l.categoriaId ? _categoriaId : null,
+      beneficiarioId: _beneficiarioId != l.beneficiarioId
+          ? _beneficiarioId
+          : null,
+      valor: valor != l.valor ? valor : null,
+      vencimento: !_mesmoDia(_data, l.vencimento) ? _data : null,
+      descricao: descricao != descricaoAtual ? descricao : null,
+      motivo: _motivo.text.trim().isEmpty ? null : _motivo.text.trim(),
+    );
+  }
+
+  /// `vencimento` é `date` no banco: comparar o `DateTime` inteiro acusaria
+  /// mudança por causa da hora e mandaria a data em todo pedido.
+  bool _mesmoDia(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   @override
   Widget build(BuildContext context) {
@@ -186,14 +263,29 @@ class _MinistryFinanceFormSheetState
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Novo lançamento',
+                  _editando ? 'Editar lançamento' : 'Novo lançamento',
                   style: CommunityDesign.titleStyle(
                     context,
                   ).copyWith(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 16),
-                _TipoSelector(tipo: _tipo, onChanged: _trocarTipo),
-                if (_isSaida) ...[
+                // Na edição o tipo aparece, mas não muda: é a decisão 2 da
+                // migration de 23/09, e o banco recusa a chave `tipo`.
+                _TipoSelector(
+                  tipo: _tipo,
+                  onChanged: _editando ? null : _trocarTipo,
+                ),
+                if (_editando) ...[
+                  const SizedBox(height: 12),
+                  _Aviso(
+                    widget.podeAprovar
+                        ? 'Entrada ou saída não muda por edição. Para trocar o '
+                              'tipo, exclua e lance de novo.'
+                        : 'Entrada ou saída não muda por edição. O que você '
+                              'alterar aqui vira um pedido e só vale depois que '
+                              'alguém com permissão de aprovação confirmar.',
+                  ),
+                ] else if (_isSaida) ...[
                   const SizedBox(height: 12),
                   const _Aviso(
                     'A saída entra como pendente e só conta no caixa depois '
@@ -288,7 +380,23 @@ class _MinistryFinanceFormSheetState
                     alignLabelWithHint: true,
                   ),
                 ),
-                if (!_isSaida) ...[
+                if (_editando && !widget.podeAprovar) ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _motivo,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Motivo do pedido',
+                      hintText: 'Ajuda quem vai decidir. Opcional.',
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                ],
+                // O switch de recebimento some na edição: `status` e
+                // `data_pagamento` não estão entre as cinco chaves que a RPC
+                // aceita, e oferecer o controle aqui prometeria o que o banco
+                // recusa.
+                if (!_isSaida && !_editando) ...[
                   const SizedBox(height: 4),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -337,9 +445,13 @@ class _MinistryFinanceFormSheetState
                                   color: AppTheme.primaryForeground,
                                 ),
                               )
-                            : const Text(
-                                'Lançar',
-                                style: TextStyle(
+                            : Text(
+                                !_editando
+                                    ? 'Lançar'
+                                    : (widget.podeAprovar
+                                          ? 'Salvar'
+                                          : 'Pedir edição'),
+                                style: const TextStyle(
                                   color: AppTheme.primaryForeground,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -361,7 +473,11 @@ class _MinistryFinanceFormSheetState
 /// tipo muda o resto do formulário e precisa estar visível o tempo todo.
 class _TipoSelector extends StatelessWidget {
   final TipoLancamento tipo;
-  final ValueChanged<TipoLancamento> onChanged;
+
+  /// Nulo trava a escolha: é assim que a edição mostra o tipo sem deixar
+  /// trocá-lo. O chip não selecionado fica apagado, para não parecer que
+  /// basta tocar.
+  final ValueChanged<TipoLancamento>? onChanged;
 
   const _TipoSelector({required this.tipo, required this.onChanged});
 
@@ -374,7 +490,9 @@ class _TipoSelector extends StatelessWidget {
             label: 'Entrada',
             icon: AppIcons.trendingUp,
             selected: tipo == TipoLancamento.receita,
-            onTap: () => onChanged(TipoLancamento.receita),
+            onTap: onChanged == null
+                ? null
+                : () => onChanged!(TipoLancamento.receita),
           ),
         ),
         const SizedBox(width: 10),
@@ -383,7 +501,9 @@ class _TipoSelector extends StatelessWidget {
             label: 'Saída',
             icon: AppIcons.trendingDown,
             selected: tipo == TipoLancamento.despesa,
-            onTap: () => onChanged(TipoLancamento.despesa),
+            onTap: onChanged == null
+                ? null
+                : () => onChanged!(TipoLancamento.despesa),
           ),
         ),
       ],
@@ -395,7 +515,7 @@ class _TipoChip extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _TipoChip({
     required this.label,
@@ -411,7 +531,12 @@ class _TipoChip extends StatelessWidget {
     final muted = dark
         ? AppTheme.darkMutedForeground
         : AppTheme.mutedForeground;
-    final color = selected ? accent : muted;
+    // Travado e não selecionado: apaga de vez, senão o chip convida a um
+    // toque que não faz nada.
+    final travado = onTap == null;
+    final color = selected
+        ? accent
+        : muted.withValues(alpha: travado ? 0.45 : 1);
 
     return InkWell(
       onTap: onTap,

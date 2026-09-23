@@ -166,6 +166,107 @@ class MinistryFinanceRepository {
     }
   }
 
+  /// Pede edição de um lançamento do departamento.
+  ///
+  /// **Não é UPDATE.** Vai pela RPC `request_lancamento_change` porque policy
+  /// autoriza a LINHA e não a COLUNA: com UPDATE direto o app escolheria o
+  /// que escrever em `change_requested_by` e se declararia autor de um
+  /// pedido. O trigger `lancamentos_guard_change_request` recusa (42501)
+  /// qualquer escrita nessas colunas fora das duas RPCs.
+  ///
+  /// Quem tem `ministry_finance.approve` (ou cuida do financeiro da igreja)
+  /// não abre pedido: o banco aplica na hora. Quem é do departamento abre o
+  /// pedido e o lançamento **continua como está** até alguém decidir.
+  ///
+  /// `tipo` não entra: trocar receita por despesa numa linha aprovada seria
+  /// uma saída aprovada que nunca passou pela fila. O banco recusa a chave
+  /// com `22023`.
+  Future<Lancamento> requestEdit({
+    required String id,
+    String? categoriaId,
+    String? beneficiarioId,
+    double? valor,
+    DateTime? vencimento,
+    String? descricao,
+    String? motivo,
+  }) async {
+    final payload = <String, dynamic>{
+      if (categoriaId != null) 'categoria_id': categoriaId,
+      if (beneficiarioId != null) 'beneficiario_id': beneficiarioId,
+      if (valor != null) 'valor': valor,
+      if (vencimento != null)
+        'vencimento': vencimento.toIso8601String().split('T')[0],
+      if (descricao != null) 'descricao': descricao,
+    };
+
+    if (payload.isEmpty) {
+      throw const MinistryFinanceException(
+        'Nada mudou neste lançamento, então não há o que pedir.',
+      );
+    }
+
+    return _chamarRpc('request_lancamento_change', {
+      'p_lancamento_id': id,
+      'p_action': 'EDICAO',
+      'p_payload': payload,
+      'p_reason': motivo,
+    });
+  }
+
+  /// Pede a exclusão de um lançamento do departamento.
+  ///
+  /// Quem pode aprovar apaga na hora (soft delete); quem não pode deixa o
+  /// pedido em aberto, e o lançamento **continua no saldo** até a decisão —
+  /// de propósito: pedido de exclusão não pode mexer no resultado antes da
+  /// hora.
+  Future<Lancamento> requestDelete({
+    required String id,
+    String? motivo,
+  }) async {
+    return _chamarRpc('request_lancamento_change', {
+      'p_lancamento_id': id,
+      'p_action': 'EXCLUSAO',
+      'p_payload': null,
+      'p_reason': motivo,
+    });
+  }
+
+  /// Decide um pedido de edição ou exclusão.
+  ///
+  /// Aprovar uma edição aplica os valores propostos; aprovar uma exclusão
+  /// carimba `deleted_at`; recusar só limpa o pedido, porque o lançamento
+  /// nunca chegou a mudar.
+  Future<Lancamento> resolveChange({
+    required String id,
+    required bool aprovado,
+  }) async {
+    return _chamarRpc('resolve_lancamento_change', {
+      'p_lancamento_id': id,
+      'p_aprovar': aprovado,
+    });
+  }
+
+  /// As duas RPCs devolvem a linha inteira de `lancamentos`.
+  Future<Lancamento> _chamarRpc(
+    String nome,
+    Map<String, dynamic> params,
+  ) async {
+    try {
+      final response = await _supabase.rpc(nome, params: params);
+      if (response == null) {
+        throw const MinistryFinanceException(
+          'O banco não devolveu o lançamento depois da operação.',
+        );
+      }
+      final json = response is List
+          ? response.first as Map<String, dynamic>
+          : response as Map<String, dynamic>;
+      return Lancamento.fromJson(json);
+    } on PostgrestException catch (e) {
+      throw _traduzir(e);
+    }
+  }
+
   /// Apaga um lançamento do departamento (soft delete).
   ///
   /// É UPDATE, e não DELETE: a migration de 21/09 não criou policy de DELETE
@@ -197,6 +298,24 @@ class MinistryFinanceRepository {
         'Você não tem permissão para esta ação no caixa do ministério. '
         'É preciso ter a permissão correspondente em um cargo e estar '
         'vinculado a este ministério.',
+      );
+    }
+    if (e.code == '23505') {
+      return const MinistryFinanceException(
+        'Este lançamento já tem um pedido esperando decisão. '
+        'É preciso resolver o pedido atual antes de abrir outro.',
+      );
+    }
+    if (e.code == '22023') {
+      return const MinistryFinanceException(
+        'Esta mudança não pode ser pedida: o tipo do lançamento (entrada ou '
+        'saída) não muda por edição. Exclua e lance de novo.',
+      );
+    }
+    if (e.code == 'P0002') {
+      return const MinistryFinanceException(
+        'Este lançamento não existe mais, ou o pedido já foi decidido por '
+        'outra pessoa. Atualize a lista.',
       );
     }
     if (e.code == '23514') {
