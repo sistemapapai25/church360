@@ -69,6 +69,35 @@ enum AprovacaoLancamento {
   }
 }
 
+/// Que mudanca foi pedida num lancamento de ministerio e aguarda decisao.
+///
+/// Quem tem `ministry_finance.create` pede; quem tem `ministry_finance.approve`
+/// decide. O lancamento vivo **nao muda** enquanto o pedido esta aberto — os
+/// valores propostos ficam em `pendingPayload` e so sao aplicados na
+/// aprovacao, o que e o que permite recusar sem precisar guardar o valor
+/// anterior.
+///
+/// Quem decide e o banco: as colunas so sao escritas pelas RPCs
+/// `request_lancamento_change` e `resolve_lancamento_change`, e o trigger
+/// `lancamentos_guard_change_request` recusa (42501) UPDATE direto nelas.
+enum PedidoLancamento {
+  edicao('EDICAO', 'Edição aguardando aprovação'),
+  exclusao('EXCLUSAO', 'Exclusão aguardando aprovação');
+
+  final String value;
+  final String label;
+
+  const PedidoLancamento(this.value, this.label);
+
+  static PedidoLancamento? fromValue(String? value) {
+    if (value == null) return null;
+    for (final p in PedidoLancamento.values) {
+      if (p.value == value) return p;
+    }
+    return null;
+  }
+}
+
 /// Forma de pagamento
 enum FormaPagamento {
   pix('PIX', 'PIX'),
@@ -125,6 +154,13 @@ class Lancamento {
   final String? approvedBy;
   final DateTime? approvedAt;
 
+  // Pedido de edicao/exclusao (23/09). Nulo = nenhum pedido em aberto.
+  final PedidoLancamento? pendingChange;
+  final Map<String, dynamic>? pendingPayload;
+  final String? changeRequestedBy;
+  final DateTime? changeRequestedAt;
+  final String? changeReason;
+
   // Recorrência (opcional)
   final bool isRecurring;
   final String? recurrenceFrequency; // MONTHLY | WEEKLY | YEARLY
@@ -168,6 +204,11 @@ class Lancamento {
     this.approvalStatus = AprovacaoLancamento.aprovado,
     this.approvedBy,
     this.approvedAt,
+    this.pendingChange,
+    this.pendingPayload,
+    this.changeRequestedBy,
+    this.changeRequestedAt,
+    this.changeReason,
     this.isRecurring = false,
     this.recurrenceFrequency,
     this.recurrenceInterval = 1,
@@ -235,6 +276,15 @@ class Lancamento {
       approvedAt: json['approved_at'] != null
           ? DateTime.parse(json['approved_at'] as String)
           : null,
+      pendingChange: PedidoLancamento.fromValue(
+        json['pending_change'] as String?,
+      ),
+      pendingPayload: json['pending_payload'] as Map<String, dynamic>?,
+      changeRequestedBy: json['change_requested_by'] as String?,
+      changeRequestedAt: json['change_requested_at'] != null
+          ? DateTime.parse(json['change_requested_at'] as String)
+          : null,
+      changeReason: json['change_reason'] as String?,
       isRecurring: json['is_recurring'] as bool? ?? false,
       recurrenceFrequency: json['recurrence_frequency'] as String?,
       recurrenceInterval: json['recurrence_interval'] as int? ?? 1,
@@ -284,6 +334,11 @@ class Lancamento {
       'tenant_id': tenantId,
       'created_by': createdBy,
       'ministry_id': ministryId,
+      // `pending_change`, `pending_payload`, `change_requested_by` e
+      // `change_requested_at` também ficam de fora, e pelo mesmo motivo:
+      // quem escreve neles é o banco, pelas RPCs request_lancamento_change
+      // e resolve_lancamento_change. UPDATE direto estoura 42501 no trigger
+      // `lancamentos_guard_change_request`.
       // `approval_status`, `approved_by` e `approved_at` ficam de fora de
       // propósito: são escritos pelo banco. Mandar approval_status num
       // insert não adianta (o trigger sobrescreve) e mandá-lo num update
@@ -326,6 +381,11 @@ class Lancamento {
     String? createdBy,
     String? ministryId,
     AprovacaoLancamento? approvalStatus,
+    PedidoLancamento? pendingChange,
+    Map<String, dynamic>? pendingPayload,
+    String? changeRequestedBy,
+    DateTime? changeRequestedAt,
+    String? changeReason,
     String? approvedBy,
     DateTime? approvedAt,
     String? beneficiarioNome,
@@ -361,6 +421,14 @@ class Lancamento {
       approvalStatus: approvalStatus ?? this.approvalStatus,
       approvedBy: approvedBy ?? this.approvedBy,
       approvedAt: approvedAt ?? this.approvedAt,
+      // Sem `?? this.x` teria efeito de apagar o pedido em aberto a cada
+      // copyWith, em silêncio — o mesmo modo de falhar dos campos que o
+      // PostgREST devolve NULL.
+      pendingChange: pendingChange ?? this.pendingChange,
+      pendingPayload: pendingPayload ?? this.pendingPayload,
+      changeRequestedBy: changeRequestedBy ?? this.changeRequestedBy,
+      changeRequestedAt: changeRequestedAt ?? this.changeRequestedAt,
+      changeReason: changeReason ?? this.changeReason,
       beneficiarioNome: beneficiarioNome ?? this.beneficiarioNome,
       categoriaNome: categoriaNome ?? this.categoriaNome,
       contaNome: contaNome ?? this.contaNome,
@@ -379,4 +447,13 @@ class Lancamento {
   bool get isPendenteAprovacao =>
       approvalStatus == AprovacaoLancamento.pendente;
   bool get isRejeitado => approvalStatus == AprovacaoLancamento.rejeitado;
+
+  /// Tem pedido de edicao ou exclusao esperando decisao.
+  bool get temPedidoAberto => pendingChange != null;
+  bool get pediuExclusao => pendingChange == PedidoLancamento.exclusao;
+  bool get pediuEdicao => pendingChange == PedidoLancamento.edicao;
+
+  /// Precisa de alguem com `ministry_finance.approve`: ou nasceu pendente
+  /// (saida de ministerio, trava D6) ou tem pedido de mudanca em aberto.
+  bool get esperaDecisao => isPendenteAprovacao || temPedidoAberto;
 }

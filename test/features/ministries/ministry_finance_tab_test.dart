@@ -19,6 +19,9 @@ Lancamento _lancamento({
   String? descricao,
   String? categoriaNome,
   String? beneficiarioNome,
+  PedidoLancamento? pedido,
+  Map<String, dynamic>? pedidoPayload,
+  String? pedidoMotivo,
 }) {
   return Lancamento(
     id: id,
@@ -35,6 +38,10 @@ Lancamento _lancamento({
     descricao: descricao,
     categoriaNome: categoriaNome,
     beneficiarioNome: beneficiarioNome,
+    pendingChange: pedido,
+    pendingPayload: pedidoPayload,
+    changeRequestedAt: pedido == null ? null : DateTime(2026, 9, 23),
+    changeReason: pedidoMotivo,
   );
 }
 
@@ -200,6 +207,92 @@ void main() {
 
     expect(find.text('Saldo do departamento'), findsOneWidget);
     expect(find.textContaining('1 saída espera aprovação'), findsOneWidget);
+  });
+
+  testWidgets('sem ministry_finance.create nao ha menu de acoes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host([_lancamento(id: '1')]));
+    await tester.pumpAndSettle();
+
+    // Quem so enxerga nao pode editar nem pedir exclusao: o menu nem
+    // aparece, em vez de aparecer e o banco recusar depois.
+    expect(find.byIcon(Icons.more_vert), findsNothing);
+  });
+
+  testWidgets('com ministry_finance.create o menu de acoes aparece', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host([_lancamento(id: '1')], canCreate: true));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Editar'), findsOneWidget);
+    expect(find.text('Excluir'), findsOneWidget);
+  });
+
+  testWidgets('lancamento com pedido em aberto nao oferece outro pedido', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host([
+        _lancamento(
+          id: '1',
+          pedido: PedidoLancamento.exclusao,
+        ),
+      ], canCreate: true),
+    );
+    await tester.pumpAndSettle();
+
+    // O banco recusa o segundo pedido com 23505; a tela nao pode prometer.
+    expect(find.byIcon(Icons.more_vert), findsNothing);
+  });
+
+  testWidgets('pedido em aberto entra na fila e diz o que muda', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host([
+        _lancamento(
+          id: '1',
+          pedido: PedidoLancamento.edicao,
+          pedidoPayload: const {'valor': 250.0, 'descricao': 'Novo texto'},
+          pedidoMotivo: 'Valor do recibo estava errado',
+        ),
+      ], canApprove: true),
+    );
+    await tester.pumpAndSettle();
+
+    // Mesmo com approval_status APROVADO, ele espera decisao: a fila junta
+    // a saida nascida pendente e o pedido de mudanca.
+    expect(find.text('Edi\u00e7\u00e3o aguardando aprova\u00e7\u00e3o'), findsOneWidget);
+    // O resumo diz o que muda, lendo so as chaves do payload.
+    expect(
+      find.text('Pede mudan\u00e7a de valor e descri\u00e7\u00e3o.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Motivo: Valor do recibo estava errado'),
+      findsOneWidget,
+    );
+    expect(find.text('Aprovar'), findsOneWidget);
+    expect(find.text('Rejeitar'), findsOneWidget);
+  });
+
+  testWidgets('quem nao aprova nao decide o pedido dos outros', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host([
+        _lancamento(id: '1', pedido: PedidoLancamento.exclusao),
+      ], canCreate: true),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Aprovar'), findsNothing);
+    expect(find.text('Rejeitar'), findsNothing);
   });
 
   testWidgets('estado vazio nao promete botao que a pessoa nao tem', (
