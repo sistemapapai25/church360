@@ -1153,3 +1153,35 @@ dados.
 - `test/features/events/events_visual_surfaces_test.dart`
 - `docs/VISUAL-MATERIAL-INVENTORY.md`
 - `SESSION-WRAP.md` (este handoff)
+
+## Visual wave 16 — Reports, segundo recorte
+
+Timestamp: 2026-09-23, America/Sao_Paulo (UTC-03).
+
+### O que foi entregue
+
+- `active_groups_report.dart` reutiliza `GlassCard` no filtro, resumos,
+  gráficos e cards clicáveis de grupos.
+- `upcoming_events_report.dart` e `upcoming_expenses_report.dart` reutilizam
+  `GlassCard` nos filtros, resumos e itens das listagens, mantendo os acentos
+  e navegações existentes.
+- `member_growth_report.dart` reutiliza `GlassCard` nos quatro resumos,
+  gráficos e tabela de detalhamento.
+- Os períodos padrão dos três relatórios que usavam `DateTime.now()` bruto
+  foram normalizados ao início do dia. Isso corrige a chave instável dos
+  providers `family` durante rebuilds e evita loading contínuo.
+- A cobertura focada passou de 3 para 7 testes em
+  `reports_visual_surfaces_test.dart`, usando dados em memória.
+
+Não houve mudança em banco, rotas, permissões, consultas, modelos ou fluxos
+de navegação.
+
+### Arquivos intencionais desta onda
+
+- `lib/core/screens/reports/active_groups_report.dart`
+- `lib/core/screens/reports/upcoming_events_report.dart`
+- `lib/core/screens/reports/upcoming_expenses_report.dart`
+- `lib/core/screens/reports/member_growth_report.dart`
+- `test/core/screens/reports/reports_visual_surfaces_test.dart`
+- `docs/VISUAL-MATERIAL-INVENTORY.md`
+- `SESSION-WRAP.md`

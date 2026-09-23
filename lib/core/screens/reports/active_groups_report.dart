@@ -7,6 +7,7 @@ import '../../constants/supabase_constants.dart';
 
 import '../../design/app_icons.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../widgets/glass_card.dart';
 
 /// Enum para períodos de filtro
 enum GroupActivityPeriod {
@@ -244,7 +245,8 @@ class _ActiveGroupsReportScreenState
                       const SizedBox(height: 24),
 
                       // Top 10 Grupos Mais Ativos
-                      Card(
+                      GlassCard(
+                        padding: EdgeInsets.zero,
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
@@ -267,7 +269,8 @@ class _ActiveGroupsReportScreenState
                       const SizedBox(height: 16),
 
                       // Gráfico de Frequência Média
-                      Card(
+                      GlassCard(
+                        padding: EdgeInsets.zero,
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
@@ -340,8 +343,9 @@ class _ActiveGroupsReportScreenState
     IconData icon,
     Color color,
   ) {
-    return Card(
-      color: color.withValues(alpha: 0.1),
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      accentColor: color,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -548,14 +552,14 @@ class _ActiveGroupsReportScreenState
     final avgAttendance = (group['average_attendance'] as double?) ?? 0.0;
     final lastMeeting = group['last_meeting_date'] as DateTime?;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassCard(
+        padding: EdgeInsets.zero,
         onTap: () {
           // Navegar para detalhes do grupo
           context.push('/groups/${group['group_id']}');
         },
-        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -653,18 +657,19 @@ class _ActiveGroupsReportScreenState
   /// Retorna a data inicial baseada no período selecionado
   DateTime? _getStartDate() {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
 
     switch (_selectedPeriod) {
       case GroupActivityPeriod.last30Days:
-        return now.subtract(const Duration(days: 30));
+        return today.subtract(const Duration(days: 30));
       case GroupActivityPeriod.last60Days:
-        return now.subtract(const Duration(days: 60));
+        return today.subtract(const Duration(days: 60));
       case GroupActivityPeriod.last90Days:
-        return now.subtract(const Duration(days: 90));
+        return today.subtract(const Duration(days: 90));
       case GroupActivityPeriod.last6Months:
-        return DateTime(now.year, now.month - 6, now.day);
+        return DateTime(today.year, today.month - 6, today.day);
       case GroupActivityPeriod.lastYear:
-        return DateTime(now.year - 1, now.month, now.day);
+        return DateTime(today.year - 1, today.month, today.day);
       case GroupActivityPeriod.allTime:
         return null; // Sem filtro de data
     }
@@ -672,10 +677,9 @@ class _ActiveGroupsReportScreenState
 
   /// Filtro de período
   Widget _buildPeriodFilter() {
-    return Card(
-      margin: const EdgeInsets.all(16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: GlassCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

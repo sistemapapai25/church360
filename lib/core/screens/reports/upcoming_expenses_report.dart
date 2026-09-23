@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../design/app_icons.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/financial/domain/models/contribution.dart';
+import '../../widgets/glass_card.dart';
 
 /// Enum para períodos de filtro
 enum ExpensePeriod {
@@ -136,8 +137,9 @@ class _UpcomingExpensesReportScreenState
                     padding: const EdgeInsets.all(16),
                     children: [
                       // Card de Resumo
-                      Card(
-                        color: Colors.blue[50],
+                      GlassCard(
+                        padding: EdgeInsets.zero,
+                        accentColor: Colors.blue,
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
@@ -207,77 +209,84 @@ class _UpcomingExpensesReportScreenState
                           statusText = 'Esta semana';
                         }
 
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: ListTile(
-                            leading: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: statusColor.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(AppIcons.receipt, color: statusColor),
-                            ),
-                            title: Text(
-                              expense.description,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      AppIcons.category,
-                                      size: 14,
-                                      color: Colors.grey[600],
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(expense.category),
-                                    const SizedBox(width: 12),
-                                    Icon(
-                                      AppIcons.calendarFilled,
-                                      size: 14,
-                                      color: Colors.grey[600],
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      DateFormat(
-                                        'dd/MM/yyyy',
-                                      ).format(expense.date),
-                                    ),
-                                  ],
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: GlassCard(
+                            padding: EdgeInsets.zero,
+                            accentColor: statusColor,
+                            child: ListTile(
+                              leading: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
+                                child: Icon(
+                                  AppIcons.receipt,
+                                  color: statusColor,
+                                ),
+                              ),
+                              title: Text(
+                                expense.description,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        AppIcons.category,
+                                        size: 14,
+                                        color: Colors.grey[600],
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(expense.category),
+                                      const SizedBox(width: 12),
+                                      Icon(
+                                        AppIcons.calendarFilled,
+                                        size: 14,
+                                        color: Colors.grey[600],
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        DateFormat(
+                                          'dd/MM/yyyy',
+                                        ).format(expense.date),
+                                      ),
+                                    ],
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: statusColor.withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    statusText,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: statusColor,
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: statusColor.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      statusText,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: statusColor,
+                                      ),
                                     ),
                                   ),
+                                ],
+                              ),
+                              trailing: Text(
+                                formatter.format(expense.amount),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: statusColor,
                                 ),
-                              ],
-                            ),
-                            trailing: Text(
-                              formatter.format(expense.amount),
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: statusColor,
                               ),
                             ),
                           ),
@@ -308,32 +317,32 @@ class _UpcomingExpensesReportScreenState
   /// Retorna o intervalo de datas baseado no período selecionado
   (DateTime, DateTime) _getDateRange() {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
 
     switch (_selectedPeriod) {
       case ExpensePeriod.next7Days:
-        return (now, now.add(const Duration(days: 7)));
+        return (today, today.add(const Duration(days: 7)));
       case ExpensePeriod.next15Days:
-        return (now, now.add(const Duration(days: 15)));
+        return (today, today.add(const Duration(days: 15)));
       case ExpensePeriod.next30Days:
-        return (now, now.add(const Duration(days: 30)));
+        return (today, today.add(const Duration(days: 30)));
       case ExpensePeriod.next60Days:
-        return (now, now.add(const Duration(days: 60)));
+        return (today, today.add(const Duration(days: 60)));
       case ExpensePeriod.next90Days:
-        return (now, now.add(const Duration(days: 90)));
+        return (today, today.add(const Duration(days: 90)));
       case ExpensePeriod.custom:
         return (
-          _customStartDate ?? now,
-          _customEndDate ?? now.add(const Duration(days: 30)),
+          _customStartDate ?? today,
+          _customEndDate ?? today.add(const Duration(days: 30)),
         );
     }
   }
 
   /// Filtro de período
   Widget _buildPeriodFilter() {
-    return Card(
-      margin: const EdgeInsets.all(16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: GlassCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
