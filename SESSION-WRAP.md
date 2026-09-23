@@ -1191,6 +1191,36 @@ Timestamp: 2026-09-23, America/Sao_Paulo (UTC-03).
 Não houve mudança em banco, rotas, permissões, consultas, modelos ou fluxos
 de navegação.
 
+### Verificação final
+
+- `flutter test --no-pub -j 1`: **563 passed**.
+- `flutter test --no-pub test/core/screens/reports/reports_visual_surfaces_test.dart`:
+  **7 passed**.
+- `flutter analyze --no-pub` nos quatro relatórios e no teste focado: sem
+  issues.
+- `flutter build web --release --no-pub`: passou; permanecem apenas os avisos
+  Wasm conhecidos de `audioplayers_web`, `dart:html`, `package:js` e `image`.
+- `git diff --check`: passou antes do commit.
+
+### Git e produção
+
+- Commit da implementação: `e6044d1`, `feat: standardize reports second slice surfaces`.
+- PR #151: https://github.com/sistemapapai25/church360/pull/151.
+- PR #151 mergeada em `main` com o commit `f2555fc561f2ffee8fad19558383c83cf5157ebc`.
+- Workflow de produção: run `35823414633`, sucesso em 3m27s:
+  https://github.com/sistemapapai25/church360/actions/runs/35823414633.
+- Deployment Vercel: `dpl_8zhgctAvNhDRgL2tqAexYucyoJ6Q`, target
+  `production`, status **Ready**.
+- URL: `https://church360-d8qimkhvd-gabriels-projects-ec03504d.vercel.app`.
+- Aliases confirmados: `https://app.church360.com.br`,
+  `https://church360-app.vercel.app` e
+  `https://church360-app-gabriels-projects-ec03504d.vercel.app`.
+- O smoke test HTTP alcançou a URL do deployment com `302` para o SSO de
+  proteção e o alias com redirecionamento `307` para o mesmo SSO; isso é
+  esperado sem uma sessão autenticada neste ambiente.
+- Os sete registradores Flutter gerados continuam modificados localmente e
+  fora de todos os commits.
+
 ### Arquivos intencionais desta onda
 
 - `lib/core/screens/reports/active_groups_report.dart`
