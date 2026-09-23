@@ -671,7 +671,7 @@ persistência ou contratos de dados.
 - Próxima fase: auditoria final de Reports (`core/screens/reports`), começando
   pelas telas de resumo/listagem e mantendo os contratos dos relatórios.
 
-## Visual wave 15 — Reports, primeiro recorte em andamento
+## Final closeout — visual wave 15 Reports, primeiro recorte
 
 Timestamp: 2026-09-23, America/Sao_Paulo (UTC-03).
 
@@ -685,6 +685,21 @@ Timestamp: 2026-09-23, America/Sao_Paulo (UTC-03).
 - O próximo recorte desta fase são Active Groups, Upcoming Events/Expenses e
   Member Growth; a lógica de dados e os contratos dos providers permanecem
   inalterados.
+
+### Git, merge e produção
+
+- Commit de implementação: `d010069`, `feat: standardize initial reports surfaces`.
+- PR #148: https://github.com/sistemapapai25/church360/pull/148.
+- PR #148 mergeada em `main` com o commit `1753fdeb452604a7ed1b0f8ff088aa51445013b4`.
+- Deploy de produção: `dpl_5YzE4tXZhxXi3p4KFgNq7FJh6MX9`, estado **Ready**.
+- URL do deployment: `https://church360-birnlo43f-gabriels-projects-ec03504d.vercel.app`.
+- Aliases confirmados: `https://app.church360.com.br`,
+  `https://church360-app.vercel.app` e
+  `https://church360-app-gabriels-projects-ec03504d.vercel.app`.
+- `vercel curl` acessou o HTML real do Flutter protegido; telas internas
+  autenticadas continuam exigindo uma sessão real.
+- O próximo branch deve partir de `origin/main` após este merge e continuar
+  Reports com Active Groups, Upcoming Events/Expenses e Member Growth.
 
 ## Final closeout — visual wave 12 Events, diálogos e widgets especializados
 
