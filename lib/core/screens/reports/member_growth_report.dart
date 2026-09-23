@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../design/app_icons.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../widgets/glass_card.dart';
 
 /// Enum para períodos de filtro
 enum GrowthPeriod {
@@ -246,7 +247,8 @@ class _MemberGrowthReportScreenState
                       const SizedBox(height: 24),
 
                       // Gráfico de Crescimento
-                      Card(
+                      GlassCard(
+                        padding: EdgeInsets.zero,
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
@@ -272,7 +274,8 @@ class _MemberGrowthReportScreenState
                       const SizedBox(height: 16),
 
                       // Gráfico de Novos Membros por Dia
-                      Card(
+                      GlassCard(
+                        padding: EdgeInsets.zero,
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
@@ -298,7 +301,8 @@ class _MemberGrowthReportScreenState
                       const SizedBox(height: 16),
 
                       // Tabela de Dados
-                      Card(
+                      GlassCard(
+                        padding: EdgeInsets.zero,
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
@@ -346,8 +350,9 @@ class _MemberGrowthReportScreenState
     IconData icon,
     Color color,
   ) {
-    return Card(
-      color: color.withValues(alpha: 0.1),
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      accentColor: color,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -633,10 +638,9 @@ class _MemberGrowthReportScreenState
 
   /// Filtro de período
   Widget _buildPeriodFilter() {
-    return Card(
-      margin: const EdgeInsets.all(16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: GlassCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

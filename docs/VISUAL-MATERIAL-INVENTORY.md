@@ -241,5 +241,22 @@ persistência ou contratos de dados.
   telas com providers em memória.
 
 Não houve alteração em banco, rotas, permissões, providers, consultas ou
-contratos dos relatórios. O próximo recorte continua em Active Groups,
-Upcoming Events/Expenses e Member Growth.
+contratos dos três relatórios deste primeiro recorte.
+
+## Onda visual — Reports, segundo recorte
+
+- `active_groups_report.dart`, `upcoming_events_report.dart`,
+  `upcoming_expenses_report.dart` e `member_growth_report.dart` reutilizam
+  `GlassCard` nos filtros, resumos, gráficos, tabelas e itens clicáveis,
+  preservando os acentos de status existentes.
+- Os limites padrão de Active Groups e Upcoming Events/Expenses passaram a ser
+  normalizados ao início do dia. Isso mantém estável a chave dos providers
+  `family` durante rebuilds e evita reentrar em loading a cada atualização,
+  sem mudar o período exibido.
+- A cobertura focada em
+  `test/core/screens/reports/reports_visual_surfaces_test.dart` agora valida
+  sete cenários, incluindo os quatro relatórios deste recorte com providers em
+  memória.
+
+Não houve alteração em banco, rotas, permissões, consultas ou modelos de
+dados. Reports fica concluído nesta auditoria visual.

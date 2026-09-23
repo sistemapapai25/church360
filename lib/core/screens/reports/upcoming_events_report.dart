@@ -7,6 +7,7 @@ import '../../design/app_icons.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/events/domain/models/event.dart';
 import '../../constants/supabase_constants.dart';
+import '../../widgets/glass_card.dart';
 
 /// Enum para períodos de filtro
 enum EventPeriod {
@@ -139,8 +140,9 @@ class _UpcomingEventsReportScreenState
                     padding: const EdgeInsets.all(16),
                     children: [
                       // Card de Resumo
-                      Card(
-                        color: Colors.blue[50],
+                      GlassCard(
+                        padding: EdgeInsets.zero,
+                        accentColor: Colors.blue,
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Row(
@@ -260,13 +262,13 @@ class _UpcomingEventsReportScreenState
     final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
     final dateFormatter = DateFormat('dd/MM/yyyy HH:mm', 'pt_BR');
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: InkWell(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: GlassCard(
+        padding: EdgeInsets.zero,
         onTap: () {
           context.push('/events/${event.id}');
         },
-        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -427,32 +429,32 @@ class _UpcomingEventsReportScreenState
   /// Retorna o intervalo de datas baseado no período selecionado
   (DateTime, DateTime) _getDateRange() {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
 
     switch (_selectedPeriod) {
       case EventPeriod.next7Days:
-        return (now, now.add(const Duration(days: 7)));
+        return (today, today.add(const Duration(days: 7)));
       case EventPeriod.next15Days:
-        return (now, now.add(const Duration(days: 15)));
+        return (today, today.add(const Duration(days: 15)));
       case EventPeriod.next30Days:
-        return (now, now.add(const Duration(days: 30)));
+        return (today, today.add(const Duration(days: 30)));
       case EventPeriod.next60Days:
-        return (now, now.add(const Duration(days: 60)));
+        return (today, today.add(const Duration(days: 60)));
       case EventPeriod.next90Days:
-        return (now, now.add(const Duration(days: 90)));
+        return (today, today.add(const Duration(days: 90)));
       case EventPeriod.custom:
         return (
-          _customStartDate ?? now,
-          _customEndDate ?? now.add(const Duration(days: 7)),
+          _customStartDate ?? today,
+          _customEndDate ?? today.add(const Duration(days: 7)),
         );
     }
   }
 
   /// Filtro de período
   Widget _buildPeriodFilter() {
-    return Card(
-      margin: const EdgeInsets.all(16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: GlassCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
