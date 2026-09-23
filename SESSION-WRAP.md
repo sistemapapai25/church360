@@ -653,12 +653,23 @@ persistência ou contratos de dados.
 
 ### Estado Git e próximo passo
 
-- Branch de implementação: `feat/visual-wave-14-community`, baseada em
-  `origin/main` no merge `5c0fefa`.
+- Commit de implementação: `bc0d3c5`, `feat: standardize community visual surfaces`.
+- PR #146: https://github.com/sistemapapai25/church360/pull/146.
+- PR #146 mergeada em `main` com o commit `b980317aabba5d1c61369965943a671943691482`.
+- Deploy de produção: `dpl_3jf9kv89TnH675gCZtsWH9PRmrcf`, estado **Ready**.
+- URL do deployment: `https://church360-31qs7bv5l-gabriels-projects-ec03504d.vercel.app`.
+- Aliases confirmados: `https://app.church360.com.br`,
+  `https://church360-app.vercel.app` e
+  `https://church360-app-gabriels-projects-ec03504d.vercel.app`.
+- `vercel curl` acessou o HTML real do Flutter usando o bypass protegido;
+  validação autenticada das telas internas continua dependendo de uma sessão
+  real.
+- Branch de handoff: `chore/session-wrap-wave-14`, baseada em `origin/main`
+  no merge `b980317`.
 - Os sete registradores Flutter gerados continuam modificados localmente e
   fora do staging e de todos os commits.
-- Depois do merge e deploy desta onda, iniciar a auditoria final de Reports e
-  dos consumidores Material restantes fora dos módulos já fechados.
+- Próxima fase: auditoria final de Reports (`core/screens/reports`), começando
+  pelas telas de resumo/listagem e mantendo os contratos dos relatórios.
 
 ## Final closeout — visual wave 12 Events, diálogos e widgets especializados
 
