@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../design/app_icons.dart';
 import '../../providers/dashboard_stats_provider.dart';
+import '../../widgets/glass_card.dart';
 
 /// Tela de relatório de presença
 class AttendanceReportScreen extends ConsumerWidget {
@@ -23,7 +24,8 @@ class AttendanceReportScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(16),
           children: [
             // Card de Média de Presença
-            Card(
+            GlassCard(
+              padding: EdgeInsets.zero,
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -124,54 +126,59 @@ class AttendanceReportScreen extends ConsumerWidget {
                                     )
                                   : '0.0';
 
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: Colors.green.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                    child: const Icon(
-                                      AppIcons.groupsFilled,
-                                      color: Colors.green,
-                                    ),
-                                  ),
-                                  title: Text(
-                                    groupName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  subtitle: LinearProgressIndicator(
-                                    value: present / expected,
-                                    backgroundColor: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withValues(alpha: 0.10),
-                                    valueColor:
-                                        const AlwaysStoppedAnimation<Color>(
-                                          Colors.green,
-                                        ),
-                                  ),
-                                  trailing: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        '$percentage%',
-                                        style: const TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: GlassCard(
+                                  padding: EdgeInsets.zero,
+                                  child: ListTile(
+                                    leading: CircleAvatar(
+                                      backgroundColor: Colors.green.withValues(
+                                        alpha: 0.2,
                                       ),
-                                      Text(
-                                        '$present/$expected',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                        ),
+                                      child: const Icon(
+                                        AppIcons.groupsFilled,
+                                        color: Colors.green,
                                       ),
-                                    ],
+                                    ),
+                                    title: Text(
+                                      groupName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    subtitle: LinearProgressIndicator(
+                                      value: present / expected,
+                                      backgroundColor: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withValues(alpha: 0.10),
+                                      valueColor:
+                                          const AlwaysStoppedAnimation<Color>(
+                                            Colors.green,
+                                          ),
+                                    ),
+                                    trailing: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          '$percentage%',
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          '$present/$expected',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               );

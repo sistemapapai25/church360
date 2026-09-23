@@ -27,7 +27,7 @@ um ajuste de inventário, não como uma remoção presumida.
 | Financeiro | 105 | 13 | Migrado nesta onda: telas, formulários, contas, categorias, comprovantes e widgets |
 | Financeiro legado | 53 | 5 | Migrado nesta onda: contribuições, despesas, metas e relatórios |
 | Community | 85 | 2 | Migrado nesta onda: shell, mural, classificados, membros e moderação; preservar Font Awesome |
-| Reports (`core/screens/reports`) | 57 | 8 | Ícones compartilhados já parcialmente propagados |
+| Reports (`core/screens/reports`) | 57 | 8 | Primeiro recorte nesta onda: Presença, Eventos e Grupos migrados; demais relatórios pendentes |
 
 Os números por área são referências textuais e podem incluir símbolos que
 serão classificados como específicos de uma tela, além dos símbolos que podem
@@ -228,3 +228,18 @@ recorte, e identificadores persistidos de ministério permanecem intactos.
 
 Não houve alteração em banco, rotas, permissões, providers, repositórios,
 persistência ou contratos de dados.
+
+## Onda visual — Reports, primeiro recorte
+
+- `attendance_report_screen.dart` reutiliza `GlassCard` no resumo e nas linhas
+  de grupos, preservando o gráfico, a média e o indicador de presença.
+- `events_report_screen.dart` e `groups_report_screen.dart` reutilizam
+  `GlassCard` nas listagens e mantêm filtros, datas, contagens e estados
+  existentes.
+- A cobertura focada em
+  `test/core/screens/reports/reports_visual_surfaces_test.dart` valida as três
+  telas com providers em memória.
+
+Não houve alteração em banco, rotas, permissões, providers, consultas ou
+contratos dos relatórios. O próximo recorte continua em Active Groups,
+Upcoming Events/Expenses e Member Growth.

@@ -671,6 +671,21 @@ persistência ou contratos de dados.
 - Próxima fase: auditoria final de Reports (`core/screens/reports`), começando
   pelas telas de resumo/listagem e mantendo os contratos dos relatórios.
 
+## Visual wave 15 — Reports, primeiro recorte em andamento
+
+Timestamp: 2026-09-23, America/Sao_Paulo (UTC-03).
+
+- `attendance_report_screen.dart`, `events_report_screen.dart` e
+  `groups_report_screen.dart` agora reutilizam `GlassCard` nas superfícies
+  principais e nas listagens.
+- Cobertura focada adicionada em
+  `test/core/screens/reports/reports_visual_surfaces_test.dart`.
+- Validação local: **3 testes focados**, **559 testes na suíte completa**,
+  analyzer sem issues, `git diff --check` e build web de release aprovados.
+- O próximo recorte desta fase são Active Groups, Upcoming Events/Expenses e
+  Member Growth; a lógica de dados e os contratos dos providers permanecem
+  inalterados.
+
 ## Final closeout — visual wave 12 Events, diálogos e widgets especializados
 
 Timestamp: 2026-09-22, America/Sao_Paulo (UTC-03).

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../providers/dashboard_stats_provider.dart';
+import '../../widgets/glass_card.dart';
 
 /// Tela de relatório de eventos
 class EventsReportScreen extends ConsumerStatefulWidget {
@@ -53,9 +54,7 @@ class _EventsReportScreenState extends ConsumerState<EventsReportScreen> {
     if (_selectedFilter == 'upcoming') {
       return _buildUpcomingEvents();
     } else {
-      return const Center(
-        child: Text('Filtro em desenvolvimento'),
-      );
+      return const Center(child: Text('Filtro em desenvolvimento'));
     }
   }
 
@@ -69,9 +68,7 @@ class _EventsReportScreenState extends ConsumerState<EventsReportScreen> {
       child: eventsAsync.when(
         data: (events) {
           if (events.isEmpty) {
-            return const Center(
-              child: Text('Nenhum evento próximo'),
-            );
+            return const Center(child: Text('Nenhum evento próximo'));
           }
 
           return ListView.builder(
@@ -84,75 +81,78 @@ class _EventsReportScreenState extends ConsumerState<EventsReportScreen> {
               final location = event['location'] as String?;
               final daysUntil = startDate.difference(DateTime.now()).inDays;
 
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  leading: Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: Colors.blue[100],
-                      borderRadius: BorderRadius.circular(8),
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: GlassCard(
+                  padding: EdgeInsets.zero,
+                  child: ListTile(
+                    leading: Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: Colors.blue[100],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            DateFormat('dd').format(startDate),
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue[700],
+                            ),
+                          ),
+                          Text(
+                            DateFormat('MMM').format(startDate).toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.blue[700],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    title: Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          DateFormat('dd').format(startDate),
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue[700],
+                        Text(DateFormat('dd/MM/yyyy HH:mm').format(startDate)),
+                        if (location != null && location.isNotEmpty)
+                          Text(
+                            location,
+                            style: TextStyle(color: Colors.grey[600]),
                           ),
-                        ),
-                        Text(
-                          DateFormat('MMM').format(startDate).toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.blue[700],
-                          ),
-                        ),
                       ],
                     ),
-                  ),
-                  title: Text(
-                    title,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(DateFormat('dd/MM/yyyy HH:mm').format(startDate)),
-                      if (location != null && location.isNotEmpty)
-                        Text(
-                          location,
-                          style: TextStyle(color: Colors.grey[600]),
-                        ),
-                    ],
-                  ),
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: daysUntil == 0
-                          ? Colors.orange[100]
-                          : Colors.blue[100],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      daysUntil == 0
-                          ? 'HOJE'
-                          : daysUntil == 1
-                              ? 'AMANHÃ'
-                              : 'EM $daysUntil DIAS',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
                         color: daysUntil == 0
-                            ? Colors.orange[700]
-                            : Colors.blue[700],
+                            ? Colors.orange[100]
+                            : Colors.blue[100],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        daysUntil == 0
+                            ? 'HOJE'
+                            : daysUntil == 1
+                            ? 'AMANHÃ'
+                            : 'EM $daysUntil DIAS',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: daysUntil == 0
+                              ? Colors.orange[700]
+                              : Colors.blue[700],
+                        ),
                       ),
                     ),
                   ),
@@ -167,4 +167,3 @@ class _EventsReportScreenState extends ConsumerState<EventsReportScreen> {
     );
   }
 }
-
