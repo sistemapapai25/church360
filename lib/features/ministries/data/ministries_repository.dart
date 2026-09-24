@@ -67,6 +67,44 @@ class MinistriesRepository {
     return Ministry.fromJson(response);
   }
 
+  /// Criar ministério **com o vínculo inicial de liderança**, numa transação.
+  ///
+  /// É a porta da Fase 3: a RPC `create_ministry_with_leader` grava em
+  /// `ministry` e em `ministry_member` de uma vez. [createMinistry] acima
+  /// continua existindo para quem só precisa da linha, mas quem cria pela tela
+  /// passa por aqui — senão o ministério nasce sem ninguém dentro e some da
+  /// lista de todo mundo que não tem visão global.
+  ///
+  /// A RPC também repete no servidor o gate `ministries.create` que hoje só
+  /// existe na rota do app.
+  ///
+  /// [leaderUserId] é um `user_account.id` (não um `auth.users.id` — são chaves
+  /// diferentes neste banco). Omitido, a RPC vincula o próprio chamador.
+  ///
+  /// Devolve o `id` do ministério criado. Erros que ela propaga:
+  /// `42501` sem permissão, `22023` nome vazio ou tipo desconhecido.
+  Future<String> createMinistryWithLeader({
+    required String name,
+    required String ministryType,
+    String? description,
+    String? color,
+    String? whatsappGroupNumber,
+    String? leaderUserId,
+  }) async {
+    final id = await _supabase.rpc(
+      'create_ministry_with_leader',
+      params: {
+        'p_name': name,
+        'p_ministry_type': ministryType,
+        'p_description': description,
+        'p_color': color,
+        'p_whatsapp_group_number': whatsappGroupNumber,
+        'p_leader_user_id': leaderUserId,
+      },
+    );
+    return id as String;
+  }
+
   /// Atualizar ministério
   Future<Ministry> updateMinistry(String id, Map<String, dynamic> data) async {
     final response = await _supabase

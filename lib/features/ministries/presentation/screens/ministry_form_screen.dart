@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/ministries_provider.dart';
+import '../../domain/models/ministry.dart';
+import '../../shared/domain/ministry_type_preview.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
@@ -26,6 +28,10 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
 
   bool _isActive = true;
   String _selectedColor = '0xFF2196F3'; // Azul padrão
+
+  /// Só vale na criação. Editar o tipo de um ministério que já existe trocaria
+  /// as abas debaixo de quem está usando — é assunto da Fase 2, com migração.
+  MinistryType _ministryType = MinistryType.generic;
   bool _isLoading = false;
   final _newFunctionController = TextEditingController();
   Map<String, int> _functionRequirements = {};
@@ -242,6 +248,12 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
                 ),
                 const SizedBox(height: 16),
 
+                // Tipo — só na criação. Ver _ministryType.
+                if (widget.ministryId == null) ...[
+                  _buildTypeCard(context),
+                  const SizedBox(height: 16),
+                ],
+
                 if (widget.ministryId != null) ...[
                   GlassCard(
                     padding: const EdgeInsets.all(20),
@@ -424,6 +436,127 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
     );
   }
 
+  /// Seletor de tipo mais a prévia das abas.
+  ///
+  /// A prévia existe porque o tipo é a única escolha do formulário que não dá
+  /// para desfazer pela tela: ela decide quais abas o ministério abre, e
+  /// trocar depois é migração (Fase 2). Mostrar antes evita criar um Batismo
+  /// achando que é comum.
+  Widget _buildTypeCard(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final tabs = ministryTabsFor(_ministryType);
+
+    return GlassCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Tipo do Ministério',
+            style: CommunityDesign.titleStyle(context).copyWith(fontSize: 18),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Define quais abas ele abre. Só dá para escolher agora.',
+            style: CommunityDesign.metaStyle(context),
+          ),
+          const SizedBox(height: 12),
+          ...ministryTypesOfferedOnCreate.map((type) {
+            final isSelected = _ministryType == type;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: InkWell(
+                onTap: () => setState(() => _ministryType = type),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? colorScheme.primary.withValues(alpha: 0.10)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected
+                          ? colorScheme.primary
+                          : colorScheme.outlineVariant,
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isSelected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        size: 20,
+                        color: isSelected
+                            ? colorScheme.primary
+                            : colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              ministryTypeLabel(type),
+                              style: CommunityDesign.contentStyle(context)
+                                  .copyWith(
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                  ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              ministryTypeDescription(type),
+                              style: CommunityDesign.metaStyle(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+          const SizedBox(height: 8),
+          Text(
+            'Vai abrir com ${tabs.length} abas:',
+            style: CommunityDesign.metaStyle(context),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: tabs
+                .map(
+                  (tab) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      tab,
+                      style: CommunityDesign.metaStyle(context),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _saveMinistry() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -444,12 +577,32 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
         await repository.updateMinistry(widget.ministryId!, data);
         await _saveFunctionRequirements();
       } else {
-        // Criar
-        await repository.createMinistry(data);
+        // Criar — pela RPC, para o ministério e o vínculo do líder nascerem
+        // juntos. Sem o vínculo, um ministério novo some da lista de quem não
+        // tem visão global, inclusive de quem acabou de criá-lo.
+        final newId = await repository.createMinistryWithLeader(
+          name: _nameController.text.trim(),
+          ministryType: _ministryType.value,
+          description: _descriptionController.text.trim().isEmpty
+              ? null
+              : _descriptionController.text.trim(),
+          color: _selectedColor,
+        );
+
+        // A RPC sempre cria ativo — é o estado seguro para o rollback dela.
+        // Quem desmarcou "ativo" recebe o UPDATE logo depois; se este falhar,
+        // sobra um ministério ativo, não um ministério perdido.
+        if (!_isActive) {
+          await repository.updateMinistry(newId, {'is_active': false});
+        }
       }
 
       ref.invalidate(allMinistriesProvider);
       ref.invalidate(activeMinistriesProvider);
+      // O criador virou líder: a lista dele mudou. Realtime não é habilitado
+      // por migration neste banco — invalidar é o que faz a tela ver.
+      ref.invalidate(currentMemberMinistriesProvider);
+      ref.invalidate(visibleMinistriesProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
