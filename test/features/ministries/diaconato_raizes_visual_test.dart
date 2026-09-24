@@ -145,9 +145,15 @@ void main() {
     await initializeDateFormatting('pt_BR');
   });
 
-  testWidgets('dashboard de Raízes usa cards de vidro e ações semânticas', (
+  testWidgets('painel de Raízes usa cards de vidro e ações semânticas', (
     tester,
   ) async {
+    // O painel é a primeira aba do workspace desde 24/09: a tela inteira
+    // não cabe na altura padrão do teste, e sem isto o `ListView` nem
+    // constrói os cards de baixo.
+    await tester.binding.setSurfaceSize(const Size(1200, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -166,8 +172,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(GlassCard), findsAtLeastNWidgets(7));
-    await tester.drag(find.byType(ListView), const Offset(0, -1600));
-    await tester.pumpAndSettle();
     expect(find.byIcon(AppIcons.eventAvailable), findsOneWidget);
     expect(find.byIcon(AppIcons.sponsors), findsOneWidget);
     expect(find.byIcon(AppIcons.recommendations), findsOneWidget);
