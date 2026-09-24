@@ -18,7 +18,10 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import 'baptism_attendance_report.dart';
+import 'baptism_attendance_roll.dart';
 import 'baptism_report_data.dart';
+import 'models/baptism_attendance.dart';
 import 'models/baptism_student.dart';
 
 /// Texto que a Helvetica embutida consegue desenhar.
@@ -353,6 +356,286 @@ Future<Uint8List> buildBaptismMinistryPdf(
   );
 
   return Uint8List.fromList(await doc.save());
+}
+
+// ---------------------------------------------------------------------------
+// Etapa E — as folhas de presença
+// ---------------------------------------------------------------------------
+
+/// Acima disso a grade de encontros não cabe nem em paisagem, e a folha sai
+/// só com os totais. O limite é de largura de papel, não de regra: cada
+/// coluna de encontro precisa de ~26pt para o `18/09` do cabeçalho caber.
+const int _kMaxGridMeetings = 14;
+
+/// A chamada de um encontro.
+///
+/// [blank] decide as duas saídas do mesmo card: `false` imprime o que já foi
+/// marcado no app (para conferir e arquivar), `true` imprime a folha vazia
+/// com quadradinhos e linha de assinatura (para levar à aula e preencher à
+/// mão). É a mesma lista nominal nas duas — quem preencheu no papel digita
+/// depois na mesma ordem, sem procurar nome.
+Future<Uint8List> buildBaptismMeetingSheetPdf(
+  BaptismMeetingRoll roll, {
+  required String ministryName,
+  required DateTime generatedAt,
+  bool blank = false,
+}) async {
+  final meeting = roll.meeting;
+  final subtitle = [
+    'Encontro: ${formatReportDate(meeting.day)}',
+    if ((meeting.turmaName ?? '').trim().isNotEmpty)
+      'Turma: ${meeting.turmaName!.trim()}',
+    'Alunos: ${roll.total}',
+  ].join('   ·   ');
+
+  final doc = pw.Document();
+  doc.addPage(
+    pw.MultiPage(
+      pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.all(28),
+      footer: _footer,
+      build: (context) => [
+        _header(
+          ministryName: ministryName,
+          title: blank
+              ? 'Chamada — ${meeting.title}'
+              : 'Presença — ${meeting.title}',
+          subtitle: subtitle,
+          generatedAt: generatedAt,
+        ),
+        if (!blank) ...[
+          _rollTallyLine(roll),
+          pw.SizedBox(height: 12),
+        ],
+        if (roll.students.isEmpty)
+          _emptyBlock(
+            'Nenhum aluno na turma deste encontro até a emissão desta folha.',
+          )
+        else if (blank)
+          pw.TableHelper.fromTextArray(
+            headers: const ['#', 'Nome', 'Presença', 'Assinatura'],
+            data: [
+              for (var i = 0; i < roll.students.length; i++)
+                [
+                  '${i + 1}',
+                  pdfSafeText(roll.students[i].fullName.trim()),
+                  '( ) Presente   ( ) Faltou   ( ) Justificado',
+                  '',
+                ],
+            ],
+            headerStyle: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              fontSize: 9,
+            ),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            cellStyle: const pw.TextStyle(fontSize: 9),
+            cellHeight: 26,
+            cellAlignment: pw.Alignment.centerLeft,
+            cellAlignments: {0: pw.Alignment.center},
+            columnWidths: {
+              0: const pw.FixedColumnWidth(22),
+              2: const pw.FixedColumnWidth(150),
+              3: const pw.FixedColumnWidth(120),
+            },
+          )
+        else
+          pw.TableHelper.fromTextArray(
+            headers: const ['#', 'Nome', 'Presença', 'Situação do aluno'],
+            data: [
+              for (var i = 0; i < roll.students.length; i++)
+                [
+                  '${i + 1}',
+                  pdfSafeText(roll.students[i].fullName.trim()),
+                  _attendanceLabel(roll.statusOf(roll.students[i])),
+                  roll.students[i].status.label,
+                ],
+            ],
+            headerStyle: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              fontSize: 9,
+            ),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            cellStyle: const pw.TextStyle(fontSize: 9),
+            cellAlignment: pw.Alignment.centerLeft,
+            cellAlignments: {0: pw.Alignment.center},
+            columnWidths: {
+              0: const pw.FixedColumnWidth(22),
+              2: const pw.FixedColumnWidth(96),
+              3: const pw.FixedColumnWidth(96),
+            },
+          ),
+        if (!blank && roll.unmarked > 0) ...[
+          pw.SizedBox(height: 10),
+          _note(
+            '${roll.unmarked} aluno(a)(s) sem marcação neste encontro. '
+            'Não-marcado não é falta: a chamada ainda não passou por essa '
+            'pessoa.',
+          ),
+        ],
+        if ((meeting.notes ?? '').trim().isNotEmpty) ...[
+          pw.SizedBox(height: 10),
+          _note('Observações do encontro: ${meeting.notes!.trim()}'),
+        ],
+      ],
+    ),
+  );
+
+  return Uint8List.fromList(await doc.save());
+}
+
+/// Frequência da turma: a grade aluno x encontro e o percentual de cada um.
+///
+/// Sai em **paisagem** porque a grade cresce para o lado a cada encontro. Com
+/// mais de [_kMaxGridMeetings] encontros a grade é omitida e ficam só os
+/// totais — melhor uma folha honesta sem grade do que uma grade ilegível.
+Future<Uint8List> buildBaptismFrequencyPdf(
+  BaptismTurmaAttendanceReport report, {
+  required DateTime generatedAt,
+}) async {
+  final showGrid =
+      report.meetingCount > 0 && report.meetingCount <= _kMaxGridMeetings;
+
+  final headers = <String>[
+    '#',
+    'Nome',
+    if (showGrid) for (final m in report.meetings) formatMeetingShortDate(m),
+    'P',
+    'J',
+    'F',
+    'Freq.',
+  ];
+
+  final doc = pw.Document();
+  doc.addPage(
+    pw.MultiPage(
+      pageFormat: PdfPageFormat.a4.landscape,
+      margin: const pw.EdgeInsets.all(24),
+      footer: _footer,
+      build: (context) => [
+        _header(
+          ministryName: report.ministryName,
+          title: 'Frequência — turma ${report.turma.name}',
+          subtitle: attendanceSubtitle(report),
+          generatedAt: generatedAt,
+        ),
+        if (report.isEmpty)
+          _emptyBlock(
+            report.meetingCount == 0
+                ? 'Esta turma ainda não tem encontro registrado — não há '
+                    'frequência a calcular.'
+                : 'Nenhum aluno na turma até a emissão deste relatório.',
+          )
+        else ...[
+          _text(
+            'Frequência da turma: ${formatFrequency(report.rate)}   ·   '
+            'Presenças: ${report.totalPresent}   ·   '
+            'Justificadas: ${report.totalJustified}   ·   '
+            'Faltas: ${report.totalAbsent}',
+            style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 12),
+          pw.TableHelper.fromTextArray(
+            headers: headers,
+            data: [
+              for (var i = 0; i < report.lines.length; i++)
+                _frequencyRow(i + 1, report.lines[i], report, showGrid),
+            ],
+            headerStyle: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              fontSize: 8,
+            ),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            cellStyle: const pw.TextStyle(fontSize: 8),
+            cellAlignment: pw.Alignment.center,
+            cellAlignments: {1: pw.Alignment.centerLeft},
+            columnWidths: {
+              0: const pw.FixedColumnWidth(20),
+              1: const pw.FlexColumnWidth(),
+            },
+          ),
+          pw.SizedBox(height: 12),
+          _note(
+            'Freq. = presenças dividido pelos encontros em que o aluno foi '
+            'marcado. Encontro sem marcação fica fora da conta dele — '
+            'não-marcado não é falta.',
+          ),
+          if (report.hasJustified)
+            _note(
+              'Falta justificada entra na conta como falta e aparece na '
+              'coluna J. Relevando as justificadas, a frequência da turma '
+              'seria ${formatFrequency(report.rateWithJustified)}.',
+            ),
+          if (showGrid)
+            _note('Na grade: P presente, F faltou, J justificado, · não marcado.')
+          else if (report.meetingCount > _kMaxGridMeetings)
+            _note(
+              'A turma tem ${report.meetingCount} encontros — a grade por '
+              'encontro não cabe na folha e só os totais foram impressos. A '
+              'chamada de cada encontro sai na folha de presença.',
+            ),
+          if (report.totalUnmarked > 0)
+            _note(
+              '${report.totalUnmarked} marcação(ões) ainda não feita(s) nesta '
+              'turma. Percentual alto com muita marcação faltando diz pouco: '
+              'ele é calculado só sobre o que foi conferido.',
+            ),
+        ],
+      ],
+    ),
+  );
+
+  return Uint8List.fromList(await doc.save());
+}
+
+List<String> _frequencyRow(
+  int index,
+  BaptismStudentFrequency line,
+  BaptismTurmaAttendanceReport report,
+  bool showGrid,
+) {
+  return <String>[
+    '$index',
+    line.student.fullName.trim(),
+    if (showGrid)
+      for (final m in report.meetings) frequencyCell(line.statusOf(m)),
+    '${line.present}',
+    '${line.justified}',
+    '${line.absent}',
+    formatFrequency(line.rate),
+  ].map(pdfSafeText).toList();
+}
+
+/// Contagem do encontro, com o não-marcado à vista.
+///
+/// O não-marcado é o número que impede a leitura errada da folha: sem ele,
+/// um encontro com 2 presentes e 18 pessoas sem chamada pareceria um
+/// encontro em que 18 faltaram.
+pw.Widget _rollTallyLine(BaptismMeetingRoll roll) {
+  final parts = [
+    'Total: ${roll.total}',
+    'Presentes: ${roll.present}',
+    'Justificados: ${roll.justified}',
+    'Faltas: ${roll.absent}',
+    'Sem marcação: ${roll.unmarked}',
+  ];
+  return _text(
+    parts.join('   ·   '),
+    style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+  );
+}
+
+String _attendanceLabel(BaptismAttendanceStatus? status) =>
+    status?.label ?? 'Não marcado';
+
+/// Observação de rodapé — o lugar onde a folha explica a própria conta.
+pw.Widget _note(String message) {
+  return pw.Padding(
+    padding: const pw.EdgeInsets.only(top: 4),
+    child: _text(
+      message,
+      style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+    ),
+  );
 }
 
 String _orDash(String? value) {

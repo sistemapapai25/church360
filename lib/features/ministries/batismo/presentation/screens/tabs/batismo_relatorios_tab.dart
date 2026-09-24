@@ -8,6 +8,8 @@ import '../../../../../../core/design/app_icons.dart';
 import '../../../../../../core/design/community_design.dart';
 import '../../../../../../core/widgets/glass_card.dart';
 import '../../../../presentation/providers/ministries_provider.dart';
+import '../../../domain/baptism_attendance_report.dart';
+import '../../../domain/baptism_attendance_roll.dart';
 import '../../../domain/baptism_pdf_renderer.dart';
 import '../../../domain/baptism_report_data.dart';
 import '../../../domain/models/baptism_student.dart';
@@ -16,14 +18,18 @@ import '../../providers/baptism_providers.dart';
 
 /// Aba Relatórios do workspace do Batismo.
 ///
-/// Só lê: gera PDF a partir do que as abas Turmas e Alunos já gravaram.
-/// Por isso não há checagem de escrita nem `invalidate` — quem chegou aqui
-/// passou pelo `MinistrySubmoduleGuard` do módulo, e nada nesta tela
-/// altera o banco.
+/// Só lê: gera PDF a partir do que as abas Turmas, Alunos e Presença já
+/// gravaram. Por isso não há checagem de escrita nem `invalidate` — quem
+/// chegou aqui passou pelo `MinistrySubmoduleGuard` do módulo, e nada nesta
+/// tela altera o banco.
 ///
-/// A lista de presença por encontro não está aqui de propósito: a tabela de
-/// presença ainda não existe, e um relatório de chamada sobre nada
-/// imprimiria 0% para todo aluno. Ela entra quando a aba Presença entrar.
+/// As duas folhas de presença entraram na Etapa E (24/09), depois que a aba
+/// Presença passou a existir — antes delas um relatório de chamada sobre
+/// nada imprimiria 0% para todo aluno.
+///
+/// Os dois cards de presença tratam o carregamento **localmente**, e não na
+/// porta da tela: chamada que não carregou não pode derrubar o relatório da
+/// turma, que não depende dela.
 class BatismoRelatoriosTab extends ConsumerStatefulWidget {
   final String ministryId;
 
@@ -39,6 +45,10 @@ class _BatismoRelatoriosTabState extends ConsumerState<BatismoRelatoriosTab> {
   /// escolheu — nesse caso vale a primeira da lista.
   String? _turmaId;
 
+  /// Encontro escolhido no card da chamada. Nulo enquanto ninguém escolheu —
+  /// nesse caso vale o primeiro da lista, que é o mais recente.
+  String? _meetingId;
+
   /// Qual relatório está sendo gerado, para travar só o botão daquele card
   /// em vez da tela inteira.
   String? _busy;
@@ -49,6 +59,16 @@ class _BatismoRelatoriosTabState extends ConsumerState<BatismoRelatoriosTab> {
       if (t.id == _turmaId) return t;
     }
     return turmas.first;
+  }
+
+  /// A chamada escolhida. `rolls` vem do provider já ordenado do encontro
+  /// mais recente para o mais antigo.
+  BaptismMeetingRoll? _selectedRoll(List<BaptismMeetingRoll> rolls) {
+    if (rolls.isEmpty) return null;
+    for (final r in rolls) {
+      if (r.meeting.id == _meetingId) return r;
+    }
+    return rolls.first;
   }
 
   // -------------------------------------------------------------------
@@ -97,6 +117,19 @@ class _BatismoRelatoriosTabState extends ConsumerState<BatismoRelatoriosTab> {
     if (picked != null && mounted) setState(() => _turmaId = picked);
   }
 
+  Future<void> _pickMeeting(List<BaptismMeetingRoll> rolls) async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _MeetingPicker(
+        rolls: rolls,
+        selectedId: _selectedRoll(rolls)?.meeting.id,
+      ),
+    );
+    if (picked != null && mounted) setState(() => _meetingId = picked);
+  }
+
   // -------------------------------------------------------------------
 
   @override
@@ -124,6 +157,19 @@ class _BatismoRelatoriosTabState extends ConsumerState<BatismoRelatoriosTab> {
     final students = studentsAsync.value ?? const <BaptismStudent>[];
     final turmas = turmasAsync.value ?? const <BaptismTurma>[];
     final turma = _selectedTurma(turmas);
+
+    // A presença entra por fora do gate de carregamento acima, de propósito:
+    // ver o comentário da classe.
+    final rollsAsync = ref.watch(baptismMeetingRollsProvider(widget.ministryId));
+    final rolls = rollsAsync.value ?? const <BaptismMeetingRoll>[];
+    final roll = _selectedRoll(rolls);
+    final frequency = turma == null
+        ? null
+        : BaptismTurmaAttendanceReport.build(
+            turma: turma,
+            ministryName: ministryName,
+            rolls: rolls,
+          );
 
     final ministryReport = BaptismMinistryReport.build(
       ministryName: ministryName,
@@ -213,7 +259,107 @@ class _BatismoRelatoriosTabState extends ConsumerState<BatismoRelatoriosTab> {
             child: _MinistrySummary(report: ministryReport),
           ),
           const SizedBox(height: 12),
-          const _PendingNote(),
+          _ReportCard(
+            icon: AppIcons.checklist,
+            title: 'Chamada do encontro',
+            description:
+                'A folha de um encontro: preenchida com o que já foi marcado, '
+                'ou em branco para levar impressa e preencher à mão.',
+            busy: _busy == _kMeetingKey,
+            onOpen: roll == null
+                ? null
+                : () => _emit(
+                    key: _kMeetingKey,
+                    filename: _filename('presenca', roll.meeting.title),
+                    share: false,
+                    build: () => buildBaptismMeetingSheetPdf(
+                      roll,
+                      ministryName: ministryName,
+                      generatedAt: DateTime.now(),
+                    ),
+                  ),
+            onShare: roll == null
+                ? null
+                : () => _emit(
+                    key: _kMeetingKey,
+                    filename: _filename('presenca', roll.meeting.title),
+                    share: true,
+                    build: () => buildBaptismMeetingSheetPdf(
+                      roll,
+                      ministryName: ministryName,
+                      generatedAt: DateTime.now(),
+                    ),
+                  ),
+            secondaryLabel: 'Folha em branco para assinar',
+            onSecondary: roll == null
+                ? null
+                : () => _emit(
+                    key: _kMeetingKey,
+                    filename: _filename('chamada', roll.meeting.title),
+                    share: false,
+                    build: () => buildBaptismMeetingSheetPdf(
+                      roll,
+                      ministryName: ministryName,
+                      generatedAt: DateTime.now(),
+                      blank: true,
+                    ),
+                  ),
+            child: _AttendanceSlot(
+              async: rollsAsync,
+              emptyLabel:
+                  'Nenhum encontro registrado ainda. Crie o primeiro na aba '
+                  'Presença para poder emitir a chamada.',
+              isEmpty: rolls.isEmpty,
+              onRetry: () => invalidateBaptismData(ref, widget.ministryId),
+              child: roll == null
+                  ? const SizedBox.shrink()
+                  : _MeetingSelection(
+                      roll: roll,
+                      onChange:
+                          rolls.length < 2 ? null : () => _pickMeeting(rolls),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _ReportCard(
+            icon: AppIcons.report,
+            title: 'Frequência da turma',
+            description:
+                'Grade de presença por encontro e o percentual de cada aluno.',
+            busy: _busy == _kFrequencyKey,
+            onOpen: frequency == null || frequency.isEmpty
+                ? null
+                : () => _emit(
+                    key: _kFrequencyKey,
+                    filename: _filename('frequencia', frequency.turma.name),
+                    share: false,
+                    build: () => buildBaptismFrequencyPdf(
+                      frequency,
+                      generatedAt: DateTime.now(),
+                    ),
+                  ),
+            onShare: frequency == null || frequency.isEmpty
+                ? null
+                : () => _emit(
+                    key: _kFrequencyKey,
+                    filename: _filename('frequencia', frequency.turma.name),
+                    share: true,
+                    build: () => buildBaptismFrequencyPdf(
+                      frequency,
+                      generatedAt: DateTime.now(),
+                    ),
+                  ),
+            child: _AttendanceSlot(
+              async: rollsAsync,
+              emptyLabel:
+                  'Sem encontro registrado não há frequência a calcular.',
+              isEmpty: rolls.isEmpty,
+              onRetry: () => invalidateBaptismData(ref, widget.ministryId),
+              child: frequency == null
+                  ? const _NoTurmasNote()
+                  : _FrequencySummary(report: frequency),
+            ),
+          ),
         ],
       ),
     );
@@ -236,6 +382,8 @@ class _BatismoRelatoriosTabState extends ConsumerState<BatismoRelatoriosTab> {
 
 const String _kTurmaKey = 'turma';
 const String _kMinistryKey = 'ministry';
+const String _kMeetingKey = 'meeting';
+const String _kFrequencyKey = 'frequency';
 
 // ---------------------------------------------------------------------------
 // Peças de tela
@@ -251,6 +399,12 @@ class _ReportCard extends StatelessWidget {
   final VoidCallback? onOpen;
   final VoidCallback? onShare;
 
+  /// Segunda saída do mesmo card, quando existe — hoje só a folha de chamada
+  /// em branco. Fica abaixo, e não ao lado, para não competir com a saída
+  /// principal.
+  final String? secondaryLabel;
+  final VoidCallback? onSecondary;
+
   const _ReportCard({
     required this.icon,
     required this.title,
@@ -259,6 +413,8 @@ class _ReportCard extends StatelessWidget {
     required this.busy,
     required this.onOpen,
     required this.onShare,
+    this.secondaryLabel,
+    this.onSecondary,
   });
 
   @override
@@ -312,8 +468,178 @@ class _ReportCard extends StatelessWidget {
               ),
             ],
           ),
+          if (secondaryLabel != null) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: busy ? null : onSecondary,
+                icon: const Icon(AppIcons.checklist, size: 18),
+                label: Text(secondaryLabel!),
+                style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
+              ),
+            ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+/// O miolo de um card de presença, com os três estados do provider.
+///
+/// Carregando e erro moram aqui, dentro do card, para que a chamada que não
+/// veio não apague os relatórios que não dependem dela.
+class _AttendanceSlot extends StatelessWidget {
+  final AsyncValue<List<BaptismMeetingRoll>> async;
+  final String emptyLabel;
+  final bool isEmpty;
+  final VoidCallback onRetry;
+  final Widget child;
+
+  const _AttendanceSlot({
+    required this.async,
+    required this.emptyLabel,
+    required this.isEmpty,
+    required this.onRetry,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = CommunityDesign.metaStyle(
+      context,
+    ).copyWith(color: Theme.of(context).disabledColor);
+
+    if (async.isLoading) {
+      return Row(
+        children: [
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 8),
+          Text('Carregando os encontros...', style: muted),
+        ],
+      );
+    }
+
+    if (async.hasError) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Não foi possível carregar a presença: ${async.error}',
+            style: CommunityDesign.metaStyle(context),
+          ),
+          const SizedBox(height: 4),
+          TextButton(onPressed: onRetry, child: const Text('Tentar de novo')),
+        ],
+      );
+    }
+
+    if (isEmpty) return Text(emptyLabel, style: muted);
+
+    return child;
+  }
+}
+
+/// O encontro escolhido e como está a chamada dele.
+class _MeetingSelection extends StatelessWidget {
+  final BaptismMeetingRoll roll;
+
+  /// Nulo quando há um encontro só — não há o que escolher.
+  final VoidCallback? onChange;
+
+  const _MeetingSelection({required this.roll, required this.onChange});
+
+  @override
+  Widget build(BuildContext context) {
+    final meeting = roll.meeting;
+    final meta = [
+      formatReportDate(meeting.day),
+      if ((meeting.turmaName ?? '').trim().isNotEmpty) meeting.turmaName!.trim(),
+    ].join(' · ');
+
+    // Sem marcação nenhuma a folha preenchida sairia toda "Não marcado" —
+    // dizer isso aqui evita a impressão inútil.
+    final status = roll.isUntouched
+        ? 'Chamada ainda não feita · ${roll.total} '
+              '${roll.total == 1 ? 'aluno' : 'alunos'}'
+        : '${roll.present} presentes · ${roll.justified} justificados · '
+              '${roll.absent} faltas · ${roll.unmarked} sem marcação';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        OutlinedButton.icon(
+          onPressed: onChange,
+          icon: const Icon(AppIcons.swap, size: 18),
+          label: Text(
+            meeting.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
+        ),
+        const SizedBox(height: 8),
+        Text(meta, style: CommunityDesign.metaStyle(context)),
+        const SizedBox(height: 4),
+        Text(
+          status,
+          style: CommunityDesign.titleStyle(
+            context,
+          ).copyWith(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+  }
+}
+
+/// Os números da frequência da turma, os mesmos que vão para o PDF.
+class _FrequencySummary extends StatelessWidget {
+  final BaptismTurmaAttendanceReport report;
+
+  const _FrequencySummary({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = CommunityDesign.metaStyle(
+      context,
+    ).copyWith(color: Theme.of(context).disabledColor);
+
+    if (report.meetingCount == 0) {
+      return Text(
+        'A turma ${report.turma.name} ainda não tem encontro registrado.',
+        style: muted,
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${report.turma.name} · ${report.meetingCount} '
+          '${report.meetingCount == 1 ? 'encontro' : 'encontros'}',
+          style: CommunityDesign.metaStyle(context),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Frequência da turma: ${formatFrequency(report.rate)}',
+          style: CommunityDesign.titleStyle(
+            context,
+          ).copyWith(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+        if (report.totalUnmarked > 0) ...[
+          const SizedBox(height: 4),
+          Text(
+            '${report.totalUnmarked} marcação(ões) ainda por fazer — o '
+            'percentual só conta o que já foi conferido.',
+            style: muted,
+          ),
+        ],
+      ],
     );
   }
 }
@@ -430,31 +756,52 @@ class _NoTurmasNote extends StatelessWidget {
   }
 }
 
-/// O que esta aba ainda não faz, dito na própria aba.
-class _PendingNote extends StatelessWidget {
-  const _PendingNote();
+/// Folha de escolha do encontro.
+class _MeetingPicker extends StatelessWidget {
+  final List<BaptismMeetingRoll> rolls;
+  final String? selectedId;
+
+  const _MeetingPicker({required this.rolls, required this.selectedId});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(
-            AppIcons.schedule,
-            size: 16,
-            color: Theme.of(context).disabledColor,
-          ),
-          const SizedBox(width: 6),
-          Expanded(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
-              'A lista de presença por encontro entra aqui quando a aba '
-              'Presença existir — antes disso ela imprimiria 0% para todo '
-              'aluno.',
-              style: CommunityDesign.metaStyle(
+              'Encontro da folha',
+              style: CommunityDesign.titleStyle(
                 context,
-              ).copyWith(color: Theme.of(context).disabledColor),
+              ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final r in rolls)
+                  ListTile(
+                    title: Text(r.meeting.title),
+                    subtitle: Text(
+                      '${formatReportDate(r.meeting.day)} · '
+                      '${r.isUntouched ? 'chamada não feita' : '${r.present} de ${r.total} presentes'}',
+                    ),
+                    trailing: r.meeting.id == selectedId
+                        ? const Icon(AppIcons.check, size: 20)
+                        : null,
+                    onTap: () => Navigator.of(context).pop(r.meeting.id),
+                  ),
+              ],
             ),
           ),
         ],

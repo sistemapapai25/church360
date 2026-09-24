@@ -3,8 +3,11 @@ import 'dart:convert';
 
 import 'package:church360_app/core/theme/app_theme.dart';
 import 'package:church360_app/core/widgets/glass_card.dart';
+import 'package:church360_app/features/ministries/batismo/domain/baptism_attendance_roll.dart';
 import 'package:church360_app/features/ministries/batismo/domain/baptism_pdf_renderer.dart';
 import 'package:church360_app/features/ministries/batismo/domain/baptism_report_data.dart';
+import 'package:church360_app/features/ministries/batismo/domain/models/baptism_attendance.dart';
+import 'package:church360_app/features/ministries/batismo/domain/models/baptism_meeting.dart';
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_student.dart';
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_turma.dart';
 import 'package:church360_app/features/ministries/batismo/presentation/providers/baptism_providers.dart';
@@ -57,9 +60,40 @@ BaptismTurma _turma(
   );
 }
 
+BaptismMeeting _meeting(
+  String id, {
+  String turmaId = 'turma-1',
+  required DateTime day,
+  String title = 'Encontro',
+  String? turmaName,
+}) {
+  return BaptismMeeting(
+    id: id,
+    tenantId: 't1',
+    turmaId: turmaId,
+    meetingDate: day,
+    title: title,
+    createdAt: DateTime(2026, 9, 1),
+    turmaName: turmaName,
+  );
+}
+
+BaptismMeetingRoll _roll(
+  BaptismMeeting meeting,
+  List<BaptismStudent> students,
+  Map<String, BaptismAttendanceStatus> marks,
+) {
+  return BaptismMeetingRoll(
+    meeting: meeting,
+    students: students,
+    statusByStudent: marks,
+  );
+}
+
 Widget _host({
   required List<BaptismStudent> students,
   required List<BaptismTurma> turmas,
+  List<BaptismMeetingRoll> rolls = const [],
 }) {
   return ProviderScope(
     overrides: [
@@ -69,6 +103,8 @@ Widget _host({
       baptismTurmasProvider(_ministryId).overrideWith((ref) async => turmas),
       // Sem este a aba tentaria falar com o Supabase no teste.
       ministryByIdProvider(_ministryId).overrideWith((ref) async => null),
+      // Idem: os dois cards de presença leem as chamadas do ministério.
+      baptismMeetingRollsProvider(_ministryId).overrideWith((ref) async => rolls),
     ],
     child: MaterialApp(
       theme: AppTheme.lightTheme,
@@ -77,10 +113,28 @@ Widget _host({
   );
 }
 
-/// Os dois cards não cabem na tela padrão de teste (800x600), e a `ListView`
-/// nem constrói o que fica fora da viewport.
+/// O botão principal de um card, achado pelo título do card.
+///
+/// `byType` não serve: `FilledButton.icon` devolve uma subclasse
+/// (`_FilledButtonWithIcon`) e `byType` casa por tipo exato. E a ordem dos
+/// botões na tela não serve como endereço desde que a Etapa E acrescentou
+/// dois cards — por isso a busca é pelo título, dentro do card dele.
+FilledButton _cardButton(WidgetTester tester, String cardTitle) {
+  return tester.widget<FilledButton>(
+    find.descendant(
+      of: find.ancestor(
+        of: find.text(cardTitle),
+        matching: find.byType(GlassCard),
+      ),
+      matching: find.byWidgetPredicate((w) => w is FilledButton),
+    ),
+  );
+}
+
+/// Os quatro cards não cabem na tela padrão de teste (800x600), e a
+/// `ListView` nem constrói o que fica fora da viewport.
 Future<void> _pumpTab(WidgetTester tester, Widget host) async {
-  await tester.binding.setSurfaceSize(const Size(900, 1600));
+  await tester.binding.setSurfaceSize(const Size(900, 2600));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(host);
   await tester.pumpAndSettle();
@@ -405,7 +459,7 @@ void main() {
   });
 
   group('aba Relatórios', () {
-    testWidgets('mostra os dois relatórios com os números da turma', (
+    testWidgets('mostra os relatórios de cadastro com os números da turma', (
       tester,
     ) async {
       await _pumpTab(
@@ -430,9 +484,11 @@ void main() {
       expect(find.text('Resumo do ministério'), findsOneWidget);
       expect(find.text('Sexta 19h'), findsOneWidget);
       expect(find.text('01/08/2026 a 25/10/2026 · Ativa'), findsOneWidget);
-      // A contagem aparece nos dois cards: turma e ministério.
+      // A contagem aparece nos dois cards de cadastro: turma e ministério.
       expect(find.text('2 alunos · 1 Ativo · 1 Concluído'), findsNWidgets(2));
-      expect(find.byType(GlassCard), findsNWidgets(2));
+      // Quatro cards desde a Etapa E: os dois de cadastro e os dois de
+      // presença.
+      expect(find.byType(GlassCard), findsNWidgets(4));
     });
 
     testWidgets('sem turma, explica o que fazer em vez de oferecer o PDF', (
@@ -445,15 +501,10 @@ void main() {
       expect(find.text('Nenhum aluno cadastrado ainda'), findsOneWidget);
 
       // O botão do relatório de turma existe, mas desativado — sumir com o
-      // card seria pior: a pessoa não saberia que o relatório existe.
-      //
-      // `byType` não serve aqui: `FilledButton.icon` devolve uma subclasse
-      // (`_FilledButtonWithIcon`) e `byType` casa por tipo exato.
-      final botoes = tester.widgetList<FilledButton>(
-        find.byWidgetPredicate((w) => w is FilledButton),
-      );
-      expect(botoes.first.onPressed, isNull);
-      expect(botoes.last.onPressed, isNotNull);
+      // card seria pior: a pessoa não saberia que o relatório existe. O
+      // resumo do ministério continua emitível: ele não depende de turma.
+      expect(_cardButton(tester, 'Relatório da turma').onPressed, isNull);
+      expect(_cardButton(tester, 'Resumo do ministério').onPressed, isNotNull);
     });
 
     testWidgets('com mais de uma turma, dá para trocar a turma do relatório', (
@@ -485,6 +536,92 @@ void main() {
 
       expect(find.text('Turma de março'), findsOneWidget);
       expect(find.text('2 alunos · 2 Ativo'), findsOneWidget);
+    });
+
+    // ---------------------------------------------------------------
+    // Etapa E — os dois cards de presença
+    // ---------------------------------------------------------------
+
+    testWidgets('sem encontro, os cards de presença dizem por que estão '
+        'vazios em vez de oferecer folha', (tester) async {
+      await _pumpTab(
+        tester,
+        _host(
+          turmas: [_turma('turma-1', 'Sexta 19h')],
+          students: [_student('Ana')],
+        ),
+      );
+
+      expect(find.textContaining('Nenhum encontro registrado ainda'),
+          findsOneWidget);
+      expect(find.textContaining('não há frequência a calcular'),
+          findsOneWidget);
+      expect(_cardButton(tester, 'Chamada do encontro').onPressed, isNull);
+      expect(_cardButton(tester, 'Frequência da turma').onPressed, isNull);
+    });
+
+    testWidgets('com chamada feita, o card mostra os números do encontro',
+        (tester) async {
+      final ana = _student('Ana');
+      final bruno = _student('Bruno');
+      final carla = _student('Carla');
+
+      await _pumpTab(
+        tester,
+        _host(
+          turmas: [_turma('turma-1', 'Sexta 19h')],
+          students: [ana, bruno, carla],
+          rolls: [
+            _roll(
+              _meeting('e1', day: DateTime(2026, 9, 18), title: 'Aula 1'),
+              [ana, bruno, carla],
+              {
+                ana.id: BaptismAttendanceStatus.presente,
+                bruno.id: BaptismAttendanceStatus.justificado,
+              },
+            ),
+          ],
+        ),
+      );
+
+      expect(find.text('Aula 1'), findsOneWidget);
+      expect(
+        find.text('1 presentes · 1 justificados · 0 faltas · 1 sem marcação'),
+        findsOneWidget,
+      );
+      // Justificada conta como falta: 1 presença em 2 marcações.
+      expect(find.text('Frequência da turma: 50%'), findsOneWidget);
+      expect(_cardButton(tester, 'Chamada do encontro').onPressed, isNotNull);
+      expect(_cardButton(tester, 'Frequência da turma').onPressed, isNotNull);
+    });
+
+    testWidgets('chamada em branco é dita como tal, e a folha continua '
+        'emitível', (tester) async {
+      final ana = _student('Ana');
+
+      await _pumpTab(
+        tester,
+        _host(
+          turmas: [_turma('turma-1', 'Sexta 19h')],
+          students: [ana],
+          rolls: [
+            _roll(
+              _meeting('e1', day: DateTime(2026, 9, 18), title: 'Aula 1'),
+              [ana],
+              const {},
+            ),
+          ],
+        ),
+      );
+
+      expect(find.text('Chamada ainda não feita · 1 aluno'), findsOneWidget);
+      // Sem nenhuma marcação não há percentual — e não é 0%.
+      expect(find.text('Frequência da turma: —'), findsOneWidget);
+      // A folha em branco é justamente a que serve neste estado.
+      expect(
+        find.text('Folha em branco para assinar'),
+        findsOneWidget,
+      );
     });
   });
 }
