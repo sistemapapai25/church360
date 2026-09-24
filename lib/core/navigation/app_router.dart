@@ -20,7 +20,7 @@ import '../../features/groups/presentation/screens/group_form_screen.dart';
 import '../../features/groups/presentation/screens/meeting_form_screen.dart';
 import '../../features/groups/presentation/screens/meeting_detail_screen.dart';
 import '../../features/ministries/presentation/screens/ministries_list_screen.dart';
-import '../../features/ministries/presentation/screens/ministry_detail_screen.dart';
+import '../../features/ministries/presentation/screens/generic_ministry_home_screen.dart';
 import '../../features/ministries/presentation/screens/ministry_form_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_home_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_visits_screen.dart';
@@ -563,14 +563,17 @@ final appRouter = GoRouter(
         );
       },
     ),
+    // O workspace do ministerio nao usa `PermissionOnlyRoute`: quem decide
+    // aqui e o escopo do ministerio (visao global OU vinculo), dentro do
+    // `MinistrySubmoduleGuard` da propria tela. `ministries.view` diz que a
+    // pessoa ve o hub, nao que ela ve todos os ministerios — gatear a rota
+    // por ela tiraria do membro vinculado o departamento dele, que as rotas
+    // /batismo|raizes|diaconato abrem hoje sem gate nenhum.
     GoRoute(
       path: '/ministries/:id',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return PermissionOnlyRoute(
-          permission: 'ministries.view',
-          child: MinistryDetailScreen(ministryId: id),
-        );
+        return GenericMinistryHomeScreen(ministryId: id);
       },
     ),
     GoRoute(
