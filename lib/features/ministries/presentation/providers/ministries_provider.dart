@@ -119,10 +119,17 @@ final visibleMinistriesProvider = FutureProvider<List<Ministry>>((ref) async {
   return ref.watch(currentMemberMinistriesProvider.future);
 });
 
-/// Indica se o usuário atual pode acessar um ministério específico.
+/// Indica se o usuário atual pode **entrar** em um ministério específico —
+/// o `canAccessMinistryWorkspace` da régua de escopo.
 ///
-/// Útil em route guards: o `true` exige visão global OU vínculo ativo no
-/// ministério indicado.
+/// `visão global OU vínculo ativo`. É o gate do workspace base e o primeiro
+/// degrau do `MinistrySubmoduleGuard`; o que a pessoa pode fazer lá dentro
+/// continua vindo das permissões de cada aba.
+///
+/// Repare no que ele **não** consulta: `ministries.view`. Essa permissão diz
+/// que a pessoa vê o hub de ministérios, não que ela vê todos eles — quem dá
+/// visão global é [ministriesCanSeeAllProvider]. Misturar as duas faria um
+/// líder de departamento enxergar ministérios de que não participa.
 final ministryAccessProvider =
     FutureProvider.family<bool, String>((ref, ministryId) async {
   final canSeeAll = await ref.watch(ministriesCanSeeAllProvider.future);
