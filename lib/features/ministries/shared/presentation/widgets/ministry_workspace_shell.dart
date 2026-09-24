@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +9,7 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/app_tabs.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
 import '../../../domain/models/ministry.dart';
+import '../../domain/ministry_type_catalog.dart';
 import '../../../notifications/presentation/screens/ministry_notification_config_screen.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../presentation/utils/ministry_visuals.dart';
@@ -30,6 +32,106 @@ class MinistryWorkspaceTab {
     this.count,
     required this.builder,
   });
+}
+
+/// O que uma tela sabe montar para uma chave de aba do catálogo.
+///
+/// A tela declara os widgets que tem; o catálogo (`public.ministry_type`)
+/// decide quais entram, em que ordem e com que rótulo. Ver
+/// [ministryTabsFromCatalog].
+class MinistryTabSlot {
+  /// Rótulo usado quando o catálogo não tem o que dizer sobre este tipo.
+  final String defaultLabel;
+
+  final String? count;
+  final WidgetBuilder builder;
+
+  const MinistryTabSlot({
+    required this.defaultLabel,
+    this.count,
+    required this.builder,
+  });
+}
+
+/// Monta a lista de abas cruzando o que a tela sabe construir ([slots]) com o
+/// que o catálogo manda para [typeCode].
+///
+/// As duas falhas possíveis têm saída pelo lado seguro:
+///
+/// - **tipo fora do catálogo** (ou catálogo que não chegou): usa todos os
+///   slots, na ordem em que a tela os declarou. É exatamente o comportamento
+///   de antes da Fase 2;
+/// - **chave que o app não conhece**: ignorada. Uma aba sem widget nasceria
+///   vazia, e uma tela com aba vazia é pior que uma aba a menos.
+///
+/// O caso que **não** tem rede é o inverso: chave que a tela tem e o catálogo
+/// não lista sai da tela. É o preço de o catálogo mandar de verdade, e é por
+/// isso que a tabela só muda por migration e que o fallback embutido é travado
+/// por teste. Em debug, cada slot descartado vira aviso no console.
+List<MinistryWorkspaceTab> ministryTabsFromCatalog({
+  required MinistryTypeCatalog catalog,
+  required String typeCode,
+  required Map<String, MinistryTabSlot> slots,
+}) {
+  List<MinistryWorkspaceTab> allSlots() => [
+    for (final entry in slots.entries)
+      MinistryWorkspaceTab(
+        label: entry.value.defaultLabel,
+        count: entry.value.count,
+        builder: entry.value.builder,
+      ),
+  ];
+
+  final spec = catalog.specFor(typeCode);
+  if (spec == null || spec.tabs.isEmpty) {
+    if (kDebugMode) {
+      debugPrint(
+        'ministry_type: tipo "$typeCode" não está no catálogo; '
+        'a tela usou as abas que ela mesma declara.',
+      );
+    }
+    return allSlots();
+  }
+
+  final used = <String>{};
+  final tabs = <MinistryWorkspaceTab>[];
+  for (final tab in spec.tabs) {
+    final slot = slots[tab.key];
+    if (slot == null) {
+      if (kDebugMode) {
+        debugPrint(
+          'ministry_type[$typeCode]: aba "${tab.key}" está no catálogo mas '
+          'não tem widget registrado nesta tela — ignorada.',
+        );
+      }
+      continue;
+    }
+    used.add(tab.key);
+    tabs.add(
+      MinistryWorkspaceTab(
+        label: tab.label,
+        count: slot.count,
+        builder: slot.builder,
+      ),
+    );
+  }
+
+  if (kDebugMode) {
+    for (final key in slots.keys) {
+      if (!used.contains(key)) {
+        debugPrint(
+          'ministry_type[$typeCode]: a tela sabe montar a aba "$key", mas o '
+          'catálogo não a lista — ela não vai aparecer.',
+        );
+      }
+    }
+  }
+
+  // Catálogo que não casou com nada (todas as chaves desconhecidas) deixaria a
+  // tela sem aba nenhuma. Nesse caso a tela ganha de volta o que ela declara.
+  if (tabs.isEmpty) return allSlots();
+
+  return tabs;
 }
 
 /// Um indicador da linha logo abaixo do título.

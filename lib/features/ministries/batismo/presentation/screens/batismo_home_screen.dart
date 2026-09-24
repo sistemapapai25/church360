@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../presentation/providers/ministries_provider.dart';
+import '../../../shared/domain/ministry_type_catalog.dart';
+import '../../../shared/presentation/providers/ministry_type_catalog_providers.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../../../shared/presentation/widgets/ministry_scale_tab.dart';
 import '../../../shared/presentation/widgets/ministry_finance_tab.dart';
@@ -92,42 +94,46 @@ class _BatismoWorkspace extends ConsumerWidget {
             icon: Icons.groups_2_outlined,
           ),
       ],
-      tabs: [
-        MinistryWorkspaceTab(
-          label: 'Equipe',
-          count: teamCount?.toString(),
-          builder: (_) => MinistryTeamTab(ministryId: ministryId),
-        ),
-        MinistryWorkspaceTab(
-          label: 'Escala',
-          builder: (_) => MinistryScaleTab(ministryId: ministryId),
-        ),
-        MinistryWorkspaceTab(
-          label: 'Financeiro',
-          builder: (_) => MinistryFinanceTab(ministryId: ministryId),
-        ),
-        MinistryWorkspaceTab(
-          label: 'Alunos',
-          count: studentCount?.toString(),
-          builder: (_) => BatismoAlunosTab(ministryId: ministryId),
-        ),
-        MinistryWorkspaceTab(
-          label: 'Checklist',
-          builder: (_) => BatismoChecklistTab(ministryId: ministryId),
-        ),
-        MinistryWorkspaceTab(
-          label: 'Presença',
-          builder: (_) => BatismoPresencaTab(ministryId: ministryId),
-        ),
-        MinistryWorkspaceTab(
-          label: 'WhatsApp',
-          builder: (_) => BatismoWhatsAppTab(ministryId: ministryId),
-        ),
-        MinistryWorkspaceTab(
-          label: 'Relatórios',
-          builder: (_) => BatismoRelatoriosTab(ministryId: ministryId),
-        ),
-      ],
+      tabs: ministryTabsFromCatalog(
+        catalog: ref.watch(ministryTypeCatalogSyncProvider),
+        typeCode: MinistryTypeCodes.batismo,
+        slots: {
+          MinistryTabKeys.equipe: MinistryTabSlot(
+            defaultLabel: 'Equipe',
+            count: teamCount?.toString(),
+            builder: (_) => MinistryTeamTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.escala: MinistryTabSlot(
+            defaultLabel: 'Escala',
+            builder: (_) => MinistryScaleTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.financeiro: MinistryTabSlot(
+            defaultLabel: 'Financeiro',
+            builder: (_) => MinistryFinanceTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.alunos: MinistryTabSlot(
+            defaultLabel: 'Alunos',
+            count: studentCount?.toString(),
+            builder: (_) => BatismoAlunosTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.checklist: MinistryTabSlot(
+            defaultLabel: 'Checklist',
+            builder: (_) => BatismoChecklistTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.presenca: MinistryTabSlot(
+            defaultLabel: 'Presença',
+            builder: (_) => BatismoPresencaTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.whatsapp: MinistryTabSlot(
+            defaultLabel: 'WhatsApp',
+            builder: (_) => BatismoWhatsAppTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.relatorios: MinistryTabSlot(
+            defaultLabel: 'Relatórios',
+            builder: (_) => BatismoRelatoriosTab(ministryId: ministryId),
+          ),
+        },
+      ),
     );
   }
 }

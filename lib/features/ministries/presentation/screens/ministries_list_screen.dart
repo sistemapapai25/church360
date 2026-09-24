@@ -11,6 +11,7 @@ import '../../../permissions/providers/permissions_providers.dart';
 import '../providers/ministries_provider.dart';
 import '../utils/ministry_visuals.dart';
 import '../../domain/models/ministry.dart';
+import '../../shared/presentation/providers/ministry_type_catalog_providers.dart';
 
 /// Tela de listagem de ministérios
 class MinistriesListScreen extends ConsumerStatefulWidget {
@@ -288,7 +289,12 @@ class _MinistryCard extends ConsumerWidget {
         // direto no modulo: a ficha deixou de ser a porta de entrada e
         // passou a ser um destino de dentro dele.
         context.push(
-          ministry.specializedRoute() ?? '/ministries/${ministry.id}',
+          ref
+              .read(ministryTypeCatalogSyncProvider)
+              .routeFor(
+                ministryId: ministry.id,
+                code: ministry.ministryTypeCode,
+              ),
         );
       },
       child: Column(
