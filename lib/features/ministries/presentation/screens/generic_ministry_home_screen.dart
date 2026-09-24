@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../shared/presentation/providers/ministry_finance_providers.dart';
+import '../../shared/domain/ministry_type_catalog.dart';
+import '../../shared/presentation/providers/ministry_type_catalog_providers.dart';
 import '../../shared/presentation/widgets/ministry_finance_tab.dart';
 import '../../shared/presentation/widgets/ministry_whatsapp_tab.dart';
 import '../../shared/presentation/widgets/ministry_reports_tab.dart';
@@ -67,6 +69,18 @@ class _GenericWorkspace extends ConsumerWidget {
               .maybeWhen(data: (s) => s.saldo, orElse: () => null)
         : null;
 
+    // O tipo vem do registro do próprio ministério, e não de uma constante:
+    // /ministries/:id é a porta de qualquer ministério sem atalho próprio, e
+    // um tipo novo, cadastrado por migration, ganha aqui as abas dele sem
+    // código novo. Enquanto o ministério não chega, 'generic' — que é o que
+    // 24 dos 27 registros são.
+    final typeCode = ref
+        .watch(ministryByIdProvider(ministryId))
+        .maybeWhen(
+          data: (m) => m?.ministryTypeCode ?? MinistryTypeCodes.generic,
+          orElse: () => MinistryTypeCodes.generic,
+        );
+
     return MinistryWorkspaceShell(
       ministryId: ministryId,
       fallbackTitle: 'Ministério',
@@ -93,29 +107,33 @@ class _GenericWorkspace extends ConsumerWidget {
             icon: Icons.account_balance_wallet_outlined,
           ),
       ],
-      tabs: [
-        MinistryWorkspaceTab(
-          label: 'Equipe',
-          count: teamCount?.toString(),
-          builder: (_) => MinistryTeamTab(ministryId: ministryId),
-        ),
-        MinistryWorkspaceTab(
-          label: 'Escala',
-          builder: (_) => MinistryScaleTab(ministryId: ministryId),
-        ),
-        MinistryWorkspaceTab(
-          label: 'Financeiro',
-          builder: (_) => MinistryFinanceTab(ministryId: ministryId),
-        ),
-        MinistryWorkspaceTab(
-          label: 'WhatsApp',
-          builder: (_) => MinistryWhatsAppTab(ministryId: ministryId),
-        ),
-        MinistryWorkspaceTab(
-          label: 'Relatórios',
-          builder: (_) => MinistryReportsTab(ministryId: ministryId),
-        ),
-      ],
+      tabs: ministryTabsFromCatalog(
+        catalog: ref.watch(ministryTypeCatalogSyncProvider),
+        typeCode: typeCode,
+        slots: {
+          MinistryTabKeys.equipe: MinistryTabSlot(
+            defaultLabel: 'Equipe',
+            count: teamCount?.toString(),
+            builder: (_) => MinistryTeamTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.escala: MinistryTabSlot(
+            defaultLabel: 'Escala',
+            builder: (_) => MinistryScaleTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.financeiro: MinistryTabSlot(
+            defaultLabel: 'Financeiro',
+            builder: (_) => MinistryFinanceTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.whatsapp: MinistryTabSlot(
+            defaultLabel: 'WhatsApp',
+            builder: (_) => MinistryWhatsAppTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.relatorios: MinistryTabSlot(
+            defaultLabel: 'Relatórios',
+            builder: (_) => MinistryReportsTab(ministryId: ministryId),
+          ),
+        },
+      ),
     );
   }
 }

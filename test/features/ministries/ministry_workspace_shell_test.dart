@@ -1,6 +1,7 @@
 import 'package:church360_app/core/theme/app_theme.dart';
 import 'package:church360_app/core/widgets/app_tabs.dart';
 import 'package:church360_app/features/ministries/domain/models/ministry.dart';
+import 'package:church360_app/features/ministries/shared/domain/ministry_type_catalog.dart';
 import 'package:church360_app/features/ministries/presentation/providers/ministries_provider.dart';
 import 'package:church360_app/features/ministries/shared/presentation/widgets/ministry_workspace_shell.dart';
 import 'package:church360_app/features/permissions/providers/permissions_providers.dart';
@@ -20,7 +21,7 @@ Ministry _ministry(String name, {String? description}) {
     isActive: true,
     createdAt: now,
     updatedAt: now,
-    ministryType: MinistryType.batismo,
+    ministryTypeCode: MinistryTypeCodes.batismo,
   );
 }
 

@@ -1,27 +1,12 @@
-/// Tipo de ministério usado para roteamento de submódulos especializados.
-///
-/// O valor `generic` é o default no banco para todo registro novo. Tipos
-/// reconhecidos pelo app habilitam telas específicas (ex.: Raízes, Diaconato).
-enum MinistryType {
-  generic('generic'),
-  raizes('raizes'),
-  diaconato('diaconato'),
-  batismo('batismo'),
-  kids('kids'),
-  louvor('louvor'),
-  midia('midia');
+import '../../shared/domain/ministry_type_catalog.dart';
 
-  final String value;
-  const MinistryType(this.value);
-
-  static MinistryType fromValue(String? value) {
-    if (value == null) return MinistryType.generic;
-    return MinistryType.values.firstWhere(
-      (t) => t.value == value,
-      orElse: () => MinistryType.generic,
-    );
-  }
-}
+// O tipo do ministério é uma string livre vinda do banco, e é assim de
+// propósito desde a Fase 2: quem diz o que cada tipo significa é o catálogo
+// public.ministry_type, não um enum aqui. Enum fecharia a lista no app — um
+// tipo novo, cadastrado por migration, chegaria como desconhecido e cairia
+// num `orElse: generic` silencioso, exatamente o que a Fase 2 foi feita para
+// acabar. Os códigos que o Dart precisa nomear (porque têm tela própria)
+// estão em MinistryTypeCodes, no ministry_type_catalog.dart.
 
 /// Modelo de Ministério
 class Ministry {
@@ -37,7 +22,10 @@ class Ministry {
 
   // Categorização e configuração (Lote 2 do roadmap Ministérios)
   final String? slug;
-  final MinistryType ministryType;
+
+  /// Código do tipo no catálogo `public.ministry_type` (ex.: 'batismo').
+  /// Nunca vazio: o banco tem NOT NULL DEFAULT 'generic'.
+  final String ministryTypeCode;
   final Map<String, dynamic> settings;
 
   // Dados do líder (quando incluído na query)
@@ -59,7 +47,7 @@ class Ministry {
     required this.createdAt,
     required this.updatedAt,
     this.slug,
-    this.ministryType = MinistryType.generic,
+    this.ministryTypeCode = MinistryTypeCodes.generic,
     this.settings = const {},
     this.leaderName,
     this.leaderPhoto,
@@ -67,22 +55,9 @@ class Ministry {
     this.whatsappGroupNumber,
   });
 
-  /// Rota do submódulo específico deste ministério, quando aplicável.
-  /// Retorna `null` para tipos genéricos.
-  String? specializedRoute() {
-    switch (ministryType) {
-      case MinistryType.raizes:
-        return '/ministries/$id/raizes';
-      case MinistryType.diaconato:
-        return '/ministries/$id/diaconato';
-      case MinistryType.batismo:
-        return '/ministries/$id/batismo';
-      case MinistryType.generic:
-      case MinistryType.kids:
-      case MinistryType.louvor:
-      case MinistryType.midia:
-        return null;
-    }
+  static String _typeCodeFromJson(Object? raw) {
+    final code = raw is String ? raw.trim() : '';
+    return code.isEmpty ? MinistryTypeCodes.generic : code;
   }
 
   factory Ministry.fromJson(Map<String, dynamic> json) {
@@ -104,7 +79,7 @@ class Ministry {
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       slug: json['slug'] as String?,
-      ministryType: MinistryType.fromValue(json['ministry_type'] as String?),
+      ministryTypeCode: _typeCodeFromJson(json['ministry_type']),
       settings: settings,
       leaderName: json['leader_name'] as String?,
       leaderPhoto: json['leader_photo'] as String?,
@@ -125,7 +100,7 @@ class Ministry {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'slug': slug,
-      'ministry_type': ministryType.value,
+      'ministry_type': ministryTypeCode,
       'settings': settings,
       'whatsapp_group_number': whatsappGroupNumber,
     };
@@ -142,7 +117,7 @@ class Ministry {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? slug,
-    MinistryType? ministryType,
+    String? ministryTypeCode,
     Map<String, dynamic>? settings,
     String? leaderName,
     String? leaderPhoto,
@@ -160,7 +135,7 @@ class Ministry {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       slug: slug ?? this.slug,
-      ministryType: ministryType ?? this.ministryType,
+      ministryTypeCode: ministryTypeCode ?? this.ministryTypeCode,
       settings: settings ?? this.settings,
       leaderName: leaderName ?? this.leaderName,
       leaderPhoto: leaderPhoto ?? this.leaderPhoto,

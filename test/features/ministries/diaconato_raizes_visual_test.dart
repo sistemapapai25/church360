@@ -6,6 +6,7 @@ import 'package:church360_app/features/ministries/diaconato/domain/models/worshi
 import 'package:church360_app/features/ministries/diaconato/presentation/providers/diaconato_attendance_providers.dart';
 import 'package:church360_app/features/ministries/diaconato/presentation/screens/diaconato_checklist_screen.dart';
 import 'package:church360_app/features/ministries/domain/models/ministry.dart';
+import 'package:church360_app/features/ministries/shared/domain/ministry_type_catalog.dart';
 import 'package:church360_app/features/ministries/presentation/providers/ministries_provider.dart';
 import 'package:church360_app/features/ministries/raizes/data/raizes_repository.dart';
 import 'package:church360_app/features/ministries/raizes/domain/models/raizes_dashboard_stats.dart';
@@ -23,15 +24,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 final _now = DateTime(2026, 9, 21);
 
-Ministry _ministry(MinistryType type) {
+Ministry _ministry(String type) {
   return Ministry(
     id: 'm1',
-    name: type == MinistryType.raizes ? 'Raízes' : 'Diaconato',
+    name: type == MinistryTypeCodes.raizes ? 'Raízes' : 'Diaconato',
     description: 'Cuidado e serviço',
     icon: 'church',
     color: '#2563EB',
     isActive: true,
-    ministryType: type,
+    ministryTypeCode: type,
     createdAt: _now,
     updatedAt: _now,
   );
@@ -129,7 +130,7 @@ class _FakeWorshipRepository extends WorshipRepository {
       );
 }
 
-List<Override> _accessOverrides(String permission, MinistryType type) {
+List<Override> _accessOverrides(String permission, String type) {
   return [
     ministryByIdProvider('m1').overrideWith((ref) async => _ministry(type)),
     ministriesCanSeeAllProvider.overrideWith((ref) async => true),
@@ -161,7 +162,7 @@ void main() {
           raizesDashboardStatsProvider(
             'm1',
           ).overrideWith((ref) async => RaizesDashboardStats.empty),
-          ..._accessOverrides('raizes.view', MinistryType.raizes),
+          ..._accessOverrides('raizes.view', MinistryTypeCodes.raizes),
         ],
         child: MaterialApp(
           theme: AppTheme.lightTheme,
@@ -191,7 +192,7 @@ void main() {
             ),
             ..._accessOverrides(
               'diaconato.manage_attendance',
-              MinistryType.diaconato,
+              MinistryTypeCodes.diaconato,
             ),
           ],
           child: MaterialApp(

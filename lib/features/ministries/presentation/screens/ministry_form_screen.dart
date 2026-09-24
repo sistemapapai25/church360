@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/ministries_provider.dart';
-import '../../domain/models/ministry.dart';
-import '../../shared/domain/ministry_type_preview.dart';
+import '../../shared/domain/ministry_type_catalog.dart';
+import '../../shared/presentation/providers/ministry_type_catalog_providers.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
@@ -31,7 +31,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
 
   /// Só vale na criação. Editar o tipo de um ministério que já existe trocaria
   /// as abas debaixo de quem está usando — é assunto da Fase 2, com migração.
-  MinistryType _ministryType = MinistryType.generic;
+  String _ministryType = MinistryTypeCodes.generic;
   bool _isLoading = false;
   final _newFunctionController = TextEditingController();
   Map<String, int> _functionRequirements = {};
@@ -444,7 +444,8 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
   /// achando que é comum.
   Widget _buildTypeCard(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final tabs = ministryTabsFor(_ministryType);
+    final catalog = ref.watch(ministryTypeCatalogSyncProvider);
+    final tabs = catalog.tabLabelsFor(_ministryType);
 
     return GlassCard(
       padding: const EdgeInsets.all(20),
@@ -461,12 +462,12 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
             style: CommunityDesign.metaStyle(context),
           ),
           const SizedBox(height: 12),
-          ...ministryTypesOfferedOnCreate.map((type) {
-            final isSelected = _ministryType == type;
+          ...catalog.offeredOnCreate.map((type) {
+            final isSelected = _ministryType == type.code;
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: InkWell(
-                onTap: () => setState(() => _ministryType = type),
+                onTap: () => setState(() => _ministryType = type.code),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -502,7 +503,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              ministryTypeLabel(type),
+                              type.label,
                               style: CommunityDesign.contentStyle(context)
                                   .copyWith(
                                     fontWeight: isSelected
@@ -512,7 +513,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              ministryTypeDescription(type),
+                              type.description,
                               style: CommunityDesign.metaStyle(context),
                             ),
                           ],
@@ -582,7 +583,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
         // tem visão global, inclusive de quem acabou de criá-lo.
         final newId = await repository.createMinistryWithLeader(
           name: _nameController.text.trim(),
-          ministryType: _ministryType.value,
+          ministryType: _ministryType,
           description: _descriptionController.text.trim().isEmpty
               ? null
               : _descriptionController.text.trim(),

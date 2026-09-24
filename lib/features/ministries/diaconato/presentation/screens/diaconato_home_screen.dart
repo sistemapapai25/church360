@@ -7,6 +7,8 @@ import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/widgets/glass_card.dart';
 import '../../../presentation/providers/ministries_provider.dart';
+import '../../../shared/domain/ministry_type_catalog.dart';
+import '../../../shared/presentation/providers/ministry_type_catalog_providers.dart';
 import '../../../shared/presentation/widgets/ministry_finance_tab.dart';
 import '../../../shared/presentation/widgets/ministry_whatsapp_tab.dart';
 import '../../../shared/presentation/widgets/ministry_reports_tab.dart';
@@ -64,33 +66,37 @@ class _DiaconatoWorkspace extends ConsumerWidget {
             icon: Icons.groups_outlined,
           ),
       ],
-      tabs: [
-        MinistryWorkspaceTab(
-          label: 'Painel',
-          builder: (_) => DiaconatoPainelTab(ministryId: ministryId),
-        ),
-        MinistryWorkspaceTab(
-          label: 'Equipe',
-          count: teamCount?.toString(),
-          builder: (_) => MinistryTeamTab(ministryId: ministryId),
-        ),
-        MinistryWorkspaceTab(
-          label: 'Escala',
-          builder: (_) => MinistryScaleTab(ministryId: ministryId),
-        ),
-        MinistryWorkspaceTab(
-          label: 'Financeiro',
-          builder: (_) => MinistryFinanceTab(ministryId: ministryId),
-        ),
-        MinistryWorkspaceTab(
-          label: 'WhatsApp',
-          builder: (_) => MinistryWhatsAppTab(ministryId: ministryId),
-        ),
-        MinistryWorkspaceTab(
-          label: 'Relatórios',
-          builder: (_) => MinistryReportsTab(ministryId: ministryId),
-        ),
-      ],
+      tabs: ministryTabsFromCatalog(
+        catalog: ref.watch(ministryTypeCatalogSyncProvider),
+        typeCode: MinistryTypeCodes.diaconato,
+        slots: {
+          MinistryTabKeys.painel: MinistryTabSlot(
+            defaultLabel: 'Painel',
+            builder: (_) => DiaconatoPainelTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.equipe: MinistryTabSlot(
+            defaultLabel: 'Equipe',
+            count: teamCount?.toString(),
+            builder: (_) => MinistryTeamTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.escala: MinistryTabSlot(
+            defaultLabel: 'Escala',
+            builder: (_) => MinistryScaleTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.financeiro: MinistryTabSlot(
+            defaultLabel: 'Financeiro',
+            builder: (_) => MinistryFinanceTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.whatsapp: MinistryTabSlot(
+            defaultLabel: 'WhatsApp',
+            builder: (_) => MinistryWhatsAppTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.relatorios: MinistryTabSlot(
+            defaultLabel: 'Relatórios',
+            builder: (_) => MinistryReportsTab(ministryId: ministryId),
+          ),
+        },
+      ),
     );
   }
 }

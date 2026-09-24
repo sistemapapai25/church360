@@ -138,53 +138,9 @@ final ministryAccessProvider =
   return mine.any((m) => m.id == ministryId);
 });
 
-/// Capabilities resolvidas a partir do registro do ministério: tipo e
-/// configurações. Útil para decidir qual submódulo abrir (Raízes/Diaconato/...).
-final ministryCapabilitiesProvider =
-    FutureProvider.family<MinistryCapabilities, String>((ref, ministryId) async {
-  final ministry = await ref.watch(ministryByIdProvider(ministryId).future);
-  if (ministry == null) {
-    return const MinistryCapabilities.empty();
-  }
-  return MinistryCapabilities(
-    ministryType: ministry.ministryType,
-    settings: ministry.settings,
-  );
-});
-
-/// Snapshot imutável das capacidades de um ministério no contexto atual.
-class MinistryCapabilities {
-  final MinistryType ministryType;
-  final Map<String, dynamic> settings;
-
-  const MinistryCapabilities({
-    required this.ministryType,
-    required this.settings,
-  });
-
-  const MinistryCapabilities.empty()
-      : ministryType = MinistryType.generic,
-        settings = const {};
-
-  bool get isRaizes => ministryType == MinistryType.raizes;
-  bool get isDiaconato => ministryType == MinistryType.diaconato;
-  bool get isBatismo => ministryType == MinistryType.batismo;
-
-  /// Rota do submódulo especializado (mesma lógica do `Ministry.specializedRoute`),
-  /// preservada aqui para uso em decisões que não têm o objeto Ministry à mão.
-  String? specializedRoutePath(String ministryId) {
-    switch (ministryType) {
-      case MinistryType.raizes:
-        return '/ministries/$ministryId/raizes';
-      case MinistryType.diaconato:
-        return '/ministries/$ministryId/diaconato';
-      case MinistryType.batismo:
-        return '/ministries/$ministryId/batismo';
-      case MinistryType.generic:
-      case MinistryType.kids:
-      case MinistryType.louvor:
-      case MinistryType.midia:
-        return null;
-    }
-  }
-}
+// O bloco MinistryCapabilities/ministryCapabilitiesProvider morava aqui e foi
+// removido na Fase 2 (24/09). Eram ~50 linhas sem um único consumidor em lib/
+// nem em test/: um provider que ninguém observava, três getters isRaizes/
+// isDiaconato/isBatismo que ninguém lia e uma segunda cópia do switch de rota
+// (specializedRoutePath) que nunca foi chamada. Quem precisa da rota hoje
+// pergunta ao catálogo: ministryTypeCatalogSyncProvider + catalog.routeFor().

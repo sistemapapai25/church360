@@ -6,6 +6,7 @@ import 'package:church360_app/features/ministries/diaconato/domain/models/diacon
 import 'package:church360_app/features/ministries/diaconato/presentation/providers/diaconato_attendance_providers.dart';
 import 'package:church360_app/features/ministries/diaconato/presentation/screens/diaconato_home_screen.dart';
 import 'package:church360_app/features/ministries/domain/models/ministry.dart';
+import 'package:church360_app/features/ministries/shared/domain/ministry_type_catalog.dart';
 import 'package:church360_app/features/ministries/notifications/data/ministry_notification_config_repository.dart';
 import 'package:church360_app/features/ministries/notifications/domain/models/ministry_notification_config.dart';
 import 'package:church360_app/features/ministries/notifications/presentation/providers/ministry_notification_config_provider.dart';
@@ -55,7 +56,7 @@ Ministry _ministry() {
     icon: 'church',
     color: '#2563EB',
     isActive: true,
-    ministryType: MinistryType.diaconato,
+    ministryTypeCode: MinistryTypeCodes.diaconato,
     createdAt: now,
     updatedAt: now,
   );

@@ -46,6 +46,7 @@ import '../widgets/navigation/custom_bottom_nav_bar.dart';
 import '../../features/home/presentation/widgets/home_content_card.dart';
 import '../../features/home/presentation/widgets/home_section_widget.dart';
 import '../utils/app_exit.dart';
+import '../../features/ministries/shared/presentation/providers/ministry_type_catalog_providers.dart';
 import '../../features/ministries/domain/models/ministry.dart';
 import '../../features/ministries/presentation/providers/ministries_provider.dart';
 import '../../features/permissions/providers/permissions_providers.dart';
@@ -2107,6 +2108,10 @@ class _MyMinistriesSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ministeriosAsync = ref.watch(currentMemberMinistriesProvider);
+    // O destino de cada card sai do catálogo de tipos (Fase 2), não de um
+    // switch no modelo: tipo com atalho próprio abre no módulo dele, tipo sem
+    // atalho abre o workspace comum.
+    final catalogoTipos = ref.watch(ministryTypeCatalogSyncProvider);
 
     final ministerios = ministeriosAsync.asData?.value ?? const <Ministry>[];
     if (ministerios.isEmpty) return const SizedBox.shrink();
@@ -2136,7 +2141,14 @@ class _MyMinistriesSection extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
         for (final ministerio in ministerios) ...[
-          _MinistryShortcutCard(ministry: ministerio, canOpen: podeAbrir),
+          _MinistryShortcutCard(
+            ministry: ministerio,
+            canOpen: podeAbrir,
+            destination: catalogoTipos.routeFor(
+              ministryId: ministerio.id,
+              code: ministerio.ministryTypeCode,
+            ),
+          ),
           const SizedBox(height: 12),
         ],
       ],
@@ -2148,10 +2160,17 @@ class _MyMinistriesSection extends ConsumerWidget {
 /// `_buildMenuCard` da aba Mais, sem reaproveitá-lo, porque aqui o destino é
 /// condicional e a seta some quando não há para onde ir.
 class _MinistryShortcutCard extends StatelessWidget {
-  const _MinistryShortcutCard({required this.ministry, required this.canOpen});
+  const _MinistryShortcutCard({
+    required this.ministry,
+    required this.canOpen,
+    required this.destination,
+  });
 
   final Ministry ministry;
   final bool canOpen;
+
+  /// Já resolvido pelo catálogo lá em cima — este card não tem `ref`.
+  final String destination;
 
   @override
   Widget build(BuildContext context) {
@@ -2203,9 +2222,7 @@ class _MinistryShortcutCard extends StatelessWidget {
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(_homeCardRadius),
-                onTap: () => context.push(
-                  ministry.specializedRoute() ?? '/ministries/${ministry.id}',
-                ),
+                onTap: () => context.push(destination),
                 child: conteudo,
               ),
             )
