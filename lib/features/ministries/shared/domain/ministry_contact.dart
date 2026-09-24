@@ -40,7 +40,7 @@ MinistryPhoneState ministryPhoneState(String? phone) {
 bool ministryMemberHasWhatsApp(MinistryMember member) =>
     ministryPhoneState(member.phone) == MinistryPhoneState.usable;
 
-/// As variáveis que a aba Avisos sabe substituir, com a explicação que
+/// As variáveis que a aba WhatsApp sabe substituir, com a explicação que
 /// aparece na tela.
 ///
 /// É um subconjunto do que a aba do Batismo conhece: aqui não há aluno nem

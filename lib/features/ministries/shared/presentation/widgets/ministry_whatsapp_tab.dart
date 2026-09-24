@@ -11,7 +11,7 @@ import '../../../domain/models/ministry.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../domain/ministry_contact.dart';
 
-/// Aba Avisos do workspace: falar com quem está na equipe do ministério.
+/// Aba WhatsApp do workspace: falar com quem está na equipe do ministério.
 ///
 /// É a parte da aba WhatsApp do Batismo que só depende de pessoa e telefone.
 /// O Batismo continua com a dele, mais rica — lá há aluno, turma e status de
@@ -26,16 +26,16 @@ import '../../domain/ministry_contact.dart';
 /// por ele. "Avisar a equipe" percorre uma fila com confirmação a cada
 /// pessoa, e a tela diz isso com todas as letras — prometer envio em massa
 /// aqui seria mentira de interface.
-class MinistryNoticesTab extends ConsumerStatefulWidget {
+class MinistryWhatsAppTab extends ConsumerStatefulWidget {
   final String ministryId;
 
-  const MinistryNoticesTab({super.key, required this.ministryId});
+  const MinistryWhatsAppTab({super.key, required this.ministryId});
 
   @override
-  ConsumerState<MinistryNoticesTab> createState() => _MinistryNoticesTabState();
+  ConsumerState<MinistryWhatsAppTab> createState() => _MinistryWhatsAppTabState();
 }
 
-class _MinistryNoticesTabState extends ConsumerState<MinistryNoticesTab> {
+class _MinistryWhatsAppTabState extends ConsumerState<MinistryWhatsAppTab> {
   final _search = TextEditingController();
   final _message = TextEditingController(text: kMinistryDefaultNotice);
   String _query = '';

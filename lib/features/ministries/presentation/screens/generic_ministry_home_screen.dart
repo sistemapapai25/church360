@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../shared/presentation/providers/ministry_finance_providers.dart';
 import '../../shared/presentation/widgets/ministry_finance_tab.dart';
-import '../../shared/presentation/widgets/ministry_notices_tab.dart';
+import '../../shared/presentation/widgets/ministry_whatsapp_tab.dart';
 import '../../shared/presentation/widgets/ministry_reports_tab.dart';
 import '../../shared/presentation/widgets/ministry_scale_tab.dart';
 import '../../shared/presentation/widgets/ministry_submodule_guard.dart';
@@ -16,7 +16,7 @@ import '../providers/ministries_provider.dart';
 /// Workspace de qualquer ministério — o esqueleto que o Batismo estreou,
 /// agora sem dono.
 ///
-/// São cinco abas base: Equipe, Escala, Financeiro, Avisos e Relatórios.
+/// São cinco abas base: Equipe, Escala, Financeiro, WhatsApp e Relatórios.
 /// Um ministério de tipo próprio (Batismo, Raízes, Diaconato) é esta mesma
 /// tela com abas a mais; nenhum deles tem tela de layout próprio.
 ///
@@ -108,8 +108,8 @@ class _GenericWorkspace extends ConsumerWidget {
           builder: (_) => MinistryFinanceTab(ministryId: ministryId),
         ),
         MinistryWorkspaceTab(
-          label: 'Avisos',
-          builder: (_) => MinistryNoticesTab(ministryId: ministryId),
+          label: 'WhatsApp',
+          builder: (_) => MinistryWhatsAppTab(ministryId: ministryId),
         ),
         MinistryWorkspaceTab(
           label: 'Relatórios',

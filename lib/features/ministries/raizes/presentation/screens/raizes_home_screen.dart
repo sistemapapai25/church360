@@ -7,7 +7,7 @@ import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/widgets/glass_card.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../shared/presentation/widgets/ministry_finance_tab.dart';
-import '../../../shared/presentation/widgets/ministry_notices_tab.dart';
+import '../../../shared/presentation/widgets/ministry_whatsapp_tab.dart';
 import '../../../shared/presentation/widgets/ministry_reports_tab.dart';
 import '../../../shared/presentation/widgets/ministry_scale_tab.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
@@ -20,7 +20,7 @@ import '../providers/raizes_dashboard_provider.dart';
 ///
 /// O que era a tela inteira do módulo (KPIs de visitantes e os atalhos para
 /// visitas, padrinhos e indicações) virou a aba **Painel**, e passou a
-/// conviver com Equipe, Escala, Financeiro, Avisos e Relatórios, que são as
+/// conviver com Equipe, Escala, Financeiro, WhatsApp e Relatórios, que são as
 /// mesmas de qualquer ministério. Nada de layout mora aqui: o cabeçalho, o
 /// voltar e a barra de abas vêm do [MinistryWorkspaceShell].
 ///
@@ -98,8 +98,8 @@ class _RaizesWorkspace extends ConsumerWidget {
           builder: (_) => MinistryFinanceTab(ministryId: ministryId),
         ),
         MinistryWorkspaceTab(
-          label: 'Avisos',
-          builder: (_) => MinistryNoticesTab(ministryId: ministryId),
+          label: 'WhatsApp',
+          builder: (_) => MinistryWhatsAppTab(ministryId: ministryId),
         ),
         MinistryWorkspaceTab(
           label: 'Relatórios',
