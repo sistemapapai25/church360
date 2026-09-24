@@ -9,6 +9,7 @@ import '../../../../../../core/widgets/app_filter_bar.dart';
 import '../../../../../../core/widgets/glass_card.dart';
 import '../../../../../dispatch/presentation/providers/dispatch_providers.dart';
 import '../../../../presentation/providers/ministries_provider.dart';
+import '../../../../shared/domain/ministry_contact.dart';
 import '../../../domain/models/baptism_student.dart';
 import '../../../domain/models/baptism_turma.dart';
 import '../../providers/baptism_providers.dart';
@@ -63,15 +64,14 @@ enum StudentPhoneState {
 /// como o [launchWhatsAppMessage] assume): 10 ou 11 dígitos com DDD, ou já
 /// no formato internacional começando por 55.
 StudentPhoneState studentPhoneState(BaptismStudent student) {
-  final digits = (student.phone ?? '').replaceAll(RegExp(r'[^0-9]'), '');
-  if (digits.isEmpty) return StudentPhoneState.missing;
-  if (digits.startsWith('55') && digits.length >= 12) {
-    return StudentPhoneState.usable;
-  }
-  if (digits.length == 10 || digits.length == 11) {
-    return StudentPhoneState.usable;
-  }
-  return StudentPhoneState.incomplete;
+  // A régua mora em `shared/domain/ministry_contact.dart` desde que a aba
+  // Avisos genérica passou a precisar dela. Duas cópias dela seria uma para
+  // dessincronizar.
+  return switch (ministryPhoneState(student.phone)) {
+    MinistryPhoneState.usable => StudentPhoneState.usable,
+    MinistryPhoneState.incomplete => StudentPhoneState.incomplete,
+    MinistryPhoneState.missing => StudentPhoneState.missing,
+  };
 }
 
 /// Se dá para abrir uma conversa com este aluno.

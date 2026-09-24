@@ -121,7 +121,8 @@ class MinistriesRepository {
           user_account:user_id (
             first_name,
             last_name,
-            nickname
+            nickname,
+            phone
           )
         ''')
         .eq('ministry_id', ministryId)
@@ -144,7 +145,16 @@ class MinistriesRepository {
         }
       }
 
-      return MinistryMember.fromJson({...json, 'member_name': memberName});
+      // O embed pode vir nulo sem erro nenhum quando a RLS de `user_account`
+      // não libera a linha para quem consulta — telefone ausente aqui
+      // significa "não sei", e a tela trata isso como o terceiro estado.
+      final phone = member == null ? null : member['phone'] as String?;
+
+      return MinistryMember.fromJson({
+        ...json,
+        'member_name': memberName,
+        'member_phone': phone,
+      });
     }).toList();
 
     // Fallback: preencher nomes para registros que não retornaram join
@@ -154,13 +164,15 @@ class MinistriesRepository {
       try {
         final details = await _supabase
             .from('user_account')
-            .select('id,first_name,last_name,nickname')
+            .select('id,first_name,last_name,nickname,phone')
             .inFilter('id', keys)
             .eq('tenant_id', SupabaseConstants.currentTenantId);
         final nameById = <String, String>{};
+        final phoneById = <String, String?>{};
         for (final row in (details as List)) {
           final id = row['id'] as String?;
           if (id != null) {
+            phoneById[id] = row['phone'] as String?;
             final nick = (row['nickname'] ?? row['apelido'] ?? '')
                 .toString()
                 .trim();
@@ -176,7 +188,10 @@ class MinistriesRepository {
         members = members
             .map(
               (m) => nameById.containsKey(m.memberId)
-                  ? m.copyWith(memberName: nameById[m.memberId])
+                  ? m.copyWith(
+                      memberName: nameById[m.memberId],
+                      phone: m.phone ?? phoneById[m.memberId],
+                    )
                   : m,
             )
             .toList();

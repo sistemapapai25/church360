@@ -215,6 +215,10 @@ class MinistryMember {
   final DateTime createdAt;
   final String? cargoName;
 
+  /// Telefone do cadastro, como está gravado — pode vir incompleto ou nulo.
+  /// Quem decide se dá para discar é `ministryPhoneState`, não esta classe.
+  final String? phone;
+
   MinistryMember({
     required this.id,
     required this.ministryId,
@@ -225,6 +229,7 @@ class MinistryMember {
     this.notes,
     required this.createdAt,
     this.cargoName,
+    this.phone,
   });
 
   factory MinistryMember.fromJson(Map<String, dynamic> json) {
@@ -238,6 +243,7 @@ class MinistryMember {
       notes: json['notes'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       cargoName: json['cargo_name'] as String?,
+      phone: json['member_phone'] as String?,
     );
   }
 
@@ -264,6 +270,7 @@ class MinistryMember {
     String? notes,
     DateTime? createdAt,
     String? cargoName,
+    String? phone,
   }) {
     return MinistryMember(
       id: id ?? this.id,
@@ -275,6 +282,7 @@ class MinistryMember {
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       cargoName: cargoName ?? this.cargoName,
+      phone: phone ?? this.phone,
     );
   }
 }
