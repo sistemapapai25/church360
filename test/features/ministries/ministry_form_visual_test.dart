@@ -64,7 +64,7 @@ void main() {
 
     // Prévia do tipo padrão: as cinco de base.
     expect(find.text('Vai abrir com 5 abas:'), findsOneWidget);
-    expect(find.text('Avisos'), findsOneWidget);
+    expect(find.text('WhatsApp'), findsOneWidget);
     expect(find.text('Alunos'), findsNothing);
 
     // Trocar o tipo troca a prévia — é o que justifica o card existir.
@@ -75,7 +75,8 @@ void main() {
     expect(find.text('Vai abrir com 8 abas:'), findsOneWidget);
     expect(find.text('Alunos'), findsOneWidget);
     expect(find.text('Checklist'), findsOneWidget);
-    expect(find.text('Avisos'), findsNothing);
+    // WhatsApp segue na lista: desde 24/09 as duas abas se chamam igual — o
+    // que muda entre os tipos e' o que ela fala com (equipe x alunos).
   });
 
 }

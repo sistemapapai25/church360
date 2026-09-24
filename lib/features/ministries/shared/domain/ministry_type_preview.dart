@@ -9,9 +9,15 @@ import '../../domain/models/ministry.dart';
 /// montam o `MinistryWorkspaceShell`:
 ///
 /// - `generic_ministry_home_screen.dart`  → as cinco de base;
-/// - `batismo_home_screen.dart`           → sem Avisos, mais as do Batismo;
+/// - `batismo_home_screen.dart`           → Alunos, Checklist e Presença a
+///   mais, e a aba WhatsApp **dele** no lugar da genérica;
 /// - `raizes_home_screen.dart`            → Painel + as cinco;
 /// - `diaconato_home_screen.dart`         → Painel + as cinco.
+///
+/// Sobre o nome **WhatsApp**: até 24/09 a aba genérica se chamava "Avisos" e a
+/// do Batismo, "WhatsApp" — mesma ferramenta com dois rótulos, e "Avisos" ainda
+/// colidia com os Avisos Rápidos de `features/quick_news`. Agora as duas se
+/// chamam igual; o que muda entre elas é com quem falam (equipe x alunos).
 ///
 /// A duplicação é consciente e tem prazo: a **Fase 2** troca o `switch` em
 /// enum Dart por catálogo no banco, e aí as duas listas viram uma consulta só.
@@ -22,7 +28,7 @@ const Map<MinistryType, List<String>> ministryTypeTabPreview = {
     'Equipe',
     'Escala',
     'Financeiro',
-    'Avisos',
+    'WhatsApp',
     'Relatórios',
   ],
   MinistryType.batismo: [
@@ -40,7 +46,7 @@ const Map<MinistryType, List<String>> ministryTypeTabPreview = {
     'Equipe',
     'Escala',
     'Financeiro',
-    'Avisos',
+    'WhatsApp',
     'Relatórios',
   ],
   MinistryType.diaconato: [
@@ -48,7 +54,7 @@ const Map<MinistryType, List<String>> ministryTypeTabPreview = {
     'Equipe',
     'Escala',
     'Financeiro',
-    'Avisos',
+    'WhatsApp',
     'Relatórios',
   ],
 };

@@ -14,12 +14,12 @@ void main() {
         'Equipe',
         'Escala',
         'Financeiro',
-        'Avisos',
+        'WhatsApp',
         'Relatórios',
       ]);
     });
 
-    test('batismo tem as do módulo e NÃO tem Avisos', () {
+    test('batismo tem as do módulo, com a sua própria aba WhatsApp', () {
       final tabs = ministryTabsFor(MinistryType.batismo);
       expect(tabs, [
         'Equipe',
@@ -31,9 +31,11 @@ void main() {
         'WhatsApp',
         'Relatórios',
       ]);
-      // batismo_home_screen.dart não monta a aba Avisos — a prévia não pode
-      // prometer o que a tela não abre.
-      expect(tabs, isNot(contains('Avisos')));
+      // A aba WhatsApp do Batismo é outra tela (batismo_whatsapp_tab.dart):
+      // fala com alunos, tem turma e variáveis. A genérica fala com a equipe.
+      // Mesmo nome, telas diferentes — o tipo é que decide qual entra.
+      expect(tabs, contains('WhatsApp'));
+      expect(tabs, isNot(contains('Painel')));
     });
 
     test('raízes e diaconato são as cinco de base mais o Painel', () {
@@ -42,7 +44,7 @@ void main() {
         'Equipe',
         'Escala',
         'Financeiro',
-        'Avisos',
+        'WhatsApp',
         'Relatórios',
       ];
       expect(ministryTabsFor(MinistryType.raizes), esperado);

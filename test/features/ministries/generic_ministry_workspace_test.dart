@@ -3,7 +3,7 @@ import 'package:church360_app/features/ministries/presentation/providers/ministr
 import 'package:church360_app/features/ministries/presentation/screens/generic_ministry_home_screen.dart';
 import 'package:church360_app/features/ministries/shared/domain/ministry_contact.dart';
 import 'package:church360_app/features/ministries/shared/presentation/providers/ministry_finance_providers.dart';
-import 'package:church360_app/features/ministries/shared/presentation/widgets/ministry_notices_tab.dart';
+import 'package:church360_app/features/ministries/shared/presentation/widgets/ministry_whatsapp_tab.dart';
 import 'package:church360_app/core/theme/app_theme.dart';
 import 'package:church360_app/features/permissions/providers/permissions_providers.dart';
 import 'package:flutter/material.dart';
@@ -90,7 +90,7 @@ void main() {
       'Equipe',
       'Escala',
       'Financeiro',
-      'Avisos',
+      'WhatsApp',
       'Relatórios',
     ]) {
       expect(find.text(label), findsWidgets, reason: 'aba $label sumiu');
@@ -112,7 +112,7 @@ void main() {
     expect(find.text('Abrir ministério'), findsNothing);
   });
 
-  testWidgets('telefone incompleto não vira conversa na aba Avisos', (
+  testWidgets('telefone incompleto não vira conversa na aba WhatsApp', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 2000));
@@ -129,7 +129,7 @@ void main() {
           ],
         ),
         child: const MaterialApp(
-          home: Scaffold(body: MinistryNoticesTab(ministryId: 'm1')),
+          home: Scaffold(body: MinistryWhatsAppTab(ministryId: 'm1')),
         ),
       ),
     );
