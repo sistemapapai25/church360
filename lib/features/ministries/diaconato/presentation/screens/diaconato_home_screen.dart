@@ -7,14 +7,25 @@ import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/widgets/glass_card.dart';
 import '../../../presentation/providers/ministries_provider.dart';
+import '../../../shared/presentation/widgets/ministry_finance_tab.dart';
+import '../../../shared/presentation/widgets/ministry_notices_tab.dart';
+import '../../../shared/presentation/widgets/ministry_reports_tab.dart';
+import '../../../shared/presentation/widgets/ministry_scale_tab.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
+import '../../../shared/presentation/widgets/ministry_team_tab.dart';
+import '../../../shared/presentation/widgets/ministry_workspace_shell.dart';
 import '../../domain/models/diaconato_dashboard_stats.dart';
 import '../../domain/models/worship_attendance.dart';
 import '../providers/diaconato_attendance_providers.dart';
 import '../widgets/worship_service_picker_sheet.dart';
 
-/// Home do módulo Diaconato com dashboard de KPIs (Lote MD) + atalhos para
-/// checklist, ausentes e lotes de ceia.
+/// Workspace do Diaconato — o mesmo esqueleto do Batismo, com uma aba a
+/// mais.
+///
+/// O dashboard de KPIs e os atalhos de checklist, ausentes e lotes de ceia
+/// viraram a aba **Painel**, ao lado de Equipe, Escala, Financeiro, Avisos e
+/// Relatórios, que são as mesmas de qualquer ministério. As telas por culto
+/// continuam em rotas próprias: são de um evento, não do departamento.
 class DiaconatoHomeScreen extends ConsumerWidget {
   final String ministryId;
 
@@ -26,21 +37,79 @@ class DiaconatoHomeScreen extends ConsumerWidget {
       ministryId: ministryId,
       requiredPermission: 'diaconato.view',
       submoduleLabel: 'Diaconato',
-      builder: (context) => _DiaconatoContent(ministryId: ministryId),
+      builder: (context) => _DiaconatoWorkspace(ministryId: ministryId),
     );
   }
 }
 
-class _DiaconatoContent extends ConsumerStatefulWidget {
+class _DiaconatoWorkspace extends ConsumerWidget {
   final String ministryId;
 
-  const _DiaconatoContent({required this.ministryId});
+  const _DiaconatoWorkspace({required this.ministryId});
 
   @override
-  ConsumerState<_DiaconatoContent> createState() => _DiaconatoContentState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final teamCount = ref
+        .watch(ministryMembersProvider(ministryId))
+        .maybeWhen(data: (m) => m.length, orElse: () => null);
+
+    return MinistryWorkspaceShell(
+      ministryId: ministryId,
+      fallbackTitle: 'Diaconato',
+      stats: [
+        if (teamCount != null)
+          MinistryWorkspaceStat(
+            label: 'na equipe',
+            value: '$teamCount',
+            icon: Icons.groups_outlined,
+          ),
+      ],
+      tabs: [
+        MinistryWorkspaceTab(
+          label: 'Painel',
+          builder: (_) => DiaconatoPainelTab(ministryId: ministryId),
+        ),
+        MinistryWorkspaceTab(
+          label: 'Equipe',
+          count: teamCount?.toString(),
+          builder: (_) => MinistryTeamTab(ministryId: ministryId),
+        ),
+        MinistryWorkspaceTab(
+          label: 'Escala',
+          builder: (_) => MinistryScaleTab(ministryId: ministryId),
+        ),
+        MinistryWorkspaceTab(
+          label: 'Financeiro',
+          builder: (_) => MinistryFinanceTab(ministryId: ministryId),
+        ),
+        MinistryWorkspaceTab(
+          label: 'Avisos',
+          builder: (_) => MinistryNoticesTab(ministryId: ministryId),
+        ),
+        MinistryWorkspaceTab(
+          label: 'Relatórios',
+          builder: (_) => MinistryReportsTab(ministryId: ministryId),
+        ),
+      ],
+    );
+  }
 }
 
-class _DiaconatoContentState extends ConsumerState<_DiaconatoContent> {
+/// Aba Painel do Diaconato: os KPIs do módulo e os atalhos por culto.
+///
+/// Era a tela inteira até 24/09. Perdeu o `Scaffold` e a `AppBar` — as duas
+/// agora são do shell — e manteve o resto, inclusive o disparo das
+/// notificações de ceia ao entrar.
+class DiaconatoPainelTab extends ConsumerStatefulWidget {
+  final String ministryId;
+
+  const DiaconatoPainelTab({super.key, required this.ministryId});
+
+  @override
+  ConsumerState<DiaconatoPainelTab> createState() => _DiaconatoPainelTabState();
+}
+
+class _DiaconatoPainelTabState extends ConsumerState<DiaconatoPainelTab> {
   @override
   void initState() {
     super.initState();
@@ -56,69 +125,53 @@ class _DiaconatoContentState extends ConsumerState<_DiaconatoContent> {
 
   @override
   Widget build(BuildContext context) {
-    final ministryAsync = ref.watch(ministryByIdProvider(widget.ministryId));
-
-    return Scaffold(
-      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
-      appBar: AppBar(
-        backgroundColor: CommunityDesign.headerColor(context),
-        title: ministryAsync.maybeWhen(
-          data: (m) => Text(m?.name ?? 'Diaconato'),
-          orElse: () => const Text('Diaconato'),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(diaconatoDashboardStatsProvider(widget.ministryId));
-          await ref.read(
-            diaconatoDashboardStatsProvider(widget.ministryId).future,
-          );
-        },
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            _DashboardSection(ministryId: widget.ministryId),
-            const SizedBox(height: 24),
-            _SectionLabel(text: 'ATALHOS'),
-            const SizedBox(height: 8),
-            _PlaceholderCard(
-              icon: AppIcons.checklist,
-              title: 'Checklist de presença',
-              description:
-                  'Membros primeiro, visitantes cadastrados depois, contagem de não cadastrados.',
-              onTap: () => _openWorshipServicePicker(
-                context,
-                destinationPath: '/checklist',
-              ),
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(diaconatoDashboardStatsProvider(widget.ministryId));
+        await ref.read(
+          diaconatoDashboardStatsProvider(widget.ministryId).future,
+        );
+      },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+        children: [
+          _DashboardSection(ministryId: widget.ministryId),
+          const SizedBox(height: 24),
+          _SectionLabel(text: 'ATALHOS'),
+          const SizedBox(height: 8),
+          _PlaceholderCard(
+            icon: AppIcons.checklist,
+            title: 'Checklist de presença',
+            description:
+                'Membros primeiro, visitantes cadastrados depois, contagem de não cadastrados.',
+            onTap: () => _openWorshipServicePicker(
+              context,
+              destinationPath: '/checklist',
             ),
-            const SizedBox(height: 16),
-            _PlaceholderCard(
-              icon: AppIcons.callMissed,
-              title: 'Ausentes',
-              description:
-                  'Triagem dos ausentes: sem ação, ligação, ceia, ou ambos.',
-              onTap: () => _openWorshipServicePicker(
-                context,
-                destinationPath: '/absentees',
-              ),
+          ),
+          const SizedBox(height: 16),
+          _PlaceholderCard(
+            icon: AppIcons.callMissed,
+            title: 'Ausentes',
+            description:
+                'Triagem dos ausentes: sem ação, ligação, ceia, ou ambos.',
+            onTap: () => _openWorshipServicePicker(
+              context,
+              destinationPath: '/absentees',
             ),
-            const SizedBox(height: 16),
-            _PlaceholderCard(
-              icon: AppIcons.communion,
-              title: 'Lotes de ceia',
-              description:
-                  'Lote por culto com responsável, status e (em breve) WhatsApp via dispatch.',
-              onTap: () => _openWorshipServicePicker(
-                context,
-                destinationPath: '/communion-batches',
-              ),
+          ),
+          const SizedBox(height: 16),
+          _PlaceholderCard(
+            icon: AppIcons.communion,
+            title: 'Lotes de ceia',
+            description:
+                'Lote por culto com responsável, status e (em breve) WhatsApp via dispatch.',
+            onTap: () => _openWorshipServicePicker(
+              context,
+              destinationPath: '/communion-batches',
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

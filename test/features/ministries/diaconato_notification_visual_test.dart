@@ -62,9 +62,14 @@ Ministry _ministry() {
 }
 
 void main() {
-  testWidgets('dashboard do Diaconato usa cards de vidro e ícones semânticos', (
+  testWidgets('painel do Diaconato usa cards de vidro e ícones semânticos', (
     tester,
   ) async {
+    // O painel é a primeira aba do workspace desde 24/09 (ver o teste do
+    // Raízes): a tela não cabe na altura padrão do teste.
+    await tester.binding.setSurfaceSize(const Size(1200, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -93,10 +98,6 @@ void main() {
     expect(find.byIcon(AppIcons.factCheck), findsOneWidget);
     expect(find.byIcon(AppIcons.checklist), findsOneWidget);
     expect(find.byIcon(AppIcons.callMissed), findsOneWidget);
-
-    await tester.drag(find.byType(ListView), const Offset(0, -1600));
-    await tester.pumpAndSettle();
-
     expect(find.byIcon(AppIcons.communion), findsAtLeastNWidgets(2));
   });
 
