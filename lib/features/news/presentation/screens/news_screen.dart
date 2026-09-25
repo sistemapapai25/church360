@@ -6,6 +6,9 @@ import 'package:intl/intl.dart';
 import '../../../events/presentation/providers/events_provider.dart';
 import '../../../events/domain/models/event.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/status_badge.dart';
 
 /// Tela de Notícias (usa os mesmos dados de Eventos)
 class NewsScreen extends ConsumerWidget {
@@ -31,7 +34,7 @@ class NewsScreen extends ConsumerWidget {
           surfaceTintColor: Colors.transparent,
           leading: Navigator.of(context).canPop()
               ? IconButton(
-                  icon: const Icon(Icons.arrow_back),
+                  icon: const Icon(AppIcons.back),
                   tooltip: 'Voltar',
                   onPressed: () => Navigator.of(context).pop(),
                 )
@@ -54,7 +57,7 @@ class NewsScreen extends ConsumerWidget {
                   ],
                 ),
                 child: Icon(
-                  Icons.article_rounded,
+                  AppIcons.article,
                   size: 18,
                   color: Theme.of(context).colorScheme.primary,
                 ),
@@ -95,7 +98,7 @@ class NewsScreen extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.article_outlined,
+                          AppIcons.article,
                           size: 56,
                           color: cs.primary.withValues(alpha: 0.28),
                         ),
@@ -162,7 +165,7 @@ class NewsScreen extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.error_outline,
+                          AppIcons.error,
                           size: 80,
                           color: cs.error.withValues(alpha: 0.3),
                         ),
@@ -191,7 +194,7 @@ class NewsScreen extends ConsumerWidget {
                           onPressed: () {
                             ref.invalidate(recentNewsProvider);
                           },
-                          icon: const Icon(Icons.refresh),
+                          icon: const Icon(AppIcons.refresh),
                           label: const Text('Tentar novamente'),
                         ),
                       ],
@@ -219,190 +222,200 @@ class _NewsCard extends StatelessWidget {
     final dateFormat = DateFormat('dd/MM/yyyy', 'pt_BR');
     final timeFormat = DateFormat('HH:mm', 'pt_BR');
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: CommunityDesign.overlayDecoration(cs),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(CommunityDesign.radius),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () {
-              context.push('/events/${event.id}');
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Imagem
-                if (event.imageUrl != null && event.imageUrl!.isNotEmpty)
-                  AspectRatio(
-                    aspectRatio: 16 / 6,
-                    child: Image.network(
-                      event.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: cs.onSurface.withValues(alpha: 0.08),
-                          child: Center(
-                            child: Icon(
-                              Icons.image_not_supported_outlined,
-                              size: 64,
-                              color: cs.onSurface.withValues(alpha: 0.3),
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: CommunityDesign.overlayDecoration(cs),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(CommunityDesign.radius),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                context.push('/events/${event.id}');
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Imagem
+                  if (event.imageUrl != null && event.imageUrl!.isNotEmpty)
+                    AspectRatio(
+                      aspectRatio: 16 / 6,
+                      child: Image.network(
+                        event.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: cs.onSurface.withValues(alpha: 0.08),
+                            child: Center(
+                              child: Icon(
+                                AppIcons.imageMissing,
+                                size: 64,
+                                color: cs.onSurface.withValues(alpha: 0.3),
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          color: cs.onSurface.withValues(alpha: 0.08),
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                  : null,
+                          );
+                        },
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            color: cs.onSurface.withValues(alpha: 0.08),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                value:
+                                    loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                    : null,
+                              ),
                             ),
+                          );
+                        },
+                      ),
+                    )
+                  else
+                    AspectRatio(
+                      aspectRatio: 16 / 6,
+                      child: Container(
+                        color: cs.onSurface.withValues(alpha: 0.08),
+                        child: Center(
+                          child: Icon(
+                            AppIcons.event,
+                            size: 64,
+                            color: cs.primary.withValues(alpha: 0.3),
                           ),
-                        );
-                      },
-                    ),
-                  )
-                else
-                  AspectRatio(
-                    aspectRatio: 16 / 6,
-                    child: Container(
-                      color: cs.onSurface.withValues(alpha: 0.08),
-                      child: Center(
-                        child: Icon(
-                          Icons.event,
-                          size: 64,
-                          color: cs.primary.withValues(alpha: 0.3),
                         ),
                       ),
                     ),
-                  ),
 
-                // Conteúdo
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Título
-                      Text(
-                        event.name,
-                        style: CommunityDesign.titleStyle(
-                          context,
-                        ).copyWith(fontSize: 18, height: 1.3),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 10),
-
-                      // Data e Hora com chips
-                      Row(
-                        children: [
-                          Expanded(
-                            child: CommunityDesign.badge(
-                              context,
-                              dateFormat.format(event.startDate),
-                              cs.primary,
-                              icon: Icons.calendar_today,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: CommunityDesign.badge(
-                              context,
-                              timeFormat.format(event.startDate),
-                              cs.secondary,
-                              icon: Icons.access_time,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Descrição
-                      if (event.description != null &&
-                          event.description!.isNotEmpty) ...[
+                  // Conteúdo
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Título
                         Text(
-                          event.description!,
-                          style: CommunityDesign.contentStyle(context).copyWith(
-                            color: cs.onSurface.withValues(alpha: 0.8),
-                          ),
-                          maxLines: 3,
+                          event.name,
+                          style: CommunityDesign.titleStyle(
+                            context,
+                          ).copyWith(fontSize: 18, height: 1.3),
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 10),
-                      ],
+                        StatusBadge.active(
+                          label: 'Publicada',
+                          icon: AppIcons.verified,
+                        ),
+                        const SizedBox(height: 10),
 
-                      // Local
-                      if (event.location != null &&
-                          event.location!.isNotEmpty) ...[
+                        // Data e Hora com chips
                         Row(
                           children: [
-                            Icon(
-                              Icons.location_on,
-                              size: 14,
-                              color: cs.onSurface.withValues(alpha: 0.5),
-                            ),
-                            const SizedBox(width: 8),
                             Expanded(
-                              child: Text(
-                                event.location!,
-                                style: CommunityDesign.authorStyle(context)
-                                    .copyWith(
-                                      fontSize: 12,
-                                      color: cs.onSurface.withValues(
-                                        alpha: 0.65,
-                                      ),
-                                    ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              child: CommunityDesign.badge(
+                                context,
+                                dateFormat.format(event.startDate),
+                                cs.primary,
+                                icon: AppIcons.calendar,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: CommunityDesign.badge(
+                                context,
+                                timeFormat.format(event.startDate),
+                                cs.secondary,
+                                icon: AppIcons.accessTime,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 10),
-                      ] else
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 8),
 
-                      // Botão "Ler mais"
-                      TextButton(
-                        onPressed: () {
-                          context.push('/events/${event.id}');
-                        },
-                        style: CommunityDesign.pillButtonStyle(
-                          context,
-                          cs.primary,
+                        // Descrição
+                        if (event.description != null &&
+                            event.description!.isNotEmpty) ...[
+                          Text(
+                            event.description!,
+                            style: CommunityDesign.contentStyle(context)
+                                .copyWith(
+                                  color: cs.onSurface.withValues(alpha: 0.8),
+                                ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+
+                        // Local
+                        if (event.location != null &&
+                            event.location!.isNotEmpty) ...[
+                          Row(
+                            children: [
+                              Icon(
+                                AppIcons.location,
+                                size: 14,
+                                color: cs.onSurface.withValues(alpha: 0.5),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  event.location!,
+                                  style: CommunityDesign.authorStyle(context)
+                                      .copyWith(
+                                        fontSize: 12,
+                                        color: cs.onSurface.withValues(
+                                          alpha: 0.65,
+                                        ),
+                                      ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                        ] else
+                          const SizedBox(height: 4),
+
+                        // Botão "Ler mais"
+                        TextButton(
+                          onPressed: () {
+                            context.push('/events/${event.id}');
+                          },
+                          style: CommunityDesign.pillButtonStyle(
+                            context,
+                            cs.primary,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'LER NOTÍCIA COMPLETA',
+                                style: CommunityDesign.contentStyle(context)
+                                    .copyWith(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: cs.primary,
+                                    ),
+                              ),
+                              const SizedBox(width: 8),
+                              Icon(
+                                AppIcons.forward,
+                                size: 16,
+                                color: cs.primary,
+                              ),
+                            ],
+                          ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'LER NOTÍCIA COMPLETA',
-                              style: CommunityDesign.contentStyle(context)
-                                  .copyWith(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: cs.primary,
-                                  ),
-                            ),
-                            const SizedBox(width: 8),
-                            Icon(
-                              Icons.arrow_forward_ios,
-                              size: 16,
-                              color: cs.primary,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

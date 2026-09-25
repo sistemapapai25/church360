@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/status_badge.dart';
 import '../../../events/presentation/providers/events_provider.dart';
 import '../../../events/domain/models/event.dart';
 import '../../../permissions/providers/permissions_providers.dart';
@@ -42,7 +45,7 @@ class ManageNewsScreen extends ConsumerWidget {
           PermissionGate(
             permission: 'news.create',
             child: IconButton(
-              icon: const Icon(Icons.add),
+              icon: const Icon(AppIcons.add),
               onPressed: () => context.push('/news/admin/new'),
               tooltip: 'Nova notícia',
             ),
@@ -62,7 +65,7 @@ class ManageNewsScreen extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.article_outlined,
+                      AppIcons.article,
                       size: 64,
                       color: Theme.of(
                         context,
@@ -88,7 +91,7 @@ class ManageNewsScreen extends ConsumerWidget {
                     if (canCreate)
                       ElevatedButton.icon(
                         onPressed: () => context.push('/news/admin/new'),
-                        icon: const Icon(Icons.add),
+                        icon: const Icon(AppIcons.add),
                         label: const Text('Criar primeira notícia'),
                       ),
                   ],
@@ -111,8 +114,7 @@ class ManageNewsScreen extends ConsumerWidget {
               itemBuilder: (context, index) {
                 final item = news[index];
                 final cs = Theme.of(context).colorScheme;
-                return Container(
-                  decoration: CommunityDesign.overlayDecoration(cs),
+                return GlassCard(
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -125,7 +127,7 @@ class ManageNewsScreen extends ConsumerWidget {
                         color: cs.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(Icons.article, color: cs.primary),
+                      child: Icon(AppIcons.article, color: cs.primary),
                     ),
                     title: Text(
                       item.name,
@@ -140,6 +142,18 @@ class ManageNewsScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          StatusBadge(
+                            label: item.status == 'published'
+                                ? 'Publicada'
+                                : 'Rascunho',
+                            tone: item.status == 'published'
+                                ? AppStatusTone.active
+                                : AppStatusTone.dropped,
+                            icon: item.status == 'published'
+                                ? AppIcons.visibility
+                                : AppIcons.visibilityOff,
+                          ),
+                          const SizedBox(height: 6),
                           Text(
                             _formatDateTime(item.startDate),
                             style: CommunityDesign.metaStyle(context),
@@ -176,8 +190,8 @@ class ManageNewsScreen extends ConsumerWidget {
                         IconButton(
                           icon: Icon(
                             item.status == 'published'
-                                ? Icons.visibility
-                                : Icons.visibility_off,
+                                ? AppIcons.visibility
+                                : AppIcons.visibilityOff,
                             size: 20,
                           ),
                           tooltip: item.status == 'published'
@@ -220,7 +234,7 @@ class ManageNewsScreen extends ConsumerWidget {
                         ),
                         if (canEdit)
                           IconButton(
-                            icon: const Icon(Icons.edit, size: 20),
+                            icon: const Icon(AppIcons.edit, size: 20),
                             tooltip: 'Editar',
                             onPressed: () {
                               context.push('/news/admin/${item.id}/edit');
@@ -228,7 +242,7 @@ class ManageNewsScreen extends ConsumerWidget {
                           ),
                         if (canDelete)
                           IconButton(
-                            icon: const Icon(Icons.delete, size: 20),
+                            icon: const Icon(AppIcons.delete, size: 20),
                             tooltip: 'Excluir',
                             onPressed: () async {
                               if (!canDelete) return;
@@ -303,7 +317,7 @@ class ManageNewsScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const Icon(AppIcons.error, size: 48, color: Colors.red),
               const SizedBox(height: 16),
               Text('Erro ao carregar: $error'),
               const SizedBox(height: 16),

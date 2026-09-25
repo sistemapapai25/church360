@@ -5,9 +5,12 @@ import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/utils/share_link_utils.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/pearl_fab.dart';
+import '../../../../core/widgets/status_badge.dart';
 import '../providers/groups_provider.dart';
 import '../providers/meetings_provider.dart';
 import '../../domain/models/group.dart';
@@ -22,10 +25,7 @@ import '../../../support_materials/domain/models/support_material_link.dart';
 class GroupDetailScreen extends ConsumerWidget {
   final String groupId;
 
-  const GroupDetailScreen({
-    super.key,
-    required this.groupId,
-  });
+  const GroupDetailScreen({super.key, required this.groupId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -41,14 +41,19 @@ class GroupDetailScreen extends ConsumerWidget {
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
         backgroundColor: CommunityDesign.headerColor(context),
-        title: Text('Detalhes do Grupo', style: CommunityDesign.titleStyle(context)),
+        title: Text(
+          'Detalhes do Grupo',
+          style: CommunityDesign.titleStyle(context),
+        ),
         iconTheme: IconThemeData(
-          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white
+              : Colors.black,
         ),
         actions: [
           IconButton(
             tooltip: 'Compartilhar',
-            icon: const Icon(Icons.share),
+            icon: const Icon(AppIcons.share),
             onPressed: shareGroupLink,
           ),
           // Botão de editar
@@ -57,7 +62,7 @@ class GroupDetailScreen extends ConsumerWidget {
             showLoading: false,
             fallback: const SizedBox.shrink(),
             child: IconButton(
-              icon: const Icon(Icons.edit),
+              icon: const Icon(AppIcons.edit),
               onPressed: () => context.push('/groups/$groupId/edit'),
             ),
           ),
@@ -67,7 +72,7 @@ class GroupDetailScreen extends ConsumerWidget {
             showLoading: false,
             fallback: const SizedBox.shrink(),
             child: IconButton(
-              icon: const Icon(Icons.delete),
+              icon: const Icon(AppIcons.delete),
               onPressed: () => _showDeleteDialog(context, ref),
             ),
           ),
@@ -76,23 +81,19 @@ class GroupDetailScreen extends ConsumerWidget {
       body: groupAsync.when(
         data: (group) {
           if (group == null) {
-            return const Center(
-              child: Text('Grupo não encontrado'),
-            );
+            return const Center(child: Text('Grupo não encontrado'));
           }
           // Se não estiver autenticado, mantém o conteúdo informativo (evangelismo),
           // mas evita depender de tabs que precisam de dados privados.
           final isPublicView = currentMember == null;
           return _GroupDetailContent(group: group, isPublicView: isPublicView);
         },
-        loading: () => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const Icon(AppIcons.error, size: 64, color: Colors.red),
               const SizedBox(height: 16),
               Text(
                 AppErrorHandler.userMessage(
@@ -132,9 +133,7 @@ class GroupDetailScreen extends ConsumerWidget {
               Navigator.pop(context);
               await _deleteGroup(context, ref);
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Deletar'),
           ),
         ],
@@ -149,14 +148,14 @@ class GroupDetailScreen extends ConsumerWidget {
 
       if (context.mounted) {
         ref.invalidate(allGroupsProvider);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Grupo deletado com sucesso!'),
             backgroundColor: Colors.green,
           ),
         );
-        
+
         context.pop();
       }
     } catch (e) {
@@ -186,91 +185,88 @@ class _GroupDetailContent extends ConsumerWidget {
       child: Column(
         children: [
           // Header com informações do grupo
-          Container(
+          SizedBox(
             width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
-            ),
-            child: Column(
-              children: [
-                // Ícone
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  child: const Icon(
-                    Icons.group,
-                    size: 40,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Nome
-                Text(
-                  group.name,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-
-                // Status
-                if (!group.isActive)
-                  Chip(
-                    label: const Text(
-                      'Inativo',
-                      style: TextStyle(color: Colors.white),
+            child: GlassCard(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  // Ícone
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    child: const Icon(
+                      AppIcons.group,
+                      size: 40,
+                      color: Colors.white,
                     ),
-                    backgroundColor: Colors.grey,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Nome
+                  Text(
+                    group.name,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+
+                  StatusBadge(
+                    label: group.isActive ? 'Ativo' : 'Inativo',
+                    tone: group.isActive
+                        ? AppStatusTone.active
+                        : AppStatusTone.dropped,
+                    icon: group.isActive
+                        ? AppIcons.checkCircle
+                        : AppIcons.cancel,
                   ),
 
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                // Contagem de membros
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.groups,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${group.memberCount ?? 0} membros',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
+                  // Contagem de membros
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          AppIcons.groups,
                           color: Theme.of(context).colorScheme.primary,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Text(
+                          '${group.memberCount ?? 0} membros',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
           // Tabs
           TabBar(
             tabs: isPublicView
-                ? const [
-                    Tab(text: 'Informações', icon: Icon(Icons.info_outline)),
-                  ]
+                ? const [Tab(text: 'Informações', icon: Icon(AppIcons.info))]
                 : const [
-                    Tab(text: 'Informações', icon: Icon(Icons.info_outline)),
-                    Tab(text: 'Membros', icon: Icon(Icons.groups)),
-                    Tab(text: 'Reuniões', icon: Icon(Icons.event_note)),
-                    Tab(text: 'Materiais', icon: Icon(Icons.library_books)),
+                    Tab(text: 'Informações', icon: Icon(AppIcons.info)),
+                    Tab(text: 'Membros', icon: Icon(AppIcons.groups)),
+                    Tab(text: 'Reuniões', icon: Icon(AppIcons.eventNote)),
+                    Tab(text: 'Materiais', icon: Icon(AppIcons.libraryBooks)),
                   ],
             labelColor: Theme.of(context).colorScheme.primary,
           ),
@@ -279,9 +275,7 @@ class _GroupDetailContent extends ConsumerWidget {
           Expanded(
             child: TabBarView(
               children: isPublicView
-                  ? [
-                      _InfoTab(group: group),
-                    ]
+                  ? [_InfoTab(group: group)]
                   : [
                       _InfoTab(group: group),
                       _MembersTab(groupId: group.id),
@@ -313,45 +307,40 @@ class _InfoTab extends StatelessWidget {
           if (group.description != null && group.description!.isNotEmpty) ...[
             _SectionTitle(title: 'Descrição'),
             const SizedBox(height: 8),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(group.description!),
-              ),
-            ),
+            GlassCard(child: Text(group.description!)),
             const SizedBox(height: 24),
           ],
-          
+
           // Líder
           if (group.leaderName != null) ...[
             _SectionTitle(title: 'Liderança'),
             const SizedBox(height: 12),
             _InfoTile(
-              icon: Icons.person,
+              icon: AppIcons.person,
               label: 'Líder',
               value: group.leaderName!,
             ),
             const SizedBox(height: 24),
           ],
-          
+
           // Informações de Reunião
           _SectionTitle(title: 'Reuniões'),
           const SizedBox(height: 12),
           if (group.meetingDayName != null)
             _InfoTile(
-              icon: Icons.calendar_today,
+              icon: AppIcons.calendar,
               label: 'Dia da Semana',
               value: group.meetingDayName!,
             ),
           if (group.meetingTime != null)
             _InfoTile(
-              icon: Icons.access_time,
+              icon: AppIcons.accessTime,
               label: 'Horário',
               value: group.meetingTime!,
             ),
           if (group.meetingAddress != null)
             _InfoTile(
-              icon: Icons.location_on,
+              icon: AppIcons.location,
               label: 'Local',
               value: group.meetingAddress!,
             ),
@@ -379,25 +368,22 @@ class _MembersTab extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.groups,
-                    size: 64,
-                    color: Colors.grey[400],
-                  ),
+                  Icon(AppIcons.groups, size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   Text(
                     'Nenhum membro neste grupo',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Colors.grey[600],
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 24),
                   PermissionGate(
                     permission: 'groups.manage_members',
                     showLoading: false,
                     child: FilledButton.icon(
-                      onPressed: () => _showAddMemberDialog(context, ref, groupId),
-                      icon: const Icon(Icons.person_add),
+                      onPressed: () =>
+                          _showAddMemberDialog(context, ref, groupId),
+                      icon: const Icon(AppIcons.personAdd),
                       label: const Text('Adicionar Primeiro Membro'),
                     ),
                   ),
@@ -411,44 +397,50 @@ class _MembersTab extends ConsumerWidget {
             itemCount: members.length,
             itemBuilder: (context, index) {
               final member = members[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    child: Text(
-                      member.memberName?.substring(0, 1).toUpperCase() ?? '?',
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: GlassCard(
+                  padding: EdgeInsets.zero,
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      child: Text(
+                        member.memberName?.substring(0, 1).toUpperCase() ?? '?',
+                      ),
                     ),
-                  ),
-                  title: Text(member.memberName ?? 'Nome não disponível'),
-                  subtitle: member.role != null && member.role != 'member'
-                      ? Text(
-                          member.role == 'leader' ? 'Líder' : member.role!,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                          ),
-                        )
-                      : null,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Desde ${DateFormat('dd/MM/yyyy').format(member.joinedDate)}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                        onPressed: () => _showRemoveMemberDialog(
-                          context,
-                          ref,
-                          groupId,
-                          member.memberId,
-                          member.memberName ?? 'este membro',
+                    title: Text(member.memberName ?? 'Nome não disponível'),
+                    subtitle: member.role != null && member.role != 'member'
+                        ? Text(
+                            member.role == 'leader' ? 'Líder' : member.role!,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          )
+                        : null,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Desde ${DateFormat('dd/MM/yyyy').format(member.joinedDate)}',
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
-                        tooltip: 'Remover do grupo',
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(
+                            AppIcons.personRemove,
+                            color: Colors.red,
+                          ),
+                          onPressed: () => _showRemoveMemberDialog(
+                            context,
+                            ref,
+                            groupId,
+                            member.memberId,
+                            member.memberName ?? 'este membro',
+                          ),
+                          tooltip: 'Remover do grupo',
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -471,14 +463,18 @@ class _MembersTab extends ConsumerWidget {
         showLoading: false,
         child: PearlFab(
           onPressed: () => _showAddMemberDialog(context, ref, groupId),
-          icon: Icons.person_add,
+          icon: AppIcons.personAdd,
           label: 'Adicionar Membro',
         ),
       ),
     );
   }
 
-  void _showAddMemberDialog(BuildContext context, WidgetRef ref, String groupId) {
+  void _showAddMemberDialog(
+    BuildContext context,
+    WidgetRef ref,
+    String groupId,
+  ) {
     showDialog(
       context: context,
       builder: (context) => _AddMemberDialog(groupId: groupId),
@@ -509,9 +505,7 @@ class _MembersTab extends ConsumerWidget {
               Navigator.pop(context);
               await _removeMember(context, ref, groupId, memberId);
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Remover'),
           ),
         ],
@@ -565,9 +559,9 @@ class _SectionTitle extends StatelessWidget {
     return Text(
       title,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.primary,
-          ),
+        fontWeight: FontWeight.bold,
+        color: Theme.of(context).colorScheme.primary,
+      ),
     );
   }
 }
@@ -599,15 +593,12 @@ class _InfoTile extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.grey),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
+                Text(value, style: Theme.of(context).textTheme.bodyLarge),
               ],
             ),
           ),
@@ -648,7 +639,9 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
                 return groupMembersAsync.when(
                   data: (groupMembers) {
                     // Filtrar membros que já estão no grupo
-                    final groupMemberIds = groupMembers.map((gm) => gm.memberId).toSet();
+                    final groupMemberIds = groupMembers
+                        .map((gm) => gm.memberId)
+                        .toSet();
                     final availableMembers = allMembers
                         .where((m) => !groupMemberIds.contains(m.id))
                         .toList();
@@ -665,7 +658,9 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
 
                     // Garantir que o valor selecionado está na lista
                     if (_selectedMemberId != null &&
-                        !availableMembers.any((m) => m.id == _selectedMemberId)) {
+                        !availableMembers.any(
+                          (m) => m.id == _selectedMemberId,
+                        )) {
                       _selectedMemberId = null;
                     }
 
@@ -673,7 +668,7 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
                       initialValue: _selectedMemberId,
                       decoration: const InputDecoration(
                         labelText: 'Selecione um membro',
-                        prefixIcon: Icon(Icons.person),
+                        prefixIcon: Icon(AppIcons.person),
                       ),
                       items: availableMembers.map((member) {
                         return DropdownMenuItem(
@@ -687,7 +682,8 @@ class _AddMemberDialogState extends ConsumerState<_AddMemberDialog> {
                     );
                   },
                   loading: () => const CircularProgressIndicator(),
-                  error: (_, __) => const Text('Erro ao carregar membros do grupo'),
+                  error: (_, __) =>
+                      const Text('Erro ao carregar membros do grupo'),
                 );
               },
               loading: () => const CircularProgressIndicator(),
@@ -777,17 +773,13 @@ class _MeetingsTab extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.event_note,
-                  size: 64,
-                  color: Colors.grey.shade400,
-                ),
+                Icon(AppIcons.eventNote, size: 64, color: Colors.grey.shade400),
                 const SizedBox(height: 16),
                 Text(
                   'Nenhuma reunião registrada',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.grey,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleMedium?.copyWith(color: Colors.grey),
                 ),
                 const SizedBox(height: 24),
                 PermissionGate(
@@ -797,7 +789,7 @@ class _MeetingsTab extends ConsumerWidget {
                     onPressed: () {
                       context.push('/groups/$groupId/meetings/new');
                     },
-                    icon: const Icon(Icons.add),
+                    icon: const Icon(AppIcons.add),
                     label: const Text('Registrar Primeira Reunião'),
                   ),
                 ),
@@ -826,7 +818,7 @@ class _MeetingsTab extends ConsumerWidget {
                   onPressed: () {
                     context.push('/groups/$groupId/meetings/new');
                   },
-                  icon: Icons.add,
+                  icon: AppIcons.add,
                 ),
               ),
             ),
@@ -838,7 +830,7 @@ class _MeetingsTab extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const Icon(AppIcons.error, size: 64, color: Colors.red),
             const SizedBox(height: 16),
             Text(
               AppErrorHandler.userMessage(
@@ -869,13 +861,13 @@ class _MeetingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd/MM/yyyy');
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassCard(
+        padding: EdgeInsets.zero,
         onTap: () {
           context.push('/groups/${meeting.groupId}/meetings/${meeting.id}');
         },
-        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -885,7 +877,7 @@ class _MeetingCard extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    Icons.calendar_today,
+                    AppIcons.calendar,
                     size: 20,
                     color: Theme.of(context).colorScheme.primary,
                   ),
@@ -893,8 +885,8 @@ class _MeetingCard extends StatelessWidget {
                   Text(
                     dateFormat.format(meeting.meetingDate),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const Spacer(),
                   Container(
@@ -910,7 +902,7 @@ class _MeetingCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.groups,
+                          AppIcons.groups,
                           size: 16,
                           color: Theme.of(context).colorScheme.primary,
                         ),
@@ -933,9 +925,9 @@ class _MeetingCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   meeting.topic!,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
                 ),
               ],
 
@@ -944,9 +936,9 @@ class _MeetingCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   meeting.notes!,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey.shade700,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade700),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -964,10 +956,7 @@ class _MaterialsTab extends ConsumerWidget {
   final String groupId;
   final String groupName;
 
-  const _MaterialsTab({
-    required this.groupId,
-    required this.groupName,
-  });
+  const _MaterialsTab({required this.groupId, required this.groupName});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -987,25 +976,19 @@ class _MaterialsTab extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.library_books_outlined,
+                  AppIcons.libraryBooks,
                   size: 80,
                   color: Colors.grey.shade400,
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'Nenhum material vinculado',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Materiais de apoio vinculados a "$groupName"\naparecerão aqui',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade500,
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -1027,7 +1010,7 @@ class _MaterialsTab extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const Icon(AppIcons.error, size: 48, color: Colors.red),
             const SizedBox(height: 16),
             Text(
               AppErrorHandler.userMessage(
@@ -1059,19 +1042,19 @@ class _MaterialCard extends StatelessWidget {
   IconData _getIconForType(SupportMaterialType type) {
     switch (type) {
       case SupportMaterialType.pdf:
-        return Icons.picture_as_pdf;
+        return AppIcons.pdf;
       case SupportMaterialType.powerpoint:
-        return Icons.slideshow;
+        return AppIcons.slideshow;
       case SupportMaterialType.video:
-        return Icons.video_library;
+        return AppIcons.videoLibrary;
       case SupportMaterialType.text:
-        return Icons.article;
+        return AppIcons.article;
       case SupportMaterialType.audio:
-        return Icons.audiotrack;
+        return AppIcons.audioFile;
       case SupportMaterialType.link:
-        return Icons.link;
+        return AppIcons.link;
       case SupportMaterialType.other:
-        return Icons.insert_drive_file;
+        return AppIcons.insertDriveFile;
     }
   }
 
@@ -1096,13 +1079,13 @@ class _MaterialCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassCard(
+        padding: EdgeInsets.zero,
         onTap: () {
           context.push('/support-materials/${material.id}');
         },
-        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
@@ -1111,7 +1094,9 @@ class _MaterialCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: _getColorForType(material.materialType).withValues(alpha: 0.1),
+                  color: _getColorForType(
+                    material.materialType,
+                  ).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -1171,16 +1156,13 @@ class _MaterialCard extends StatelessWidget {
                         material.description!,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[700],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                       ),
                     ],
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios),
+              const Icon(AppIcons.forward),
             ],
           ),
         ),

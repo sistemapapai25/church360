@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
 import '../../../events/presentation/providers/events_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
@@ -265,7 +267,7 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
                   ? 'Você não tem permissão para editar notícias'
                   : 'Você não tem permissão para criar notícias',
               child: IconButton(
-                icon: const Icon(Icons.save),
+                icon: const Icon(AppIcons.save),
                 onPressed: _save,
                 tooltip: 'Salvar',
               ),
@@ -278,112 +280,114 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
               padding: const EdgeInsets.all(16),
               child: Form(
                 key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () => context.push('/home/banners'),
-                      icon: const Icon(Icons.image_outlined),
-                      label: const Text('Gerenciar Banners'),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Título *',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.title),
+                child: GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => context.push('/home/banners'),
+                        icon: const Icon(AppIcons.image),
+                        label: const Text('Gerenciar Banners'),
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Por favor, insira um título';
-                        }
-                        return null;
-                      },
-                      textCapitalization: TextCapitalization.sentences,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _contentController,
-                      decoration: const InputDecoration(
-                        labelText: 'Conteúdo',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.article_outlined),
-                      ),
-                      maxLines: 8,
-                      textCapitalization: TextCapitalization.sentences,
-                    ),
-                    const SizedBox(height: 16),
-                    ImageUploadWidget(
-                      initialImageUrl: _imageUrl,
-                      onImageUrlChanged: (url) {
-                        setState(() {
-                          _imageUrl = url;
-                        });
-                      },
-                      storageBucket: 'event-images',
-                      label: 'Imagem (Opcional)',
-                    ),
-                    const SizedBox(height: 16),
-                    Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.schedule),
-                        title: const Text('Data/Hora'),
-                        subtitle: Text(dateLabel),
-                        trailing: const Icon(Icons.edit_calendar),
-                        onTap: _pickDateTime,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.timer_outlined),
-                        title: const Text('Sai do ar em'),
-                        subtitle: Text(prazoLabel),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (prazo != null)
-                              IconButton(
-                                icon: const Icon(Icons.clear),
-                                tooltip: 'Deixar sem prazo',
-                                onPressed: () =>
-                                    setState(() => _expiraEm = null),
-                              ),
-                            const Icon(Icons.edit_calendar),
-                          ],
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _titleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Título *',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(AppIcons.article),
                         ),
-                        onTap: _pickExpiraEm,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Por favor, insira um título';
+                          }
+                          return null;
+                        },
+                        textCapitalization: TextCapitalization.sentences,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Card(
-                      child: SwitchListTile(
-                        title: const Text('Publicar'),
-                        subtitle: Text(
-                          _isPublished
-                              ? 'Visível no app'
-                              : 'Não aparece no app',
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _contentController,
+                        decoration: const InputDecoration(
+                          labelText: 'Conteúdo',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(AppIcons.description),
                         ),
-                        value: _isPublished,
-                        onChanged: (v) => setState(() => _isPublished = v),
+                        maxLines: 8,
+                        textCapitalization: TextCapitalization.sentences,
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    DisabledByPermission(
-                      permission: _isEditing ? 'news.edit' : 'news.create',
-                      disabledTooltip: _isEditing
-                          ? 'Você não tem permissão para editar notícias'
-                          : 'Você não tem permissão para criar notícias',
-                      child: FilledButton.icon(
-                        onPressed: _isSaving ? null : _save,
-                        icon: const Icon(Icons.save),
-                        label: Text(
-                          _isEditing ? 'Salvar alterações' : 'Criar notícia',
+                      const SizedBox(height: 16),
+                      ImageUploadWidget(
+                        initialImageUrl: _imageUrl,
+                        onImageUrlChanged: (url) {
+                          setState(() {
+                            _imageUrl = url;
+                          });
+                        },
+                        storageBucket: 'event-images',
+                        label: 'Imagem (Opcional)',
+                      ),
+                      const SizedBox(height: 16),
+                      GlassCard(
+                        child: ListTile(
+                          leading: const Icon(AppIcons.schedule),
+                          title: const Text('Data/Hora'),
+                          subtitle: Text(dateLabel),
+                          trailing: const Icon(AppIcons.calendar),
+                          onTap: _pickDateTime,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      GlassCard(
+                        child: ListTile(
+                          leading: const Icon(AppIcons.accessTime),
+                          title: const Text('Sai do ar em'),
+                          subtitle: Text(prazoLabel),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (prazo != null)
+                                IconButton(
+                                  icon: const Icon(AppIcons.clear),
+                                  tooltip: 'Deixar sem prazo',
+                                  onPressed: () =>
+                                      setState(() => _expiraEm = null),
+                                ),
+                              const Icon(AppIcons.calendar),
+                            ],
+                          ),
+                          onTap: _pickExpiraEm,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      GlassCard(
+                        child: SwitchListTile(
+                          title: const Text('Publicar'),
+                          subtitle: Text(
+                            _isPublished
+                                ? 'Visível no app'
+                                : 'Não aparece no app',
+                          ),
+                          value: _isPublished,
+                          onChanged: (v) => setState(() => _isPublished = v),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      DisabledByPermission(
+                        permission: _isEditing ? 'news.edit' : 'news.create',
+                        disabledTooltip: _isEditing
+                            ? 'Você não tem permissão para editar notícias'
+                            : 'Você não tem permissão para criar notícias',
+                        child: FilledButton.icon(
+                          onPressed: _isSaving ? null : _save,
+                          icon: const Icon(AppIcons.save),
+                          label: Text(
+                            _isEditing ? 'Salvar alterações' : 'Criar notícia',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

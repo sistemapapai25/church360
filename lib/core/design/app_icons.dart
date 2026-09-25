@@ -113,6 +113,13 @@ abstract final class AppIcons {
   static const admin = Icons.admin_panel_settings_outlined;
   static const church = Icons.church_outlined;
   static const book = Icons.menu_book_outlined;
+  static const libraryBooks = Icons.library_books_outlined;
+  static const eventNote = Icons.event_note_outlined;
+  static const topic = Icons.topic_outlined;
+  static const videoLibrary = Icons.video_library_outlined;
+  static const audioFile = Icons.audio_file_outlined;
+  static const insertDriveFile = Icons.insert_drive_file_outlined;
+  static const slideshow = Icons.slideshow_outlined;
   static const favorite = Icons.favorite_border;
   static const note = Icons.note_outlined;
   static const dateRange = Icons.date_range;

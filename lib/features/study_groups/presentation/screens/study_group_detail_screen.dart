@@ -9,6 +9,26 @@ import '../providers/study_group_provider.dart';
 import '../../domain/models/study_group.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/utils/share_link_utils.dart';
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/status_badge.dart';
+
+AppStatusTone _studyGroupStatusTone(StudyGroupStatus status) {
+  return switch (status) {
+    StudyGroupStatus.active => AppStatusTone.active,
+    StudyGroupStatus.completed => AppStatusTone.done,
+    StudyGroupStatus.paused ||
+    StudyGroupStatus.cancelled => AppStatusTone.dropped,
+  };
+}
+
+IconData _participantRoleIcon(ParticipantRole role) {
+  return switch (role) {
+    ParticipantRole.leader => AppIcons.security,
+    ParticipantRole.coLeader => AppIcons.supervisor,
+    ParticipantRole.participant => AppIcons.person,
+  };
+}
 
 class StudyGroupDetailScreen extends ConsumerWidget {
   final String groupId;
@@ -66,12 +86,12 @@ class StudyGroupDetailScreen extends ConsumerWidget {
               actions: [
                 IconButton(
                   tooltip: 'Compartilhar',
-                  icon: const Icon(Icons.share),
+                  icon: const Icon(AppIcons.share),
                   onPressed: shareStudyGroupLink,
                 ),
                 if (canManageGroupByContext)
                   IconButton(
-                    icon: const Icon(Icons.edit),
+                    icon: const Icon(AppIcons.edit),
                     tooltip: 'Editar Grupo',
                     onPressed: () {
                       final route = fromDashboard
@@ -88,7 +108,7 @@ class StudyGroupDetailScreen extends ConsumerWidget {
                     builder: (context, snapshot) {
                       if (snapshot.hasData && snapshot.data == true) {
                         return IconButton(
-                          icon: const Icon(Icons.edit),
+                          icon: const Icon(AppIcons.edit),
                           tooltip: 'Editar Grupo',
                           onPressed: () {
                             final route = fromDashboard
@@ -104,9 +124,9 @@ class StudyGroupDetailScreen extends ConsumerWidget {
               ],
               bottom: const TabBar(
                 tabs: [
-                  Tab(icon: Icon(Icons.info_outline), text: 'Sobre'),
-                  Tab(icon: Icon(Icons.book), text: 'Lições'),
-                  Tab(icon: Icon(Icons.groups), text: 'Participantes'),
+                  Tab(icon: Icon(AppIcons.info), text: 'Sobre'),
+                  Tab(icon: Icon(AppIcons.book), text: 'Lições'),
+                  Tab(icon: Icon(AppIcons.groups), text: 'Participantes'),
                 ],
               ),
             ),
@@ -168,26 +188,10 @@ class StudyGroupDetailScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Status
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: group.status.color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.circle, size: 12, color: group.status.color),
-                const SizedBox(width: 8),
-                Text(
-                  group.status.displayName,
-                  style: TextStyle(
-                    color: group.status.color,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
+          StatusBadge(
+            label: group.status.displayName,
+            tone: _studyGroupStatusTone(group.status),
+            icon: AppIcons.study,
           ),
 
           const SizedBox(height: 24),
@@ -228,31 +232,31 @@ class StudyGroupDetailScreen extends ConsumerWidget {
           _buildInfoCard(context, 'Informações do Grupo', [
             if (group.meetingDay != null && group.meetingTime != null)
               _buildInfoRow(
-                Icons.schedule,
+                AppIcons.schedule,
                 'Horário',
                 '${group.meetingDay}, ${group.meetingTime}',
               ),
             if (group.meetingLocation != null)
-              _buildInfoRow(Icons.place, 'Local', group.meetingLocation!),
+              _buildInfoRow(AppIcons.location, 'Local', group.meetingLocation!),
             _buildInfoRow(
-              Icons.calendar_today,
+              AppIcons.calendar,
               'Início',
               '${group.startDate.day}/${group.startDate.month}/${group.startDate.year}',
             ),
             if (group.endDate != null)
               _buildInfoRow(
-                Icons.event,
+                AppIcons.event,
                 'Término',
                 '${group.endDate!.day}/${group.endDate!.month}/${group.endDate!.year}',
               ),
             _buildInfoRow(
-              group.isPublic ? Icons.public : Icons.lock,
+              group.isPublic ? AppIcons.public : AppIcons.lock,
               'Visibilidade',
               group.isPublic ? 'Público' : 'Privado',
             ),
             if (group.maxParticipants != null)
               _buildInfoRow(
-                Icons.groups,
+                AppIcons.groups,
                 'Limite de Participantes',
                 '${group.maxParticipants}',
               ),
@@ -267,22 +271,20 @@ class StudyGroupDetailScreen extends ConsumerWidget {
     String title,
     List<Widget> children,
   ) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            ...children,
-          ],
-        ),
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
       ),
     );
   }
@@ -347,7 +349,7 @@ class StudyGroupDetailScreen extends ConsumerWidget {
                         : '/study-groups/$groupId/lessons/new';
                     context.push(route);
                   },
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(AppIcons.add),
                   label: const Text('Nova Lição'),
                 ),
               );
@@ -365,23 +367,26 @@ class StudyGroupDetailScreen extends ConsumerWidget {
                   itemCount: lessons.length,
                   itemBuilder: (context, index) {
                     final lesson = lessons[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          child: Text('${lesson.lessonNumber}'),
-                        ),
-                        title: Text(lesson.title),
-                        subtitle: lesson.bibleReferences != null
-                            ? Text(lesson.bibleReferences!)
-                            : null,
-                        trailing: const Icon(Icons.arrow_forward_ios),
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: GlassCard(
+                        padding: EdgeInsets.zero,
                         onTap: () {
                           final route = fromDashboard
                               ? '/study-groups/$groupId/lessons/${lesson.id}?from=dashboard'
                               : '/study-groups/$groupId/lessons/${lesson.id}';
                           context.push(route);
                         },
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            child: Text('${lesson.lessonNumber}'),
+                          ),
+                          title: Text(lesson.title),
+                          subtitle: lesson.bibleReferences != null
+                              ? Text(lesson.bibleReferences!)
+                              : null,
+                          trailing: const Icon(AppIcons.forward),
+                        ),
                       ),
                     );
                   },
@@ -425,7 +430,7 @@ class StudyGroupDetailScreen extends ConsumerWidget {
                           _AddStudyParticipantDialog(groupId: groupId),
                     );
                   },
-                  icon: const Icon(Icons.person_add),
+                  icon: const Icon(AppIcons.personAdd),
                   label: Text(
                     participants.isEmpty
                         ? 'Adicionar Primeiro Participante'
@@ -486,15 +491,23 @@ class StudyGroupDetailScreen extends ConsumerWidget {
         final participantName =
             nameById[participant.userId] ?? 'Usuário $fallbackId';
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: CircleAvatar(child: Icon(participant.role.icon)),
-            title: Text(participantName),
-            subtitle: Text(participant.role.displayName),
-            trailing: participant.isLeader || participant.isCoLeader
-                ? Icon(participant.role.icon, color: Colors.amber)
-                : null,
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: GlassCard(
+            padding: EdgeInsets.zero,
+            child: ListTile(
+              leading: CircleAvatar(
+                child: Icon(_participantRoleIcon(participant.role)),
+              ),
+              title: Text(participantName),
+              subtitle: Text(participant.role.displayName),
+              trailing: participant.isLeader || participant.isCoLeader
+                  ? Icon(
+                      _participantRoleIcon(participant.role),
+                      color: Colors.amber,
+                    )
+                  : null,
+            ),
           ),
         );
       },
@@ -557,7 +570,7 @@ class _AddStudyParticipantDialogState
                   initialValue: _selectedMemberId,
                   decoration: const InputDecoration(
                     labelText: 'Selecione um membro',
-                    prefixIcon: Icon(Icons.person),
+                    prefixIcon: Icon(AppIcons.person),
                     border: OutlineInputBorder(),
                   ),
                   items: availableMembers

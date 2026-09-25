@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../data/group_meetings_repository.dart';
 import '../providers/meetings_provider.dart';
 import '../providers/groups_provider.dart';
@@ -16,11 +18,7 @@ class MeetingFormScreen extends ConsumerStatefulWidget {
   final String groupId;
   final String? meetingId;
 
-  const MeetingFormScreen({
-    super.key,
-    required this.groupId,
-    this.meetingId,
-  });
+  const MeetingFormScreen({super.key, required this.groupId, this.meetingId});
 
   @override
   ConsumerState<MeetingFormScreen> createState() => _MeetingFormScreenState();
@@ -30,7 +28,7 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _topicController = TextEditingController();
   final _notesController = TextEditingController();
-  
+
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
 
@@ -50,7 +48,9 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
   }
 
   Future<void> _loadMeeting() async {
-    final meeting = await ref.read(meetingByIdProvider(widget.meetingId!).future);
+    final meeting = await ref.read(
+      meetingByIdProvider(widget.meetingId!).future,
+    );
     if (meeting != null && mounted) {
       setState(() {
         _topicController.text = meeting.topic ?? '';
@@ -69,6 +69,10 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
         backgroundColor: CommunityDesign.headerColor(context),
+        leading: IconButton(
+          icon: const Icon(AppIcons.back),
+          onPressed: () => context.pop(),
+        ),
         title: Text(
           isEditing ? 'Editar Reunião' : 'Nova Reunião',
           style: CommunityDesign.titleStyle(context),
@@ -86,9 +90,9 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 // Nome do grupo
-                Card(
+                GlassCard(
                   child: ListTile(
-                    leading: const Icon(Icons.group),
+                    leading: const Icon(AppIcons.group),
                     title: Text(group.name),
                     subtitle: const Text('Grupo'),
                   ),
@@ -96,42 +100,63 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
                 const SizedBox(height: 24),
 
                 // Data da reunião
-                Card(
+                GlassCard(
                   child: ListTile(
-                    leading: const Icon(Icons.calendar_today),
+                    leading: const Icon(AppIcons.calendarFilled),
                     title: const Text('Data da Reunião'),
-                    subtitle: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
-                    trailing: const Icon(Icons.edit),
+                    subtitle: Text(
+                      DateFormat('dd/MM/yyyy').format(_selectedDate),
+                    ),
+                    trailing: const Icon(AppIcons.edit),
                     onTap: _selectDate,
                   ),
                 ),
                 const SizedBox(height: 16),
 
-                // Tópico
-                TextFormField(
-                  controller: _topicController,
-                  decoration: const InputDecoration(
-                    labelText: 'Tópico/Tema',
-                    hintText: 'Ex: Estudo sobre Fé',
-                    prefixIcon: Icon(Icons.topic),
-                    border: OutlineInputBorder(),
+                GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            AppIcons.eventNote,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Conteúdo da reunião',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _topicController,
+                        decoration: const InputDecoration(
+                          labelText: 'Tópico/Tema',
+                          hintText: 'Ex: Estudo sobre Fé',
+                          prefixIcon: Icon(AppIcons.topic),
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLength: 200,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _notesController,
+                        decoration: const InputDecoration(
+                          labelText: 'Notas/Observações',
+                          hintText: 'Anotações sobre a reunião...',
+                          prefixIcon: Icon(AppIcons.note),
+                          border: OutlineInputBorder(),
+                          alignLabelWithHint: true,
+                        ),
+                        maxLines: 5,
+                        maxLength: 1000,
+                      ),
+                    ],
                   ),
-                  maxLength: 200,
-                ),
-                const SizedBox(height: 16),
-
-                // Notas
-                TextFormField(
-                  controller: _notesController,
-                  decoration: const InputDecoration(
-                    labelText: 'Notas/Observações',
-                    hintText: 'Anotações sobre a reunião...',
-                    prefixIcon: Icon(Icons.notes),
-                    border: OutlineInputBorder(),
-                    alignLabelWithHint: true,
-                  ),
-                  maxLines: 5,
-                  maxLength: 1000,
                 ),
                 const SizedBox(height: 24),
 
@@ -147,8 +172,10 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.save),
-                    label: Text(isEditing ? 'Salvar Alterações' : 'Criar Reunião'),
+                        : const Icon(AppIcons.save),
+                    label: Text(
+                      isEditing ? 'Salvar Alterações' : 'Criar Reunião',
+                    ),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.all(16),
                     ),
@@ -188,7 +215,9 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
     if (!hasPermission) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+          const SnackBar(
+            content: Text('Você não tem permissão para esta ação'),
+          ),
         );
       }
       return;
@@ -201,14 +230,16 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
       final data = {
         'group_id': widget.groupId,
         'meeting_date': _selectedDate.toIso8601String().split('T')[0],
-        if (_topicController.text.isNotEmpty) 'topic': _topicController.text.trim(),
-        if (_notesController.text.isNotEmpty) 'notes': _notesController.text.trim(),
+        if (_topicController.text.isNotEmpty)
+          'topic': _topicController.text.trim(),
+        if (_notesController.text.isNotEmpty)
+          'notes': _notesController.text.trim(),
       };
 
       if (widget.meetingId != null) {
         // Atualizar
         await repository.updateMeeting(widget.meetingId!, data);
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -220,7 +251,7 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
       } else {
         // Criar
         final meeting = await repository.createMeeting(data);
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
