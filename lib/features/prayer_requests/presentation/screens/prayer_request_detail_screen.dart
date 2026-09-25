@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/status_badge.dart';
 
 import '../providers/prayer_request_provider.dart';
 import '../../domain/models/prayer_request.dart';
@@ -11,16 +15,15 @@ import '../../domain/models/prayer_request.dart';
 class PrayerRequestDetailScreen extends ConsumerStatefulWidget {
   final String prayerRequestId;
 
-  const PrayerRequestDetailScreen({
-    super.key,
-    required this.prayerRequestId,
-  });
+  const PrayerRequestDetailScreen({super.key, required this.prayerRequestId});
 
   @override
-  ConsumerState<PrayerRequestDetailScreen> createState() => _PrayerRequestDetailScreenState();
+  ConsumerState<PrayerRequestDetailScreen> createState() =>
+      _PrayerRequestDetailScreenState();
 }
 
-class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailScreen> {
+class _PrayerRequestDetailScreenState
+    extends ConsumerState<PrayerRequestDetailScreen> {
   final TextEditingController _noteController = TextEditingController();
 
   @override
@@ -32,7 +35,7 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
   Future<void> _markAsPrayed() async {
     try {
       final actions = ref.read(prayerRequestActionsProvider);
-      
+
       await actions.markAsPrayed(
         prayerRequestId: widget.prayerRequestId,
         note: _noteController.text.isEmpty ? null : _noteController.text,
@@ -50,10 +53,7 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -61,8 +61,9 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
 
   Future<void> _deletePrayerRequest() async {
     final currentMemberId = ref.read(currentMemberProvider).value?.id;
-    final prayerRequest =
-        ref.read(prayerRequestByIdProvider(widget.prayerRequestId)).value;
+    final prayerRequest = ref
+        .read(prayerRequestByIdProvider(widget.prayerRequestId))
+        .value;
     final isAuthor = prayerRequest?.authorId == currentMemberId;
     final canDelete = await ref.read(
       currentUserHasPermissionProvider('prayer_requests.delete').future,
@@ -73,7 +74,9 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
     if (!isAuthor && !canDelete && !canModerate) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+          const SnackBar(
+            content: Text('Você não tem permissão para esta ação'),
+          ),
         );
       }
       return;
@@ -95,9 +98,7 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Deletar'),
           ),
         ],
@@ -133,9 +134,15 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
 
   @override
   Widget build(BuildContext context) {
-    final prayerRequestAsync = ref.watch(prayerRequestByIdProvider(widget.prayerRequestId));
-    final statsAsync = ref.watch(prayerRequestStatsProvider(widget.prayerRequestId));
-    final hasUserPrayedAsync = ref.watch(hasUserPrayedProvider(widget.prayerRequestId));
+    final prayerRequestAsync = ref.watch(
+      prayerRequestByIdProvider(widget.prayerRequestId),
+    );
+    final statsAsync = ref.watch(
+      prayerRequestStatsProvider(widget.prayerRequestId),
+    );
+    final hasUserPrayedAsync = ref.watch(
+      hasUserPrayedProvider(widget.prayerRequestId),
+    );
     final currentMemberId = ref.watch(currentMemberProvider).value?.id;
     final canEditPermission = ref
         .watch(currentUserHasPermissionProvider('prayer_requests.edit'))
@@ -148,8 +155,13 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
         .maybeWhen(data: (v) => v, orElse: () => false);
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('Pedido de Oração'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text(
+          'Pedido de Oração',
+          style: CommunityDesign.titleStyle(context),
+        ),
         actions: [
           prayerRequestAsync.when(
             data: (prayerRequest) {
@@ -172,7 +184,7 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
                       value: 'edit',
                       child: Row(
                         children: [
-                          Icon(Icons.edit),
+                          Icon(AppIcons.edit),
                           SizedBox(width: 8),
                           Text('Editar'),
                         ],
@@ -183,7 +195,7 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
                       value: 'mark_answered',
                       child: Row(
                         children: [
-                          Icon(Icons.check_circle, color: Colors.green),
+                          Icon(AppIcons.checkCircle, color: Colors.green),
                           SizedBox(width: 8),
                           Text('Marcar como Respondido'),
                         ],
@@ -194,7 +206,7 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(Icons.delete, color: Colors.red),
+                          Icon(AppIcons.delete, color: Colors.red),
                           SizedBox(width: 8),
                           Text('Deletar'),
                         ],
@@ -204,18 +216,20 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
                 onSelected: (value) async {
                   if (value == 'edit') {
                     if (!canEdit) return;
-                    context.push('/prayer-requests/${widget.prayerRequestId}/edit');
+                    context.push(
+                      '/prayer-requests/${widget.prayerRequestId}/edit',
+                    );
                   } else if (value == 'mark_answered') {
                     if (!canEdit) return;
                     final actions = ref.read(prayerRequestActionsProvider);
                     await actions.markAsAnswered(widget.prayerRequestId);
                     if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Glória a Deus! Oração respondida! 🙏'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Glória a Deus! Oração respondida! 🙏'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
                   } else if (value == 'delete') {
                     if (!canDelete) return;
                     _deletePrayerRequest();
@@ -231,9 +245,7 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
       body: prayerRequestAsync.when(
         data: (prayerRequest) {
           if (prayerRequest == null) {
-            return const Center(
-              child: Text('Pedido não encontrado'),
-            );
+            return const Center(child: Text('Pedido não encontrado'));
           }
 
           return SingleChildScrollView(
@@ -241,68 +253,67 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header com categoria, status e privacidade
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _Badge(
-                      icon: prayerRequest.category.icon,
-                      label: prayerRequest.category.displayName,
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                    ),
-                    _Badge(
-                      icon: prayerRequest.status.icon,
-                      label: prayerRequest.status.displayName,
-                      color: _getStatusColor(prayerRequest.status).withValues(alpha: 0.2),
-                      textColor: _getStatusColor(prayerRequest.status),
-                    ),
-                    _Badge(
-                      icon: _getPrivacyIcon(prayerRequest.privacy),
-                      label: prayerRequest.privacy.displayName,
-                      color: Colors.grey.withValues(alpha: 0.2),
-                    ),
-                  ],
+                GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header com categoria, status e privacidade
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          CommunityDesign.badge(
+                            context,
+                            prayerRequest.category.displayName,
+                            Theme.of(context).colorScheme.primary,
+                            icon: AppIcons.category,
+                          ),
+                          StatusBadge(
+                            label: prayerRequest.status.displayName,
+                            tone: _getStatusTone(prayerRequest.status),
+                            icon: _getStatusIcon(prayerRequest.status),
+                          ),
+                          CommunityDesign.badge(
+                            context,
+                            prayerRequest.privacy.displayName,
+                            Theme.of(context).colorScheme.outline,
+                            icon: _getPrivacyIcon(prayerRequest.privacy),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        prayerRequest.title,
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        prayerRequest.timeAgo,
+                        style: CommunityDesign.metaStyle(context),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        prayerRequest.description,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyLarge?.copyWith(height: 1.6),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
 
-                // Título
-                Text(
-                  prayerRequest.title,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                // Data
-                Text(
-                  prayerRequest.timeAgo,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Descrição
-                Text(
-                  prayerRequest.description,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    height: 1.6,
-                  ),
-                ),
-                const SizedBox(height: 24),
-
                 // Estatísticas
                 statsAsync.when(
-                  data: (stats) => Card(
+                  data: (stats) => GlassCard(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: EdgeInsets.zero,
                       child: Row(
                         children: [
                           Expanded(
                             child: _StatItem(
-                              icon: Icons.favorite,
+                              icon: AppIcons.favorite,
                               label: 'Orações',
                               value: stats.totalPrayers.toString(),
                               color: Colors.red,
@@ -310,7 +321,7 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
                           ),
                           Expanded(
                             child: _StatItem(
-                              icon: Icons.groups,
+                              icon: AppIcons.groups,
                               label: 'Pessoas',
                               value: stats.uniquePrayers.toString(),
                               color: Colors.blue,
@@ -326,9 +337,9 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
                 const SizedBox(height: 16),
 
                 // Campo para adicionar nota ao orar
-                Card(
+                GlassCard(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.zero,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -354,9 +365,8 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Text('Erro ao carregar pedido: $error'),
-        ),
+        error: (error, stack) =>
+            Center(child: Text('Erro ao carregar pedido: $error')),
       ),
       bottomNavigationBar: hasUserPrayedAsync.when(
         data: (hasUserPrayed) => SafeArea(
@@ -364,7 +374,7 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
             padding: const EdgeInsets.all(16),
             child: FilledButton.icon(
               onPressed: _markAsPrayed,
-              icon: const Icon(Icons.favorite),
+              icon: const Icon(AppIcons.favorite),
               label: Text(hasUserPrayed ? 'Orar Novamente' : 'Eu Orei'),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -379,70 +389,42 @@ class _PrayerRequestDetailScreenState extends ConsumerState<PrayerRequestDetailS
     );
   }
 
-  Color _getStatusColor(PrayerStatus status) {
+  AppStatusTone _getStatusTone(PrayerStatus status) {
     switch (status) {
       case PrayerStatus.pending:
-        return Colors.orange;
       case PrayerStatus.praying:
-        return Colors.blue;
+        return AppStatusTone.active;
       case PrayerStatus.answered:
-        return Colors.green;
+        return AppStatusTone.done;
       case PrayerStatus.cancelled:
-        return Colors.grey;
+        return AppStatusTone.dropped;
     }
   }
 
-  String _getPrivacyIcon(PrayerPrivacy privacy) {
+  IconData _getStatusIcon(PrayerStatus status) {
+    switch (status) {
+      case PrayerStatus.pending:
+        return AppIcons.pending;
+      case PrayerStatus.praying:
+        return AppIcons.favorite;
+      case PrayerStatus.answered:
+        return AppIcons.checkCircle;
+      case PrayerStatus.cancelled:
+        return AppIcons.cancel;
+    }
+  }
+
+  IconData _getPrivacyIcon(PrayerPrivacy privacy) {
     switch (privacy) {
       case PrayerPrivacy.public:
-        return '🌍';
+        return AppIcons.public;
       case PrayerPrivacy.membersOnly:
-        return '👥';
+        return AppIcons.groups;
       case PrayerPrivacy.leadersOnly:
-        return '👑';
+        return AppIcons.admin;
       case PrayerPrivacy.private:
-        return '🔒';
+        return AppIcons.lock;
     }
-  }
-}
-
-class _Badge extends StatelessWidget {
-  final String icon;
-  final String label;
-  final Color color;
-  final Color? textColor;
-
-  const _Badge({
-    required this.icon,
-    required this.label,
-    required this.color,
-    this.textColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(icon is IconData ? '' : icon),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: textColor ?? Theme.of(context).colorScheme.onPrimaryContainer,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -474,9 +456,7 @@ class _StatItem extends StatelessWidget {
         ),
         Text(
           label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: color,
-          ),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
         ),
       ],
     );

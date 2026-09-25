@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/design/app_icons.dart';
 import '../providers/banners_provider.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../events/presentation/providers/events_provider.dart';
 import '../../../reading_plans/presentation/providers/reading_plans_provider.dart';
 import '../../../courses/presentation/providers/courses_provider.dart';
@@ -372,9 +373,9 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
                     const SizedBox(height: 16),
 
                     // Tipo de Vínculo
-                    Card(
+                    GlassCard(
                       child: Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: EdgeInsets.zero,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -443,7 +444,7 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
                     const SizedBox(height: 16),
 
                     // Status (Ativo/Inativo)
-                    Card(
+                    GlassCard(
                       child: SwitchListTile(
                         title: const Text('Banner Ativo'),
                         subtitle: Text(

@@ -32,6 +32,9 @@ um ajuste de inventário, não como uma remoção presumida.
 | Financeiro legado | 53 | 5 | Migrado nesta onda: contribuições, despesas, metas e relatórios |
 | Community | 85 | 2 | Migrado nesta onda: shell, mural, classificados, membros e moderação; preservar Font Awesome |
 | Reports (`core/screens/reports`) | 57 | 8 | Slice completo: oito relatórios migrados |
+| Home Content | 28 | 2 | Slice completo nesta onda: banners e formulário migrados |
+| Church Info | 41 | 2 | Slice completo nesta onda: leitura e formulário migrados |
+| Devotionals | 48 | 3 | Slice completo nesta onda: lista, detalhe e formulário migrados |
 
 Os números por área são referências textuais e podem incluir símbolos que
 serão classificados como específicos de uma tela, além dos símbolos que podem
@@ -55,30 +58,83 @@ cards/gráficos de estatísticas usam a mesma superfície e o catálogo semânti
 Não houve alteração em rotas, permissões, repositórios ou contratos de dados.
 Foram adicionados quatro testes de widget para proteger essas superfícies.
 
+## Onda visual — Quick News, Testimonies e Prayer Requests
+
+- `quick_news_list_screen.dart` e `quick_news_form_screen.dart` usam
+  `GlassCard`, `StatusBadge` e `AppIcons` nos cards, estados, imagem, validade
+  e ações, preservando upload, permissões e payloads.
+- `testimonies_list_screen.dart` e `testimony_form_screen.dart` usam a mesma
+  superfície compartilhada e o catálogo semântico para visibilidade, contato,
+  campos e ações.
+- `prayer_requests_list_screen.dart`, `prayer_request_detail_screen.dart` e
+  `prayer_request_form_screen.dart` usam vidro nas superfícies principais,
+  `StatusBadge` para o ciclo do pedido e `AppIcons` nos filtros, privacidade,
+  métricas e ações. Os emojis de categoria/status continuam nos menus de
+  domínio.
+- A cobertura focada em
+  `test/features/content/prayer_testimonies_quick_news_visual_test.dart`
+  valida quatro cenários em memória.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios,
+upload ou contratos de dados.
+
+## Onda visual — Home Content, Church Info e Devotionals
+
+- `banners_list_screen.dart` e `banner_form_screen.dart` agora usam
+  `GlassCard`, `StatusBadge` e `AppIcons` para miniaturas, ações, vínculo e
+  publicação, preservando reordenação, upload, permissões e payloads.
+- `church_info_screen.dart` usa `GlassCard` nas seções de identidade, missão,
+  valores, horários, liderança, contato e redes; `church_info_form_screen.dart`
+  agrupa os blocos editáveis na mesma superfície e usa o catálogo semântico.
+  Os ícones Font Awesome das marcas sociais permanecem preservados.
+- `devotionals_list_screen.dart`, `devotional_detail_screen.dart` e
+  `devotional_form_screen.dart` reutilizam vidro nas superfícies principais,
+  `StatusBadge` para rascunho/salvo e `AppIcons` nos controles de leitura,
+  vídeo, anotações, formulário e comentários. Reações, comentários, vídeo,
+  leitura e anotações continuam com os mesmos providers e fluxos.
+- A cobertura focada em
+  `test/features/content/home_church_devotionals_visual_test.dart` valida
+  quatro cenários em memória.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios,
+upload ou contratos de dados.
+
+## Onda visual — Bíblia e planos de leitura
+
+- As onze telas de `bible` e `reading_plans` agora reutilizam `GlassCard` nas
+  listas, capítulos, versículos, resultados, favoritos, léxico, detalhes,
+  módulos e formulários; estados de plano e progresso usam `StatusBadge`.
+- `AppIcons` ganhou somente as semânticas de leitura necessárias (livro,
+  tradução, tipografia, navegação de capítulo, execução e reinício). Rotas,
+  permissões, providers, repositórios e contratos de dados foram preservados.
+- A cobertura focada em
+  `test/features/bible_reading_plans_visual_test.dart` valida quatro cenários
+  em memória, incluindo o overflow corrigido na grade de capítulos.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios,
+persistência, upload ou contratos de dados.
+
 ## Próximo recorte
 
-Church Schedule e News foram concluídos nesta onda. O próximo recorte deve
-continuar pelos módulos de conteúdo e apoio que ainda não têm slice completo,
-começando por `quick_news`, `testimonies` e `prayer_requests`. Autenticação e
-dados reais continuam sendo limitações da validação visual local.
+Quick News, Testimonies, Prayer Requests, Home Content, Church Info,
+Devotionals, Bíblia e Planos de Leitura foram concluídos nas ondas recentes.
+O próximo recorte deve começar por `courses` e `support_materials`.
+Autenticação e dados reais continuam sendo limitações da validação visual local.
 
 ### Contagem de encerramento
 
 Considerando cada grupo funcional abaixo como um recorte revisável, restam
-**10 recortes** para fechar a auditoria visual dos módulos ainda pendentes:
+**7 recortes** para fechar a auditoria visual dos módulos ainda pendentes:
 
-1. Conteúdo rápido e institucional: `quick_news`, `home_content`, `church_info`.
-2. Comunidade de conteúdo: `testimonies`, `prayer_requests`, `devotionals`.
-3. Bíblia e leitura: `bible`, `reading_plans`.
-4. Formação: `courses`, `support_materials`.
-5. Crianças, culto e transmissão: `kids`, `worship`, `live_stream`.
-6. Escalas e automações: `schedule`, `dispatch`.
-7. Pessoas auxiliares: `tags`, `duplicates`, `access_levels`, `branches`.
-8. Administração e acesso: `permissions`, `notifications`, `qr_scanner`.
-9. Gestão analítica: `analytics`, `custom_reports`.
-10. Entrada e apoio: `auth`, `church_selector`, `support_chat`, `contribution`.
+1. Formação: `courses`, `support_materials`.
+2. Crianças, culto e transmissão: `kids`, `worship`, `live_stream`.
+3. Escalas e automações: `schedule`, `dispatch`.
+4. Pessoas auxiliares: `tags`, `duplicates`, `access_levels`, `branches`.
+5. Administração e acesso: `permissions`, `notifications`, `qr_scanner`.
+6. Gestão analítica: `analytics`, `custom_reports`.
+7. Entrada e apoio: `auth`, `church_selector`, `support_chat`, `contribution`.
 
-São **90 telas `screen.dart` ainda pendentes** pelo inventário atual. O número
+São **65 telas `screen.dart` ainda pendentes** pelo inventário atual. O número
 de recortes é a unidade de planejamento; cada onda pode fechar vários módulos
 relacionados sem alterar rotas, permissões ou contratos de dados.
 

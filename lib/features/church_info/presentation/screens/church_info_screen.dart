@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/widgets/app_logo.dart';
+import '../../../../core/widgets/glass_card.dart';
 
 import '../providers/church_info_provider.dart';
 import '../../domain/models/church_info.dart';
@@ -81,11 +83,7 @@ class ChurchInfoScreen extends ConsumerWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(
-                      width: 96,
-                      height: 96,
-                      child: const AppLogo(),
-                    ),
+                    SizedBox(width: 96, height: 96, child: const AppLogo()),
                     const SizedBox(height: 16),
                     Text(
                       'Informações não disponíveis',
@@ -128,7 +126,7 @@ class ChurchInfoScreen extends ConsumerWidget {
                     if (churchInfo.mission != null) ...[
                       _buildSection(
                         context,
-                        icon: Icons.flag_outlined,
+                        icon: AppIcons.flag,
                         title: 'Missão',
                         content: churchInfo.mission!,
                       ),
@@ -139,7 +137,7 @@ class ChurchInfoScreen extends ConsumerWidget {
                     if (churchInfo.vision != null) ...[
                       _buildSection(
                         context,
-                        icon: Icons.visibility_outlined,
+                        icon: AppIcons.visibility,
                         title: 'Visão',
                         content: churchInfo.vision!,
                       ),
@@ -157,7 +155,7 @@ class ChurchInfoScreen extends ConsumerWidget {
                     if (churchInfo.history != null) ...[
                       _buildSection(
                         context,
-                        icon: Icons.history_outlined,
+                        icon: AppIcons.history,
                         title: 'Nossa História',
                         content: churchInfo.history!,
                       ),
@@ -204,7 +202,7 @@ class ChurchInfoScreen extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                const Icon(AppIcons.error, size: 64, color: Colors.red),
                 const SizedBox(height: 16),
                 Text('Erro ao carregar informações: $error'),
                 const SizedBox(height: 16),
@@ -223,10 +221,7 @@ class ChurchInfoScreen extends ConsumerWidget {
   }
 
   Widget _buildHeader(BuildContext context, ChurchInfo churchInfo) {
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(
-        Theme.of(context).colorScheme,
-      ),
+    return GlassCard(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -249,11 +244,7 @@ class ChurchInfoScreen extends ConsumerWidget {
                 ),
               )
             else
-              const SizedBox(
-                width: 120,
-                height: 120,
-                child: AppLogo(),
-              ),
+              const SizedBox(width: 120, height: 120, child: AppLogo()),
             const SizedBox(height: 16),
 
             // Nome
@@ -276,10 +267,7 @@ class ChurchInfoScreen extends ConsumerWidget {
     required String title,
     required String content,
   }) {
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(
-        Theme.of(context).colorScheme,
-      ),
+    return GlassCard(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -306,10 +294,7 @@ class ChurchInfoScreen extends ConsumerWidget {
   }
 
   Widget _buildValuesSection(BuildContext context, List<String> values) {
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(
-        Theme.of(context).colorScheme,
-      ),
+    return GlassCard(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -318,7 +303,7 @@ class ChurchInfoScreen extends ConsumerWidget {
             Row(
               children: [
                 Icon(
-                  Icons.favorite_outline,
+                  AppIcons.favorite,
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(width: 8),
@@ -338,7 +323,7 @@ class ChurchInfoScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
-                      Icons.check_circle,
+                      AppIcons.checkCircle,
                       size: 20,
                       color: Theme.of(context).colorScheme.primary,
                     ),
@@ -363,10 +348,7 @@ class ChurchInfoScreen extends ConsumerWidget {
     BuildContext context,
     List<ServiceTime> serviceTimes,
   ) {
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(
-        Theme.of(context).colorScheme,
-      ),
+    return GlassCard(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -375,7 +357,7 @@ class ChurchInfoScreen extends ConsumerWidget {
             Row(
               children: [
                 Icon(
-                  Icons.access_time,
+                  AppIcons.accessTime,
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(width: 8),
@@ -397,9 +379,9 @@ class ChurchInfoScreen extends ConsumerWidget {
                       flex: 2,
                       child: Text(
                         serviceTime.day,
-                        style: CommunityDesign.contentStyle(context).copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: CommunityDesign.contentStyle(
+                          context,
+                        ).copyWith(fontWeight: FontWeight.bold),
                       ),
                     ),
                     Expanded(
@@ -436,10 +418,7 @@ class ChurchInfoScreen extends ConsumerWidget {
   }
 
   Widget _buildPastorsSection(BuildContext context, List<Pastor> pastors) {
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(
-        Theme.of(context).colorScheme,
-      ),
+    return GlassCard(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -448,7 +427,7 @@ class ChurchInfoScreen extends ConsumerWidget {
             Row(
               children: [
                 Icon(
-                  Icons.person,
+                  AppIcons.person,
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(width: 8),
@@ -489,7 +468,7 @@ class ChurchInfoScreen extends ConsumerWidget {
                   ? NetworkImage(pastor.photoUrl!)
                   : null,
               child: pastor.photoUrl == null || pastor.photoUrl!.isEmpty
-                  ? const Icon(Icons.person, size: 30)
+                  ? const Icon(AppIcons.person, size: 30)
                   : null,
             ),
             const SizedBox(width: 12),
@@ -501,24 +480,23 @@ class ChurchInfoScreen extends ConsumerWidget {
                 children: [
                   Text(
                     pastor.name,
-                    style: CommunityDesign.titleStyle(context).copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   if (pastor.title != null)
                     Text(
                       pastor.title!,
-                      style: CommunityDesign.metaStyle(context).copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+                      style: CommunityDesign.metaStyle(
+                        context,
+                      ).copyWith(color: Theme.of(context).colorScheme.primary),
                     ),
                   if (pastor.bio != null)
                     Text(
                       pastor.bio!,
-                      style: CommunityDesign.contentStyle(context).copyWith(
-                        fontSize: 12,
-                      ),
+                      style: CommunityDesign.contentStyle(
+                        context,
+                      ).copyWith(fontSize: 12),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -540,10 +518,7 @@ class ChurchInfoScreen extends ConsumerWidget {
 
     if (!hasContact) return const SizedBox.shrink();
 
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(
-        Theme.of(context).colorScheme,
-      ),
+    return GlassCard(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -552,7 +527,7 @@ class ChurchInfoScreen extends ConsumerWidget {
             Row(
               children: [
                 Icon(
-                  Icons.contact_mail_outlined,
+                  AppIcons.email,
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(width: 8),
@@ -570,7 +545,7 @@ class ChurchInfoScreen extends ConsumerWidget {
             if (churchInfo.address != null)
               _buildContactItem(
                 context,
-                icon: Icons.location_on,
+                icon: AppIcons.location,
                 text: churchInfo.address!,
                 onTap: () => _launchUrl(
                   'https://maps.google.com/?q=${Uri.encodeComponent(churchInfo.address!)}',
@@ -581,7 +556,7 @@ class ChurchInfoScreen extends ConsumerWidget {
             if (churchInfo.phone != null)
               _buildContactItem(
                 context,
-                icon: Icons.phone_outlined,
+                icon: AppIcons.phone,
                 text: churchInfo.phone!,
                 onTap: () => _launchUrl('tel:${churchInfo.phone}'),
               ),
@@ -590,7 +565,7 @@ class ChurchInfoScreen extends ConsumerWidget {
             if (churchInfo.email != null)
               _buildContactItem(
                 context,
-                icon: Icons.email_outlined,
+                icon: AppIcons.email,
                 text: churchInfo.email!,
                 onTap: () => _launchUrl('mailto:${churchInfo.email}'),
               ),
@@ -599,7 +574,7 @@ class ChurchInfoScreen extends ConsumerWidget {
             if (churchInfo.website != null)
               _buildContactItem(
                 context,
-                icon: Icons.language_outlined,
+                icon: AppIcons.language,
                 text: churchInfo.website!,
                 onTap: () => _launchUrl(churchInfo.website!),
               ),
@@ -629,7 +604,7 @@ class ChurchInfoScreen extends ConsumerWidget {
             ),
             if (onTap != null)
               Icon(
-                Icons.open_in_new,
+                AppIcons.arrowForward,
                 size: 16,
                 color: Theme.of(
                   context,
@@ -645,10 +620,7 @@ class ChurchInfoScreen extends ConsumerWidget {
     BuildContext context,
     Map<String, String> socialMedia,
   ) {
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(
-        Theme.of(context).colorScheme,
-      ),
+    return GlassCard(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -657,7 +629,7 @@ class ChurchInfoScreen extends ConsumerWidget {
             Row(
               children: [
                 Icon(
-                  Icons.share_outlined,
+                  AppIcons.share,
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(width: 8),
@@ -714,7 +686,7 @@ class ChurchInfoScreen extends ConsumerWidget {
         color = Colors.black;
         break;
       default:
-        icon = Icons.link;
+        icon = AppIcons.link;
         color = Theme.of(context).colorScheme.primary;
     }
 
@@ -783,9 +755,15 @@ class ChurchInfoScreen extends ConsumerWidget {
     return Uri.parse('whatsapp://send?phone=$digits');
   }
 
-  Future<void> _launchSocialUrl(BuildContext context, String platform, String url) async {
+  Future<void> _launchSocialUrl(
+    BuildContext context,
+    String platform,
+    String url,
+  ) async {
     final isWhatsApp = platform.toLowerCase().contains('whatsapp');
-    final uri = isWhatsApp ? _buildWhatsAppUri(url) : Uri.parse(_normalizeUrl(url));
+    final uri = isWhatsApp
+        ? _buildWhatsAppUri(url)
+        : Uri.parse(_normalizeUrl(url));
 
     if (uri == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -808,7 +786,9 @@ class ChurchInfoScreen extends ConsumerWidget {
       if (digits.startsWith('00')) {
         digits = digits.substring(2);
       }
-      if (digits.isNotEmpty && digits.length <= 11 && !digits.startsWith('55')) {
+      if (digits.isNotEmpty &&
+          digits.length <= 11 &&
+          !digits.startsWith('55')) {
         digits = '55$digits';
       }
       if (digits.isNotEmpty) {

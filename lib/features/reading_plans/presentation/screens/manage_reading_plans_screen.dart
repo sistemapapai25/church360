@@ -4,7 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/widgets/church_image.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/status_badge.dart';
 import '../providers/reading_plans_provider.dart';
 
 class ManageReadingPlansScreen extends ConsumerWidget {
@@ -19,17 +22,16 @@ class ManageReadingPlansScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(
           'Gerenciar Planos de Leitura',
-          style: CommunityDesign.titleStyle(context).copyWith(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: CommunityDesign.titleStyle(
+            context,
+          ).copyWith(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         backgroundColor: CommunityDesign.headerColor(context),
         elevation: 0,
         centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(AppIcons.add),
             onPressed: () => context.push('/reading-plans/admin/new'),
             tooltip: 'Novo plano',
           ),
@@ -45,11 +47,11 @@ class ManageReadingPlansScreen extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.menu_book_outlined,
+                      AppIcons.book,
                       size: 64,
-                      color: Theme.of(context).colorScheme.primary.withValues(
-                            alpha: 0.5,
-                          ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.5),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -61,16 +63,16 @@ class ManageReadingPlansScreen extends ConsumerWidget {
                     Text(
                       'Crie um plano para aparecer no app.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withValues(alpha: 0.6),
-                          ),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
-                    ElevatedButton.icon(
+                    FilledButton.icon(
                       onPressed: () => context.push('/reading-plans/admin/new'),
-                      icon: const Icon(Icons.add),
+                      icon: const Icon(AppIcons.add),
                       label: const Text('Criar primeiro plano'),
                     ),
                   ],
@@ -91,19 +93,23 @@ class ManageReadingPlansScreen extends ConsumerWidget {
               itemBuilder: (context, index) {
                 final plan = plans[index];
                 final cs = Theme.of(context).colorScheme;
-                return Container(
-                  decoration: CommunityDesign.feedCardDecoration(cs),
+                return GlassCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                      horizontal: 0,
+                      vertical: 0,
                     ),
                     leading: SizedBox(
                       width: 56,
                       height: 56,
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(10),
-                        child: plan.imageUrl != null && plan.imageUrl!.isNotEmpty
+                        child:
+                            plan.imageUrl != null && plan.imageUrl!.isNotEmpty
                             ? ChurchImage(
                                 imageUrl: plan.imageUrl!,
                                 type: ChurchImageType.card,
@@ -121,10 +127,9 @@ class ManageReadingPlansScreen extends ConsumerWidget {
                       plan.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: CommunityDesign.titleStyle(context).copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: CommunityDesign.titleStyle(
+                        context,
+                      ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
                     ),
                     subtitle: Padding(
                       padding: const EdgeInsets.only(top: 6),
@@ -142,14 +147,15 @@ class ManageReadingPlansScreen extends ConsumerWidget {
                             backgroundColor: cs.surfaceContainerHighest,
                             foregroundColor: cs.onSurfaceVariant,
                           ),
-                          _Chip(
-                            label: plan.isActive ? 'Ativo' : 'Inativo',
-                            backgroundColor: plan.isActive
-                                ? Colors.green.withValues(alpha: 0.15)
-                                : Colors.red.withValues(alpha: 0.12),
-                            foregroundColor:
-                                plan.isActive ? Colors.green : Colors.red,
-                          ),
+                          plan.isActive
+                              ? const StatusBadge.active(
+                                  label: 'Ativo',
+                                  icon: AppIcons.visibility,
+                                )
+                              : const StatusBadge.dropped(
+                                  label: 'Inativo',
+                                  icon: AppIcons.visibilityOff,
+                                ),
                         ],
                       ),
                     ),
@@ -159,13 +165,15 @@ class ManageReadingPlansScreen extends ConsumerWidget {
                         IconButton(
                           icon: Icon(
                             plan.isActive
-                                ? Icons.visibility
-                                : Icons.visibility_off,
+                                ? AppIcons.visibility
+                                : AppIcons.visibilityOff,
                             size: 20,
                           ),
                           tooltip: plan.isActive ? 'Desativar' : 'Ativar',
                           onPressed: () async {
-                            final repo = ref.read(readingPlansRepositoryProvider);
+                            final repo = ref.read(
+                              readingPlansRepositoryProvider,
+                            );
                             try {
                               await repo.updatePlan(plan.id, {
                                 'status': plan.isActive ? 'inactive' : 'active',
@@ -196,14 +204,16 @@ class ManageReadingPlansScreen extends ConsumerWidget {
                           },
                         ),
                         IconButton(
-                          icon: const Icon(Icons.edit, size: 20),
+                          icon: const Icon(AppIcons.edit, size: 20),
                           tooltip: 'Editar',
                           onPressed: () {
-                            context.push('/reading-plans/admin/${plan.id}/edit');
+                            context.push(
+                              '/reading-plans/admin/${plan.id}/edit',
+                            );
                           },
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete, size: 20),
+                          icon: const Icon(AppIcons.delete, size: 20),
                           tooltip: 'Excluir',
                           onPressed: () async {
                             final confirmed = await showDialog<bool>(
@@ -235,8 +245,9 @@ class ManageReadingPlansScreen extends ConsumerWidget {
 
                             if (confirmed != true) return;
 
-                            final repo =
-                                ref.read(readingPlansRepositoryProvider);
+                            final repo = ref.read(
+                              readingPlansRepositoryProvider,
+                            );
                             try {
                               await repo.deletePlan(plan.id);
                               ref.invalidate(allReadingPlansProvider);
@@ -273,7 +284,7 @@ class ManageReadingPlansScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const Icon(AppIcons.error, size: 48, color: Colors.red),
               const SizedBox(height: 16),
               Text(
                 AppErrorHandler.userMessage(

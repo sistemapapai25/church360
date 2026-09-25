@@ -2,23 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../domain/models/bible_lexeme.dart';
 import '../providers/bible_provider.dart';
 
 class BibleLexiconEditorScreen extends ConsumerStatefulWidget {
   final String? initialQuery;
 
-  const BibleLexiconEditorScreen({
-    super.key,
-    this.initialQuery,
-  });
+  const BibleLexiconEditorScreen({super.key, this.initialQuery});
 
   @override
-  ConsumerState<BibleLexiconEditorScreen> createState() => _BibleLexiconEditorScreenState();
+  ConsumerState<BibleLexiconEditorScreen> createState() =>
+      _BibleLexiconEditorScreenState();
 }
 
-class _BibleLexiconEditorScreenState extends ConsumerState<BibleLexiconEditorScreen> {
+class _BibleLexiconEditorScreenState
+    extends ConsumerState<BibleLexiconEditorScreen> {
   final _searchController = TextEditingController();
   var _holdingInitialQuery = false;
   var _initialQuery = '';
@@ -55,7 +56,9 @@ class _BibleLexiconEditorScreenState extends ConsumerState<BibleLexiconEditorScr
   Future<void> _editLexeme(BibleLexeme lexeme) async {
     final rootContext = context;
     final glossController = TextEditingController(text: lexeme.ptGloss ?? '');
-    final definitionController = TextEditingController(text: lexeme.ptDefinition ?? '');
+    final definitionController = TextEditingController(
+      text: lexeme.ptDefinition ?? '',
+    );
     var saving = false;
 
     try {
@@ -99,7 +102,9 @@ class _BibleLexiconEditorScreenState extends ConsumerState<BibleLexiconEditorScr
                 ),
                 actions: [
                   TextButton(
-                    onPressed: saving ? null : () => Navigator.of(dialogContext).pop(),
+                    onPressed: saving
+                        ? null
+                        : () => Navigator.of(dialogContext).pop(),
                     child: const Text('Cancelar'),
                   ),
                   FilledButton(
@@ -119,7 +124,9 @@ class _BibleLexiconEditorScreenState extends ConsumerState<BibleLexiconEditorScr
                               ref.invalidate(bibleLexemeSearchProvider);
                               if (!rootContext.mounted) return;
                               ScaffoldMessenger.of(rootContext).showSnackBar(
-                                const SnackBar(content: Text('Léxico atualizado.')),
+                                const SnackBar(
+                                  content: Text('Léxico atualizado.'),
+                                ),
                               );
                             } catch (e) {
                               setState(() => saving = false);
@@ -156,7 +163,9 @@ class _BibleLexiconEditorScreenState extends ConsumerState<BibleLexiconEditorScr
 
     if (!_holdingInitialQuery && _searchController.text != query) {
       _searchController.text = query;
-      _searchController.selection = TextSelection.collapsed(offset: _searchController.text.length);
+      _searchController.selection = TextSelection.collapsed(
+        offset: _searchController.text.length,
+      );
     }
 
     return Scaffold(
@@ -178,7 +187,7 @@ class _BibleLexiconEditorScreenState extends ConsumerState<BibleLexiconEditorScr
           child: IconButton(
             tooltip: 'Voltar',
             onPressed: _handleBack,
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(AppIcons.back),
           ),
         ),
         titleSpacing: 0,
@@ -191,7 +200,9 @@ class _BibleLexiconEditorScreenState extends ConsumerState<BibleLexiconEditorScr
                 color: Theme.of(context).colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.18),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.18),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -202,7 +213,7 @@ class _BibleLexiconEditorScreenState extends ConsumerState<BibleLexiconEditorScr
                 ],
               ),
               child: Icon(
-                Icons.translate_rounded,
+                AppIcons.translate,
                 size: 18,
                 color: Theme.of(context).colorScheme.primary,
               ),
@@ -234,13 +245,16 @@ class _BibleLexiconEditorScreenState extends ConsumerState<BibleLexiconEditorScr
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Buscar Strong (ex: H7225) ou termo...',
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: const Icon(AppIcons.search),
                 suffixIcon: query.trim().isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear),
+                        icon: const Icon(AppIcons.clear),
                         onPressed: () {
                           _searchController.clear();
-                          ref.read(bibleLexemeSearchQueryProvider.notifier).state = '';
+                          ref
+                                  .read(bibleLexemeSearchQueryProvider.notifier)
+                                  .state =
+                              '';
                         },
                       )
                     : null,
@@ -249,7 +263,9 @@ class _BibleLexiconEditorScreenState extends ConsumerState<BibleLexiconEditorScr
                 ),
                 filled: true,
               ),
-              onChanged: (value) => ref.read(bibleLexemeSearchQueryProvider.notifier).state = value,
+              onChanged: (value) =>
+                  ref.read(bibleLexemeSearchQueryProvider.notifier).state =
+                      value,
             ),
           ),
           Expanded(
@@ -261,47 +277,52 @@ class _BibleLexiconEditorScreenState extends ConsumerState<BibleLexiconEditorScr
                       'Nenhum resultado encontrado.',
                       style: CommunityDesign.metaStyle(context),
                     ),
-                );
-              }
+                  );
+                }
 
-              return RefreshIndicator(
-                onRefresh: () async => ref.invalidate(bibleLexemeSearchProvider),
-                child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  itemCount: lexemes.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final lexeme = lexemes[index];
-                    final title = lexeme.ptGloss?.trim().isNotEmpty == true
-                        ? lexeme.ptGloss!.trim()
-                        : (lexeme.lemma?.trim().isNotEmpty == true ? lexeme.lemma!.trim() : '—');
+                return RefreshIndicator(
+                  onRefresh: () async =>
+                      ref.invalidate(bibleLexemeSearchProvider),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    itemCount: lexemes.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final lexeme = lexemes[index];
+                      final title = lexeme.ptGloss?.trim().isNotEmpty == true
+                          ? lexeme.ptGloss!.trim()
+                          : (lexeme.lemma?.trim().isNotEmpty == true
+                                ? lexeme.lemma!.trim()
+                                : '—');
 
                       final subtitleParts = <String>[
                         lexeme.strongCode,
                         lexeme.language,
-                        if ((lexeme.ptDefinition ?? '').trim().isNotEmpty) lexeme.ptDefinition!.trim(),
+                        if ((lexeme.ptDefinition ?? '').trim().isNotEmpty)
+                          lexeme.ptDefinition!.trim(),
                       ];
 
-                    return Container(
-                        decoration: CommunityDesign.overlayDecoration(
-                          Theme.of(context).colorScheme,
-                          hovered: true,
+                      return GlassCard(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 4,
                         ),
                         child: ListTile(
+                          contentPadding: EdgeInsets.zero,
                           title: Text(title),
                           subtitle: Text(
                             subtitleParts.join(' • '),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          trailing: const Icon(Icons.edit),
+                          trailing: const Icon(AppIcons.edit),
                           onTap: () => _editLexeme(lexeme),
                         ),
                       );
-                  },
-                ),
-              );
-            },
+                    },
+                  ),
+                );
+              },
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => Center(
                 child: Padding(
