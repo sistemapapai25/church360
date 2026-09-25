@@ -211,4 +211,14 @@ abstract final class AppIcons {
   static const fire = Icons.local_fire_department;
   static const imageNotSupported = Icons.image_not_supported;
   static const copy = Icons.copy;
+
+  // Bíblia e planos de leitura.
+  static const autoStories = Icons.auto_stories_outlined;
+  static const textFields = Icons.text_fields;
+  static const translate = Icons.translate_rounded;
+  static const chevronLeft = Icons.chevron_left;
+  static const play = Icons.play_circle_fill;
+  static const playArrow = Icons.play_arrow;
+  static const restart = Icons.restart_alt;
+  static const title = Icons.title;
 }

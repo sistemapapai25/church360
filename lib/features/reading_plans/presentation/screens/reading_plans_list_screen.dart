@@ -7,6 +7,9 @@ import '../providers/reading_plans_provider.dart';
 import '../../domain/models/reading_plan.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/status_badge.dart';
 
 const double _pagePadding = 16;
 const double _cardPadding = 16;
@@ -60,7 +63,7 @@ class ReadingPlansListScreen extends ConsumerWidget {
                   ],
                 ),
                 child: Icon(
-                  Icons.menu_book_rounded,
+                  AppIcons.book,
                   size: 18,
                   color: Theme.of(context).colorScheme.primary,
                 ),
@@ -93,7 +96,7 @@ class ReadingPlansListScreen extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.menu_book_outlined,
+                      AppIcons.book,
                       size: 80,
                       color: Theme.of(
                         context,
@@ -143,7 +146,7 @@ class ReadingPlansListScreen extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                const Icon(AppIcons.error, size: 64, color: Colors.red),
                 const SizedBox(height: 16),
                 Text(
                   AppErrorHandler.userMessage(
@@ -176,26 +179,15 @@ class ReadingPlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasImage = plan.imageUrl != null && plan.imageUrl!.isNotEmpty;
-    final cs = Theme.of(context).colorScheme;
-    final decoration = hasImage
-        ? CommunityDesign.feedCardDecoration(
-            cs,
-            radiusValue: _cardRadius,
-          )
-        : CommunityDesign.feedCardDecoration(
-            cs,
-            radiusValue: _cardRadius,
-          );
-    return Container(
-      margin: const EdgeInsets.only(bottom: _pagePadding),
-      decoration: decoration,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () {
-          // Navegar para a tela de detalhes do plano
-          context.push('/reading-plans/${plan.id}');
-        },
-        child: hasImage ? _buildWithImage(context) : _buildWithoutImage(context),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: _pagePadding),
+      child: GlassCard(
+        radius: _cardRadius,
+        padding: EdgeInsets.zero,
+        onTap: () => context.push('/reading-plans/${plan.id}'),
+        child: hasImage
+            ? _buildWithImage(context)
+            : _buildWithoutImage(context),
       ),
     );
   }
@@ -204,10 +196,7 @@ class ReadingPlanCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ChurchImage(
-          imageUrl: plan.imageUrl!,
-          type: ChurchImageType.card,
-        ),
+        ChurchImage(imageUrl: plan.imageUrl!, type: ChurchImageType.card),
         Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -215,9 +204,9 @@ class ReadingPlanCard extends StatelessWidget {
             children: [
               Text(
                 plan.title,
-                style: CommunityDesign.titleStyle(context).copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: CommunityDesign.titleStyle(
+                  context,
+                ).copyWith(fontWeight: FontWeight.bold),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -257,20 +246,15 @@ class ReadingPlanCard extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
                 ),
-                child: Icon(
-                  Icons.menu_book,
-                  size: 18,
-                  color: cs.primary,
-                ),
+                child: Icon(AppIcons.book, size: 18, color: cs.primary),
               ),
               const SizedBox(width: _gap),
               Expanded(
                 child: Text(
                   plan.title,
-                  style: CommunityDesign.titleStyle(context).copyWith(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontSize: 17, fontWeight: FontWeight.w600),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -284,20 +268,24 @@ class ReadingPlanCard extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               if (plan.category != null) _buildCategoryBadge(context),
+              const StatusBadge.active(
+                label: 'Disponível',
+                icon: AppIcons.checkCircle,
+              ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.schedule,
+                    AppIcons.schedule,
                     size: 16,
                     color: cs.onSurface.withValues(alpha: 0.6),
                   ),
                   const SizedBox(width: 4),
                   Text(
                     plan.durationText,
-                    style: CommunityDesign.contentStyle(context).copyWith(
-                      color: cs.onSurface.withValues(alpha: 0.6),
-                    ),
+                    style: CommunityDesign.contentStyle(
+                      context,
+                    ).copyWith(color: cs.onSurface.withValues(alpha: 0.6)),
                   ),
                 ],
               ),
@@ -341,21 +329,26 @@ class ReadingPlanCard extends StatelessWidget {
 
   Widget _buildBadgesRow(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Row(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
       children: [
         if (plan.category != null) _buildCategoryBadge(context),
-        const SizedBox(width: 8),
+        const StatusBadge.active(
+          label: 'Disponível',
+          icon: AppIcons.checkCircle,
+        ),
         Icon(
-          Icons.schedule,
+          AppIcons.schedule,
           size: 16,
           color: cs.onSurface.withValues(alpha: 0.6),
         ),
         const SizedBox(width: 4),
         Text(
           plan.durationText,
-          style: CommunityDesign.contentStyle(context).copyWith(
-            color: cs.onSurface.withValues(alpha: 0.6),
-          ),
+          style: CommunityDesign.contentStyle(
+            context,
+          ).copyWith(color: cs.onSurface.withValues(alpha: 0.6)),
         ),
       ],
     );
@@ -368,7 +361,7 @@ class ReadingPlanCard extends StatelessWidget {
         onPressed: () {
           context.push('/reading-plans/${plan.id}');
         },
-        icon: const Icon(Icons.arrow_forward_ios, size: 16),
+        icon: const Icon(AppIcons.forward, size: 16),
         label: const Text('VER DETALHES'),
       ),
     );

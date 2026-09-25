@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/bible_provider.dart';
 import '../../domain/models/bible_book.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
 
@@ -15,7 +16,8 @@ class BibleBooksScreen extends ConsumerStatefulWidget {
   ConsumerState<BibleBooksScreen> createState() => _BibleBooksScreenState();
 }
 
-class _BibleBooksScreenState extends ConsumerState<BibleBooksScreen> with SingleTickerProviderStateMixin {
+class _BibleBooksScreenState extends ConsumerState<BibleBooksScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -61,7 +63,9 @@ class _BibleBooksScreenState extends ConsumerState<BibleBooksScreen> with Single
                   color: Theme.of(context).colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.18),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.18),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -72,7 +76,7 @@ class _BibleBooksScreenState extends ConsumerState<BibleBooksScreen> with Single
                   ],
                 ),
                 child: Icon(
-                  Icons.menu_book_rounded,
+                  AppIcons.book,
                   size: 18,
                   color: Theme.of(context).colorScheme.primary,
                 ),
@@ -98,14 +102,14 @@ class _BibleBooksScreenState extends ConsumerState<BibleBooksScreen> with Single
           centerTitle: false,
           actions: [
             IconButton(
-              icon: const Icon(Icons.search),
+              icon: const Icon(AppIcons.search),
               onPressed: () {
                 context.push('/bible/search');
               },
               tooltip: 'Buscar',
             ),
             IconButton(
-              icon: const Icon(Icons.bookmark),
+              icon: const Icon(AppIcons.bookmark),
               onPressed: () {
                 context.push('/bible/bookmarks');
               },
@@ -121,13 +125,19 @@ class _BibleBooksScreenState extends ConsumerState<BibleBooksScreen> with Single
               child: TabBar(
                 controller: _tabController,
                 labelColor: Theme.of(context).colorScheme.primary,
-                unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                unselectedLabelColor: Theme.of(
+                  context,
+                ).colorScheme.onSurfaceVariant,
                 indicatorSize: TabBarIndicatorSize.tab,
                 indicator: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.25),
                   ),
                 ),
                 tabs: const [
@@ -163,7 +173,7 @@ class _BibleTopShortcuts extends StatelessWidget {
         children: const [
           Expanded(
             child: _BibleShortcutCard(
-              icon: Icons.menu_book_outlined,
+              icon: AppIcons.book,
               label: 'Planos de Leitura',
               route: '/reading-plans',
             ),
@@ -171,7 +181,7 @@ class _BibleTopShortcuts extends StatelessWidget {
           SizedBox(width: 12),
           Expanded(
             child: _BibleShortcutCard(
-              icon: Icons.auto_stories_outlined,
+              icon: AppIcons.autoStories,
               label: 'Devocionais',
               route: '/devotionals',
             ),
@@ -198,10 +208,7 @@ class _BibleShortcutCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return Container(
-      decoration: CommunityDesign.feedCardDecoration(
-        cs,
-        radiusValue: 14,
-      ),
+      decoration: CommunityDesign.feedCardDecoration(cs, radiusValue: 14),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -224,16 +231,15 @@ class _BibleShortcutCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     label,
-                    style: CommunityDesign.contentStyle(context).copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
+                    style: CommunityDesign.contentStyle(
+                      context,
+                    ).copyWith(fontWeight: FontWeight.w700, fontSize: 13),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Icon(
-                  Icons.arrow_forward_ios,
+                  AppIcons.forward,
                   size: 18,
                   color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
@@ -273,16 +279,20 @@ class _TestamentBooksTab extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.menu_book_outlined,
+                  AppIcons.book,
                   size: 80,
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.5),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'Nenhum livro encontrado',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
                 ),
               ],
             ),
@@ -313,10 +323,7 @@ class _TestamentBooksTab extends ConsumerWidget {
                 itemBuilder: (context, index) {
                   final book = books[index];
                   final accent = Theme.of(context).colorScheme.primary;
-                  return _BookCard(
-                    book: book,
-                    accent: accent,
-                  );
+                  return _BookCard(book: book, accent: accent);
                 },
               );
             },
@@ -328,7 +335,7 @@ class _TestamentBooksTab extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const Icon(AppIcons.error, size: 64, color: Colors.red),
             const SizedBox(height: 16),
             Text('Erro ao carregar livros: $error'),
             const SizedBox(height: 16),
@@ -366,52 +373,66 @@ class _BookCard extends StatelessWidget {
         context.push('/bible/book/${book.id}');
       },
       child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: accent.withValues(alpha: 0.25)),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      book.abbrev.substring(0, book.abbrev.length > 3 ? 3 : book.abbrev.length).toUpperCase(),
-                      style: TextStyle(
-                        color: accent,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12,
-                      ),
-                    ),
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: accent.withValues(alpha: 0.25)),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  book.abbrev
+                      .substring(
+                        0,
+                        book.abbrev.length > 3 ? 3 : book.abbrev.length,
+                      )
+                      .toUpperCase(),
+                  style: TextStyle(
+                    color: accent,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
                   ),
-                  const Spacer(),
-                  Icon(Icons.arrow_forward_ios, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                ],
+                ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                book.name,
-                style: CommunityDesign.titleStyle(context).copyWith(fontSize: 16),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.menu_book, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${book.chapters} ${book.chapters == 1 ? 'capítulo' : 'capítulos'}',
-                    style: CommunityDesign.metaStyle(context),
-                  ),
-                ],
+              const Spacer(),
+              Icon(
+                AppIcons.forward,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          Text(
+            book.name,
+            style: CommunityDesign.titleStyle(context).copyWith(fontSize: 16),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                AppIcons.book,
+                size: 14,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${book.chapters} ${book.chapters == 1 ? 'capítulo' : 'capítulos'}',
+                style: CommunityDesign.metaStyle(context),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

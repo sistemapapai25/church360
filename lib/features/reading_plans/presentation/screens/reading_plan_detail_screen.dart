@@ -5,8 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../providers/reading_plans_provider.dart';
 import '../../domain/models/reading_plan.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/status_badge.dart';
 
 /// Tela de Detalhes do Plano de Leitura
 class ReadingPlanDetailScreen extends ConsumerWidget {
@@ -176,7 +179,7 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const Icon(AppIcons.error, size: 64, color: Colors.red),
                   const SizedBox(height: 16),
                   const Text('Plano não encontrado'),
                   const SizedBox(height: 16),
@@ -223,10 +226,10 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
               : (plan.isActive ? 'Disponível para iniciar' : 'Inativo');
 
           final actionIcon = isCompleted
-              ? Icons.restart_alt
+              ? AppIcons.restart
               : hasStarted
-              ? Icons.play_circle_fill
-              : Icons.play_arrow;
+              ? AppIcons.play
+              : AppIcons.playArrow;
           final actionLabel = isCompleted
               ? 'REINICIAR PLANO'
               : hasStarted
@@ -275,7 +278,7 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
                                     context,
                                   ).colorScheme.surfaceContainerHighest,
                                   child: Icon(
-                                    Icons.menu_book,
+                                    AppIcons.book,
                                     size: 80,
                                     color: Theme.of(context).colorScheme.primary
                                         .withValues(alpha: 0.5),
@@ -302,7 +305,7 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
                             context,
                           ).colorScheme.surfaceContainerHighest,
                           child: Icon(
-                            Icons.menu_book,
+                            AppIcons.book,
                             size: 80,
                             color: Theme.of(
                               context,
@@ -317,7 +320,9 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
                           if (plan.category != null)
                             Container(
@@ -342,7 +347,6 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
                                     ),
                               ),
                             ),
-                          const SizedBox(width: 12),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
@@ -357,7 +361,7 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
                             child: Row(
                               children: [
                                 Icon(
-                                  Icons.schedule,
+                                  AppIcons.schedule,
                                   size: 16,
                                   color: Theme.of(
                                     context,
@@ -377,6 +381,26 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
                               ],
                             ),
                           ),
+                          if (isCompleted)
+                            const StatusBadge.done(
+                              label: 'Concluído',
+                              icon: AppIcons.checkCircle,
+                            )
+                          else if (hasStarted)
+                            const StatusBadge.active(
+                              label: 'Em andamento',
+                              icon: AppIcons.play,
+                            )
+                          else
+                            StatusBadge(
+                              label: plan.isActive ? 'Disponível' : 'Inativo',
+                              tone: plan.isActive
+                                  ? AppStatusTone.active
+                                  : AppStatusTone.dropped,
+                              icon: plan.isActive
+                                  ? AppIcons.visibility
+                                  : AppIcons.visibilityOff,
+                            ),
                         ],
                       ),
                       const SizedBox(height: 24),
@@ -396,226 +420,202 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
                         const SizedBox(height: 24),
                       ],
                       if (hasStarted && !isCompleted) ...[
-                        Container(
-                          decoration: CommunityDesign.feedCardDecoration(
-                            Theme.of(context).colorScheme,
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Módulo Atual',
-                                  style: CommunityDesign.titleStyle(
+                        GlassCard(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Módulo Atual',
+                                style: CommunityDesign.titleStyle(
+                                  context,
+                                ).copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                currentModule?.title ?? 'Módulo $currentDay',
+                                style: CommunityDesign.contentStyle(
+                                  context,
+                                ).copyWith(fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Dia $currentDay de $totalModules',
+                                style: CommunityDesign.contentStyle(
+                                  context,
+                                ).copyWith(fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  color: Theme.of(
                                     context,
-                                  ).copyWith(fontWeight: FontWeight.bold),
+                                  ).colorScheme.primaryContainer,
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  currentModule?.title ?? 'Módulo $currentDay',
-                                  style: CommunityDesign.contentStyle(
-                                    context,
-                                  ).copyWith(fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Dia $currentDay de $totalModules',
-                                  style: CommunityDesign.contentStyle(
-                                    context,
-                                  ).copyWith(fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
+                                child: Text(
+                                  _moduleReference(
+                                    plan,
+                                    currentDay,
+                                    module: currentModule,
                                   ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(16),
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primaryContainer,
-                                  ),
-                                  child: Text(
-                                    _moduleReference(
-                                      plan,
-                                      currentDay,
-                                      module: currentModule,
-                                    ),
-                                    style: CommunityDesign.metaStyle(context)
-                                        .copyWith(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onPrimaryContainer,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                  ),
+                                  style: CommunityDesign.metaStyle(context)
+                                      .copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimaryContainer,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                 ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'Abra o módulo para ver o conteúdo e marcar como lido.',
-                                  style: CommunityDesign.metaStyle(context),
-                                ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Abra o módulo para ver o conteúdo e marcar como lido.',
+                                style: CommunityDesign.metaStyle(context),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 16),
                       ],
-                      Container(
-                        decoration: CommunityDesign.feedCardDecoration(
-                          Theme.of(context).colorScheme,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Informações',
-                                style: CommunityDesign.titleStyle(
-                                  context,
-                                ).copyWith(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 16),
-                              _InfoRow(
-                                icon: Icons.calendar_today,
-                                label: 'Duração',
-                                value: '${plan.durationDays} dias',
-                              ),
-                              const SizedBox(height: 12),
-                              _InfoRow(
-                                icon: Icons.view_list,
-                                label: 'Módulos',
-                                value: '$totalModules',
-                              ),
-                              const SizedBox(height: 12),
-                              _InfoRow(
-                                icon: Icons.category,
-                                label: 'Categoria',
-                                value: plan.categoryText,
-                              ),
-                              const SizedBox(height: 12),
-                              _InfoRow(
-                                icon: Icons.check_circle,
-                                label: 'Status',
-                                value: userStatus,
-                              ),
-                            ],
-                          ),
+                      GlassCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Informações',
+                              style: CommunityDesign.titleStyle(
+                                context,
+                              ).copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 16),
+                            _InfoRow(
+                              icon: AppIcons.calendar,
+                              label: 'Duração',
+                              value: '${plan.durationDays} dias',
+                            ),
+                            const SizedBox(height: 12),
+                            _InfoRow(
+                              icon: AppIcons.libraryBooks,
+                              label: 'Módulos',
+                              value: '$totalModules',
+                            ),
+                            const SizedBox(height: 12),
+                            _InfoRow(
+                              icon: AppIcons.category,
+                              label: 'Categoria',
+                              value: plan.categoryText,
+                            ),
+                            const SizedBox(height: 12),
+                            _InfoRow(
+                              icon: AppIcons.checkCircle,
+                              label: 'Status',
+                              value: userStatus,
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 16),
-                      Container(
-                        decoration: CommunityDesign.feedCardDecoration(
-                          Theme.of(context).colorScheme,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+                      GlassCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Progresso do Plano',
+                              style: CommunityDesign.titleStyle(
+                                context,
+                              ).copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 14),
+                            LinearProgressIndicator(
+                              value: progressFraction,
+                              minHeight: 10,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              '$completedModules de $totalModules módulos concluídos',
+                              style: CommunityDesign.contentStyle(context),
+                            ),
+                            if (hasStarted && !isCompleted) ...[
+                              const SizedBox(height: 4),
                               Text(
-                                'Progresso do Plano',
-                                style: CommunityDesign.titleStyle(
-                                  context,
-                                ).copyWith(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 14),
-                              LinearProgressIndicator(
-                                value: progressFraction,
-                                minHeight: 10,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                '$completedModules de $totalModules módulos concluídos',
-                                style: CommunityDesign.contentStyle(context),
-                              ),
-                              if (hasStarted && !isCompleted) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Módulo atual: $currentDay',
-                                  style: CommunityDesign.metaStyle(context),
-                                ),
-                              ],
-                              if (isCompleted) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Plano finalizado. Você pode reiniciar e começar novamente.',
-                                  style: CommunityDesign.metaStyle(context),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        decoration: CommunityDesign.feedCardDecoration(
-                          Theme.of(context).colorScheme,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Módulos do Plano',
-                                style: CommunityDesign.titleStyle(
-                                  context,
-                                ).copyWith(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                'Complete os módulos em sequência para concluir o plano.',
+                                'Módulo atual: $currentDay',
                                 style: CommunityDesign.metaStyle(context),
                               ),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                height: 280,
-                                child: ListView.separated(
-                                  itemCount: totalModules,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(height: 8),
-                                  itemBuilder: (context, index) {
-                                    final moduleDay = index + 1;
-                                    final module = _moduleForDay(
-                                      plan,
-                                      moduleDay,
-                                    );
-                                    final done =
-                                        hasStarted &&
-                                        (isCompleted || moduleDay < currentDay);
-                                    final isCurrent =
-                                        (!hasStarted &&
-                                            plan.isActive &&
-                                            moduleDay == 1) ||
-                                        (hasStarted &&
-                                            !isCompleted &&
-                                            moduleDay == currentDay);
-                                    final canOpen = done || isCurrent;
-                                    return _ReadingModuleRow(
-                                      day: moduleDay,
-                                      title:
-                                          module?.title ?? 'Módulo $moduleDay',
-                                      isDone: done,
-                                      isCurrent: isCurrent,
-                                      onTap: canOpen
-                                          ? () => _openModule(
-                                              context,
-                                              plan: plan,
-                                              day: moduleDay,
-                                              totalModules: totalModules,
-                                            )
-                                          : null,
-                                    );
-                                  },
-                                ),
+                            ],
+                            if (isCompleted) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Plano finalizado. Você pode reiniciar e começar novamente.',
+                                style: CommunityDesign.metaStyle(context),
                               ),
                             ],
-                          ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      GlassCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Módulos do Plano',
+                              style: CommunityDesign.titleStyle(
+                                context,
+                              ).copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Complete os módulos em sequência para concluir o plano.',
+                              style: CommunityDesign.metaStyle(context),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: 280,
+                              child: ListView.separated(
+                                itemCount: totalModules,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 8),
+                                itemBuilder: (context, index) {
+                                  final moduleDay = index + 1;
+                                  final module = _moduleForDay(plan, moduleDay);
+                                  final done =
+                                      hasStarted &&
+                                      (isCompleted || moduleDay < currentDay);
+                                  final isCurrent =
+                                      (!hasStarted &&
+                                          plan.isActive &&
+                                          moduleDay == 1) ||
+                                      (hasStarted &&
+                                          !isCompleted &&
+                                          moduleDay == currentDay);
+                                  final canOpen = done || isCurrent;
+                                  return _ReadingModuleRow(
+                                    day: moduleDay,
+                                    title: module?.title ?? 'Módulo $moduleDay',
+                                    isDone: done,
+                                    isCurrent: isCurrent,
+                                    onTap: canOpen
+                                        ? () => _openModule(
+                                            context,
+                                            plan: plan,
+                                            day: moduleDay,
+                                            totalModules: totalModules,
+                                          )
+                                        : null,
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -662,7 +662,7 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const Icon(AppIcons.error, size: 64, color: Colors.red),
               const SizedBox(height: 16),
               Text(
                 AppErrorHandler.userMessage(
@@ -741,10 +741,10 @@ class _ReadingModuleRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final icon = isDone
-        ? Icons.check_circle
+        ? AppIcons.checkCircle
         : isCurrent
-        ? Icons.play_circle_fill
-        : Icons.lock_outline;
+        ? AppIcons.play
+        : AppIcons.lock;
     final iconColor = isDone
         ? Colors.green
         : isCurrent
@@ -756,63 +756,40 @@ class _ReadingModuleRow extends StatelessWidget {
         ? 'Disponível para leitura'
         : 'Aguardando módulo anterior';
 
-    final borderRadius = BorderRadius.circular(12);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: borderRadius,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: borderRadius,
-            color: isCurrent
-                ? cs.primary.withValues(alpha: 0.08)
-                : cs.surfaceContainerHighest.withValues(alpha: 0.35),
+    return GlassCard(
+      radius: 12,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      onTap: onTap,
+      accentColor: isCurrent ? cs.primary : null,
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: CommunityDesign.contentStyle(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(statusLabel, style: CommunityDesign.metaStyle(context)),
+              ],
+            ),
           ),
-          child: Row(
-            children: [
-              Icon(icon, color: iconColor),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: CommunityDesign.contentStyle(
-                        context,
-                      ).copyWith(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      statusLabel,
-                      style: CommunityDesign.metaStyle(context),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  color: cs.primaryContainer.withValues(alpha: 0.55),
-                ),
-                child: Text(
-                  'Dia $day',
-                  style: CommunityDesign.metaStyle(context).copyWith(
-                    color: cs.onPrimaryContainer,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
+          StatusBadge(
+            label: 'Dia $day',
+            tone: isDone
+                ? AppStatusTone.done
+                : isCurrent
+                ? AppStatusTone.active
+                : AppStatusTone.dropped,
+            icon: icon,
           ),
-        ),
+        ],
       ),
     );
   }

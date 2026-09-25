@@ -1493,3 +1493,43 @@ para **8 recortes funcionais**. O próximo recorte recomendado é `bible` e
 `reading_plans`. PR e deploy continuam pendentes por decisão do handoff; os
 arquivos de registradores Flutter gerados localmente devem permanecer fora do
 staging.
+
+## Visual wave 23 — Bíblia e planos de leitura
+
+Timestamp: 2026-09-25, America/Sao_Paulo (UTC-03).
+
+### O que foi entregue
+
+- As onze telas de `bible` e `reading_plans` foram alinhadas ao sistema visual:
+  listas, capítulos, leitura de versículos, busca, favoritos, léxico, detalhe,
+  módulos, gestão e formulários usam `GlassCard`, `CommunityDesign` e
+  `AppIcons` nas superfícies e ações relevantes.
+- Estados de disponibilidade, progresso, bloqueio, conclusão e ativação de
+  planos usam `StatusBadge`; providers, repositórios, permissões, rotas e
+  contratos de dados permaneceram intactos.
+- Foi corrigido o overflow da grade de capítulos em larguras estreitas,
+  aumentando a área do card e tornando a contagem de versículos flexível.
+- Foi adicionada a cobertura focada em
+  `test/features/bible_reading_plans_visual_test.dart`, com quatro cenários em
+  memória para livros, capítulos, lista de planos e módulo de leitura.
+
+### Verificação desta onda
+
+- Teste focado: **4 passaram**.
+- Suíte Flutter completa: **595 testes passaram**.
+- `flutter analyze`: sem issues novas; permanecem 15 avisos preexistentes fora
+  do recorte.
+- `git diff --check`: passou.
+- `flutter build web`: passou. Permanecem apenas os avisos Wasm conhecidos de
+  `audioplayers_web`, `dart:html`, `package:js` e `image`.
+- A validação usou providers e dados em memória; telas autenticadas em
+  produção continuam limitadas pelo SSO de proteção da Vercel.
+
+### Estado e próximo passo
+
+Esta onda conclui `bible` e `reading_plans`. Pelo inventário de `screen.dart`,
+a estimativa cai de 76 para **65 telas pendentes** e de 8 para **7 recortes
+funcionais**. O próximo recorte recomendado é `courses` e
+`support_materials`. A branch também carrega os commits locais anteriores de
+Home/Church Info/Devotionals e Quick News/Testimonies/Prayer Requests, que
+serão publicados juntos no PR/deploy desta sessão.

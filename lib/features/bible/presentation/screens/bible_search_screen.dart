@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/bible_provider.dart';
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/glass_card.dart';
 
 class BibleSearchScreen extends ConsumerStatefulWidget {
   const BibleSearchScreen({super.key});
@@ -38,38 +41,46 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
     final canSearch = _query.length >= 2;
     final resultsAsync = canSearch
         ? ref.watch(
-            bibleSearchProvider(
-              (query: _query, bookId: null, testament: null),
-            ),
+            bibleSearchProvider((query: _query, bookId: null, testament: null)),
           )
         : null;
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('Buscar na Bíblia'),
+        title: Text(
+          'Buscar na Bíblia',
+          style: CommunityDesign.titleStyle(context),
+        ),
+        backgroundColor: CommunityDesign.headerColor(context),
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
       ),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: TextField(
-              controller: _queryController,
-              autofocus: true,
-              onChanged: _onQueryChanged,
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Digite palavra ou trecho',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _queryController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _queryController.clear();
-                          setState(() => _query = '');
-                        },
-                      )
-                    : null,
-                border: const OutlineInputBorder(),
+            child: GlassCard(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              child: TextField(
+                controller: _queryController,
+                autofocus: true,
+                onChanged: _onQueryChanged,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: 'Digite palavra ou trecho',
+                  prefixIcon: const Icon(AppIcons.search),
+                  suffixIcon: _queryController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(AppIcons.clear),
+                          onPressed: () {
+                            _queryController.clear();
+                            setState(() => _query = '');
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                ),
               ),
             ),
           ),
@@ -87,25 +98,34 @@ class _BibleSearchScreenState extends ConsumerState<BibleSearchScreen> {
                       }
 
                       return ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                         itemCount: verses.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (context, index) {
                           final verse = verses[index];
-                          return ListTile(
-                            title: Text(
-                              verse.reference,
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            subtitle: Text(
-                              verse.text,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                          return GlassCard(
                             onTap: () {
                               context.push(
                                 '/bible/book/${verse.bookId}/chapter/${verse.chapter}',
                               );
                             },
+                            child: ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(AppIcons.book),
+                              title: Text(
+                                verse.reference,
+                                style: CommunityDesign.titleStyle(context),
+                              ),
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  verse.text,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: CommunityDesign.contentStyle(context),
+                                ),
+                              ),
+                            ),
                           );
                         },
                       );

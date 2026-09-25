@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../domain/models/reading_plan.dart';
 import '../providers/reading_plans_provider.dart';
@@ -271,7 +273,7 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
             )
           else
             IconButton(
-              icon: const Icon(Icons.save),
+              icon: const Icon(AppIcons.save),
               onPressed: _savePlan,
               tooltip: 'Salvar',
             ),
@@ -291,7 +293,7 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
                       decoration: const InputDecoration(
                         labelText: 'Título *',
                         border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.title),
+                        prefixIcon: Icon(AppIcons.title),
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
@@ -307,7 +309,7 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
                       decoration: const InputDecoration(
                         labelText: 'Descrição',
                         border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.description),
+                        prefixIcon: Icon(AppIcons.description),
                       ),
                       maxLines: 4,
                       textCapitalization: TextCapitalization.sentences,
@@ -319,7 +321,7 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
                       decoration: InputDecoration(
                         labelText: 'Duração (dias) *',
                         border: OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.calendar_today),
+                        prefixIcon: const Icon(AppIcons.calendar),
                         helperText: _modules.isNotEmpty
                             ? 'Calculado automaticamente pela quantidade de módulos.'
                             : null,
@@ -337,7 +339,7 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    Card(
+                    GlassCard(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -356,7 +358,7 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
                                 ),
                                 FilledButton.icon(
                                   onPressed: () => _addModule(),
-                                  icon: const Icon(Icons.add),
+                                  icon: const Icon(AppIcons.add),
                                   label: const Text('Adicionar módulo'),
                                 ),
                               ],
@@ -420,7 +422,7 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
                                                   ? null
                                                   : () => _moveModuleUp(index),
                                               icon: const Icon(
-                                                Icons.arrow_upward,
+                                                AppIcons.arrowUp,
                                               ),
                                             ),
                                             IconButton(
@@ -431,16 +433,14 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
                                                   : () =>
                                                         _moveModuleDown(index),
                                               icon: const Icon(
-                                                Icons.arrow_downward,
+                                                AppIcons.arrowDown,
                                               ),
                                             ),
                                             IconButton(
                                               tooltip: 'Remover módulo',
                                               onPressed: () =>
                                                   _removeModule(index),
-                                              icon: const Icon(
-                                                Icons.delete,
-                                              ),
+                                              icon: const Icon(AppIcons.delete),
                                             ),
                                           ],
                                         ),
@@ -500,7 +500,7 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
                       label: 'Imagem do Plano (Opcional)',
                     ),
                     const SizedBox(height: 16),
-                    Card(
+                    GlassCard(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -517,7 +517,7 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
                             DropdownMenu<String>(
                               initialSelection: _category,
                               label: const Text('Selecione a categoria'),
-                              leadingIcon: const Icon(Icons.category),
+                              leadingIcon: const Icon(AppIcons.category),
                               dropdownMenuEntries: const [
                                 DropdownMenuEntry(
                                   value: 'general',
@@ -550,7 +550,7 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Card(
+                    GlassCard(
                       child: SwitchListTile(
                         title: const Text('Plano ativo'),
                         subtitle: Text(
@@ -565,7 +565,7 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
                     const SizedBox(height: 24),
                     FilledButton.icon(
                       onPressed: _isSaving ? null : _savePlan,
-                      icon: const Icon(Icons.save),
+                      icon: const Icon(AppIcons.save),
                       label: Text(
                         _isEditing ? 'Salvar alterações' : 'Criar plano',
                       ),

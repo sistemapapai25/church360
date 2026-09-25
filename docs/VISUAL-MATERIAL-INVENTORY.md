@@ -99,28 +99,42 @@ upload ou contratos de dados.
 Não houve alteração em banco, rotas, permissões, providers, repositórios,
 upload ou contratos de dados.
 
+## Onda visual — Bíblia e planos de leitura
+
+- As onze telas de `bible` e `reading_plans` agora reutilizam `GlassCard` nas
+  listas, capítulos, versículos, resultados, favoritos, léxico, detalhes,
+  módulos e formulários; estados de plano e progresso usam `StatusBadge`.
+- `AppIcons` ganhou somente as semânticas de leitura necessárias (livro,
+  tradução, tipografia, navegação de capítulo, execução e reinício). Rotas,
+  permissões, providers, repositórios e contratos de dados foram preservados.
+- A cobertura focada em
+  `test/features/bible_reading_plans_visual_test.dart` valida quatro cenários
+  em memória, incluindo o overflow corrigido na grade de capítulos.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios,
+persistência, upload ou contratos de dados.
+
 ## Próximo recorte
 
-Quick News, Testimonies, Prayer Requests, Home Content, Church Info e
-Devotionals foram concluídos nas duas últimas ondas. O próximo recorte deve
-começar por `bible` e `reading_plans`. Autenticação e dados reais continuam
-sendo limitações da validação visual local.
+Quick News, Testimonies, Prayer Requests, Home Content, Church Info,
+Devotionals, Bíblia e Planos de Leitura foram concluídos nas ondas recentes.
+O próximo recorte deve começar por `courses` e `support_materials`.
+Autenticação e dados reais continuam sendo limitações da validação visual local.
 
 ### Contagem de encerramento
 
 Considerando cada grupo funcional abaixo como um recorte revisável, restam
-**8 recortes** para fechar a auditoria visual dos módulos ainda pendentes:
+**7 recortes** para fechar a auditoria visual dos módulos ainda pendentes:
 
-1. Bíblia e leitura: `bible`, `reading_plans`.
-2. Formação: `courses`, `support_materials`.
-3. Crianças, culto e transmissão: `kids`, `worship`, `live_stream`.
-4. Escalas e automações: `schedule`, `dispatch`.
-5. Pessoas auxiliares: `tags`, `duplicates`, `access_levels`, `branches`.
-6. Administração e acesso: `permissions`, `notifications`, `qr_scanner`.
-7. Gestão analítica: `analytics`, `custom_reports`.
-8. Entrada e apoio: `auth`, `church_selector`, `support_chat`, `contribution`.
+1. Formação: `courses`, `support_materials`.
+2. Crianças, culto e transmissão: `kids`, `worship`, `live_stream`.
+3. Escalas e automações: `schedule`, `dispatch`.
+4. Pessoas auxiliares: `tags`, `duplicates`, `access_levels`, `branches`.
+5. Administração e acesso: `permissions`, `notifications`, `qr_scanner`.
+6. Gestão analítica: `analytics`, `custom_reports`.
+7. Entrada e apoio: `auth`, `church_selector`, `support_chat`, `contribution`.
 
-São **76 telas `screen.dart` ainda pendentes** pelo inventário atual. O número
+São **65 telas `screen.dart` ainda pendentes** pelo inventário atual. O número
 de recortes é a unidade de planejamento; cada onda pode fechar vários módulos
 relacionados sem alterar rotas, permissões ou contratos de dados.
 

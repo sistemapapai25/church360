@@ -5,8 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../domain/models/reading_plan.dart';
 import '../providers/reading_plans_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/status_badge.dart';
 
 class ReadingPlanModuleScreen extends ConsumerStatefulWidget {
   final String planId;
@@ -215,7 +218,7 @@ class _ReadingPlanModuleScreenState
           child: IconButton(
             tooltip: 'Voltar',
             onPressed: _handleBack,
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(AppIcons.back),
           ),
         ),
         title: Column(
@@ -240,7 +243,7 @@ class _ReadingPlanModuleScreenState
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const Icon(AppIcons.error, size: 64, color: Colors.red),
                   const SizedBox(height: 16),
                   const Text('Plano não encontrado'),
                   const SizedBox(height: 16),
@@ -285,8 +288,7 @@ class _ReadingPlanModuleScreenState
           return ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              Container(
-                decoration: CommunityDesign.feedCardDecoration(cs),
+              GlassCard(
                 padding: const EdgeInsets.all(18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -319,14 +321,20 @@ class _ReadingPlanModuleScreenState
                         ),
                         const SizedBox(width: 10),
                         if (isDone)
-                          _StatusChip(label: 'Concluído', color: Colors.green)
+                          const StatusBadge.done(
+                            label: 'Concluído',
+                            icon: AppIcons.checkCircle,
+                          )
                         else if (isLocked)
-                          _StatusChip(
+                          const StatusBadge.dropped(
                             label: 'Bloqueado',
-                            color: cs.onSurface.withValues(alpha: 0.45),
+                            icon: AppIcons.lock,
                           )
                         else if (isCurrent)
-                          _StatusChip(label: 'Disponível', color: cs.primary),
+                          const StatusBadge.active(
+                            label: 'Disponível',
+                            icon: AppIcons.play,
+                          ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -352,7 +360,7 @@ class _ReadingPlanModuleScreenState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const Icon(AppIcons.error, size: 64, color: Colors.red),
               const SizedBox(height: 16),
               Text(
                 AppErrorHandler.userMessage(
@@ -465,7 +473,7 @@ class _ReadingPlanModuleScreenState
                           ),
                         )
                       : Icon(
-                          isDone ? Icons.check_circle : Icons.check,
+                          isDone ? AppIcons.checkCircle : AppIcons.check,
                           color: Colors.white,
                           size: 20,
                         ),
@@ -484,31 +492,6 @@ class _ReadingPlanModuleScreenState
         },
         loading: () => null,
         error: (_, __) => null,
-      ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _StatusChip({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: color.withValues(alpha: 0.14),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-      ),
-      child: Text(
-        label,
-        style: CommunityDesign.metaStyle(
-          context,
-        ).copyWith(color: color, fontWeight: FontWeight.w700),
       ),
     );
   }
