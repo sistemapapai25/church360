@@ -285,6 +285,24 @@ final currentUserHasPermissionProvider = FutureProvider.family<bool, String>((
   );
 });
 
+/// Provider: usuário atual é "elevado" na régua das policies
+/// (`public.is_elevated_current_user()`).
+///
+/// Não confundir com `ministriesCanSeeAllProvider`, que é um OU de cinco
+/// permissões RBAC de ministério. Só para UX: a RLS continua sendo a
+/// autoridade. Erro vira `false` (fail-closed na tela).
+final currentUserIsElevatedProvider = FutureProvider<bool>((ref) async {
+  ref.watch(authStateProvider);
+  final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return false;
+  final repository = ref.watch(permissionsRepositoryProvider);
+  try {
+    return await repository.isElevatedCurrentUser();
+  } catch (_) {
+    return false;
+  }
+});
+
 /// Provider: Verificar se usuário atual é `owner` do tenant (`role_global`).
 /// Gate fora do sistema de permissões RBAC — hoje usado só para liberar o
 /// menu "Configurações de Desenvolvedor".

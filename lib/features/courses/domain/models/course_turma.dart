@@ -15,6 +15,10 @@ class CourseTurma {
   final String? ministryId;
   final String? baptismTurmaId;
 
+  /// Curso dono da turma. Nulo só em grupo antigo, de antes de
+  /// `study_groups.course_id` (a coluna ainda é nullable até a Etapa 8).
+  final String? courseId;
+
   const CourseTurma({
     required this.id,
     required this.name,
@@ -23,6 +27,7 @@ class CourseTurma {
     this.endDate,
     this.ministryId,
     this.baptismTurmaId,
+    this.courseId,
   });
 
   factory CourseTurma.fromJson(Map<String, dynamic> json) {
@@ -36,6 +41,7 @@ class CourseTurma {
       endDate: _parseDate(json['end_date']),
       ministryId: json['ministry_id'] as String?,
       baptismTurmaId: json['baptism_turma_id'] as String?,
+      courseId: json['course_id'] as String?,
     );
   }
 
@@ -45,14 +51,35 @@ class CourseTurma {
 
   /// Destino do card.
   ///
-  /// Turma de Batismo abre o workspace do ministério, que é onde a turma é
-  /// gerida de verdade (alunos, presença, checklist) e cujo acesso é
-  /// decidido pelo vínculo com o ministério. Não existe rota de uma turma
-  /// só; o grupo espelho em /study-groups/:id exige `study_groups.view` e
-  /// mostraria só a sombra da turma. Grupo nativo segue para o detalhe do
-  /// grupo de estudo.
-  String get route =>
-      isBaptismTurma ? '/ministries/$ministryId/batismo' : '/study-groups/$id';
+  /// A turma tem uma tela só, dentro de Cursos (decisão 23 do
+  /// ROADMAP-FORMACAO): `/courses/:courseId/turmas/:studyGroupId`. Batismo e
+  /// grupo nativo abrem a mesma tela; o que muda lá dentro vem da origem.
+  ///
+  /// Sem `course_id` (grupo antigo) não há rota canônica, e o card cai no
+  /// destino de antes: o workspace do Batismo ou o detalhe do grupo.
+  String get route {
+    final course = courseId;
+    if (course != null) return '/courses/$course/turmas/$id';
+    return isBaptismTurma
+        ? '/ministries/$ministryId/batismo'
+        : '/study-groups/$id';
+  }
+
+  /// "06/09/2026 a 25/10/2026", "Início: …", "Término: …" ou nulo.
+  String? get periodLabel {
+    final start = startDate;
+    final end = endDate;
+    if (start == null && end == null) return null;
+    if (start != null && end != null) {
+      return '${_formatDate(start)} a ${_formatDate(end)}';
+    }
+    if (start != null) return 'Início: ${_formatDate(start)}';
+    return 'Término: ${_formatDate(end!)}';
+  }
+
+  static String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
 
   static DateTime? _parseDate(Object? value) {
     if (value is! String || value.isEmpty) return null;

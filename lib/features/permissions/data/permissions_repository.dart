@@ -485,6 +485,17 @@ class PermissionsRepository {
     return response as bool;
   }
 
+  /// `public.is_elevated_current_user()` do próprio usuário logado.
+  ///
+  /// É a mesma função que as policies usam no ramo "elevado". Serve só para
+  /// a tela esconder ou mostrar ação; quem decide de verdade é a RLS. A
+  /// função depende do claim de tenant no JWT: sem ele devolve `false` até
+  /// para owner, igual à policy — por isso o espelho é fiel.
+  Future<bool> isElevatedCurrentUser() async {
+    final response = await _supabase.rpc('is_elevated_current_user');
+    return response == true;
+  }
+
   /// Verificar se usuário pode acessar Dashboard
   Future<bool> canAccessDashboard(String userId) async {
     try {

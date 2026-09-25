@@ -8,10 +8,21 @@ import '../../domain/baptism_attendance_roll.dart';
 import '../../domain/baptism_checklist_progress.dart';
 import '../../domain/models/baptism_attendance.dart';
 import '../../domain/models/baptism_checklist.dart';
+import '../../domain/models/baptism_enrollment.dart';
 import '../../domain/models/baptism_meeting.dart';
 import '../../domain/models/baptism_public_info.dart';
 import '../../domain/models/baptism_student.dart';
 import '../../domain/models/baptism_turma.dart';
+
+/// Matrículas do usuário logado em turmas de batismo (ativo ou concluído).
+///
+/// Não é family por ministério: o aluno não tem ministério nenhum, e a RPC
+/// já recorta pelo tenant e pelo próprio cadastro.
+final myBaptismEnrollmentsProvider =
+    FutureProvider<List<BaptismEnrollment>>((ref) async {
+  final repo = ref.watch(baptismRepositoryProvider);
+  return repo.getMyEnrollments();
+});
 
 /// Turmas do ministério.
 final baptismTurmasProvider =
