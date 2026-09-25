@@ -30,6 +30,7 @@ import '../utils/series_pattern_label.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
+import '../../../courses/presentation/providers/courses_provider.dart';
 
 /// Tela de formulário de evento (criar/editar)
 class EventFormScreen extends ConsumerStatefulWidget {
@@ -60,6 +61,12 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   bool _isMandatory = false;
   String _status = 'draft';
   String? _imageUrl;
+
+  /// Curso que o evento divulga (etapa 4b da Formação). `_loadedCourseId`
+  /// guarda o valor que veio do banco: o `course_id` só entra no payload
+  /// quando um dos dois existe, e evento sem curso nunca manda a chave.
+  String? _courseId;
+  String? _loadedCourseId;
 
   List<Map<String, String>> _eventTypeOptions = [];
   List<String> _locationOptions = [];
@@ -588,6 +595,8 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         _isMandatory = event.isMandatory;
         _status = event.status;
         _imageUrl = event.imageUrl;
+        _courseId = event.courseId;
+        _loadedCourseId = event.courseId;
         _visibilityScope = event.visibilityScope;
         _registrationScope = event.registrationScope;
 
@@ -866,6 +875,53 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   /// **Informa, nunca bloqueia** (D-06: data, horário e padrão sempre podem
   /// ser salvos). Descobrir que a série vai ser regerada só no diálogo de
   /// confirmação é tarde: a essa altura o líder já decidiu salvar.
+  /// Curso divulgado pelo evento (opcional). A lista vem do tenant; o curso
+  /// já ligado entra mesmo que não esteja na lista, porque o dropdown exige
+  /// que o valor case com exatamente um item.
+  Widget _buildCourseField() {
+    final courses = ref.watch(allCoursesProvider);
+    final lista = courses.valueOrNull ?? const [];
+    final ids = lista.map((c) => c.id).toSet();
+    return DropdownButtonFormField<String?>(
+      key: ValueKey('event-course-$_loadedCourseId-${courses.hasValue}'),
+      initialValue: _courseId,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: 'Curso vinculado (opcional)',
+        helperText: 'O evento mostra o botão "Ver curso"',
+        prefixIcon: const Icon(AppIcons.course),
+        border: const OutlineInputBorder(),
+        suffixIcon: courses.isLoading
+            ? const Padding(
+                padding: EdgeInsets.all(12),
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            : null,
+      ),
+      items: [
+        const DropdownMenuItem<String?>(
+          value: null,
+          child: Text('Nenhum curso'),
+        ),
+        for (final course in lista)
+          DropdownMenuItem<String?>(
+            value: course.id,
+            child: Text(course.title, overflow: TextOverflow.ellipsis),
+          ),
+        if (_courseId != null && !ids.contains(_courseId))
+          DropdownMenuItem<String?>(
+            value: _courseId,
+            child: const Text('Curso vinculado'),
+          ),
+      ],
+      onChanged: (value) => setState(() => _courseId = value),
+    );
+  }
+
   Widget _buildSeriesChangeWarning(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final data = _dataDeEncerramentoEfetiva;
@@ -2326,6 +2382,9 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                     ),
                     const SizedBox(height: 16),
 
+                    _buildCourseField(),
+                    const SizedBox(height: 16),
+
                     // Status
                     DropdownButtonFormField<String>(
                       initialValue: _status,
@@ -2577,6 +2636,8 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         // o valor final direto.
         'visibility_scope': 'all',
         'registration_scope': 'all',
+        if (_courseId != null || _loadedCourseId != null)
+          'course_id': _courseId,
       };
 
       final locationText = _locationController.text.trim();

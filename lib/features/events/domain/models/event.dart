@@ -23,6 +23,11 @@ class Event {
   final String
   registrationScope; // 'all' | 'restricted' (Fase 3 liga o enforcement)
 
+  /// Curso que o evento divulga (botão "Ver curso"). Opcional; a coluna
+  /// `event.course_id` nasceu na etapa 4b da Formação — linha sem ela
+  /// (build antigo, select parcial) chega como null.
+  final String? courseId;
+
   // Campos computados do join
   final int? registrationCount;
 
@@ -46,6 +51,7 @@ class Event {
     this.batchId,
     this.visibilityScope = 'all',
     this.registrationScope = 'all',
+    this.courseId,
     this.registrationCount,
   });
 
@@ -75,6 +81,7 @@ class Event {
       batchId: json['batch_id'] as String?,
       visibilityScope: json['visibility_scope'] as String? ?? 'all',
       registrationScope: json['registration_scope'] as String? ?? 'all',
+      courseId: json['course_id'] as String?,
       registrationCount: json['registration_count'] as int?,
     );
   }
@@ -101,6 +108,9 @@ class Event {
       'batch_id': batchId,
       'visibility_scope': visibilityScope,
       'registration_scope': registrationScope,
+      // Só quando existe: evento sem curso não manda a chave, então nunca
+      // depende da coluna (colunas fantasma de `event` estouram PGRST204).
+      if (courseId != null) 'course_id': courseId,
     };
   }
 
