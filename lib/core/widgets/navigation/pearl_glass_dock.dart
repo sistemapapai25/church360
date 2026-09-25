@@ -32,49 +32,59 @@ class PearlGlassDock extends StatelessWidget {
             AppTheme.muted.withValues(alpha: 0.78),
           ];
 
-    return SafeArea(
-      top: false,
-      minimum: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(36),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-              child: Container(
-                height: 76,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: gradient,
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    const dockHeight = 76.0;
+    const bottomMargin = 10.0;
+
+    // O BottomNavigationBar do Scaffold pode oferecer altura livre ao filho.
+    // O SizedBox externo impede que Center ocupe a tela inteira e garante que
+    // a cápsula permaneça ancorada no rodapé também no Flutter Web.
+    return SizedBox(
+      height: dockHeight + bottomMargin + bottomInset,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(12, 0, 12, bottomMargin + bottomInset),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(36),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                child: Container(
+                  height: dockHeight,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
-                  borderRadius: BorderRadius.circular(36),
-                  border: Border.all(color: borderColor, width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: shadowColor,
-                      blurRadius: 24,
-                      spreadRadius: 1,
-                      offset: const Offset(0, 8),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: gradient,
                     ),
-                    if (dark)
+                    borderRadius: BorderRadius.circular(36),
+                    border: Border.all(color: borderColor, width: 1),
+                    boxShadow: [
                       BoxShadow(
-                        color: AppTheme.darkRing.withValues(alpha: 0.08),
-                        blurRadius: 18,
-                        spreadRadius: -4,
-                        offset: const Offset(0, -2),
+                        color: shadowColor,
+                        blurRadius: 24,
+                        spreadRadius: 1,
+                        offset: const Offset(0, 8),
                       ),
-                  ],
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: children,
+                      if (dark)
+                        BoxShadow(
+                          color: AppTheme.darkRing.withValues(alpha: 0.08),
+                          blurRadius: 18,
+                          spreadRadius: -4,
+                          offset: const Offset(0, -2),
+                        ),
+                    ],
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: children,
+                  ),
                 ),
               ),
             ),

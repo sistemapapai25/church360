@@ -1,4 +1,5 @@
 import 'package:church360_app/core/widgets/navigation/custom_bottom_nav_bar.dart';
+import 'package:church360_app/core/widgets/navigation/pearl_glass_dock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -53,6 +54,9 @@ void main() {
     expect(find.byIcon(Icons.church_outlined), findsOneWidget);
     expect(find.byIcon(Icons.school_rounded), findsOneWidget);
     expect(find.byIcon(Icons.menu), findsOneWidget);
+
+    final dockRect = tester.getRect(find.byType(PearlGlassDock));
+    expect(dockRect.bottom, closeTo(600, 1));
 
     // Tap Igreja (index 2)
     await tester.tap(find.byIcon(Icons.church_outlined));
