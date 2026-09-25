@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/courses_repository.dart';
 import '../../domain/models/course.dart';
 import '../../domain/models/course_lesson.dart';
+import '../../domain/models/course_turma.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
@@ -138,6 +139,14 @@ class CoursesActions {
     _ref.invalidate(courseEnrollmentsProvider(courseId));
   }
 }
+
+// ==================== COURSE TURMAS PROVIDERS ====================
+
+/// Provider das turmas (study_groups) de um curso, mais recentes primeiro
+final courseStudyGroupsProvider = FutureProvider.family<List<CourseTurma>, String>((ref, courseId) async {
+  final repo = ref.watch(coursesRepositoryProvider);
+  return repo.getCourseStudyGroups(courseId);
+});
 
 // ==================== COURSE LESSONS PROVIDERS ====================
 
