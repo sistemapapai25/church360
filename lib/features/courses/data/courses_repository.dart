@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/course.dart';
 import '../domain/models/course_lesson.dart';
+import '../domain/models/course_turma.dart';
 
 /// Repository para gerenciar cursos
 class CoursesRepository {
@@ -337,6 +338,31 @@ class CoursesRepository {
           .count(CountOption.exact);
 
       return response.count;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // ==================== COURSE TURMAS ====================
+
+  /// Buscar as turmas (study_groups) que pertencem a um curso.
+  ///
+  /// Só as colunas do card; participantes não entram. Quem não enxerga
+  /// o grupo pela RLS de study_groups recebe lista vazia, não erro.
+  Future<List<CourseTurma>> getCourseStudyGroups(String courseId) async {
+    try {
+      final response = await _supabase
+          .from('study_groups')
+          .select(
+            'id, name, status, start_date, end_date, ministry_id, baptism_turma_id',
+          )
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .eq('course_id', courseId)
+          .order('start_date', ascending: false);
+
+      return (response as List)
+          .map((json) => CourseTurma.fromJson(Map<String, dynamic>.from(json)))
+          .toList();
     } catch (e) {
       rethrow;
     }

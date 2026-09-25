@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../domain/models/course.dart';
 import '../../domain/models/course_lesson.dart';
 import '../providers/courses_provider.dart';
+import '../widgets/course_turmas_section.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/media/video_play_overlay.dart';
 import '../../../permissions/providers/permissions_providers.dart';
@@ -76,6 +77,12 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
                       )
                     else
                       _buildCourseTypeInfo(course),
+
+                    const SizedBox(height: 24),
+
+                    // Turmas do curso (study_groups.course_id), para
+                    // qualquer tipo de curso. Carrega à parte das aulas.
+                    CourseTurmasSection(courseId: course.id),
 
                     const SizedBox(height: 32),
                   ],
