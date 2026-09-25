@@ -6,6 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../../../core/widgets/church_image.dart';
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/status_badge.dart';
 
 import '../providers/devotional_provider.dart';
 import '../../domain/models/devotional.dart';
@@ -21,27 +24,24 @@ const double _gap = 12;
 const double _gapLg = 16;
 const double _maxFeedWidth = 640;
 
-BoxDecoration _surfaceCardDecoration(BuildContext context) {
-  final cs = Theme.of(context).colorScheme;
-  return CommunityDesign.feedCardDecoration(
-    cs,
-    radiusValue: _cardRadius,
-  );
-}
-
 /// Tela de listagem de devocionais
 class DevotionalsListScreen extends ConsumerStatefulWidget {
   final bool fromDashboard;
   const DevotionalsListScreen({super.key, this.fromDashboard = false});
 
   @override
-  ConsumerState<DevotionalsListScreen> createState() => _DevotionalsListScreenState();
+  ConsumerState<DevotionalsListScreen> createState() =>
+      _DevotionalsListScreenState();
 }
 
 class _DevotionalsListScreenState extends ConsumerState<DevotionalsListScreen> {
   @override
   Widget build(BuildContext context) {
-    final devotionalsAsync = ref.watch(widget.fromDashboard ? allDevotionalsIncludingDraftsProvider : allDevotionalsProvider);
+    final devotionalsAsync = ref.watch(
+      widget.fromDashboard
+          ? allDevotionalsIncludingDraftsProvider
+          : allDevotionalsProvider,
+    );
     final canPop = Navigator.of(context).canPop();
 
     final scaffold = Scaffold(
@@ -69,7 +69,7 @@ class _DevotionalsListScreenState extends ConsumerState<DevotionalsListScreen> {
                 context.go('/home?tab=devotionals');
               }
             },
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(AppIcons.back),
           ),
         ),
         title: Padding(
@@ -83,7 +83,9 @@ class _DevotionalsListScreenState extends ConsumerState<DevotionalsListScreen> {
                   color: Theme.of(context).colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.18),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.18),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -94,7 +96,7 @@ class _DevotionalsListScreenState extends ConsumerState<DevotionalsListScreen> {
                   ],
                 ),
                 child: Icon(
-                  Icons.menu_book_rounded,
+                  AppIcons.book,
                   size: 16,
                   color: Theme.of(context).colorScheme.primary,
                 ),
@@ -106,13 +108,19 @@ class _DevotionalsListScreenState extends ConsumerState<DevotionalsListScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      widget.fromDashboard ? 'Gerenciar Devocionais' : 'Devocionais',
-                      style: CommunityDesign.titleStyle(context).copyWith(fontSize: 20),
+                      widget.fromDashboard
+                          ? 'Gerenciar Devocionais'
+                          : 'Devocionais',
+                      style: CommunityDesign.titleStyle(
+                        context,
+                      ).copyWith(fontSize: 20),
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      widget.fromDashboard ? 'Criar, editar e organizar devocionais' : 'Alimente sua fé diariamente',
+                      widget.fromDashboard
+                          ? 'Criar, editar e organizar devocionais'
+                          : 'Alimente sua fé diariamente',
                       style: CommunityDesign.metaStyle(context),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -131,7 +139,7 @@ class _DevotionalsListScreenState extends ConsumerState<DevotionalsListScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: FilledButton.icon(
                   onPressed: () => context.push('/devotionals/new'),
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(AppIcons.add),
                   label: const Text('Novo'),
                 ),
               ),
@@ -146,19 +154,29 @@ class _DevotionalsListScreenState extends ConsumerState<DevotionalsListScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.book_outlined, size: 64, color: cs.onSurfaceVariant.withValues(alpha: 0.7)),
+                  Icon(
+                    AppIcons.book,
+                    size: 64,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
                   const SizedBox(height: 16),
-                  Text('Nenhum devocional encontrado', style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    'Nenhum devocional encontrado',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Os devocionais aparecerão aqui',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant.withValues(alpha: 0.8)),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.8),
+                    ),
                   ),
                 ],
               ),
             );
           }
-          final sorted = [...devotionals]..sort((a, b) => b.devotionalDate.compareTo(a.devotionalDate));
+          final sorted = [...devotionals]
+            ..sort((a, b) => b.devotionalDate.compareTo(a.devotionalDate));
           if (widget.fromDashboard) {
             return CustomScrollView(
               slivers: [
@@ -182,14 +200,23 @@ class _DevotionalsListScreenState extends ConsumerState<DevotionalsListScreen> {
           return CustomScrollView(
             slivers: [
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(_pagePadding, _pagePadding, _pagePadding, _gapLg),
+                padding: const EdgeInsets.fromLTRB(
+                  _pagePadding,
+                  _pagePadding,
+                  _pagePadding,
+                  _gapLg,
+                ),
                 sliver: SliverToBoxAdapter(
                   child: Center(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: _maxFeedWidth),
+                      constraints: const BoxConstraints(
+                        maxWidth: _maxFeedWidth,
+                      ),
                       child: Consumer(
                         builder: (context, ref, _) {
-                          final savedDevotionalsAsync = ref.watch(savedDevotionalsProvider);
+                          final savedDevotionalsAsync = ref.watch(
+                            savedDevotionalsProvider,
+                          );
                           return savedDevotionalsAsync.when(
                             data: (saved) => SavedDevotionalsCTA(
                               onTap: () => context.push('/devotionals/saved'),
@@ -209,14 +236,21 @@ class _DevotionalsListScreenState extends ConsumerState<DevotionalsListScreen> {
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(_pagePadding, 0, _pagePadding, _pagePadding),
+                padding: const EdgeInsets.fromLTRB(
+                  _pagePadding,
+                  0,
+                  _pagePadding,
+                  _pagePadding,
+                ),
                 sliver: SliverList.builder(
                   itemCount: sorted.length,
                   itemBuilder: (context, index) => Padding(
                     padding: const EdgeInsets.only(bottom: _gapLg),
                     child: Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: _maxFeedWidth),
+                        constraints: const BoxConstraints(
+                          maxWidth: _maxFeedWidth,
+                        ),
                         child: DevotionalFeedCard(devotional: sorted[index]),
                       ),
                     ),
@@ -231,13 +265,10 @@ class _DevotionalsListScreenState extends ConsumerState<DevotionalsListScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const Icon(AppIcons.error, size: 48, color: Colors.red),
               const SizedBox(height: 16),
               Text(
-                AppErrorHandler.userMessage(
-                  error,
-                  feature: 'devotionals.list',
-                ),
+                AppErrorHandler.userMessage(error, feature: 'devotionals.list'),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -281,39 +312,31 @@ class SavedDevotionalsCTA extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final hasCount = (count ?? 0) > 0;
-    final label = hasCount ? 'Devocionais Salvos ($count)' : 'Devocionais Salvos';
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(_cardRadius),
-        child: Ink(
-          decoration: _surfaceCardDecoration(context),
-          child: Padding(
-            padding: const EdgeInsets.all(_cardPadding),
-            child: Row(
-              children: [
-                _SoftIcon(
-                  icon: Icons.bookmark,
-                  iconColor: cs.primary,
-                  backgroundColor: cs.primary.withValues(alpha: 0.10),
-                  borderColor: cs.primary.withValues(alpha: 0.18),
-                ),
-                const SizedBox(width: _gap),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: CommunityDesign.titleStyle(context).copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-                Icon(Icons.arrow_forward_ios, color: cs.onSurfaceVariant),
-              ],
+    final label = hasCount
+        ? 'Devocionais Salvos ($count)'
+        : 'Devocionais Salvos';
+    return GlassCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(_cardPadding),
+      child: Row(
+        children: [
+          _SoftIcon(
+            icon: AppIcons.bookmark,
+            iconColor: cs.primary,
+            backgroundColor: cs.primary.withValues(alpha: 0.10),
+            borderColor: cs.primary.withValues(alpha: 0.18),
+          ),
+          const SizedBox(width: _gap),
+          Expanded(
+            child: Text(
+              label,
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontWeight: FontWeight.w700, fontSize: 16),
             ),
           ),
-        ),
+          Icon(AppIcons.arrowForward, color: cs.onSurfaceVariant),
+        ],
       ),
     );
   }
@@ -327,14 +350,15 @@ class SavedDevotionalsCountCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final hasCount = (count ?? 0) > 0;
-    final label = hasCount ? 'Devocionais salvos ($count)' : 'Devocionais salvos';
-    return Container(
-      decoration: _surfaceCardDecoration(context),
+    final label = hasCount
+        ? 'Devocionais salvos ($count)'
+        : 'Devocionais salvos';
+    return GlassCard(
       padding: const EdgeInsets.all(_cardPadding),
       child: Row(
         children: [
           _SoftIcon(
-            icon: Icons.bookmark,
+            icon: AppIcons.bookmark,
             iconColor: cs.primary,
             backgroundColor: cs.primary.withValues(alpha: 0.10),
             borderColor: cs.primary.withValues(alpha: 0.18),
@@ -343,9 +367,9 @@ class SavedDevotionalsCountCard extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: CommunityDesign.titleStyle(context).copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -412,9 +436,7 @@ class SavedDevotionalsScreen extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: cs.primaryContainer,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: cs.primary.withValues(alpha: 0.18),
-                ),
+                border: Border.all(color: cs.primary.withValues(alpha: 0.18)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.06),
@@ -423,19 +445,14 @@ class SavedDevotionalsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-              child: Icon(
-                Icons.bookmark,
-                size: 16,
-                color: cs.primary,
-              ),
+              child: Icon(AppIcons.bookmark, size: 16, color: cs.primary),
             ),
             const SizedBox(width: 12),
             Text(
               'Devocionais Salvos',
-              style: CommunityDesign.titleStyle(context).copyWith(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontSize: 18, fontWeight: FontWeight.w700),
             ),
           ],
         ),
@@ -451,7 +468,7 @@ class SavedDevotionalsScreen extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.bookmark_outline,
+                      AppIcons.bookmarkOutline,
                       size: 56,
                       color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                     ),
@@ -478,13 +495,12 @@ class SavedDevotionalsScreen extends ConsumerWidget {
             children: [
               SavedDevotionalsCountCard(count: count),
               const SizedBox(height: 16),
-              ...devotionals
-                  .map(
-                    (d) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: DevotionalFeedCard(devotional: d),
-                    ),
-                  )
+              ...devotionals.map(
+                (d) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: DevotionalFeedCard(devotional: d),
+                ),
+              ),
             ],
           );
         },
@@ -696,8 +712,7 @@ class _DevotionalFeedCardState extends ConsumerState<DevotionalFeedCard>
     if (box != null) {
       final top = box.localToGlobal(Offset.zero).dy;
       _reactionsShowBelow = top < 104;
-      final centerX =
-          box.localToGlobal(Offset(box.size.width / 2, 0)).dx;
+      final centerX = box.localToGlobal(Offset(box.size.width / 2, 0)).dx;
       if (centerX < screenWidth / 3) {
         _reactionsAnchorX = -1;
       } else if (centerX > (screenWidth * 2) / 3) {
@@ -759,8 +774,9 @@ class _DevotionalFeedCardState extends ConsumerState<DevotionalFeedCard>
           _reactionsAnchorX,
           _reactionsShowBelow ? -1 : 1,
         );
-        final offset =
-            _reactionsShowBelow ? const Offset(0, 10) : const Offset(0, -10);
+        final offset = _reactionsShowBelow
+            ? const Offset(0, 10)
+            : const Offset(0, -10);
 
         return Stack(
           children: [
@@ -848,7 +864,7 @@ class _DevotionalFeedCardState extends ConsumerState<DevotionalFeedCard>
                                                 color: selected == option.$1
                                                     ? colorScheme.primary
                                                     : colorScheme
-                                                        .onSurfaceVariant,
+                                                          .onSurfaceVariant,
                                               ),
                                             ),
                                           ],
@@ -894,7 +910,7 @@ class _DevotionalFeedCardState extends ConsumerState<DevotionalFeedCard>
                                                 color: selected == option.$1
                                                     ? colorScheme.primary
                                                     : colorScheme
-                                                        .onSurfaceVariant,
+                                                          .onSurfaceVariant,
                                               ),
                                             ),
                                           ],
@@ -948,40 +964,10 @@ class _DevotionalFeedCardState extends ConsumerState<DevotionalFeedCard>
         imageUrl = devotional.imageUrl;
       } else if (devotional.hasYoutubeVideo && devotional.youtubeUrl != null) {
         final id = YoutubePlayer.convertUrlToId(devotional.youtubeUrl!);
-        imageUrl = id != null ? 'https://img.youtube.com/vi/$id/hqdefault.jpg' : null;
+        imageUrl = id != null
+            ? 'https://img.youtube.com/vi/$id/hqdefault.jpg'
+            : null;
       }
-    }
-
-    Widget buildStatusPill({
-      required String label,
-      required Color color,
-      IconData? icon,
-    }) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: color.withValues(alpha: 0.24)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 12, color: color),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-      );
     }
 
     Widget buildActionCircle({
@@ -1027,13 +1013,9 @@ class _DevotionalFeedCardState extends ConsumerState<DevotionalFeedCard>
 
     final statusPills = <Widget>[
       if (widget.isManagementMode && !devotional.isPublished)
-        buildStatusPill(label: 'RASCUNHO', color: Colors.orange),
+        const StatusBadge.dropped(label: 'Rascunho', icon: AppIcons.pending),
       if (isSaved)
-        buildStatusPill(
-          label: 'SALVO',
-          color: cs.primary,
-          icon: Icons.bookmark,
-        ),
+        const StatusBadge.done(label: 'Salvo', icon: AppIcons.bookmark),
     ];
 
     final myReaction = _reactionOverride ?? devotional.myReaction;
@@ -1046,219 +1028,254 @@ class _DevotionalFeedCardState extends ConsumerState<DevotionalFeedCard>
       _cardPadding,
     );
 
-    return InkWell(
+    return GlassCard(
       onTap: widget.isManagementMode
           ? () => context.push('/devotionals/${devotional.id}/edit')
           : () => context.push('/devotionals/${devotional.id}'),
-      borderRadius: BorderRadius.circular(_cardRadius),
-      child: Container(
-        decoration: _surfaceCardDecoration(context),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(_cardRadius),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (widget.isManagementMode && imageUrl != null) ...[
-                ChurchImage(imageUrl: imageUrl, type: ChurchImageType.card),
-                const SizedBox(height: _gap),
-              ],
-              Padding(
-                padding: contentPadding,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+      padding: EdgeInsets.zero,
+      radius: _cardRadius,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_cardRadius),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.isManagementMode && imageUrl != null) ...[
+              ChurchImage(imageUrl: imageUrl, type: ChurchImageType.card),
+              const SizedBox(height: _gap),
+            ],
+            Padding(
+              padding: contentPadding,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _SoftIcon(
+                        icon: AppIcons.schedule,
+                        iconColor: muted,
+                        backgroundColor: muted.withValues(alpha: 0.10),
+                        borderColor: muted.withValues(alpha: 0.18),
+                        size: 30,
+                        iconSize: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          devotional.formattedDate,
+                          style: CommunityDesign.metaStyle(context),
+                        ),
+                      ),
+                      if (statusPills.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Wrap(
+                            alignment: WrapAlignment.end,
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: statusPills,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: _gap),
+                  Text(
+                    devotional.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                  if (devotional.scriptureReference != null) ...[
+                    const SizedBox(height: 6),
                     Row(
                       children: [
-                        _SoftIcon(
-                          icon: Icons.schedule,
-                          iconColor: muted,
-                          backgroundColor: muted.withValues(alpha: 0.10),
-                          borderColor: muted.withValues(alpha: 0.18),
-                          size: 30,
-                          iconSize: 16,
-                        ),
-                        const SizedBox(width: 8),
+                        Icon(AppIcons.book, size: 16, color: cs.primary),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            devotional.formattedDate,
-                            style: CommunityDesign.metaStyle(context),
+                            devotional.scriptureReference!,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: cs.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (statusPills.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Wrap(
-                              alignment: WrapAlignment.end,
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: statusPills,
-                            ),
-                          ),
-                        ],
                       ],
                     ),
-                    const SizedBox(height: _gap),
-                    Text(
-                      devotional.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: CommunityDesign.titleStyle(context).copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (devotional.scriptureReference != null) ...[
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(Icons.menu_book, size: 16, color: cs.primary),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              devotional.scriptureReference!,
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: cs.primary,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (widget.isManagementMode &&
-                        (devotional.category != null || devotional.preacher != null || devotional.hasYoutubeVideo)) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 4,
-                        children: [
-                          if (devotional.category != null)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.category, size: 14, color: muted),
-                                const SizedBox(width: 4),
-                                Text(devotional.categoryText, style: CommunityDesign.metaStyle(context)),
-                              ],
-                            ),
-                          if (devotional.preacher != null)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.person, size: 14, color: muted),
-                                const SizedBox(width: 4),
-                                Text(devotional.preacher!, style: CommunityDesign.metaStyle(context)),
-                              ],
-                            ),
-                          if (devotional.hasYoutubeVideo)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.video_library, size: 14, color: Colors.red),
-                                const SizedBox(width: 4),
-                                Text('Vídeo', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.red, fontWeight: FontWeight.w500)),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: _gap),
-                    Text(
-                      devotional.content,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: CommunityDesign.contentStyle(context).copyWith(fontSize: 14),
-                    ),
-                    const SizedBox(height: _gap),
-                    Divider(color: cs.outline.withValues(alpha: 0.12)),
-                    const SizedBox(height: _gap),
-                    Row(
+                  ],
+                  if (widget.isManagementMode &&
+                      (devotional.category != null ||
+                          devotional.preacher != null ||
+                          devotional.hasYoutubeVideo)) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
                       children: [
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: AnimatedScale(
-                              scale: _likePulse ? 1.03 : 1,
-                              duration: const Duration(milliseconds: 140),
-                              curve: Curves.easeOut,
-                              child: CompositedTransformTarget(
-                                link: _reactionLink,
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: _isTogglingLike
-                                        ? null
-                                        : () async {
-                                            final picked = await _showReactionPicker(
-                                              context,
-                                              myReaction,
-                                            );
-                                            if (!mounted || picked == null) {
-                                              return;
-                                            }
-
-                                            if (picked == myReaction) {
-                                              if (myReaction == null) return;
-                                              await _removeReaction(
-                                                currentReaction: myReaction,
-                                                currentLikesCount: likesCount,
+                        if (devotional.category != null)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(AppIcons.category, size: 14, color: muted),
+                              const SizedBox(width: 4),
+                              Text(
+                                devotional.categoryText,
+                                style: CommunityDesign.metaStyle(context),
+                              ),
+                            ],
+                          ),
+                        if (devotional.preacher != null)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(AppIcons.person, size: 14, color: muted),
+                              const SizedBox(width: 4),
+                              Text(
+                                devotional.preacher!,
+                                style: CommunityDesign.metaStyle(context),
+                              ),
+                            ],
+                          ),
+                        if (devotional.hasYoutubeVideo)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                AppIcons.videoLibrary,
+                                size: 14,
+                                color: Colors.red,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Vídeo',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: Colors.red,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: _gap),
+                  Text(
+                    devotional.content,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: CommunityDesign.contentStyle(
+                      context,
+                    ).copyWith(fontSize: 14),
+                  ),
+                  const SizedBox(height: _gap),
+                  Divider(color: cs.outline.withValues(alpha: 0.12)),
+                  const SizedBox(height: _gap),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: AnimatedScale(
+                            scale: _likePulse ? 1.03 : 1,
+                            duration: const Duration(milliseconds: 140),
+                            curve: Curves.easeOut,
+                            child: CompositedTransformTarget(
+                              link: _reactionLink,
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _isTogglingLike
+                                      ? null
+                                      : () async {
+                                          final picked =
+                                              await _showReactionPicker(
+                                                context,
+                                                myReaction,
                                               );
-                                              return;
-                                            }
+                                          if (!mounted || picked == null) {
+                                            return;
+                                          }
 
-                                            await _applyReaction(
+                                          if (picked == myReaction) {
+                                            if (myReaction == null) return;
+                                            await _removeReaction(
                                               currentReaction: myReaction,
                                               currentLikesCount: likesCount,
-                                              nextReaction: picked,
                                             );
-                                          },
-                                    borderRadius: BorderRadius.circular(999),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: Row(
-                                        key: _reactionTargetKey,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          buildActionCircle(
-                                            fillColor: isLiked ? activeFill : neutralFill,
-                                            borderColor: isLiked ? activeBorder : neutralBorder,
-                                            child: AnimatedSwitcher(
-                                              duration: const Duration(milliseconds: 160),
-                                              switchInCurve: Curves.easeOutBack,
-                                              switchOutCurve: Curves.easeIn,
-                                              transitionBuilder: (child, anim) => ScaleTransition(
-                                                scale: anim,
-                                                child: child,
-                                              ),
-                                              child: isLiked
-                                                  ? Text(
-                                                      _reactionEmoji(myReaction),
-                                                      key: ValueKey<String?>(myReaction),
-                                                      style: const TextStyle(
-                                                        fontSize: 18,
-                                                        fontFamilyFallback: _emojiFallback,
-                                                        height: 1,
-                                                      ),
-                                                    )
-                                                  : Icon(
-                                                      Icons.volunteer_activism_outlined,
-                                                      key: const ValueKey<String>('none'),
-                                                      size: 18,
-                                                      color: muted,
-                                                    ),
+                                            return;
+                                          }
+
+                                          await _applyReaction(
+                                            currentReaction: myReaction,
+                                            currentLikesCount: likesCount,
+                                            nextReaction: picked,
+                                          );
+                                        },
+                                  borderRadius: BorderRadius.circular(999),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Row(
+                                      key: _reactionTargetKey,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        buildActionCircle(
+                                          fillColor: isLiked
+                                              ? activeFill
+                                              : neutralFill,
+                                          borderColor: isLiked
+                                              ? activeBorder
+                                              : neutralBorder,
+                                          child: AnimatedSwitcher(
+                                            duration: const Duration(
+                                              milliseconds: 160,
                                             ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            '$likesCount',
-                                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                                  fontWeight: FontWeight.w600,
-                                                  color: cs.onSurface,
+                                            switchInCurve: Curves.easeOutBack,
+                                            switchOutCurve: Curves.easeIn,
+                                            transitionBuilder: (child, anim) =>
+                                                ScaleTransition(
+                                                  scale: anim,
+                                                  child: child,
                                                 ),
+                                            child: isLiked
+                                                ? Text(
+                                                    _reactionEmoji(myReaction),
+                                                    key: ValueKey<String?>(
+                                                      myReaction,
+                                                    ),
+                                                    style: const TextStyle(
+                                                      fontSize: 18,
+                                                      fontFamilyFallback:
+                                                          _emojiFallback,
+                                                      height: 1,
+                                                    ),
+                                                  )
+                                                : Icon(
+                                                    AppIcons.volunteer,
+                                                    key: const ValueKey<String>(
+                                                      'none',
+                                                    ),
+                                                    size: 18,
+                                                    color: muted,
+                                                  ),
                                           ),
-                                        ],
-                                      ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '$likesCount',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                                color: cs.onSurface,
+                                              ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -1266,84 +1283,93 @@ class _DevotionalFeedCardState extends ConsumerState<DevotionalFeedCard>
                             ),
                           ),
                         ),
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.center,
-                            child: buildIconAction(
-                              onTap: () {
-                                showModalBottomSheet(
-                                  context: context,
-                                  isScrollControlled: true,
-                                  backgroundColor: Theme.of(context)
-                                              .colorScheme
-                                              .brightness ==
-                                          Brightness.light
-                                      ? Colors.white
-                                      : Theme.of(context).colorScheme.surface,
-                                  shape: const RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                      ),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.center,
+                          child: buildIconAction(
+                            onTap: () {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.brightness ==
+                                        Brightness.light
+                                    ? Colors.white
+                                    : Theme.of(context).colorScheme.surface,
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(20),
                                   ),
-                                  builder: (context) => _DevotionalCommentsSheet(
-                                    devotionalId: devotional.id,
-                                  ),
-                                );
-                              },
-                              icon: Icons.mode_comment_outlined,
-                              iconColor: muted,
-                              fillColor: neutralFill,
-                              borderColor: neutralBorder,
-                            ),
+                                ),
+                                builder: (context) => _DevotionalCommentsSheet(
+                                  devotionalId: devotional.id,
+                                ),
+                              );
+                            },
+                            icon: AppIcons.modeComment,
+                            iconColor: muted,
+                            fillColor: neutralFill,
+                            borderColor: neutralBorder,
                           ),
                         ),
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: buildIconAction(
-                              onTap: _isTogglingSave
-                                  ? null
-                                  : () async {
-                                      final messenger = ScaffoldMessenger.of(context);
-                                      setState(() {
-                                        _isTogglingSave = true;
-                                        _savedOverride = !isSaved;
-                                      });
-                                      try {
-                                        final savedNow = await ref
-                                            .read(devotionalActionsProvider)
-                                            .toggleSaveDevotional(devotional.id);
-                                        if (!mounted) return;
-                                        setState(() => _savedOverride = savedNow);
-                                        messenger.showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              savedNow ? 'Salvo para ler depois' : 'Removido dos salvos',
-                                            ),
+                      ),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: buildIconAction(
+                            onTap: _isTogglingSave
+                                ? null
+                                : () async {
+                                    final messenger = ScaffoldMessenger.of(
+                                      context,
+                                    );
+                                    setState(() {
+                                      _isTogglingSave = true;
+                                      _savedOverride = !isSaved;
+                                    });
+                                    try {
+                                      final savedNow = await ref
+                                          .read(devotionalActionsProvider)
+                                          .toggleSaveDevotional(devotional.id);
+                                      if (!mounted) return;
+                                      setState(() => _savedOverride = savedNow);
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            savedNow
+                                                ? 'Salvo para ler depois'
+                                                : 'Removido dos salvos',
                                           ),
-                                        );
-                                      } catch (e) {
-                                        if (!mounted) return;
-                                        setState(() => _savedOverride = isSaved);
-                                        messenger.showSnackBar(SnackBar(content: Text('Erro: $e')));
-                                      } finally {
-                                        if (mounted) {
-                                          setState(() => _isTogglingSave = false);
-                                        }
+                                        ),
+                                      );
+                                    } catch (e) {
+                                      if (!mounted) return;
+                                      setState(() => _savedOverride = isSaved);
+                                      messenger.showSnackBar(
+                                        SnackBar(content: Text('Erro: $e')),
+                                      );
+                                    } finally {
+                                      if (mounted) {
+                                        setState(() => _isTogglingSave = false);
                                       }
-                                    },
-                              icon: isSaved ? Icons.bookmark : Icons.bookmark_outline,
-                              iconColor: isSaved ? cs.primary : muted,
-                              fillColor: isSaved ? activeFill : neutralFill,
-                              borderColor: isSaved ? activeBorder : neutralBorder,
-                            ),
+                                    }
+                                  },
+                            icon: isSaved
+                                ? AppIcons.bookmark
+                                : AppIcons.bookmarkOutline,
+                            iconColor: isSaved ? cs.primary : muted,
+                            fillColor: isSaved ? activeFill : neutralFill,
+                            borderColor: isSaved ? activeBorder : neutralBorder,
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1355,10 +1381,12 @@ class _DevotionalCommentsSheet extends ConsumerStatefulWidget {
   const _DevotionalCommentsSheet({required this.devotionalId});
 
   @override
-  ConsumerState<_DevotionalCommentsSheet> createState() => _DevotionalCommentsSheetState();
+  ConsumerState<_DevotionalCommentsSheet> createState() =>
+      _DevotionalCommentsSheetState();
 }
 
-class _DevotionalCommentsSheetState extends ConsumerState<_DevotionalCommentsSheet> {
+class _DevotionalCommentsSheetState
+    extends ConsumerState<_DevotionalCommentsSheet> {
   final _controller = TextEditingController();
   List<Map<String, dynamic>> _comments = [];
   bool _isLoading = true;
@@ -1379,7 +1407,9 @@ class _DevotionalCommentsSheetState extends ConsumerState<_DevotionalCommentsShe
 
   Future<void> _fetchComments() async {
     try {
-      final comments = await ref.read(communityRepositoryProvider).getDevotionalComments(widget.devotionalId);
+      final comments = await ref
+          .read(communityRepositoryProvider)
+          .getDevotionalComments(widget.devotionalId);
       if (mounted) {
         setState(() {
           _comments = comments;
@@ -1402,12 +1432,16 @@ class _DevotionalCommentsSheetState extends ConsumerState<_DevotionalCommentsShe
 
     setState(() => _isSending = true);
     try {
-      await ref.read(communityRepositoryProvider).addDevotionalComment(widget.devotionalId, _controller.text.trim());
+      await ref
+          .read(communityRepositoryProvider)
+          .addDevotionalComment(widget.devotionalId, _controller.text.trim());
       _controller.clear();
       await _fetchComments();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSending = false);
@@ -1427,7 +1461,9 @@ class _DevotionalCommentsSheetState extends ConsumerState<_DevotionalCommentsShe
         return SafeArea(
           top: false,
           child: Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
             child: Column(
               children: [
                 Padding(
@@ -1438,7 +1474,9 @@ class _DevotionalCommentsSheetState extends ConsumerState<_DevotionalCommentsShe
                         width: 44,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.28),
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.28,
+                          ),
                           borderRadius: BorderRadius.circular(99),
                         ),
                       ),
@@ -1454,7 +1492,7 @@ class _DevotionalCommentsSheetState extends ConsumerState<_DevotionalCommentsShe
                           ),
                           const Spacer(),
                           IconButton(
-                            icon: const Icon(Icons.close),
+                            icon: const Icon(AppIcons.close),
                             tooltip: 'Fechar',
                             onPressed: () => Navigator.pop(context),
                           ),
@@ -1463,96 +1501,131 @@ class _DevotionalCommentsSheetState extends ConsumerState<_DevotionalCommentsShe
                     ],
                   ),
                 ),
-                Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
+                Divider(
+                  height: 1,
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
                 Expanded(
                   child: _isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : _errorMessage != null
-                          ? Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Center(
-                                child: Text(
-                                  _errorMessage!.replaceFirst('Exception: ', ''),
-                                  textAlign: TextAlign.center,
-                                  style: CommunityDesign.metaStyle(context),
+                      ? Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Center(
+                            child: Text(
+                              _errorMessage!.replaceFirst('Exception: ', ''),
+                              textAlign: TextAlign.center,
+                              style: CommunityDesign.metaStyle(context),
+                            ),
+                          ),
+                        )
+                      : _comments.isEmpty
+                      ? Center(
+                          child: Text(
+                            'Seja o primeiro a comentar!',
+                            style: CommunityDesign.metaStyle(context),
+                          ),
+                        )
+                      : ListView.separated(
+                          controller: scrollController,
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _comments.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final comment = _comments[index];
+                            final author = comment['author'] ?? {};
+                            final createdAt =
+                                DateTime.tryParse(comment['created_at']) ??
+                                DateTime.now();
+
+                            final name =
+                                author['full_name'] ??
+                                author['nickname'] ??
+                                'Anônimo';
+                            final avatarText =
+                                (author['full_name'] ??
+                                        author['nickname'] ??
+                                        '?')
+                                    .toString();
+                            final avatarInitial = avatarText.isNotEmpty
+                                ? avatarText[0]
+                                : '?';
+
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 18,
+                                  backgroundImage: author['avatar_url'] != null
+                                      ? NetworkImage(author['avatar_url'])
+                                      : null,
+                                  child: author['avatar_url'] == null
+                                      ? Text(avatarInitial)
+                                      : null,
                                 ),
-                              ),
-                            )
-                          : _comments.isEmpty
-                              ? Center(
-                                  child: Text(
-                                    'Seja o primeiro a comentar!',
-                                    style: CommunityDesign.metaStyle(context),
-                                  ),
-                                )
-                              : ListView.separated(
-                                  controller: scrollController,
-                                  padding: const EdgeInsets.all(16),
-                                  itemCount: _comments.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                                  itemBuilder: (context, index) {
-                                    final comment = _comments[index];
-                                    final author = comment['author'] ?? {};
-                                    final createdAt = DateTime.tryParse(comment['created_at']) ?? DateTime.now();
-
-                                    final name = author['full_name'] ?? author['nickname'] ?? 'Anônimo';
-                                    final avatarText = (author['full_name'] ?? author['nickname'] ?? '?').toString();
-                                    final avatarInitial = avatarText.isNotEmpty ? avatarText[0] : '?';
-
-                                    return Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          colorScheme.surfaceContainerHighest,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        CircleAvatar(
-                                          radius: 18,
-                                          backgroundImage: author['avatar_url'] != null ? NetworkImage(author['avatar_url']) : null,
-                                          child: author['avatar_url'] == null ? Text(avatarInitial) : null,
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                name,
+                                                style:
+                                                    CommunityDesign.titleStyle(
+                                                      context,
+                                                    ).copyWith(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 14,
+                                                    ),
+                                              ),
+                                            ),
+                                            Text(
+                                              DateFormat(
+                                                'dd/MM HH:mm',
+                                              ).format(createdAt),
+                                              style: CommunityDesign.metaStyle(
+                                                context,
+                                              ).copyWith(fontSize: 11),
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Container(
-                                            padding: const EdgeInsets.all(12),
-                                            decoration: BoxDecoration(
-                                              color: colorScheme.surfaceContainerHighest,
-                                              borderRadius: BorderRadius.circular(16),
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(
-                                                        name,
-                                                        style: CommunityDesign.titleStyle(context).copyWith(
-                                                          fontWeight: FontWeight.bold,
-                                                          fontSize: 14,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Text(
-                                                      DateFormat('dd/MM HH:mm').format(createdAt),
-                                                      style: CommunityDesign.metaStyle(context).copyWith(fontSize: 11),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 6),
-                                                Text(
-                                                  (comment['content'] ?? '').toString(),
-                                                  style: CommunityDesign.metaStyle(context).copyWith(
-                                                    height: 1.5,
-                                                    color: colorScheme.onSurface,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          (comment['content'] ?? '').toString(),
+                                          style:
+                                              CommunityDesign.metaStyle(
+                                                context,
+                                              ).copyWith(
+                                                height: 1.5,
+                                                color: colorScheme.onSurface,
+                                              ),
                                         ),
                                       ],
-                                    );
-                                  },
+                                    ),
+                                  ),
                                 ),
+                              ],
+                            );
+                          },
+                        ),
                 ),
-                Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
+                Divider(
+                  height: 1,
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                   child: Row(
@@ -1562,7 +1635,10 @@ class _DevotionalCommentsSheetState extends ConsumerState<_DevotionalCommentsShe
                           controller: _controller,
                           decoration: const InputDecoration(
                             hintText: 'Escreva um comentário...',
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
                           ),
                           maxLines: null,
                           enabled: !commentsDisabled,
@@ -1572,18 +1648,25 @@ class _DevotionalCommentsSheetState extends ConsumerState<_DevotionalCommentsShe
                       SizedBox(
                         height: 44,
                         child: ElevatedButton(
-                          onPressed: (commentsDisabled || _isSending) ? null : _addComment,
-                          style: CommunityDesign.pillButtonStyle(context, colorScheme.primary),
+                          onPressed: (commentsDisabled || _isSending)
+                              ? null
+                              : _addComment,
+                          style: CommunityDesign.pillButtonStyle(
+                            context,
+                            colorScheme.primary,
+                          ),
                           child: _isSending
                               ? SizedBox(
                                   width: 18,
                                   height: 18,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(colorScheme.onPrimary),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      colorScheme.onPrimary,
+                                    ),
                                   ),
                                 )
-                              : const Icon(Icons.send_rounded, size: 18),
+                              : const Icon(AppIcons.send, size: 18),
                         ),
                       ),
                     ],

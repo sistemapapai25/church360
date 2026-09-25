@@ -198,4 +198,17 @@ abstract final class AppIcons {
   static const zoomIn = Icons.zoom_in;
   static const zoomOut = Icons.zoom_out;
   static const categoryIcon = Icons.category;
+
+  // Home content, church profile and devotional semantics.
+  static const historyEdu = Icons.history_edu;
+  static const language = Icons.language_outlined;
+  static const alternateEmail = Icons.alternate_email;
+  static const upload = Icons.upload;
+  static const bookmark = Icons.bookmark;
+  static const bookmarkOutline = Icons.bookmark_outline;
+  static const arrowForward = Icons.arrow_forward_ios;
+  static const editNote = Icons.edit_note;
+  static const fire = Icons.local_fire_department;
+  static const imageNotSupported = Icons.image_not_supported;
+  static const copy = Icons.copy;
 }

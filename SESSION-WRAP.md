@@ -1440,3 +1440,56 @@ Esta onda conclui as telas de `quick_news`, `testimonies` e `prayer_requests`.
 Pelo inventário de `screen.dart`, a estimativa cai de 90 para **83 telas
 pendentes**. O próximo recorte recomendado é `home_content`, `church_info` e
 `devotionals`. Não declarar a cascata encerrada.
+
+## Visual wave 22 — Home Content, Church Info e Devotionals
+
+Timestamp: 2026-09-25, America/Sao_Paulo (UTC-03).
+
+### O que foi entregue
+
+- `banners_list_screen.dart` e `banner_form_screen.dart` agora usam
+  `GlassCard`, `StatusBadge` e `AppIcons` nas superfícies, status, vínculo,
+  upload e ações, preservando reordenação, permissões e payloads.
+- `church_info_screen.dart` usa `GlassCard` nas seções públicas de identidade,
+  missão, visão, valores, horários, liderança, contato e redes. O formulário
+  institucional agrupa identidade, dados básicos, contato e redes na mesma
+  superfície e usa o catálogo semântico.
+- `devotionals_list_screen.dart`, `devotional_detail_screen.dart` e
+  `devotional_form_screen.dart` reutilizam `GlassCard`, `StatusBadge` e
+  `AppIcons` na lista, detalhe, referência bíblica, rascunho, leitura,
+  anotações e formulário. Reações, comentários, vídeo, leitura e providers
+  permanecem intactos.
+- Os ícones Font Awesome das marcas sociais em `church_info_screen.dart`
+  continuam preservados; somente ícones Material de interface foram
+  centralizados.
+- Foi adicionada cobertura focada em
+  `test/features/content/home_church_devotionals_visual_test.dart`, com quatro
+  cenários em memória para banners, igreja, lista e detalhe de devocional.
+
+### Decisões e escopo
+
+- Não houve alteração em banco, rotas, permissões, providers, repositórios,
+  upload, persistência ou contratos de dados.
+- O detalhe de devocional manteve as animações temporizadas existentes; o teste
+  aguarda esse ciclo antes de verificar as superfícies.
+
+### Verificação desta onda
+
+- Teste focado: **4 passaram**.
+- Suíte Flutter completa: **591 testes passaram**.
+- Análise direcionada dos oito arquivos Dart de produção e do teste: sem
+  issues.
+- `git diff --check`: passou.
+- `flutter build web --release --no-pub`: passou. Permanecem apenas os avisos
+  Wasm conhecidos de `audioplayers_web`, `dart:html`, `package:js` e `image`.
+- A validação usou providers e dados em memória; telas autenticadas em
+  produção continuam limitadas pelo SSO de proteção da Vercel.
+
+### Estado e próximo passo
+
+Esta onda conclui `home_content`, `church_info` e `devotionals`. Pelo inventário
+de `screen.dart`, a estimativa cai de 83 para **76 telas pendentes** e de 10
+para **8 recortes funcionais**. O próximo recorte recomendado é `bible` e
+`reading_plans`. PR e deploy continuam pendentes por decisão do handoff; os
+arquivos de registradores Flutter gerados localmente devem permanecer fora do
+staging.

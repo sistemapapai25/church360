@@ -4,8 +4,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/widgets/app_logo.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../providers/church_info_provider.dart';
 import '../../domain/models/church_info.dart';
 import '../../../permissions/providers/permissions_providers.dart';
@@ -16,7 +18,8 @@ class ChurchInfoFormScreen extends ConsumerStatefulWidget {
   const ChurchInfoFormScreen({super.key});
 
   @override
-  ConsumerState<ChurchInfoFormScreen> createState() => _ChurchInfoFormScreenState();
+  ConsumerState<ChurchInfoFormScreen> createState() =>
+      _ChurchInfoFormScreenState();
 }
 
 class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
@@ -29,17 +32,17 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _websiteController = TextEditingController();
-  
+
   // Valores
   final List<TextEditingController> _valuesControllers = [];
-  
+
   // Redes sociais
   final _whatsappController = TextEditingController();
   final _facebookController = TextEditingController();
   final _instagramController = TextEditingController();
   final _youtubeController = TextEditingController();
   final _twitterController = TextEditingController();
-  
+
   String? _logoUrl;
   bool _isLoading = false;
   ChurchInfo? _existingInfo;
@@ -89,7 +92,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
       _emailController.text = info.email ?? '';
       _websiteController.text = info.website ?? '';
       _logoUrl = info.logoUrl;
-      
+
       // Valores
       _valuesControllers.clear();
       if (info.values != null) {
@@ -98,7 +101,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
           _valuesControllers.add(controller);
         }
       }
-      
+
       // Redes sociais
       if (info.socialMedia != null) {
         _whatsappController.text = info.socialMedia!['whatsapp'] ?? '';
@@ -107,7 +110,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
         _youtubeController.text = info.socialMedia!['youtube'] ?? '';
         _twitterController.text = info.socialMedia!['twitter'] ?? '';
       }
-      
+
       _dataLoaded = true;
     });
   }
@@ -115,14 +118,15 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
   Future<void> _pickLogo() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    
+
     if (pickedFile != null) {
       setState(() => _isLoading = true);
-      
+
       try {
         final bytes = await pickedFile.readAsBytes();
-        final fileName = 'church_logo_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        
+        final fileName =
+            'church_logo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
         // Upload para Supabase Storage
         await Supabase.instance.client.storage
             .from('church-assets')
@@ -134,17 +138,17 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                 upsert: true,
               ),
             );
-        
+
         // Obter URL pública
         final url = Supabase.instance.client.storage
             .from('church-assets')
             .getPublicUrl(fileName);
-        
+
         setState(() {
           _logoUrl = url;
           _isLoading = false;
         });
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Logo atualizada com sucesso!')),
@@ -183,14 +187,16 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
     if (!hasPermission) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+          const SnackBar(
+            content: Text('Você não tem permissão para esta ação'),
+          ),
         );
       }
       return;
     }
 
     setState(() => _isLoading = true);
-    
+
     try {
       final supabase = Supabase.instance.client;
       SupabaseConstants.applyTenantHeadersToClient(supabase);
@@ -199,13 +205,13 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
       } catch (_) {}
       final repo = ref.read(churchInfoRepositoryProvider);
       final latestInfo = await repo.getChurchInfo();
-      
+
       // Preparar valores
       final values = _valuesControllers
           .map((c) => c.text.trim())
           .where((v) => v.isNotEmpty)
           .toList();
-      
+
       // Preparar redes sociais
       final socialMedia = <String, String>{};
       if (_whatsappController.text.trim().isNotEmpty) {
@@ -223,22 +229,36 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
       if (_twitterController.text.trim().isNotEmpty) {
         socialMedia['twitter'] = _twitterController.text.trim();
       }
-      
+
       final data = {
         'name': _nameController.text.trim(),
         'logo_url': _logoUrl,
-        'mission': _missionController.text.trim().isEmpty ? null : _missionController.text.trim(),
-        'vision': _visionController.text.trim().isEmpty ? null : _visionController.text.trim(),
+        'mission': _missionController.text.trim().isEmpty
+            ? null
+            : _missionController.text.trim(),
+        'vision': _visionController.text.trim().isEmpty
+            ? null
+            : _visionController.text.trim(),
         'values': values.isEmpty ? null : values,
-        'history': _historyController.text.trim().isEmpty ? null : _historyController.text.trim(),
-        'address': _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
-        'phone': _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-        'email': _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
-        'website': _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(),
+        'history': _historyController.text.trim().isEmpty
+            ? null
+            : _historyController.text.trim(),
+        'address': _addressController.text.trim().isEmpty
+            ? null
+            : _addressController.text.trim(),
+        'phone': _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
+        'email': _emailController.text.trim().isEmpty
+            ? null
+            : _emailController.text.trim(),
+        'website': _websiteController.text.trim().isEmpty
+            ? null
+            : _websiteController.text.trim(),
         'social_media': socialMedia.isEmpty ? null : socialMedia,
         'updated_at': DateTime.now().toIso8601String(),
       };
-      
+
       ChurchInfo savedInfo;
       if (latestInfo != null) {
         // Atualizar
@@ -248,10 +268,10 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
         data['created_at'] = DateTime.now().toIso8601String();
         savedInfo = await repo.createChurchInfo(data);
       }
-      
+
       // Invalidar provider para recarregar
       ref.invalidate(churchInfoProvider);
-      
+
       if (mounted) {
         setState(() {
           _existingInfo = savedInfo;
@@ -263,9 +283,9 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao salvar: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao salvar: $e')));
       }
     } finally {
       if (mounted) {
@@ -289,14 +309,14 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
           }
         },
         error: (err, stack) {
-           setState(() => _dataLoaded = true);
+          setState(() => _dataLoaded = true);
         },
         loading: () {},
       );
     });
 
     final churchInfoState = ref.watch(churchInfoProvider);
-    
+
     if (churchInfoState.isLoading && !_dataLoaded) {
       return Scaffold(
         backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -309,9 +329,9 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
       appBar: AppBar(
         title: Text(
           _existingInfo != null ? 'Editar Igreja' : 'Cadastrar Igreja',
-          style: CommunityDesign.titleStyle(context).copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: CommunityDesign.titleStyle(
+            context,
+          ).copyWith(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         backgroundColor: CommunityDesign.headerColor(context),
@@ -338,7 +358,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
               permission: 'church_info.edit',
               disabledTooltip: 'Você não tem permissão para esta ação',
               child: IconButton(
-                icon: const Icon(Icons.check),
+                icon: const Icon(AppIcons.check),
                 onPressed: _submit,
                 tooltip: 'Salvar',
               ),
@@ -353,12 +373,10 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
             // Logo Section
             _buildSectionCard(
               title: 'Identidade Visual',
-              children: [
-                _buildLogoSection(),
-              ],
+              children: [_buildLogoSection()],
             ),
             const SizedBox(height: 16),
-            
+
             // Basic Info Section
             _buildSectionCard(
               title: 'Informações Básicas',
@@ -368,7 +386,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Nome da Igreja *',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.church),
+                    prefixIcon: Icon(AppIcons.church),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -383,7 +401,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Missão',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.flag),
+                    prefixIcon: Icon(AppIcons.flag),
                   ),
                   maxLines: 3,
                 ),
@@ -393,7 +411,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Visão',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.visibility),
+                    prefixIcon: Icon(AppIcons.visibility),
                   ),
                   maxLines: 3,
                 ),
@@ -403,7 +421,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'História',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.history_edu),
+                    prefixIcon: Icon(AppIcons.historyEdu),
                   ),
                   maxLines: 5,
                 ),
@@ -422,7 +440,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Endereço',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.location_on),
+                    prefixIcon: Icon(AppIcons.location),
                   ),
                   maxLines: 2,
                 ),
@@ -432,7 +450,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Telefone',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.phone),
+                    prefixIcon: Icon(AppIcons.phone),
                   ),
                   keyboardType: TextInputType.phone,
                 ),
@@ -442,7 +460,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Email',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.email),
+                    prefixIcon: Icon(AppIcons.email),
                   ),
                   keyboardType: TextInputType.emailAddress,
                 ),
@@ -452,7 +470,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Website',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.language),
+                    prefixIcon: Icon(AppIcons.language),
                   ),
                   keyboardType: TextInputType.url,
                 ),
@@ -470,7 +488,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                     labelText: 'WhatsApp',
                     hintText: 'Ex: 5511999999999',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.phone),
+                    prefixIcon: Icon(AppIcons.phone),
                     helperText: 'Digite o número com DDD (ex: 5511999999999)',
                   ),
                   keyboardType: TextInputType.phone,
@@ -481,7 +499,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Facebook',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.facebook),
+                    prefixIcon: Icon(AppIcons.public),
                   ),
                   keyboardType: TextInputType.url,
                 ),
@@ -491,7 +509,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Instagram',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.camera_alt),
+                    prefixIcon: Icon(AppIcons.image),
                   ),
                   keyboardType: TextInputType.url,
                 ),
@@ -501,7 +519,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'YouTube',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.video_library),
+                    prefixIcon: Icon(AppIcons.videoLibrary),
                   ),
                   keyboardType: TextInputType.url,
                 ),
@@ -511,7 +529,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Twitter',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.alternate_email),
+                    prefixIcon: Icon(AppIcons.alternateEmail),
                   ),
                   keyboardType: TextInputType.url,
                 ),
@@ -529,10 +547,17 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
-                    : const Icon(Icons.save),
-                label: Text(_existingInfo != null ? 'Salvar Alterações' : 'Cadastrar Igreja'),
+                    : const Icon(AppIcons.save),
+                label: Text(
+                  _existingInfo != null
+                      ? 'Salvar Alterações'
+                      : 'Cadastrar Igreja',
+                ),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.all(16),
                   shape: RoundedRectangleBorder(
@@ -548,27 +573,25 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
     );
   }
 
-  Widget _buildSectionCard({required String title, required List<Widget> children}) {
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(
-        Theme.of(context).colorScheme,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: CommunityDesign.titleStyle(context).copyWith(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColor,
-              ),
+  Widget _buildSectionCard({
+    required String title,
+    required List<Widget> children,
+  }) {
+    return GlassCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: CommunityDesign.titleStyle(context).copyWith(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).primaryColor,
             ),
-            const SizedBox(height: 20),
-            ...children,
-          ],
-        ),
+          ),
+          const SizedBox(height: 20),
+          ...children,
+        ],
       ),
     );
   }
@@ -620,7 +643,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
         const SizedBox(height: 16),
         OutlinedButton.icon(
           onPressed: _isLoading ? null : _pickLogo,
-          icon: const Icon(Icons.upload),
+          icon: const Icon(AppIcons.upload),
           label: Text(_logoUrl != null ? 'Alterar Logo' : 'Adicionar Logo'),
         ),
       ],
@@ -636,14 +659,13 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
           children: [
             Text(
               'Valores',
-              style: CommunityDesign.titleStyle(context).copyWith(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             TextButton.icon(
               onPressed: _addValue,
-              icon: const Icon(Icons.add),
+              icon: const Icon(AppIcons.add),
               label: const Text('Adicionar Valor'),
             ),
           ],
@@ -665,12 +687,12 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                       decoration: InputDecoration(
                         labelText: 'Valor ${index + 1}',
                         border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.circle_outlined),
+                        prefixIcon: const Icon(AppIcons.circle),
                       ),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
+                    icon: const Icon(AppIcons.delete, color: Colors.red),
                     onPressed: () => _removeValue(index),
                   ),
                 ],

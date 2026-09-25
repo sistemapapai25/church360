@@ -4,19 +4,19 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/devotional_provider.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/errors/app_error_handler.dart';
 
 /// Tela de formulário para criar/editar devocional
 class DevotionalFormScreen extends ConsumerStatefulWidget {
   final String? devotionalId;
 
-  const DevotionalFormScreen({
-    super.key,
-    this.devotionalId,
-  });
+  const DevotionalFormScreen({super.key, this.devotionalId});
 
   @override
-  ConsumerState<DevotionalFormScreen> createState() => _DevotionalFormScreenState();
+  ConsumerState<DevotionalFormScreen> createState() =>
+      _DevotionalFormScreenState();
 }
 
 class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
@@ -49,7 +49,9 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final devotional = await ref.read(devotionalByIdProvider(widget.devotionalId!).future);
+      final devotional = await ref.read(
+        devotionalByIdProvider(widget.devotionalId!).future,
+      );
 
       if (devotional != null) {
         _titleController.text = devotional.title;
@@ -184,8 +186,10 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
   Widget build(BuildContext context) {
     // Se estiver editando, carregar dados
     if (_isEditing) {
-      final devotionalAsync = ref.watch(devotionalByIdProvider(widget.devotionalId!));
-      
+      final devotionalAsync = ref.watch(
+        devotionalByIdProvider(widget.devotionalId!),
+      );
+
       devotionalAsync.whenData((devotional) {
         if (devotional != null && _titleController.text.isEmpty) {
           _titleController.text = devotional.title;
@@ -207,16 +211,16 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             // Data
-            Card(
+            GlassCard(
               child: ListTile(
-                leading: const Icon(Icons.calendar_today),
+                leading: const Icon(AppIcons.calendarFilled),
                 title: const Text('Data do Devocional'),
                 subtitle: Text(
                   '${_selectedDate.day.toString().padLeft(2, '0')}/'
                   '${_selectedDate.month.toString().padLeft(2, '0')}/'
                   '${_selectedDate.year}',
                 ),
-                trailing: const Icon(Icons.edit),
+                trailing: const Icon(AppIcons.edit),
                 onTap: _selectDate,
               ),
             ),
@@ -229,7 +233,7 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
                 labelText: 'Título *',
                 hintText: 'Ex: A Fé que Move Montanhas',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.title),
+                prefixIcon: Icon(AppIcons.label),
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) {
@@ -247,9 +251,10 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
               decoration: const InputDecoration(
                 labelText: 'Referência Bíblica',
                 hintText: 'Ex: João 3:16-17',
-                helperText: "Use ':' entre capítulo e versículo e '-' para intervalo de versículos. Ex: 3:16 ou 3:16-18",
+                helperText:
+                    "Use ':' entre capítulo e versículo e '-' para intervalo de versículos. Ex: 3:16 ou 3:16-18",
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.menu_book),
+                prefixIcon: Icon(AppIcons.book),
               ),
               textCapitalization: TextCapitalization.words,
             ),
@@ -261,13 +266,22 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
                 labelText: 'Categoria',
                 hintText: 'Selecione a categoria',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.category),
+                prefixIcon: Icon(AppIcons.category),
               ),
               items: const [
                 DropdownMenuItem(value: null, child: Text('Nenhuma')),
-                DropdownMenuItem(value: 'domingo', child: Text('Culto de Domingo')),
-                DropdownMenuItem(value: 'quarta', child: Text('Culto de Quarta-feira')),
-                DropdownMenuItem(value: 'especial', child: Text('Culto Especial')),
+                DropdownMenuItem(
+                  value: 'domingo',
+                  child: Text('Culto de Domingo'),
+                ),
+                DropdownMenuItem(
+                  value: 'quarta',
+                  child: Text('Culto de Quarta-feira'),
+                ),
+                DropdownMenuItem(
+                  value: 'especial',
+                  child: Text('Culto Especial'),
+                ),
               ],
               onChanged: (value) {
                 setState(() {
@@ -284,7 +298,7 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
                 labelText: 'Pregador',
                 hintText: 'Ex: Pastor João Silva',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person),
+                prefixIcon: Icon(AppIcons.person),
               ),
               textCapitalization: TextCapitalization.words,
             ),
@@ -297,7 +311,7 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
                 labelText: 'Link do YouTube',
                 hintText: 'Ex: https://www.youtube.com/watch?v=...',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.video_library),
+                prefixIcon: Icon(AppIcons.videoLibrary),
               ),
               keyboardType: TextInputType.url,
             ),
@@ -337,7 +351,7 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
             const SizedBox(height: 16),
 
             // Publicar
-            Card(
+            GlassCard(
               child: SwitchListTile(
                 title: const Text('Publicar'),
                 subtitle: const Text(
@@ -350,7 +364,7 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
                   });
                 },
                 secondary: Icon(
-                  _isPublished ? Icons.visibility : Icons.visibility_off,
+                  _isPublished ? AppIcons.visibility : AppIcons.visibilityOff,
                   color: _isPublished ? Colors.green : Colors.grey,
                 ),
               ),
@@ -369,7 +383,7 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.save),
+                  : const Icon(AppIcons.save),
               label: Text(_isEditing ? 'Atualizar' : 'Criar'),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),

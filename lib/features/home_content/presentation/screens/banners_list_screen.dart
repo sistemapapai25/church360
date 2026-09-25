@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/status_badge.dart';
 import '../providers/banners_provider.dart';
 import '../../domain/models/banner.dart';
 import '../../../permissions/providers/permissions_providers.dart';
@@ -311,151 +313,145 @@ class _BannerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Ícone de arrastar
-            Icon(
-              AppIcons.dragHandle,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.4),
-            ),
-            const SizedBox(width: 8),
-            // Miniatura da imagem
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: Image.network(
-                banner.imageUrl,
-                width: 60,
-                height: 40,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: 60,
-                    height: 40,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    child: const Icon(AppIcons.imageBroken, size: 20),
-                  );
-                },
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassCard(
+        padding: EdgeInsets.zero,
+        child: ListTile(
+          leading: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Ícone de arrastar
+              Icon(
+                AppIcons.dragHandle,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.4),
               ),
-            ),
-          ],
-        ),
-        title: Text(banner.title),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (banner.description != null)
-              Text(
-                banner.description!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(
-                  _getLinkTypeIcon(banner.linkType),
-                  size: 14,
-                  color: Theme.of(context).colorScheme.primary,
+              const SizedBox(width: 8),
+              // Miniatura da imagem
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image.network(
+                  banner.imageUrl,
+                  width: 60,
+                  height: 40,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      width: 60,
+                      height: 40,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
+                      child: const Icon(AppIcons.imageBroken, size: 20),
+                    );
+                  },
                 ),
-                const SizedBox(width: 4),
+              ),
+            ],
+          ),
+          title: Text(banner.title),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (banner.description != null)
                 Text(
-                  banner.linkTypeText,
-                  style: TextStyle(
-                    fontSize: 12,
+                  banner.description!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(
+                    _getLinkTypeIcon(banner.linkType),
+                    size: 14,
                     color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w500,
                   ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Badge de status
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: banner.isActive
-                    ? Colors.green.withValues(alpha: 0.2)
-                    : Colors.grey.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                banner.isActive ? 'Ativo' : 'Inativo',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: banner.isActive ? Colors.green : Colors.grey,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Menu de ações
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                switch (value) {
-                  case 'toggle':
-                    onToggleActive();
-                    break;
-                  case 'edit':
-                    onEdit();
-                    break;
-                  case 'delete':
-                    onDelete();
-                    break;
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'toggle',
-                  child: Row(
-                    children: [
-                      Icon(
-                        banner.isActive
-                            ? AppIcons.visibilityOff
-                            : AppIcons.visibility,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(banner.isActive ? 'Desativar' : 'Ativar'),
-                    ],
-                  ),
-                ),
-                if (canEdit)
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(AppIcons.edit, size: 20),
-                        SizedBox(width: 12),
-                        Text('Editar'),
-                      ],
+                  const SizedBox(width: 4),
+                  Text(
+                    banner.linkTypeText,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                if (canDelete)
+                ],
+              ),
+            ],
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              StatusBadge(
+                label: banner.isActive ? 'Ativo' : 'Inativo',
+                tone: banner.isActive
+                    ? AppStatusTone.active
+                    : AppStatusTone.dropped,
+                icon: banner.isActive
+                    ? AppIcons.visibility
+                    : AppIcons.visibilityOff,
+              ),
+              const SizedBox(width: 8),
+              // Menu de ações
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  switch (value) {
+                    case 'toggle':
+                      onToggleActive();
+                      break;
+                    case 'edit':
+                      onEdit();
+                      break;
+                    case 'delete':
+                      onDelete();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
                   PopupMenuItem(
-                    value: 'delete',
+                    value: 'toggle',
                     child: Row(
                       children: [
-                        Icon(AppIcons.delete, size: 20, color: Colors.red),
+                        Icon(
+                          banner.isActive
+                              ? AppIcons.visibilityOff
+                              : AppIcons.visibility,
+                          size: 20,
+                        ),
                         const SizedBox(width: 12),
-                        Text('Excluir', style: TextStyle(color: Colors.red)),
+                        Text(banner.isActive ? 'Desativar' : 'Ativar'),
                       ],
                     ),
                   ),
-              ],
-            ),
-          ],
+                  if (canEdit)
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(AppIcons.edit, size: 20),
+                          SizedBox(width: 12),
+                          Text('Editar'),
+                        ],
+                      ),
+                    ),
+                  if (canDelete)
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(AppIcons.delete, size: 20, color: Colors.red),
+                          const SizedBox(width: 12),
+                          Text('Excluir', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

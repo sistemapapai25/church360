@@ -11,6 +11,9 @@ import '../providers/devotional_provider.dart';
 import '../../../../core/widgets/permission_widget.dart';
 import '../../../../core/widgets/media/video_play_overlay.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/status_badge.dart';
 import '../../../../core/errors/app_error_handler.dart';
 
 /// Tela de detalhes do devocional (leitura)
@@ -171,9 +174,7 @@ class _DevotionalDetailScreenState
         backgroundColor: CommunityDesign.headerColor(context),
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(
-            bottom: Radius.circular(20),
-          ),
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
         ),
         titleSpacing: 0,
         leadingWidth: 54,
@@ -182,7 +183,7 @@ class _DevotionalDetailScreenState
           child: IconButton(
             tooltip: 'Voltar',
             onPressed: _handleBack,
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(AppIcons.back),
           ),
         ),
         title: Row(
@@ -202,7 +203,7 @@ class _DevotionalDetailScreenState
                   ),
                 ],
               ),
-              child: Icon(Icons.menu_book_rounded, size: 18, color: cs.primary),
+              child: Icon(AppIcons.book, size: 18, color: cs.primary),
             ),
             const SizedBox(width: 12),
             Column(
@@ -316,7 +317,7 @@ class _DevotionalDetailScreenState
                                                 Container(
                                                   color: Colors.grey[200],
                                                   child: const Icon(
-                                                    Icons.image_not_supported,
+                                                    AppIcons.imageNotSupported,
                                                   ),
                                                 ),
                                           )
@@ -345,7 +346,7 @@ class _DevotionalDetailScreenState
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Icon(
-                                      Icons.close,
+                                      AppIcons.close,
                                       color: Colors.white,
                                     ),
                                   ),
@@ -374,7 +375,7 @@ class _DevotionalDetailScreenState
                       child: Row(
                         children: [
                           Icon(
-                            Icons.calendar_today,
+                            AppIcons.calendarFilled,
                             size: 14,
                             color: cs.onSurface.withValues(alpha: 0.6),
                           ),
@@ -443,7 +444,7 @@ class _DevotionalDetailScreenState
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    Icons.check,
+                                    AppIcons.check,
                                     size: 12,
                                     color: cs.primary,
                                   ),
@@ -467,24 +468,9 @@ class _DevotionalDetailScreenState
                     ),
                     const Spacer(),
                     if (!devotional.isPublished)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: cs.onSurface.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'RASCUNHO',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: cs.onSurface.withValues(alpha: 0.6),
-                            letterSpacing: 0.5,
-                          ),
-                        ),
+                      const StatusBadge.dropped(
+                        label: 'Rascunho',
+                        icon: AppIcons.pending,
                       ),
                   ],
                 ),
@@ -505,90 +491,82 @@ class _DevotionalDetailScreenState
 
                 // 4. REFERÊNCIA BÍBLICA
                 if (devotional.scriptureReference != null)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 24),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: cs.onSurface.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(12),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: GlassCard(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: cs.onSurface.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              AppIcons.book,
+                              color: cs.onSurface.withValues(alpha: 0.6),
+                              size: 20,
+                            ),
                           ),
-                          child: Icon(
-                            Icons.menu_book,
-                            color: cs.onSurface.withValues(alpha: 0.6),
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'LEITURA BÍBLICA',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: cs.onSurface.withValues(alpha: 0.6),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'LEITURA BÍBLICA',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: cs.onSurface.withValues(alpha: 0.6),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                devotional.scriptureReference!,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: cs.onSurface,
+                                const SizedBox(height: 2),
+                                Text(
+                                  devotional.scriptureReference!,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: cs.onSurface,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          onPressed: () async {
-                            await Clipboard.setData(
-                              ClipboardData(
-                                text: devotional.scriptureReference!,
-                              ),
-                            );
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text('Referência copiada!'),
-                                  backgroundColor: cs.primary,
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              await Clipboard.setData(
+                                ClipboardData(
+                                  text: devotional.scriptureReference!,
                                 ),
                               );
-                            }
-                          },
-                          icon: const Icon(Icons.copy, size: 16),
-                          label: const Text('Copiar'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('Referência copiada!'),
+                                    backgroundColor: cs.primary,
+                                  ),
+                                );
+                              }
+                            },
+                            icon: const Icon(AppIcons.copy, size: 16),
+                            label: const Text('Copiar'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              side: BorderSide(
+                                color: cs.onSurface.withValues(alpha: 0.2),
+                              ),
                             ),
-                            side: BorderSide(color: cs.onSurface.withValues(alpha: 0.2)),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-
                 // 5. CONTEÚDO
                 if (devotional.content.isNotEmpty)
                   ...devotional.content
@@ -675,12 +653,13 @@ class _DevotionalDetailScreenState
                                                   12,
                                                 ),
                                                 decoration: BoxDecoration(
-                                                  color: cs.primary
-                                                      .withValues(alpha: 0.1),
+                                                  color: cs.primary.withValues(
+                                                    alpha: 0.1,
+                                                  ),
                                                   shape: BoxShape.circle,
                                                 ),
                                                 child: Icon(
-                                                  Icons.people_alt_rounded,
+                                                  AppIcons.groups,
                                                   size: 28,
                                                   color: cs.primary,
                                                 ),
@@ -754,7 +733,7 @@ class _DevotionalDetailScreenState
                                                   shape: BoxShape.circle,
                                                 ),
                                                 child: Icon(
-                                                  Icons.remove_red_eye_rounded,
+                                                  AppIcons.visibility,
                                                   size: 28,
                                                   color: cs.secondary,
                                                 ),
@@ -820,9 +799,10 @@ class _DevotionalDetailScreenState
                               Expanded(
                                 child: Container(
                                   padding: const EdgeInsets.all(18),
-                                  decoration: CommunityDesign.feedCardDecoration(
-                                    Theme.of(context).colorScheme,
-                                  ),
+                                  decoration:
+                                      CommunityDesign.feedCardDecoration(
+                                        Theme.of(context).colorScheme,
+                                      ),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.center,
@@ -851,9 +831,10 @@ class _DevotionalDetailScreenState
                               Expanded(
                                 child: Container(
                                   padding: const EdgeInsets.all(18),
-                                  decoration: CommunityDesign.feedCardDecoration(
-                                    Theme.of(context).colorScheme,
-                                  ),
+                                  decoration:
+                                      CommunityDesign.feedCardDecoration(
+                                        Theme.of(context).colorScheme,
+                                      ),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.center,
@@ -898,16 +879,13 @@ class _DevotionalDetailScreenState
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                          color: cs.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              Icons.local_fire_department,
-                              color: cs.primary,
-                            ),
+                            Icon(AppIcons.fire, color: cs.primary),
                             const SizedBox(width: 8),
                             Text(
                               'Sequência de leitura: $streak dias',
@@ -933,92 +911,95 @@ class _DevotionalDetailScreenState
                       _notesController.text = reading.notes ?? '';
                     }
 
-                    return Container(
-                      margin: const EdgeInsets.only(top: 8),
-                      decoration: CommunityDesign.feedCardDecoration(
-                        Theme.of(context).colorScheme,
-                      ),
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: cs.primary.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  Icons.edit_note,
-                                  color: cs.primary,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Minhas Anotações',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: cs.onSurface,
-                                    ),
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: GlassCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: cs.primary.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  Text(
-                                    'Seu espaço com Deus',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: cs.onSurfaceVariant,
-                                    ),
+                                  child: Icon(
+                                    AppIcons.editNote,
+                                    color: cs.primary,
+                                    size: 20,
                                   ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: _notesController,
-                            maxLines: 4,
-                            style: TextStyle(color: cs.onSurface, height: 1.5),
-                            decoration: InputDecoration(
-                              hintText: 'O que Deus falou ao seu coração hoje?',
-                              hintStyle: TextStyle(
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.5,
                                 ),
-                              ),
-                              filled: true,
-                              fillColor: cs.surface,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: cs.outline.withValues(alpha: 0.2),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Minhas Anotações',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: cs.onSurface,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Seu espaço com Deus',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: cs.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: cs.outline.withValues(alpha: 0.2),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: cs.primary,
-                                  width: 2,
-                                ),
-                              ),
-                              contentPadding: const EdgeInsets.all(14),
+                              ],
                             ),
-                            onChanged: (_) =>
-                                setState(() => _isEditingNotes = true),
-                          ),
-                        ],
+                            const SizedBox(height: 16),
+                            TextField(
+                              controller: _notesController,
+                              maxLines: 4,
+                              style: TextStyle(
+                                color: cs.onSurface,
+                                height: 1.5,
+                              ),
+                              decoration: InputDecoration(
+                                hintText:
+                                    'O que Deus falou ao seu coração hoje?',
+                                hintStyle: TextStyle(
+                                  color: cs.onSurfaceVariant.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                                filled: true,
+                                fillColor: cs.surface,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: cs.outline.withValues(alpha: 0.2),
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: cs.outline.withValues(alpha: 0.2),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: cs.primary,
+                                    width: 2,
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.all(14),
+                              ),
+                              onChanged: (_) =>
+                                  setState(() => _isEditingNotes = true),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -1067,7 +1048,9 @@ class _DevotionalDetailScreenState
                           vertical: 12,
                         ),
                         minimumSize: const Size(0, 44),
-                        disabledBackgroundColor: cs.primary.withValues(alpha: 0.6),
+                        disabledBackgroundColor: cs.primary.withValues(
+                          alpha: 0.6,
+                        ),
                         disabledForegroundColor: Colors.white,
                       ),
                       onPressed: (_isSaving || (hasRead && !_isEditingNotes))
@@ -1083,7 +1066,7 @@ class _DevotionalDetailScreenState
                               ),
                             )
                           : Icon(
-                              hasRead ? Icons.check_circle : Icons.check,
+                              hasRead ? AppIcons.checkCircle : AppIcons.check,
                               color: Colors.white,
                               size: 20,
                             ),
