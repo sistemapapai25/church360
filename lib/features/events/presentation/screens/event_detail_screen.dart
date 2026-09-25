@@ -10,6 +10,7 @@ import '../../domain/models/event_audience.dart';
 import '../providers/events_provider.dart';
 import '../widgets/add_registration_dialog.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
+import '../../../courses/presentation/providers/courses_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../ministries/domain/models/ministry.dart';
 import '../../../members/presentation/providers/members_provider.dart';
@@ -567,6 +568,8 @@ class _InfoTab extends ConsumerWidget {
               title: 'Capacidade Máxima',
               value: '${event.maxCapacity} pessoas',
             ),
+          if (event.courseId != null)
+            _CourseLinkCard(courseId: event.courseId!),
           _InfoCard(
             icon: AppIcons.registration,
             title: 'Requer Inscrição',
@@ -747,6 +750,76 @@ class _InfoTab extends ConsumerWidget {
 
     if (!inelegivel) return botao;
     return Tooltip(message: _motivoInelegivel, child: botao);
+  }
+}
+
+/// Etapa 4b da Formação (decisão 22/24): o evento que divulga um curso
+/// abre o Curso, nunca pula direto para a turma. Enquanto carrega, ou se o
+/// curso não voltar (RLS, removido), o card simplesmente não aparece.
+class _CourseLinkCard extends ConsumerWidget {
+  final String courseId;
+
+  const _CourseLinkCard({required this.courseId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final course = ref.watch(courseByIdProvider(courseId)).valueOrNull;
+    if (course == null) return const SizedBox.shrink();
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassCard(
+        padding: EdgeInsets.zero,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => context.push('/courses/$courseId/view'),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Icon(AppIcons.course, color: colorScheme.primary),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Curso',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        course.title,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Ver curso',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  AppIcons.arrowForward,
+                  size: 14,
+                  color: colorScheme.primary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
