@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/pearl_fab.dart';
+import '../../../../core/widgets/status_badge.dart';
 import '../providers/groups_provider.dart';
 import '../../domain/models/group.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
@@ -32,24 +35,20 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
         backgroundColor: CommunityDesign.headerColor(context),
         title: Text('Grupos', style: CommunityDesign.titleStyle(context)),
         iconTheme: IconThemeData(
-          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white
+              : Colors.black,
         ),
         actions: [
           // Filtro
           PopupMenuButton<String>(
-            icon: const Icon(Icons.filter_list),
+            icon: const Icon(AppIcons.filterList),
             onSelected: (value) {
               setState(() => _filter = value);
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'all',
-                child: Text('Todos'),
-              ),
-              const PopupMenuItem(
-                value: 'active',
-                child: Text('Ativos'),
-              ),
+              const PopupMenuItem(value: 'all', child: Text('Todos')),
+              const PopupMenuItem(value: 'active', child: Text('Ativos')),
             ],
           ),
         ],
@@ -66,24 +65,20 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.group_outlined,
-                    size: 64,
-                    color: Colors.grey[400],
-                  ),
+                  Icon(AppIcons.group, size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   Text(
                     'Nenhum grupo encontrado',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Colors.grey[600],
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Clique no + para criar um grupo',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[500],
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.grey[500]),
                   ),
                 ],
               ),
@@ -99,20 +94,15 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
             },
           );
         },
-        loading: () => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const Icon(AppIcons.error, size: 64, color: Colors.red),
               const SizedBox(height: 16),
               Text(
-                AppErrorHandler.userMessage(
-                  error,
-                  feature: 'groups.list',
-                ),
+                AppErrorHandler.userMessage(error, feature: 'groups.list'),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -131,7 +121,7 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
           onPressed: () {
             context.push('/groups/new');
           },
-          icon: Icons.add,
+          icon: AppIcons.add,
         ),
       ),
     );
@@ -146,13 +136,10 @@ class _GroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () {
-          context.push('/groups/${group.id}');
-        },
-        borderRadius: BorderRadius.circular(12),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassCard(
+        onTap: () => context.push('/groups/${group.id}'),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -167,14 +154,14 @@ class _GroupCard extends StatelessWidget {
                         ? Theme.of(context).colorScheme.primaryContainer
                         : Colors.grey[300],
                     child: Icon(
-                      Icons.group,
+                      AppIcons.group,
                       color: group.isActive
                           ? Theme.of(context).colorScheme.primary
                           : Colors.grey[600],
                     ),
                   ),
                   const SizedBox(width: 12),
-                  
+
                   // Nome e status
                   Expanded(
                     child: Column(
@@ -182,21 +169,22 @@ class _GroupCard extends StatelessWidget {
                       children: [
                         Text(
                           group.name,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
-                        if (!group.isActive)
-                          Text(
-                            'Inativo',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Colors.grey,
-                                ),
-                          ),
+                        StatusBadge(
+                          label: group.isActive ? 'Ativo' : 'Inativo',
+                          tone: group.isActive
+                              ? AppStatusTone.active
+                              : AppStatusTone.dropped,
+                          icon: group.isActive
+                              ? AppIcons.checkCircle
+                              : AppIcons.cancel,
+                        ),
                       ],
                     ),
                   ),
-                  
+
                   // Contagem de membros
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -211,7 +199,7 @@ class _GroupCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.groups,
+                          AppIcons.groups,
                           size: 16,
                           color: Theme.of(context).colorScheme.primary,
                         ),
@@ -228,9 +216,10 @@ class _GroupCard extends StatelessWidget {
                   ),
                 ],
               ),
-              
+
               // Descrição
-              if (group.description != null && group.description!.isNotEmpty) ...[
+              if (group.description != null &&
+                  group.description!.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
                   group.description!,
@@ -239,9 +228,9 @@ class _GroupCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-              
+
               const SizedBox(height: 12),
-              
+
               // Informações adicionais
               Wrap(
                 spacing: 16,
@@ -253,7 +242,7 @@ class _GroupCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.person,
+                          AppIcons.person,
                           size: 16,
                           color: Colors.grey[600],
                         ),
@@ -264,14 +253,14 @@ class _GroupCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                  
+
                   // Dia da reunião
                   if (group.meetingDayName != null)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.calendar_today,
+                          AppIcons.calendar,
                           size: 16,
                           color: Colors.grey[600],
                         ),
@@ -282,14 +271,14 @@ class _GroupCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                  
+
                   // Horário
                   if (group.meetingTime != null)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.access_time,
+                          AppIcons.accessTime,
                           size: 16,
                           color: Colors.grey[600],
                         ),
@@ -300,14 +289,14 @@ class _GroupCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                  
+
                   // Local
                   if (group.meetingAddress != null)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.location_on,
+                          AppIcons.location,
                           size: 16,
                           color: Colors.grey[600],
                         ),

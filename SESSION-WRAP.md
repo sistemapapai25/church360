@@ -1265,6 +1265,123 @@ fora do staging.
 
 - A branch contém os commits locais do dock `5ab1c1a` e `68e53ef`, além deste
   recorte de Members. Eles devem seguir juntos para uma PR única.
-- O próximo recorte pendente no inventário é a conclusão dos diálogos/widgets
-  especializados de Events; depois disso a auditoria visual de alta prioridade
-  fica encerrada, salvo novas telas incluídas no produto.
+- Os diálogos/widgets especializados de Events já estão presentes na linha
+  histórica da branch. O recorte seguinte desta sessão foi Groups; formulários
+  de grupo, reunião e visitante permanecem para uma onda posterior.
+
+## Visual wave 18 — Groups, listagem e detalhe
+
+Timestamp: 2026-09-25, America/Sao_Paulo (UTC-03).
+
+### O que foi entregue
+
+- `groups_list_screen.dart` agora usa `GlassCard` para os cards, `StatusBadge`
+  para ativo/inativo e `AppIcons` para filtro, estados, metadados e criação.
+- `group_detail_screen.dart` agora usa `GlassCard` no cabeçalho, descrição,
+  membros, reuniões e materiais, preservando tabs, permissões, links, membros,
+  reuniões e materiais.
+- `AppIcons` recebeu as semânticas compartilhadas de abas e tipos de material.
+- Foi adicionada cobertura focada em
+  `test/features/groups/groups_visual_surfaces_test.dart`.
+
+Não houve alteração em banco, rotas, providers, repositórios ou contratos de
+dados. Formulários de grupo, reunião e visitante continuam para uma onda
+posterior.
+
+### Verificação desta onda
+
+- Teste focado de Groups: 2 passaram.
+- Suíte Flutter completa: 572 testes passaram.
+- Análise direcionada dos três arquivos Dart alterados: sem issues.
+- `git diff --check`: passou.
+- `flutter build web --release --no-pub`: passou. Os avisos do dry-run Wasm
+  continuam restritos às dependências já conhecidas.
+
+## Visual wave 19 — Study Groups
+
+### O que foi entregue
+
+- `study_groups_list_screen.dart` usa `GlassCard` nos cards e no estado vazio,
+  `StatusBadge` para o ciclo do grupo e `AppIcons` para ações, metadados,
+  visibilidade e participação.
+- `study_group_detail_screen.dart` organiza informações, lições e
+  participantes em superfícies compartilhadas, preservando abas, gates de
+  permissão, rotas e vínculo de líder.
+- `study_group_form_screen.dart` agrupa dados básicos, encontros e acesso/status
+  em `GlassCard`, com os mesmos payloads de criação e edição.
+- `lesson_detail_screen.dart` usa `GlassCard`, `StatusBadge` e semânticas do
+  catálogo para conteúdo e recursos externos.
+- Foi adicionada cobertura em
+  `test/features/study_groups/study_groups_visual_test.dart`, com quatro
+  cenários e repositório em memória.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios,
+persistência ou contratos de dados. Os ícones declarados no modelo de domínio
+continuam preservados; somente as telas foram migradas para o catálogo comum.
+
+### Verificação desta onda
+
+- Teste focado de Study Groups: **4 passaram**.
+- Suíte Flutter completa: **579 testes passaram**.
+- Análise direcionada das quatro telas e do teste: sem issues.
+- `git diff --check`: passou; os avisos de conversão LF/CRLF são do checkout
+  Windows e não apontam whitespace inválido.
+- `flutter build web --release --no-pub`: passou. Permanecem apenas os avisos
+  Wasm conhecidos de `audioplayers_web`, `dart:html`, `package:js` e `image`.
+
+### Estado e próximo passo
+
+Study Groups fica concluído nesta onda. O próximo recorte recomendado é a
+auditoria dos módulos de entrada/gestão ainda fora dos slices de alto tráfego,
+começando por `church_schedule` e `news`, sem ampliar o escopo funcional.
+
+## Visual wave 20 — Church Schedule e News
+
+Timestamp: 2026-09-25, America/Sao_Paulo (UTC-03).
+
+### O que foi entregue
+
+- `church_schedule_list_screen.dart` agora usa `GlassCard` nos cards, com
+  `StatusBadge` para ativa/inativa e `AppIcons` para agenda, metadados,
+  visibilidade e ações.
+- `church_schedule_form_screen.dart` agrupa o formulário em `GlassCard` e
+  usa o catálogo semântico nos campos de local, responsável, recorrência e
+  datas.
+- `news_screen.dart` usa `GlassCard` no card público, `StatusBadge` para a
+  publicação e `AppIcons` para navegação, mídia, calendário, local e retry.
+- `manage_news_screen.dart` usa `GlassCard` nos itens administrativos,
+  `StatusBadge` para publicada/rascunho e semânticas compartilhadas nas ações.
+- `news_form_screen.dart` organiza o formulário e seus blocos de data,
+  validade e publicação em superfícies de vidro, preservando os payloads e
+  permissões existentes.
+- A cobertura focada foi adicionada em
+  `test/features/church_schedule/church_schedule_news_visual_test.dart`, com
+  quatro cenários em memória e sem acesso à rede.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios,
+persistência ou contratos de dados. Notícias continuam usando `event` com
+`event_type = 'news'`.
+
+### Verificação desta onda
+
+- Teste focado: **4 passaram**.
+- Suíte Flutter completa: **583 testes passaram**.
+- Análise direcionada dos cinco screens e do teste: sem issues.
+- `git diff --check`: passou; os avisos restantes são apenas de conversão
+  LF/CRLF do checkout Windows.
+- `flutter build web --release --no-pub`: passou. Permanecem os avisos Wasm
+  conhecidos de `audioplayers_web`, `dart:html`, `package:js` e `image`.
+
+### Contagem restante
+
+Com Church Schedule e News concluídos, restam **10 recortes funcionais** para
+encerrar a auditoria visual: conteúdo rápido/institucional; testemunhos,
+pedidos de oração e devocionais; Bíblia e leitura; cursos e materiais de
+apoio; Kids/culto/transmissão; escalas e automações; pessoas auxiliares;
+administração/acesso; analytics/relatórios customizados; e entrada/apoio.
+O inventário atualizado registra **90 telas `screen.dart` pendentes** dentro
+desses grupos. O próximo recorte recomendado é `quick_news`, `testimonies` e
+`prayer_requests`.
+
+Os sete registradores Flutter gerados continuam locais, fora do staging e de
+qualquer commit.

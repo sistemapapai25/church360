@@ -2,10 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/study_group_provider.dart';
+import '../../domain/models/study_group.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/status_badge.dart';
+
+AppStatusTone _studyGroupStatusTone(StudyGroupStatus status) {
+  return switch (status) {
+    StudyGroupStatus.active => AppStatusTone.active,
+    StudyGroupStatus.completed => AppStatusTone.done,
+    StudyGroupStatus.paused ||
+    StudyGroupStatus.cancelled => AppStatusTone.dropped,
+  };
+}
 
 class StudyGroupsListScreen extends ConsumerWidget {
   final bool fromDashboard;
@@ -38,7 +51,7 @@ class StudyGroupsListScreen extends ConsumerWidget {
                 return const SizedBox.shrink();
               }
               return IconButton(
-                icon: const Icon(Icons.add),
+                icon: const Icon(AppIcons.add),
                 tooltip: 'Criar Grupo',
                 onPressed: () {
                   final route = fromDashboard
@@ -63,17 +76,16 @@ class StudyGroupsListScreen extends ConsumerWidget {
                   horizontal: 20,
                   vertical: 8,
                 ),
-                child: Container(
+                child: GlassCard(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 18,
                   ),
-                  decoration: CommunityDesign.overlayDecoration(cs),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.menu_book,
+                        AppIcons.study,
                         size: 56,
                         color: cs.primary.withValues(alpha: 0.28),
                       ),
@@ -107,263 +119,208 @@ class StudyGroupsListScreen extends ConsumerWidget {
               itemCount: studyGroups.length,
               itemBuilder: (context, index) {
                 final group = studyGroups[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: CommunityDesign.overlayDecoration(cs),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(CommunityDesign.radius),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          final route = fromDashboard
-                              ? '/study-groups/${group.id}?from=dashboard'
-                              : '/study-groups/${group.id}';
-                          context.push(route);
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: GlassCard(
+                    padding: EdgeInsets.zero,
+                    onTap: () {
+                      final route = fromDashboard
+                          ? '/study-groups/${group.id}?from=dashboard'
+                          : '/study-groups/${group.id}';
+                      context.push(route);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Cabeçalho
+                          Row(
                             children: [
-                              // Cabeçalho
-                              Row(
-                                children: [
-                                  // Ícone
-                                  Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color: group.status.color.withValues(
-                                        alpha: 0.1,
-                                      ),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Icon(
-                                      Icons.menu_book,
-                                      size: 20,
-                                      color: group.status.color,
-                                    ),
+                              // Ícone
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: group.status.color.withValues(
+                                    alpha: 0.1,
                                   ),
-                                  const SizedBox(width: 12),
-                                  // Nome e tópico
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          group.name,
-                                          style: CommunityDesign.titleStyle(
-                                            context,
-                                          ).copyWith(fontSize: 16),
-                                        ),
-                                        if (group.studyTopic != null) ...[
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            group.studyTopic!,
-                                            style:
-                                                CommunityDesign.metaStyle(
-                                                  context,
-                                                ).copyWith(
-                                                  color: cs.primary,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  PermissionBuilder(
-                                    permission: 'study_groups.edit',
-                                    loadingWidget: const SizedBox.shrink(),
-                                    builder: (context, hasPermission) {
-                                      if (!hasPermission) {
-                                        return const SizedBox.shrink();
-                                      }
-                                      return IconButton(
-                                        visualDensity: VisualDensity.compact,
-                                        tooltip: 'Editar grupo',
-                                        onPressed: () {
-                                          final route = fromDashboard
-                                              ? '/study-groups/${group.id}/edit?from=dashboard'
-                                              : '/study-groups/${group.id}/edit';
-                                          context.push(route);
-                                        },
-                                        icon: const Icon(
-                                          Icons.edit,
-                                          size: 18,
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  // Status
-                                  CommunityDesign.badge(
-                                    context,
-                                    group.status.displayName,
-                                    group.status.color,
-                                  ),
-                                ],
-                              ),
-
-                              // Descrição
-                              if (group.description != null) ...[
-                                const SizedBox(height: 12),
-                                Text(
-                                  group.description!,
-                                  style: CommunityDesign.contentStyle(context),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
-                              ],
-
-                              const SizedBox(height: 12),
-                              const Divider(),
-                              const SizedBox(height: 12),
-
-                              // Informações
-                              Row(
-                                children: [
-                                  // Horário
-                                  if (group.meetingDay != null &&
-                                      group.meetingTime != null) ...[
-                                    Icon(
-                                      Icons.schedule,
-                                      size: 14,
-                                      color: cs.onSurface.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${group.meetingDay}, ${group.meetingTime}',
-                                      style: CommunityDesign.metaStyle(context),
-                                    ),
-                                    const SizedBox(width: 16),
-                                  ],
-
-                                  // Local
-                                  if (group.meetingLocation != null) ...[
-                                    Icon(
-                                      Icons.place,
-                                      size: 14,
-                                      color: cs.onSurface.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        group.meetingLocation!,
-                                        style: CommunityDesign.metaStyle(
-                                          context,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                                child: Icon(
+                                  AppIcons.study,
+                                  size: 20,
+                                  color: group.status.color,
+                                ),
                               ),
-
-                              // Público/Privado
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Icon(
-                                    group.isPublic ? Icons.public : Icons.lock,
-                                    size: 14,
-                                    color: cs.onSurface.withValues(alpha: 0.4),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    group.isPublic ? 'Público' : 'Privado',
-                                    style: CommunityDesign.metaStyle(context),
-                                  ),
-                                  const Spacer(),
-                                  // Botão de participar
-                                  FutureBuilder(
-                                    future: ref
-                                        .read(studyGroupRepositoryProvider)
-                                        .getUserParticipation(
-                                          group.id,
-                                          currentMemberId ?? '',
-                                        ),
-                                    builder: (context, snapshot) {
-                                      if (snapshot.hasData &&
-                                          snapshot.data != null) {
-                                        return Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.green.withValues(
-                                              alpha: 0.1,
+                              const SizedBox(width: 12),
+                              // Nome e tópico
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      group.name,
+                                      style: CommunityDesign.titleStyle(
+                                        context,
+                                      ).copyWith(fontSize: 16),
+                                    ),
+                                    if (group.studyTopic != null) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        group.studyTopic!,
+                                        style:
+                                            CommunityDesign.metaStyle(
+                                              context,
+                                            ).copyWith(
+                                              color: cs.primary,
+                                              fontWeight: FontWeight.w600,
                                             ),
-                                            borderRadius: BorderRadius.circular(
-                                              20,
-                                            ),
-                                            border: Border.all(
-                                              color: Colors.green.withValues(
-                                                alpha: 0.2,
-                                              ),
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(
-                                                Icons.check_circle,
-                                                size: 14,
-                                                color: Colors.green,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                'Membro',
-                                                style:
-                                                    CommunityDesign.metaStyle(
-                                                      context,
-                                                    ).copyWith(
-                                                      color: Colors.green,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }
-                                      return TextButton.icon(
-                                        onPressed: () async {
-                                          final actions = ref.read(
-                                            studyGroupActionsProvider,
-                                          );
-                                          await actions.joinGroup(
-                                            group.id,
-                                            currentMemberId ?? '',
-                                          );
-                                          ref.invalidate(
-                                            activeStudyGroupsProvider,
-                                          );
-                                        },
-                                        icon: const Icon(
-                                          Icons.person_add,
-                                          size: 16,
-                                        ),
-                                        label: const Text('Participar'),
-                                        style: CommunityDesign.pillButtonStyle(
-                                          context,
-                                          cs.primary,
-                                        ),
-                                      );
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              PermissionBuilder(
+                                permission: 'study_groups.edit',
+                                loadingWidget: const SizedBox.shrink(),
+                                builder: (context, hasPermission) {
+                                  if (!hasPermission) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    tooltip: 'Editar grupo',
+                                    onPressed: () {
+                                      final route = fromDashboard
+                                          ? '/study-groups/${group.id}/edit?from=dashboard'
+                                          : '/study-groups/${group.id}/edit';
+                                      context.push(route);
                                     },
-                                  ),
-                                ],
+                                    icon: const Icon(AppIcons.edit, size: 18),
+                                  );
+                                },
+                              ),
+                              StatusBadge(
+                                label: group.status.displayName,
+                                tone: _studyGroupStatusTone(group.status),
                               ),
                             ],
                           ),
-                        ),
+
+                          // Descrição
+                          if (group.description != null) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              group.description!,
+                              style: CommunityDesign.contentStyle(context),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+
+                          const SizedBox(height: 12),
+                          const Divider(),
+                          const SizedBox(height: 12),
+
+                          // Informações
+                          Row(
+                            children: [
+                              // Horário
+                              if (group.meetingDay != null &&
+                                  group.meetingTime != null) ...[
+                                Icon(
+                                  AppIcons.schedule,
+                                  size: 14,
+                                  color: cs.onSurface.withValues(alpha: 0.5),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${group.meetingDay}, ${group.meetingTime}',
+                                  style: CommunityDesign.metaStyle(context),
+                                ),
+                                const SizedBox(width: 16),
+                              ],
+
+                              // Local
+                              if (group.meetingLocation != null) ...[
+                                Icon(
+                                  AppIcons.location,
+                                  size: 14,
+                                  color: cs.onSurface.withValues(alpha: 0.5),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    group.meetingLocation!,
+                                    style: CommunityDesign.metaStyle(context),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+
+                          // Público/Privado
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Icon(
+                                group.isPublic
+                                    ? AppIcons.public
+                                    : AppIcons.lock,
+                                size: 14,
+                                color: cs.onSurface.withValues(alpha: 0.4),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                group.isPublic ? 'Público' : 'Privado',
+                                style: CommunityDesign.metaStyle(context),
+                              ),
+                              const Spacer(),
+                              // Botão de participar
+                              FutureBuilder(
+                                future: ref
+                                    .read(studyGroupRepositoryProvider)
+                                    .getUserParticipation(
+                                      group.id,
+                                      currentMemberId ?? '',
+                                    ),
+                                builder: (context, snapshot) {
+                                  if (snapshot.hasData &&
+                                      snapshot.data != null) {
+                                    return StatusBadge.active(
+                                      label: 'Membro',
+                                      icon: AppIcons.checkCircle,
+                                    );
+                                  }
+                                  return TextButton.icon(
+                                    onPressed: () async {
+                                      final actions = ref.read(
+                                        studyGroupActionsProvider,
+                                      );
+                                      await actions.joinGroup(
+                                        group.id,
+                                        currentMemberId ?? '',
+                                      );
+                                      ref.invalidate(activeStudyGroupsProvider);
+                                    },
+                                    icon: const Icon(
+                                      AppIcons.personAdd,
+                                      size: 16,
+                                    ),
+                                    label: const Text('Participar'),
+                                    style: CommunityDesign.pillButtonStyle(
+                                      context,
+                                      cs.primary,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -377,7 +334,7 @@ class StudyGroupsListScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const Icon(AppIcons.error, size: 48, color: Colors.red),
               const SizedBox(height: 16),
               Text(
                 AppErrorHandler.userMessage(

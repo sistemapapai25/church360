@@ -23,7 +23,11 @@ um ajuste de inventário, não como uma remoção presumida.
 | Members | 207 | 4 | Slice completo: listagem, perfil e formulário migrados |
 | Visitors | 34 | 4 | Slice completo: listagem, registro de visita, follow-up e estatísticas migrados |
 | Ministries | 295 | 29 | Listagem, workspace compartilhado, detalhe/formulário, Batismo, Diaconato e Raízes migrados |
-| Events | 158 | 9 | Listagem, detalhe, formulário e registro migrados; diálogos/widgets especializados pendentes |
+| Events | 158 | 9 | Slice completo: listagem, detalhe, formulário, registro e diálogos/widgets migrados |
+| Groups | 98 | 6 | Slice completo: listagem, detalhe, formulários e reuniões migrados |
+| Study Groups | 62 | 5 | Slice completo: listagem, detalhe, formulário e lição migrados |
+| Church Schedule | 23 | 2 | Slice completo nesta onda: listagem e formulário migrados |
+| News | 33 | 3 | Slice completo nesta onda: leitura, gestão e formulário migrados |
 | Financeiro | 105 | 13 | Migrado nesta onda: telas, formulários, contas, categorias, comprovantes e widgets |
 | Financeiro legado | 53 | 5 | Migrado nesta onda: contribuições, despesas, metas e relatórios |
 | Community | 85 | 2 | Migrado nesta onda: shell, mural, classificados, membros e moderação; preservar Font Awesome |
@@ -53,13 +57,30 @@ Foram adicionados quatro testes de widget para proteger essas superfícies.
 
 ## Próximo recorte
 
-O recorte de Ministries agora cobre a listagem principal, a barra de busca, os
-cards, o shell do workspace, os tabs compartilhados de Equipe e Escala, o
-detalhe e o formulário de ministério. Rotas, permissões, consultas e
-submódulos especializados continuam preservados. O próximo recorte deve
-revisar os submódulos de alto tráfego antes de avançar para Events.
-Autenticação e dados reais continuam sendo limitações da validação visual
-local.
+Church Schedule e News foram concluídos nesta onda. O próximo recorte deve
+continuar pelos módulos de conteúdo e apoio que ainda não têm slice completo,
+começando por `quick_news`, `testimonies` e `prayer_requests`. Autenticação e
+dados reais continuam sendo limitações da validação visual local.
+
+### Contagem de encerramento
+
+Considerando cada grupo funcional abaixo como um recorte revisável, restam
+**10 recortes** para fechar a auditoria visual dos módulos ainda pendentes:
+
+1. Conteúdo rápido e institucional: `quick_news`, `home_content`, `church_info`.
+2. Comunidade de conteúdo: `testimonies`, `prayer_requests`, `devotionals`.
+3. Bíblia e leitura: `bible`, `reading_plans`.
+4. Formação: `courses`, `support_materials`.
+5. Crianças, culto e transmissão: `kids`, `worship`, `live_stream`.
+6. Escalas e automações: `schedule`, `dispatch`.
+7. Pessoas auxiliares: `tags`, `duplicates`, `access_levels`, `branches`.
+8. Administração e acesso: `permissions`, `notifications`, `qr_scanner`.
+9. Gestão analítica: `analytics`, `custom_reports`.
+10. Entrada e apoio: `auth`, `church_selector`, `support_chat`, `contribution`.
+
+São **90 telas `screen.dart` ainda pendentes** pelo inventário atual. O número
+de recortes é a unidade de planejamento; cada onda pode fechar vários módulos
+relacionados sem alterar rotas, permissões ou contratos de dados.
 
 ## Onda visual — Ministries, primeiro recorte
 
@@ -277,3 +298,51 @@ dados. Reports fica concluído nesta auditoria visual.
 
 Não houve alteração em banco, rotas, permissões, providers, repositórios ou
 contratos de dados.
+
+## Onda visual — Groups, listagem e detalhe
+
+- `groups_list_screen.dart` agora reutiliza `GlassCard` nos cards de grupo,
+  `StatusBadge` para o ciclo ativo/inativo e `AppIcons` para filtro, estados,
+  metadados e criação.
+- `group_detail_screen.dart` agora reutiliza `GlassCard` no cabeçalho, descrição,
+  membros, reuniões e materiais; o status do grupo e os controles dessas abas
+  usam os componentes e semânticas compartilhados.
+- O catálogo `AppIcons` ganhou semânticas para materiais e abas de grupo.
+- Foi adicionada cobertura focada em
+  `test/features/groups/groups_visual_surfaces_test.dart`, com providers em
+  memória e sem acesso à rede.
+
+## Onda visual — Groups, formulários
+
+- `group_form_screen.dart` agora organiza informações básicas, liderança e
+  reuniões em `GlassCard`, usa `StatusBadge` para o estado e `AppIcons` nas
+  ações e campos.
+- `meeting_form_screen.dart` reutiliza `GlassCard` para o grupo, a data e o
+  conteúdo da reunião, com ações e campos no catálogo semântico.
+- `visitor_form_dialog.dart` ganhou a superfície de vidro e `AppIcons` sem
+  alterar o fluxo de cadastro, permissões ou payload.
+- Foi adicionada cobertura focada em
+  `test/features/groups/groups_forms_visual_test.dart`.
+
+Não houve alteração em rotas, permissões, providers, repositórios,
+persistência ou contratos de dados.
+
+## Onda visual — Study Groups
+
+- `study_groups_list_screen.dart` agora reutiliza `GlassCard` nos cards e no
+  estado vazio, `StatusBadge` para o ciclo do grupo e `AppIcons` para ações,
+  metadados, visibilidade e participação.
+- `study_group_detail_screen.dart` organiza informações, lições,
+  participantes e estados em `GlassCard`, com abas, status, ações e papéis no
+  catálogo semântico.
+- `study_group_form_screen.dart` separa informações, encontros e acesso/status
+  em superfícies de vidro; o salvamento e as permissões permanecem iguais.
+- `lesson_detail_screen.dart` usa uma superfície de conteúdo, badge do ciclo da
+  lição e cards de recursos para vídeo, áudio e PDF.
+- Foi adicionada cobertura focada em
+  `test/features/study_groups/study_groups_visual_test.dart`, com repositório em
+  memória e quatro cenários sem acesso à rede.
+
+Não houve alteração em rotas, permissões, providers, repositórios,
+persistência ou contratos de dados. Os ícones declarados no modelo de domínio
+continuam preservados; as telas passaram a consumir o catálogo compartilhado.

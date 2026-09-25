@@ -5,7 +5,10 @@ import 'package:intl/intl.dart';
 import '../../domain/models/church_schedule.dart';
 import '../providers/church_schedule_provider.dart';
 import 'church_schedule_form_screen.dart';
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/pearl_fab.dart';
+import '../../../../core/widgets/status_badge.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
@@ -14,10 +17,12 @@ class ChurchScheduleListScreen extends ConsumerStatefulWidget {
   const ChurchScheduleListScreen({super.key});
 
   @override
-  ConsumerState<ChurchScheduleListScreen> createState() => _ChurchScheduleListScreenState();
+  ConsumerState<ChurchScheduleListScreen> createState() =>
+      _ChurchScheduleListScreenState();
 }
 
-class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScreen> {
+class _ChurchScheduleListScreenState
+    extends ConsumerState<ChurchScheduleListScreen> {
   bool _showInactive = false;
 
   @override
@@ -38,8 +43,10 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
         actions: [
           IconButton(
             icon: Icon(
-              _showInactive ? Icons.visibility : Icons.visibility_off,
-              color: _showInactive ? Theme.of(context).colorScheme.primary : null,
+              _showInactive ? AppIcons.visibility : AppIcons.visibilityOff,
+              color: _showInactive
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
             ),
             tooltip: _showInactive ? 'Ocultar inativos' : 'Mostrar inativos',
             onPressed: () {
@@ -58,9 +65,11 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.schedule_outlined,
+                    AppIcons.schedule,
                     size: 64,
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.5),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -71,7 +80,9 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
                   Text(
                     'Crie a primeira agenda da igreja',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
@@ -98,7 +109,9 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ChurchScheduleFormScreen(scheduleId: schedule.id),
+                              builder: (context) => ChurchScheduleFormScreen(
+                                scheduleId: schedule.id,
+                              ),
                             ),
                           );
                         }
@@ -115,7 +128,7 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const Icon(AppIcons.error, size: 64, color: Colors.red),
               const SizedBox(height: 16),
               Text('Erro ao carregar agendas: $error'),
               const SizedBox(height: 16),
@@ -141,21 +154,26 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
               ),
             );
           },
-          icon: Icons.add,
+          icon: AppIcons.add,
           label: 'Nova Agenda',
         ),
       ),
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, ChurchSchedule schedule) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    ChurchSchedule schedule,
+  ) async {
     final hasPermission = await ref.read(
       currentUserHasPermissionProvider('church_schedule.delete').future,
     );
     if (!hasPermission) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+          const SnackBar(
+            content: Text('Você não tem permissão para esta ação'),
+          ),
         );
       }
       return;
@@ -174,9 +192,7 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Excluir'),
           ),
         ],
@@ -193,9 +209,9 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erro ao excluir agenda: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Erro ao excluir agenda: $e')));
         }
       }
     }
@@ -208,7 +224,9 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
     if (!hasPermission) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+          const SnackBar(
+            content: Text('Você não tem permissão para esta ação'),
+          ),
         );
       }
       return;
@@ -223,18 +241,16 @@ class _ChurchScheduleListScreenState extends ConsumerState<ChurchScheduleListScr
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              schedule.isActive
-                  ? 'Agenda desativada'
-                  : 'Agenda ativada',
+              schedule.isActive ? 'Agenda desativada' : 'Agenda ativada',
             ),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao alterar status: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao alterar status: $e')));
       }
     }
   }
@@ -265,7 +281,130 @@ class _ScheduleCard extends StatelessWidget {
     final timeFormat = DateFormat('HH:mm');
 
     return Opacity(
-      opacity: schedule.isActive ? 1.0 : 0.5,
+      opacity: schedule.isActive ? 1.0 : 0.62,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: GlassCard(
+          onTap: onTap,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      schedule.title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  StatusBadge(
+                    label: schedule.isActive ? 'Ativa' : 'Inativa',
+                    tone: schedule.isActive
+                        ? AppStatusTone.active
+                        : AppStatusTone.dropped,
+                    icon: schedule.isActive
+                        ? AppIcons.visibility
+                        : AppIcons.visibilityOff,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                scheduleType.label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (schedule.description != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  schedule.description!,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(
+                    AppIcons.calendar,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    dateFormat.format(schedule.startDatetime),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(width: 16),
+                  Icon(
+                    AppIcons.accessTime,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${timeFormat.format(schedule.startDatetime)} - ${timeFormat.format(schedule.endDatetime)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+              if (schedule.location != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      AppIcons.location,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        schedule.location!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (canEdit) ...[
+                    TextButton.icon(
+                      onPressed: onToggleActive,
+                      icon: Icon(
+                        schedule.isActive
+                            ? AppIcons.visibilityOff
+                            : AppIcons.visibility,
+                        size: 18,
+                      ),
+                      label: Text(schedule.isActive ? 'Desativar' : 'Ativar'),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  if (canDelete)
+                    TextButton.icon(
+                      onPressed: onDelete,
+                      icon: const Icon(AppIcons.delete, size: 18),
+                      label: const Text('Excluir'),
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    /*
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
         child: InkWell(
@@ -390,6 +529,6 @@ class _ScheduleCard extends StatelessWidget {
         ),
       ),
     ),
-    );
+    ); */
   }
 }

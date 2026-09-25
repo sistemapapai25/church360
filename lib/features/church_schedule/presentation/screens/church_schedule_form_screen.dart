@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../domain/models/church_schedule.dart';
 import '../providers/church_schedule_provider.dart';
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
@@ -29,10 +31,12 @@ class ChurchScheduleFormScreen extends ConsumerStatefulWidget {
   const ChurchScheduleFormScreen({super.key, this.scheduleId});
 
   @override
-  ConsumerState<ChurchScheduleFormScreen> createState() => _ChurchScheduleFormScreenState();
+  ConsumerState<ChurchScheduleFormScreen> createState() =>
+      _ChurchScheduleFormScreenState();
 }
 
-class _ChurchScheduleFormScreenState extends ConsumerState<ChurchScheduleFormScreen> {
+class _ChurchScheduleFormScreenState
+    extends ConsumerState<ChurchScheduleFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -42,7 +46,10 @@ class _ChurchScheduleFormScreenState extends ConsumerState<ChurchScheduleFormScr
   DateTime _startDate = DateTime.now();
   TimeOfDay _startTime = TimeOfDay.now();
   DateTime _endDate = DateTime.now();
-  TimeOfDay _endTime = TimeOfDay(hour: TimeOfDay.now().hour + 1, minute: TimeOfDay.now().minute);
+  TimeOfDay _endTime = TimeOfDay(
+    hour: TimeOfDay.now().hour + 1,
+    minute: TimeOfDay.now().minute,
+  );
   String? _responsibleId;
   String _recurrenceType = 'none';
   DateTime? _recurrenceEndDate;
@@ -58,7 +65,9 @@ class _ChurchScheduleFormScreenState extends ConsumerState<ChurchScheduleFormScr
   }
 
   Future<void> _loadSchedule() async {
-    final schedule = await ref.read(churchScheduleByIdProvider(widget.scheduleId!).future);
+    final schedule = await ref.read(
+      churchScheduleByIdProvider(widget.scheduleId!).future,
+    );
     if (schedule != null && mounted) {
       setState(() {
         _titleController.text = schedule.title;
@@ -91,259 +100,286 @@ class _ChurchScheduleFormScreenState extends ConsumerState<ChurchScheduleFormScr
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.scheduleId == null ? 'Nova Agenda' : 'Editar Agenda'),
+        title: Text(
+          widget.scheduleId == null ? 'Nova Agenda' : 'Editar Agenda',
+        ),
       ),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Título
-            TextFormField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: 'Título *',
-                hintText: 'Ex: Ensaio do Louvor',
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Por favor, informe o título';
-                }
-                return null;
-              },
-            ),
+            GlassCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Título
+                  TextFormField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Título *',
+                      hintText: 'Ex: Ensaio do Louvor',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, informe o título';
+                      }
+                      return null;
+                    },
+                  ),
 
-            const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-            // Tipo
-            DropdownMenu<String>(
-              initialSelection: _scheduleType,
-              label: const Text('Tipo *'),
-              dropdownMenuEntries: ScheduleType.values
-                  .map((type) => DropdownMenuEntry<String>(value: type.value, label: type.label))
-                  .toList(),
-              onSelected: (value) {
-                if (value != null) {
-                  setState(() => _scheduleType = value);
-                }
-              },
-            ),
+                  // Tipo
+                  DropdownMenu<String>(
+                    initialSelection: _scheduleType,
+                    label: const Text('Tipo *'),
+                    dropdownMenuEntries: ScheduleType.values
+                        .map(
+                          (type) => DropdownMenuEntry<String>(
+                            value: type.value,
+                            label: type.label,
+                          ),
+                        )
+                        .toList(),
+                    onSelected: (value) {
+                      if (value != null) {
+                        setState(() => _scheduleType = value);
+                      }
+                    },
+                  ),
 
-            const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-            // Descrição
-            TextFormField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Descrição',
-                hintText: 'Detalhes sobre a atividade',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-            ),
+                  // Descrição
+                  TextFormField(
+                    controller: _descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Descrição',
+                      hintText: 'Detalhes sobre a atividade',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 3,
+                  ),
 
-            const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-            // Data e hora de início
-            Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: InkWell(
-                    onTap: () => _selectDate(context, true),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Data de Início *',
-                        border: OutlineInputBorder(),
+                  // Data e hora de início
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: InkWell(
+                          onTap: () => _selectDate(context, true),
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Data de Início *',
+                              border: OutlineInputBorder(),
+                            ),
+                            child: Text(
+                              DateFormat('dd/MM/yyyy').format(_startDate),
+                            ),
+                          ),
+                        ),
                       ),
-                      child: Text(
-                        DateFormat('dd/MM/yyyy').format(_startDate),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => _selectTime(context, true),
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Hora *',
+                              border: OutlineInputBorder(),
+                            ),
+                            child: Text(_startTime.format(context)),
+                          ),
+                        ),
                       ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Data e hora de fim
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: InkWell(
+                          onTap: () => _selectDate(context, false),
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Data de Término *',
+                              border: OutlineInputBorder(),
+                            ),
+                            child: Text(
+                              DateFormat('dd/MM/yyyy').format(_endDate),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => _selectTime(context, false),
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Hora *',
+                              border: OutlineInputBorder(),
+                            ),
+                            child: Text(_endTime.format(context)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Local
+                  TextFormField(
+                    controller: _locationController,
+                    decoration: const InputDecoration(
+                      labelText: 'Local',
+                      hintText: 'Ex: Templo Principal',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(AppIcons.location),
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _selectTime(context, true),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Hora *',
-                        border: OutlineInputBorder(),
-                      ),
-                      child: Text(
-                        _startTime.format(context),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
 
-            const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-            // Data e hora de fim
-            Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: InkWell(
-                    onTap: () => _selectDate(context, false),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Data de Término *',
-                        border: OutlineInputBorder(),
-                      ),
-                      child: Text(
-                        DateFormat('dd/MM/yyyy').format(_endDate),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _selectTime(context, false),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Hora *',
-                        border: OutlineInputBorder(),
-                      ),
-                      child: Text(
-                        _endTime.format(context),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+                  // Responsável
+                  membersAsync.when(
+                    data: (members) {
+                      final options = <_ResponsibleOption>[
+                        const _ResponsibleOption(null, 'Nenhum'),
+                        ...members.map(
+                          (member) =>
+                              _ResponsibleOption(member.id, member.displayName),
+                        ),
+                      ];
+                      final selectedOption = options.firstWhere(
+                        (option) => option.value == _responsibleId,
+                        orElse: () => options.first,
+                      );
 
-            const SizedBox(height: 16),
-
-            // Local
-            TextFormField(
-              controller: _locationController,
-              decoration: const InputDecoration(
-                labelText: 'Local',
-                hintText: 'Ex: Templo Principal',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.location_on),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Responsável
-            membersAsync.when(
-              data: (members) {
-                final options = <_ResponsibleOption>[
-                  const _ResponsibleOption(null, 'Nenhum'),
-                  ...members.map((member) => _ResponsibleOption(member.id, member.displayName)),
-                ];
-                final selectedOption = options.firstWhere(
-                  (option) => option.value == _responsibleId,
-                  orElse: () => options.first,
-                );
-
-                return DropdownMenu<_ResponsibleOption>(
-                  initialSelection: selectedOption,
-                  label: const Text('Responsável'),
-                  leadingIcon: const Icon(Icons.person),
-                  dropdownMenuEntries: options
-                    .map((option) => DropdownMenuEntry<_ResponsibleOption>(
-                      value: option,
-                      label: option.label,
-                    ))
-                    .toList(),
-                  onSelected: (option) {
-                    setState(() => _responsibleId = option?.value);
-                  },
-                );
-              },
-              loading: () => const LinearProgressIndicator(),
-              error: (_, __) => const SizedBox.shrink(),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Recorrência
-            DropdownMenu<String>(
-              initialSelection: _recurrenceType,
-              label: const Text('Recorrência'),
-              leadingIcon: const Icon(Icons.repeat),
-              dropdownMenuEntries: RecurrenceType.values
-                  .map((type) => DropdownMenuEntry<String>(value: type.value, label: type.label))
-                  .toList(),
-              onSelected: (value) {
-                if (value != null) {
-                  setState(() => _recurrenceType = value);
-                }
-              },
-            ),
-
-            if (_recurrenceType != 'none') ...[
-              const SizedBox(height: 16),
-              InkWell(
-                onTap: () => _selectRecurrenceEndDate(context),
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Repetir até',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.event),
-                  ),
-                  child: Text(
-                    _recurrenceEndDate != null
-                        ? DateFormat('dd/MM/yyyy').format(_recurrenceEndDate!)
-                        : 'Sem data final',
-                  ),
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 16),
-
-            // Status ativo/inativo
-            SwitchListTile(
-              title: const Text('Ativo'),
-              subtitle: Text(_isActive ? 'Agenda visível' : 'Agenda oculta'),
-              value: _isActive,
-              onChanged: (value) {
-                setState(() => _isActive = value);
-              },
-            ),
-
-            const SizedBox(height: 24),
-
-            // Botões
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancelar'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: DisabledByPermission(
-                    permission: widget.scheduleId == null
-                        ? 'church_schedule.create'
-                        : 'church_schedule.edit',
-                    disabledTooltip: 'Você não tem permissão para esta ação',
-                    child: FilledButton(
-                      onPressed: _isLoading ? null : _saveSchedule,
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                      return DropdownMenu<_ResponsibleOption>(
+                        initialSelection: selectedOption,
+                        label: const Text('Responsável'),
+                        leadingIcon: const Icon(AppIcons.person),
+                        dropdownMenuEntries: options
+                            .map(
+                              (option) => DropdownMenuEntry<_ResponsibleOption>(
+                                value: option,
+                                label: option.label,
+                              ),
                             )
-                          : const Text('Salvar'),
-                    ),
+                            .toList(),
+                        onSelected: (option) {
+                          setState(() => _responsibleId = option?.value);
+                        },
+                      );
+                    },
+                    loading: () => const LinearProgressIndicator(),
+                    error: (_, __) => const SizedBox.shrink(),
                   ),
-                ),
-              ],
+
+                  const SizedBox(height: 16),
+
+                  // Recorrência
+                  DropdownMenu<String>(
+                    initialSelection: _recurrenceType,
+                    label: const Text('Recorrência'),
+                    leadingIcon: const Icon(AppIcons.repeat),
+                    dropdownMenuEntries: RecurrenceType.values
+                        .map(
+                          (type) => DropdownMenuEntry<String>(
+                            value: type.value,
+                            label: type.label,
+                          ),
+                        )
+                        .toList(),
+                    onSelected: (value) {
+                      if (value != null) {
+                        setState(() => _recurrenceType = value);
+                      }
+                    },
+                  ),
+
+                  if (_recurrenceType != 'none') ...[
+                    const SizedBox(height: 16),
+                    InkWell(
+                      onTap: () => _selectRecurrenceEndDate(context),
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Repetir até',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(AppIcons.event),
+                        ),
+                        child: Text(
+                          _recurrenceEndDate != null
+                              ? DateFormat(
+                                  'dd/MM/yyyy',
+                                ).format(_recurrenceEndDate!)
+                              : 'Sem data final',
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 16),
+
+                  // Status ativo/inativo
+                  SwitchListTile(
+                    title: const Text('Ativo'),
+                    subtitle: Text(
+                      _isActive ? 'Agenda visível' : 'Agenda oculta',
+                    ),
+                    value: _isActive,
+                    onChanged: (value) {
+                      setState(() => _isActive = value);
+                    },
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Botões
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancelar'),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: DisabledByPermission(
+                          permission: widget.scheduleId == null
+                              ? 'church_schedule.create'
+                              : 'church_schedule.edit',
+                          disabledTooltip:
+                              'Você não tem permissão para esta ação',
+                          child: FilledButton(
+                            onPressed: _isLoading ? null : _saveSchedule,
+                            child: _isLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text('Salvar'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -390,7 +426,8 @@ class _ChurchScheduleFormScreenState extends ConsumerState<ChurchScheduleFormScr
   Future<void> _selectRecurrenceEndDate(BuildContext context) async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _recurrenceEndDate ?? _startDate.add(const Duration(days: 30)),
+      initialDate:
+          _recurrenceEndDate ?? _startDate.add(const Duration(days: 30)),
       firstDate: _startDate,
       lastDate: DateTime(2030),
     );
@@ -414,7 +451,9 @@ class _ChurchScheduleFormScreenState extends ConsumerState<ChurchScheduleFormScr
     if (!hasPermission) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+          const SnackBar(
+            content: Text('Você não tem permissão para esta ação'),
+          ),
         );
       }
       return;
@@ -442,11 +481,15 @@ class _ChurchScheduleFormScreenState extends ConsumerState<ChurchScheduleFormScr
       final schedule = ChurchSchedule(
         id: widget.scheduleId ?? '',
         title: _titleController.text,
-        description: _descriptionController.text.isEmpty ? null : _descriptionController.text,
+        description: _descriptionController.text.isEmpty
+            ? null
+            : _descriptionController.text,
         scheduleType: _scheduleType,
         startDatetime: startDatetime,
         endDatetime: endDatetime,
-        location: _locationController.text.isEmpty ? null : _locationController.text,
+        location: _locationController.text.isEmpty
+            ? null
+            : _locationController.text,
         responsibleId: _responsibleId,
         recurrenceType: _recurrenceType,
         recurrenceEndDate: _recurrenceEndDate,
@@ -456,7 +499,10 @@ class _ChurchScheduleFormScreenState extends ConsumerState<ChurchScheduleFormScr
       if (widget.scheduleId == null) {
         await ref.read(createChurchScheduleProvider)(schedule);
       } else {
-        await ref.read(updateChurchScheduleProvider)(widget.scheduleId!, schedule);
+        await ref.read(updateChurchScheduleProvider)(
+          widget.scheduleId!,
+          schedule,
+        );
       }
 
       if (mounted) {
@@ -473,9 +519,9 @@ class _ChurchScheduleFormScreenState extends ConsumerState<ChurchScheduleFormScr
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao salvar agenda: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao salvar agenda: $e')));
       }
     } finally {
       if (mounted) {
