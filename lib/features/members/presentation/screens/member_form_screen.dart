@@ -9,8 +9,10 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/services/viacep_service.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../providers/members_provider.dart';
 import '../../data/members_repository.dart';
 import '../../data/family_relationships_repository.dart';
@@ -1033,19 +1035,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
   Widget _buildGuardianLinkSection(BuildContext context) {
     final showError = _guardianLinkTouched && _selectedGuardianMember == null;
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-        border: showError ? Border.all(color: Colors.red) : null,
-      ),
+      accentColor: showError ? Colors.red : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.family_restroom, size: 18),
+              const Icon(AppIcons.family, size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -1103,7 +1101,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                   decoration: const InputDecoration(
                                     border: OutlineInputBorder(),
                                     labelText: 'Buscar responsável',
-                                    prefixIcon: Icon(Icons.search),
+                                    prefixIcon: Icon(AppIcons.search),
                                     helperText:
                                         'Digite 3 letras ou mais para buscar',
                                   ),
@@ -1243,7 +1241,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           ).copyWith(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.back),
           onPressed: () => context.pop(),
         ),
         actions: [
@@ -1266,7 +1264,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     child: Center(
                       child: ElevatedButton.icon(
                         onPressed: _saveMember,
-                        icon: const Icon(Icons.check, size: 18),
+                        icon: const Icon(AppIcons.check, size: 18),
                         label: const Text('Salvar'),
                         style: CommunityDesign.pillButtonStyle(
                           context,
@@ -1284,7 +1282,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       child: Center(
                         child: ElevatedButton.icon(
                           onPressed: _saveMember,
-                          icon: const Icon(Icons.check, size: 18),
+                          icon: const Icon(AppIcons.check, size: 18),
                           label: const Text('Salvar'),
                           style: CommunityDesign.pillButtonStyle(
                             context,
@@ -1310,7 +1308,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     _buildCollapsibleSection(
                       'Dados Pessoais',
                       sectionKey: 'personal',
-                      icon: Icons.badge,
+                      icon: AppIcons.badge,
                       children: [
                         TextFormField(
                           controller: _firstNameController,
@@ -1626,7 +1624,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       _buildCollapsibleSection(
                         'Vínculos Familiares',
                         sectionKey: 'family',
-                        icon: Icons.family_restroom,
+                        icon: AppIcons.family,
                         children: [_buildFamilyRelationshipsSection(context)],
                       ),
                       const SizedBox(height: 24),
@@ -1635,7 +1633,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     _buildCollapsibleSection(
                       'Endereço',
                       sectionKey: 'address',
-                      icon: Icons.location_on,
+                      icon: AppIcons.location,
                       children: [
                         // CEP
                         TextFormField(
@@ -1769,7 +1767,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     _buildCollapsibleSection(
                       'Informações Eclesiásticas',
                       sectionKey: 'church',
-                      icon: Icons.church,
+                      icon: AppIcons.church,
                       children: [
                         const SizedBox(height: 16),
 
@@ -2024,7 +2022,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                     _buildCollapsibleSection(
                       'Observações',
                       sectionKey: 'notes',
-                      icon: Icons.note_outlined,
+                      icon: AppIcons.note,
                       children: [
                         const SizedBox(height: 16),
 
@@ -2455,15 +2453,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     final isExpanded = _expandedFormSections.contains(sectionKey);
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
+    return GlassCard(
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

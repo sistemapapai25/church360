@@ -1230,3 +1230,41 @@ de navegação.
 - `test/core/screens/reports/reports_visual_surfaces_test.dart`
 - `docs/VISUAL-MATERIAL-INVENTORY.md`
 - `SESSION-WRAP.md`
+
+## Visual wave 17 — Members, perfil/formulário + dock Liquid Glass
+
+Timestamp: 2026-09-25, America/Sao_Paulo (UTC-03).
+
+### O que foi entregue
+
+- `member_profile_screen.dart` agora reutiliza `GlassCard` nas seções
+  recolhíveis do perfil e usa `AppIcons` nos controles principais, foto,
+  alertas e jornada, sem alterar os fluxos de LGPD, família, tags, liderança
+  ou QR Code.
+- `member_form_screen.dart` agora reutiliza `GlassCard` nas seções recolhíveis
+  e no vínculo obrigatório de responsável para menores. Validação, permissões,
+  busca de CEP e salvamento permanecem os mesmos.
+- `pearl_glass_dock.dart` recebeu a cápsula flutuante Liquid Glass, com blur,
+  borda translúcida, sombra, limite de largura e ancoragem ao viewport inferior.
+  O teste do dock cobre a altura total incluindo o espaço seguro inferior.
+- Foi adicionada cobertura focada em
+  `test/features/members/members_visual_surfaces_test.dart`.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios ou
+contratos de dados. Os sete registradores Flutter gerados continuam locais e
+fora do staging.
+
+### Verificação desta onda
+
+- Teste focado de Members: 2 passaram.
+- Análise direcionada dos dois screens e do teste: sem novos erros; os quatro
+  apontamentos restantes são infos/warnings preexistentes do perfil.
+- `git diff --check`: passou.
+
+### Estado e próximo passo
+
+- A branch contém os commits locais do dock `5ab1c1a` e `68e53ef`, além deste
+  recorte de Members. Eles devem seguir juntos para uma PR única.
+- O próximo recorte pendente no inventário é a conclusão dos diálogos/widgets
+  especializados de Events; depois disso a auditoria visual de alta prioridade
+  fica encerrada, salvo novas telas incluídas no produto.
