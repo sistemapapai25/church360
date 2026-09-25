@@ -20,14 +20,14 @@ um ajuste de inventário, não como uma remoção presumida.
 
 | Área | Referências | Arquivos | Situação nesta onda |
 | --- | ---: | ---: | --- |
-| Members | 207 | 4 | Listagem migrada; perfil e formulário ainda pendentes |
+| Members | 207 | 4 | Slice completo: listagem, perfil e formulário migrados |
 | Visitors | 34 | 4 | Slice completo: listagem, registro de visita, follow-up e estatísticas migrados |
 | Ministries | 295 | 29 | Listagem, workspace compartilhado, detalhe/formulário, Batismo, Diaconato e Raízes migrados |
 | Events | 158 | 9 | Listagem, detalhe, formulário e registro migrados; diálogos/widgets especializados pendentes |
 | Financeiro | 105 | 13 | Migrado nesta onda: telas, formulários, contas, categorias, comprovantes e widgets |
 | Financeiro legado | 53 | 5 | Migrado nesta onda: contribuições, despesas, metas e relatórios |
 | Community | 85 | 2 | Migrado nesta onda: shell, mural, classificados, membros e moderação; preservar Font Awesome |
-| Reports (`core/screens/reports`) | 57 | 8 | Primeiro recorte nesta onda: Presença, Eventos e Grupos migrados; demais relatórios pendentes |
+| Reports (`core/screens/reports`) | 57 | 8 | Slice completo: oito relatórios migrados |
 
 Os números por área são referências textuais e podem incluir símbolos que
 serão classificados como específicos de uma tela, além dos símbolos que podem
@@ -260,3 +260,20 @@ contratos dos três relatórios deste primeiro recorte.
 
 Não houve alteração em banco, rotas, permissões, consultas ou modelos de
 dados. Reports fica concluído nesta auditoria visual.
+
+## Onda visual — Members, perfil e formulário
+
+- `member_profile_screen.dart` agora usa `GlassCard` nas seções recolhíveis do
+  perfil, preservando a expansão sob demanda, os fluxos de LGPD, família,
+  tags, liderança e QR Code.
+- `member_form_screen.dart` agora usa `GlassCard` nas seções recolhíveis do
+  cadastro e no vínculo obrigatório de responsável para menores, preservando
+  validação, permissões, busca de CEP, família e salvamento.
+- Os controles principais e símbolos de foto, navegação, alerta, jornada e
+  cadastro passaram a consumir semânticas já existentes em `AppIcons`.
+- O dock inferior recebeu o refinamento visual Liquid Glass em dois commits
+  locais: cápsula flutuante, ancoragem ao viewport e teste de altura. Essa
+  alteração acompanha esta onda para ser entregue junto com Members.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios ou
+contratos de dados.

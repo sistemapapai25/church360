@@ -10,7 +10,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/onboarding/onboarding_tour_prefs.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/spotlight_tour.dart';
 import '../../../devotionals/presentation/providers/devotional_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
@@ -50,25 +52,25 @@ const List<_LgpdRequestOption> _lgpdRequestOptions = [
     type: 'export',
     title: 'Exportação de dados',
     subtitle: 'Solicitar cópia dos dados pessoais tratados',
-    icon: Icons.download_outlined,
+    icon: AppIcons.download,
   ),
   _LgpdRequestOption(
     type: 'deletion',
     title: 'Exclusão de dados',
     subtitle: 'Solicitar remoção de dados quando aplicável',
-    icon: Icons.delete,
+    icon: AppIcons.delete,
   ),
   _LgpdRequestOption(
     type: 'anonymization',
     title: 'Anonimização',
     subtitle: 'Solicitar anonimização dos dados pessoais',
-    icon: Icons.visibility_off_outlined,
+    icon: AppIcons.visibilityOff,
   ),
   _LgpdRequestOption(
     type: 'retention',
     title: 'Retenção',
     subtitle: 'Solicitar informação/ajuste de prazo de retenção',
-    icon: Icons.history_toggle_off_outlined,
+    icon: AppIcons.history,
   ),
 ];
 
@@ -203,7 +205,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         child: Wrap(
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library),
+              leading: const Icon(AppIcons.photoLibrary),
               title: const Text('Escolher da Galeria'),
               onTap: () async {
                 Navigator.pop(context);
@@ -219,7 +221,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.camera_alt),
+              leading: const Icon(AppIcons.camera),
               title: const Text('Tirar Foto'),
               onTap: () async {
                 Navigator.pop(context);
@@ -235,7 +237,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.cancel),
+              leading: const Icon(AppIcons.cancel),
               title: const Text('Cancelar'),
               onTap: () => Navigator.pop(context),
             ),
@@ -377,7 +379,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const Icon(AppIcons.error, size: 64, color: Colors.red),
                   const SizedBox(height: 16),
                   Text(
                     'Erro ao carregar perfil',
@@ -534,7 +536,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           // Pendências do Cadastro
           _buildSection(
             context,
-            icon: Icons.warning_amber,
+            icon: AppIcons.warningAmber,
             title: 'Pendências do Cadastro',
             sectionKey: 'pendencias',
             iconColor: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1380,7 +1382,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back),
+                  icon: const Icon(AppIcons.back),
                   onPressed: () => context.pop(),
                   style: IconButton.styleFrom(
                     backgroundColor: colorScheme.surfaceContainerHighest
@@ -1393,7 +1395,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                 const SizedBox(width: 4),
                 IconButton(
                   key: _tourSenhaKey,
-                  icon: const Icon(Icons.lock_outline),
+                  icon: const Icon(AppIcons.lock),
                   onPressed: () => context.push('/profile/change-password'),
                   tooltip: 'Alterar senha',
                   style: IconButton.styleFrom(
@@ -1406,7 +1408,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                 const SizedBox(width: 4),
                 IconButton(
                   key: _tourEditarKey,
-                  icon: const Icon(Icons.edit),
+                  icon: const Icon(AppIcons.edit),
                   onPressed: () => context.push('/members/$_memberId/edit'),
                   tooltip: 'Editar Meu Perfil',
                   style: IconButton.styleFrom(
@@ -1423,7 +1425,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                       : 'members.delete',
                   showLoading: false,
                   child: IconButton(
-                    icon: const Icon(Icons.delete),
+                    icon: const Icon(AppIcons.delete),
                     onPressed: () => _showDeleteDialog(context, ref),
                     tooltip: 'Deletar Membro',
                     style: IconButton.styleFrom(
@@ -1543,7 +1545,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                 ),
               ),
               child: Icon(
-                Icons.camera_alt,
+                AppIcons.camera,
                 size: 12,
                 color: colorScheme.onPrimary,
               ),
@@ -1578,7 +1580,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.warning_amber,
+                AppIcons.warningAmber,
                 color: Color(0xFFE67E22),
                 size: 18,
               ),
@@ -1656,7 +1658,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.timeline_outlined,
+                  AppIcons.trendingUp,
                   size: 18,
                   color: colorScheme.primary,
                 ),
@@ -1680,7 +1682,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             children: [
               Expanded(
                 child: _JourneyMiniStat(
-                  icon: Icons.local_fire_department_outlined,
+                  icon: AppIcons.autoAwesome,
                   label: 'Sequência',
                   value: streakAsync.when(
                     data: (value) => '$value',
@@ -1692,7 +1694,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               const SizedBox(width: _sectionGap),
               Expanded(
                 child: _JourneyMiniStat(
-                  icon: Icons.check_circle,
+                  icon: AppIcons.checkCircle,
                   label: 'Leituras',
                   value: totalAsync.when(
                     data: (value) => '$value',
@@ -1704,7 +1706,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               const SizedBox(width: _sectionGap),
               Expanded(
                 child: _JourneyMiniStat(
-                  icon: Icons.menu_book_outlined,
+                  icon: AppIcons.book,
                   label: 'Devocionais',
                   value: devotionalCount?.toString() ?? '—',
                 ),
@@ -2500,7 +2502,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back),
+                  icon: const Icon(AppIcons.back),
                   onPressed: () => context.pop(),
                   style: IconButton.styleFrom(
                     backgroundColor: colorScheme.surfaceContainerHighest
@@ -2516,7 +2518,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                           : 'members.edit',
                       showLoading: false,
                       child: IconButton(
-                        icon: const Icon(Icons.edit),
+                        icon: const Icon(AppIcons.edit),
                         onPressed: () =>
                             context.push('/members/$_memberId/edit'),
                         tooltip: 'Editar Informações',
@@ -2776,91 +2778,90 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     final isExpanded = _expandedSections.contains(sectionKey);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: _pagePadding),
-      decoration: CommunityDesign.overlayDecoration(
-        colorScheme,
-      ).copyWith(borderRadius: BorderRadius.circular(_cardRadius)),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () => setState(() {
-              if (isExpanded) {
-                _expandedSections.remove(sectionKey);
-              } else {
-                _expandedSections.add(sectionKey);
-              }
-            }),
-            child: Padding(
-              padding: const EdgeInsets.all(_cardPadding),
-              child: Row(
-                children: [
-                  Container(
-                    width: _iconBubbleSize,
-                    height: _iconBubbleSize,
-                    decoration: BoxDecoration(
-                      color:
-                          iconBackgroundColor ??
-                          colorScheme.primary.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      icon,
-                      size: 20,
-                      color: iconColor ?? colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: CommunityDesign.titleStyle(context).copyWith(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: titleColor,
+      child: GlassCard(
+        padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: () => setState(() {
+                if (isExpanded) {
+                  _expandedSections.remove(sectionKey);
+                } else {
+                  _expandedSections.add(sectionKey);
+                }
+              }),
+              child: Padding(
+                padding: const EdgeInsets.all(_cardPadding),
+                child: Row(
+                  children: [
+                    Container(
+                      width: _iconBubbleSize,
+                      height: _iconBubbleSize,
+                      decoration: BoxDecoration(
+                        color:
+                            iconBackgroundColor ??
+                            colorScheme.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        icon,
+                        size: 20,
+                        color: iconColor ?? colorScheme.primary,
                       ),
                     ),
-                  ),
-                  AnimatedRotation(
-                    turns: isExpanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(
-                      Icons.keyboard_arrow_down,
-                      color: colorScheme.onSurfaceVariant,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: CommunityDesign.titleStyle(context).copyWith(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: titleColor,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                    AnimatedRotation(
+                      turns: isExpanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        Icons.keyboard_arrow_down,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          AnimatedCrossFade(
-            firstChild: const SizedBox(width: double.infinity),
-            secondChild: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                _cardPadding,
-                0,
-                _cardPadding,
-                _cardPadding,
+            AnimatedCrossFade(
+              firstChild: const SizedBox(width: double.infinity),
+              secondChild: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  _cardPadding,
+                  0,
+                  _cardPadding,
+                  _cardPadding,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Divider(
+                      height: 1,
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+                    ),
+                    const SizedBox(height: 12),
+                    child,
+                  ],
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Divider(
-                    height: 1,
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.2),
-                  ),
-                  const SizedBox(height: 12),
-                  child,
-                ],
-              ),
+              crossFadeState: isExpanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 200),
+              sizeCurve: Curves.easeInOut,
             ),
-            crossFadeState: isExpanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 200),
-            sizeCurve: Curves.easeInOut,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
