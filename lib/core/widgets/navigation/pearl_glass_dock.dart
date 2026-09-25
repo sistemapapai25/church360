@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 
-/// Superfície inferior de vidro fosco usada pela navegação principal.
+/// Dock flutuante de vidro fosco usada pela navegação principal.
 ///
-/// A barra mantém a sensação de profundidade do app, mas deixa a cor para
-/// a hierarquia de navegação: itens inativos são neutros e somente o item
-/// selecionado recebe o azul institucional.
+/// A forma de cápsula, o espaço ao redor e o desfoque seguem a referência
+/// visual do Instagram, mas continuam usando os tokens do Church360. A barra
+/// não encosta nas bordas da tela para que o conteúdo permaneça visível por
+/// trás do vidro.
 class PearlGlassDock extends StatelessWidget {
   final List<Widget> children;
   final bool dark;
@@ -17,36 +18,66 @@ class PearlGlassDock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final baseColor = dark
-        ? AppTheme.darkSurface.withValues(alpha: 0.92)
-        : AppTheme.card.withValues(alpha: 0.92);
-    final topBorder = dark
-        ? AppTheme.darkRing.withValues(alpha: 0.35)
-        : AppTheme.primary.withValues(alpha: 0.24);
-    final shadowColor = Colors.black.withValues(alpha: dark ? 0.30 : 0.10);
+    final borderColor = dark
+        ? Colors.white.withValues(alpha: 0.16)
+        : Colors.white.withValues(alpha: 0.78);
+    final shadowColor = Colors.black.withValues(alpha: dark ? 0.34 : 0.14);
+    final gradient = dark
+        ? [
+            AppTheme.darkSurface.withValues(alpha: 0.82),
+            const Color(0xFF070B12).withValues(alpha: 0.90),
+          ]
+        : [
+            Colors.white.withValues(alpha: 0.86),
+            AppTheme.muted.withValues(alpha: 0.78),
+          ];
 
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          height: 76,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: baseColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            border: Border(top: BorderSide(color: topBorder, width: 1)),
-            boxShadow: [
-              BoxShadow(
-                color: shadowColor,
-                blurRadius: 22,
-                offset: const Offset(0, -6),
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(36),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+              child: Container(
+                height: 76,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: gradient,
+                  ),
+                  borderRadius: BorderRadius.circular(36),
+                  border: Border.all(color: borderColor, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: shadowColor,
+                      blurRadius: 24,
+                      spreadRadius: 1,
+                      offset: const Offset(0, 8),
+                    ),
+                    if (dark)
+                      BoxShadow(
+                        color: AppTheme.darkRing.withValues(alpha: 0.08),
+                        blurRadius: 18,
+                        spreadRadius: -4,
+                        offset: const Offset(0, -2),
+                      ),
+                  ],
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: children,
+                ),
               ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: children,
+            ),
           ),
         ),
       ),
@@ -111,15 +142,13 @@ class _PearlDockItemState extends State<PearlDockItem> {
     const width = 46.0;
     const height = 40.0;
     final selectedSurface = widget.dark
-        ? AppTheme.primary.withValues(alpha: 0.24)
-        : AppTheme.accent.withValues(alpha: 0.94);
+        ? Colors.white.withValues(alpha: 0.14)
+        : AppTheme.accent.withValues(alpha: 0.90);
     final hoverSurface = widget.dark
         ? Colors.white.withValues(alpha: 0.07)
         : const Color(0xFFF1F5F9).withValues(alpha: 0.92);
     final borderColor = widget.selected
-        ? (widget.dark ? AppTheme.darkRing : AppTheme.primary).withValues(
-            alpha: 0.72,
-          )
+        ? Colors.white.withValues(alpha: widget.dark ? 0.20 : 0.62)
         : Colors.transparent;
     final iconColor = widget.selected
         ? widget.color
