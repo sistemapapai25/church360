@@ -1395,3 +1395,48 @@ qualquer commit.
 - A validação final registrou 583 testes passando e build web release concluído.
 - O próximo agente deve iniciar pelo recorte `quick_news`, `testimonies` e
   `prayer_requests`; não repetir as ondas 17–20 nem declarar a cascata encerrada.
+
+## Visual wave 21 — Quick News, Testimonies e Prayer Requests
+
+Timestamp: 2026-09-25, America/Sao_Paulo (UTC-03).
+
+### O que foi entregue
+
+- `quick_news_list_screen.dart` migrou cards e estados para `GlassCard`, o
+  ciclo ativo/inativo/expirado para `StatusBadge` e as ações para `AppIcons`.
+- `quick_news_form_screen.dart` passou a separar dados, imagem e publicação em
+  superfícies `GlassCard`, preservando upload, validade, permissões e payloads.
+- `testimonies_list_screen.dart` migrou cards e visibilidade para os componentes
+  compartilhados; `testimony_form_screen.dart` agrupou campos e switches em
+  superfícies de vidro e adotou semânticas do catálogo.
+- `prayer_requests_list_screen.dart` migrou filtros, cards, estados vazios e
+  status; `prayer_request_detail_screen.dart` organizou cabeçalho, métricas e
+  mensagem em `GlassCard`; `prayer_request_form_screen.dart` agrupou os campos
+  e adotou `AppIcons`.
+- Foi adicionada cobertura focada em
+  `test/features/content/prayer_testimonies_quick_news_visual_test.dart`, com
+  quatro cenários em memória para listas, formulários e detalhe de oração.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios,
+upload, persistência ou contratos de dados. Os emojis persistidos dos enums de
+oração continuam usados nos menus; somente os ícones Material de interface
+foram centralizados.
+
+### Verificação desta onda
+
+- Teste focado: **4 passaram**.
+- Suíte Flutter completa: **587 testes passaram**.
+- Análise direcionada dos sete screens e do teste: sem issues.
+- `git diff --check`: passou; os avisos de conversão LF/CRLF são do checkout
+  Windows.
+- `flutter build web --release --no-pub`: passou. Permanecem apenas os avisos
+  Wasm conhecidos de `audioplayers_web`, `dart:html`, `package:js` e `image`.
+- A validação foi automatizada, com dados em memória; a validação autenticada
+  em produção continua limitada pelo SSO da Vercel neste ambiente.
+
+### Estado e próximo passo
+
+Esta onda conclui as telas de `quick_news`, `testimonies` e `prayer_requests`.
+Pelo inventário de `screen.dart`, a estimativa cai de 90 para **83 telas
+pendentes**. O próximo recorte recomendado é `home_content`, `church_info` e
+`devotionals`. Não declarar a cascata encerrada.

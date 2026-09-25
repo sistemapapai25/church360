@@ -5,7 +5,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../providers/quick_news_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
@@ -17,7 +19,8 @@ class QuickNewsFormScreen extends ConsumerStatefulWidget {
   const QuickNewsFormScreen({super.key, this.newsId});
 
   @override
-  ConsumerState<QuickNewsFormScreen> createState() => _QuickNewsFormScreenState();
+  ConsumerState<QuickNewsFormScreen> createState() =>
+      _QuickNewsFormScreenState();
 }
 
 class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
@@ -60,9 +63,9 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao carregar aviso: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao carregar aviso: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -90,18 +93,16 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
       final fileExt = _selectedImage!.path.split('.').last.toLowerCase();
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
       final filePath = 'quick-news/$fileName';
-      final contentType =
-          (fileExt == 'jpg' || fileExt == 'jpeg') ? 'image/jpeg' : 'image/$fileExt';
+      final contentType = (fileExt == 'jpg' || fileExt == 'jpeg')
+          ? 'image/jpeg'
+          : 'image/$fileExt';
 
       await Supabase.instance.client.storage
           .from('church-assets')
           .uploadBinary(
             filePath,
             bytes,
-            fileOptions: FileOptions(
-              contentType: contentType,
-              upsert: true,
-            ),
+            fileOptions: FileOptions(contentType: contentType, upsert: true),
           );
 
       final imageUrl = Supabase.instance.client.storage
@@ -124,15 +125,18 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final requiredPermission =
-        widget.newsId == null ? 'quick_news.create' : 'quick_news.edit';
+    final requiredPermission = widget.newsId == null
+        ? 'quick_news.create'
+        : 'quick_news.edit';
     final hasPermission = await ref.read(
       currentUserHasPermissionProvider(requiredPermission).future,
     );
     if (!hasPermission) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+          const SnackBar(
+            content: Text('Você não tem permissão para esta ação'),
+          ),
         );
       }
       return;
@@ -192,9 +196,9 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao salvar: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao salvar: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -214,9 +218,7 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
   Widget build(BuildContext context) {
     if (_isLoading && widget.newsId != null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Carregando...'),
-        ),
+        appBar: AppBar(title: const Text('Carregando...')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -250,7 +252,7 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
               disabledTooltip: 'Você não tem permissão para esta ação',
               child: IconButton(
                 onPressed: _save,
-                icon: const Icon(Icons.check),
+                icon: const Icon(AppIcons.save),
                 tooltip: 'Salvar',
               ),
             ),
@@ -261,112 +263,129 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Título
-            TextFormField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: 'Título *',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.title),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'O título é obrigatório';
-                }
-                return null;
-              },
-              maxLength: 100,
-            ),
-            const SizedBox(height: 16),
+            GlassCard(
+              child: Column(
+                children: [
+                  // Título
+                  TextFormField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Título *',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(AppIcons.article),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'O título é obrigatório';
+                      }
+                      return null;
+                    },
+                    maxLength: 100,
+                  ),
+                  const SizedBox(height: 16),
 
-            // Descrição
-            TextFormField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Descrição *',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.description),
-                alignLabelWithHint: true,
-              ),
-              maxLines: 4,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'A descrição é obrigatória';
-                }
-                return null;
-              },
-              maxLength: 500,
-            ),
-            const SizedBox(height: 16),
+                  // Descrição
+                  TextFormField(
+                    controller: _descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Descrição *',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(AppIcons.description),
+                      alignLabelWithHint: true,
+                    ),
+                    maxLines: 4,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'A descrição é obrigatória';
+                      }
+                      return null;
+                    },
+                    maxLength: 500,
+                  ),
+                  const SizedBox(height: 16),
 
-            // Link URL (opcional)
-            TextFormField(
-              controller: _linkUrlController,
-              decoration: const InputDecoration(
-                labelText: 'Link (opcional)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.link),
-                hintText: 'https://...',
-              ),
-              keyboardType: TextInputType.url,
-            ),
-            const SizedBox(height: 16),
+                  // Link URL (opcional)
+                  TextFormField(
+                    controller: _linkUrlController,
+                    decoration: const InputDecoration(
+                      labelText: 'Link (opcional)',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(AppIcons.link),
+                      hintText: 'https://...',
+                    ),
+                    keyboardType: TextInputType.url,
+                  ),
+                  const SizedBox(height: 16),
 
-            // Prioridade
-            TextFormField(
-              controller: _priorityController,
-              decoration: const InputDecoration(
-                labelText: 'Prioridade',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.priority_high),
-                helperText: 'Maior número = maior prioridade',
+                  // Prioridade
+                  TextFormField(
+                    controller: _priorityController,
+                    decoration: const InputDecoration(
+                      labelText: 'Prioridade',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(AppIcons.flag),
+                      helperText: 'Maior número = maior prioridade',
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value != null && value.isNotEmpty) {
+                        if (int.tryParse(value) == null) {
+                          return 'Digite um número válido';
+                        }
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ),
-              keyboardType: TextInputType.number,
-              validator: (value) {
-                if (value != null && value.isNotEmpty) {
-                  if (int.tryParse(value) == null) {
-                    return 'Digite um número válido';
-                  }
-                }
-                return null;
-              },
             ),
-            const SizedBox(height: 24),
 
             // Imagem
             _buildImageSection(),
             const SizedBox(height: 24),
 
             // Status Ativo
-            SwitchListTile(
-              title: const Text('Aviso Ativo'),
-              subtitle: const Text('Desative para ocultar o aviso temporariamente'),
-              value: _isActive,
-              onChanged: (value) => setState(() => _isActive = value),
-            ),
-            const Divider(),
-
-            // Expiração
-            SwitchListTile(
-              title: const Text('Definir Data de Expiração'),
-              subtitle: const Text('O aviso será ocultado após esta data'),
-              value: _hasExpiration,
-              onChanged: (value) => setState(() => _hasExpiration = value),
-            ),
-
-            if (_hasExpiration) ...[
-              const SizedBox(height: 8),
-              ListTile(
-                leading: const Icon(Icons.event),
-                title: Text(
-                  _expiresAt == null
-                      ? 'Selecionar data de expiração'
-                      : 'Expira em: ${_formatDateTime(_expiresAt!)}',
-                ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: _selectExpirationDate,
+            GlassCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: const Text('Aviso Ativo'),
+                    subtitle: const Text(
+                      'Desative para ocultar o aviso temporariamente',
+                    ),
+                    value: _isActive,
+                    secondary: const Icon(AppIcons.visibility),
+                    onChanged: (value) => setState(() => _isActive = value),
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    title: const Text('Definir Data de Expiração'),
+                    subtitle: const Text(
+                      'O aviso será ocultado após esta data',
+                    ),
+                    value: _hasExpiration,
+                    secondary: const Icon(AppIcons.event),
+                    onChanged: (value) =>
+                        setState(() => _hasExpiration = value),
+                  ),
+                  if (_hasExpiration) ...[
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(AppIcons.calendar),
+                      title: Text(
+                        _expiresAt == null
+                            ? 'Selecionar data de expiração'
+                            : 'Expira em: ${_formatDateTime(_expiresAt!)}',
+                      ),
+                      trailing: const Icon(AppIcons.forward, size: 16),
+                      onTap: _selectExpirationDate,
+                    ),
+                  ],
+                ],
               ),
-            ],
+            ),
           ],
         ),
       ),
@@ -374,25 +393,24 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
   }
 
   Widget _buildImageSection() {
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(Theme.of(context).colorScheme),
+    return GlassCard(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.zero,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Icon(
-                  Icons.image,
+                  AppIcons.image,
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   'Imagem (opcional)',
-                  style: CommunityDesign.contentStyle(context).copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: CommunityDesign.contentStyle(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -420,10 +438,12 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _pickImage,
-                    icon: const Icon(Icons.photo_library),
-                    label: Text(_selectedImage != null || _imageUrl != null
-                        ? 'Trocar Imagem'
-                        : 'Selecionar Imagem'),
+                    icon: const Icon(AppIcons.photoLibrary),
+                    label: Text(
+                      _selectedImage != null || _imageUrl != null
+                          ? 'Trocar Imagem'
+                          : 'Selecionar Imagem',
+                    ),
                   ),
                 ),
                 if (_selectedImage != null || _imageUrl != null) ...[
@@ -435,7 +455,7 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
                         _imageUrl = null;
                       });
                     },
-                    icon: const Icon(Icons.delete),
+                    icon: const Icon(AppIcons.delete),
                     color: Colors.red,
                   ),
                 ],

@@ -55,11 +55,32 @@ cards/gráficos de estatísticas usam a mesma superfície e o catálogo semânti
 Não houve alteração em rotas, permissões, repositórios ou contratos de dados.
 Foram adicionados quatro testes de widget para proteger essas superfícies.
 
+## Onda visual — Quick News, Testimonies e Prayer Requests
+
+- `quick_news_list_screen.dart` e `quick_news_form_screen.dart` usam
+  `GlassCard`, `StatusBadge` e `AppIcons` nos cards, estados, imagem, validade
+  e ações, preservando upload, permissões e payloads.
+- `testimonies_list_screen.dart` e `testimony_form_screen.dart` usam a mesma
+  superfície compartilhada e o catálogo semântico para visibilidade, contato,
+  campos e ações.
+- `prayer_requests_list_screen.dart`, `prayer_request_detail_screen.dart` e
+  `prayer_request_form_screen.dart` usam vidro nas superfícies principais,
+  `StatusBadge` para o ciclo do pedido e `AppIcons` nos filtros, privacidade,
+  métricas e ações. Os emojis de categoria/status continuam nos menus de
+  domínio.
+- A cobertura focada em
+  `test/features/content/prayer_testimonies_quick_news_visual_test.dart`
+  valida quatro cenários em memória.
+
+Não houve alteração em banco, rotas, permissões, providers, repositórios,
+upload ou contratos de dados.
+
 ## Próximo recorte
 
-Church Schedule e News foram concluídos nesta onda. O próximo recorte deve
-continuar pelos módulos de conteúdo e apoio que ainda não têm slice completo,
-começando por `quick_news`, `testimonies` e `prayer_requests`. Autenticação e
+Quick News, Testimonies e Prayer Requests foram concluídos nesta onda. O
+próximo recorte deve continuar pelos módulos de conteúdo e apoio que ainda não
+têm slice completo,
+começando por `home_content`, `church_info` e `devotionals`. Autenticação e
 dados reais continuam sendo limitações da validação visual local.
 
 ### Contagem de encerramento
@@ -78,7 +99,7 @@ Considerando cada grupo funcional abaixo como um recorte revisável, restam
 9. Gestão analítica: `analytics`, `custom_reports`.
 10. Entrada e apoio: `auth`, `church_selector`, `support_chat`, `contribution`.
 
-São **90 telas `screen.dart` ainda pendentes** pelo inventário atual. O número
+São **83 telas `screen.dart` ainda pendentes** pelo inventário atual. O número
 de recortes é a unidade de planejamento; cada onda pode fechar vários módulos
 relacionados sem alterar rotas, permissões ou contratos de dados.
 

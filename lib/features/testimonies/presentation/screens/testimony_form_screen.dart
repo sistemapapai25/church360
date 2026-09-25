@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/testimony_provider.dart';
+import '../../../../core/design/app_icons.dart';
+import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
@@ -13,7 +16,8 @@ class TestimonyFormScreen extends ConsumerStatefulWidget {
   const TestimonyFormScreen({super.key, this.testimonyId});
 
   @override
-  ConsumerState<TestimonyFormScreen> createState() => _TestimonyFormScreenState();
+  ConsumerState<TestimonyFormScreen> createState() =>
+      _TestimonyFormScreenState();
 }
 
 class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
@@ -35,7 +39,9 @@ class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
 
   Future<void> _loadTestimony() async {
     try {
-      final testimony = await ref.read(testimonyByIdProvider(widget.testimonyId!).future);
+      final testimony = await ref.read(
+        testimonyByIdProvider(widget.testimonyId!).future,
+      );
       if (testimony != null && mounted) {
         setState(() {
           _titleController.text = testimony.title;
@@ -64,14 +70,18 @@ class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final isEditMode = widget.testimonyId != null;
-    final requiredPermission = isEditMode ? 'testimonies.edit' : 'testimonies.create';
+    final requiredPermission = isEditMode
+        ? 'testimonies.edit'
+        : 'testimonies.create';
     final hasPermission = await ref.read(
       currentUserHasPermissionProvider(requiredPermission).future,
     );
     if (!hasPermission) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Você não tem permissão para esta ação')),
+          const SnackBar(
+            content: Text('Você não tem permissão para esta ação'),
+          ),
         );
       }
       return;
@@ -119,9 +129,9 @@ class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao salvar: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao salvar: $e')));
       }
     } finally {
       if (mounted) {
@@ -135,8 +145,13 @@ class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
     final isEditing = widget.testimonyId != null;
 
     return Scaffold(
+      backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
-        title: Text(isEditing ? 'Editar Testemunho' : 'Novo Testemunho'),
+        backgroundColor: CommunityDesign.headerColor(context),
+        title: Text(
+          isEditing ? 'Editar Testemunho' : 'Novo Testemunho',
+          style: CommunityDesign.titleStyle(context),
+        ),
         centerTitle: true,
       ),
       body: Form(
@@ -144,53 +159,60 @@ class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Título
-            TextFormField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: 'Título *',
-                hintText: 'Ex: Deus transformou minha vida',
-                prefixIcon: Icon(Icons.title),
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Título é obrigatório';
-                }
-                return null;
-              },
-              textCapitalization: TextCapitalization.sentences,
-              maxLength: 100,
-            ),
-            const SizedBox(height: 16),
+            GlassCard(
+              child: Column(
+                children: [
+                  // Título
+                  TextFormField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Título *',
+                      hintText: 'Ex: Deus transformou minha vida',
+                      prefixIcon: Icon(AppIcons.article),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Título é obrigatório';
+                      }
+                      return null;
+                    },
+                    textCapitalization: TextCapitalization.sentences,
+                    maxLength: 100,
+                  ),
+                  const SizedBox(height: 16),
 
-            // Descrição
-            TextFormField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Testemunho *',
-                hintText: 'Compartilhe como Deus agiu em sua vida...',
-                prefixIcon: Icon(Icons.description),
-                border: OutlineInputBorder(),
-                alignLabelWithHint: true,
+                  // Descrição
+                  TextFormField(
+                    controller: _descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Testemunho *',
+                      hintText: 'Compartilhe como Deus agiu em sua vida...',
+                      prefixIcon: Icon(AppIcons.description),
+                      border: OutlineInputBorder(),
+                      alignLabelWithHint: true,
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Testemunho é obrigatório';
+                      }
+                      if (value.trim().length < 20) {
+                        return 'Testemunho deve ter pelo menos 20 caracteres';
+                      }
+                      return null;
+                    },
+                    textCapitalization: TextCapitalization.sentences,
+                    maxLines: 8,
+                    maxLength: 2000,
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Testemunho é obrigatório';
-                }
-                if (value.trim().length < 20) {
-                  return 'Testemunho deve ter pelo menos 20 caracteres';
-                }
-                return null;
-              },
-              textCapitalization: TextCapitalization.sentences,
-              maxLines: 8,
-              maxLength: 2000,
             ),
-            const SizedBox(height: 24),
 
             // Visibilidade
-            Card(
+            GlassCard(
+              padding: EdgeInsets.zero,
               child: SwitchListTile(
                 title: const Text('Testemunho Público'),
                 subtitle: Text(
@@ -201,25 +223,31 @@ class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
                 value: _isPublic,
                 onChanged: (value) => setState(() => _isPublic = value),
                 secondary: Icon(
-                  _isPublic ? Icons.public : Icons.lock,
-                  color: _isPublic ? Colors.green : Colors.orange,
+                  _isPublic ? AppIcons.public : AppIcons.lock,
+                  color: _isPublic
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
             const SizedBox(height: 12),
 
             // Contato WhatsApp
-            Card(
+            GlassCard(
+              padding: EdgeInsets.zero,
               child: SwitchListTile(
                 title: const Text('Permitir Contato via WhatsApp'),
                 subtitle: const Text(
                   'Outros membros poderão entrar em contato com você',
                 ),
                 value: _allowWhatsappContact,
-                onChanged: (value) => setState(() => _allowWhatsappContact = value),
+                onChanged: (value) =>
+                    setState(() => _allowWhatsappContact = value),
                 secondary: Icon(
-                  Icons.phone,
-                  color: _allowWhatsappContact ? Colors.green : Colors.grey,
+                  AppIcons.phoneInTalk,
+                  color: _allowWhatsappContact
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
@@ -240,11 +268,13 @@ class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Icon(Icons.save),
+                    : const Icon(AppIcons.save),
                 label: Text(
                   _isLoading
                       ? 'Salvando...'
-                      : (isEditing ? 'Atualizar Testemunho' : 'Criar Testemunho'),
+                      : (isEditing
+                            ? 'Atualizar Testemunho'
+                            : 'Criar Testemunho'),
                 ),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.all(16),
@@ -257,4 +287,3 @@ class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
     );
   }
 }
-

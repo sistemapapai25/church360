@@ -4,8 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/prayer_request_provider.dart';
 import '../../domain/models/prayer_request.dart';
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/pearl_fab.dart';
+import '../../../../core/widgets/status_badge.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de pedidos de oração
@@ -45,9 +48,7 @@ class _PrayerRequestsListScreenState
           // Filtro por status
           PopupMenuButton<PrayerStatus?>(
             icon: Icon(
-              _selectedStatus != null
-                  ? Icons.filter_alt
-                  : Icons.filter_alt_outlined,
+              _selectedStatus != null ? AppIcons.filter : AppIcons.filterOff,
               color: _selectedStatus != null
                   ? Theme.of(context).colorScheme.primary
                   : null,
@@ -79,8 +80,8 @@ class _PrayerRequestsListScreenState
           PopupMenuButton<PrayerCategory?>(
             icon: Icon(
               _selectedCategory != null
-                  ? Icons.category
-                  : Icons.category_outlined,
+                  ? AppIcons.category
+                  : AppIcons.categoryIcon,
               color: _selectedCategory != null
                   ? Theme.of(context).colorScheme.primary
                   : null,
@@ -120,17 +121,16 @@ class _PrayerRequestsListScreenState
                   horizontal: 20,
                   vertical: 8,
                 ),
-                child: Container(
+                child: GlassCard(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 18,
                   ),
-                  decoration: CommunityDesign.overlayDecoration(cs),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.favorite_border,
+                        AppIcons.favorite,
                         size: 56,
                         color: cs.primary.withValues(alpha: 0.28),
                       ),
@@ -169,7 +169,7 @@ class _PrayerRequestsListScreenState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const Icon(AppIcons.error, size: 48, color: Colors.red),
               const SizedBox(height: 16),
               Text('Erro ao carregar pedidos: $error'),
             ],
@@ -183,7 +183,7 @@ class _PrayerRequestsListScreenState
             context.push('/prayer-requests/new');
           },
           color: Theme.of(context).colorScheme.primary,
-          icon: Icons.add,
+          icon: AppIcons.add,
           label: 'Novo Pedido'.toUpperCase(),
         ),
       ),
@@ -204,147 +204,148 @@ class _PrayerRequestCard extends ConsumerWidget {
 
     final cs = Theme.of(context).colorScheme;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: CommunityDesign.overlayDecoration(cs),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(CommunityDesign.radius),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () {
-              context.push('/prayer-requests/${prayerRequest.id}');
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header com categoria e status
-                  Row(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassCard(
+        onTap: () {
+          context.push('/prayer-requests/${prayerRequest.id}');
+        },
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header com categoria e status
+            Row(
+              children: [
+                // Categoria
+                CommunityDesign.badge(
+                  context,
+                  prayerRequest.category.displayName,
+                  cs.primary,
+                  icon: AppIcons.category,
+                ),
+                const SizedBox(width: 8),
+                // Status
+                StatusBadge(
+                  label: prayerRequest.status.displayName,
+                  tone: _getStatusTone(prayerRequest.status),
+                  icon: _getStatusIcon(prayerRequest.status),
+                ),
+                const Spacer(),
+                // Privacidade
+                Icon(
+                  _getPrivacyIcon(prayerRequest.privacy),
+                  size: 16,
+                  color: cs.onSurface.withValues(alpha: 0.4),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Título
+            Text(
+              prayerRequest.title,
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+
+            // Descrição (preview)
+            Text(
+              prayerRequest.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: CommunityDesign.contentStyle(context).copyWith(
+                color: cs.onSurface.withValues(alpha: 0.7),
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Footer com data e contador de orações
+            Row(
+              children: [
+                Icon(
+                  AppIcons.accessTime,
+                  size: 14,
+                  color: cs.onSurface.withValues(alpha: 0.5),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  prayerRequest.timeAgo,
+                  style: CommunityDesign.metaStyle(context),
+                ),
+                const Spacer(),
+                // Contador de orações
+                prayerCountAsync.when(
+                  data: (count) => Row(
                     children: [
-                      // Categoria
-                      CommunityDesign.badge(
-                        context,
-                        prayerRequest.category.displayName,
-                        cs.primary,
-                        icon: Icons.category,
-                      ),
-                      const SizedBox(width: 8),
-                      // Status
-                      CommunityDesign.badge(
-                        context,
-                        prayerRequest.status.displayName,
-                        _getStatusColor(prayerRequest.status),
-                        icon: Icons.info_outline,
-                      ),
-                      const Spacer(),
-                      // Privacidade
-                      Icon(
-                        _getPrivacyIcon(prayerRequest.privacy),
+                      const Icon(
+                        AppIcons.favorite,
                         size: 16,
-                        color: cs.onSurface.withValues(alpha: 0.4),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Título
-                  Text(
-                    prayerRequest.title,
-                    style: CommunityDesign.titleStyle(
-                      context,
-                    ).copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Descrição (preview)
-                  Text(
-                    prayerRequest.description,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: CommunityDesign.contentStyle(context).copyWith(
-                      color: cs.onSurface.withValues(alpha: 0.7),
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Footer com data e contador de orações
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.access_time,
-                        size: 14,
-                        color: cs.onSurface.withValues(alpha: 0.5),
+                        color: Colors.red,
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        prayerRequest.timeAgo,
-                        style: CommunityDesign.metaStyle(context),
-                      ),
-                      const Spacer(),
-                      // Contador de orações
-                      prayerCountAsync.when(
-                        data: (count) => Row(
-                          children: [
-                            const Icon(
-                              Icons.favorite,
-                              size: 16,
-                              color: Colors.red,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '$count ${count == 1 ? 'oração' : 'orações'}',
-                              style: CommunityDesign.metaStyle(context)
-                                  .copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: cs.onSurface,
-                                  ),
-                            ),
-                          ],
+                        '$count ${count == 1 ? 'oração' : 'orações'}',
+                        style: CommunityDesign.metaStyle(context).copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface,
                         ),
-                        loading: () => const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        error: (_, __) => const SizedBox.shrink(),
                       ),
                     ],
                   ),
-                ],
-              ),
+                  loading: () => const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+              ],
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Color _getStatusColor(PrayerStatus status) {
+  AppStatusTone _getStatusTone(PrayerStatus status) {
     switch (status) {
       case PrayerStatus.pending:
-        return Colors.orange;
       case PrayerStatus.praying:
-        return Colors.blue;
+        return AppStatusTone.active;
       case PrayerStatus.answered:
-        return Colors.green;
+        return AppStatusTone.done;
       case PrayerStatus.cancelled:
-        return Colors.grey;
+        return AppStatusTone.dropped;
+    }
+  }
+
+  IconData _getStatusIcon(PrayerStatus status) {
+    switch (status) {
+      case PrayerStatus.pending:
+        return AppIcons.pending;
+      case PrayerStatus.praying:
+        return AppIcons.favorite;
+      case PrayerStatus.answered:
+        return AppIcons.checkCircle;
+      case PrayerStatus.cancelled:
+        return AppIcons.cancel;
     }
   }
 
   IconData _getPrivacyIcon(PrayerPrivacy privacy) {
     switch (privacy) {
       case PrayerPrivacy.public:
-        return Icons.public;
+        return AppIcons.public;
       case PrayerPrivacy.membersOnly:
-        return Icons.groups;
+        return AppIcons.groups;
       case PrayerPrivacy.leadersOnly:
-        return Icons.admin_panel_settings;
+        return AppIcons.admin;
       case PrayerPrivacy.private:
-        return Icons.lock_outline;
+        return AppIcons.lock;
     }
   }
 }

@@ -6,8 +6,11 @@ import 'package:intl/intl.dart';
 import '../providers/quick_news_provider.dart';
 import '../../domain/models/quick_news.dart';
 
+import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/pearl_fab.dart';
+import '../../../../core/widgets/status_badge.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
@@ -36,7 +39,7 @@ class QuickNewsListScreen extends ConsumerWidget {
         permission: 'quick_news.create',
         child: PearlFab(
           onPressed: () => context.push('/home/quick-news/new'),
-          icon: Icons.add,
+          icon: AppIcons.add,
           label: 'Novo Aviso',
         ),
       ),
@@ -47,24 +50,20 @@ class QuickNewsListScreen extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.campaign_outlined,
-                    size: 80,
-                    color: Colors.grey[400],
-                  ),
+                  Icon(AppIcons.newReleases, size: 80, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   Text(
                     'Nenhum aviso cadastrado',
-                    style: CommunityDesign.titleStyle(context).copyWith(
-                          color: Colors.grey[600],
-                        ),
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Toque no botão + para criar o primeiro aviso',
-                    style: CommunityDesign.contentStyle(context).copyWith(
-                          color: Colors.grey[500],
-                        ),
+                    style: CommunityDesign.contentStyle(
+                      context,
+                    ).copyWith(color: Colors.grey[500]),
                   ),
                 ],
               ),
@@ -90,7 +89,7 @@ class QuickNewsListScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const Icon(AppIcons.error, size: 48, color: Colors.red),
               const SizedBox(height: 16),
               Text(
                 'Erro ao carregar avisos',
@@ -105,7 +104,7 @@ class QuickNewsListScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: () => ref.invalidate(allQuickNewsProvider),
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(AppIcons.refresh),
                 label: const Text('Tentar Novamente'),
               ),
             ],
@@ -135,136 +134,123 @@ class _NewsCard extends ConsumerWidget {
         .watch(currentUserHasPermissionProvider('quick_news.delete'))
         .maybeWhen(data: (v) => v, orElse: () => false);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: CommunityDesign.overlayDecoration(Theme.of(context).colorScheme),
-      child: InkWell(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassCard(
         onTap: canEdit
             ? () => context.push('/home/quick-news/${news.id}/edit')
             : null,
-        borderRadius: BorderRadius.circular(CommunityDesign.radius),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Cabeçalho: Título + Status
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      news.title,
-                      style: CommunityDesign.titleStyle(context).copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Cabeçalho: Título + Status
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    news.title,
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Badge de status
+                _StatusBadge(news: news),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Descrição
+            Text(
+              news.description,
+              style: CommunityDesign.contentStyle(context),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 12),
+
+            // Informações adicionais
+            Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              children: [
+                // Prioridade
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(AppIcons.flag, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Prioridade: ${news.priority}',
+                      style: CommunityDesign.metaStyle(context),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Badge de status
-                  _StatusBadge(news: news),
-                ],
-              ),
-              const SizedBox(height: 8),
+                  ],
+                ),
 
-              // Descrição
-              Text(
-                news.description,
-                style: CommunityDesign.contentStyle(context),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 12),
+                // Data de criação
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(AppIcons.calendar, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      dateFormat.format(news.createdAt),
+                      style: CommunityDesign.metaStyle(context),
+                    ),
+                  ],
+                ),
 
-              // Informações adicionais
-              Wrap(
-                spacing: 16,
-                runSpacing: 8,
-                children: [
-                  // Prioridade
+                // Data de expiração (se houver)
+                if (news.expiresAt != null)
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.priority_high,
+                        AppIcons.eventBusy,
                         size: 16,
-                        color: Colors.grey[600],
+                        color: news.isExpired ? Colors.red : Colors.orange,
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Prioridade: ${news.priority}',
-                        style: CommunityDesign.metaStyle(context),
-                      ),
-                    ],
-                  ),
-
-                  // Data de criação
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.calendar_today,
-                        size: 16,
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        dateFormat.format(news.createdAt),
-                        style: CommunityDesign.metaStyle(context),
-                      ),
-                    ],
-                  ),
-
-                  // Data de expiração (se houver)
-                  if (news.expiresAt != null)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.event_busy,
-                          size: 16,
+                        'Expira: ${dateFormat.format(news.expiresAt!)}',
+                        style: CommunityDesign.metaStyle(context).copyWith(
                           color: news.isExpired ? Colors.red : Colors.orange,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Expira: ${dateFormat.format(news.expiresAt!)}',
-                          style: CommunityDesign.metaStyle(context).copyWith(
-                                color: news.isExpired ? Colors.red : Colors.orange,
-                              ),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-
-              // Ações
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  // Botão Editar
-                  if (canEdit) ...[
-                    TextButton.icon(
-                      onPressed: () => context.push('/home/quick-news/${news.id}/edit'),
-                      icon: const Icon(Icons.edit, size: 18),
-                      label: const Text('Editar'),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-
-                  // Botão Deletar
-                  if (canDelete)
-                    TextButton.icon(
-                      onPressed: () => _showDeleteDialog(context, ref),
-                      icon: const Icon(Icons.delete, size: 18),
-                      label: const Text('Excluir'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.red,
                       ),
-                    ),
+                    ],
+                  ),
+              ],
+            ),
+
+            // Ações
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Botão Editar
+                if (canEdit) ...[
+                  TextButton.icon(
+                    onPressed: () =>
+                        context.push('/home/quick-news/${news.id}/edit'),
+                    icon: const Icon(AppIcons.edit, size: 18),
+                    label: const Text('Editar'),
+                  ),
+                  const SizedBox(width: 8),
                 ],
-              ),
-            ],
-          ),
+
+                // Botão Deletar
+                if (canDelete)
+                  TextButton.icon(
+                    onPressed: () => _showDeleteDialog(context, ref),
+                    icon: const Icon(AppIcons.delete, size: 18),
+                    label: const Text('Excluir'),
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -290,7 +276,9 @@ class _NewsCard extends ConsumerWidget {
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Você não tem permissão para esta ação')),
+                    const SnackBar(
+                      content: Text('Você não tem permissão para esta ação'),
+                    ),
                   );
                 }
                 return;
@@ -302,7 +290,9 @@ class _NewsCard extends ConsumerWidget {
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Aviso excluído com sucesso!')),
+                    const SnackBar(
+                      content: Text('Aviso excluído com sucesso!'),
+                    ),
                   );
                 }
               } catch (e) {
@@ -334,35 +324,24 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String label;
-    Color color;
-
     if (!news.isActive) {
-      label = 'Inativo';
-      color = Colors.grey;
-    } else if (news.isExpired) {
-      label = 'Expirado';
-      color = Colors.red;
-    } else {
-      label = 'Ativo';
-      color = Colors.green;
+      return const StatusBadge(
+        label: 'Inativo',
+        tone: AppStatusTone.dropped,
+        icon: AppIcons.visibilityOff,
+      );
     }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+    if (news.isExpired) {
+      return const StatusBadge(
+        label: 'Expirado',
+        tone: AppStatusTone.dropped,
+        icon: AppIcons.eventBusy,
+      );
+    }
+    return const StatusBadge(
+      label: 'Ativo',
+      tone: AppStatusTone.active,
+      icon: AppIcons.visibility,
     );
   }
 }
