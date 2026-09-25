@@ -1385,3 +1385,13 @@ desses grupos. O próximo recorte recomendado é `quick_news`, `testimonies` e
 
 Os sete registradores Flutter gerados continuam locais, fora do staging e de
 qualquer commit.
+
+## Handoff final desta onda — merge e produção
+
+- Commit da implementação: `1d5e730` — `feat: complete visual waves 17-20`.
+- PR **#161** foi mergeada em `main` com o commit `94b184c`.
+- Deploy de produção: Vercel `dpl_CjRFYZSr3FMpGXzAL2JbUeiY1h8t`, estado
+  **READY**, com alias `https://app.church360.com.br`.
+- A validação final registrou 583 testes passando e build web release concluído.
+- O próximo agente deve iniciar pelo recorte `quick_news`, `testimonies` e
+  `prayer_requests`; não repetir as ondas 17–20 nem declarar a cascata encerrada.
