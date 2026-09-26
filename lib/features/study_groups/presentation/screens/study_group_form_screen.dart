@@ -3,15 +3,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/study_group_provider.dart';
 import '../../domain/models/study_group.dart';
+import '../../../courses/domain/models/course.dart';
+import '../../../courses/presentation/providers/courses_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/widgets/glass_card.dart';
 
+/// Cursos em que o formulário pode criar turma: todos menos os
+/// cursos-programa (`code` preenchido, ex.: Batismo), cuja turma nasce só
+/// pelo ministério (trigger de `baptism_turma`).
+List<Course> turmaFormSelectableCourses(List<Course> courses) {
+  final list = [
+    for (final c in courses)
+      if (c.code == null) c,
+  ]..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+  return list;
+}
+
 class StudyGroupFormScreen extends ConsumerStatefulWidget {
   final String? groupId;
 
-  const StudyGroupFormScreen({super.key, this.groupId});
+  /// Curso já escolhido quando se abre "Nova turma" de dentro do curso.
+  final String? initialCourseId;
+
+  const StudyGroupFormScreen({super.key, this.groupId, this.initialCourseId});
 
   @override
   ConsumerState<StudyGroupFormScreen> createState() =>
@@ -28,6 +44,7 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
   final _meetingLocationController = TextEditingController();
   final _maxParticipantsController = TextEditingController();
 
+  String? _courseId;
   DateTime _startDate = DateTime.now();
   DateTime? _endDate;
   bool _isPublic = true;
@@ -37,6 +54,7 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
   @override
   void initState() {
     super.initState();
+    _courseId = widget.initialCourseId;
     if (widget.groupId != null) {
       _loadGroup();
     }
@@ -101,9 +119,12 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
     try {
       final actions = ref.read(studyGroupActionsProvider);
 
+      String? createdRoute;
       if (widget.groupId == null) {
-        // Criar novo grupo
-        await actions.createGroup(
+        // Toda turma nasce num curso (Etapa 7).
+        final courseId = _courseId!;
+        final group = await actions.createGroup(
+          courseId: courseId,
           name: _nameController.text.trim(),
           description: _descriptionController.text.trim().isEmpty
               ? null
@@ -127,6 +148,7 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
               : int.tryParse(_maxParticipantsController.text.trim()),
           isPublic: _isPublic,
         );
+        createdRoute = '/courses/$courseId/turmas/${group.id}';
       } else {
         // Atualizar grupo existente
         await actions.updateGroup(
@@ -162,19 +184,23 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
           SnackBar(
             content: Text(
               widget.groupId == null
-                  ? 'Grupo criado com sucesso!'
-                  : 'Grupo atualizado com sucesso!',
+                  ? 'Turma criada com sucesso!'
+                  : 'Turma atualizada com sucesso!',
             ),
             backgroundColor: Colors.green,
           ),
         );
-        context.pop();
+        if (createdRoute != null) {
+          context.pushReplacement(createdRoute);
+        } else {
+          context.pop();
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erro ao salvar grupo: $e'),
+            content: Text('Erro ao salvar turma: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -186,11 +212,58 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
     }
   }
 
+  /// Curso obrigatório na criação. Sem curso elegível, o formulário diz
+  /// isso em vez de oferecer uma lista vazia.
+  Widget _buildCourseField() {
+    final coursesAsync = ref.watch(allCoursesProvider);
+    return coursesAsync.when(
+      loading: () => const LinearProgressIndicator(),
+      error: (error, stack) => Row(
+        children: [
+          const Expanded(child: Text('Não foi possível carregar os cursos.')),
+          TextButton(
+            onPressed: () => ref.invalidate(allCoursesProvider),
+            child: const Text('Tentar de novo'),
+          ),
+        ],
+      ),
+      data: (all) {
+        final courses = turmaFormSelectableCourses(all);
+        if (courses.isEmpty) {
+          return const Text(
+            'Nenhum curso disponível. Crie um curso antes de abrir uma turma.',
+          );
+        }
+        final selected = courses.any((c) => c.id == _courseId)
+            ? _courseId
+            : null;
+        return DropdownButtonFormField<String>(
+          initialValue: selected,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'Curso *',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(AppIcons.study),
+          ),
+          items: [
+            for (final c in courses)
+              DropdownMenuItem(
+                value: c.id,
+                child: Text(c.title, overflow: TextOverflow.ellipsis),
+              ),
+          ],
+          onChanged: (value) => setState(() => _courseId = value),
+          validator: (value) => value == null ? 'Escolha o curso' : null,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.groupId == null ? 'Novo Grupo' : 'Editar Grupo'),
+        title: Text(widget.groupId == null ? 'Nova turma' : 'Editar turma'),
       ),
       body: Form(
         key: _formKey,
@@ -202,14 +275,18 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Informações do grupo',
+                    'Informações da turma',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 16),
+                  if (widget.groupId == null) ...[
+                    _buildCourseField(),
+                    const SizedBox(height: 16),
+                  ],
                   TextFormField(
                     controller: _nameController,
                     decoration: const InputDecoration(
-                      labelText: 'Nome do Grupo *',
+                      labelText: 'Nome da turma *',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(AppIcons.group),
                     ),
@@ -308,7 +385,7 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
                   const SizedBox(height: 8),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Grupo Público'),
+                    title: const Text('Turma pública'),
                     subtitle: const Text('Qualquer pessoa pode se inscrever'),
                     value: _isPublic,
                     onChanged: (value) {
@@ -348,8 +425,8 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
                   ? 'study_groups.create'
                   : 'study_groups.edit',
               disabledTooltip: widget.groupId == null
-                  ? 'Você não tem permissão para criar grupos de estudo'
-                  : 'Você não tem permissão para editar grupos de estudo',
+                  ? 'Você não tem permissão para criar turmas'
+                  : 'Você não tem permissão para editar turmas',
               child: FilledButton.icon(
                 onPressed: _isLoading ? null : _saveGroup,
                 icon: const Icon(AppIcons.save),
@@ -361,8 +438,8 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
                       )
                     : Text(
                         widget.groupId == null
-                            ? 'Criar Grupo'
-                            : 'Salvar Alterações',
+                            ? 'Criar turma'
+                            : 'Salvar alterações',
                       ),
               ),
             ),

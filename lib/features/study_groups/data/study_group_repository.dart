@@ -175,6 +175,7 @@ class StudyGroupRepository {
 
   /// Criar grupo
   Future<StudyGroup> createStudyGroup({
+    required String courseId,
     required String name,
     String? description,
     String? studyTopic,
@@ -193,6 +194,7 @@ class StudyGroupRepository {
     final response = await _supabase
         .from('study_groups')
         .insert({
+          'course_id': courseId,
           'name': name,
           'description': description,
           'study_topic': studyTopic,

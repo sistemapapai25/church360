@@ -6,6 +6,7 @@ import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 import '../../../study_groups/domain/models/study_group.dart';
 import '../../domain/models/course_turma.dart';
 import '../hub/course_hub.dart';
@@ -40,6 +41,18 @@ class CourseTurmasSection extends ConsumerWidget {
     final turmasAsync = ref.watch(courseStudyGroupsProvider(courseId));
     final hub = ref.watch(courseHubProvider(courseId)).valueOrNull;
     final contextual = hub != null && !hub.management;
+    // "Nova turma" só em curso genérico: turma de curso-programa (Batismo)
+    // nasce pelo ministério.
+    final course = ref.watch(courseByIdProvider(courseId)).valueOrNull;
+    final canCreate =
+        hub != null &&
+        hub.management &&
+        course != null &&
+        course.code == null &&
+        (ref
+                .watch(currentUserHasPermissionProvider('study_groups.create'))
+                .valueOrNull ??
+            false);
 
     if (contextual) {
       final all = turmasAsync.valueOrNull ?? const <CourseTurma>[];
@@ -57,6 +70,9 @@ class CourseTurmasSection extends ConsumerWidget {
                 ? turmasAsync.valueOrNull?.where(hub.showsTurma).length
                 : turmasAsync.asData?.value.length,
             title: contextual ? 'Minha turma' : 'Turmas',
+            onCreate: canCreate
+                ? () => context.push('/study-groups/new?courseId=$courseId')
+                : null,
           ),
           const SizedBox(height: 16),
           turmasAsync.when(
@@ -94,6 +110,7 @@ class CourseTurmasSection extends ConsumerWidget {
     BuildContext context,
     int? count, {
     required String title,
+    VoidCallback? onCreate,
   }) {
     final cs = Theme.of(context).colorScheme;
     return Row(
@@ -120,6 +137,14 @@ class CourseTurmasSection extends ConsumerWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
+          ),
+        ],
+        if (onCreate != null) ...[
+          const Spacer(),
+          TextButton.icon(
+            onPressed: onCreate,
+            icon: const Icon(Icons.add),
+            label: const Text('Nova turma'),
           ),
         ],
       ],
