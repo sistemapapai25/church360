@@ -106,6 +106,8 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
         return Icons.volunteer_activism;
       case MaterialLinkType.studyGroup:
         return Icons.menu_book;
+      case MaterialLinkType.studyLesson:
+        return Icons.play_lesson;
       case MaterialLinkType.general:
         return Icons.public;
     }
@@ -241,6 +243,9 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
           {for (final m in ministries) m.id: m.name},
           fallbackLabel: 'Ministério não encontrado',
         );
+      case MaterialLinkType.studyLesson:
+        // Vínculo feito pela aula da turma: só preservado aqui.
+        return {for (final id in ids) id: 'Aula da turma'};
       case MaterialLinkType.general:
         return {for (final id in ids) id: 'Geral'};
     }
@@ -687,7 +692,9 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: MaterialLinkType.values.map((linkType) {
+              children: MaterialLinkType.values
+                  .where((t) => t != MaterialLinkType.studyLesson)
+                  .map((linkType) {
                 final hasSelection = _selectedEntities.containsKey(linkType) &&
                                     _selectedEntities[linkType]!.isNotEmpty;
                 final count = hasSelection ? _selectedEntities[linkType]!.length : 0;

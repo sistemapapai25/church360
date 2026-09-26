@@ -9,9 +9,14 @@ import '../../../../../core/widgets/glass_card.dart';
 import '../../../../../core/widgets/status_badge.dart';
 import '../../../../study_groups/domain/models/study_group.dart';
 import '../../../../study_groups/presentation/providers/study_group_provider.dart';
+import '../../../../support_materials/domain/models/support_material.dart';
+import '../../../../support_materials/domain/models/support_material_link.dart';
+import '../../../../support_materials/presentation/providers/support_materials_provider.dart';
 import '../adapters/turma_surfaces.dart';
+import '../lesson_media.dart';
 import '../turma_access.dart';
 import '../widgets/turma_sheet.dart';
+import 'turma_materiais_tab.dart';
 
 /// Aba Aulas da tela da turma — igual para Batismo e turma genérica.
 ///
@@ -147,7 +152,8 @@ class TurmaAulasTab extends ConsumerWidget {
                         : () => lessonAttendance!(context, lesson),
                     onOpen: () => showTurmaSheet<void>(
                       context: context,
-                      builder: (_) => _LessonReadSheet(lesson: lesson),
+                      builder: (_) =>
+                          _LessonReadSheet(lesson: lesson, canWrite: canWrite),
                     ),
                     onEdit: () =>
                         _openForm(context, ref, lessons, lesson: lesson),
@@ -324,10 +330,15 @@ class _LessonCard extends StatelessWidget {
 /// A tela antiga `/study-groups/:id/lessons/:lessonId` exige a permissão
 /// `study_groups.manage_lessons`; o aluno bateria nela. Por isso a leitura
 /// fica aqui, numa folha.
+///
+/// Com [canWrite], a seção de materiais complementares ganha "Vincular" e
+/// "Desvincular" (no banco, quem edita a aula vincula a ela qualquer
+/// material que enxerga — `study_lesson_editable`).
 class _LessonReadSheet extends StatelessWidget {
   final StudyLesson lesson;
+  final bool canWrite;
 
-  const _LessonReadSheet({required this.lesson});
+  const _LessonReadSheet({required this.lesson, required this.canWrite});
 
   @override
   Widget build(BuildContext context) {
@@ -397,18 +408,160 @@ class _LessonReadSheet extends StatelessWidget {
             videoUrl == null &&
             pdfUrl == null)
           Text('Esta aula ainda não tem conteúdo.', style: meta),
+        const SizedBox(height: 8),
+        LessonComplementaryMaterials(lessonId: lesson.id, canWrite: canWrite),
       ],
     );
   }
 }
 
-/// Aula nova ou edição: título, data, textos da aula e os links do vídeo e
-/// do PDF principais (colunas da própria aula — modelo híbrido do
-/// ROADMAP-FORMACAO). Envio de arquivo ainda não: só link.
+/// Materiais complementares da aula (`support_material_link` com
+/// `link_type = study_lesson`). Sem nenhum, o aluno não vê a seção; quem
+/// edita a aula vê o botão de vincular.
+class LessonComplementaryMaterials extends ConsumerWidget {
+  final String lessonId;
+  final bool canWrite;
+
+  const LessonComplementaryMaterials({
+    super.key,
+    required this.lessonId,
+    required this.canWrite,
+  });
+
+  ({MaterialLinkType linkType, String entityId}) get _key =>
+      (linkType: MaterialLinkType.studyLesson, entityId: lessonId);
+
+  Future<void> _link(
+    BuildContext context,
+    WidgetRef ref,
+    List<SupportMaterial> linked,
+  ) async {
+    final picked = await showTurmaSheet<SupportMaterial>(
+      context: context,
+      builder: (_) => TurmaLinkMaterialSheet(
+        linkedIds: {for (final m in linked) m.id},
+        // Quem edita a aula vincula qualquer material que enxerga.
+        rights: const TurmaMaterialRights(memberId: null, canEditAny: true),
+        emptyMessage:
+            'Nenhum material disponível. Cadastre no módulo Material de '
+            'Apoio para vincular aqui.',
+      ),
+    );
+    if (picked == null) return;
+    try {
+      await ref.read(supportMaterialsRepositoryProvider).createLink({
+        'material_id': picked.id,
+        'link_type': MaterialLinkType.studyLesson.value,
+        'linked_entity_id': lessonId,
+      });
+      ref.invalidate(materialsByEntityProvider(_key));
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Não foi possível vincular: $error')),
+      );
+    }
+  }
+
+  Future<void> _unlink(
+    BuildContext context,
+    WidgetRef ref,
+    SupportMaterial material,
+  ) async {
+    try {
+      await ref
+          .read(supportMaterialsRepositoryProvider)
+          .deleteLinkFor(
+            materialId: material.id,
+            linkType: MaterialLinkType.studyLesson,
+            entityId: lessonId,
+          );
+      ref.invalidate(materialsByEntityProvider(_key));
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Não foi possível desvincular: $error')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final meta = CommunityDesign.metaStyle(context);
+    final async = ref.watch(materialsByEntityProvider(_key));
+    final materials = async.valueOrNull ?? const <SupportMaterial>[];
+    if (!canWrite && materials.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Materiais complementares',
+                style: meta.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            if (canWrite)
+              TextButton.icon(
+                key: const ValueKey('lesson-link-material'),
+                onPressed: async.hasValue
+                    ? () => _link(context, ref, materials)
+                    : null,
+                icon: const Icon(AppIcons.link, size: 18),
+                label: const Text('Vincular'),
+              ),
+          ],
+        ),
+        if (async.isLoading)
+          const Padding(
+            padding: EdgeInsets.all(12),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (async.hasError)
+          Text('Não foi possível carregar os materiais.', style: meta)
+        else if (materials.isEmpty)
+          Text('Nenhum material vinculado a esta aula.', style: meta)
+        else
+          for (final m in materials)
+            ListTile(
+              key: ValueKey('lesson-material-${m.id}'),
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(turmaMaterialIcon(m.materialType)),
+              title: Text(m.title),
+              subtitle: Text(m.materialType.label),
+              onTap: () => showTurmaSheet<void>(
+                context: context,
+                builder: (_) => TurmaMaterialReadSheet(material: m),
+              ),
+              trailing: canWrite
+                  ? IconButton(
+                      tooltip: 'Desvincular',
+                      icon: const Icon(AppIcons.close, size: 18),
+                      onPressed: () => _unlink(context, ref, m),
+                    )
+                  : null,
+            ),
+      ],
+    );
+  }
+}
+
+/// Aula nova ou edição: título, data, textos da aula e o vídeo e o PDF
+/// principais (colunas da própria aula — modelo híbrido do
+/// ROADMAP-FORMACAO), por link ou por arquivo enviado.
 ///
 /// A edição grava o formulário inteiro por
 /// [StudyGroupRepository.replaceLessonContent], então apagar um campo apaga
 /// de verdade (antes o vídeo/PDF ficaria preso).
+///
+/// Arquivo: escolher só guarda; o envio acontece ao salvar, porque a pasta
+/// do Storage leva o id da aula (aula nova é criada antes do envio). Depois
+/// que o banco grava, o arquivo antigo da própria aula é apagado — link
+/// externo e arquivo de Material de Apoio nunca são tocados. Se o envio
+/// falhar depois de criar a aula, o formulário continua aberto e o próximo
+/// "Salvar" edita a aula já criada em vez de criar outra.
 ///
 /// Aula nova nasce como rascunho, com o próximo número da turma e o
 /// `study_group_id` da tela — não há como escolher outro grupo.
@@ -439,6 +592,11 @@ class _LessonFormSheetState extends ConsumerState<_LessonFormSheet> {
   DateTime? _date;
   bool _saving = false;
   String? _error;
+  PickedLessonFile? _pendingVideo;
+  PickedLessonFile? _pendingPdf;
+
+  /// Aula nova já criada numa tentativa anterior cujo envio falhou.
+  String? _createdLessonId;
 
   bool get _isEdit => widget.lesson != null;
 
@@ -482,6 +640,33 @@ class _LessonFormSheetState extends ConsumerState<_LessonFormSheet> {
     if (picked != null) setState(() => _date = picked);
   }
 
+  Future<void> _pick(LessonMediaKind kind) async {
+    try {
+      final file = await ref.read(lessonMediaServiceProvider).pick(kind);
+      if (file == null || !mounted) return;
+      if (file.size > lessonMediaMaxBytes) {
+        setState(
+          () => _error = kind == LessonMediaKind.video
+              ? 'O vídeo passa de 50 MB. Use um link do YouTube ou do Drive.'
+              : 'O arquivo passa de 50 MB.',
+        );
+        return;
+      }
+      setState(() {
+        _error = null;
+        if (kind == LessonMediaKind.video) {
+          _pendingVideo = file;
+        } else {
+          _pendingPdf = file;
+        }
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = 'Não foi possível escolher o arquivo: $error');
+      }
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() {
@@ -489,17 +674,23 @@ class _LessonFormSheetState extends ConsumerState<_LessonFormSheet> {
       _error = null;
     });
     final repo = ref.read(studyGroupRepositoryProvider);
+    final media = ref.read(lessonMediaServiceProvider);
     try {
-      final existing = widget.lesson;
       final title = _title.text.trim();
       final description = _blankToNull(_description.text);
       final bibleReferences = _blankToNull(_bibleReferences.text);
       final content = _blankToNull(_content.text);
       final questions = parseLessonQuestions(_questions.text);
-      final videoUrl = normalizeLessonUrl(_videoUrl.text);
-      final pdfUrl = normalizeLessonUrl(_pdfUrl.text);
-      if (existing == null) {
-        await repo.createLesson(
+      var videoUrl = _pendingVideo == null
+          ? normalizeLessonUrl(_videoUrl.text)
+          : null;
+      var pdfUrl = _pendingPdf == null
+          ? normalizeLessonUrl(_pdfUrl.text)
+          : null;
+
+      var lessonId = widget.lesson?.id ?? _createdLessonId;
+      if (lessonId == null) {
+        final created = await repo.createLesson(
           studyGroupId: widget.studyGroupId,
           lessonNumber: widget.nextNumber,
           title: title,
@@ -511,28 +702,114 @@ class _LessonFormSheetState extends ConsumerState<_LessonFormSheet> {
           videoUrl: videoUrl,
           pdfUrl: pdfUrl,
         );
-      } else {
-        await repo.replaceLessonContent(
-          existing.id,
-          title: title,
-          description: description,
-          bibleReferences: bibleReferences,
-          content: content,
-          discussionQuestions: questions,
-          scheduledDate: _date,
-          videoUrl: videoUrl,
-          pdfUrl: pdfUrl,
+        lessonId = created.id;
+        _createdLessonId = lessonId;
+        if (_pendingVideo == null && _pendingPdf == null) {
+          if (mounted) Navigator.of(context).pop(true);
+          return;
+        }
+      }
+
+      // Cada envio que dá certo vira link no campo: se o próximo falhar,
+      // "Salvar" de novo não reenvia o que já subiu.
+      final pendingVideo = _pendingVideo;
+      if (pendingVideo != null) {
+        videoUrl = await media.upload(
+          kind: LessonMediaKind.video,
+          lessonId: lessonId,
+          file: pendingVideo,
         );
+        _videoUrl.text = videoUrl;
+        _pendingVideo = null;
+      }
+      final pendingPdf = _pendingPdf;
+      if (pendingPdf != null) {
+        pdfUrl = await media.upload(
+          kind: LessonMediaKind.pdf,
+          lessonId: lessonId,
+          file: pendingPdf,
+        );
+        _pdfUrl.text = pdfUrl;
+        _pendingPdf = null;
+      }
+
+      await repo.replaceLessonContent(
+        lessonId,
+        title: title,
+        description: description,
+        bibleReferences: bibleReferences,
+        content: content,
+        discussionQuestions: questions,
+        scheduledDate: _date,
+        videoUrl: videoUrl,
+        pdfUrl: pdfUrl,
+      );
+
+      // Banco gravado: agora sim o arquivo antigo da aula pode sumir. Falha
+      // aqui não desfaz nada (o arquivo só fica sobrando no bucket).
+      final old = widget.lesson;
+      if (old != null) {
+        for (final (kind, before, after) in [
+          (LessonMediaKind.video, old.videoUrl, videoUrl),
+          (LessonMediaKind.pdf, old.pdfUrl, pdfUrl),
+        ]) {
+          if (_blankToNull(before) == null || before == after) continue;
+          try {
+            await media.removeIfLessonFile(
+              kind: kind,
+              lessonId: lessonId,
+              url: before,
+            );
+          } catch (_) {}
+        }
       }
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
       if (mounted) {
         setState(() {
           _saving = false;
-          _error = 'Não foi possível salvar: $error';
+          _error = _createdLessonId != null && !_isEdit
+              ? 'A aula foi criada, mas o envio do arquivo falhou: $error. '
+                    'Toque em Salvar para tentar de novo.'
+              : 'Não foi possível salvar: $error';
         });
       }
     }
+  }
+
+  Widget _mediaPicker(LessonMediaKind kind) {
+    final pending = kind == LessonMediaKind.video ? _pendingVideo : _pendingPdf;
+    if (pending == null) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          key: ValueKey('lesson-pick-${kind.name}'),
+          onPressed: _saving ? null : () => _pick(kind),
+          icon: const Icon(AppIcons.upload, size: 18),
+          label: Text('Enviar ${kind.label} do aparelho'),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: InputChip(
+        key: ValueKey('lesson-pending-${kind.name}'),
+        avatar: Icon(
+          kind == LessonMediaKind.video ? AppIcons.videoLibrary : AppIcons.pdf,
+          size: 18,
+        ),
+        label: Text('${pending.name} · enviado ao salvar'),
+        onDeleted: _saving
+            ? null
+            : () => setState(() {
+                if (kind == LessonMediaKind.video) {
+                  _pendingVideo = null;
+                } else {
+                  _pendingPdf = null;
+                }
+              }),
+      ),
+    );
   }
 
   @override
@@ -605,29 +882,35 @@ class _LessonFormSheetState extends ConsumerState<_LessonFormSheet> {
           const SizedBox(height: 8),
           TextFormField(
             controller: _videoUrl,
+            enabled: _pendingVideo == null,
             keyboardType: TextInputType.url,
             decoration: const InputDecoration(
               labelText: 'Link do vídeo',
               hintText: 'https://youtube.com/...',
               prefixIcon: Icon(AppIcons.videoLibrary),
             ),
-            validator: lessonUrlError,
+            validator: (v) => _pendingVideo == null ? lessonUrlError(v) : null,
           ),
+          _mediaPicker(LessonMediaKind.video),
           const SizedBox(height: 12),
           TextFormField(
             controller: _pdfUrl,
+            enabled: _pendingPdf == null,
             keyboardType: TextInputType.url,
             decoration: const InputDecoration(
               labelText: 'Link do PDF',
               hintText: 'https://...',
               prefixIcon: Icon(AppIcons.pdf),
             ),
-            validator: lessonUrlError,
+            validator: (v) => _pendingPdf == null ? lessonUrlError(v) : null,
           ),
+          _mediaPicker(LessonMediaKind.pdf),
           const SizedBox(height: 6),
           Text(
             'Quem tiver o link abre o vídeo e o PDF, mesmo com a aula em '
-            'rascunho. Apague o link para tirar o vídeo ou o PDF da aula.',
+            'rascunho. Apague o link para tirar o vídeo ou o PDF da aula; '
+            'arquivo enviado por aqui é apagado junto. Vídeo até 50 MB — '
+            'maior que isso, use link.',
             style: CommunityDesign.metaStyle(context),
           ),
           if (!_isEdit) ...[
@@ -652,7 +935,7 @@ class _LessonFormSheetState extends ConsumerState<_LessonFormSheet> {
               TextButton(
                 onPressed: _saving
                     ? null
-                    : () => Navigator.of(context).pop(false),
+                    : () => Navigator.of(context).pop(_createdLessonId != null),
                 child: const Text('Cancelar'),
               ),
               const SizedBox(width: 8),

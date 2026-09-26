@@ -1,7 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:church360_app/core/theme/app_theme.dart';
 import 'package:church360_app/features/courses/presentation/turma/adapters/batismo_turma_adapter.dart';
 import 'package:church360_app/features/courses/presentation/turma/adapters/generica_turma_adapter.dart';
 import 'package:church360_app/features/courses/presentation/turma/adapters/turma_surfaces.dart';
+import 'package:church360_app/features/courses/presentation/turma/lesson_media.dart';
 import 'package:church360_app/features/courses/presentation/turma/tabs/turma_aulas_tab.dart';
 import 'package:church360_app/features/courses/presentation/turma/tabs/turma_materiais_tab.dart';
 import 'package:church360_app/features/courses/presentation/turma/turma_access.dart';
@@ -247,6 +250,48 @@ class _FakeMaterialsRepo implements SupportMaterialsRepository {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Storage falso da aula: escolher devolve sempre "aula.pdf"/"aula.mp4";
+/// enviar devolve `https://up/<tipo>/<aula>`.
+class _FakeMedia implements LessonMediaService {
+  final int size;
+  int failUploads;
+  final uploads = <({LessonMediaKind kind, String lessonId})>[];
+  final removed = <({LessonMediaKind kind, String? url})>[];
+
+  _FakeMedia({this.size = 1024, this.failUploads = 0});
+
+  @override
+  Future<PickedLessonFile?> pick(LessonMediaKind kind) async =>
+      PickedLessonFile(
+        name: kind == LessonMediaKind.pdf ? 'aula.pdf' : 'aula.mp4',
+        size: size,
+        bytes: Uint8List(1),
+      );
+
+  @override
+  Future<String> upload({
+    required LessonMediaKind kind,
+    required String lessonId,
+    required PickedLessonFile file,
+  }) async {
+    if (failUploads > 0) {
+      failUploads--;
+      throw Exception('rede caiu');
+    }
+    uploads.add((kind: kind, lessonId: lessonId));
+    return 'https://up/${kind.name}/$lessonId';
+  }
+
+  @override
+  Future<void> removeIfLessonFile({
+    required LessonMediaKind kind,
+    required String lessonId,
+    required String? url,
+  }) async {
+    removed.add((kind: kind, url: url));
+  }
 }
 
 const _leader = TurmaAccess(role: TurmaRole.leadership, canWriteLessons: true);
@@ -602,6 +647,275 @@ void main() {
       expect(lessonUrlError('http://a.com'), isNull);
       expect(parseLessonQuestions(' \n '), isNull);
       expect(parseLessonQuestions('a\r\nb'), ['a', 'b']);
+    });
+  });
+
+  // Passo 3 do modelo híbrido: arquivo principal enviado pela aula. O envio
+  // só acontece ao salvar (a pasta leva o id da aula) e o arquivo antigo da
+  // própria aula é apagado depois que o banco grava.
+  group('Envio de arquivo da aula', () {
+    const tenant = 't1';
+    const uid = 'u1';
+    String lessonFile(String lessonId, String name) =>
+        'https://x.supabase.co/storage/v1/object/public/support-material-files/'
+        '$tenant/$uid/study-lessons/$lessonId/$name';
+
+    StudyLesson uploaded() => StudyLesson(
+      id: 'l9',
+      studyGroupId: _sgId,
+      lessonNumber: 9,
+      title: 'Batismo nas águas',
+      videoUrl: 'https://youtube.com/watch?v=abc',
+      pdfUrl: lessonFile('l9', 'antigo.pdf'),
+      status: LessonStatus.draft,
+      createdAt: _t0,
+      updatedAt: _t0,
+    );
+
+    Future<void> tapSave(WidgetTester tester) async {
+      await tester.ensureVisible(find.text('Salvar'));
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> pickPdf(WidgetTester tester) async {
+      await tester.ensureVisible(find.byKey(const ValueKey('lesson-pick-pdf')));
+      await tester.tap(find.byKey(const ValueKey('lesson-pick-pdf')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('aula nova: cria, envia na pasta da aula e grava o link', (
+      tester,
+    ) async {
+      final repo = _FakeStudyRepo(lessons: const []);
+      final media = _FakeMedia();
+      await _pump(
+        tester,
+        _host(
+          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          overrides: [
+            studyGroupRepositoryProvider.overrideWithValue(repo),
+            lessonMediaServiceProvider.overrideWithValue(media),
+          ],
+        ),
+      );
+
+      await tester.tap(find.text('Nova aula'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Título da aula *'),
+        'Arrependimento',
+      );
+      await pickPdf(tester);
+      expect(find.text('aula.pdf · enviado ao salvar'), findsOneWidget);
+      await tapSave(tester);
+
+      // Criada sem PDF; o envio usa o id devolvido; o link vai no replace.
+      expect(repo.createdFields.single['pdf_url'], isNull);
+      expect(media.uploads.single, (kind: LessonMediaKind.pdf, lessonId: 'l1'));
+      expect(repo.replaced.single['id'], 'l1');
+      expect(repo.replaced.single['pdf_url'], 'https://up/pdf/l1');
+      expect(media.removed, isEmpty);
+    });
+
+    testWidgets('trocar o PDF enviado apaga o antigo depois de gravar', (
+      tester,
+    ) async {
+      final repo = _FakeStudyRepo(lessons: [uploaded()]);
+      final media = _FakeMedia();
+      await _pump(
+        tester,
+        _host(
+          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          overrides: [
+            studyGroupRepositoryProvider.overrideWithValue(repo),
+            lessonMediaServiceProvider.overrideWithValue(media),
+          ],
+        ),
+      );
+
+      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Editar'));
+      await tester.pumpAndSettle();
+      await pickPdf(tester);
+      await tapSave(tester);
+
+      expect(media.uploads.single, (kind: LessonMediaKind.pdf, lessonId: 'l9'));
+      expect(repo.replaced.single['pdf_url'], 'https://up/pdf/l9');
+      // O vídeo não mudou: nada a apagar do lado dele.
+      expect(media.removed, [
+        (kind: LessonMediaKind.pdf, url: lessonFile('l9', 'antigo.pdf')),
+      ]);
+    });
+
+    testWidgets('falha no envio: a aula não é criada de novo', (tester) async {
+      final repo = _FakeStudyRepo(lessons: const []);
+      final media = _FakeMedia(failUploads: 1);
+      await _pump(
+        tester,
+        _host(
+          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          overrides: [
+            studyGroupRepositoryProvider.overrideWithValue(repo),
+            lessonMediaServiceProvider.overrideWithValue(media),
+          ],
+        ),
+      );
+
+      await tester.tap(find.text('Nova aula'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Título da aula *'),
+        'Aula',
+      );
+      await pickPdf(tester);
+      await tapSave(tester);
+
+      expect(repo.created, hasLength(1));
+      expect(repo.replaced, isEmpty);
+      expect(find.textContaining('A aula foi criada'), findsOneWidget);
+
+      await tapSave(tester);
+      expect(repo.created, hasLength(1));
+      expect(repo.replaced.single['id'], 'l1');
+      expect(repo.replaced.single['pdf_url'], 'https://up/pdf/l1');
+    });
+
+    testWidgets('arquivo acima de 50 MB é recusado antes de enviar', (
+      tester,
+    ) async {
+      final repo = _FakeStudyRepo(lessons: const []);
+      final media = _FakeMedia(size: lessonMediaMaxBytes + 1);
+      await _pump(
+        tester,
+        _host(
+          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          overrides: [
+            studyGroupRepositoryProvider.overrideWithValue(repo),
+            lessonMediaServiceProvider.overrideWithValue(media),
+          ],
+        ),
+      );
+
+      await tester.tap(find.text('Nova aula'));
+      await tester.pumpAndSettle();
+      await pickPdf(tester);
+      expect(find.text('O arquivo passa de 50 MB.'), findsOneWidget);
+      expect(find.textContaining('enviado ao salvar'), findsNothing);
+    });
+
+    test('só arquivo da pasta da própria aula é apagável', () {
+      expect(
+        lessonMediaObjectPath(
+          lessonFile('l9', 'a.pdf'),
+          kind: LessonMediaKind.pdf,
+          lessonId: 'l9',
+        ),
+        '$tenant/$uid/study-lessons/l9/a.pdf',
+      );
+      // Outra aula, outro bucket, link externo, material de apoio comum.
+      expect(
+        lessonMediaObjectPath(
+          lessonFile('l8', 'a.pdf'),
+          kind: LessonMediaKind.pdf,
+          lessonId: 'l9',
+        ),
+        isNull,
+      );
+      expect(
+        lessonMediaObjectPath(
+          lessonFile('l9', 'a.pdf'),
+          kind: LessonMediaKind.video,
+          lessonId: 'l9',
+        ),
+        isNull,
+      );
+      expect(
+        lessonMediaObjectPath(
+          'https://youtube.com/watch?v=abc',
+          kind: LessonMediaKind.video,
+          lessonId: 'l9',
+        ),
+        isNull,
+      );
+      expect(
+        lessonMediaObjectPath(
+          'https://x.supabase.co/storage/v1/object/public/'
+          'support-material-files/$tenant/$uid/123.pdf',
+          kind: LessonMediaKind.pdf,
+          lessonId: 'l9',
+        ),
+        isNull,
+      );
+      expect(
+        buildLessonMediaPath(
+          tenantId: tenant,
+          userId: uid,
+          lessonId: 'l9',
+          timestamp: 5,
+          extension: 'pdf',
+        ),
+        '$tenant/$uid/study-lessons/l9/5.pdf',
+      );
+    });
+  });
+
+  group('Materiais complementares da aula', () {
+    testWidgets('liderança vincula material à aula (tipo study_lesson)', (
+      tester,
+    ) async {
+      final repo = _FakeStudyRepo(lessons: [_lesson(1, LessonStatus.draft)]);
+      final materials = _FakeMaterialsRepo(
+        all: [_material('alheio', createdBy: 'outro')],
+      );
+      await _pump(
+        tester,
+        _host(
+          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          overrides: [
+            studyGroupRepositoryProvider.overrideWithValue(repo),
+            supportMaterialsRepositoryProvider.overrideWithValue(materials),
+          ],
+        ),
+      );
+
+      await tester.tap(find.text('Aula 1 · Tema 1'));
+      await tester.pumpAndSettle();
+      expect(find.text('Nenhum material vinculado a esta aula.'), findsOne);
+      await tester.tap(find.byKey(const ValueKey('lesson-link-material')));
+      await tester.pumpAndSettle();
+      // Material de outra pessoa aparece: quem edita a aula vincula o que vê.
+      await tester.tap(find.text('Material alheio'));
+      await tester.pumpAndSettle();
+
+      expect(materials.links.single['material_id'], 'alheio');
+      expect(materials.links.single['link_type'], 'study_lesson');
+      expect(materials.links.single['linked_entity_id'], 'l1');
+    });
+
+    testWidgets('aluno vê os vinculados, sem Vincular', (tester) async {
+      final repo = _FakeStudyRepo(
+        lessons: [_lesson(1, LessonStatus.published)],
+      );
+      final materials = _FakeMaterialsRepo(linked: [_material('m1')]);
+      await _pump(
+        tester,
+        _host(
+          const TurmaAulasTab(studyGroupId: _sgId, access: TurmaAccess.student),
+          overrides: [
+            studyGroupRepositoryProvider.overrideWithValue(repo),
+            supportMaterialsRepositoryProvider.overrideWithValue(materials),
+          ],
+        ),
+      );
+
+      await tester.tap(find.text('Aula 1 · Tema 1'));
+      await tester.pumpAndSettle();
+      expect(find.text('Materiais complementares'), findsOneWidget);
+      expect(find.text('Material m1'), findsOneWidget);
+      expect(find.byKey(const ValueKey('lesson-link-material')), findsNothing);
+      expect(find.byTooltip('Desvincular'), findsNothing);
     });
   });
 
