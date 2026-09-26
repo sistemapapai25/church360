@@ -145,6 +145,10 @@ Widget _host({
         linkType: MaterialLinkType.studyGroup,
         entityId: _sgId,
       )).overrideWith((ref) async => []),
+      materialsByEntitiesProvider((
+        linkType: MaterialLinkType.studyLesson,
+        entityIds: '',
+      )).overrideWith((ref) async => {}),
       courseByIdProvider(courseId).overrideWith(
         (ref) async => Course(
           id: courseId,
@@ -428,7 +432,7 @@ void main() {
       await tester.tap(find.text('Materiais'));
       await tester.pumpAndSettle();
       expect(
-        find.text('Nenhum material vinculado a esta turma.'),
+        find.text('Nenhum material disponível ainda.'),
         findsOneWidget,
       );
     });

@@ -5,12 +5,15 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/widgets/glass_card.dart';
+import '../../../../../core/widgets/status_badge.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
+import '../../../../study_groups/domain/models/study_group.dart';
 import '../../../../support_materials/domain/models/support_material.dart';
 import '../../../../support_materials/domain/models/support_material_link.dart';
 import '../../../../support_materials/presentation/providers/support_materials_provider.dart';
 import '../turma_access.dart';
 import '../widgets/turma_sheet.dart';
+import 'turma_aulas_tab.dart';
 
 /// Quem pode vincular e desvincular materiais: o autor de cada material
 /// (`created_by`, que é `user_account.id`), quem tem
@@ -39,11 +42,20 @@ final turmaMaterialRightsProvider = FutureProvider<TurmaMaterialRights>((
 
 /// Aba Materiais da tela da turma — igual para Batismo e turma genérica.
 ///
-/// Material **da turma** (`link_type = study_group`). Material de aula
-/// (`study_lesson`) é outra coisa e não é convertido aqui.
+/// Visão agregada (passo 4 do modelo da Aula, ROADMAP-FORMACAO): uma seção
+/// por aula, na ordem das aulas, com o PDF e o vídeo da aula e os
+/// complementares dela. Aula sem nada disso não aparece.
 ///
-/// Sem upload: enquanto o CHU-370 estiver aberto, material novo nasce no
-/// módulo Material de Apoio. Aqui só se vincula o que já existe.
+/// **Regra (d):** a lista parte das aulas que a aba Aulas já mostra para a
+/// pessoa ([turmaVisibleLessonsProvider]) e os complementares são pedidos
+/// só para os ids dessas aulas. Nunca direto de `support_material_link`: a
+/// RLS do link é só por tenant e mostraria ao aluno material de aula em
+/// rascunho.
+///
+/// Material se vincula **pela aula** (decisão 3: nada de vínculo novo
+/// `study_group` para conteúdo didático). Vínculo `study_group` antigo
+/// aparece no fim, em "Material da turma", só quando existe, e quem pode
+/// ([TurmaMaterialRights]) desvincula.
 class TurmaMateriaisTab extends ConsumerWidget {
   final String studyGroupId;
   final TurmaAccess access;
@@ -54,40 +66,12 @@ class TurmaMateriaisTab extends ConsumerWidget {
     required this.access,
   });
 
-  ({MaterialLinkType linkType, String entityId}) get _key =>
+  ({MaterialLinkType linkType, String entityId}) get _groupKey =>
       (linkType: MaterialLinkType.studyGroup, entityId: studyGroupId);
 
   void _invalidate(WidgetRef ref) {
-    ref.invalidate(materialsByEntityProvider(_key));
-  }
-
-  Future<void> _link(
-    BuildContext context,
-    WidgetRef ref,
-    List<SupportMaterial> linked,
-    TurmaMaterialRights rights,
-  ) async {
-    final picked = await showTurmaSheet<SupportMaterial>(
-      context: context,
-      builder: (_) => TurmaLinkMaterialSheet(
-        linkedIds: {for (final m in linked) m.id},
-        rights: rights,
-      ),
-    );
-    if (picked == null) return;
-    try {
-      await ref.read(supportMaterialsRepositoryProvider).createLink({
-        'material_id': picked.id,
-        'link_type': MaterialLinkType.studyGroup.value,
-        'linked_entity_id': studyGroupId,
-      });
-      _invalidate(ref);
-    } catch (error) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Não foi possível vincular: $error')),
-      );
-    }
+    invalidateTurmaLessons(ref, studyGroupId);
+    ref.invalidate(materialsByEntityProvider(_groupKey));
   }
 
   Future<void> _unlink(
@@ -103,7 +87,7 @@ class TurmaMateriaisTab extends ConsumerWidget {
             linkType: MaterialLinkType.studyGroup,
             entityId: studyGroupId,
           );
-      _invalidate(ref);
+      ref.invalidate(materialsByEntityProvider(_groupKey));
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -112,73 +96,215 @@ class TurmaMateriaisTab extends ConsumerWidget {
     }
   }
 
+  void _openMaterial(BuildContext context, SupportMaterial material) {
+    showTurmaSheet<void>(
+      context: context,
+      builder: (_) => TurmaMaterialReadSheet(material: material),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final materialsAsync = ref.watch(materialsByEntityProvider(_key));
+    final lessonsAsync = ref.watch(
+      turmaVisibleLessonsProvider(access, studyGroupId),
+    );
+    final lessons = lessonsAsync.valueOrNull;
+    final byLessonAsync = lessons == null
+        ? null
+        : ref.watch(
+            materialsByEntitiesProvider((
+              linkType: MaterialLinkType.studyLesson,
+              entityIds: materialEntityIdsKey(lessons.map((l) => l.id)),
+            )),
+          );
+    final groupAsync = ref.watch(materialsByEntityProvider(_groupKey));
     final rights = access.isLeadership
         ? ref.watch(turmaMaterialRightsProvider).valueOrNull
         : null;
 
-    return materialsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => TurmaMessage.error(
+    if (lessonsAsync.hasError ||
+        (byLessonAsync?.hasError ?? false) ||
+        groupAsync.hasError) {
+      return TurmaMessage.error(
         message: 'Não foi possível carregar os materiais.',
         onRetry: () => _invalidate(ref),
+      );
+    }
+    final byLesson = byLessonAsync?.valueOrNull;
+    final groupMaterials = groupAsync.valueOrNull;
+    if (lessons == null || byLesson == null || groupMaterials == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final sections = [
+      for (final lesson in lessons)
+        if (_hasContent(lesson, byLesson[lesson.id]))
+          (lesson: lesson, materials: byLesson[lesson.id] ?? const []),
+    ];
+    final meta = CommunityDesign.metaStyle(context);
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        _invalidate(ref);
+        await ref.read(
+          turmaVisibleLessonsProvider(access, studyGroupId).future,
+        );
+      },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          Text(
+            '${sections.length} '
+            '${sections.length == 1 ? 'aula com material' : 'aulas com material'}',
+            style: meta,
+          ),
+          if (access.isLeadership) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Para incluir material, abra a aula na aba Aulas. Material de '
+              'apoio é visível para toda a igreja, não só para esta turma; '
+              'o vídeo e o PDF da aula abrem para quem tiver o link.',
+              style: meta,
+            ),
+          ],
+          const SizedBox(height: 12),
+          if (sections.isEmpty && groupMaterials.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 32),
+              child: TurmaMessage(
+                icon: AppIcons.libraryBooks,
+                message: access.isLeadership
+                    ? 'Nenhuma aula desta turma tem material ainda.'
+                    : 'Nenhum material disponível ainda.',
+              ),
+            ),
+          for (final section in sections)
+            _LessonMaterialsSection(
+              key: ValueKey('materials-lesson-${section.lesson.id}'),
+              lesson: section.lesson,
+              materials: section.materials,
+              showStatus: access.isLeadership,
+              onOpenMaterial: (m) => _openMaterial(context, m),
+            ),
+          if (groupMaterials.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Material da turma',
+              key: const ValueKey('materials-group-section'),
+              style: meta.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            for (final material in groupMaterials)
+              _MaterialCard(
+                key: ValueKey(material.id),
+                material: material,
+                onOpen: () => _openMaterial(context, material),
+                onUnlink: rights != null && rights.canManage(material)
+                    ? () => _unlink(context, ref, material)
+                    : null,
+              ),
+          ],
+        ],
       ),
-      data: (materials) {
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+    );
+  }
+}
+
+bool _hasContent(StudyLesson lesson, List<SupportMaterial>? materials) =>
+    (lesson.pdfUrl ?? '').trim().isNotEmpty ||
+    (lesson.videoUrl ?? '').trim().isNotEmpty ||
+    (materials ?? const []).isNotEmpty;
+
+/// Uma aula na aba Materiais: título, status (só liderança, e só quando não
+/// está publicada), vídeo e PDF principais e os complementares.
+class _LessonMaterialsSection extends StatelessWidget {
+  final StudyLesson lesson;
+  final List<SupportMaterial> materials;
+  final bool showStatus;
+  final ValueChanged<SupportMaterial> onOpenMaterial;
+
+  const _LessonMaterialsSection({
+    super.key,
+    required this.lesson,
+    required this.materials,
+    required this.showStatus,
+    required this.onOpenMaterial,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final meta = CommunityDesign.metaStyle(context);
+    final videoUrl = (lesson.videoUrl ?? '').trim();
+    final pdfUrl = (lesson.pdfUrl ?? '').trim();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GlassCard(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Expanded(
-                  child: Text(
-                    '${materials.length} '
-                    '${materials.length == 1 ? 'material' : 'materiais'}',
-                    style: CommunityDesign.metaStyle(context),
-                  ),
+                Text(
+                  'Aula ${lesson.lessonNumber} · ${lesson.title}',
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
-                if (rights != null)
-                  FilledButton.icon(
-                    onPressed: () => _link(context, ref, materials, rights),
-                    icon: const Icon(AppIcons.link, size: 18),
-                    label: const Text('Vincular material'),
+                if (showStatus && lesson.status != LessonStatus.published)
+                  StatusBadge(
+                    label: lesson.status.displayName,
+                    tone: lessonStatusTone(lesson.status),
                   ),
               ],
             ),
-            if (access.isLeadership) ...[
-              const SizedBox(height: 6),
-              Text(
-                'Material de apoio é visível para toda a igreja, não só '
-                'para esta turma.',
-                style: CommunityDesign.metaStyle(context),
+            if (videoUrl.isNotEmpty || pdfUrl.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (videoUrl.isNotEmpty)
+                    OutlinedButton.icon(
+                      onPressed: () => openLessonLink(context, videoUrl),
+                      icon: const Icon(AppIcons.playArrow, size: 18),
+                      label: const Text('Vídeo da aula'),
+                    ),
+                  if (pdfUrl.isNotEmpty)
+                    OutlinedButton.icon(
+                      onPressed: () => openLessonLink(context, pdfUrl),
+                      icon: const Icon(AppIcons.pdf, size: 18),
+                      label: const Text('PDF da aula'),
+                    ),
+                ],
               ),
             ],
-            const SizedBox(height: 12),
-            if (materials.isEmpty)
-              const Padding(
-                padding: EdgeInsets.only(top: 32),
-                child: TurmaMessage(
-                  icon: AppIcons.libraryBooks,
-                  message: 'Nenhum material vinculado a esta turma.',
+            if (materials.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Complementares',
+                style: meta.copyWith(fontWeight: FontWeight.w700),
+              ),
+              for (final m in materials)
+                ListTile(
+                  key: ValueKey('materials-lesson-${lesson.id}-${m.id}'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  leading: Icon(turmaMaterialIcon(m.materialType)),
+                  title: Text(m.title),
+                  subtitle: Text(m.materialType.label),
+                  onTap: () => onOpenMaterial(m),
                 ),
-              )
-            else
-              for (final material in materials)
-                _MaterialCard(
-                  key: ValueKey(material.id),
-                  material: material,
-                  onOpen: () => showTurmaSheet<void>(
-                    context: context,
-                    builder: (_) => TurmaMaterialReadSheet(material: material),
-                  ),
-                  onUnlink: rights != null && rights.canManage(material)
-                      ? () => _unlink(context, ref, material)
-                      : null,
-                ),
+            ] else
+              const SizedBox(height: 4),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 }

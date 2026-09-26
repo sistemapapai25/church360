@@ -34,12 +34,20 @@ import 'package:flutter_test/flutter_test.dart';
 const _sgId = 'sg-1';
 final _t0 = DateTime(2026, 9, 1);
 
-StudyLesson _lesson(int n, LessonStatus status, {String? id}) => StudyLesson(
+StudyLesson _lesson(
+  int n,
+  LessonStatus status, {
+  String? id,
+  String? pdfUrl,
+  String? videoUrl,
+}) => StudyLesson(
   id: id ?? 'l$n',
   studyGroupId: _sgId,
   lessonNumber: n,
   title: 'Tema $n',
   status: status,
+  pdfUrl: pdfUrl,
+  videoUrl: videoUrl,
   createdAt: _t0,
   updatedAt: _t0,
 );
@@ -222,10 +230,29 @@ class _FakeStudyRepo implements StudyGroupRepository {
 
 class _FakeMaterialsRepo implements SupportMaterialsRepository {
   final List<SupportMaterial> all;
-  final List<SupportMaterial> linked;
-  final links = <Map<String, dynamic>>[];
 
-  _FakeMaterialsRepo({this.all = const [], this.linked = const []});
+  /// Vínculos `study_lesson` pedidos um a um (leitura da aula).
+  final List<SupportMaterial> linked;
+
+  /// Vínculos `study_group` (seção "Material da turma").
+  final List<SupportMaterial> groupLinked;
+
+  /// Vínculos `study_lesson` por aula, como estão no banco — inclusive de
+  /// aula em rascunho. A regra (d) é a aba nunca pedir esses ids ao aluno.
+  final Map<String, List<SupportMaterial>> byLesson;
+
+  final links = <Map<String, dynamic>>[];
+  final unlinked = <({String materialId, MaterialLinkType type})>[];
+
+  /// Cada chamada de [getMaterialsByEntities]: os ids pedidos.
+  final requestedIds = <List<String>>[];
+
+  _FakeMaterialsRepo({
+    this.all = const [],
+    this.linked = const [],
+    this.groupLinked = const [],
+    this.byLesson = const {},
+  });
 
   @override
   Future<List<SupportMaterial>> getAllMaterials() async => all;
@@ -234,7 +261,28 @@ class _FakeMaterialsRepo implements SupportMaterialsRepository {
   Future<List<SupportMaterial>> getMaterialsByEntity(
     MaterialLinkType linkType,
     String entityId,
-  ) async => linked;
+  ) async => linkType == MaterialLinkType.studyGroup ? groupLinked : linked;
+
+  @override
+  Future<Map<String, List<SupportMaterial>>> getMaterialsByEntities(
+    MaterialLinkType linkType,
+    List<String> entityIds,
+  ) async {
+    requestedIds.add(entityIds);
+    return {
+      for (final id in entityIds)
+        if (byLesson[id] != null) id: byLesson[id]!,
+    };
+  }
+
+  @override
+  Future<void> deleteLinkFor({
+    required String materialId,
+    required MaterialLinkType linkType,
+    required String entityId,
+  }) async {
+    unlinked.add((materialId: materialId, type: linkType));
+  }
 
   @override
   Future<SupportMaterialLink> createLink(Map<String, dynamic> data) async {
@@ -920,27 +968,47 @@ void main() {
   });
 
   group('Materiais', () {
-    ({MaterialLinkType linkType, String entityId}) key = (
-      linkType: MaterialLinkType.studyGroup,
-      entityId: _sgId,
-    );
-
     List<Override> overrides(
-      _FakeMaterialsRepo repo, {
+      _FakeStudyRepo study,
+      _FakeMaterialsRepo materials, {
       String? memberId = 'me',
       bool canEditAny = false,
     }) => [
-      supportMaterialsRepositoryProvider.overrideWithValue(repo),
+      studyGroupRepositoryProvider.overrideWithValue(study),
+      supportMaterialsRepositoryProvider.overrideWithValue(materials),
       turmaMaterialRightsProvider.overrideWith(
         (ref) async =>
             TurmaMaterialRights(memberId: memberId, canEditAny: canEditAny),
       ),
     ];
 
-    testWidgets('aluno lista e não vincula; ninguém tem upload', (
+    // Aula 1 publicada com tudo; aula 2 em rascunho com PDF e complementar;
+    // aula 3 publicada sem material nenhum.
+    _FakeStudyRepo turma() => _FakeStudyRepo(
+      lessons: [
+        _lesson(
+          1,
+          LessonStatus.published,
+          pdfUrl: 'https://x/aula1.pdf',
+          videoUrl: 'https://x/aula1.mp4',
+        ),
+        _lesson(2, LessonStatus.draft, pdfUrl: 'https://x/rascunho.pdf'),
+        _lesson(3, LessonStatus.published),
+      ],
+    );
+    _FakeMaterialsRepo materiais({List<SupportMaterial> group = const []}) =>
+        _FakeMaterialsRepo(
+          byLesson: {
+            'l1': [_material('pub')],
+            'l2': [_material('rascunho')],
+          },
+          groupLinked: group,
+        );
+
+    testWidgets('aluno: só aulas publicadas, e só os ids delas são pedidos', (
       tester,
     ) async {
-      final repo = _FakeMaterialsRepo(linked: [_material('m1')]);
+      final materials = materiais();
       await _pump(
         tester,
         _host(
@@ -948,20 +1016,96 @@ void main() {
             studyGroupId: _sgId,
             access: TurmaAccess.student,
           ),
-          overrides: overrides(repo),
+          overrides: overrides(turma(), materials),
         ),
       );
 
-      expect(find.text('Material m1'), findsOneWidget);
+      expect(find.text('Aula 1 · Tema 1'), findsOneWidget);
+      expect(find.text('PDF da aula'), findsOneWidget);
+      expect(find.text('Vídeo da aula'), findsOneWidget);
+      expect(find.text('Material pub'), findsOneWidget);
+
+      // Rascunho: nem a seção, nem o PDF, nem o complementar.
+      expect(find.text('Aula 2 · Tema 2'), findsNothing);
+      expect(find.text('Material rascunho'), findsNothing);
+      // Aula publicada sem material não aparece.
+      expect(find.text('Aula 3 · Tema 3'), findsNothing);
+
+      // Regra (d): a consulta dos complementares só leva as aulas visíveis.
+      expect(materials.requestedIds, isNotEmpty);
+      for (final ids in materials.requestedIds) {
+        expect(ids, isNot(contains('l2')));
+        expect(ids.toSet(), {'l1', 'l3'});
+      }
+
       expect(find.text('Vincular material'), findsNothing);
+      expect(find.text('Material da turma'), findsNothing);
       expect(find.textContaining('Enviar'), findsNothing);
-      expect(find.textContaining('Upload'), findsNothing);
-      expect(key.entityId, _sgId);
+      expect(find.text('RASCUNHO'), findsNothing);
     });
 
-    testWidgets('seletor: autor vê o seu, não o dos outros', (tester) async {
-      final repo = _FakeMaterialsRepo(
-        all: [
+    testWidgets('liderança: vê o rascunho marcado, sem Vincular material', (
+      tester,
+    ) async {
+      final materials = materiais();
+      await _pump(
+        tester,
+        _host(
+          const TurmaMateriaisTab(studyGroupId: _sgId, access: _leader),
+          overrides: overrides(turma(), materials),
+        ),
+      );
+
+      expect(find.text('Aula 1 · Tema 1'), findsOneWidget);
+      expect(find.text('Aula 2 · Tema 2'), findsOneWidget);
+      expect(find.text('Material rascunho'), findsOneWidget);
+      // Só a aula que não está publicada leva o selo.
+      expect(find.text('RASCUNHO'), findsOneWidget);
+      expect(find.text('PUBLICADA'), findsNothing);
+      expect(find.text('PDF da aula'), findsNWidgets(2));
+      expect(materials.requestedIds.last.toSet(), {'l1', 'l2', 'l3'});
+
+      expect(find.text('Vincular material'), findsNothing);
+      expect(find.text('Material da turma'), findsNothing);
+      expect(find.textContaining('abra a aula na aba Aulas'), findsOneWidget);
+    });
+
+    testWidgets(
+      'vínculo antigo da turma: seção própria, desvincula só o autor',
+      (tester) async {
+        final materials = materiais(
+          group: [
+            _material('meu', createdBy: 'me'),
+            _material('alheio', createdBy: 'outro'),
+          ],
+        );
+        await _pump(
+          tester,
+          _host(
+            const TurmaMateriaisTab(studyGroupId: _sgId, access: _leader),
+            overrides: overrides(turma(), materials),
+          ),
+        );
+
+        expect(find.text('Material da turma'), findsOneWidget);
+        expect(find.text('Material meu'), findsOneWidget);
+        expect(find.text('Material alheio'), findsOneWidget);
+        expect(find.byTooltip('Ações do material'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Ações do material'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Desvincular'));
+        await tester.pumpAndSettle();
+        expect(materials.unlinked.single.materialId, 'meu');
+        expect(materials.unlinked.single.type, MaterialLinkType.studyGroup);
+      },
+    );
+
+    testWidgets('support_materials.edit desvincula qualquer um', (
+      tester,
+    ) async {
+      final materials = materiais(
+        group: [
           _material('meu', createdBy: 'me'),
           _material('alheio', createdBy: 'outro'),
         ],
@@ -970,40 +1114,74 @@ void main() {
         tester,
         _host(
           const TurmaMateriaisTab(studyGroupId: _sgId, access: _leader),
-          overrides: overrides(repo),
+          overrides: overrides(turma(), materials, canEditAny: true),
         ),
       );
 
-      await tester.tap(find.text('Vincular material'));
-      await tester.pumpAndSettle();
-      expect(find.text('Material meu'), findsOneWidget);
-      expect(find.text('Material alheio'), findsNothing);
-
-      await tester.tap(find.text('Material meu'));
-      await tester.pumpAndSettle();
-      expect(repo.links.single['material_id'], 'meu');
-      expect(repo.links.single['link_type'], 'study_group');
-      expect(repo.links.single['linked_entity_id'], _sgId);
+      expect(find.byTooltip('Ações do material'), findsNWidgets(2));
     });
 
-    testWidgets('seletor: support_materials.edit vê todos', (tester) async {
-      final repo = _FakeMaterialsRepo(
-        all: [
-          _material('meu', createdBy: 'me'),
-          _material('alheio', createdBy: 'outro'),
-        ],
+    testWidgets('aluno vê o material da turma sem ações', (tester) async {
+      final materials = materiais(group: [_material('meu', createdBy: 'me')]);
+      await _pump(
+        tester,
+        _host(
+          const TurmaMateriaisTab(
+            studyGroupId: _sgId,
+            access: TurmaAccess.student,
+          ),
+          overrides: overrides(turma(), materials, canEditAny: true),
+        ),
       );
+
+      expect(find.text('Material da turma'), findsOneWidget);
+      expect(find.byTooltip('Ações do material'), findsNothing);
+    });
+
+    testWidgets('sem aula: mensagem vazia e nenhuma consulta com id', (
+      tester,
+    ) async {
+      final materials = materiais();
+      await _pump(
+        tester,
+        _host(
+          const TurmaMateriaisTab(
+            studyGroupId: _sgId,
+            access: TurmaAccess.student,
+          ),
+          overrides: overrides(_FakeStudyRepo(), materials),
+        ),
+      );
+
+      expect(find.text('Nenhum material disponível ainda.'), findsOneWidget);
+      for (final ids in materials.requestedIds) {
+        expect(ids, isEmpty);
+      }
+    });
+
+    testWidgets('aulas sem material: mensagem vazia da liderança', (
+      tester,
+    ) async {
       await _pump(
         tester,
         _host(
           const TurmaMateriaisTab(studyGroupId: _sgId, access: _leader),
-          overrides: overrides(repo, canEditAny: true),
+          overrides: overrides(
+            _FakeStudyRepo(lessons: [_lesson(1, LessonStatus.draft)]),
+            _FakeMaterialsRepo(),
+          ),
         ),
       );
 
-      await tester.tap(find.text('Vincular material'));
-      await tester.pumpAndSettle();
-      expect(find.text('Material alheio'), findsOneWidget);
+      expect(
+        find.text('Nenhuma aula desta turma tem material ainda.'),
+        findsOneWidget,
+      );
+    });
+
+    test('materialEntityIdsKey: estável, sem repetição', () {
+      expect(materialEntityIdsKey(['b', 'a', 'b']), 'a,b');
+      expect(materialEntityIdsKey(const []), '');
     });
   });
 
