@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/constants/supabase_constants.dart';
 import '../domain/models/baptism_attendance.dart';
 import '../domain/models/baptism_checklist.dart';
+import '../domain/models/baptism_enrollment.dart';
 import '../domain/models/baptism_meeting.dart';
 import '../domain/models/baptism_member_suggestion.dart';
 import '../domain/models/baptism_public_info.dart';
@@ -181,6 +182,17 @@ class BaptismRepository {
   // tabelas exigem vínculo no ministério, e afrouxá-las abriria a lista de
   // alunos para a internet. A régua e o recorte ficam nas duas funções
   // SECURITY DEFINER, mesmo desenho do fluxo de convidado dos eventos.
+
+  /// Matrículas do próprio usuário logado (área do aluno).
+  ///
+  /// Vai pela RPC e não por `baptism_student`: o aluno não tem policy nessa
+  /// tabela, que carrega `notes` da liderança (etapa 4 do ROADMAP-FORMACAO).
+  Future<List<BaptismEnrollment>> getMyEnrollments() async {
+    final response = await _supabase.rpc('my_baptism_enrollments');
+    return (response as List)
+        .map((j) => BaptismEnrollment.fromJson(Map<String, dynamic>.from(j)))
+        .toList();
+  }
 
   /// Nome do curso e turmas abertas, para montar o formulário público.
   Future<BaptismPublicInfo> getPublicRegistrationInfo(

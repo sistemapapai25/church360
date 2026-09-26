@@ -354,7 +354,7 @@ class CoursesRepository {
       final response = await _supabase
           .from('study_groups')
           .select(
-            'id, name, status, start_date, end_date, ministry_id, baptism_turma_id',
+            _turmaColumns,
           )
           .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('course_id', courseId)
@@ -367,6 +367,25 @@ class CoursesRepository {
       rethrow;
     }
   }
+
+  /// Uma turma, para a tela da turma.
+  ///
+  /// `null` quando a RLS de study_groups esconde o grupo — para a tela, não
+  /// existir e não poder ver são a mesma resposta.
+  Future<CourseTurma?> getTurma(String studyGroupId) async {
+    final response = await _supabase
+        .from('study_groups')
+        .select(_turmaColumns)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('id', studyGroupId)
+        .maybeSingle();
+
+    if (response == null) return null;
+    return CourseTurma.fromJson(Map<String, dynamic>.from(response));
+  }
+
+  static const _turmaColumns =
+      'id, name, status, start_date, end_date, ministry_id, baptism_turma_id, course_id';
 
   // ==================== COURSE LESSONS ====================
 

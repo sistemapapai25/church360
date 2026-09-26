@@ -10,7 +10,8 @@ import '../../../study_groups/domain/models/study_group.dart';
 import '../../domain/models/course_turma.dart';
 import '../providers/courses_provider.dart';
 
-AppStatusTone _turmaStatusTone(StudyGroupStatus status) {
+/// Tom do selo de situação da turma (card do curso e cabeçalho da turma).
+AppStatusTone courseTurmaStatusTone(StudyGroupStatus status) {
   return switch (status) {
     StudyGroupStatus.active => AppStatusTone.active,
     StudyGroupStatus.completed => AppStatusTone.done,
@@ -155,9 +156,9 @@ class _TurmaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tone = _turmaStatusTone(turma.status);
+    final tone = courseTurmaStatusTone(turma.status);
     final toneColor = tone.color(context);
-    final dates = _formatPeriod(turma.startDate, turma.endDate);
+    final dates = turma.periodLabel;
 
     return GlassCard(
       onTap: () => context.push(turma.route),
@@ -213,18 +214,5 @@ class _TurmaCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  static String? _formatPeriod(DateTime? start, DateTime? end) {
-    if (start == null && end == null) return null;
-    if (start != null && end != null) {
-      return '${_formatDate(start)} a ${_formatDate(end)}';
-    }
-    if (start != null) return 'Início: ${_formatDate(start)}';
-    return 'Término: ${_formatDate(end!)}';
-  }
-
-  static String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 }

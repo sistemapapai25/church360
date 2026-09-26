@@ -46,6 +46,7 @@ final _baptismTurma = CourseTurma(
   endDate: DateTime(2026, 10, 25),
   ministryId: 'min-1',
   baptismTurmaId: 'bt-1',
+  courseId: _courseId,
 );
 
 final _nativeTurma = CourseTurma(
@@ -53,6 +54,7 @@ final _nativeTurma = CourseTurma(
   name: 'Turma de Março',
   status: StudyGroupStatus.completed,
   startDate: DateTime(2026, 3, 1),
+  courseId: _courseId,
 );
 
 /// Monta a tela do curso de verdade (não só a seção), para provar que a
@@ -69,6 +71,12 @@ Widget _host({
         path: '/courses/:id/view',
         builder: (context, state) =>
             CourseViewerScreen(courseId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/courses/:courseId/turmas/:studyGroupId',
+        builder: (context, state) => Text(
+          'turma ${state.pathParameters['courseId']}/${state.pathParameters['studyGroupId']}',
+        ),
       ),
       GoRoute(
         path: '/ministries/:id/batismo',
@@ -126,12 +134,34 @@ void main() {
   });
 
   group('CourseTurma', () {
-    test('turma de Batismo leva ao workspace do ministério', () {
-      expect(_baptismTurma.route, '/ministries/min-1/batismo');
+    test('turma de Batismo abre a rota canônica dentro de Cursos', () {
+      expect(_baptismTurma.route, '/courses/$_courseId/turmas/sg-1');
     });
 
-    test('grupo nativo leva ao detalhe do grupo de estudo', () {
-      expect(_nativeTurma.route, '/study-groups/sg-2');
+    test('grupo nativo abre a mesma rota canônica', () {
+      expect(_nativeTurma.route, '/courses/$_courseId/turmas/sg-2');
+    });
+
+    test('sem course_id a turma de Batismo cai no workspace do ministério', () {
+      final turma = CourseTurma.fromJson({
+        'id': 'sg-4',
+        'name': 'Antiga',
+        'status': 'active',
+        'ministry_id': 'min-1',
+        'baptism_turma_id': 'bt-4',
+      });
+      expect(turma.route, '/ministries/min-1/batismo');
+    });
+
+    test('fromJson lê course_id', () {
+      final turma = CourseTurma.fromJson({
+        'id': 'sg-5',
+        'name': 'Com curso',
+        'status': 'active',
+        'course_id': 'c-9',
+      });
+      expect(turma.courseId, 'c-9');
+      expect(turma.route, '/courses/c-9/turmas/sg-5');
     });
 
     test('baptism_turma_id sem ministry_id cai no detalhe do grupo', () {
@@ -189,7 +219,7 @@ void main() {
     expect(find.text('O que é o batismo'), findsOneWidget);
   });
 
-  testWidgets('card de turma de Batismo abre o workspace do ministério', (
+  testWidgets('card de turma de Batismo abre a tela da turma no curso', (
     tester,
   ) async {
     await _pump(tester, _host(turmas: () => AsyncData([_baptismTurma])));
@@ -197,7 +227,7 @@ void main() {
     await tester.tap(find.text('Turma de Setembro'));
     await tester.pumpAndSettle();
 
-    expect(find.text('batismo min-1'), findsOneWidget);
+    expect(find.text('turma $_courseId/sg-1'), findsOneWidget);
   });
 
   testWidgets('curso sem turmas mostra o estado vazio', (tester) async {

@@ -91,6 +91,7 @@ import '../../features/courses/presentation/screens/course_form_screen.dart';
 import '../../features/courses/presentation/screens/course_lessons_screen.dart';
 import '../../features/courses/presentation/screens/course_lesson_form_screen.dart';
 import '../../features/courses/presentation/screens/course_viewer_screen.dart';
+import '../../features/courses/presentation/turma/turma_detail_screen.dart';
 import '../../features/courses/presentation/screens/lesson_viewer_screen.dart';
 import '../../features/church_info/presentation/screens/church_info_screen.dart';
 import '../../features/church_info/presentation/screens/church_info_form_screen.dart';
@@ -1387,6 +1388,16 @@ final appRouter = GoRouter(
         final id = state.pathParameters['id']!;
         return CourseViewerScreen(courseId: id);
       },
+    ),
+
+    // Turma do curso (decisão 23): Batismo e turma genérica, uma tela só.
+    // Sem guard: a tela decide pelo papel na turma e a RLS pelo resto.
+    GoRoute(
+      path: '/courses/:courseId/turmas/:studyGroupId',
+      builder: (context, state) => TurmaDetailScreen(
+        courseId: state.pathParameters['courseId']!,
+        studyGroupId: state.pathParameters['studyGroupId']!,
+      ),
     ),
 
     // Visualizar aula (para alunos)

@@ -148,6 +148,12 @@ final courseStudyGroupsProvider = FutureProvider.family<List<CourseTurma>, Strin
   return repo.getCourseStudyGroups(courseId);
 });
 
+/// Uma turma (study_group) pelo id; `null` se a RLS a esconde.
+final turmaByIdProvider = FutureProvider.family<CourseTurma?, String>((ref, studyGroupId) async {
+  final repo = ref.watch(coursesRepositoryProvider);
+  return repo.getTurma(studyGroupId);
+});
+
 // ==================== COURSE LESSONS PROVIDERS ====================
 
 /// Provider de aulas de um curso
