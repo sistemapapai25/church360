@@ -322,6 +322,47 @@ void main() {
       expect(repo.statusUpdates.single.status, LessonStatus.published);
     });
 
+    // Etapa 5.3: só a origem que registra presença pela aula (Batismo)
+    // entrega a ação; a turma genérica não ganha o item.
+    testWidgets('Registrar presença só quando a origem oferece', (
+      tester,
+    ) async {
+      final repo = _FakeStudyRepo(lessons: lessons);
+      final opened = <String>[];
+      await _pump(
+        tester,
+        _host(
+          TurmaAulasTab(
+            studyGroupId: _sgId,
+            access: _leader,
+            lessonAttendance: (context, lesson) async => opened.add(lesson.id),
+          ),
+          overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
+        ),
+      );
+
+      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Registrar presença'));
+      await tester.pumpAndSettle();
+      expect(opened, ['l1']);
+    });
+
+    testWidgets('sem ação da origem, sem Registrar presença', (tester) async {
+      final repo = _FakeStudyRepo(lessons: lessons);
+      await _pump(
+        tester,
+        _host(
+          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
+        ),
+      );
+
+      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.pumpAndSettle();
+      expect(find.text('Registrar presença'), findsNothing);
+    });
+
     test('ciclo: Publicar → Arquivar → Restaurar (volta a rascunho)', () {
       expect(lessonNextStep(LessonStatus.draft).to, LessonStatus.published);
       expect(lessonNextStep(LessonStatus.published).to, LessonStatus.archived);

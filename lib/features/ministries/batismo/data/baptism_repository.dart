@@ -422,6 +422,20 @@ class BaptismRepository {
         .toList();
   }
 
+  /// O encontro de uma aula, ou `null` se a chamada dela ainda não foi
+  /// aberta. O banco garante no máximo um (UNIQUE `study_lesson_id`).
+  Future<BaptismMeeting?> getMeetingForLesson(String studyLessonId) async {
+    final response = await _supabase
+        .from('baptism_meeting')
+        .select('*, baptism_turma(name)')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('study_lesson_id', studyLessonId)
+        .maybeSingle();
+
+    if (response == null) return null;
+    return BaptismMeeting.fromJson(Map<String, dynamic>.from(response));
+  }
+
   Future<BaptismMeeting> createMeeting(BaptismMeeting meeting) async {
     final payload = meeting.toWriteJson()
       ..['tenant_id'] = SupabaseConstants.currentTenantId;

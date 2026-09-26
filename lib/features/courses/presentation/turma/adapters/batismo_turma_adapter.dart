@@ -5,12 +5,15 @@ import 'package:intl/intl.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/widgets/glass_card.dart';
+import '../../../../ministries/batismo/data/baptism_lesson_meeting.dart';
 import '../../../../ministries/batismo/domain/baptism_attendance_report.dart';
 import '../../../../ministries/batismo/domain/models/baptism_attendance.dart';
 import '../../../../ministries/batismo/domain/models/baptism_my_meeting.dart';
 import '../../../../ministries/batismo/presentation/providers/baptism_providers.dart';
 import '../../../../ministries/batismo/presentation/screens/tabs/batismo_alunos_tab.dart';
 import '../../../../ministries/batismo/presentation/screens/tabs/batismo_presenca_tab.dart';
+import '../../../../ministries/batismo/presentation/widgets/baptism_lesson_attendance.dart';
+import '../../../../study_groups/domain/models/study_group.dart';
 import '../turma_origin.dart';
 import '../widgets/turma_sheet.dart';
 import 'turma_surfaces.dart';
@@ -40,7 +43,33 @@ class BatismoTurmaAdapter implements TurmaSurfaces {
   @override
   Widget minhaFrequencia() =>
       BatismoMinhaFrequencia(baptismTurmaId: origin.baptismTurmaId);
+
+  /// A chamada do Batismo é feita aqui desde a 5.3: a presença por aula
+  /// substituiu o encontro avulso da aba Presença.
+  @override
+  TurmaLessonAttendance get lessonAttendance =>
+      (context, lesson) => showTurmaSheet<void>(
+        context: context,
+        builder: (_) => TurmaSheetBody(
+          title: 'Presença · Aula ${lesson.lessonNumber}',
+          children: [
+            BaptismLessonAttendance(
+              ministryId: origin.ministryId,
+              turmaId: origin.baptismTurmaId,
+              lesson: batismoLessonRef(lesson),
+            ),
+          ],
+        ),
+      );
 }
+
+/// A aula vista pela chamada do Batismo.
+BaptismLessonRef batismoLessonRef(StudyLesson lesson) => (
+  lessonId: lesson.id,
+  lessonNumber: lesson.lessonNumber,
+  title: lesson.title,
+  scheduledDate: lesson.scheduledDate,
+);
 
 /// Resumo da chamada de um aluno, com as regras do Batismo:
 ///
