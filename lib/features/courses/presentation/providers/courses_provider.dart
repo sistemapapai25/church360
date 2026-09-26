@@ -148,6 +148,12 @@ final courseStudyGroupsProvider = FutureProvider.family<List<CourseTurma>, Strin
   return repo.getCourseStudyGroups(courseId);
 });
 
+/// Turmas visíveis ao usuário, de todos os cursos (aba Turmas de Formação).
+final formacaoTurmasProvider = FutureProvider<List<CourseTurma>>((ref) async {
+  final repo = ref.watch(coursesRepositoryProvider);
+  return repo.getVisibleTurmas();
+});
+
 /// Uma turma (study_group) pelo id; `null` se a RLS a esconde.
 final turmaByIdProvider = FutureProvider.family<CourseTurma?, String>((ref, studyGroupId) async {
   final repo = ref.watch(coursesRepositoryProvider);

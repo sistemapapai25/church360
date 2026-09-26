@@ -8,6 +8,7 @@ import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../study_groups/domain/models/study_group.dart';
 import '../../domain/models/course_turma.dart';
+import '../hub/course_hub.dart';
 import '../providers/courses_provider.dart';
 
 /// Tom do selo de situação da turma (card do curso e cabeçalho da turma).
@@ -24,6 +25,11 @@ AppStatusTone courseTurmaStatusTone(StudyGroupStatus status) {
 ///
 /// Carrega sozinha, com provider próprio: erro ou lentidão aqui não pode
 /// derrubar o resto da tela (capa, informações e aulas continuam de pé).
+///
+/// Contextual (Etapa 6): a gestão vê todas as turmas que a RLS entrega; o
+/// aluno só a dele; quem não é nenhum dos dois não vê a seção — o caminho
+/// dele é a chamada do curso ("Inscrever-se"). Enquanto o papel não chega,
+/// vale a lista da RLS, que já é a autoridade.
 class CourseTurmasSection extends ConsumerWidget {
   final String courseId;
 
@@ -32,16 +38,32 @@ class CourseTurmasSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final turmasAsync = ref.watch(courseStudyGroupsProvider(courseId));
+    final hub = ref.watch(courseHubProvider(courseId)).valueOrNull;
+    final contextual = hub != null && !hub.management;
+
+    if (contextual) {
+      final all = turmasAsync.valueOrNull ?? const <CourseTurma>[];
+      if (!all.any(hub.showsTurma)) return const SizedBox.shrink();
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(context, turmasAsync.asData?.value.length),
+          _buildHeader(
+            context,
+            contextual
+                ? turmasAsync.valueOrNull?.where(hub.showsTurma).length
+                : turmasAsync.asData?.value.length,
+            title: contextual ? 'Minha turma' : 'Turmas',
+          ),
           const SizedBox(height: 16),
           turmasAsync.when(
-            data: (turmas) {
+            data: (all) {
+              final turmas = contextual
+                  ? all.where(hub.showsTurma).toList()
+                  : all;
               if (turmas.isEmpty) return _buildEmpty(context);
               // Column e não ListView: a seção vive dentro do scroll da
               // tela, e poucas turmas por curso não pedem construção lazy.
@@ -50,7 +72,7 @@ class CourseTurmasSection extends ConsumerWidget {
                   for (final turma in turmas)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: _TurmaCard(turma: turma),
+                      child: _TurmaCard(turma: turma, courseId: courseId),
                     ),
                 ],
               );
@@ -68,12 +90,16 @@ class CourseTurmasSection extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, int? count) {
+  Widget _buildHeader(
+    BuildContext context,
+    int? count, {
+    required String title,
+  }) {
     final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
         Text(
-          'Turmas',
+          title,
           style: CommunityDesign.titleStyle(
             context,
           ).copyWith(fontSize: 20, fontWeight: FontWeight.bold),
@@ -150,8 +176,9 @@ class CourseTurmasSection extends ConsumerWidget {
 
 class _TurmaCard extends StatelessWidget {
   final CourseTurma turma;
+  final String courseId;
 
-  const _TurmaCard({required this.turma});
+  const _TurmaCard({required this.turma, required this.courseId});
 
   @override
   Widget build(BuildContext context) {
@@ -161,7 +188,7 @@ class _TurmaCard extends StatelessWidget {
     final dates = turma.periodLabel;
 
     return GlassCard(
-      onTap: () => context.push(turma.route),
+      onTap: () => context.push(turma.routeWithin(courseId)),
       child: Row(
         children: [
           Container(

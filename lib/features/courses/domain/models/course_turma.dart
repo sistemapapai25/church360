@@ -55,14 +55,17 @@ class CourseTurma {
   /// ROADMAP-FORMACAO): `/courses/:courseId/turmas/:studyGroupId`. Batismo e
   /// grupo nativo abrem a mesma tela; o que muda lá dentro vem da origem.
   ///
-  /// Sem `course_id` (grupo antigo) não há rota canônica, e o card cai no
-  /// destino de antes: o workspace do Batismo ou o detalhe do grupo.
-  String get route {
-    final course = courseId;
+  /// Nenhum card leva mais para `/ministries/...` (gate 6). Sem `course_id`
+  /// (grupo antigo, até a Etapa 8) não há rota canônica: cai no detalhe
+  /// antigo do grupo, que redireciona se a turma ganhar curso depois.
+  String get route => routeWithin(null);
+
+  /// Igual a [route], mas usa [fallbackCourseId] quando a linha não trouxe
+  /// `course_id` — a seção Turmas de um curso sabe de que curso é.
+  String routeWithin(String? fallbackCourseId) {
+    final course = courseId ?? fallbackCourseId;
     if (course != null) return '/courses/$course/turmas/$id';
-    return isBaptismTurma
-        ? '/ministries/$ministryId/batismo'
-        : '/study-groups/$id';
+    return '/study-groups/$id';
   }
 
   /// "06/09/2026 a 25/10/2026", "Início: …", "Término: …" ou nulo.

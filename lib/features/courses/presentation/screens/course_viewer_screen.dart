@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../domain/models/course.dart';
 import '../../domain/models/course_lesson.dart';
 import '../providers/courses_provider.dart';
+import '../hub/course_hub_cta.dart';
 import '../widgets/course_turmas_section.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/media/video_play_overlay.dart';
@@ -25,6 +26,19 @@ class CourseViewerScreen extends ConsumerStatefulWidget {
 }
 
 class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
+  /// Âncora da seção Turmas, para o "Ver turmas / Gerenciar" rolar até ela.
+  final _turmasKey = GlobalKey();
+
+  void _scrollToTurmas() {
+    final target = _turmasKey.currentContext;
+    if (target == null) return;
+    Scrollable.ensureVisible(
+      target,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final courseAsync = ref.watch(courseByIdProvider(widget.courseId));
@@ -50,6 +64,13 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
                   children: [
                     // Informações do curso
                     _buildCourseInfo(course),
+
+                    // Chamada por estado (decisão 24): Inscrever-se,
+                    // Acessar minha turma, Ver turmas / Gerenciar.
+                    CourseHubCta(
+                      courseId: course.id,
+                      onManage: _scrollToTurmas,
+                    ),
 
                     const Divider(height: 32),
 
@@ -82,7 +103,10 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
 
                     // Turmas do curso (study_groups.course_id), para
                     // qualquer tipo de curso. Carrega à parte das aulas.
-                    CourseTurmasSection(courseId: course.id),
+                    CourseTurmasSection(
+                      key: _turmasKey,
+                      courseId: course.id,
+                    ),
 
                     const SizedBox(height: 32),
                   ],

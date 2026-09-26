@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../data/baptism_repository.dart';
 import '../../domain/models/baptism_public_info.dart';
 import '../providers/baptism_providers.dart';
+import '../utils/baptism_registration_errors.dart';
 
 /// Formulário público de inscrição no batismo — o destino do "Link de
 /// inscrição".
@@ -35,25 +35,6 @@ class BaptismPublicRegistrationScreen extends ConsumerStatefulWidget {
 
 class _BaptismPublicRegistrationScreenState
     extends ConsumerState<BaptismPublicRegistrationScreen> {
-  /// Copy PT-BR das recusas que `register_baptism_public` emite por
-  /// `RAISE EXCEPTION`. O repositório não traduz código de erro — a copy é
-  /// da camada de tela, por convenção do projeto —, então nenhum literal
-  /// cru chega a quem está se inscrevendo.
-  static const Map<String, String> _copyDeRecusa = {
-    'ALREADY_REGISTERED':
-        'Já existe uma inscrição com este WhatsApp nesta turma. Se você não reconhece, fale com a liderança do ministério.',
-    'TURMA_REGISTRATION_CLOSED':
-        'As inscrições para esta turma foram encerradas enquanto você preenchia o formulário.',
-    'TURMA_NOT_ACTIVE': 'Esta turma não está mais aberta.',
-    'TURMA_NOT_FOUND': 'Esta turma não existe mais.',
-    'INVALID_NAME': 'Escreva seu nome completo.',
-    'INVALID_PHONE': 'Informe um WhatsApp válido, com DDD.',
-    'INVALID_EMAIL': 'O e-mail informado não parece válido.',
-    'MINISTRY_INACTIVE': 'Este curso não está mais ativo.',
-    'MINISTRY_NOT_FOUND': 'Não encontramos este curso.',
-    'TENANT_NOT_FOUND': 'Não encontramos esta igreja.',
-  };
-
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _phone = TextEditingController();
@@ -75,16 +56,7 @@ class _BaptismPublicRegistrationScreenState
     super.dispose();
   }
 
-  String _humanError(Object error) {
-    final texto = error is PostgrestException
-        ? '${error.code ?? ''} ${error.message} ${error.details ?? ''} ${error.hint ?? ''}'
-        : '$error';
-
-    for (final entry in _copyDeRecusa.entries) {
-      if (texto.contains(entry.key)) return entry.value;
-    }
-    return 'Não foi possível concluir a inscrição agora. Tente de novo em instantes.';
-  }
+  String _humanError(Object error) => baptismRegistrationErrorMessage(error);
 
   Future<void> _pickBirthDate() async {
     final now = DateTime.now();
@@ -112,7 +84,9 @@ class _BaptismPublicRegistrationScreenState
     });
 
     try {
-      await ref.read(baptismRepositoryProvider).registerPublicStudent(
+      await ref
+          .read(baptismRepositoryProvider)
+          .registerPublicStudent(
             ministryId: widget.ministryId,
             turmaId: turmaId,
             fullName: _name.text,
@@ -203,9 +177,7 @@ class _BaptismPublicRegistrationScreenState
           style: CommunityDesign.metaStyle(context),
         ),
         const SizedBox(height: 24),
-        _SectionLabel(
-          info.turmas.length == 1 ? 'Turma' : 'Escolha a turma',
-        ),
+        _SectionLabel(info.turmas.length == 1 ? 'Turma' : 'Escolha a turma'),
         for (final turma in info.turmas)
           _TurmaOption(
             turma: turma,

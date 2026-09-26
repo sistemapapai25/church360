@@ -48,6 +48,14 @@ class Course {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
+  /// Ministério dono do programa (`course.ministry_id`). Só leitura: fica
+  /// fora do `toJson` para o formulário de curso não regravar a identidade
+  /// do programa.
+  final String? ministryId;
+
+  /// Código do programa (`course.code`, ex.: `baptism`). Só leitura.
+  final String? code;
+
   Course({
     required this.id,
     required this.title,
@@ -71,6 +79,8 @@ class Course {
     this.paymentInfo,
     required this.createdAt,
     this.updatedAt,
+    this.ministryId,
+    this.code,
   });
 
   /// Criar a partir de JSON
@@ -106,8 +116,14 @@ class Course {
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
           : null,
+      ministryId: json['ministry_id'] as String?,
+      code: json['code'] as String?,
     );
   }
+
+  /// Curso-programa do Batismo de um ministério (decisão 3 do
+  /// ROADMAP-FORMACAO: identidade `(tenant, ministry_id, code='baptism')`).
+  bool get isBaptismProgram => code == 'baptism' && ministryId != null;
 
   /// Converter para JSON
   Map<String, dynamic> toJson() {

@@ -140,8 +140,8 @@ class AppDrawer extends ConsumerWidget {
           ),
           _DrawerItem(
             icon: AppIcons.book,
-            title: 'Grupos de Estudo',
-            route: '/study-groups',
+            title: 'Turmas',
+            route: '/courses?tab=turmas',
             currentRoute: GoRouterState.of(context).uri.toString(),
           ),
           _DrawerItem(
