@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/study_group_repository.dart';
 import '../../domain/models/study_group.dart';
+import '../../../courses/presentation/providers/courses_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 
 // =====================================================
@@ -166,7 +167,10 @@ class StudyGroupActions {
 
   // ===== STUDY GROUPS =====
 
-  Future<void> createGroup({
+  /// Toda turma nasce num curso (Etapa 7). Devolve a turma criada para a
+  /// tela ir direto à rota canônica `/courses/:courseId/turmas/:id`.
+  Future<StudyGroup> createGroup({
+    required String courseId,
     required String name,
     String? description,
     String? studyTopic,
@@ -179,7 +183,8 @@ class StudyGroupActions {
     bool isPublic = true,
     String? coverImageUrl,
   }) async {
-    await _repository.createStudyGroup(
+    final group = await _repository.createStudyGroup(
+      courseId: courseId,
       name: name,
       description: description,
       studyTopic: studyTopic,
@@ -195,6 +200,9 @@ class StudyGroupActions {
     ref.invalidate(allStudyGroupsProvider);
     ref.invalidate(activeStudyGroupsProvider);
     ref.invalidate(publicStudyGroupsProvider);
+    ref.invalidate(formacaoTurmasProvider);
+    ref.invalidate(courseStudyGroupsProvider(courseId));
+    return group;
   }
 
   Future<void> updateGroup(

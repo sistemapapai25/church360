@@ -8,6 +8,8 @@ import 'package:church360_app/core/design/app_icons.dart';
 import 'package:church360_app/core/theme/app_theme.dart';
 import 'package:church360_app/core/widgets/glass_card.dart';
 import 'package:church360_app/core/widgets/status_badge.dart';
+import 'package:church360_app/features/courses/domain/models/course.dart';
+import 'package:church360_app/features/courses/presentation/providers/courses_provider.dart';
 import 'package:church360_app/features/members/presentation/providers/members_provider.dart';
 import 'package:church360_app/features/permissions/providers/permissions_providers.dart';
 import 'package:church360_app/features/study_groups/data/study_group_repository.dart';
@@ -36,6 +38,19 @@ StudyGroup _group() {
     updatedAt: _now,
   );
 }
+
+// Batismo é curso-programa (`code`): fica fora do seletor da turma.
+List<Course> _courses() => [
+  Course(id: 'c-teo', title: 'Teologia Básica', createdAt: _now),
+  Course(
+    id: 'c-bat',
+    title: 'Batismo',
+    ministryId: 'm-bat',
+    code: 'baptism',
+    createdAt: _now,
+  ),
+  Course(id: 'c-ali', title: 'Aliança', createdAt: _now),
+];
 
 StudyLesson _lesson() {
   return StudyLesson(
@@ -148,12 +163,13 @@ void main() {
         currentUserHasPermissionProvider(
           'study_groups.create',
         ).overrideWith((ref) async => true),
+        allCoursesProvider.overrideWith((ref) async => _courses()),
       ]),
     );
     await tester.pumpAndSettle();
 
     expect(find.byType(GlassCard), findsAtLeastNWidgets(2));
-    expect(find.text('Informações do grupo'), findsOneWidget);
+    expect(find.text('Informações da turma'), findsOneWidget);
     expect(find.byIcon(AppIcons.group), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Acesso e status'),
@@ -167,6 +183,82 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.byIcon(AppIcons.save), findsOneWidget);
+  });
+
+  test('seletor da turma tira curso-programa e ordena por título', () {
+    final ids = turmaFormSelectableCourses(_courses()).map((c) => c.id);
+    expect(ids, ['c-ali', 'c-teo']);
+  });
+
+  testWidgets('nova turma exige curso antes de salvar', (tester) async {
+    await tester.pumpWidget(
+      _host(const StudyGroupFormScreen(), [
+        currentUserHasPermissionProvider(
+          'study_groups.create',
+        ).overrideWith((ref) async => true),
+        allCoursesProvider.overrideWith((ref) async => _courses()),
+      ]),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Curso *'), findsOneWidget);
+    await tester.enterText(find.byType(TextFormField).first, 'Turma A');
+    await tester.scrollUntilVisible(
+      find.text('Criar turma'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Criar turma'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Escolha o curso'),
+      -300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Escolha o curso'), findsOneWidget);
+
+    final field = find.byType(DropdownButtonFormField<String>);
+    await tester.ensureVisible(field);
+    await tester.pumpAndSettle();
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+    expect(find.text('Batismo'), findsNothing);
+    expect(find.text('Teologia Básica'), findsWidgets);
+  });
+
+  testWidgets('nova turma vinda do curso já vem com ele escolhido', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(const StudyGroupFormScreen(initialCourseId: 'c-teo'), [
+        currentUserHasPermissionProvider(
+          'study_groups.create',
+        ).overrideWith((ref) async => true),
+        allCoursesProvider.overrideWith((ref) async => _courses()),
+      ]),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Teologia Básica'), findsOneWidget);
+  });
+
+  testWidgets('edição de turma não mostra o seletor de curso', (tester) async {
+    final repo = _FakeStudyGroupRepository(_group(), _lesson());
+    await tester.pumpWidget(
+      _host(const StudyGroupFormScreen(groupId: 'study-1'), [
+        studyGroupByIdProvider(
+          'study-1',
+        ).overrideWith((ref) async => repo.group),
+        currentUserHasPermissionProvider(
+          'study_groups.edit',
+        ).overrideWith((ref) async => true),
+        allCoursesProvider.overrideWith((ref) async => _courses()),
+      ]),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Curso *'), findsNothing);
+    expect(find.text('Editar turma'), findsOneWidget);
   });
 
   testWidgets('detalhe da lição usa vidro, status e recursos semânticos', (
