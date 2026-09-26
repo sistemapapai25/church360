@@ -10,6 +10,7 @@ import '../../domain/models/baptism_attendance.dart';
 import '../../domain/models/baptism_checklist.dart';
 import '../../domain/models/baptism_enrollment.dart';
 import '../../domain/models/baptism_meeting.dart';
+import '../../domain/models/baptism_my_meeting.dart';
 import '../../domain/models/baptism_public_info.dart';
 import '../../domain/models/baptism_student.dart';
 import '../../domain/models/baptism_turma.dart';
@@ -22,6 +23,13 @@ final myBaptismEnrollmentsProvider =
     FutureProvider<List<BaptismEnrollment>>((ref) async {
   final repo = ref.watch(baptismRepositoryProvider);
   return repo.getMyEnrollments();
+});
+
+/// A chamada do aluno logado numa turma (RPC `my_baptism_attendance`).
+final myBaptismAttendanceProvider =
+    FutureProvider.family<List<BaptismMyMeeting>, String>((ref, turmaId) async {
+  final repo = ref.watch(baptismRepositoryProvider);
+  return repo.getMyAttendance(turmaId);
 });
 
 /// Turmas do ministério.

@@ -212,8 +212,13 @@ class _PreviewRepository implements BaptismRepository {
   ];
 
   @override
-  Future<List<BaptismStudent>> getStudents(String ministryId) async =>
-      List.of(_students);
+  Future<List<BaptismStudent>> getStudents(
+    String ministryId, {
+    String? turmaId,
+  }) async => [
+    for (final s in _students)
+      if (turmaId == null || s.turmaId == turmaId) s,
+  ];
   @override
   Future<List<BaptismTurma>> getTurmas(String ministryId) async =>
       List.of(_turmas);

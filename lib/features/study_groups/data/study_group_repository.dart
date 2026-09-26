@@ -574,6 +574,27 @@ class StudyGroupRepository {
         .toList();
   }
 
+  /// Presença do próprio usuário nas aulas informadas.
+  ///
+  /// Chave `auth.uid()`, a mesma da policy `study_attendance_select`
+  /// (`user_id = auth.uid()`): o aluno só enxerga as próprias linhas.
+  Future<List<StudyAttendance>> getMyAttendanceForLessons(
+    List<String> lessonIds,
+  ) async {
+    final authId = _supabase.auth.currentUser?.id;
+    if (authId == null || lessonIds.isEmpty) return const [];
+    final response = await _supabase
+        .from('study_attendance')
+        .select()
+        .inFilter('study_lesson_id', lessonIds)
+        .eq('user_id', authId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
+
+    return (response as List)
+        .map((json) => StudyAttendance.fromJson(json))
+        .toList();
+  }
+
   /// Obter presença do usuário em uma lição
   Future<StudyAttendance?> getUserLessonAttendance(
     String lessonId,

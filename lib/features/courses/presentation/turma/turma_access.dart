@@ -29,7 +29,21 @@ class TurmaAccess {
   /// Criar, editar, publicar e arquivar aula (`study_lessons` INSERT/UPDATE).
   final bool canWriteLessons;
 
-  const TurmaAccess({required this.role, this.canWriteLessons = false});
+  /// Líder ou co-líder ativo do grupo (só turma genérica). É a única porta
+  /// de escrita em `study_attendance` (`study_lesson_led_by_me`): nem
+  /// elevado nem `courses.*` marcam presença de turma genérica.
+  final bool leadsGroup;
+
+  /// `is_elevated_current_user()`. Na turma genérica lê a presença de
+  /// todos (`study_attendance_select`), mas não escreve.
+  final bool elevated;
+
+  const TurmaAccess({
+    required this.role,
+    this.canWriteLessons = false,
+    this.leadsGroup = false,
+    this.elevated = false,
+  });
 
   static const none = TurmaAccess(role: TurmaRole.none);
   static const student = TurmaAccess(role: TurmaRole.student);
@@ -100,6 +114,8 @@ final turmaAccessProvider =
         return TurmaAccess(
           role: TurmaRole.leadership,
           canWriteLessons: elevated || leader || manageLessons,
+          leadsGroup: leader,
+          elevated: elevated,
         );
       }
       return active ? TurmaAccess.student : TurmaAccess.none;
