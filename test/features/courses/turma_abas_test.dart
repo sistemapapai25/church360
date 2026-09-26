@@ -81,6 +81,8 @@ class _FakeStudyRepo implements StudyGroupRepository {
   final List<StudyAttendance> mine;
 
   final created = <({String groupId, int number, String title})>[];
+  final createdFields = <Map<String, Object?>>[];
+  final replaced = <Map<String, Object?>>[];
   final statusUpdates = <({String id, LessonStatus? status})>[];
   final marked = <({String lessonId, String userId, AttendanceStatus s})>[];
   final updatedAttendance = <({String id, AttendanceStatus? s})>[];
@@ -117,7 +119,40 @@ class _FakeStudyRepo implements StudyGroupRepository {
     String? pdfUrl,
   }) async {
     created.add((groupId: studyGroupId, number: lessonNumber, title: title));
+    createdFields.add({
+      'description': description,
+      'bible_references': bibleReferences,
+      'content': content,
+      'discussion_questions': discussionQuestions,
+      'video_url': videoUrl,
+      'pdf_url': pdfUrl,
+    });
     return _lesson(lessonNumber, status);
+  }
+
+  @override
+  Future<StudyLesson> replaceLessonContent(
+    String id, {
+    required String title,
+    String? description,
+    String? bibleReferences,
+    String? content,
+    List<String>? discussionQuestions,
+    DateTime? scheduledDate,
+    String? videoUrl,
+    String? pdfUrl,
+  }) async {
+    replaced.add({
+      'id': id,
+      'title': title,
+      'description': description,
+      'bible_references': bibleReferences,
+      'content': content,
+      'discussion_questions': discussionQuestions,
+      'video_url': videoUrl,
+      'pdf_url': pdfUrl,
+    });
+    return lessons.firstWhere((l) => l.id == id);
   }
 
   @override
@@ -394,6 +429,179 @@ void main() {
       expect(repo.created.single.groupId, _sgId);
       expect(repo.created.single.number, 4);
       expect(repo.created.single.title, 'Arrependimento');
+    });
+  });
+
+  // Formulário da aula com vídeo/PDF principais por link, referências e
+  // perguntas (modelo híbrido do ROADMAP-FORMACAO, passo 2).
+  group('Formulário da aula', () {
+    StudyLesson withMedia() => StudyLesson(
+      id: 'l9',
+      studyGroupId: _sgId,
+      lessonNumber: 9,
+      title: 'Batismo nas águas',
+      bibleReferences: 'Atos 2:38',
+      discussionQuestions: const ['Por que batizar?', 'Quando?'],
+      videoUrl: 'https://youtube.com/watch?v=abc',
+      pdfUrl: 'https://exemplo.com/aula9.pdf',
+      status: LessonStatus.draft,
+      createdAt: _t0,
+      updatedAt: _t0,
+    );
+
+    Future<void> tapSave(WidgetTester tester) async {
+      await tester.ensureVisible(find.text('Salvar'));
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('nova aula grava referências, perguntas, vídeo e PDF', (
+      tester,
+    ) async {
+      final repo = _FakeStudyRepo(lessons: const []);
+      await _pump(
+        tester,
+        _host(
+          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
+        ),
+      );
+
+      await tester.tap(find.text('Nova aula'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Título da aula *'),
+        'Arrependimento',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Referências bíblicas'),
+        ' Atos 2:38 ',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Perguntas para discussão'),
+        'Primeira?\n\n  Segunda?  \n',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Link do vídeo'),
+        'https://youtube.com/watch?v=x',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Link do PDF'),
+        'https://exemplo.com/a.pdf',
+      );
+      await tapSave(tester);
+
+      final f = repo.createdFields.single;
+      expect(f['bible_references'], 'Atos 2:38');
+      expect(f['discussion_questions'], ['Primeira?', 'Segunda?']);
+      expect(f['video_url'], 'https://youtube.com/watch?v=x');
+      expect(f['pdf_url'], 'https://exemplo.com/a.pdf');
+      // Campo em branco vai como null, não como texto vazio.
+      expect(f['description'], isNull);
+      expect(f['content'], isNull);
+    });
+
+    testWidgets('link inválido barra o salvamento', (tester) async {
+      final repo = _FakeStudyRepo(lessons: const []);
+      await _pump(
+        tester,
+        _host(
+          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
+        ),
+      );
+
+      await tester.tap(find.text('Nova aula'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Título da aula *'),
+        'Aula',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Link do PDF'),
+        'javascript:alert(1)',
+      );
+      await tapSave(tester);
+
+      expect(repo.created, isEmpty);
+      expect(find.text('Informe um link que comece com https://'), findsOne);
+    });
+
+    // Emenda (c): a edição grava o formulário inteiro; apagar o link
+    // remove o vídeo de verdade (null), em vez de ser ignorado.
+    testWidgets('editar e apagar o link do vídeo manda null', (tester) async {
+      final repo = _FakeStudyRepo(lessons: [withMedia()]);
+      await _pump(
+        tester,
+        _host(
+          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
+        ),
+      );
+
+      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Editar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('https://youtube.com/watch?v=abc'), findsOneWidget);
+      expect(find.text('Por que batizar?\nQuando?'), findsOneWidget);
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Link do vídeo'),
+        '',
+      );
+      await tapSave(tester);
+
+      final r = repo.replaced.single;
+      expect(r['id'], 'l9');
+      expect(r.containsKey('video_url'), isTrue);
+      expect(r['video_url'], isNull);
+      expect(r['pdf_url'], 'https://exemplo.com/aula9.pdf');
+      expect(r['discussion_questions'], ['Por que batizar?', 'Quando?']);
+      expect(repo.statusUpdates, isEmpty);
+    });
+
+    testWidgets('leitura mostra Assistir vídeo e Abrir PDF', (tester) async {
+      final lesson = withMedia();
+      final repo = _FakeStudyRepo(
+        lessons: [
+          StudyLesson(
+            id: lesson.id,
+            studyGroupId: _sgId,
+            lessonNumber: 9,
+            title: lesson.title,
+            videoUrl: lesson.videoUrl,
+            pdfUrl: lesson.pdfUrl,
+            status: LessonStatus.published,
+            createdAt: _t0,
+            updatedAt: _t0,
+          ),
+        ],
+      );
+      await _pump(
+        tester,
+        _host(
+          const TurmaAulasTab(studyGroupId: _sgId, access: TurmaAccess.student),
+          overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
+        ),
+      );
+
+      await tester.tap(find.text('Aula 9 · Batismo nas águas'));
+      await tester.pumpAndSettle();
+      expect(find.text('Assistir vídeo'), findsOneWidget);
+      expect(find.text('Abrir PDF'), findsOneWidget);
+      expect(find.text('Esta aula ainda não tem conteúdo.'), findsNothing);
+    });
+
+    test('regras dos campos', () {
+      expect(normalizeLessonUrl('  '), isNull);
+      expect(normalizeLessonUrl(' https://a.com/x '), 'https://a.com/x');
+      expect(lessonUrlError('ftp://a.com'), isNotNull);
+      expect(lessonUrlError('https://'), isNotNull);
+      expect(lessonUrlError('http://a.com'), isNull);
+      expect(parseLessonQuestions(' \n '), isNull);
+      expect(parseLessonQuestions('a\r\nb'), ['a', 'b']);
     });
   });
 

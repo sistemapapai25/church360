@@ -353,7 +353,45 @@ class StudyGroupRepository {
     return StudyLesson.fromJson(response);
   }
 
-  /// Atualizar lição
+  /// Grava o conteúdo editável da aula **inteiro**, inclusive os campos
+  /// vazios: `null` aqui apaga a coluna.
+  ///
+  /// Existe porque [updateLesson] ignora campo `null` ("não mexer"), e com
+  /// ele não havia como remover o vídeo ou o PDF de uma aula (emenda (c) do
+  /// ROADMAP-FORMACAO). Não mexe em número, status nem turma.
+  Future<StudyLesson> replaceLessonContent(
+    String id, {
+    required String title,
+    String? description,
+    String? bibleReferences,
+    String? content,
+    List<String>? discussionQuestions,
+    DateTime? scheduledDate,
+    String? videoUrl,
+    String? pdfUrl,
+  }) async {
+    final response = await _supabase
+        .from('study_lessons')
+        .update({
+          'title': title,
+          'description': description,
+          'bible_references': bibleReferences,
+          'content': content,
+          'discussion_questions': discussionQuestions,
+          'scheduled_date': scheduledDate?.toIso8601String(),
+          'video_url': videoUrl,
+          'pdf_url': pdfUrl,
+        })
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .select()
+        .single();
+
+    return StudyLesson.fromJson(response);
+  }
+
+  /// Atualizar lição. Campo `null` = não mexer; para limpar campo use
+  /// [replaceLessonContent].
   Future<StudyLesson> updateLesson(
     String id, {
     int? lessonNumber,

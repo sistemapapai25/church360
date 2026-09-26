@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
@@ -170,6 +171,53 @@ class TurmaAulasTab extends ConsumerWidget {
   };
 }
 
+/// Link do vídeo/PDF principal da aula: vazio vira `null`; só aceita
+/// `http(s)://` com host. Devolve `null` também quando inválido — quem
+/// barra o link inválido no formulário é [lessonUrlError].
+String? normalizeLessonUrl(String raw) {
+  final text = raw.trim();
+  if (text.isEmpty || lessonUrlError(text) != null) return null;
+  return text;
+}
+
+/// Mensagem de erro do campo de link, ou `null` se vazio ou válido.
+String? lessonUrlError(String? raw) {
+  final text = (raw ?? '').trim();
+  if (text.isEmpty) return null;
+  final uri = Uri.tryParse(text);
+  final ok =
+      uri != null &&
+      (uri.scheme == 'http' || uri.scheme == 'https') &&
+      uri.host.isNotEmpty;
+  return ok ? null : 'Informe um link que comece com https://';
+}
+
+/// Perguntas para discussão: uma por linha, sem linhas vazias. Nenhuma
+/// pergunta vira `null` (coluna limpa), não lista vazia.
+List<String>? parseLessonQuestions(String raw) {
+  final questions = [
+    for (final line in raw.split('\n'))
+      if (line.trim().isNotEmpty) line.trim(),
+  ];
+  return questions.isEmpty ? null : questions;
+}
+
+String? _blankToNull(String? raw) {
+  final text = (raw ?? '').trim();
+  return text.isEmpty ? null : text;
+}
+
+Future<void> _openLessonLink(BuildContext context, String url) async {
+  final uri = Uri.tryParse(url);
+  final ok =
+      uri != null && await launchUrl(uri, mode: LaunchMode.externalApplication);
+  if (!ok && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Não foi possível abrir o link.')),
+    );
+  }
+}
+
 AppStatusTone _tone(LessonStatus status) => switch (status) {
   LessonStatus.published => AppStatusTone.active,
   LessonStatus.draft => AppStatusTone.done,
@@ -303,6 +351,8 @@ class _LessonReadSheet extends StatelessWidget {
     }
 
     final questions = lesson.discussionQuestions ?? const <String>[];
+    final videoUrl = _blankToNull(lesson.videoUrl);
+    final pdfUrl = _blankToNull(lesson.pdfUrl);
 
     return TurmaSheetBody(
       title: 'Aula ${lesson.lessonNumber} · ${lesson.title}',
@@ -310,6 +360,27 @@ class _LessonReadSheet extends StatelessWidget {
         if (date != null) ...[
           Text(DateFormat('dd/MM/yyyy').format(date), style: meta),
           const SizedBox(height: 12),
+        ],
+        if (videoUrl != null || pdfUrl != null) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (videoUrl != null)
+                FilledButton.icon(
+                  onPressed: () => _openLessonLink(context, videoUrl),
+                  icon: const Icon(AppIcons.playArrow, size: 18),
+                  label: const Text('Assistir vídeo'),
+                ),
+              if (pdfUrl != null)
+                OutlinedButton.icon(
+                  onPressed: () => _openLessonLink(context, pdfUrl),
+                  icon: const Icon(AppIcons.pdf, size: 18),
+                  label: const Text('Abrir PDF'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
         ],
         section('Descrição', lesson.description),
         section('Referências bíblicas', lesson.bibleReferences),
@@ -322,14 +393,22 @@ class _LessonReadSheet extends StatelessWidget {
         if ((lesson.description ?? '').trim().isEmpty &&
             (lesson.bibleReferences ?? '').trim().isEmpty &&
             (lesson.content ?? '').trim().isEmpty &&
-            questions.isEmpty)
+            questions.isEmpty &&
+            videoUrl == null &&
+            pdfUrl == null)
           Text('Esta aula ainda não tem conteúdo.', style: meta),
       ],
     );
   }
 }
 
-/// Aula nova ou edição: título, data, descrição e conteúdo.
+/// Aula nova ou edição: título, data, textos da aula e os links do vídeo e
+/// do PDF principais (colunas da própria aula — modelo híbrido do
+/// ROADMAP-FORMACAO). Envio de arquivo ainda não: só link.
+///
+/// A edição grava o formulário inteiro por
+/// [StudyGroupRepository.replaceLessonContent], então apagar um campo apaga
+/// de verdade (antes o vídeo/PDF ficaria preso).
 ///
 /// Aula nova nasce como rascunho, com o próximo número da turma e o
 /// `study_group_id` da tela — não há como escolher outro grupo.
@@ -353,6 +432,10 @@ class _LessonFormSheetState extends ConsumerState<_LessonFormSheet> {
   late final TextEditingController _title;
   late final TextEditingController _description;
   late final TextEditingController _content;
+  late final TextEditingController _bibleReferences;
+  late final TextEditingController _questions;
+  late final TextEditingController _videoUrl;
+  late final TextEditingController _pdfUrl;
   DateTime? _date;
   bool _saving = false;
   String? _error;
@@ -366,6 +449,12 @@ class _LessonFormSheetState extends ConsumerState<_LessonFormSheet> {
     _title = TextEditingController(text: l?.title ?? '');
     _description = TextEditingController(text: l?.description ?? '');
     _content = TextEditingController(text: l?.content ?? '');
+    _bibleReferences = TextEditingController(text: l?.bibleReferences ?? '');
+    _questions = TextEditingController(
+      text: (l?.discussionQuestions ?? const <String>[]).join('\n'),
+    );
+    _videoUrl = TextEditingController(text: l?.videoUrl ?? '');
+    _pdfUrl = TextEditingController(text: l?.pdfUrl ?? '');
     _date = l?.scheduledDate;
   }
 
@@ -374,6 +463,10 @@ class _LessonFormSheetState extends ConsumerState<_LessonFormSheet> {
     _title.dispose();
     _description.dispose();
     _content.dispose();
+    _bibleReferences.dispose();
+    _questions.dispose();
+    _videoUrl.dispose();
+    _pdfUrl.dispose();
     super.dispose();
   }
 
@@ -398,22 +491,37 @@ class _LessonFormSheetState extends ConsumerState<_LessonFormSheet> {
     final repo = ref.read(studyGroupRepositoryProvider);
     try {
       final existing = widget.lesson;
+      final title = _title.text.trim();
+      final description = _blankToNull(_description.text);
+      final bibleReferences = _blankToNull(_bibleReferences.text);
+      final content = _blankToNull(_content.text);
+      final questions = parseLessonQuestions(_questions.text);
+      final videoUrl = normalizeLessonUrl(_videoUrl.text);
+      final pdfUrl = normalizeLessonUrl(_pdfUrl.text);
       if (existing == null) {
         await repo.createLesson(
           studyGroupId: widget.studyGroupId,
           lessonNumber: widget.nextNumber,
-          title: _title.text.trim(),
-          description: _description.text.trim(),
-          content: _content.text.trim(),
+          title: title,
+          description: description,
+          bibleReferences: bibleReferences,
+          content: content,
+          discussionQuestions: questions,
           scheduledDate: _date,
+          videoUrl: videoUrl,
+          pdfUrl: pdfUrl,
         );
       } else {
-        await repo.updateLesson(
+        await repo.replaceLessonContent(
           existing.id,
-          title: _title.text.trim(),
-          description: _description.text.trim(),
-          content: _content.text.trim(),
+          title: title,
+          description: description,
+          bibleReferences: bibleReferences,
+          content: content,
+          discussionQuestions: questions,
           scheduledDate: _date,
+          videoUrl: videoUrl,
+          pdfUrl: pdfUrl,
         );
       }
       if (mounted) Navigator.of(context).pop(true);
@@ -464,10 +572,63 @@ class _LessonFormSheetState extends ConsumerState<_LessonFormSheet> {
           ),
           const SizedBox(height: 12),
           TextFormField(
+            controller: _bibleReferences,
+            decoration: const InputDecoration(
+              labelText: 'Referências bíblicas',
+              hintText: 'Ex.: Atos 2:38; Romanos 6:3-4',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
             controller: _content,
             minLines: 3,
             maxLines: 10,
             decoration: const InputDecoration(labelText: 'Conteúdo'),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _questions,
+            minLines: 2,
+            maxLines: 6,
+            decoration: const InputDecoration(
+              labelText: 'Perguntas para discussão',
+              helperText: 'Uma pergunta por linha.',
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Vídeo e PDF da aula',
+            style: CommunityDesign.metaStyle(
+              context,
+            ).copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _videoUrl,
+            keyboardType: TextInputType.url,
+            decoration: const InputDecoration(
+              labelText: 'Link do vídeo',
+              hintText: 'https://youtube.com/...',
+              prefixIcon: Icon(AppIcons.videoLibrary),
+            ),
+            validator: lessonUrlError,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _pdfUrl,
+            keyboardType: TextInputType.url,
+            decoration: const InputDecoration(
+              labelText: 'Link do PDF',
+              hintText: 'https://...',
+              prefixIcon: Icon(AppIcons.pdf),
+            ),
+            validator: lessonUrlError,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Quem tiver o link abre o vídeo e o PDF, mesmo com a aula em '
+            'rascunho. Apague o link para tirar o vídeo ou o PDF da aula.',
+            style: CommunityDesign.metaStyle(context),
           ),
           if (!_isEdit) ...[
             const SizedBox(height: 8),
