@@ -41,13 +41,11 @@ class TurmaAulasTab extends ConsumerWidget {
     this.lessonAttendance,
   });
 
-  FutureProvider<List<StudyLesson>> get _lessonsProvider => access.isLeadership
-      ? groupLessonsProvider(studyGroupId)
-      : publishedLessonsProvider(studyGroupId);
+  FutureProvider<List<StudyLesson>> get _lessonsProvider =>
+      turmaVisibleLessonsProvider(access, studyGroupId);
 
   void _invalidate(WidgetRef ref, [String? lessonId]) {
-    ref.invalidate(groupLessonsProvider(studyGroupId));
-    ref.invalidate(publishedLessonsProvider(studyGroupId));
+    invalidateTurmaLessons(ref, studyGroupId);
     if (lessonId != null) ref.invalidate(lessonByIdProvider(lessonId));
   }
 
@@ -168,6 +166,25 @@ class TurmaAulasTab extends ConsumerWidget {
   }
 }
 
+/// As aulas que a pessoa enxerga na turma: liderança, todas; aluno, só as
+/// publicadas (a RLS de `study_lessons` já esconde o rascunho, o filtro é a
+/// segunda trava). A aba Materiais parte **desta mesma lista** — é a regra
+/// (d) do ROADMAP-FORMACAO.
+FutureProvider<List<StudyLesson>> turmaVisibleLessonsProvider(
+  TurmaAccess access,
+  String studyGroupId,
+) => access.isLeadership
+    ? groupLessonsProvider(studyGroupId)
+    : publishedLessonsProvider(studyGroupId);
+
+/// Recarrega as aulas da turma (as duas listas) e os materiais agregados
+/// da aba Materiais, que dependem delas.
+void invalidateTurmaLessons(WidgetRef ref, String studyGroupId) {
+  ref.invalidate(groupLessonsProvider(studyGroupId));
+  ref.invalidate(publishedLessonsProvider(studyGroupId));
+  ref.invalidate(materialsByEntitiesProvider);
+}
+
 /// Próximo passo do ciclo de vida da aula, a partir do estado atual.
 ({LessonStatus to, String label}) lessonNextStep(LessonStatus status) {
   return switch (status) {
@@ -213,7 +230,7 @@ String? _blankToNull(String? raw) {
   return text.isEmpty ? null : text;
 }
 
-Future<void> _openLessonLink(BuildContext context, String url) async {
+Future<void> openLessonLink(BuildContext context, String url) async {
   final uri = Uri.tryParse(url);
   final ok =
       uri != null && await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -224,7 +241,7 @@ Future<void> _openLessonLink(BuildContext context, String url) async {
   }
 }
 
-AppStatusTone _tone(LessonStatus status) => switch (status) {
+AppStatusTone lessonStatusTone(LessonStatus status) => switch (status) {
   LessonStatus.published => AppStatusTone.active,
   LessonStatus.draft => AppStatusTone.done,
   LessonStatus.archived => AppStatusTone.dropped,
@@ -282,7 +299,7 @@ class _LessonCard extends StatelessWidget {
                         if (showStatus)
                           StatusBadge(
                             label: lesson.status.displayName,
-                            tone: _tone(lesson.status),
+                            tone: lessonStatusTone(lesson.status),
                           ),
                         if (date != null)
                           Text(
@@ -379,13 +396,13 @@ class _LessonReadSheet extends StatelessWidget {
             children: [
               if (videoUrl != null)
                 FilledButton.icon(
-                  onPressed: () => _openLessonLink(context, videoUrl),
+                  onPressed: () => openLessonLink(context, videoUrl),
                   icon: const Icon(AppIcons.playArrow, size: 18),
                   label: const Text('Assistir vídeo'),
                 ),
               if (pdfUrl != null)
                 OutlinedButton.icon(
-                  onPressed: () => _openLessonLink(context, pdfUrl),
+                  onPressed: () => openLessonLink(context, pdfUrl),
                   icon: const Icon(AppIcons.pdf, size: 18),
                   label: const Text('Abrir PDF'),
                 ),
@@ -455,6 +472,7 @@ class LessonComplementaryMaterials extends ConsumerWidget {
         'linked_entity_id': lessonId,
       });
       ref.invalidate(materialsByEntityProvider(_key));
+      ref.invalidate(materialsByEntitiesProvider);
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -477,6 +495,7 @@ class LessonComplementaryMaterials extends ConsumerWidget {
             entityId: lessonId,
           );
       ref.invalidate(materialsByEntityProvider(_key));
+      ref.invalidate(materialsByEntitiesProvider);
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -73,3 +73,17 @@ final materialsByEntityProvider = FutureProvider.family<List<SupportMaterial>, (
   return repository.getMaterialsByEntity(params.linkType, params.entityId);
 });
 
+/// Chave estável de [materialsByEntitiesProvider]: ids ordenados, sem
+/// repetição, unidos por vírgula (uuid não tem vírgula).
+String materialEntityIdsKey(Iterable<String> ids) =>
+    ({...ids}.toList()..sort()).join(',');
+
+/// Materiais de várias entidades de uma vez (`entityId → materiais`).
+/// `entityIds` vem de [materialEntityIdsKey]. Depois de vincular ou
+/// desvincular, invalidar a família inteira.
+final materialsByEntitiesProvider = FutureProvider.family<Map<String, List<SupportMaterial>>, ({MaterialLinkType linkType, String entityIds})>((ref, params) async {
+  final repository = ref.watch(supportMaterialsRepositoryProvider);
+  final ids = params.entityIds.isEmpty ? const <String>[] : params.entityIds.split(',');
+  return repository.getMaterialsByEntities(params.linkType, ids);
+});
+

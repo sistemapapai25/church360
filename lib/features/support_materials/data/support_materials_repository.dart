@@ -342,6 +342,57 @@ class SupportMaterialsRepository {
     }
   }
 
+  /// Materiais vinculados a várias entidades do mesmo tipo, em duas
+  /// consultas (sem N+1): `entityId → materiais`, na ordem de
+  /// `getMaterialsByEntity`. Entidade sem material fica fora do mapa.
+  ///
+  /// Quem chama decide **quais** ids: a RLS de `support_material_link` é só
+  /// por tenant, então pedir ids de aula que a pessoa não enxerga
+  /// devolveria o vínculo mesmo assim.
+  Future<Map<String, List<SupportMaterial>>> getMaterialsByEntities(
+    MaterialLinkType linkType,
+    List<String> entityIds,
+  ) async {
+    if (entityIds.isEmpty) return {};
+
+    final response = await _supabase
+        .from('support_material_link')
+        .select('material_id, linked_entity_id')
+        .eq('link_type', linkType.value)
+        .inFilter('linked_entity_id', entityIds)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
+
+    final links = [
+      for (final json in response as List)
+        (
+          materialId: json['material_id'] as String,
+          entityId: json['linked_entity_id'] as String,
+        ),
+    ];
+    if (links.isEmpty) return {};
+
+    final materialsResponse = await _supabase
+        .from('support_material')
+        .select()
+        .inFilter('id', {for (final l in links) l.materialId}.toList())
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('is_active', true)
+        .order('created_at', ascending: false);
+
+    final materials = (materialsResponse as List)
+        .map((json) => SupportMaterial.fromJson(json))
+        .toList();
+
+    final result = <String, List<SupportMaterial>>{};
+    for (final material in materials) {
+      for (final link in links) {
+        if (link.materialId != material.id) continue;
+        (result[link.entityId] ??= []).add(material);
+      }
+    }
+    return result;
+  }
+
   /// Criar vinculação
   Future<SupportMaterialLink> createLink(Map<String, dynamic> data) async {
     try {
