@@ -133,6 +133,10 @@ class _EntitySelectorDialogState extends ConsumerState<EntitySelectorDialog> {
         return _buildMinistriesList();
       case MaterialLinkType.studyGroup:
         return _buildStudyGroupsList();
+      case MaterialLinkType.studyLesson:
+        return const Center(
+          child: Text('Material de aula se vincula pela própria aula da turma'),
+        );
       case MaterialLinkType.general:
         return const Center(
           child: Text('Tipo "Geral" não requer seleção de entidades'),
@@ -382,6 +386,8 @@ class _EntitySelectorDialogState extends ConsumerState<EntitySelectorDialog> {
         return Icons.volunteer_activism;
       case MaterialLinkType.studyGroup:
         return Icons.menu_book;
+      case MaterialLinkType.studyLesson:
+        return Icons.play_lesson;
       case MaterialLinkType.general:
         return Icons.public;
     }

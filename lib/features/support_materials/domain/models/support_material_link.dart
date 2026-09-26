@@ -5,6 +5,11 @@ enum MaterialLinkType {
   event('event', 'Evento'),
   ministry('ministry', 'Ministério'),
   studyGroup('study_group', 'Grupo de Estudo'),
+
+  /// Aula concreta da turma (`study_lessons`). Só se vincula pela própria
+  /// aula (autorização contextual no banco); o formulário de Material de
+  /// Apoio não oferece este tipo, mas preserva os vínculos que já existem.
+  studyLesson('study_lesson', 'Aula da turma'),
   general('general', 'Geral');
 
   final String value;

@@ -69,7 +69,7 @@ class TurmaMateriaisTab extends ConsumerWidget {
   ) async {
     final picked = await showTurmaSheet<SupportMaterial>(
       context: context,
-      builder: (_) => _LinkMaterialSheet(
+      builder: (_) => TurmaLinkMaterialSheet(
         linkedIds: {for (final m in linked) m.id},
         rights: rights,
       ),
@@ -170,7 +170,7 @@ class TurmaMateriaisTab extends ConsumerWidget {
                   material: material,
                   onOpen: () => showTurmaSheet<void>(
                     context: context,
-                    builder: (_) => _MaterialReadSheet(material: material),
+                    builder: (_) => TurmaMaterialReadSheet(material: material),
                   ),
                   onUnlink: rights != null && rights.canManage(material)
                       ? () => _unlink(context, ref, material)
@@ -183,7 +183,7 @@ class TurmaMateriaisTab extends ConsumerWidget {
   }
 }
 
-IconData _iconFor(SupportMaterialType type) => switch (type) {
+IconData turmaMaterialIcon(SupportMaterialType type) => switch (type) {
   SupportMaterialType.pdf => AppIcons.pdf,
   SupportMaterialType.powerpoint => AppIcons.slideshow,
   SupportMaterialType.video => AppIcons.videoLibrary,
@@ -214,7 +214,7 @@ class _MaterialCard extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
         child: Row(
           children: [
-            Icon(_iconFor(material.materialType), size: 22),
+            Icon(turmaMaterialIcon(material.materialType), size: 22),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -257,10 +257,10 @@ class _MaterialCard extends StatelessWidget {
 ///
 /// A tela `/support-materials/:id` exige `support_materials.view`, que o
 /// aluno não tem; por isso a leitura fica aqui.
-class _MaterialReadSheet extends StatelessWidget {
+class TurmaMaterialReadSheet extends StatelessWidget {
   final SupportMaterial material;
 
-  const _MaterialReadSheet({required this.material});
+  const TurmaMaterialReadSheet({super.key, required this.material});
 
   String? get _url {
     for (final u in [
@@ -324,22 +324,32 @@ class _MaterialReadSheet extends StatelessWidget {
   }
 }
 
-/// Seletor de material para vincular à turma.
+/// Seletor de material para vincular à turma ou a uma aula dela.
 ///
 /// Só oferece o que a pessoa pode vincular ([TurmaMaterialRights]) e ainda
 /// não está vinculado. Erro de RLS não é fluxo normal: se o seletor
 /// mostrou, o banco aceita.
-class _LinkMaterialSheet extends ConsumerStatefulWidget {
+class TurmaLinkMaterialSheet extends ConsumerStatefulWidget {
   final Set<String> linkedIds;
   final TurmaMaterialRights rights;
+  final String emptyMessage;
 
-  const _LinkMaterialSheet({required this.linkedIds, required this.rights});
+  const TurmaLinkMaterialSheet({
+    super.key,
+    required this.linkedIds,
+    required this.rights,
+    this.emptyMessage =
+        'Nenhum material disponível. Você pode vincular materiais '
+        'que cadastrou no módulo Material de Apoio.',
+  });
 
   @override
-  ConsumerState<_LinkMaterialSheet> createState() => _LinkMaterialSheetState();
+  ConsumerState<TurmaLinkMaterialSheet> createState() =>
+      TurmaLinkMaterialSheetState();
 }
 
-class _LinkMaterialSheetState extends ConsumerState<_LinkMaterialSheet> {
+class TurmaLinkMaterialSheetState
+    extends ConsumerState<TurmaLinkMaterialSheet> {
   String _query = '';
 
   @override
@@ -376,11 +386,7 @@ class _LinkMaterialSheetState extends ConsumerState<_LinkMaterialSheet> {
             if (options.isEmpty) {
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  'Nenhum material disponível. Você pode vincular materiais '
-                  'que cadastrou no módulo Material de Apoio.',
-                  style: meta,
-                ),
+                child: Text(widget.emptyMessage, style: meta),
               );
             }
             return Column(
@@ -388,7 +394,7 @@ class _LinkMaterialSheetState extends ConsumerState<_LinkMaterialSheet> {
                 for (final m in options)
                   ListTile(
                     key: ValueKey('link-${m.id}'),
-                    leading: Icon(_iconFor(m.materialType)),
+                    leading: Icon(turmaMaterialIcon(m.materialType)),
                     title: Text(m.title),
                     subtitle: Text(m.materialType.label),
                     onTap: () => Navigator.of(context).pop(m),
