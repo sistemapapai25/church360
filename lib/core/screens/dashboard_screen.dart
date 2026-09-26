@@ -472,8 +472,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   permission: 'study_groups.view',
                   child: const _DrawerMenuItem(
                     icon: Icons.menu_book,
-                    title: 'Grupos de Estudo',
-                    route: '/study-groups?from=dashboard',
+                    title: 'Turmas',
+                    route: '/courses?tab=turmas&from=dashboard',
                   ),
                 ),
                 PermissionGate(

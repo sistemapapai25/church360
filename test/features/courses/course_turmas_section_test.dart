@@ -11,6 +11,7 @@ import 'package:church360_app/core/widgets/status_badge.dart';
 import 'package:church360_app/features/courses/domain/models/course.dart';
 import 'package:church360_app/features/courses/domain/models/course_lesson.dart';
 import 'package:church360_app/features/courses/domain/models/course_turma.dart';
+import 'package:church360_app/features/courses/presentation/hub/course_hub.dart';
 import 'package:church360_app/features/courses/presentation/providers/courses_provider.dart';
 import 'package:church360_app/features/courses/presentation/screens/course_viewer_screen.dart';
 import 'package:church360_app/features/courses/presentation/widgets/course_turmas_section.dart';
@@ -63,6 +64,7 @@ Widget _host({
   required AsyncValue<List<CourseTurma>> Function() turmas,
   List<CourseLesson> lessons = const [],
   CourseType type = CourseType.onlineRecorded,
+  CourseHubState hub = const CourseHubState(management: true),
 }) {
   final router = GoRouter(
     initialLocation: '/courses/$_courseId/view',
@@ -104,6 +106,7 @@ Widget _host({
         }
         return value.requireValue;
       }),
+      courseHubProvider(_courseId).overrideWith((ref) async => hub),
       currentUserHasPermissionProvider(
         'courses.edit',
       ).overrideWith((ref) async => false),
@@ -142,7 +145,8 @@ void main() {
       expect(_nativeTurma.route, '/courses/$_courseId/turmas/sg-2');
     });
 
-    test('sem course_id a turma de Batismo cai no workspace do ministério', () {
+    // Gate 6: nenhum card leva mais para /ministries/...
+    test('sem course_id a turma de Batismo não cai mais no ministério', () {
       final turma = CourseTurma.fromJson({
         'id': 'sg-4',
         'name': 'Antiga',
@@ -150,7 +154,20 @@ void main() {
         'ministry_id': 'min-1',
         'baptism_turma_id': 'bt-4',
       });
-      expect(turma.route, '/ministries/min-1/batismo');
+      expect(turma.route, '/study-groups/sg-4');
+      expect(turma.route, isNot(contains('/ministries/')));
+    });
+
+    test('routeWithin usa o curso da seção quando a linha não traz', () {
+      final turma = CourseTurma.fromJson({
+        'id': 'sg-6',
+        'name': 'Sem curso na linha',
+        'status': 'active',
+        'ministry_id': 'min-1',
+        'baptism_turma_id': 'bt-6',
+      });
+      expect(turma.routeWithin('c-1'), '/courses/c-1/turmas/sg-6');
+      expect(_baptismTurma.routeWithin('outro'), _baptismTurma.route);
     });
 
     test('fromJson lê course_id', () {
@@ -282,5 +299,38 @@ void main() {
 
     expect(find.text('Curso Presencial'), findsOneWidget);
     expect(find.text('Turma de Setembro'), findsOneWidget);
+  });
+
+  group('seção contextual', () {
+    testWidgets('aluno vê só a própria turma, com o título "Minha turma"', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        _host(
+          turmas: () => AsyncData([_baptismTurma, _nativeTurma]),
+          hub: CourseHubState(management: false, myTurmas: [_baptismTurma]),
+        ),
+      );
+
+      expect(find.text('Minha turma'), findsOneWidget);
+      expect(find.text('Turma de Setembro'), findsWidgets);
+      expect(find.text('Turma de Março'), findsNothing);
+    });
+
+    testWidgets('quem não é aluno nem gestão não vê a seção', (tester) async {
+      await _pump(
+        tester,
+        _host(
+          turmas: () => AsyncData([_baptismTurma, _nativeTurma]),
+          hub: const CourseHubState(management: false),
+        ),
+      );
+
+      expect(find.byType(CourseTurmasSection), findsOneWidget);
+      expect(find.text('Turmas'), findsNothing);
+      expect(find.text('Turma de Setembro'), findsNothing);
+      expect(find.text('Turma de Março'), findsNothing);
+    });
   });
 }

@@ -5,18 +5,27 @@ import 'package:go_router/go_router.dart';
 import '../providers/courses_provider.dart';
 import '../../domain/models/course.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/app_tabs.dart';
 import '../../../../core/widgets/church_image.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/pearl_fab.dart';
 import '../../../permissions/providers/permissions_providers.dart';
+import '../widgets/formacao_turmas_tab.dart';
 
-/// Tela de listagem de cursos
+/// Formação: abas Cursos e Turmas (Etapa 6 do ROADMAP-FORMACAO).
+///
+/// A aba Turmas substitui a antiga central `/study-groups`, que agora
+/// redireciona para cá (`/courses?tab=turmas`).
 class CoursesListScreen extends ConsumerStatefulWidget {
   final bool showFab;
+
+  /// 0 = Cursos, 1 = Turmas.
+  final int initialTab;
 
   const CoursesListScreen({
     super.key,
     this.showFab = false, // Por padrão não mostra FAB (para aba Mais)
+    this.initialTab = 0,
   });
 
   @override
@@ -25,6 +34,7 @@ class CoursesListScreen extends ConsumerStatefulWidget {
 
 class _CoursesListScreenState extends ConsumerState<CoursesListScreen> {
   String _filter = 'all'; // 'all', 'active', 'upcoming'
+  late int _tab = widget.initialTab.clamp(0, 1);
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +44,9 @@ class _CoursesListScreenState extends ConsumerState<CoursesListScreen> {
         ? ref.watch(upcomingCoursesProvider)
         : ref.watch(allCoursesProvider);
 
-    final canCreateAsync = ref.watch(currentUserHasPermissionProvider('courses.create'));
+    final canCreateAsync = ref.watch(
+      currentUserHasPermissionProvider('courses.create'),
+    );
 
     return PopScope(
       canPop: true,
@@ -85,9 +97,9 @@ class _CoursesListScreenState extends ConsumerState<CoursesListScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Cursos', style: CommunityDesign.titleStyle(context)),
+                  Text('Formação', style: CommunityDesign.titleStyle(context)),
                   Text(
-                    'Aprendizado e crescimento',
+                    'Cursos e turmas',
                     style: CommunityDesign.metaStyle(context),
                   ),
                 ],
@@ -97,27 +109,28 @@ class _CoursesListScreenState extends ConsumerState<CoursesListScreen> {
           centerTitle: false,
           toolbarHeight: 64,
           actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: PopupMenuButton<String>(
-                icon: const Icon(Icons.filter_list),
-                initialValue: _filter,
-                onSelected: (value) {
-                  setState(() => _filter = value);
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(value: 'all', child: Text('Todos')),
-                  const PopupMenuItem(value: 'active', child: Text('Ativos')),
-                  const PopupMenuItem(
-                    value: 'upcoming',
-                    child: Text('Em breve'),
-                  ),
-                ],
+            if (_tab == 0)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: PopupMenuButton<String>(
+                  icon: const Icon(Icons.filter_list),
+                  initialValue: _filter,
+                  onSelected: (value) {
+                    setState(() => _filter = value);
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'all', child: Text('Todos')),
+                    const PopupMenuItem(value: 'active', child: Text('Ativos')),
+                    const PopupMenuItem(
+                      value: 'upcoming',
+                      child: Text('Em breve'),
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
-        floatingActionButton: widget.showFab
+        floatingActionButton: widget.showFab && _tab == 0
             ? canCreateAsync.when(
                 data: (canCreate) {
                   if (!canCreate) return null;
@@ -131,83 +144,111 @@ class _CoursesListScreenState extends ConsumerState<CoursesListScreen> {
                 error: (_, __) => null,
               )
             : null,
-        body: coursesAsync.when(
-          data: (courses) {
-            if (courses.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.school_outlined,
-                      size: 80,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.5),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Nenhum curso disponível',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Os cursos aparecerão aqui quando forem cadastrados',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withValues(alpha: 0.5),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(allCoursesProvider);
-                ref.invalidate(activeCoursesProvider);
-                ref.invalidate(upcomingCoursesProvider);
-              },
-              child: ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: courses.length,
-                itemBuilder: (context, index) {
-                  final course = courses[index];
-                  return _CourseCard(
-                    course: course,
-                    showEditButton: widget.showFab,
-                  );
-                },
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: AppTabs(
+                tabs: const [
+                  AppTab(label: 'Cursos'),
+                  AppTab(label: 'Turmas'),
+                ],
+                selectedIndex: _tab,
+                onChanged: (i) => setState(() => _tab = i),
               ),
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                const SizedBox(height: 16),
-                Text('Erro ao carregar cursos: $error'),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    ref.invalidate(allCoursesProvider);
-                    ref.invalidate(activeCoursesProvider);
-                    ref.invalidate(upcomingCoursesProvider);
-                  },
-                  child: const Text('Tentar novamente'),
-                ),
-              ],
             ),
-          ),
+            Expanded(
+              child: _tab == 1
+                  ? const FormacaoTurmasTab()
+                  : coursesAsync.when(
+                      data: (courses) {
+                        if (courses.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.school_outlined,
+                                  size: 80,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.primary.withValues(alpha: 0.5),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Nenhum curso disponível',
+                                  style: Theme.of(context).textTheme.titleLarge
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withValues(alpha: 0.6),
+                                      ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Os cursos aparecerão aqui quando forem cadastrados',
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withValues(alpha: 0.5),
+                                      ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return RefreshIndicator(
+                          onRefresh: () async {
+                            ref.invalidate(allCoursesProvider);
+                            ref.invalidate(activeCoursesProvider);
+                            ref.invalidate(upcomingCoursesProvider);
+                          },
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(20),
+                            itemCount: courses.length,
+                            itemBuilder: (context, index) {
+                              final course = courses[index];
+                              return _CourseCard(
+                                course: course,
+                                showEditButton: widget.showFab,
+                              );
+                            },
+                          ),
+                        );
+                      },
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (error, stack) => Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              size: 64,
+                              color: Colors.red,
+                            ),
+                            const SizedBox(height: 16),
+                            Text('Erro ao carregar cursos: $error'),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () {
+                                ref.invalidate(allCoursesProvider);
+                                ref.invalidate(activeCoursesProvider);
+                                ref.invalidate(upcomingCoursesProvider);
+                              },
+                              child: const Text('Tentar novamente'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
+          ],
         ),
       ),
     );

@@ -16,7 +16,6 @@ import 'package:church360_app/features/study_groups/presentation/providers/study
 import 'package:church360_app/features/study_groups/presentation/screens/lesson_detail_screen.dart';
 import 'package:church360_app/features/study_groups/presentation/screens/study_group_detail_screen.dart';
 import 'package:church360_app/features/study_groups/presentation/screens/study_group_form_screen.dart';
-import 'package:church360_app/features/study_groups/presentation/screens/study_groups_list_screen.dart';
 
 final _now = DateTime(2026, 9, 25);
 
@@ -110,29 +109,6 @@ void main() {
       url: 'https://example.supabase.co',
       anonKey: 'test-anon-key',
     );
-  });
-
-  testWidgets('listagem de grupos de estudo usa vidro, status e ícones', (
-    tester,
-  ) async {
-    final repo = _FakeStudyGroupRepository(_group(), _lesson());
-    await tester.pumpWidget(
-      _host(const StudyGroupsListScreen(), [
-        studyGroupRepositoryProvider.overrideWithValue(repo),
-        currentMemberProvider.overrideWith((ref) async => null),
-        currentUserHasPermissionProvider(
-          'study_groups.create',
-        ).overrideWith((ref) async => false),
-        activeStudyGroupsProvider.overrideWith((ref) async => [repo.group]),
-      ]),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Evangelho de João'), findsOneWidget);
-    expect(find.byType(GlassCard), findsOneWidget);
-    expect(find.byType(StatusBadge), findsOneWidget);
-    expect(find.text('ATIVO'), findsOneWidget);
-    expect(find.byIcon(AppIcons.study), findsOneWidget);
   });
 
   testWidgets('detalhe de grupo organiza abas e superfícies compartilhadas', (

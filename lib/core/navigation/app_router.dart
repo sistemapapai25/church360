@@ -67,7 +67,6 @@ import '../../features/prayer_requests/presentation/screens/prayer_request_detai
 import '../../features/prayer_requests/presentation/screens/prayer_request_form_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_list_screen.dart';
 import '../../features/notifications/presentation/screens/notification_preferences_screen.dart';
-import '../../features/study_groups/presentation/screens/study_groups_list_screen.dart';
 import '../../features/study_groups/presentation/screens/study_group_detail_screen.dart';
 import '../../features/study_groups/presentation/screens/study_group_form_screen.dart';
 import '../../features/study_groups/presentation/screens/lesson_detail_screen.dart';
@@ -92,6 +91,7 @@ import '../../features/courses/presentation/screens/course_lessons_screen.dart';
 import '../../features/courses/presentation/screens/course_lesson_form_screen.dart';
 import '../../features/courses/presentation/screens/course_viewer_screen.dart';
 import '../../features/courses/presentation/turma/turma_detail_screen.dart';
+import '../../features/courses/presentation/legacy_study_group_redirect.dart';
 import '../../features/courses/presentation/screens/lesson_viewer_screen.dart';
 import '../../features/church_info/presentation/screens/church_info_screen.dart';
 import '../../features/church_info/presentation/screens/church_info_form_screen.dart';
@@ -1054,16 +1054,11 @@ final appRouter = GoRouter(
 
     // ===== STUDY GROUPS =====
 
-    // Lista de grupos de estudo
+    // A central de grupos virou a aba Turmas de Formação (gate 6 do
+    // ROADMAP-FORMACAO). Links antigos, menu e dashboard caem lá.
     GoRoute(
       path: '/study-groups',
-      builder: (context, state) {
-        final fromDashboard = state.uri.queryParameters['from'] == 'dashboard';
-        return PermissionOnlyRoute(
-          permission: 'study_groups.view',
-          child: StudyGroupsListScreen(fromDashboard: fromDashboard),
-        );
-      },
+      redirect: (context, state) => studyGroupsListRedirect(state.uri),
     ),
 
     // Novo grupo de estudo
@@ -1075,17 +1070,22 @@ final appRouter = GoRouter(
       ),
     ),
 
-    // Detalhes do grupo de estudo
+    // Detalhe antigo do grupo. Turma com curso vai para a rota canônica
+    // (decisão 23); sem curso (grupo antigo, até a Etapa 8) segue na tela
+    // de antes.
     GoRoute(
       path: '/study-groups/:id',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         final fromDashboard = state.uri.queryParameters['from'] == 'dashboard';
-        return PermissionOnlyRoute(
-          permission: 'study_groups.view',
-          child: StudyGroupDetailScreen(
-            groupId: id,
-            fromDashboard: fromDashboard,
+        return LegacyStudyGroupRedirect(
+          studyGroupId: id,
+          fallback: PermissionOnlyRoute(
+            permission: 'study_groups.view',
+            child: StudyGroupDetailScreen(
+              groupId: id,
+              fromDashboard: fromDashboard,
+            ),
           ),
         );
       },
@@ -1319,7 +1319,11 @@ final appRouter = GoRouter(
       builder: (context, state) {
         // Verifica se veio do Dashboard (query parameter)
         final fromDashboard = state.uri.queryParameters['from'] == 'dashboard';
-        return CoursesListScreen(showFab: fromDashboard);
+        final turmas = state.uri.queryParameters['tab'] == 'turmas';
+        return CoursesListScreen(
+          showFab: fromDashboard,
+          initialTab: turmas ? 1 : 0,
+        );
       },
     ),
 

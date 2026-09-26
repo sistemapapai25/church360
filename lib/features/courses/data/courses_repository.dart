@@ -368,6 +368,21 @@ class CoursesRepository {
     }
   }
 
+  /// Todas as turmas que a RLS deixa o usuário ver (aba Turmas de
+  /// Formação). Só as colunas do card: nada de participante, telefone ou
+  /// e-mail (Frente 5 do plano de turmas).
+  Future<List<CourseTurma>> getVisibleTurmas() async {
+    final response = await _supabase
+        .from('study_groups')
+        .select(_turmaColumns)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .order('start_date', ascending: false);
+
+    return (response as List)
+        .map((json) => CourseTurma.fromJson(Map<String, dynamic>.from(json)))
+        .toList();
+  }
+
   /// Uma turma, para a tela da turma.
   ///
   /// `null` quando a RLS de study_groups esconde o grupo — para a tela, não
