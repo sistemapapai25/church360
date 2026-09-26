@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/supabase_constants.dart';
+import '../utils/storage_upload_path.dart';
 
 /// Widget reutilizável para upload de arquivos (PDF, PowerPoint, etc.)
 class FileUploadWidget extends StatefulWidget {
@@ -16,6 +17,10 @@ class FileUploadWidget extends StatefulWidget {
   final List<String> allowedExtensions;
   final IconData icon;
 
+  /// Opt-in: grava em `<tenant>/<auth uid>/<arquivo>` em vez da raiz do
+  /// bucket. Obrigatório nos buckets com policy por tenant (CHU-370).
+  final bool tenantScopedPath;
+
   const FileUploadWidget({
     super.key,
     this.initialFileUrl,
@@ -25,6 +30,7 @@ class FileUploadWidget extends StatefulWidget {
     this.label = 'Arquivo',
     this.allowedExtensions = const ['pdf', 'ppt', 'pptx', 'doc', 'docx'],
     this.icon = Icons.attach_file,
+    this.tenantScopedPath = false,
   });
 
   @override
@@ -115,7 +121,14 @@ class _FileUploadWidgetState extends State<FileUploadWidget> {
       // Gerar nome único para o arquivo
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final extension = pickedFile.name.split('.').last;
-      final fileName = '${userId}_$timestamp.$extension';
+      final fileName = buildStorageUploadPath(
+        userId: userId,
+        timestamp: timestamp,
+        extension: extension,
+        tenantId: widget.tenantScopedPath
+            ? SupabaseConstants.currentTenantId
+            : null,
+      );
 
       // Upload para Supabase Storage
       if (kIsWeb) {

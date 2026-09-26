@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/supabase_constants.dart';
+import '../utils/storage_upload_path.dart';
 
 /// Widget reutilizável para upload de vídeos ou link do YouTube
 class VideoUploadWidget extends StatefulWidget {
@@ -14,6 +15,10 @@ class VideoUploadWidget extends StatefulWidget {
   final String label;
   final bool allowYouTubeLink;
 
+  /// Opt-in: grava em `<tenant>/<auth uid>/<arquivo>` em vez da raiz do
+  /// bucket. Obrigatório nos buckets com policy por tenant (CHU-370).
+  final bool tenantScopedPath;
+
   const VideoUploadWidget({
     super.key,
     this.initialVideoUrl,
@@ -21,6 +26,7 @@ class VideoUploadWidget extends StatefulWidget {
     required this.storageBucket,
     this.label = 'Vídeo',
     this.allowYouTubeLink = true,
+    this.tenantScopedPath = false,
   });
 
   @override
@@ -123,7 +129,14 @@ class _VideoUploadWidgetState extends State<VideoUploadWidget> {
       // Gerar nome único para o arquivo
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final extension = pickedFile.name.split('.').last;
-      final fileName = '${userId}_$timestamp.$extension';
+      final fileName = buildStorageUploadPath(
+        userId: userId,
+        timestamp: timestamp,
+        extension: extension,
+        tenantId: widget.tenantScopedPath
+            ? SupabaseConstants.currentTenantId
+            : null,
+      );
 
       // Upload para Supabase Storage
       if (kIsWeb) {
