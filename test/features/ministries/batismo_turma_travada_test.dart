@@ -1,4 +1,5 @@
 import 'package:church360_app/core/theme/app_theme.dart';
+import 'package:church360_app/features/ministries/batismo/data/baptism_lesson_meeting.dart';
 import 'package:church360_app/features/ministries/batismo/data/baptism_repository.dart';
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_attendance.dart';
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_checklist.dart';
@@ -8,6 +9,7 @@ import 'package:church360_app/features/ministries/batismo/domain/models/baptism_
 import 'package:church360_app/features/ministries/batismo/presentation/providers/baptism_providers.dart';
 import 'package:church360_app/features/ministries/batismo/presentation/screens/tabs/batismo_alunos_tab.dart';
 import 'package:church360_app/features/ministries/batismo/presentation/screens/tabs/batismo_presenca_tab.dart';
+import 'package:church360_app/features/ministries/batismo/presentation/widgets/baptism_lesson_attendance.dart';
 import 'package:church360_app/features/ministries/batismo/presentation/widgets/baptism_locked_turma_unavailable.dart';
 import 'package:church360_app/features/ministries/presentation/providers/ministries_provider.dart';
 import 'package:flutter/material.dart';
@@ -46,16 +48,30 @@ BaptismStudent _student(String name, String turmaId) {
   );
 }
 
-BaptismMeeting _meeting(String id, String turmaId, String title) {
+BaptismMeeting _meeting(
+  String id,
+  String turmaId,
+  String title, {
+  String? studyLessonId,
+  DateTime? date,
+}) {
   return BaptismMeeting(
     id: id,
     tenantId: 't1',
     turmaId: turmaId,
-    meetingDate: DateTime(2026, 9, 20),
+    meetingDate: date ?? DateTime(2026, 9, 20),
     title: title,
     createdAt: DateTime(2026, 9, 20),
+    studyLessonId: studyLessonId,
   );
 }
+
+BaptismLessonRef _lesson(
+  String id, {
+  int number = 1,
+  String title = 'Fé',
+  DateTime? date,
+}) => (lessonId: id, lessonNumber: number, title: title, scheduledDate: date);
 
 /// Repositório falso: guarda o que foi pedido e o que foi gravado.
 class _FakeBaptismRepository implements BaptismRepository {
@@ -63,17 +79,22 @@ class _FakeBaptismRepository implements BaptismRepository {
   final List<BaptismStudent> students;
   final List<BaptismMeeting> meetings;
 
+  /// Simula o 23505 do UNIQUE (study_lesson_id): outra pessoa criou o
+  /// encontro da aula entre a leitura e o INSERT.
+  BaptismMeeting? raceWinner;
+
   final studentQueries = <String?>[];
   final meetingQueries = <List<String>>[];
   final marked = <({String meetingId, String studentId})>[];
   final createdStudents = <BaptismStudent>[];
   final createdMeetings = <BaptismMeeting>[];
+  final updatedMeetings = <BaptismMeeting>[];
 
   _FakeBaptismRepository({
     required this.turmas,
     required this.students,
-    required this.meetings,
-  });
+    required List<BaptismMeeting> meetings,
+  }) : meetings = [...meetings];
 
   @override
   Future<List<BaptismTurma>> getTurmas(String ministryId) async => [
@@ -140,8 +161,39 @@ class _FakeBaptismRepository implements BaptismRepository {
   }
 
   @override
+  Future<BaptismMeeting?> getMeetingForLesson(String studyLessonId) async {
+    for (final m in meetings) {
+      if (m.studyLessonId == studyLessonId) return m;
+    }
+    return null;
+  }
+
+  @override
   Future<BaptismMeeting> createMeeting(BaptismMeeting meeting) async {
+    final winner = raceWinner;
+    if (winner != null) {
+      meetings.add(winner);
+      raceWinner = null;
+      throw Exception('duplicate key value (23505)');
+    }
     createdMeetings.add(meeting);
+    final saved = _meeting(
+      'novo-${createdMeetings.length}',
+      meeting.turmaId,
+      meeting.title,
+      studyLessonId: meeting.studyLessonId,
+      date: meeting.meetingDate,
+    );
+    meetings.add(saved);
+    return saved;
+  }
+
+  @override
+  Future<BaptismMeeting> updateMeeting(BaptismMeeting meeting) async {
+    updatedMeetings.add(meeting);
+    meetings
+      ..removeWhere((m) => m.id == meeting.id)
+      ..add(meeting);
     return meeting;
   }
 
@@ -166,7 +218,15 @@ _FakeBaptismRepository _repo() => _FakeBaptismRepository(
   ],
 );
 
-Widget _host(_FakeBaptismRepository repo, Widget tab) {
+Widget _host(
+  _FakeBaptismRepository repo,
+  Widget tab, {
+  Set<BaptismWriteAction> allowed = const {
+    BaptismWriteAction.create,
+    BaptismWriteAction.edit,
+    BaptismWriteAction.delete,
+  },
+}) {
   return ProviderScope(
     overrides: [
       baptismRepositoryProvider.overrideWithValue(repo),
@@ -175,7 +235,7 @@ Widget _host(_FakeBaptismRepository repo, Widget tab) {
         baptismCanWriteProvider((
           ministryId: _ministryId,
           action: action,
-        )).overrideWith((ref) async => true),
+        )).overrideWith((ref) async => allowed.contains(action)),
     ],
     child: MaterialApp(
       theme: AppTheme.lightTheme,
@@ -388,7 +448,7 @@ void main() {
       expect(repo.meetingQueries, everyElement([_turmaA]));
     });
 
-    testWidgets('travada: a chamada grava só alunos e encontro da turma', (
+    testWidgets('travada: só leitura, sem encontro novo nem marcação', (
       tester,
     ) async {
       final repo = _repo();
@@ -403,50 +463,12 @@ void main() {
         ),
       );
 
+      expect(find.text('Novo encontro'), findsNothing);
       await tester.tap(find.text('Aula da A'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Marcar todos presentes'));
-      await tester.pumpAndSettle();
-
-      expect(repo.marked, hasLength(2));
-      expect(repo.marked.map((m) => m.meetingId), everyElement('e-a'));
-      expect(repo.marked.map((m) => m.studentId).toSet(), {
-        'id-Ana',
-        'id-Bruno',
-      });
-    });
-
-    testWidgets('travada: encontro novo vai para a turma, sem seletor', (
-      tester,
-    ) async {
-      final repo = _repo();
-      await _pump(
-        tester,
-        _host(
-          repo,
-          const BatismoPresencaTab(
-            ministryId: _ministryId,
-            lockedTurmaId: _turmaB,
-          ),
-        ),
-      );
-
-      await tester.tap(find.text('Novo encontro'));
-      await tester.pumpAndSettle();
-      expect(
-        find.widgetWithText(DropdownButtonFormField<String?>, 'Turma'),
-        findsNothing,
-      );
-
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'Nome do encontro'),
-        'Aula 2',
-      );
-      await tester.tap(find.text('Salvar'));
-      await tester.pumpAndSettle();
-
-      expect(repo.createdMeetings, hasLength(1));
-      expect(repo.createdMeetings.single.turmaId, _turmaB);
+      expect(find.text('Marcar todos presentes'), findsNothing);
+      expect(find.textContaining('aba Aulas'), findsOneWidget);
+      expect(repo.marked, isEmpty);
     });
 
     testWidgets('travada em turma de outro ministério: fail-closed', (
@@ -468,6 +490,215 @@ void main() {
       expect(find.text('Aula da A'), findsNothing);
       expect(find.text('Novo encontro'), findsNothing);
       expect(repo.meetingQueries, isEmpty);
+    });
+  });
+
+  // Etapa 5.3: a presença por aula substituiu o encontro avulso.
+  group('ensureBaptismLessonMeeting', () {
+    test('aula sem encontro: cria na turma, com a aula e o título', () async {
+      final repo = _repo();
+      final meeting = await ensureBaptismLessonMeeting(
+        repo,
+        turmaId: _turmaA,
+        lesson: _lesson('aula-3', number: 3, date: DateTime.utc(2026, 9, 24)),
+        canCreate: true,
+        canEdit: true,
+      );
+
+      expect(repo.createdMeetings, hasLength(1));
+      final created = repo.createdMeetings.single;
+      expect(created.turmaId, _turmaA);
+      expect(created.studyLessonId, 'aula-3');
+      expect(created.title, 'Aula 3 · Fé');
+      // Data de parede: o UTC da aula não pode virar 23/09.
+      expect(created.day, DateTime(2026, 9, 24));
+      expect(meeting?.studyLessonId, 'aula-3');
+    });
+
+    test('aula que já tem encontro: não cria outro', () async {
+      final repo = _repo()
+        ..meetings.add(
+          _meeting('e-aula', _turmaA, 'Aula 1 · Fé', studyLessonId: 'aula-1'),
+        );
+      final meeting = await ensureBaptismLessonMeeting(
+        repo,
+        turmaId: _turmaA,
+        lesson: _lesson('aula-1'),
+        canCreate: true,
+        canEdit: true,
+      );
+
+      expect(meeting?.id, 'e-aula');
+      expect(repo.createdMeetings, isEmpty);
+      expect(repo.updatedMeetings, isEmpty);
+    });
+
+    test('aula renomeada: alinha o encontro se pode editar', () async {
+      final repo = _repo()
+        ..meetings.add(
+          _meeting(
+            'e-aula',
+            _turmaA,
+            'Aula 1 · Velho',
+            studyLessonId: 'aula-1',
+          ),
+        );
+      final meeting = await ensureBaptismLessonMeeting(
+        repo,
+        turmaId: _turmaA,
+        lesson: _lesson('aula-1', title: 'Novo'),
+        canCreate: false,
+        canEdit: true,
+      );
+
+      expect(meeting?.title, 'Aula 1 · Novo');
+      // Aula sem data: a data do encontro fica como estava.
+      expect(meeting?.day, DateTime(2026, 9, 20));
+    });
+
+    test('sem baptism.edit o encontro desalinhado fica como está', () async {
+      final repo = _repo()
+        ..meetings.add(
+          _meeting(
+            'e-aula',
+            _turmaA,
+            'Aula 1 · Velho',
+            studyLessonId: 'aula-1',
+          ),
+        );
+      await ensureBaptismLessonMeeting(
+        repo,
+        turmaId: _turmaA,
+        lesson: _lesson('aula-1', title: 'Novo'),
+        canCreate: false,
+        canEdit: false,
+      );
+      expect(repo.updatedMeetings, isEmpty);
+    });
+
+    test('sem baptism.create não tenta criar', () async {
+      final repo = _repo();
+      final meeting = await ensureBaptismLessonMeeting(
+        repo,
+        turmaId: _turmaA,
+        lesson: _lesson('aula-1'),
+        canCreate: false,
+        canEdit: true,
+      );
+      expect(meeting, isNull);
+      expect(repo.createdMeetings, isEmpty);
+    });
+
+    test('corrida no INSERT (23505): relê o encontro de quem ganhou', () async {
+      final repo = _repo()
+        ..raceWinner = _meeting(
+          'e-outro',
+          _turmaA,
+          'Aula 1 · Fé',
+          studyLessonId: 'aula-1',
+        );
+      final meeting = await ensureBaptismLessonMeeting(
+        repo,
+        turmaId: _turmaA,
+        lesson: _lesson('aula-1'),
+        canCreate: true,
+        canEdit: true,
+      );
+      expect(meeting?.id, 'e-outro');
+    });
+  });
+
+  group('BaptismLessonAttendance', () {
+    testWidgets('abre a chamada da aula e grava só na turma dela', (
+      tester,
+    ) async {
+      final repo = _repo();
+      await _pump(
+        tester,
+        _host(
+          repo,
+          BaptismLessonAttendance(
+            ministryId: _ministryId,
+            turmaId: _turmaA,
+            lesson: _lesson('aula-1'),
+          ),
+        ),
+      );
+
+      expect(repo.createdMeetings.single.studyLessonId, 'aula-1');
+      expect(find.text('Ana'), findsOneWidget);
+      expect(find.text('Carla'), findsNothing);
+
+      await tester.tap(find.text('Marcar todos presentes'));
+      await tester.pumpAndSettle();
+
+      expect(repo.marked, hasLength(2));
+      expect(repo.marked.map((m) => m.meetingId), everyElement('novo-1'));
+      expect(repo.marked.map((m) => m.studentId).toSet(), {
+        'id-Ana',
+        'id-Bruno',
+      });
+    });
+
+    testWidgets('sem baptism.create e sem encontro: avisa, não cria', (
+      tester,
+    ) async {
+      final repo = _repo();
+      await _pump(
+        tester,
+        _host(
+          repo,
+          BaptismLessonAttendance(
+            ministryId: _ministryId,
+            turmaId: _turmaA,
+            lesson: _lesson('aula-1'),
+          ),
+          allowed: const {BaptismWriteAction.edit},
+        ),
+      );
+
+      expect(repo.createdMeetings, isEmpty);
+      expect(find.textContaining('ainda não foi aberta'), findsOneWidget);
+    });
+
+    testWidgets('sem baptism.edit a chamada é só leitura', (tester) async {
+      final repo = _repo()
+        ..meetings.add(
+          _meeting('e-aula', _turmaA, 'Aula 1 · Fé', studyLessonId: 'aula-1'),
+        );
+      await _pump(
+        tester,
+        _host(
+          repo,
+          BaptismLessonAttendance(
+            ministryId: _ministryId,
+            turmaId: _turmaA,
+            lesson: _lesson('aula-1'),
+          ),
+          allowed: const {},
+        ),
+      );
+
+      expect(find.text('Ana'), findsOneWidget);
+      expect(find.text('Marcar todos presentes'), findsNothing);
+    });
+
+    testWidgets('turma de outro ministério: não abre nem cria', (tester) async {
+      final repo = _repo();
+      await _pump(
+        tester,
+        _host(
+          repo,
+          BaptismLessonAttendance(
+            ministryId: _ministryId,
+            turmaId: 'turma-x',
+            lesson: _lesson('aula-1'),
+          ),
+        ),
+      );
+
+      expect(repo.createdMeetings, isEmpty);
+      expect(find.textContaining('Não foi possível abrir'), findsOneWidget);
     });
   });
 }

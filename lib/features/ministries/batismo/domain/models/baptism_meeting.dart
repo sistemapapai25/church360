@@ -24,6 +24,14 @@ class BaptismMeeting {
   final String? notes;
   final DateTime createdAt;
 
+  /// Aula (`study_lessons`) de onde o encontro nasceu.
+  ///
+  /// Desde a Etapa 5.3 (26/09) todo encontro novo nasce de uma aula — a
+  /// presença por aula substituiu o encontro avulso, e o banco recusa
+  /// INSERT sem ela. `null` é encontro antigo (histórico) ou aula apagada
+  /// (a FK é `SET NULL`).
+  final String? studyLessonId;
+
   /// Nome da turma vindo do embed, quando a consulta o traz.
   final String? turmaName;
 
@@ -35,6 +43,7 @@ class BaptismMeeting {
     required this.title,
     this.notes,
     required this.createdAt,
+    this.studyLessonId,
     this.turmaName,
   });
 
@@ -51,6 +60,7 @@ class BaptismMeeting {
       title: json['title'] as String,
       notes: json['notes'] as String?,
       createdAt: DateTime.tryParse('${json['created_at']}') ?? DateTime.now(),
+      studyLessonId: json['study_lesson_id'] as String?,
       turmaName: turmaMap?['name'] as String?,
     );
   }
@@ -65,8 +75,12 @@ class BaptismMeeting {
       'meeting_date': dateOnly(meetingDate),
       'title': title.trim(),
       'notes': (notes ?? '').trim().isEmpty ? null : notes!.trim(),
+      'study_lesson_id': studyLessonId,
     };
   }
+
+  /// Encontro de antes da Etapa 5.3, sem aula: só histórico.
+  bool get isAvulso => studyLessonId == null;
 
   /// O dia do encontro sem hora, para comparar e agrupar sem esbarrar em
   /// fuso.
@@ -89,6 +103,7 @@ class BaptismMeeting {
       title: title ?? this.title,
       notes: clearNotes ? null : (notes ?? this.notes),
       createdAt: createdAt,
+      studyLessonId: studyLessonId,
       turmaName: turmaName ?? this.turmaName,
     );
   }

@@ -8,6 +8,7 @@ import '../../../../../core/widgets/glass_card.dart';
 import '../../../../../core/widgets/status_badge.dart';
 import '../../../../study_groups/domain/models/study_group.dart';
 import '../../../../study_groups/presentation/providers/study_group_provider.dart';
+import '../adapters/turma_surfaces.dart';
 import '../turma_access.dart';
 import '../widgets/turma_sheet.dart';
 
@@ -19,14 +20,19 @@ import '../widgets/turma_sheet.dart';
 /// **Sem exclusão.** Apagar uma aula leva junto, por CASCADE, a presença e
 /// os comentários dela (conferido no banco em 25/09). O ciclo é Rascunho →
 /// Publicar → Arquivar → Restaurar (volta a rascunho).
+///
+/// Com [lessonAttendance] (hoje só o Batismo, Etapa 5.3) cada aula ganha
+/// "Registrar presença" no menu de quem escreve aula.
 class TurmaAulasTab extends ConsumerWidget {
   final String studyGroupId;
   final TurmaAccess access;
+  final TurmaLessonAttendance? lessonAttendance;
 
   const TurmaAulasTab({
     super.key,
     required this.studyGroupId,
     required this.access,
+    this.lessonAttendance,
   });
 
   FutureProvider<List<StudyLesson>> get _lessonsProvider => access.isLeadership
@@ -135,6 +141,9 @@ class TurmaAulasTab extends ConsumerWidget {
                     lesson: lesson,
                     showStatus: access.isLeadership,
                     canWrite: canWrite,
+                    onRegisterAttendance: lessonAttendance == null
+                        ? null
+                        : () => lessonAttendance!(context, lesson),
                     onOpen: () => showTurmaSheet<void>(
                       context: context,
                       builder: (_) => _LessonReadSheet(lesson: lesson),
@@ -171,6 +180,7 @@ class _LessonCard extends StatelessWidget {
   final StudyLesson lesson;
   final bool showStatus;
   final bool canWrite;
+  final VoidCallback? onRegisterAttendance;
   final VoidCallback onOpen;
   final VoidCallback onEdit;
   final ValueChanged<LessonStatus> onSetStatus;
@@ -180,6 +190,7 @@ class _LessonCard extends StatelessWidget {
     required this.lesson,
     required this.showStatus,
     required this.canWrite,
+    this.onRegisterAttendance,
     required this.onOpen,
     required this.onEdit,
     required this.onSetStatus,
@@ -234,11 +245,18 @@ class _LessonCard extends StatelessWidget {
               PopupMenuButton<String>(
                 tooltip: 'Ações da aula',
                 itemBuilder: (context) => [
+                  if (onRegisterAttendance != null)
+                    const PopupMenuItem(
+                      value: 'attendance',
+                      child: Text('Registrar presença'),
+                    ),
                   const PopupMenuItem(value: 'edit', child: Text('Editar')),
                   PopupMenuItem(value: 'status', child: Text(next.label)),
                 ],
                 onSelected: (value) {
                   switch (value) {
+                    case 'attendance':
+                      onRegisterAttendance?.call();
                     case 'edit':
                       onEdit();
                     case 'status':

@@ -59,6 +59,7 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
       TurmaTabId.aulas => TurmaAulasTab(
         studyGroupId: widget.studyGroupId,
         access: access,
+        lessonAttendance: surfaces.lessonAttendance,
       ),
       TurmaTabId.materiais => TurmaMateriaisTab(
         studyGroupId: widget.studyGroupId,

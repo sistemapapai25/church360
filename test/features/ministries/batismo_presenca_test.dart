@@ -32,6 +32,7 @@ BaptismMeeting _meeting(
   String? title,
   DateTime? date,
   String? turmaName,
+  String? studyLessonId = 'aula-1',
 }) {
   return BaptismMeeting(
     id: id,
@@ -40,6 +41,7 @@ BaptismMeeting _meeting(
     meetingDate: date ?? DateTime(2026, 9, 21),
     title: title ?? 'Encontro $id',
     createdAt: DateTime(2026, 9, 21),
+    studyLessonId: studyLessonId,
     turmaName: turmaName,
   );
 }
@@ -128,6 +130,8 @@ void main() {
       expect(json['title'], 'Aula 1');
       expect(json['turma_id'], 'turma-1');
       expect(json['notes'], isNull);
+      // Etapa 5.3: o banco recusa encontro sem aula.
+      expect(json['study_lesson_id'], 'aula-1');
       // id, tenant_id e created_at são do banco.
       expect(json.containsKey('id'), isFalse);
       expect(json.containsKey('tenant_id'), isFalse);
@@ -143,10 +147,13 @@ void main() {
         'title': 'Aula 1',
         'notes': 'Sala 2',
         'created_at': '2026-09-21T10:00:00Z',
+        'study_lesson_id': 'aula-9',
         'baptism_turma': {'name': 'Turma A'},
       });
 
       expect(meeting.title, 'Aula 1');
+      expect(meeting.studyLessonId, 'aula-9');
+      expect(meeting.isAvulso, isFalse);
       expect(meeting.notes, 'Sala 2');
       expect(meeting.turmaName, 'Turma A');
       expect(meeting.day, DateTime(2026, 9, 21));
@@ -314,7 +321,10 @@ void main() {
       );
 
       expect(find.text('Nenhum encontro registrado'), findsOneWidget);
-      expect(find.text('Registrar o primeiro encontro'), findsOneWidget);
+      // Etapa 5.3: o encontro nasce da aula, não daqui.
+      expect(find.textContaining('Registrar presença'), findsOneWidget);
+      expect(find.text('Registrar o primeiro encontro'), findsNothing);
+      expect(find.text('Novo encontro'), findsNothing);
     });
 
     testWidgets('encontro em branco diz que a chamada não foi feita', (
@@ -381,9 +391,10 @@ void main() {
       expect(find.byType(GlassCard), findsNWidgets(2));
     });
 
-    testWidgets('sem permissão de escrita não oferece criar encontro', (
-      tester,
-    ) async {
+    // Etapa 5.3 (decisão do usuário, 26/09): a presença por aula
+    // substituiu o encontro avulso. Nem quem tem todas as permissões cria,
+    // edita, exclui ou marca por aqui.
+    testWidgets('é só leitura, mesmo com permissão de escrita', (tester) async {
       await _pumpTab(
         tester,
         _host(
@@ -391,13 +402,39 @@ void main() {
           students: [_student('Ana')],
           attendance: const [],
           turmas: [_turma('turma-1', 'Turma A')],
-          canWrite: false,
         ),
       );
 
       expect(find.text('Novo encontro'), findsNothing);
-      // A chamada continua legível: só as ações somem.
+      expect(find.byType(PopupMenuButton<String>), findsNothing);
       expect(find.text('Aula 1'), findsOneWidget);
+
+      await tester.tap(find.text('Aula 1'));
+      await tester.pumpAndSettle();
+      expect(find.text('Marcar todos presentes'), findsNothing);
+      final dots = tester.widgetList<IconButton>(find.byType(IconButton));
+      expect(dots, isNotEmpty);
+      expect(dots.every((b) => b.onPressed == null), isTrue);
+    });
+
+    testWidgets('encontro antigo, sem aula, aparece como histórico', (
+      tester,
+    ) async {
+      await _pumpTab(
+        tester,
+        _host(
+          meetings: [
+            _meeting('e1', title: 'Encontro velho', studyLessonId: null),
+            _meeting('e2', title: 'Aula 2 · Fé'),
+          ],
+          students: [_student('Ana')],
+          attendance: const [],
+          turmas: [_turma('turma-1', 'Turma A')],
+        ),
+      );
+
+      // O StatusBadge exibe o rótulo em maiúsculas.
+      expect(find.textContaining('AVULSO'), findsOneWidget);
     });
 
     testWidgets('abrir o encontro lista os alunos da turma', (tester) async {
@@ -420,7 +457,6 @@ void main() {
       expect(find.text('Ana'), findsOneWidget);
       // Bruno é da turma-2: não entra na chamada deste encontro.
       expect(find.text('Bruno'), findsNothing);
-      expect(find.text('Marcar todos presentes'), findsOneWidget);
     });
   });
 }

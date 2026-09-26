@@ -7,34 +7,29 @@ import '../../../../../../core/design/community_design.dart';
 import '../../../../../../core/widgets/app_filter_bar.dart';
 import '../../../../../../core/widgets/glass_card.dart';
 import '../../../../../../core/widgets/status_badge.dart';
-import '../../../data/baptism_repository.dart';
 import '../../../domain/baptism_attendance_roll.dart';
-import '../../../domain/models/baptism_attendance.dart';
-import '../../../domain/models/baptism_meeting.dart';
-import '../../../domain/models/baptism_student.dart';
 import '../../../domain/models/baptism_turma.dart';
 import '../../providers/baptism_providers.dart';
 import '../../widgets/baptism_locked_turma_unavailable.dart';
+import '../../widgets/baptism_meeting_roll.dart';
 
-/// Aba Presença do workspace do Batismo (Etapa D).
+/// Aba Presença do workspace do Batismo (Etapa D; leitura desde a 5.3).
 ///
-/// Chamada por encontro: quem cuida do curso cria a aula (data + título) e
-/// marca quem esteve lá. Cada encontro é de uma turma, e a chamada dele
-/// lista os alunos daquela turma.
+/// Mostra os encontros de cada turma e a chamada de cada um. **Não cria
+/// nem marca nada** desde 26/09: a presença por aula substituiu o encontro
+/// avulso (decisão do usuário), e a chamada é feita em "Registrar
+/// presença", dentro da aula (Cursos → Batismo → turma → Aulas). O banco
+/// recusa encontro novo sem aula. Os encontros de antes ficam aqui como
+/// histórico, marcados como avulsos.
 ///
 /// **Não marcado não é falta.** Um aluno sem marca é alguém por quem
 /// ninguém passou ainda; quem faltou é marcado `Faltou` e tem linha no
-/// banco. Essa diferença é o que permite cadastrar um aluno depois da aula
-/// sem o sistema acusá-lo de ter faltado a ela.
-///
-/// Marcar e desmarcar pedem `baptism.edit` — as duas, de propósito.
-/// Desmarcar apaga a linha, mas é a outra metade de marcar; se pedisse
-/// `baptism.delete`, quem tem edit marcaria sem conseguir corrigir.
+/// banco.
 ///
 /// Com [lockedTurmaId] (tela da turma em Cursos) a aba fica presa a essa
-/// turma: busca só os encontros dela no banco, some o filtro de turma e o
-/// encontro novo é gravado nela. Turma que não é do ministério não abre
-/// nada ([BaptismLockedTurmaUnavailable]).
+/// turma: busca só os encontros dela no banco e some o filtro de turma.
+/// Turma que não é do ministério não abre nada
+/// ([BaptismLockedTurmaUnavailable]).
 class BatismoPresencaTab extends ConsumerStatefulWidget {
   final String ministryId;
   final String? lockedTurmaId;
@@ -68,10 +63,6 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
     return (ministryId: widget.ministryId, turmaId: turmaId);
   }
 
-  /// Marcações em voo, por "meetingId:studentId", para travar só o aluno
-  /// tocado em vez da tela inteira.
-  final _busy = <String>{};
-
   @override
   void dispose() {
     _search.dispose();
@@ -94,132 +85,6 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
       if (query.isEmpty) return true;
       return r.meeting.title.toLowerCase().contains(query);
     }).toList();
-  }
-
-  // -------------------------------------------------------------------
-  // Ações
-  // -------------------------------------------------------------------
-
-  /// Marca um aluno, ou o desmarca se ele já estava naquele estado.
-  ///
-  /// Tocar de novo no estado atual devolve o aluno a "não-marcado" — é
-  /// como se desfaz um toque errado sem precisar de um botão de apagar.
-  Future<void> _setStatus({
-    required BaptismMeetingRoll roll,
-    required BaptismStudent student,
-    required BaptismAttendanceStatus status,
-  }) async {
-    final key = '${roll.meeting.id}:${student.id}';
-    if (_busy.contains(key)) return;
-    setState(() => _busy.add(key));
-
-    final repo = ref.read(baptismRepositoryProvider);
-    final current = roll.statusOf(student);
-
-    try {
-      if (current == status) {
-        await repo.unmarkAttendance(
-          meetingId: roll.meeting.id,
-          studentId: student.id,
-        );
-      } else {
-        await repo.markAttendance([
-          (meetingId: roll.meeting.id, studentId: student.id, status: status),
-        ]);
-      }
-      if (!mounted) return;
-      // Realtime não é habilitado por migration neste banco: sem este
-      // invalidate a tela ficaria mostrando o estado anterior até alguém
-      // trocar de aba.
-      invalidateBaptismData(ref, widget.ministryId);
-    } catch (error) {
-      if (!mounted) return;
-      _showError(error);
-    } finally {
-      if (mounted) setState(() => _busy.remove(key));
-    }
-  }
-
-  /// Marca presente, de uma vez, todo mundo que ainda não foi tocado.
-  ///
-  /// Um upsert só, com `onConflict` — quem já tem marca fica como está,
-  /// porque só os não-marcados entram no lote. É o caminho normal da
-  /// chamada: a maioria veio, e só as exceções merecem toque individual.
-  Future<void> _markRemainingPresent(BaptismMeetingRoll roll) async {
-    final pending = [
-      for (final student in roll.students)
-        if (roll.statusOf(student) == null)
-          (
-            meetingId: roll.meeting.id,
-            studentId: student.id,
-            status: BaptismAttendanceStatus.presente,
-          ),
-    ];
-    if (pending.isEmpty) return;
-
-    try {
-      await ref.read(baptismRepositoryProvider).markAttendance(pending);
-      if (!mounted) return;
-      invalidateBaptismData(ref, widget.ministryId);
-    } catch (error) {
-      if (!mounted) return;
-      _showError(error);
-    }
-  }
-
-  Future<void> _openForm({
-    required List<BaptismTurma> turmas,
-    BaptismMeeting? meeting,
-  }) async {
-    final saved = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _MeetingFormSheet(
-        turmas: turmas,
-        meeting: meeting,
-        lockedTurmaId: widget.lockedTurmaId,
-      ),
-    );
-    if (saved == true && mounted) invalidateBaptismData(ref, widget.ministryId);
-  }
-
-  Future<void> _delete(BaptismMeeting meeting) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Excluir encontro?'),
-        content: Text(
-          'A chamada de "${meeting.title}" vai junto e não tem volta.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Excluir'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-
-    try {
-      await ref.read(baptismRepositoryProvider).deleteMeeting(meeting.id);
-      if (!mounted) return;
-      invalidateBaptismData(ref, widget.ministryId);
-    } catch (error) {
-      if (!mounted) return;
-      _showError(error);
-    }
-  }
-
-  void _showError(Object error) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Não foi possível salvar: $error')));
   }
 
   Future<T?> _pickOption<T>({
@@ -303,18 +168,12 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
               .watch(baptismTurmasProvider(widget.ministryId))
               .maybeWhen(data: (t) => t, orElse: () => const <BaptismTurma>[]);
 
-    bool can(BaptismWriteAction action) => ref
-        .watch(
-          baptismCanWriteProvider((
-            ministryId: widget.ministryId,
-            action: action,
-          )),
-        )
-        .maybeWhen(data: (v) => v, orElse: () => false);
-
-    final canCreate = can(BaptismWriteAction.create);
-    final canEdit = can(BaptismWriteAction.edit);
-    final canDelete = can(BaptismWriteAction.delete);
+    // Na tela da turma a aula está a uma aba de distância; no workspace,
+    // é preciso ir até Cursos.
+    final whereToMark = lockedKey == null
+        ? 'A chamada é feita dentro da aula: Cursos → Batismo → turma → '
+              'Aulas → Registrar presença.'
+        : 'A chamada é feita dentro da aula: aba Aulas → Registrar presença.';
 
     return rollsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -362,20 +221,8 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
                     onTap: () => setState(() => _onlyPending = !_onlyPending),
                   ),
                 ],
-                secondaryActions: [
-                  if (canCreate && turmas.isNotEmpty)
-                    AppFilterAction(
-                      label: 'Novo encontro',
-                      icon: AppIcons.add,
-                      onPressed: () => _openForm(turmas: turmas),
-                    ),
-                ],
               ),
               const SizedBox(height: 12),
-              // Três vazios diferentes, três saídas diferentes: sem turma
-              // não dá nem para criar encontro; sem encontro o caminho é
-              // criar o primeiro; sem resultado no filtro o caminho é
-              // limpar o filtro.
               if (turmas.isEmpty)
                 const _EmptyState(
                   icon: Icons.groups_2_outlined,
@@ -389,20 +236,11 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
                 _EmptyState(
                   icon: AppIcons.registration,
                   title: 'Nenhum encontro registrado',
-                  message: canCreate
-                      ? 'Crie a aula — data e nome — e marque quem esteve '
-                            'presente. Quem você não tocar fica como '
-                            'não-marcado, não como falta.'
-                      : 'Ainda não há encontros registrados neste ministério.',
-                  action: canCreate
-                      ? _EmptyStateAction(
-                          label: 'Registrar o primeiro encontro',
-                          icon: AppIcons.add,
-                          onPressed: () => _openForm(turmas: turmas),
-                        )
-                      : null,
+                  message: whereToMark,
                 )
               else ...[
+                _MarkInLessonHint(message: whereToMark),
+                const SizedBox(height: 12),
                 _SectionLabel(
                   label: 'Encontros',
                   count: visible.length,
@@ -422,23 +260,11 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
                     _MeetingCard(
                       roll: roll,
                       expanded: _expanded.contains(roll.meeting.id),
-                      canEdit: canEdit,
-                      canDelete: canDelete,
-                      busyKeys: _busy,
                       onToggleExpanded: () => setState(() {
                         if (!_expanded.remove(roll.meeting.id)) {
                           _expanded.add(roll.meeting.id);
                         }
                       }),
-                      onSetStatus: (student, status) => _setStatus(
-                        roll: roll,
-                        student: student,
-                        status: status,
-                      ),
-                      onMarkRemaining: () => _markRemainingPresent(roll),
-                      onEdit: () =>
-                          _openForm(turmas: turmas, meeting: roll.meeting),
-                      onDelete: () => _delete(roll.meeting),
                     ),
               ],
             ],
@@ -449,31 +275,37 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
   }
 }
 
-/// Um encontro, com o resumo da chamada e a lista de alunos.
+/// Aviso fixo de onde a chamada é feita agora.
+class _MarkInLessonHint extends StatelessWidget {
+  final String message;
+
+  const _MarkInLessonHint({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.info_outline, size: 16, color: Theme.of(context).hintColor),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(message, style: CommunityDesign.metaStyle(context)),
+        ),
+      ],
+    );
+  }
+}
+
+/// Um encontro, com o resumo da chamada e a lista de alunos (leitura).
 class _MeetingCard extends StatelessWidget {
   final BaptismMeetingRoll roll;
   final bool expanded;
-  final bool canEdit;
-  final bool canDelete;
-  final Set<String> busyKeys;
   final VoidCallback onToggleExpanded;
-  final void Function(BaptismStudent student, BaptismAttendanceStatus status)
-  onSetStatus;
-  final VoidCallback onMarkRemaining;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
 
   const _MeetingCard({
     required this.roll,
     required this.expanded,
-    required this.canEdit,
-    required this.canDelete,
-    required this.busyKeys,
     required this.onToggleExpanded,
-    required this.onSetStatus,
-    required this.onMarkRemaining,
-    required this.onEdit,
-    required this.onDelete,
   });
 
   @override
@@ -515,33 +347,24 @@ class _MeetingCard extends StatelessWidget {
                             style: CommunityDesign.metaStyle(context),
                           ),
                           const SizedBox(height: 8),
-                          _RollSummary(roll: roll),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              // Encontro de antes da 5.3: não tem aula onde
+                              // corrigir a chamada, fica só como histórico.
+                              if (meeting.isAvulso)
+                                StatusBadge(
+                                  label: 'Avulso · histórico',
+                                  tone: AppStatusTone.dropped,
+                                  icon: Icons.history,
+                                ),
+                              BaptismRollSummary(roll: roll),
+                            ],
+                          ),
                         ],
                       ),
                     ),
-                    if (canEdit || canDelete)
-                      PopupMenuButton<String>(
-                        itemBuilder: (context) => [
-                          if (canEdit)
-                            const PopupMenuItem(
-                              value: 'edit',
-                              child: Text('Editar'),
-                            ),
-                          if (canDelete)
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Text('Excluir'),
-                            ),
-                        ],
-                        onSelected: (value) {
-                          switch (value) {
-                            case 'edit':
-                              onEdit();
-                            case 'delete':
-                              onDelete();
-                          }
-                        },
-                      ),
                     Icon(
                       expanded ? AppIcons.expandLess : AppIcons.expandMore,
                       color: theme.hintColor,
@@ -552,451 +375,9 @@ class _MeetingCard extends StatelessWidget {
             ),
             if (expanded) ...[
               Divider(height: 1, color: theme.dividerColor),
-              if (roll.students.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                  child: Text(
-                    'Nenhum aluno nesta turma ainda. A chamada aparece assim '
-                    'que alguém entrar nela.',
-                    style: CommunityDesign.metaStyle(context),
-                  ),
-                )
-              else ...[
-                for (final student in roll.students)
-                  _StudentRollTile(
-                    student: student,
-                    status: roll.statusOf(student),
-                    canEdit: canEdit,
-                    busy: busyKeys.contains('${roll.meeting.id}:${student.id}'),
-                    onSetStatus: (status) => onSetStatus(student, status),
-                  ),
-                if (canEdit && roll.unmarked > 0)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(0, 0, 8, 8),
-                      child: TextButton.icon(
-                        onPressed: onMarkRemaining,
-                        icon: const Icon(AppIcons.doneAll, size: 18),
-                        label: Text(
-                          roll.isUntouched
-                              ? 'Marcar todos presentes'
-                              : 'Marcar os ${roll.unmarked} restantes',
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+              BaptismRollStudents(roll: roll),
             ],
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// As contagens do encontro, em badges.
-///
-/// "Não marcados" aparece por último e só quando existe: é o número que
-/// diz se a chamada foi feita, e mostrá-lo zerado seria ruído.
-class _RollSummary extends StatelessWidget {
-  final BaptismMeetingRoll roll;
-
-  const _RollSummary({required this.roll});
-
-  @override
-  Widget build(BuildContext context) {
-    if (roll.total == 0) {
-      return StatusBadge(
-        label: 'Turma sem aluno',
-        tone: AppStatusTone.dropped,
-        icon: Icons.person_off_outlined,
-      );
-    }
-
-    if (roll.isUntouched) {
-      return StatusBadge(
-        label: 'Chamada não feita · ${roll.total}',
-        tone: AppStatusTone.dropped,
-        icon: Icons.pending_actions_outlined,
-      );
-    }
-
-    return Wrap(
-      spacing: 6,
-      runSpacing: 4,
-      children: [
-        if (roll.present > 0)
-          StatusBadge.done(
-            label: '${roll.present} presentes',
-            icon: Icons.check_circle_outline,
-          ),
-        if (roll.absent > 0)
-          StatusBadge.dropped(
-            label: '${roll.absent} faltaram',
-            icon: Icons.cancel_outlined,
-          ),
-        if (roll.justified > 0)
-          StatusBadge.active(
-            label: '${roll.justified} justificados',
-            icon: Icons.event_busy_outlined,
-          ),
-        if (roll.unmarked > 0)
-          StatusBadge(
-            label: '${roll.unmarked} sem marca',
-            tone: AppStatusTone.dropped,
-            icon: Icons.help_outline,
-          ),
-      ],
-    );
-  }
-}
-
-/// Um aluno na chamada, com os três estados.
-class _StudentRollTile extends StatelessWidget {
-  final BaptismStudent student;
-  final BaptismAttendanceStatus? status;
-  final bool canEdit;
-  final bool busy;
-  final ValueChanged<BaptismAttendanceStatus> onSetStatus;
-
-  const _StudentRollTile({
-    required this.student,
-    required this.status,
-    required this.canEdit,
-    required this.busy,
-    required this.onSetStatus,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              student.fullName,
-              style: CommunityDesign.contentStyle(
-                context,
-              ).copyWith(fontSize: 14),
-            ),
-          ),
-          if (busy)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: SizedBox(
-                height: 18,
-                width: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            )
-          else
-            for (final option in BaptismAttendanceStatus.values)
-              _StatusDot(
-                status: option,
-                selected: status == option,
-                // Sem baptism.edit os estados ficam desabilitados em vez
-                // de sumir: a pessoa precisa enxergar a chamada mesmo sem
-                // poder mexer nela.
-                onTap: canEdit ? () => onSetStatus(option) : null,
-              ),
-          if (!busy && status == null)
-            Padding(
-              padding: const EdgeInsets.only(left: 6),
-              child: Icon(
-                Icons.remove,
-                size: 14,
-                color: theme.hintColor.withValues(alpha: 0.5),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Um dos três estados, como botão redondo.
-class _StatusDot extends StatelessWidget {
-  final BaptismAttendanceStatus status;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  const _StatusDot({
-    required this.status,
-    required this.selected,
-    required this.onTap,
-  });
-
-  ({IconData icon, Color color}) _look(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return switch (status) {
-      BaptismAttendanceStatus.presente => (
-        icon: Icons.check,
-        color: scheme.primary,
-      ),
-      BaptismAttendanceStatus.ausente => (
-        icon: Icons.close,
-        color: scheme.error,
-      ),
-      BaptismAttendanceStatus.justificado => (
-        icon: Icons.event_busy_outlined,
-        color: scheme.tertiary,
-      ),
-    };
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final look = _look(context);
-
-    return Tooltip(
-      message: status.label,
-      child: IconButton(
-        onPressed: onTap,
-        visualDensity: VisualDensity.compact,
-        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-        padding: EdgeInsets.zero,
-        style: IconButton.styleFrom(
-          backgroundColor: selected
-              ? look.color.withValues(alpha: 0.14)
-              : Colors.transparent,
-          shape: const CircleBorder(),
-        ),
-        icon: Icon(
-          look.icon,
-          size: 18,
-          color: selected ? look.color : theme.hintColor,
-        ),
-      ),
-    );
-  }
-}
-
-/// Formulário de um encontro.
-class _MeetingFormSheet extends ConsumerStatefulWidget {
-  final List<BaptismTurma> turmas;
-  final BaptismMeeting? meeting;
-
-  /// Turma travada (tela da turma): o encontro é gravado nela e o
-  /// seletor de turma não aparece.
-  final String? lockedTurmaId;
-
-  const _MeetingFormSheet({
-    required this.turmas,
-    this.meeting,
-    this.lockedTurmaId,
-  });
-
-  @override
-  ConsumerState<_MeetingFormSheet> createState() => _MeetingFormSheetState();
-}
-
-class _MeetingFormSheetState extends ConsumerState<_MeetingFormSheet> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _title;
-  late final TextEditingController _notes;
-
-  late String? _turmaId;
-  late DateTime _date;
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final meeting = widget.meeting;
-    _title = TextEditingController(text: meeting?.title ?? '');
-    _notes = TextEditingController(text: meeting?.notes ?? '');
-    _date = meeting?.day ?? _today();
-    _turmaId =
-        widget.lockedTurmaId ??
-        meeting?.turmaId ??
-        (widget.turmas.length == 1 ? widget.turmas.first.id : null);
-  }
-
-  static DateTime _today() {
-    final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day);
-  }
-
-  @override
-  void dispose() {
-    _title.dispose();
-    _notes.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime(now.year - 5),
-      lastDate: DateTime(now.year + 5),
-      helpText: 'Dia do encontro',
-    );
-    if (picked == null) return;
-    setState(() => _date = DateTime(picked.year, picked.month, picked.day));
-  }
-
-  Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-    final turmaId = _turmaId;
-    if (turmaId == null) return;
-
-    setState(() => _saving = true);
-
-    final repo = ref.read(baptismRepositoryProvider);
-    final existing = widget.meeting;
-
-    try {
-      if (existing == null) {
-        await repo.createMeeting(
-          BaptismMeeting(
-            // O banco gera os três: id por DEFAULT, tenant_id por
-            // current_tenant_id() e created_at por now(). O que vai no
-            // INSERT é só o que toWriteJson() monta.
-            id: '',
-            tenantId: '',
-            turmaId: turmaId,
-            meetingDate: _date,
-            title: _title.text,
-            notes: _notes.text,
-            createdAt: DateTime.now(),
-          ),
-        );
-      } else {
-        await repo.updateMeeting(
-          existing.copyWith(
-            turmaId: turmaId,
-            meetingDate: _date,
-            title: _title.text,
-            notes: _notes.text,
-            clearNotes: _notes.text.trim().isEmpty,
-          ),
-        );
-      }
-      if (mounted) Navigator.of(context).pop(true);
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            // 23505 é a UNIQUE (turma_id, meeting_date, title): já existe
-            // um encontro com este nome, nesta turma, neste dia. Mostrar o
-            // código cru não ajudaria ninguém.
-            '$error'.contains('23505')
-                ? 'Esta turma já tem um encontro com este nome neste dia.'
-                : 'Não foi possível salvar: $error',
-          ),
-        ),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottom),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                widget.meeting == null ? 'Novo encontro' : 'Editar encontro',
-                style: CommunityDesign.titleStyle(
-                  context,
-                ).copyWith(fontSize: 18, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _title,
-                autofocus: true,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  labelText: 'Nome do encontro',
-                  hintText: 'Ex.: Aula 3 — O batismo nas Escrituras',
-                ),
-                validator: (v) => (v ?? '').trim().isEmpty
-                    ? 'Dê um nome para o encontro'
-                    : null,
-              ),
-              if (widget.lockedTurmaId == null) ...[
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String?>(
-                  initialValue: _turmaId,
-                  decoration: const InputDecoration(labelText: 'Turma'),
-                  items: [
-                    for (final t in widget.turmas)
-                      DropdownMenuItem<String?>(
-                        value: t.id,
-                        child: Text(t.name),
-                      ),
-                  ],
-                  onChanged: (v) => setState(() => _turmaId = v),
-                  validator: (v) => v == null ? 'Escolha a turma' : null,
-                ),
-              ],
-              const SizedBox(height: 12),
-              InkWell(
-                onTap: _pickDate,
-                borderRadius: BorderRadius.circular(8),
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Dia',
-                    // O encontro guarda DATE, não horário: duas aulas no
-                    // mesmo dia se distinguem pelo nome, e é o que o
-                    // UNIQUE do banco espera.
-                    helperText: 'Duas aulas no mesmo dia? Mude o nome.',
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        AppIcons.dateRange,
-                        size: 18,
-                        color: Theme.of(context).hintColor,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(DateFormat('dd/MM/yyyy').format(_date)),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _notes,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  labelText: 'Observações (opcional)',
-                ),
-              ),
-              const SizedBox(height: 20),
-              FilledButton(
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Salvar'),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -1033,30 +414,15 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-/// Botão opcional de um estado vazio.
-class _EmptyStateAction {
-  final String label;
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  const _EmptyStateAction({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-  });
-}
-
 class _EmptyState extends StatelessWidget {
   final IconData icon;
   final String title;
   final String message;
-  final _EmptyStateAction? action;
 
   const _EmptyState({
     required this.icon,
     required this.title,
     required this.message,
-    this.action,
   });
 
   @override
@@ -1080,14 +446,6 @@ class _EmptyState extends StatelessWidget {
             textAlign: TextAlign.center,
             style: CommunityDesign.metaStyle(context),
           ),
-          if (action != null) ...[
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: action!.onPressed,
-              icon: Icon(action!.icon, size: 18),
-              label: Text(action!.label),
-            ),
-          ],
         ],
       ),
     );

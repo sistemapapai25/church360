@@ -34,6 +34,10 @@ class GenericaTurmaAdapter implements TurmaSurfaces {
   @override
   Widget minhaFrequencia() =>
       GenericaMinhaFrequencia(studyGroupId: origin.studyGroupId);
+
+  /// A turma genérica marca presença na aba Presença, aula por aula.
+  @override
+  TurmaLessonAttendance? get lessonAttendance => null;
 }
 
 /// Contagem crua de presença.
