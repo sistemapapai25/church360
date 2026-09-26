@@ -486,6 +486,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
                 });
               },
               storageBucket: 'support-material-videos',
+              tenantScopedPath: true,
               label: 'Vídeo Explicativo (Opcional)',
             ),
           ],
@@ -500,6 +501,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
             });
           },
           storageBucket: 'support-material-videos',
+          tenantScopedPath: true,
           label: 'Vídeo',
         );
 
@@ -538,6 +540,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
                 });
               },
               storageBucket: 'support-material-files',
+              tenantScopedPath: true,
               label: 'Arquivo PDF',
               allowedExtensions: const ['pdf'],
               icon: Icons.picture_as_pdf,
@@ -552,6 +555,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
                 });
               },
               storageBucket: 'support-material-videos',
+              tenantScopedPath: true,
               label: 'Vídeo Explicativo (Opcional)',
             ),
           ],
@@ -568,6 +572,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
                 });
               },
               storageBucket: 'support-material-files',
+              tenantScopedPath: true,
               label: 'Arquivo PowerPoint',
               allowedExtensions: const ['ppt', 'pptx'],
               icon: Icons.slideshow,
@@ -582,6 +587,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
                 });
               },
               storageBucket: 'support-material-videos',
+              tenantScopedPath: true,
               label: 'Vídeo Explicativo (Opcional)',
             ),
           ],
@@ -598,6 +604,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
                 });
               },
               storageBucket: 'support-material-files',
+              tenantScopedPath: true,
               label: 'Arquivo de Áudio',
               allowedExtensions: const ['mp3', 'wav', 'ogg', 'm4a'],
               icon: Icons.audiotrack,
@@ -612,6 +619,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
                 });
               },
               storageBucket: 'support-material-videos',
+              tenantScopedPath: true,
               label: 'Vídeo Explicativo (Opcional)',
             ),
           ],
@@ -628,6 +636,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
                 });
               },
               storageBucket: 'support-material-files',
+              tenantScopedPath: true,
               label: 'Arquivo',
               allowedExtensions: const ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'zip'],
               icon: Icons.attach_file,
@@ -642,6 +651,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
                 });
               },
               storageBucket: 'support-material-videos',
+              tenantScopedPath: true,
               label: 'Vídeo Explicativo (Opcional)',
             ),
           ],

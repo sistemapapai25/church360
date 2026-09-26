@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/supabase_constants.dart';
+import '../utils/storage_upload_path.dart';
 
 /// Widget reutilizável para upload de imagens
 class ImageUploadWidget extends StatefulWidget {
@@ -14,6 +15,10 @@ class ImageUploadWidget extends StatefulWidget {
   final List<String> fallbackBuckets;
   final String label;
 
+  /// Opt-in: grava em `<tenant>/<auth uid>/<arquivo>` em vez da raiz do
+  /// bucket. Obrigatório nos buckets com policy por tenant (CHU-370).
+  final bool tenantScopedPath;
+
   const ImageUploadWidget({
     super.key,
     this.initialImageUrl,
@@ -21,6 +26,7 @@ class ImageUploadWidget extends StatefulWidget {
     required this.storageBucket,
     this.fallbackBuckets = const [],
     this.label = 'Imagem',
+    this.tenantScopedPath = false,
   });
 
   @override
@@ -106,7 +112,14 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
       // Gerar nome único para o arquivo
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final extension = pickedFile.name.split('.').last;
-      final fileName = '${userId}_$timestamp.$extension';
+      final fileName = buildStorageUploadPath(
+        userId: userId,
+        timestamp: timestamp,
+        extension: extension,
+        tenantId: widget.tenantScopedPath
+            ? SupabaseConstants.currentTenantId
+            : null,
+      );
 
       final buckets = <String>[
         widget.storageBucket,

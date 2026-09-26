@@ -401,6 +401,7 @@ class _ModuleFormDialogState extends ConsumerState<ModuleFormDialog> {
                       initialImageUrl: _coverImageUrl,
                       onImageUrlChanged: (url) => setState(() => _coverImageUrl = url),
                       storageBucket: 'support-material-covers',
+                      tenantScopedPath: true,
                       label: 'Capa do Módulo (Opcional)',
                     ),
                     const SizedBox(height: 16),
@@ -423,6 +424,7 @@ class _ModuleFormDialogState extends ConsumerState<ModuleFormDialog> {
                       initialFileUrl: _fileUrl,
                       onFileUrlChanged: (url, name) => setState(() => _fileUrl = url),
                       storageBucket: 'support-material-files',
+                      tenantScopedPath: true,
                       label: 'Arquivo do Módulo (Opcional)',
                       allowedExtensions: const [
                         'pdf',
@@ -445,6 +447,7 @@ class _ModuleFormDialogState extends ConsumerState<ModuleFormDialog> {
                       initialVideoUrl: _videoUrl,
                       onVideoUrlChanged: (url) => setState(() => _videoUrl = url),
                       storageBucket: 'support-material-videos',
+                      tenantScopedPath: true,
                       label: 'Vídeo Explicativo (Opcional)',
                       allowYouTubeLink: true,
                     ),
