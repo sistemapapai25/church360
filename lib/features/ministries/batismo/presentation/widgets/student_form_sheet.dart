@@ -15,11 +15,15 @@ import '../../domain/models/baptism_turma.dart';
 /// Abre o formulário de aluno (cadastro ou edição) numa folha inferior.
 ///
 /// Devolve `true` quando algo foi gravado — quem chamou invalida as listas.
+///
+/// Com [lockedTurmaId] (tela da turma) o aluno é gravado nessa turma e o
+/// seletor de turma não aparece: não há como cadastrar em outra nem mover.
 Future<bool> showStudentFormSheet({
   required BuildContext context,
   required String ministryId,
   required List<BaptismTurma> turmas,
   BaptismStudent? student,
+  String? lockedTurmaId,
 }) async {
   final saved = await showModalBottomSheet<bool>(
     context: context,
@@ -31,6 +35,7 @@ Future<bool> showStudentFormSheet({
       ministryId: ministryId,
       turmas: turmas,
       student: student,
+      lockedTurmaId: lockedTurmaId,
     ),
   );
   return saved ?? false;
@@ -40,11 +45,13 @@ class _StudentFormSheet extends ConsumerStatefulWidget {
   final String ministryId;
   final List<BaptismTurma> turmas;
   final BaptismStudent? student;
+  final String? lockedTurmaId;
 
   const _StudentFormSheet({
     required this.ministryId,
     required this.turmas,
     this.student,
+    this.lockedTurmaId,
   });
 
   @override
@@ -91,6 +98,7 @@ class _StudentFormSheetState extends ConsumerState<_StudentFormSheet> {
     // Numa turma só, ela já vem escolhida — é o caso normal da igreja que
     // roda uma turma por vez.
     _turmaId =
+        widget.lockedTurmaId ??
         s?.turmaId ??
         (widget.turmas.length == 1 ? widget.turmas.first.id : null);
     _memberId = s?.userId;
@@ -334,20 +342,22 @@ class _StudentFormSheetState extends ConsumerState<_StudentFormSheet> {
                       ? 'Informe o nome do aluno'
                       : null,
                 ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: _turmaId,
-                  decoration: const InputDecoration(labelText: 'Turma *'),
-                  items: [
-                    for (final t in widget.turmas)
-                      DropdownMenuItem(
-                        value: t.id,
-                        child: Text(t.name, overflow: TextOverflow.ellipsis),
-                      ),
-                  ],
-                  onChanged: (v) => setState(() => _turmaId = v),
-                ),
+                if (widget.lockedTurmaId == null) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    initialValue: _turmaId,
+                    decoration: const InputDecoration(labelText: 'Turma *'),
+                    items: [
+                      for (final t in widget.turmas)
+                        DropdownMenuItem(
+                          value: t.id,
+                          child: Text(t.name, overflow: TextOverflow.ellipsis),
+                        ),
+                    ],
+                    onChanged: (v) => setState(() => _turmaId = v),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _phone,

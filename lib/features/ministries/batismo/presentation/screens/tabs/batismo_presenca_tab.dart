@@ -14,6 +14,7 @@ import '../../../domain/models/baptism_meeting.dart';
 import '../../../domain/models/baptism_student.dart';
 import '../../../domain/models/baptism_turma.dart';
 import '../../providers/baptism_providers.dart';
+import '../../widgets/baptism_locked_turma_unavailable.dart';
 
 /// Aba Presença do workspace do Batismo (Etapa D).
 ///
@@ -29,10 +30,20 @@ import '../../providers/baptism_providers.dart';
 /// Marcar e desmarcar pedem `baptism.edit` — as duas, de propósito.
 /// Desmarcar apaga a linha, mas é a outra metade de marcar; se pedisse
 /// `baptism.delete`, quem tem edit marcaria sem conseguir corrigir.
+///
+/// Com [lockedTurmaId] (tela da turma em Cursos) a aba fica presa a essa
+/// turma: busca só os encontros dela no banco, some o filtro de turma e o
+/// encontro novo é gravado nela. Turma que não é do ministério não abre
+/// nada ([BaptismLockedTurmaUnavailable]).
 class BatismoPresencaTab extends ConsumerStatefulWidget {
   final String ministryId;
+  final String? lockedTurmaId;
 
-  const BatismoPresencaTab({super.key, required this.ministryId});
+  const BatismoPresencaTab({
+    super.key,
+    required this.ministryId,
+    this.lockedTurmaId,
+  });
 
   @override
   ConsumerState<BatismoPresencaTab> createState() => _BatismoPresencaTabState();
@@ -50,6 +61,12 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
 
   /// Encontros com a chamada aberta.
   final _expanded = <String>{};
+
+  BaptismTurmaKey? get _lockedKey {
+    final turmaId = widget.lockedTurmaId;
+    if (turmaId == null) return null;
+    return (ministryId: widget.ministryId, turmaId: turmaId);
+  }
 
   /// Marcações em voo, por "meetingId:studentId", para travar só o aluno
   /// tocado em vez da tela inteira.
@@ -158,7 +175,11 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _MeetingFormSheet(turmas: turmas, meeting: meeting),
+      builder: (_) => _MeetingFormSheet(
+        turmas: turmas,
+        meeting: meeting,
+        lockedTurmaId: widget.lockedTurmaId,
+      ),
     );
     if (saved == true && mounted) invalidateBaptismData(ref, widget.ministryId);
   }
@@ -255,12 +276,32 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
 
   @override
   Widget build(BuildContext context) {
-    final rollsAsync = ref.watch(
-      baptismMeetingRollsProvider(widget.ministryId),
-    );
-    final turmas = ref
-        .watch(baptismTurmasProvider(widget.ministryId))
-        .maybeWhen(data: (t) => t, orElse: () => const <BaptismTurma>[]);
+    final lockedKey = _lockedKey;
+    BaptismTurma? lockedTurma;
+    if (lockedKey != null) {
+      final lockedAsync = ref.watch(baptismLockedTurmaProvider(lockedKey));
+      if (lockedAsync.isLoading) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (lockedAsync.hasError) {
+        return _PresencaError(
+          message: '${lockedAsync.error}',
+          onRetry: () => invalidateBaptismData(ref, widget.ministryId),
+        );
+      }
+      lockedTurma = lockedAsync.value;
+      if (lockedTurma == null) return const BaptismLockedTurmaUnavailable();
+    }
+
+    final rollsProvider = lockedKey == null
+        ? baptismMeetingRollsProvider(widget.ministryId)
+        : baptismTurmaMeetingRollsProvider(lockedKey);
+    final rollsAsync = ref.watch(rollsProvider);
+    final turmas = lockedTurma != null
+        ? [lockedTurma]
+        : ref
+              .watch(baptismTurmasProvider(widget.ministryId))
+              .maybeWhen(data: (t) => t, orElse: () => const <BaptismTurma>[]);
 
     bool can(BaptismWriteAction action) => ref
         .watch(
@@ -287,9 +328,7 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
         return RefreshIndicator(
           onRefresh: () async {
             invalidateBaptismData(ref, widget.ministryId);
-            await ref.read(
-              baptismMeetingRollsProvider(widget.ministryId).future,
-            );
+            await ref.read(rollsProvider.future);
           },
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
@@ -299,22 +338,23 @@ class _BatismoPresencaTabState extends ConsumerState<BatismoPresencaTab> {
                 searchHint: 'Buscar encontro...',
                 onSearchChanged: (v) => setState(() => _query = v),
                 filters: [
-                  AppFilterButton(
-                    label: _turmaLabel(turmas),
-                    icon: Icons.groups_2_outlined,
-                    active: _turmaId != _allTurmas,
-                    onTap: () async {
-                      final picked = await _pickOption<String>(
-                        title: 'Turma',
-                        current: _turmaId,
-                        options: [
-                          (_allTurmas, 'Todas as turmas'),
-                          for (final t in turmas) (t.id, t.name),
-                        ],
-                      );
-                      if (picked != null) setState(() => _turmaId = picked);
-                    },
-                  ),
+                  if (lockedKey == null)
+                    AppFilterButton(
+                      label: _turmaLabel(turmas),
+                      icon: Icons.groups_2_outlined,
+                      active: _turmaId != _allTurmas,
+                      onTap: () async {
+                        final picked = await _pickOption<String>(
+                          title: 'Turma',
+                          current: _turmaId,
+                          options: [
+                            (_allTurmas, 'Todas as turmas'),
+                            for (final t in turmas) (t.id, t.name),
+                          ],
+                        );
+                        if (picked != null) setState(() => _turmaId = picked);
+                      },
+                    ),
                   AppFilterButton(
                     label: _onlyPending ? 'Chamada aberta' : 'Todos',
                     icon: Icons.pending_actions_outlined,
@@ -741,7 +781,15 @@ class _MeetingFormSheet extends ConsumerStatefulWidget {
   final List<BaptismTurma> turmas;
   final BaptismMeeting? meeting;
 
-  const _MeetingFormSheet({required this.turmas, this.meeting});
+  /// Turma travada (tela da turma): o encontro é gravado nela e o
+  /// seletor de turma não aparece.
+  final String? lockedTurmaId;
+
+  const _MeetingFormSheet({
+    required this.turmas,
+    this.meeting,
+    this.lockedTurmaId,
+  });
 
   @override
   ConsumerState<_MeetingFormSheet> createState() => _MeetingFormSheetState();
@@ -764,6 +812,7 @@ class _MeetingFormSheetState extends ConsumerState<_MeetingFormSheet> {
     _notes = TextEditingController(text: meeting?.notes ?? '');
     _date = meeting?.day ?? _today();
     _turmaId =
+        widget.lockedTurmaId ??
         meeting?.turmaId ??
         (widget.turmas.length == 1 ? widget.turmas.first.id : null);
   }
@@ -886,17 +935,22 @@ class _MeetingFormSheetState extends ConsumerState<_MeetingFormSheet> {
                     ? 'Dê um nome para o encontro'
                     : null,
               ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String?>(
-                initialValue: _turmaId,
-                decoration: const InputDecoration(labelText: 'Turma'),
-                items: [
-                  for (final t in widget.turmas)
-                    DropdownMenuItem<String?>(value: t.id, child: Text(t.name)),
-                ],
-                onChanged: (v) => setState(() => _turmaId = v),
-                validator: (v) => v == null ? 'Escolha a turma' : null,
-              ),
+              if (widget.lockedTurmaId == null) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  initialValue: _turmaId,
+                  decoration: const InputDecoration(labelText: 'Turma'),
+                  items: [
+                    for (final t in widget.turmas)
+                      DropdownMenuItem<String?>(
+                        value: t.id,
+                        child: Text(t.name),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => _turmaId = v),
+                  validator: (v) => v == null ? 'Escolha a turma' : null,
+                ),
+              ],
               const SizedBox(height: 12),
               InkWell(
                 onTap: _pickDate,

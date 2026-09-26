@@ -159,6 +159,96 @@ final baptismMeetingRollsProvider =
   );
 });
 
+// ---------------------------------------------------------------------
+// Turma travada (tela da turma em Cursos)
+// ---------------------------------------------------------------------
+
+/// Uma turma dentro de um ministério. Chave das famílias "por turma", usadas
+/// quando as abas Alunos e Presença abrem presas a uma turma só
+/// (`lockedTurmaId`).
+typedef BaptismTurmaKey = ({String ministryId, String turmaId});
+
+/// A turma travada, se ela é mesmo deste ministério; `null` quando não é.
+///
+/// É a segunda trava do modo travado (a primeira é o acesso da tela da
+/// turma): turma que não aparece em [baptismTurmasProvider] deste
+/// ministério não abre nada — nunca cai para "todas as turmas" nem para a
+/// primeira da lista.
+final baptismLockedTurmaProvider =
+    FutureProvider.family<BaptismTurma?, BaptismTurmaKey>((ref, key) async {
+  final turmas = await ref.watch(baptismTurmasProvider(key.ministryId).future);
+  for (final t in turmas) {
+    if (t.id == key.turmaId) return t;
+  }
+  return null;
+});
+
+/// Alunos só da turma, recortados no banco (`turma_id`).
+final baptismTurmaStudentsProvider =
+    FutureProvider.family<List<BaptismStudent>, BaptismTurmaKey>(
+        (ref, key) async {
+  final turma = await ref.watch(baptismLockedTurmaProvider(key).future);
+  if (turma == null) return const [];
+  final repo = ref.watch(baptismRepositoryProvider);
+  return repo.getStudents(key.ministryId, turmaId: turma.id);
+});
+
+/// Encontros só da turma.
+final baptismTurmaMeetingsProvider =
+    FutureProvider.family<List<BaptismMeeting>, BaptismTurmaKey>(
+        (ref, key) async {
+  final turma = await ref.watch(baptismLockedTurmaProvider(key).future);
+  if (turma == null) return const [];
+  final repo = ref.watch(baptismRepositoryProvider);
+  return repo.getMeetings([turma.id]);
+});
+
+/// Marcações de presença só dos encontros da turma.
+final baptismTurmaAttendanceProvider =
+    FutureProvider.family<List<BaptismAttendance>, BaptismTurmaKey>(
+        (ref, key) async {
+  final meetings = await ref.watch(baptismTurmaMeetingsProvider(key).future);
+  if (meetings.isEmpty) return const [];
+  final repo = ref.watch(baptismRepositoryProvider);
+  return repo.getAttendance([for (final m in meetings) m.id]);
+});
+
+/// A chamada de cada encontro da turma.
+final baptismTurmaMeetingRollsProvider =
+    FutureProvider.family<List<BaptismMeetingRoll>, BaptismTurmaKey>(
+        (ref, key) async {
+  final meetings = await ref.watch(baptismTurmaMeetingsProvider(key).future);
+  final students = await ref.watch(baptismTurmaStudentsProvider(key).future);
+  final attendance =
+      await ref.watch(baptismTurmaAttendanceProvider(key).future);
+
+  return buildBaptismMeetingRolls(
+    meetings: meetings,
+    students: students,
+    attendance: attendance,
+  );
+});
+
+/// "Feitas/total" do checklist, só dos alunos da turma.
+final baptismTurmaChecklistTallyProvider =
+    FutureProvider.family<Map<String, ({int done, int total})>, BaptismTurmaKey>(
+        (ref, key) async {
+  final students = await ref.watch(baptismTurmaStudentsProvider(key).future);
+  if (students.isEmpty) return const {};
+  final items =
+      await ref.watch(baptismChecklistItemsProvider(key.ministryId).future);
+  final repo = ref.watch(baptismRepositoryProvider);
+  final entries =
+      await repo.getChecklistEntries([for (final s in students) s.id]);
+  return baptismChecklistTallyByStudent(
+    buildBaptismChecklistProgress(
+      students: students,
+      items: items,
+      entries: entries,
+    ),
+  );
+});
+
 /// As três ações de escrita do módulo, com o código RBAC de cada uma.
 enum BaptismWriteAction {
   create('baptism.create'),
@@ -210,4 +300,13 @@ void invalidateBaptismData(WidgetRef ref, String ministryId) {
   ref.invalidate(baptismMeetingsProvider(ministryId));
   ref.invalidate(baptismAttendanceProvider(ministryId));
   ref.invalidate(baptismMeetingRollsProvider(ministryId));
+  // As famílias da turma travada, inteiras: a chave delas leva a turma, que
+  // quem grava não precisa conhecer, e uma gravação no ministério pode ter
+  // mexido em qualquer turma dele.
+  ref.invalidate(baptismLockedTurmaProvider);
+  ref.invalidate(baptismTurmaStudentsProvider);
+  ref.invalidate(baptismTurmaMeetingsProvider);
+  ref.invalidate(baptismTurmaAttendanceProvider);
+  ref.invalidate(baptismTurmaMeetingRollsProvider);
+  ref.invalidate(baptismTurmaChecklistTallyProvider);
 }

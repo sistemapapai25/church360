@@ -90,18 +90,25 @@ class BaptismRepository {
   // Alunos
   // -------------------------------------------------------------------
 
-  /// Alunos de todas as turmas de um ministério.
+  /// Alunos de um ministério — de todas as turmas, ou só de [turmaId].
   ///
   /// O `!inner` é o que amarra o aluno ao ministério: `baptism_student` não
   /// tem `ministry_id`, ela chega lá pela turma. Sem `!inner` o filtro do
   /// embed não recortaria nada e a lista viria com o tenant inteiro.
-  Future<List<BaptismStudent>> getStudents(String ministryId) async {
-    final response = await _supabase
+  ///
+  /// Com [turmaId] o recorte é feito no banco (`turma_id`), não na tela: é
+  /// o que a tela da turma usa, e ela nunca recebe aluno de outra turma.
+  Future<List<BaptismStudent>> getStudents(
+    String ministryId, {
+    String? turmaId,
+  }) async {
+    var query = _supabase
         .from('baptism_student')
         .select('*, baptism_turma!inner(id, name, ministry_id)')
         .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .eq('baptism_turma.ministry_id', ministryId)
-        .order('full_name', ascending: true);
+        .eq('baptism_turma.ministry_id', ministryId);
+    if (turmaId != null) query = query.eq('turma_id', turmaId);
+    final response = await query.order('full_name', ascending: true);
 
     return (response as List)
         .map((row) => BaptismStudent.fromJson(Map<String, dynamic>.from(row)))
