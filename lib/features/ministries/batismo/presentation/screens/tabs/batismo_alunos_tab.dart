@@ -12,6 +12,7 @@ import '../../../data/baptism_repository.dart';
 import '../../../domain/models/baptism_student.dart';
 import '../../../domain/models/baptism_turma.dart';
 import '../../providers/baptism_providers.dart';
+import '../../widgets/baptism_locked_turma_unavailable.dart';
 import '../../widgets/baptism_turmas_sheet.dart';
 import '../../widgets/student_card.dart';
 import '../../widgets/student_form_sheet.dart';
@@ -36,10 +37,21 @@ class _TurmaFilter {
 }
 
 /// Aba Alunos do workspace do Batismo — a tela do print.
+///
+/// Com [lockedTurmaId] (tela da turma em Cursos) a aba fica presa a essa
+/// turma: busca só os alunos dela no banco, e some tudo o que mexe na
+/// estrutura do ministério — filtro de turma, "Turmas", link de inscrição
+/// e o seletor de turma do formulário. Turma que não é do ministério não
+/// abre nada ([BaptismLockedTurmaUnavailable]).
 class BatismoAlunosTab extends ConsumerStatefulWidget {
   final String ministryId;
+  final String? lockedTurmaId;
 
-  const BatismoAlunosTab({super.key, required this.ministryId});
+  const BatismoAlunosTab({
+    super.key,
+    required this.ministryId,
+    this.lockedTurmaId,
+  });
 
   @override
   ConsumerState<BatismoAlunosTab> createState() => _BatismoAlunosTabState();
@@ -51,6 +63,12 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
   BaptismStudentStatus? _status;
   String _turmaId = _TurmaFilter.all;
   StudentSort _sort = StudentSort.nameAsc;
+
+  BaptismTurmaKey? get _lockedKey {
+    final turmaId = widget.lockedTurmaId;
+    if (turmaId == null) return null;
+    return (ministryId: widget.ministryId, turmaId: turmaId);
+  }
 
   @override
   void dispose() {
@@ -128,6 +146,7 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
       context: context,
       ministryId: widget.ministryId,
       turmas: turmas,
+      lockedTurmaId: widget.lockedTurmaId,
     );
     if (saved && mounted) invalidateBaptismData(ref, widget.ministryId);
   }
@@ -141,6 +160,7 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
       ministryId: widget.ministryId,
       turmas: turmas,
       student: student,
+      lockedTurmaId: widget.lockedTurmaId,
     );
     if (saved && mounted) invalidateBaptismData(ref, widget.ministryId);
   }
@@ -291,12 +311,33 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
 
   @override
   Widget build(BuildContext context) {
-    final studentsAsync = ref.watch(baptismStudentsProvider(widget.ministryId));
-    final turmasAsync = ref.watch(baptismTurmasProvider(widget.ministryId));
-    final turmas = turmasAsync.maybeWhen(
-      data: (t) => t,
-      orElse: () => const <BaptismTurma>[],
-    );
+    final lockedKey = _lockedKey;
+    BaptismTurma? lockedTurma;
+    if (lockedKey != null) {
+      final lockedAsync = ref.watch(baptismLockedTurmaProvider(lockedKey));
+      if (lockedAsync.isLoading) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (lockedAsync.hasError) {
+        return _AlunosError(
+          message: '${lockedAsync.error}',
+          onRetry: () => invalidateBaptismData(ref, widget.ministryId),
+        );
+      }
+      lockedTurma = lockedAsync.value;
+      if (lockedTurma == null) return const BaptismLockedTurmaUnavailable();
+    }
+    final locked = lockedKey != null;
+
+    final studentsProvider = lockedKey == null
+        ? baptismStudentsProvider(widget.ministryId)
+        : baptismTurmaStudentsProvider(lockedKey);
+    final studentsAsync = ref.watch(studentsProvider);
+    final turmas = lockedTurma != null
+        ? [lockedTurma]
+        : ref
+              .watch(baptismTurmasProvider(widget.ministryId))
+              .maybeWhen(data: (t) => t, orElse: () => const <BaptismTurma>[]);
 
     bool can(BaptismWriteAction action) => ref
         .watch(
@@ -316,7 +357,11 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
     // mostra a pílula — a lista de alunos não depende do checklist para
     // funcionar.
     final tally = ref
-        .watch(baptismChecklistTallyProvider(widget.ministryId))
+        .watch(
+          lockedKey == null
+              ? baptismChecklistTallyProvider(widget.ministryId)
+              : baptismTurmaChecklistTallyProvider(lockedKey),
+        )
         .maybeWhen(
           data: (v) => v,
           orElse: () => const <String, ({int done, int total})>{},
@@ -345,7 +390,7 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
         return RefreshIndicator(
           onRefresh: () async {
             invalidateBaptismData(ref, widget.ministryId);
-            await ref.read(baptismStudentsProvider(widget.ministryId).future);
+            await ref.read(studentsProvider.future);
           },
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -381,24 +426,25 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
                             });
                           },
                         ),
-                        AppFilterButton(
-                          label: _turmaLabel(turmas),
-                          icon: AppIcons.group,
-                          active: _turmaId != _TurmaFilter.all,
-                          onTap: () async {
-                            final picked = await _pickOption<String>(
-                              title: 'Turma',
-                              current: _turmaId,
-                              options: [
-                                (_TurmaFilter.all, 'Todas as turmas'),
-                                for (final t in turmas) (t.id, t.name),
-                              ],
-                            );
-                            if (picked != null) {
-                              setState(() => _turmaId = picked);
-                            }
-                          },
-                        ),
+                        if (!locked)
+                          AppFilterButton(
+                            label: _turmaLabel(turmas),
+                            icon: AppIcons.group,
+                            active: _turmaId != _TurmaFilter.all,
+                            onTap: () async {
+                              final picked = await _pickOption<String>(
+                                title: 'Turma',
+                                current: _turmaId,
+                                options: [
+                                  (_TurmaFilter.all, 'Todas as turmas'),
+                                  for (final t in turmas) (t.id, t.name),
+                                ],
+                              );
+                              if (picked != null) {
+                                setState(() => _turmaId = picked);
+                              }
+                            },
+                          ),
                       ],
                       onSort: () async {
                         final picked = await _pickOption<StudentSort>(
@@ -412,18 +458,22 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
                       },
                       sortTooltip: 'Ordenar (${_sort.label})',
                       secondaryActions: [
-                        AppFilterAction(
-                          label: 'Turmas',
-                          icon: AppIcons.group,
-                          onPressed: () => _openTurmas(
-                            canCreate: canCreate,
-                            canEdit: canEdit,
-                            canDelete: canDelete,
+                        // Gerenciar turmas e o link de inscrição são do
+                        // ministério, não desta turma: somem no modo
+                        // travado.
+                        if (!locked)
+                          AppFilterAction(
+                            label: 'Turmas',
+                            icon: AppIcons.group,
+                            onPressed: () => _openTurmas(
+                              canCreate: canCreate,
+                              canEdit: canEdit,
+                              canDelete: canDelete,
+                            ),
                           ),
-                        ),
                         // Só para quem administra: o link é um canal de entrada na
                         // igreja, não um botão de leitura.
-                        if (canEdit)
+                        if (canEdit && !locked)
                           AppFilterAction(
                             label: 'Link de inscrição',
                             icon: AppIcons.link,

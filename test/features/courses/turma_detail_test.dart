@@ -20,6 +20,9 @@ import 'package:church360_app/features/ministries/batismo/presentation/providers
 import 'package:church360_app/features/ministries/presentation/providers/ministries_provider.dart';
 import 'package:church360_app/features/permissions/providers/permissions_providers.dart';
 import 'package:church360_app/features/study_groups/domain/models/study_group.dart';
+import 'package:church360_app/features/study_groups/presentation/providers/study_group_provider.dart';
+import 'package:church360_app/features/support_materials/domain/models/support_material_link.dart';
+import 'package:church360_app/features/support_materials/presentation/providers/support_materials_provider.dart';
 
 const _courseId = 'course-1';
 const _sgId = 'sg-1';
@@ -135,6 +138,13 @@ Widget _host({
   return ProviderScope(
     overrides: [
       ...overrides,
+      // Conteúdo das abas compartilhadas vazio: estes testes são da casca.
+      groupLessonsProvider(_sgId).overrideWith((ref) async => []),
+      publishedLessonsProvider(_sgId).overrideWith((ref) async => []),
+      materialsByEntityProvider((
+        linkType: MaterialLinkType.studyGroup,
+        entityId: _sgId,
+      )).overrideWith((ref) async => []),
       courseByIdProvider(courseId).overrideWith(
         (ref) async => Course(
           id: courseId,
@@ -392,7 +402,10 @@ void main() {
         expect(find.text(label), findsOneWidget);
       }
       expect(find.text('Minha frequência'), findsNothing);
-      expect(find.text('Aulas: em preparação.'), findsOneWidget);
+      expect(
+        find.text('Nenhuma aula cadastrada nesta turma ainda.'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('aluno não vê a aba Alunos', (tester) async {
@@ -414,7 +427,10 @@ void main() {
 
       await tester.tap(find.text('Materiais'));
       await tester.pumpAndSettle();
-      expect(find.text('Materiais: em preparação.'), findsOneWidget);
+      expect(
+        find.text('Nenhum material vinculado a esta turma.'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('link do curso abre o curso', (tester) async {

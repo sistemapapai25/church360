@@ -376,6 +376,24 @@ class SupportMaterialsRepository {
     }
   }
 
+  /// Desfaz o vínculo de um material com uma entidade.
+  ///
+  /// Pela chave natural (material + tipo + entidade), porque quem lista os
+  /// materiais de uma entidade recebe o material, não a linha do vínculo.
+  Future<void> deleteLinkFor({
+    required String materialId,
+    required MaterialLinkType linkType,
+    required String entityId,
+  }) async {
+    await _supabase
+        .from('support_material_link')
+        .delete()
+        .eq('material_id', materialId)
+        .eq('link_type', linkType.value)
+        .eq('linked_entity_id', entityId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
+  }
+
   /// Deletar todas as vinculações de um material
   Future<void> deleteLinksByMaterial(String materialId) async {
     try {

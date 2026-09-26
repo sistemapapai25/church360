@@ -10,7 +10,11 @@ import '../../../../core/widgets/status_badge.dart';
 import '../../domain/models/course_turma.dart';
 import '../providers/courses_provider.dart';
 import '../widgets/course_turmas_section.dart';
+import 'adapters/turma_surfaces.dart';
+import 'tabs/turma_aulas_tab.dart';
+import 'tabs/turma_materiais_tab.dart';
 import 'turma_access.dart';
+import 'turma_origin.dart';
 import 'turma_tabs.dart';
 
 /// Tela da turma, rota canônica `/courses/:courseId/turmas/:studyGroupId`
@@ -47,6 +51,25 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
     ref.invalidate(turmaAccessProvider(widget.studyGroupId));
   }
 
+  /// Aulas e Materiais são iguais para qualquer turma; Alunos, Presença e
+  /// Minha frequência vêm da origem ([turmaSurfacesFor]).
+  Widget _buildTab(TurmaTabId tab, TurmaOrigin origin, TurmaAccess access) {
+    final surfaces = turmaSurfacesFor(origin, access);
+    return switch (tab) {
+      TurmaTabId.aulas => TurmaAulasTab(
+        studyGroupId: widget.studyGroupId,
+        access: access,
+      ),
+      TurmaTabId.materiais => TurmaMateriaisTab(
+        studyGroupId: widget.studyGroupId,
+        access: access,
+      ),
+      TurmaTabId.alunos => surfaces.alunos(),
+      TurmaTabId.presenca => surfaces.presenca(),
+      TurmaTabId.minhaFrequencia => surfaces.minhaFrequencia(),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final turmaAsync = ref.watch(turmaByIdProvider(widget.studyGroupId));
@@ -70,7 +93,10 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
 
     final turma = turmaAsync.value;
     final access = accessAsync.value ?? TurmaAccess.none;
+    // Já carregada: o acesso depende da origem.
+    final origin = ref.watch(turmaOriginProvider(widget.studyGroupId)).value;
     if (turma == null ||
+        origin == null ||
         turma.courseId != widget.courseId ||
         !access.hasAccess) {
       return const _TurmaMessageScaffold(
@@ -122,7 +148,7 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
           Expanded(
             child: KeyedSubtree(
               key: ValueKey(active),
-              child: _TurmaTabPlaceholder(tab: active),
+              child: _buildTab(active, origin, access),
             ),
           ),
         ],
@@ -197,21 +223,6 @@ class _TurmaHeader extends ConsumerWidget {
             ),
         ],
       ),
-    );
-  }
-}
-
-/// Conteúdo das abas chega na 5.2 (Aulas, Materiais, Alunos, Presença).
-class _TurmaTabPlaceholder extends StatelessWidget {
-  final TurmaTabId tab;
-
-  const _TurmaTabPlaceholder({required this.tab});
-
-  @override
-  Widget build(BuildContext context) {
-    return _TurmaMessage(
-      icon: AppIcons.info,
-      message: '${tab.label}: em preparação.',
     );
   }
 }

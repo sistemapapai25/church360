@@ -6,6 +6,7 @@ import '../domain/models/baptism_attendance.dart';
 import '../domain/models/baptism_checklist.dart';
 import '../domain/models/baptism_enrollment.dart';
 import '../domain/models/baptism_meeting.dart';
+import '../domain/models/baptism_my_meeting.dart';
 import '../domain/models/baptism_member_suggestion.dart';
 import '../domain/models/baptism_public_info.dart';
 import '../domain/models/baptism_student.dart';
@@ -90,18 +91,25 @@ class BaptismRepository {
   // Alunos
   // -------------------------------------------------------------------
 
-  /// Alunos de todas as turmas de um ministério.
+  /// Alunos de um ministério — de todas as turmas, ou só de [turmaId].
   ///
   /// O `!inner` é o que amarra o aluno ao ministério: `baptism_student` não
   /// tem `ministry_id`, ela chega lá pela turma. Sem `!inner` o filtro do
   /// embed não recortaria nada e a lista viria com o tenant inteiro.
-  Future<List<BaptismStudent>> getStudents(String ministryId) async {
-    final response = await _supabase
+  ///
+  /// Com [turmaId] o recorte é feito no banco (`turma_id`), não na tela: é
+  /// o que a tela da turma usa, e ela nunca recebe aluno de outra turma.
+  Future<List<BaptismStudent>> getStudents(
+    String ministryId, {
+    String? turmaId,
+  }) async {
+    var query = _supabase
         .from('baptism_student')
         .select('*, baptism_turma!inner(id, name, ministry_id)')
         .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .eq('baptism_turma.ministry_id', ministryId)
-        .order('full_name', ascending: true);
+        .eq('baptism_turma.ministry_id', ministryId);
+    if (turmaId != null) query = query.eq('turma_id', turmaId);
+    final response = await query.order('full_name', ascending: true);
 
     return (response as List)
         .map((row) => BaptismStudent.fromJson(Map<String, dynamic>.from(row)))
@@ -192,6 +200,23 @@ class BaptismRepository {
     return (response as List)
         .map((j) => BaptismEnrollment.fromJson(Map<String, dynamic>.from(j)))
         .toList();
+  }
+
+  /// A chamada do próprio aluno numa turma: cada encontro, com a marca dele
+  /// (`null` = não marcado).
+  ///
+  /// RPC `my_baptism_attendance`, e não SELECT em `baptism_attendance`: o
+  /// aluno não tem policy nessas tabelas (etapa 4), e a função devolve só as
+  /// linhas da ficha dele (`my_user_account_id()`).
+  Future<List<BaptismMyMeeting>> getMyAttendance(String turmaId) async {
+    final response = await _supabase.rpc(
+      'my_baptism_attendance',
+      params: {'p_turma_id': turmaId},
+    );
+    return [
+      for (final raw in response as List)
+        BaptismMyMeeting.fromJson(Map<String, dynamic>.from(raw as Map)),
+    ];
   }
 
   /// Nome do curso e turmas abertas, para montar o formulário público.
