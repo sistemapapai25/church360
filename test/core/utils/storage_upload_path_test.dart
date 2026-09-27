@@ -38,12 +38,15 @@ void main() {
     });
   });
 
-  // CHU-370: os buckets de Material de Apoio só aceitam escrita em
-  // <tenant>/<auth uid>/. Um upload novo para eles sem o opt-in grava na raiz
-  // e passa a falhar quando a migration entrar.
-  test('todo upload para support-material-* usa tenantScopedPath', () {
+  // CHU-370 (Material de Apoio) e CHU-373 (Cursos): esses buckets só aceitam
+  // escrita em <tenant>/<auth uid>/. Um upload novo para eles sem o opt-in
+  // grava na raiz e a policy recusa.
+  test('todo upload para support-material-* e course-* usa tenantScopedPath',
+      () {
     final offenders = <String>[];
-    final bucketUse = RegExp(r"storageBucket:\s*'support-material-[a-z]+'");
+    final bucketUse = RegExp(
+      r"storageBucket:\s*'(support-material-[a-z]+|course-images|course-lesson-[a-z]+)'",
+    );
     for (final entity in Directory('lib').listSync(recursive: true)) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       final lines = entity.readAsLinesSync();
