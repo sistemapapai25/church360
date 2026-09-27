@@ -41,6 +41,15 @@ const _turmaA = CourseTurma(
   courseId: _courseId,
 );
 
+const _turmaACancelada = CourseTurma(
+  id: 'sg-a',
+  name: 'Batizandos 2026',
+  status: StudyGroupStatus.cancelled,
+  ministryId: _ministryId,
+  baptismTurmaId: 'bt-a',
+  courseId: _courseId,
+);
+
 const _openA = BaptismPublicTurma(id: 'bt-a', name: 'Batizandos 2026');
 const _openB = BaptismPublicTurma(id: 'bt-b', name: 'Turma de Outubro');
 
@@ -80,10 +89,11 @@ List<Override> _baptismOverrides({
   List<BaptismPublicTurma> open = const [],
   bool publicInfoFails = false,
   List<String>? publicInfoCalls,
+  CourseTurma turma = _turmaA,
 }) {
   return [
     courseByIdProvider(_courseId).overrideWith((ref) async => _baptismCourse()),
-    courseStudyGroupsProvider(_courseId).overrideWith((ref) async => [_turmaA]),
+    courseStudyGroupsProvider(_courseId).overrideWith((ref) async => [turma]),
     currentUserIsElevatedProvider.overrideWith((ref) async => elevated),
     currentUserHasPermissionProvider(
       'courses.view',
@@ -243,6 +253,24 @@ void main() {
       expect(hub.primary, CourseCta.enroll);
       expect(hub.openTurmas, hasLength(2));
       expect(hub.ministryId, _ministryId);
+    });
+
+    test('turma cancelada some do aluno: sem "Acessar minha turma"', () async {
+      final hub = await _hub(
+        _baptismOverrides(enrolled: true, turma: _turmaACancelada),
+      );
+      expect(hub.myTurmas, isEmpty);
+      expect(hub.primary, isNot(CourseCta.myTurma));
+      expect(hub.showsTurma(_turmaACancelada), isFalse);
+    });
+
+    test('turma cancelada pela Formação não é oferecida para inscrição',
+        () async {
+      final hub = await _hub(
+        _baptismOverrides(open: [_openA, _openB], turma: _turmaACancelada),
+      );
+      expect(hub.openTurmas.map((t) => t.id), ['bt-b']);
+      expect(hub.primary, CourseCta.enroll);
     });
 
     test('baptism.view sem vínculo no ministério não é gestão', () async {

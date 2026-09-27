@@ -4,6 +4,7 @@ import '../../../ministries/batismo/domain/models/baptism_public_info.dart';
 import '../../../ministries/batismo/presentation/providers/baptism_providers.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
+import '../../../study_groups/domain/models/study_group.dart';
 import '../../domain/models/course.dart';
 import '../../domain/models/course_turma.dart';
 import '../providers/courses_provider.dart';
@@ -130,9 +131,11 @@ Future<CourseHubState> _baptismHub(
     for (final e in enrollments)
       if (e.courseId == course.id && e.studyGroupId != null) e.studyGroupId!,
   };
+  // Turma cancelada não é mais "minha turma": some do aluno junto com o
+  // atalho "Acessar minha turma".
   final mine = [
     for (final t in turmas)
-      if (mineIds.contains(t.id)) t,
+      if (mineIds.contains(t.id) && t.status != StudyGroupStatus.cancelled) t,
   ];
 
   // A RPC do link público é a única fonte de "turma aberta" que o aluno
@@ -144,7 +147,18 @@ Future<CourseHubState> _baptismHub(
       final info = await ref.watch(
         baptismPublicInfoProvider(ministryId).future,
       );
-      open = info.turmas;
+      // Defesa extra: a RPC olha só `baptism_turma.status`; se a turma foi
+      // cancelada pelo lado da Formação, o espelho em `study_groups` já diz
+      // cancelled e ela não pode ser oferecida para inscrição.
+      final cancelledIds = {
+        for (final t in turmas)
+          if (t.status == StudyGroupStatus.cancelled && t.baptismTurmaId != null)
+            t.baptismTurmaId!,
+      };
+      open = [
+        for (final t in info.turmas)
+          if (!cancelledIds.contains(t.id)) t,
+      ];
     } catch (_) {
       return CourseHubState(management: management, ministryId: ministryId);
     }

@@ -44,6 +44,23 @@ final _baptismTurma = CourseTurma(
   courseId: _courseId,
 );
 
+final _cancelledBaptismTurma = CourseTurma(
+  id: _sgId,
+  name: 'Batizandos 2026',
+  status: StudyGroupStatus.cancelled,
+  startDate: DateTime(2026, 9, 6),
+  ministryId: 'min-1',
+  baptismTurmaId: 'bt-1',
+  courseId: _courseId,
+);
+
+const _cancelledGenericTurma = CourseTurma(
+  id: _sgId,
+  name: 'Fundamentos da Fé',
+  status: StudyGroupStatus.cancelled,
+  courseId: _courseId,
+);
+
 const _genericTurma = CourseTurma(
   id: _sgId,
   name: 'Fundamentos da Fé',
@@ -279,6 +296,20 @@ void main() {
       final a = await _access(_accessOverrides(turma: null, elevated: true));
       expect(a.role, TurmaRole.none);
     });
+
+    test('turma cancelada: aluno matriculado perde o acesso', () async {
+      final a = await _access(
+        _accessOverrides(turma: _cancelledBaptismTurma, enrolled: true),
+      );
+      expect(a.role, TurmaRole.none);
+    });
+
+    test('turma cancelada: liderança continua vendo', () async {
+      final a = await _access(
+        _accessOverrides(turma: _cancelledBaptismTurma, elevated: true),
+      );
+      expect(a.role, TurmaRole.leadership);
+    });
   });
 
   group('turmaAccessProvider — genérica', () {
@@ -317,6 +348,26 @@ void main() {
         _accessOverrides(turma: _genericTurma, participation: _participant()),
       );
       expect(a.role, TurmaRole.student);
+    });
+
+    test('turma cancelada: participante ativo perde o acesso', () async {
+      final a = await _access(
+        _accessOverrides(
+          turma: _cancelledGenericTurma,
+          participation: _participant(),
+        ),
+      );
+      expect(a.role, TurmaRole.none);
+    });
+
+    test('turma cancelada: líder ativo continua liderança', () async {
+      final a = await _access(
+        _accessOverrides(
+          turma: _cancelledGenericTurma,
+          participation: _participant(role: ParticipantRole.leader),
+        ),
+      );
+      expect(a.role, TurmaRole.leadership);
     });
 
     test('participante inativo não tem acesso', () async {
@@ -471,6 +522,21 @@ void main() {
 
       expect(find.text('Você não tem acesso a esta turma.'), findsOneWidget);
       expect(find.text('Batizandos 2026'), findsNothing);
+    });
+
+    testWidgets('turma cancelada: aluno vê o aviso, sem abas', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          overrides: _accessOverrides(
+            turma: _cancelledBaptismTurma,
+            enrolled: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Esta turma foi cancelada.'), findsOneWidget);
+      expect(find.text('Aulas'), findsNothing);
     });
 
     testWidgets('turma escondida pela RLS: sem acesso', (tester) async {

@@ -7,6 +7,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_tabs.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../../study_groups/domain/models/study_group.dart';
 import '../../domain/models/course_turma.dart';
 import '../providers/courses_provider.dart';
 import '../widgets/course_turmas_section.dart';
@@ -96,6 +97,16 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
     final access = accessAsync.value ?? TurmaAccess.none;
     // Já carregada: o acesso depende da origem.
     final origin = ref.watch(turmaOriginProvider(widget.studyGroupId)).value;
+    if (turma != null &&
+        turma.status == StudyGroupStatus.cancelled &&
+        !access.isLeadership) {
+      return const _TurmaMessageScaffold(
+        child: _TurmaMessage(
+          icon: AppIcons.info,
+          message: 'Esta turma foi cancelada.',
+        ),
+      );
+    }
     if (turma == null ||
         origin == null ||
         turma.courseId != widget.courseId ||

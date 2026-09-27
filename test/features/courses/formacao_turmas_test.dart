@@ -11,6 +11,7 @@ import 'package:church360_app/features/courses/domain/models/course_turma.dart';
 import 'package:church360_app/features/courses/presentation/legacy_study_group_redirect.dart';
 import 'package:church360_app/features/courses/presentation/providers/courses_provider.dart';
 import 'package:church360_app/features/courses/presentation/screens/courses_list_screen.dart';
+import 'package:church360_app/features/courses/presentation/turma/turma_access.dart';
 import 'package:church360_app/features/courses/presentation/widgets/formacao_turmas_tab.dart';
 import 'package:church360_app/features/ministries/presentation/providers/ministries_provider.dart';
 import 'package:church360_app/features/permissions/providers/permissions_providers.dart';
@@ -25,6 +26,15 @@ const _baptism = CourseTurma(
   courseId: 'c-b',
 );
 
+const _cancelled = CourseTurma(
+  id: 'sg-x',
+  name: 'Batizandos 2026 testes',
+  status: StudyGroupStatus.cancelled,
+  ministryId: 'min-1',
+  baptismTurmaId: 'bt-x',
+  courseId: 'c-b',
+);
+
 const _study = CourseTurma(
   id: 'sg-e',
   name: 'Evangelho de João',
@@ -36,6 +46,7 @@ Widget _host({
   String initial = '/courses?tab=turmas',
   List<CourseTurma> turmas = const [_baptism, _study],
   Map<String, CourseTurma?> byId = const {},
+  Map<String, TurmaAccess> access = const {},
 }) {
   final router = GoRouter(
     initialLocation: initial,
@@ -89,6 +100,8 @@ Widget _host({
       ).overrideWith((ref) async => false),
       for (final entry in byId.entries)
         turmaByIdProvider(entry.key).overrideWith((ref) async => entry.value),
+      for (final entry in access.entries)
+        turmaAccessProvider(entry.key).overrideWith((ref) async => entry.value),
     ],
     child: MaterialApp.router(theme: AppTheme.lightTheme, routerConfig: router),
   );
@@ -201,6 +214,49 @@ void main() {
       find.text('Nenhuma turma para você por aqui ainda.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('turma cancelada some para o aluno', (tester) async {
+    await _pump(
+      tester,
+      _host(
+        turmas: const [_baptism, _cancelled],
+        access: const {'sg-x': TurmaAccess.none},
+      ),
+    );
+
+    expect(find.text('Batizandos 2026'), findsOneWidget);
+    expect(find.text('Batizandos 2026 testes'), findsNothing);
+  });
+
+  testWidgets('só turma cancelada: aluno vê o estado vazio', (tester) async {
+    await _pump(
+      tester,
+      _host(
+        turmas: const [_cancelled],
+        access: const {'sg-x': TurmaAccess.none},
+      ),
+    );
+
+    expect(
+      find.text('Nenhuma turma para você por aqui ainda.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('turma cancelada continua para a liderança', (tester) async {
+    await _pump(
+      tester,
+      _host(
+        turmas: const [_baptism, _cancelled],
+        access: const {
+          'sg-x': TurmaAccess(role: TurmaRole.leadership),
+        },
+      ),
+    );
+
+    expect(find.text('Batizandos 2026 testes'), findsOneWidget);
+    expect(find.text('CANCELADO'), findsOneWidget);
   });
 
   group('/study-groups/:id antigo', () {
