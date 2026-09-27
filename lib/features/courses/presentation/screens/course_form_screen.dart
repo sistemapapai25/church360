@@ -274,6 +274,7 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
                 setState(() => _imageUrl = url);
               },
               storageBucket: 'course-images',
+              tenantScopedPath: true,
               label: 'Imagem do Curso',
             ),
             const SizedBox(height: 24),

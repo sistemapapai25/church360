@@ -205,6 +205,7 @@ class _CourseLessonFormScreenState extends ConsumerState<CourseLessonFormScreen>
                       setState(() => _coverImageUrl = url);
                     },
                     storageBucket: 'course-lesson-covers',
+                    tenantScopedPath: true,
                     label: 'Imagem de Capa da Aula',
                   ),
                   const SizedBox(height: 16),
@@ -216,6 +217,7 @@ class _CourseLessonFormScreenState extends ConsumerState<CourseLessonFormScreen>
                       setState(() => _videoUrl = url);
                     },
                     storageBucket: 'course-lesson-videos',
+                    tenantScopedPath: true,
                     label: 'Vídeo da Aula',
                     allowYouTubeLink: true,
                   ),
@@ -253,6 +255,7 @@ class _CourseLessonFormScreenState extends ConsumerState<CourseLessonFormScreen>
                       });
                     },
                     storageBucket: 'course-lesson-files',
+                    tenantScopedPath: true,
                     label: 'Arquivo Anexo (PDF, DOC, etc.)',
                   ),
                   const SizedBox(height: 16),
