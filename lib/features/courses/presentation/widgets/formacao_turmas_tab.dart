@@ -9,8 +9,10 @@ import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
+import '../../../study_groups/domain/models/study_group.dart';
 import '../../domain/models/course_turma.dart';
 import '../providers/courses_provider.dart';
+import '../turma/turma_access.dart';
 import 'course_turmas_section.dart';
 
 /// Filtro por origem da aba Turmas.
@@ -128,16 +130,25 @@ class _FormacaoTurmasTabState extends ConsumerState<FormacaoTurmasTab> {
             ),
             data: (all) {
               final needle = _query.toLowerCase();
+              // Turma cancelada some para quem não é liderança dela (o
+              // aluno perde a turma de vista); a liderança continua vendo,
+              // com o selo "Cancelado".
+              bool visible(CourseTurma t) =>
+                  t.status != StudyGroupStatus.cancelled ||
+                  (ref.watch(turmaAccessProvider(t.id)).valueOrNull
+                          ?.isLeadership ??
+                      false);
               final turmas = [
                 for (final t in all)
-                  if (_origin.accepts(t) &&
+                  if (visible(t) &&
+                      _origin.accepts(t) &&
                       (needle.isEmpty || t.name.toLowerCase().contains(needle)))
                     t,
               ];
               if (turmas.isEmpty) {
                 return _Message(
                   icon: AppIcons.study,
-                  text: all.isEmpty
+                  text: !all.any(visible)
                       ? 'Nenhuma turma para você por aqui ainda.'
                       : 'Nenhuma turma com esse filtro.',
                 );

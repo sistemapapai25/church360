@@ -5,6 +5,7 @@ import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../study_groups/domain/models/study_group.dart';
 import '../../../study_groups/presentation/providers/study_group_provider.dart';
+import '../providers/courses_provider.dart';
 import 'turma_origin.dart';
 
 /// Quem eu sou nesta turma.
@@ -73,6 +74,12 @@ final turmaAccessProvider =
   final origin = await ref.watch(turmaOriginProvider(studyGroupId).future);
   if (origin == null) return TurmaAccess.none;
 
+  // Turma cancelada sai da vida do aluno: sem aulas, sem materiais, sem
+  // atalho. Só a liderança continua enxergando (para consultar ou excluir).
+  final turma = await ref.watch(turmaByIdProvider(studyGroupId).future);
+  final cancelled = turma?.status == StudyGroupStatus.cancelled;
+  final asStudent = cancelled ? TurmaAccess.none : TurmaAccess.student;
+
   final elevated = await ref.watch(currentUserIsElevatedProvider.future);
   Future<bool> can(String code) =>
       ref.watch(currentUserHasPermissionProvider(code).future);
@@ -98,7 +105,7 @@ final turmaAccessProvider =
       // study_group_student_allows: matrícula ativa ou concluída.
       final enrollments = await ref.watch(myBaptismEnrollmentsProvider.future);
       final enrolled = enrollments.any((e) => e.studyGroupId == studyGroupId);
-      return enrolled ? TurmaAccess.student : TurmaAccess.none;
+      return enrolled ? asStudent : TurmaAccess.none;
 
     case GenericaTurmaOrigin():
       final participation =
@@ -118,6 +125,6 @@ final turmaAccessProvider =
           elevated: elevated,
         );
       }
-      return active ? TurmaAccess.student : TurmaAccess.none;
+      return active ? asStudent : TurmaAccess.none;
   }
 });

@@ -82,6 +82,14 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
     }
   }
 
+  /// Grupo espelho de uma `baptism_turma` (status vem do Batismo).
+  bool get _isBaptismMirror {
+    final id = widget.groupId;
+    if (id == null) return false;
+    return ref.watch(turmaByIdProvider(id)).valueOrNull?.isBaptismTurma ??
+        false;
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -393,7 +401,22 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
                     },
                     secondary: const Icon(AppIcons.public),
                   ),
-                  if (widget.groupId != null) ...[
+                  // Turma do Batismo: o status manda do lado do ministério
+                  // (o espelho só desce Batismo -> Formação). Cancelar aqui
+                  // deixava a turma aberta para inscrição no Batismo.
+                  if (widget.groupId != null && _isBaptismMirror) ...[
+                    const SizedBox(height: 8),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(AppIcons.status),
+                      title: Text('Status: ${_status.displayName}'),
+                      subtitle: const Text(
+                        'Turma do Batismo: altere o status (ou exclua) em '
+                        'Batismo → Ver turmas / Gerenciar.',
+                      ),
+                    ),
+                  ],
+                  if (widget.groupId != null && !_isBaptismMirror) ...[
                     const SizedBox(height: 8),
                     DropdownMenu<StudyGroupStatus>(
                       initialSelection: _status,
