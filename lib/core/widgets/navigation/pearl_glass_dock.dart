@@ -4,86 +4,106 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 
-/// Dock flutuante de vidro fosco usada pela navegação principal.
+/// Dock flutuante de vidro ("liquid glass") usada pela navegação principal.
 ///
-/// A forma de cápsula, o espaço ao redor e o desfoque seguem a referência
-/// visual do Instagram, mas continuam usando os tokens do Church360. A barra
-/// não encosta nas bordas da tela para que o conteúdo permaneça visível por
-/// trás do vidro.
+/// Segue a referência do Instagram: cápsula solta das bordas, fundo quase
+/// transparente e desfoque forte do conteúdo que passa por trás. Para o vidro
+/// aparecer, o `Scaffold` que a recebe precisa de `extendBody: true` — sem
+/// isso o corpo termina acima da dock e o blur só tem o fundo liso do
+/// Scaffold para borrar (era a "barra atrás da barra").
 class PearlGlassDock extends StatelessWidget {
   final List<Widget> children;
   final bool dark;
 
   const PearlGlassDock({super.key, required this.children, required this.dark});
 
+  /// Altura da cápsula, sem a margem inferior nem a área segura do sistema.
+  static const double dockHeight = 64.0;
+  static const double bottomMargin = 10.0;
+
   @override
   Widget build(BuildContext context) {
-    final borderColor = dark
-        ? Colors.white.withValues(alpha: 0.16)
-        : Colors.white.withValues(alpha: 0.78);
-    final shadowColor = Colors.black.withValues(alpha: dark ? 0.34 : 0.14);
+    // Base bem translúcida: quem dá corpo ao vidro é o blur, não a cor.
     final gradient = dark
         ? [
-            AppTheme.darkSurface.withValues(alpha: 0.82),
-            const Color(0xFF070B12).withValues(alpha: 0.90),
+            const Color(0xFF2A2F38).withValues(alpha: 0.42),
+            const Color(0xFF0B0F16).withValues(alpha: 0.52),
           ]
         : [
-            Colors.white.withValues(alpha: 0.86),
-            AppTheme.muted.withValues(alpha: 0.78),
+            Colors.white.withValues(alpha: 0.52),
+            Colors.white.withValues(alpha: 0.34),
           ];
+    // Borda com brilho em cima e quase apagada embaixo, como luz batendo
+    // na aresta do vidro.
+    final rim = dark
+        ? [
+            Colors.white.withValues(alpha: 0.26),
+            Colors.white.withValues(alpha: 0.06),
+          ]
+        : [
+            Colors.white.withValues(alpha: 0.95),
+            Colors.white.withValues(alpha: 0.35),
+          ];
+    final shadowColor = Colors.black.withValues(alpha: dark ? 0.32 : 0.10);
 
     final bottomInset = MediaQuery.paddingOf(context).bottom;
-    const dockHeight = 76.0;
-    const bottomMargin = 10.0;
+    final radius = BorderRadius.circular(dockHeight / 2);
 
     // O BottomNavigationBar do Scaffold pode oferecer altura livre ao filho.
-    // O SizedBox externo impede que Center ocupe a tela inteira e garante que
-    // a cápsula permaneça ancorada no rodapé também no Flutter Web.
+    // O SizedBox externo impede que a cápsula ocupe a tela inteira e a mantém
+    // ancorada no rodapé também no Flutter Web.
     return SizedBox(
       height: dockHeight + bottomMargin + bottomInset,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(12, 0, 12, bottomMargin + bottomInset),
+        padding: EdgeInsets.fromLTRB(14, 0, 14, bottomMargin + bottomInset),
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(36),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                child: Container(
-                  height: dockHeight,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: radius,
+                boxShadow: [
+                  // Sombra curta e difusa: deslocada demais ela vira uma
+                  // faixa escura sob a cápsula e lembra a barra antiga.
+                  BoxShadow(
+                    color: shadowColor,
+                    blurRadius: 18,
+                    spreadRadius: -4,
+                    offset: const Offset(0, 4),
                   ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: gradient,
-                    ),
-                    borderRadius: BorderRadius.circular(36),
-                    border: Border.all(color: borderColor, width: 1),
-                    boxShadow: [
-                      BoxShadow(
-                        color: shadowColor,
-                        blurRadius: 24,
-                        spreadRadius: 1,
-                        offset: const Offset(0, 8),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: radius,
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+                  child: Container(
+                    height: dockHeight,
+                    padding: const EdgeInsets.all(1),
+                    decoration: BoxDecoration(
+                      borderRadius: radius,
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: rim,
                       ),
-                      if (dark)
-                        BoxShadow(
-                          color: AppTheme.darkRing.withValues(alpha: 0.08),
-                          blurRadius: 18,
-                          spreadRadius: -4,
-                          offset: const Offset(0, -2),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      decoration: BoxDecoration(
+                        borderRadius: radius,
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: gradient,
                         ),
-                    ],
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: children,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: children,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -101,8 +121,8 @@ typedef PearlDockContentBuilder =
 /// Item de navegação em vidro suave.
 ///
 /// O nome público é mantido para não quebrar telas e playgrounds existentes;
-/// a aparência em produção é agora um estado ativo azul, sem pérolas ou
-/// glows coloridos independentes por item.
+/// o item ativo ganha uma pílula larga de vidro, sem pérolas nem glows
+/// coloridos por item.
 class PearlDockItem extends StatefulWidget {
   final PearlDockContentBuilder contentBuilder;
   final String label;
@@ -149,21 +169,22 @@ class _PearlDockItemState extends State<PearlDockItem> {
 
   @override
   Widget build(BuildContext context) {
-    const width = 46.0;
-    const height = 40.0;
+    const height = 50.0;
+    // Pílula larga no item ativo, como no Instagram; nas telas estreitas ela
+    // encolhe para caber na fatia do item em vez de estourar a dock.
     final selectedSurface = widget.dark
-        ? Colors.white.withValues(alpha: 0.14)
-        : AppTheme.accent.withValues(alpha: 0.90);
+        ? Colors.white.withValues(alpha: 0.16)
+        : Colors.black.withValues(alpha: 0.06);
     final hoverSurface = widget.dark
         ? Colors.white.withValues(alpha: 0.07)
-        : const Color(0xFFF1F5F9).withValues(alpha: 0.92);
+        : Colors.black.withValues(alpha: 0.035);
     final borderColor = widget.selected
-        ? Colors.white.withValues(alpha: widget.dark ? 0.20 : 0.62)
+        ? Colors.white.withValues(alpha: widget.dark ? 0.14 : 0.70)
         : Colors.transparent;
     final iconColor = widget.selected
-        ? widget.color
+        ? (widget.dark ? Colors.white : widget.color)
         : (widget.dark
-              ? Colors.white.withValues(alpha: 0.62)
+              ? Colors.white.withValues(alpha: 0.66)
               : AppTheme.mutedForeground);
     final surface = widget.selected
         ? selectedSurface
@@ -179,55 +200,54 @@ class _PearlDockItemState extends State<PearlDockItem> {
         onTapUp: (_) => _setPressed(false),
         onTapCancel: () => _setPressed(false),
         behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedContainer(
-                duration: _duration,
-                curve: _curve,
-                transform: Matrix4.translationValues(0, _pressed ? 1.5 : 0, 0),
-                width: width,
-                height: height,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: borderColor, width: 1),
-                  boxShadow: widget.selected
-                      ? [
-                          BoxShadow(
-                            color: widget.color.withValues(alpha: 0.14),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: widget.contentBuilder(
-                  context,
-                  widget.selected,
-                  iconColor,
-                ),
-              ),
-              if (widget.showLabel) ...[
-                const SizedBox(height: 4),
-                AnimatedDefaultTextStyle(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth.isFinite
+                ? (constraints.maxWidth - 4).clamp(40.0, 68.0)
+                : 68.0;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedContainer(
                   duration: _duration,
                   curve: _curve,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: widget.selected
-                        ? FontWeight.w700
-                        : FontWeight.w600,
-                    color: iconColor,
+                  transform: Matrix4.translationValues(
+                    0,
+                    _pressed ? 1.5 : 0,
+                    0,
                   ),
-                  child: Text(widget.label),
+                  width: width,
+                  height: height,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: surface,
+                    borderRadius: BorderRadius.circular(height / 2),
+                    border: Border.all(color: borderColor, width: 1),
+                  ),
+                  child: widget.contentBuilder(
+                    context,
+                    widget.selected,
+                    iconColor,
+                  ),
                 ),
+                if (widget.showLabel) ...[
+                  const SizedBox(height: 4),
+                  AnimatedDefaultTextStyle(
+                    duration: _duration,
+                    curve: _curve,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: widget.selected
+                          ? FontWeight.w700
+                          : FontWeight.w600,
+                      color: iconColor,
+                    ),
+                    child: Text(widget.label),
+                  ),
+                ],
               ],
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

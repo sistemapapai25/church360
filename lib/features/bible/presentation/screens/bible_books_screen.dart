@@ -311,7 +311,13 @@ class _TestamentBooksTab extends ConsumerWidget {
             builder: (context, constraints) {
               final columns = _crossAxisCount(constraints.maxWidth);
               return GridView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                // Soma a área da dock da home, que flutua sobre a grade.
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  16,
+                  16,
+                  24 + MediaQuery.paddingOf(context).bottom,
+                ),
                 physics: const AlwaysScrollableScrollPhysics(),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: columns,

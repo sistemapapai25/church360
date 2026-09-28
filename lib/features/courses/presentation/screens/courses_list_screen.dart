@@ -209,7 +209,14 @@ class _CoursesListScreenState extends ConsumerState<CoursesListScreen> {
                             ref.invalidate(upcomingCoursesProvider);
                           },
                           child: ListView.builder(
-                            padding: const EdgeInsets.all(20),
+                            // Soma a área da dock da home, que flutua sobre
+                            // a lista.
+                            padding: EdgeInsets.fromLTRB(
+                              20,
+                              20,
+                              20,
+                              20 + MediaQuery.paddingOf(context).bottom,
+                            ),
                             itemCount: courses.length,
                             itemBuilder: (context, index) {
                               final course = courses[index];

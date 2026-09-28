@@ -342,6 +342,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Stack(
         children: [
           Scaffold(
+            // O conteúdo passa por trás da dock para o vidro ter o que
+            // desfocar. Cada aba soma `MediaQuery.paddingOf(context).bottom`
+            // ao fim da rolagem para o último item não ficar escondido.
+            extendBody: true,
             body: _screens[_selectedIndex],
             bottomNavigationBar: PremiumBottomNavBar(
               currentIndex: _selectedIndex,
@@ -463,12 +467,14 @@ class _DashboardTab extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
+        bottom: false,
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Padding(
-            padding: const EdgeInsets.only(
-              bottom: 120,
-            ), // Espaço para Navigation Bar e FAB/bolha
+            // Espaço para a dock (que flutua sobre o conteúdo) e a bolha.
+            padding: EdgeInsets.only(
+              bottom: 32 + MediaQuery.paddingOf(context).bottom,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1747,9 +1753,11 @@ class _MoreTab extends ConsumerWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(
-          horizontal: _homePagePadding,
-          vertical: 20,
+        padding: EdgeInsets.fromLTRB(
+          _homePagePadding,
+          20,
+          _homePagePadding,
+          20 + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
           // VISÃO GERAL
@@ -2254,12 +2262,13 @@ class _ChurchHomeTab extends ConsumerWidget {
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       body: SafeArea(
+        bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             _homePagePadding,
             16,
             _homePagePadding,
-            120,
+            32 + MediaQuery.paddingOf(context).bottom,
           ),
           children: [
             _ChurchIdentityHeader(info: churchInfoAsync),
