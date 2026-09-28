@@ -38,19 +38,24 @@ class _TurmaFilter {
 
 /// Aba Alunos do workspace do Batismo — a tela do print.
 ///
-/// Com [lockedTurmaId] (tela da turma em Cursos) a aba fica presa a essa
-/// turma: busca só os alunos dela no banco, e some tudo o que mexe na
-/// estrutura do ministério — filtro de turma, "Turmas", link de inscrição
-/// e o seletor de turma do formulário. Turma que não é do ministério não
-/// abre nada ([BaptismLockedTurmaUnavailable]).
+/// Com [lockedTurmaId] (tela da turma) a aba fica presa a essa turma:
+/// busca só os alunos dela no banco, e some tudo o que mexe na estrutura
+/// do ministério — filtro de turma, "Turmas", link de inscrição e o
+/// seletor de turma do formulário. Turma que não é do ministério não abre
+/// nada ([BaptismLockedTurmaUnavailable]).
+///
+/// Com [readOnly] a aba lista e não grava: é a vitrine de Cursos. A
+/// permissão continua sendo consultada — ela só não sobrevive ao `&&`.
 class BatismoAlunosTab extends ConsumerStatefulWidget {
   final String ministryId;
   final String? lockedTurmaId;
+  final bool readOnly;
 
   const BatismoAlunosTab({
     super.key,
     required this.ministryId,
     this.lockedTurmaId,
+    this.readOnly = false,
   });
 
   @override
@@ -339,14 +344,16 @@ class _BatismoAlunosTabState extends ConsumerState<BatismoAlunosTab> {
               .watch(baptismTurmasProvider(widget.ministryId))
               .maybeWhen(data: (t) => t, orElse: () => const <BaptismTurma>[]);
 
-    bool can(BaptismWriteAction action) => ref
-        .watch(
-          baptismCanWriteProvider((
-            ministryId: widget.ministryId,
-            action: action,
-          )),
-        )
-        .maybeWhen(data: (v) => v, orElse: () => false);
+    bool can(BaptismWriteAction action) =>
+        !widget.readOnly &&
+        ref
+            .watch(
+              baptismCanWriteProvider((
+                ministryId: widget.ministryId,
+                action: action,
+              )),
+            )
+            .maybeWhen(data: (v) => v, orElse: () => false);
 
     final canCreate = can(BaptismWriteAction.create);
     final canEdit = can(BaptismWriteAction.edit);

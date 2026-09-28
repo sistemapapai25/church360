@@ -38,6 +38,12 @@ class GenericaTurmaAdapter implements TurmaSurfaces {
   /// A turma genérica marca presença na aba Presença, aula por aula.
   @override
   TurmaLessonAttendance? get lessonAttendance => null;
+
+  /// A turma genérica não tem ministério: a gestão dela é esta mesma tela,
+  /// pela porta que grava.
+  @override
+  TurmaManageTarget? get manage =>
+      (label: 'Gerenciar', route: '/turmas/${origin.studyGroupId}/gestao');
 }
 
 /// Contagem crua de presença.

@@ -13,6 +13,7 @@ import 'package:church360_app/features/courses/domain/models/course_turma.dart';
 import 'package:church360_app/features/courses/presentation/providers/courses_provider.dart';
 import 'package:church360_app/features/courses/presentation/turma/turma_access.dart';
 import 'package:church360_app/features/courses/presentation/turma/turma_detail_screen.dart';
+import 'package:church360_app/features/courses/presentation/turma/turma_mode.dart';
 import 'package:church360_app/features/courses/presentation/turma/turma_origin.dart';
 import 'package:church360_app/features/courses/presentation/turma/turma_tabs.dart';
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_enrollment.dart';
@@ -99,13 +100,13 @@ List<Override> _accessOverrides({
     turmaByIdProvider(_sgId).overrideWith((ref) async => turma),
     currentUserIsElevatedProvider.overrideWith((ref) async => elevated),
     ministriesCanSeeAllProvider.overrideWith((ref) async => canSeeAll),
-    ministryAccessProvider('min-1').overrideWith(
-      (ref) async => canSeeAll || inMinistry,
-    ),
+    ministryAccessProvider(
+      'min-1',
+    ).overrideWith((ref) async => canSeeAll || inMinistry),
     for (final code in _permissions)
-      currentUserHasPermissionProvider(code).overrideWith(
-        (ref) async => permissions.contains(code),
-      ),
+      currentUserHasPermissionProvider(
+        code,
+      ).overrideWith((ref) async => permissions.contains(code)),
     myBaptismEnrollmentsProvider.overrideWith(
       (ref) async => [
         if (enrolled)
@@ -118,9 +119,9 @@ List<Override> _accessOverrides({
           ),
       ],
     ),
-    turmaMyParticipationProvider(_sgId).overrideWith(
-      (ref) async => participation,
-    ),
+    turmaMyParticipationProvider(
+      _sgId,
+    ).overrideWith((ref) async => participation),
   ];
 }
 
@@ -133,9 +134,12 @@ Future<TurmaAccess> _access(List<Override> overrides) {
 Widget _host({
   required List<Override> overrides,
   String courseId = _courseId,
+  TurmaMode mode = TurmaMode.leitura,
 }) {
   final router = GoRouter(
-    initialLocation: '/courses/$courseId/turmas/$_sgId',
+    initialLocation: mode == TurmaMode.gestao
+        ? '/turmas/$_sgId/gestao'
+        : '/courses/$courseId/turmas/$_sgId',
     routes: [
       GoRoute(
         path: '/courses/:courseId/turmas/:studyGroupId',
@@ -143,6 +147,18 @@ Widget _host({
           courseId: state.pathParameters['courseId']!,
           studyGroupId: state.pathParameters['studyGroupId']!,
         ),
+      ),
+      GoRoute(
+        path: '/turmas/:studyGroupId/gestao',
+        builder: (context, state) => TurmaDetailScreen(
+          studyGroupId: state.pathParameters['studyGroupId']!,
+          mode: TurmaMode.gestao,
+        ),
+      ),
+      GoRoute(
+        path: '/ministries/:id/batismo',
+        builder: (context, state) =>
+            Text('workspace ${state.pathParameters['id']}'),
       ),
       GoRoute(
         path: '/courses/:id/view',
@@ -414,15 +430,12 @@ void main() {
 
   group('turmaTabsFor', () {
     test('liderança: Aulas, Alunos, Presença, Materiais', () {
-      expect(
-        turmaTabsFor(const TurmaAccess(role: TurmaRole.leadership)),
-        [
-          TurmaTabId.aulas,
-          TurmaTabId.alunos,
-          TurmaTabId.presenca,
-          TurmaTabId.materiais,
-        ],
-      );
+      expect(turmaTabsFor(const TurmaAccess(role: TurmaRole.leadership)), [
+        TurmaTabId.aulas,
+        TurmaTabId.alunos,
+        TurmaTabId.presenca,
+        TurmaTabId.materiais,
+      ]);
     });
 
     test('aluno: Aulas, Minha frequência, Materiais — sem Alunos', () {
@@ -465,7 +478,9 @@ void main() {
 
     testWidgets('aluno não vê a aba Alunos', (tester) async {
       await tester.pumpWidget(
-        _host(overrides: _accessOverrides(turma: _baptismTurma, enrolled: true)),
+        _host(
+          overrides: _accessOverrides(turma: _baptismTurma, enrolled: true),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -476,21 +491,22 @@ void main() {
 
     testWidgets('trocar de aba troca o conteúdo', (tester) async {
       await tester.pumpWidget(
-        _host(overrides: _accessOverrides(turma: _baptismTurma, enrolled: true)),
+        _host(
+          overrides: _accessOverrides(turma: _baptismTurma, enrolled: true),
+        ),
       );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Materiais'));
       await tester.pumpAndSettle();
-      expect(
-        find.text('Nenhum material disponível ainda.'),
-        findsOneWidget,
-      );
+      expect(find.text('Nenhum material disponível ainda.'), findsOneWidget);
     });
 
     testWidgets('link do curso abre o curso', (tester) async {
       await tester.pumpWidget(
-        _host(overrides: _accessOverrides(turma: _baptismTurma, enrolled: true)),
+        _host(
+          overrides: _accessOverrides(turma: _baptismTurma, enrolled: true),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -546,6 +562,98 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Você não tem acesso a esta turma.'), findsOneWidget);
+    });
+  });
+
+  // A porta por onde a turma abriu decide se ela grava. O papel é o mesmo
+  // nas duas: quem lidera continua vendo rascunho, Alunos e Presença em
+  // Cursos — só não escreve ali.
+  group('Leitura em Cursos, escrita na gestão', () {
+    test('asReadOnly derruba a escrita e preserva o papel', () {
+      const leitura = TurmaAccess(
+        role: TurmaRole.leadership,
+        canWriteLessons: true,
+        leadsGroup: true,
+        elevated: true,
+      );
+      final somenteLeitura = leitura.asReadOnly();
+
+      expect(somenteLeitura.role, TurmaRole.leadership);
+      expect(somenteLeitura.readOnly, isTrue);
+      expect(somenteLeitura.canWriteLessons, isFalse);
+      expect(somenteLeitura.leadsGroup, isFalse);
+      // Continua lendo a presença dos outros na turma genérica.
+      expect(somenteLeitura.elevated, isTrue);
+    });
+
+    testWidgets('Batismo em Cursos: sem criar aula, com saída para o '
+        'ministério', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          overrides: _accessOverrides(
+            turma: _baptismTurma,
+            inMinistry: true,
+            permissions: {'baptism.view', 'baptism.edit'},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nova aula'), findsNothing);
+      expect(find.text('Gerenciar no Batismo'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('turma-gerenciar')));
+      await tester.pumpAndSettle();
+      expect(find.text('workspace min-1'), findsOneWidget);
+    });
+
+    testWidgets('a mesma turma pela porta de gestão cria aula', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          mode: TurmaMode.gestao,
+          overrides: _accessOverrides(
+            turma: _baptismTurma,
+            inMinistry: true,
+            permissions: {'baptism.view', 'baptism.edit'},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nova aula'), findsOneWidget);
+      // Já está na gestão: não há para onde mandar.
+      expect(find.byKey(const ValueKey('turma-gerenciar')), findsNothing);
+    });
+
+    testWidgets('turma genérica: Gerenciar abre a mesma tela que grava', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          overrides: _accessOverrides(
+            turma: _genericTurma,
+            participation: _participant(role: ParticipantRole.leader),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nova aula'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('turma-gerenciar')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nova aula'), findsOneWidget);
+    });
+
+    testWidgets('aluno não recebe saída de gestão', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          overrides: _accessOverrides(turma: _baptismTurma, enrolled: true),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('turma-gerenciar')), findsNothing);
     });
   });
 

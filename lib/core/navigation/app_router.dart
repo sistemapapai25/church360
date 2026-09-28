@@ -91,6 +91,7 @@ import '../../features/courses/presentation/screens/course_lessons_screen.dart';
 import '../../features/courses/presentation/screens/course_lesson_form_screen.dart';
 import '../../features/courses/presentation/screens/course_viewer_screen.dart';
 import '../../features/courses/presentation/turma/turma_detail_screen.dart';
+import '../../features/courses/presentation/turma/turma_mode.dart';
 import '../../features/courses/presentation/legacy_study_group_redirect.dart';
 import '../../features/courses/presentation/screens/lesson_viewer_screen.dart';
 import '../../features/church_info/presentation/screens/church_info_screen.dart';
@@ -1398,11 +1399,26 @@ final appRouter = GoRouter(
 
     // Turma do curso (decisão 23): Batismo e turma genérica, uma tela só.
     // Sem guard: a tela decide pelo papel na turma e a RLS pelo resto.
+    //
+    // Por Cursos a turma abre em modo leitura: quem edita entra pela porta
+    // de gestão abaixo — o sheet de Turmas do ministério, no caso do
+    // Batismo.
     GoRoute(
       path: '/courses/:courseId/turmas/:studyGroupId',
       builder: (context, state) => TurmaDetailScreen(
         courseId: state.pathParameters['courseId']!,
         studyGroupId: state.pathParameters['studyGroupId']!,
+      ),
+    ),
+
+    // A mesma tela pela porta de gestão. Sem `:courseId` de propósito: a
+    // gestão vem do ministério (ou do botão "Gerenciar" da turma
+    // genérica), não de um curso. Sem guard, como a de cima.
+    GoRoute(
+      path: '/turmas/:studyGroupId/gestao',
+      builder: (context, state) => TurmaDetailScreen(
+        studyGroupId: state.pathParameters['studyGroupId']!,
+        mode: TurmaMode.gestao,
       ),
     ),
 
