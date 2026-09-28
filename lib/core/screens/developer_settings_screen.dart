@@ -687,6 +687,16 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
                                               },
                                               storageBucket: 'agent-avatars',
                                               fallbackBuckets: const ['member-photos'],
+                                              // O bucket 'agent-avatars' nao
+                                              // existe em producao: todo upload
+                                              // daqui cai no fallback
+                                              // 'member-photos', que a CHU-374
+                                              // passa a exigir em
+                                              // <tenant>/<auth uid>/. Sem isto o
+                                              // avatar do agente quebraria
+                                              // 100% das vezes assim que a
+                                              // migration entrasse.
+                                              tenantScopedPath: true,
                                               label: 'Avatar do Agente',
                                             ),
                                             const SizedBox(height: 8),
