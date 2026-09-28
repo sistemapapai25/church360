@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/status_badge.dart';
 import '../../../../events/domain/models/event.dart';
+import '../../../../courses/presentation/providers/courses_provider.dart';
 import '../../../../events/presentation/providers/events_provider.dart';
 import '../../data/baptism_repository.dart';
 import '../../domain/models/baptism_turma.dart';
 import '../providers/baptism_providers.dart';
 
 /// Abre o gerenciador de turmas do ministério.
+///
+/// É também a porta de gestão da tela da turma: tocar num card fecha a
+/// folha e abre a turma em `/turmas/:studyGroupId/gestao`, onde aula,
+/// aluno, presença e material se editam. Por Cursos a mesma tela abre em
+/// modo leitura.
 ///
 /// Devolve `true` se alguma turma foi criada, alterada ou apagada — quem
 /// chamou invalida as listas.
@@ -60,16 +67,25 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _TurmaFormSheet(
-        ministryId: widget.ministryId,
-        turma: turma,
-      ),
+      builder: (_) =>
+          _TurmaFormSheet(ministryId: widget.ministryId, turma: turma),
     );
     if (saved == true) {
       _changed = true;
       ref.invalidate(baptismTurmasProvider(widget.ministryId));
       ref.invalidate(baptismStudentsProvider(widget.ministryId));
     }
+  }
+
+  /// Fecha a folha e abre a tela da turma em modo gestão.
+  ///
+  /// Fechar antes de navegar não é detalhe: a tela da turma é rota, e quem
+  /// voltar dela tem de cair no workspace do ministério, não num sheet
+  /// pendurado por cima. O `_changed` vai junto para quem abriu recarregar
+  /// o que mudou aqui dentro.
+  void _openTurma(String studyGroupId) {
+    Navigator.of(context).pop(_changed);
+    context.push('/turmas/$studyGroupId/gestao');
   }
 
   Future<void> _confirmDelete(BaptismTurma turma, int studentCount) async {
@@ -83,7 +99,7 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
           studentCount == 0
               ? 'A turma será apagada. Esta ação não pode ser desfeita.'
               : 'Os $studentCount alunos desta turma serão apagados junto. '
-                  'Esta ação não pode ser desfeita.',
+                    'Esta ação não pode ser desfeita.',
         ),
         actions: [
           TextButton(
@@ -91,9 +107,7 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.errorColor,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.errorColor),
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Excluir'),
           ),
@@ -110,9 +124,9 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
       ref.invalidate(baptismStudentsProvider(widget.ministryId));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Não foi possível excluir: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Não foi possível excluir: $e')));
       }
     }
   }
@@ -125,10 +139,12 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
   static int? _sessionCount(BaptismTurma turma, List<Event>? agenda) {
     if (agenda == null) return null;
     return agenda
-        .where((e) => turma.coversEvent(
-              eventTypeCode: e.eventType,
-              eventStart: e.startDate,
-            ))
+        .where(
+          (e) => turma.coversEvent(
+            eventTypeCode: e.eventType,
+            eventStart: e.startDate,
+          ),
+        )
         .length;
   }
 
@@ -153,6 +169,13 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
         categoryLabels[c.code] = c.label;
       }
     });
+
+    // Espelho da turma em `study_groups`, que é o que a tela da turma abre.
+    // Vazio enquanto carrega (e para turma sem espelho): o card só não
+    // abre, o resto da folha continua igual.
+    final groupIds = ref
+        .watch(ministryTurmaGroupIdsProvider(widget.ministryId))
+        .valueOrNull;
 
     // `null` enquanto a agenda não chegou — o tile usa isso para não
     // anunciar "nenhum encontro" antes de ter os eventos em mãos.
@@ -192,8 +215,9 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
                 Expanded(
                   child: Text(
                     'Turmas',
-                    style: CommunityDesign.titleStyle(context)
-                        .copyWith(fontSize: 18, fontWeight: FontWeight.w700),
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                 ),
                 if (widget.canCreate)
@@ -243,13 +267,18 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
                     itemCount: turmas.length,
                     itemBuilder: (context, i) {
                       final t = turmas[i];
+                      final studyGroupId = groupIds?[t.id];
                       return _TurmaTile(
                         turma: t,
+                        onOpen: studyGroupId == null
+                            ? null
+                            : () => _openTurma(studyGroupId),
                         studentCount: counts[t.id] ?? 0,
                         categoryLabel: categoryLabels[t.eventTypeCode],
                         sessionCount: _sessionCount(t, agenda),
-                        onEdit:
-                            widget.canEdit ? () => _openForm(turma: t) : null,
+                        onEdit: widget.canEdit
+                            ? () => _openForm(turma: t)
+                            : null,
                         onDelete: widget.canDelete
                             ? () => _confirmDelete(t, counts[t.id] ?? 0)
                             : null,
@@ -284,6 +313,10 @@ class _TurmaTile extends StatelessWidget {
   /// agenda carrega: mostrar "0 encontros" nesse intervalo seria mentira.
   final int? sessionCount;
 
+  /// Abre a tela da turma em modo gestão. `null` quando a turma não tem
+  /// grupo espelho visível — aí o card fica só informativo, como antes.
+  final VoidCallback? onOpen;
+
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
@@ -292,6 +325,7 @@ class _TurmaTile extends StatelessWidget {
     required this.studentCount,
     this.categoryLabel,
     this.sessionCount,
+    this.onOpen,
     this.onEdit,
     this.onDelete,
   });
@@ -304,112 +338,128 @@ class _TurmaTile extends StatelessWidget {
     final category = categoryLabel ?? turma.eventTypeCode;
     final period = _periodLabel(turma);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
+    final radius = BorderRadius.circular(14);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
         color: CommunityDesign.cardSurfaceColor(Theme.of(context).colorScheme),
-        border: Border.all(color: borderColor),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  turma.name,
-                  style: CommunityDesign.titleStyle(context)
-                      .copyWith(fontSize: 15, fontWeight: FontWeight.w700),
-                ),
-              ),
-              if (onEdit != null)
-                IconButton(
-                  tooltip: 'Editar turma',
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  onPressed: onEdit,
-                ),
-              if (onDelete != null)
-                IconButton(
-                  tooltip: 'Excluir turma',
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  onPressed: onDelete,
-                ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              StatusBadge(
-                label: turma.status.label,
-                tone: turma.status == BaptismTurmaStatus.ativa
-                    ? AppStatusTone.active
-                    : (turma.status == BaptismTurmaStatus.encerrada
-                        ? AppStatusTone.done
-                        : AppStatusTone.dropped),
-              ),
-              // Quem está com a lista aberta para o link precisa ver isso
-              // sem abrir o formulário da turma.
-              if (turma.acceptsPublicRegistration)
-                const StatusBadge(
-                  label: 'Inscrições abertas',
-                  tone: AppStatusTone.done,
-                ),
-              Text(
-                '$studentCount ${studentCount == 1 ? 'aluno' : 'alunos'}',
-                style: CommunityDesign.metaStyle(context),
-              ),
-              if (period != null)
-                Text(period, style: CommunityDesign.metaStyle(context)),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Icon(
-                category == null ? Icons.event_busy_outlined : Icons.event,
-                size: 14,
-                color: dark
-                    ? AppTheme.darkMutedForeground
-                    : AppTheme.mutedForeground,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  _agendaLabel(category, sessionCount),
-                  style: CommunityDesign.metaStyle(context),
-                ),
-              ),
-            ],
-          ),
-          // Uma turma sem janela recolheria todo evento novo da categoria
-          // para sempre. O formulário já não deixa criar assim; este aviso
-          // é para as turmas criadas antes da regra.
-          if (!turma.hasWindow) ...[
-            const SizedBox(height: 6),
-            Row(
+        borderRadius: radius,
+        child: InkWell(
+          key: ValueKey('baptism-turma-open-${turma.id}'),
+          onTap: onOpen,
+          borderRadius: radius,
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              border: Border.all(color: borderColor),
+              borderRadius: radius,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.error_outline,
-                  size: 14,
-                  color: AppTheme.warningColor,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        turma.name,
+                        style: CommunityDesign.titleStyle(
+                          context,
+                        ).copyWith(fontSize: 15, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    if (onEdit != null)
+                      IconButton(
+                        tooltip: 'Editar turma',
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        onPressed: onEdit,
+                      ),
+                    if (onDelete != null)
+                      IconButton(
+                        tooltip: 'Excluir turma',
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        onPressed: onDelete,
+                      ),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'Sem período definido — edite a turma para fechar as datas.',
-                    style: CommunityDesign.metaStyle(context)
-                        .copyWith(color: AppTheme.warningColor),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    StatusBadge(
+                      label: turma.status.label,
+                      tone: turma.status == BaptismTurmaStatus.ativa
+                          ? AppStatusTone.active
+                          : (turma.status == BaptismTurmaStatus.encerrada
+                                ? AppStatusTone.done
+                                : AppStatusTone.dropped),
+                    ),
+                    // Quem está com a lista aberta para o link precisa ver isso
+                    // sem abrir o formulário da turma.
+                    if (turma.acceptsPublicRegistration)
+                      const StatusBadge(
+                        label: 'Inscrições abertas',
+                        tone: AppStatusTone.done,
+                      ),
+                    Text(
+                      '$studentCount ${studentCount == 1 ? 'aluno' : 'alunos'}',
+                      style: CommunityDesign.metaStyle(context),
+                    ),
+                    if (period != null)
+                      Text(period, style: CommunityDesign.metaStyle(context)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      category == null
+                          ? Icons.event_busy_outlined
+                          : Icons.event,
+                      size: 14,
+                      color: dark
+                          ? AppTheme.darkMutedForeground
+                          : AppTheme.mutedForeground,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _agendaLabel(category, sessionCount),
+                        style: CommunityDesign.metaStyle(context),
+                      ),
+                    ),
+                  ],
+                ),
+                // Uma turma sem janela recolheria todo evento novo da categoria
+                // para sempre. O formulário já não deixa criar assim; este aviso
+                // é para as turmas criadas antes da regra.
+                if (!turma.hasWindow) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 14,
+                        color: AppTheme.warningColor,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Sem período definido — edite a turma para fechar as datas.',
+                          style: CommunityDesign.metaStyle(
+                            context,
+                          ).copyWith(color: AppTheme.warningColor),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                ],
               ],
             ),
-          ],
-        ],
+          ),
+        ),
       ),
     );
   }
@@ -515,9 +565,11 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
     // esta janela que impede a turma de recolher todo evento futuro da
     // categoria para sempre.
     if (start == null || end == null) {
-      setState(() => _error =
-          'Informe o início e o fim do curso — é o período que define '
-          'quais encontros da agenda são desta turma.');
+      setState(
+        () => _error =
+            'Informe o início e o fim do curso — é o período que define '
+            'quais encontros da agenda são desta turma.',
+      );
       return;
     }
 
@@ -626,8 +678,9 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
                 const SizedBox(height: 16),
                 Text(
                   _isEdit ? 'Editar turma' : 'Nova turma',
-                  style: CommunityDesign.titleStyle(context)
-                      .copyWith(fontSize: 18, fontWeight: FontWeight.w700),
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -783,8 +836,9 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : Text(_isEdit ? 'Salvar' : 'Criar turma'),
                       ),
@@ -831,10 +885,12 @@ class _TurmaFormSheetState extends ConsumerState<_TurmaFormSheet> {
     );
 
     final count = agenda
-        .where((e) => probe.coversEvent(
-              eventTypeCode: e.eventType,
-              eventStart: e.startDate,
-            ))
+        .where(
+          (e) => probe.coversEvent(
+            eventTypeCode: e.eventType,
+            eventStart: e.startDate,
+          ),
+        )
         .length;
 
     if (count == 0) {

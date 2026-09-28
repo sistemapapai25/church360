@@ -10,6 +10,10 @@ import 'generica_turma_adapter.dart';
 typedef TurmaLessonAttendance =
     Future<void> Function(BuildContext context, StudyLesson lesson);
 
+/// Onde esta turma se edita, para o botão que a vitrine de Cursos oferece
+/// à liderança: o rótulo e a rota.
+typedef TurmaManageTarget = ({String label, String route});
+
 /// As abas que variam com a origem da turma. As outras (Aulas, Materiais)
 /// são as mesmas para qualquer turma e não passam por aqui.
 abstract interface class TurmaSurfaces {
@@ -21,12 +25,17 @@ abstract interface class TurmaSurfaces {
   /// registra presença pela aula. Só o Batismo tem (Etapa 5.3); a turma
   /// genérica marca presença na aba Presença, por aula, desde a 5.2.
   TurmaLessonAttendance? get lessonAttendance;
+
+  /// Para onde a liderança vai quando quer editar a turma que abriu pela
+  /// vitrine de Cursos. Cada origem sabe a sua porta — a tela só mostra o
+  /// botão. `null` quando não há porta.
+  TurmaManageTarget? get manage;
 }
 
 /// Único `switch` sobre a origem na árvore da tela da turma.
 TurmaSurfaces turmaSurfacesFor(TurmaOrigin origin, TurmaAccess access) {
   return switch (origin) {
-    BatismoTurmaOrigin() => BatismoTurmaAdapter(origin),
+    BatismoTurmaOrigin() => BatismoTurmaAdapter(origin, access),
     GenericaTurmaOrigin() => GenericaTurmaAdapter(origin, access),
   };
 }

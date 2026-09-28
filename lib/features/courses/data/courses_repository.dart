@@ -399,6 +399,30 @@ class CoursesRepository {
     return CourseTurma.fromJson(Map<String, dynamic>.from(response));
   }
 
+  /// As turmas (`study_groups`) espelho de um ministério, indexadas pelo
+  /// `baptism_turma_id`.
+  ///
+  /// É como o sheet de Turmas do Batismo encontra a tela da turma: a
+  /// `baptism_turma` não guarda o id do grupo — o grupo é que aponta para
+  /// ela. Turma sem espelho, ou com o espelho escondido pela RLS, fica
+  /// fora do mapa, e o card dela não abre.
+  Future<Map<String, String>> getMinistryTurmaGroupIds(
+    String ministryId,
+  ) async {
+    final response = await _supabase
+        .from('study_groups')
+        .select('id, baptism_turma_id')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('ministry_id', ministryId)
+        .not('baptism_turma_id', 'is', null);
+
+    return {
+      for (final row in response as List)
+        if ((row as Map)['baptism_turma_id'] != null)
+          row['baptism_turma_id'] as String: row['id'] as String,
+    };
+  }
+
   static const _turmaColumns =
       'id, name, status, start_date, end_date, ministry_id, baptism_turma_id, course_id';
 

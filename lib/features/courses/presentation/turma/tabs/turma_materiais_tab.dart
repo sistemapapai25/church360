@@ -118,7 +118,8 @@ class TurmaMateriaisTab extends ConsumerWidget {
             )),
           );
     final groupAsync = ref.watch(materialsByEntityProvider(_groupKey));
-    final rights = access.isLeadership
+    // Sem direitos na vitrine: desvincular material é escrita.
+    final rights = access.isLeadership && !access.readOnly
         ? ref.watch(turmaMaterialRightsProvider).valueOrNull
         : null;
 

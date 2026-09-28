@@ -15,29 +15,43 @@ import 'adapters/turma_surfaces.dart';
 import 'tabs/turma_aulas_tab.dart';
 import 'tabs/turma_materiais_tab.dart';
 import 'turma_access.dart';
+import 'turma_mode.dart';
 import 'turma_origin.dart';
 import 'turma_tabs.dart';
 
-/// Tela da turma, rota canônica `/courses/:courseId/turmas/:studyGroupId`
-/// (decisão 23 do ROADMAP-FORMACAO).
+/// Tela da turma. Duas rotas, uma tela:
+///
+/// - `/courses/:courseId/turmas/:studyGroupId` (decisão 23 do
+///   ROADMAP-FORMACAO), a porta de Cursos, em [TurmaMode.leitura];
+/// - `/turmas/:studyGroupId/gestao`, a porta de gestão — o sheet de Turmas
+///   do Batismo e o botão "Gerenciar" da turma genérica.
 ///
 /// Uma turma, uma tela: Batismo e turma genérica abrem aqui. O que varia
-/// vem de dois lugares separados — a origem (`turmaOriginProvider`) e o
-/// papel de quem abriu ([turmaAccessProvider]). Fora do
-/// `MinistryWorkspaceShell` de propósito: não é tela de ministério.
+/// vem de três lugares separados — a origem (`turmaOriginProvider`), o
+/// papel de quem abriu ([turmaAccessProvider]) e a porta ([TurmaMode]).
+/// Fora do `MinistryWorkspaceShell` de propósito: não é tela de ministério.
+///
+/// Em Cursos a tela é vitrine: o papel continua valendo para *ver* (a
+/// liderança segue vendo rascunho, Alunos e Presença), mas toda gravação
+/// some — quem edita entra pela porta de gestão.
 ///
 /// Sem guard no router, como `/courses/:id/view`. Quem não enxerga o grupo
 /// pela RLS, quem não tem papel nele e quem chega por um `:courseId` que não
 /// é o da turma recebem a mesma resposta, sem distinguir "não existe" de
 /// "não pode".
 class TurmaDetailScreen extends ConsumerStatefulWidget {
-  final String courseId;
+  /// O curso da rota de Cursos. `null` na porta de gestão, que não passa
+  /// por curso nenhum — o link do curso sai do próprio grupo.
+  final String? courseId;
+
   final String studyGroupId;
+  final TurmaMode mode;
 
   const TurmaDetailScreen({
     super.key,
-    required this.courseId,
+    this.courseId,
     required this.studyGroupId,
+    this.mode = TurmaMode.leitura,
   });
 
   @override
@@ -54,8 +68,7 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
 
   /// Aulas e Materiais são iguais para qualquer turma; Alunos, Presença e
   /// Minha frequência vêm da origem ([turmaSurfacesFor]).
-  Widget _buildTab(TurmaTabId tab, TurmaOrigin origin, TurmaAccess access) {
-    final surfaces = turmaSurfacesFor(origin, access);
+  Widget _buildTab(TurmaTabId tab, TurmaSurfaces surfaces, TurmaAccess access) {
     return switch (tab) {
       TurmaTabId.aulas => TurmaAulasTab(
         studyGroupId: widget.studyGroupId,
@@ -94,7 +107,9 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
     }
 
     final turma = turmaAsync.value;
-    final access = accessAsync.value ?? TurmaAccess.none;
+    // O papel é o mesmo nas duas portas; o que muda é o que ele grava.
+    final role = accessAsync.value ?? TurmaAccess.none;
+    final access = widget.mode == TurmaMode.leitura ? role.asReadOnly() : role;
     // Já carregada: o acesso depende da origem.
     final origin = ref.watch(turmaOriginProvider(widget.studyGroupId)).value;
     if (turma != null &&
@@ -109,7 +124,7 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
     }
     if (turma == null ||
         origin == null ||
-        turma.courseId != widget.courseId ||
+        (widget.courseId != null && turma.courseId != widget.courseId) ||
         !access.hasAccess) {
       return const _TurmaMessageScaffold(
         child: _TurmaMessage(
@@ -122,6 +137,12 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
     final tabs = turmaTabsFor(access);
     final selected = _selected.clamp(0, tabs.length - 1);
     final active = tabs[selected];
+    final surfaces = turmaSurfacesFor(origin, access);
+    // Saída da vitrine: só na porta de leitura e só para quem edita algo
+    // do outro lado. Para o aluno não há para onde ir.
+    final manage = widget.mode == TurmaMode.leitura && role.isLeadership
+        ? surfaces.manage
+        : null;
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -136,19 +157,21 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
         ),
         title: Text(
           turma.name,
-          style: CommunityDesign.titleStyle(context).copyWith(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            height: 1.15,
-          ),
+          style: CommunityDesign.titleStyle(
+            context,
+          ).copyWith(fontSize: 18, fontWeight: FontWeight.w800, height: 1.15),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
+        actions: [if (manage != null) _ManageAction(target: manage)],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _TurmaHeader(turma: turma, courseId: widget.courseId),
+          _TurmaHeader(
+            turma: turma,
+            courseId: widget.courseId ?? turma.courseId,
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
             child: AppTabs(
@@ -160,7 +183,7 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
           Expanded(
             child: KeyedSubtree(
               key: ValueKey(active),
-              child: _buildTab(active, origin, access),
+              child: _buildTab(active, surfaces, access),
             ),
           ),
         ],
@@ -173,7 +196,10 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
 /// período.
 class _TurmaHeader extends ConsumerWidget {
   final CourseTurma turma;
-  final String courseId;
+
+  /// `null` só em turma sem curso (grupo antigo, até a Etapa 8): aí a
+  /// faixa perde o link e mantém o resto.
+  final String? courseId;
 
   const _TurmaHeader({required this.turma, required this.courseId});
 
@@ -181,9 +207,12 @@ class _TurmaHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final accent = dark ? AppTheme.darkRing : AppTheme.primary;
-    final courseTitle = ref
-        .watch(courseByIdProvider(courseId))
-        .maybeWhen(data: (c) => c?.title, orElse: () => null);
+    final courseId = this.courseId;
+    final courseTitle = courseId == null
+        ? null
+        : ref
+              .watch(courseByIdProvider(courseId))
+              .maybeWhen(data: (c) => c?.title, orElse: () => null);
     final period = turma.periodLabel;
 
     return Container(
@@ -194,25 +223,25 @@ class _TurmaHeader extends ConsumerWidget {
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          InkWell(
-            key: const ValueKey('turma-course-link'),
-            borderRadius: BorderRadius.circular(8),
-            onTap: () => context.push('/courses/$courseId/view'),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(AppIcons.study, size: 16, color: accent),
-                const SizedBox(width: 4),
-                Text(
-                  courseTitle ?? 'Ver curso',
-                  style: CommunityDesign.metaStyle(context).copyWith(
-                    color: accent,
-                    fontWeight: FontWeight.w700,
+          if (courseId != null)
+            InkWell(
+              key: const ValueKey('turma-course-link'),
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => context.push('/courses/$courseId/view'),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(AppIcons.study, size: 16, color: accent),
+                  const SizedBox(width: 4),
+                  Text(
+                    courseTitle ?? 'Ver curso',
+                    style: CommunityDesign.metaStyle(
+                      context,
+                    ).copyWith(color: accent, fontWeight: FontWeight.w700),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
           StatusBadge(
             label: turma.status.displayName,
             tone: courseTurmaStatusTone(turma.status),
@@ -224,16 +253,39 @@ class _TurmaHeader extends ConsumerWidget {
                 Icon(
                   AppIcons.calendar,
                   size: 14,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.5),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
                 const SizedBox(width: 4),
                 Text(period, style: CommunityDesign.metaStyle(context)),
               ],
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Saída da vitrine: onde esta turma se edita.
+///
+/// Só aparece na porta de Cursos e só para a liderança — o aluno não tem
+/// para onde ir. O destino é da origem, não desta tela: quem responde é o
+/// adapter, em `manage`.
+class _ManageAction extends StatelessWidget {
+  final TurmaManageTarget target;
+
+  const _ManageAction({required this.target});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: TextButton.icon(
+        key: const ValueKey('turma-gerenciar'),
+        onPressed: () => context.push(target.route),
+        icon: const Icon(AppIcons.tune, size: 18),
+        label: Text(target.label),
       ),
     );
   }
@@ -278,8 +330,9 @@ class _TurmaMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final muted =
-        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5);
+    final muted = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.5);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),

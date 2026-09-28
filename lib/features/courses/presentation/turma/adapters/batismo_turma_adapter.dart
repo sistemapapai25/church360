@@ -14,6 +14,7 @@ import '../../../../ministries/batismo/presentation/screens/tabs/batismo_alunos_
 import '../../../../ministries/batismo/presentation/screens/tabs/batismo_presenca_tab.dart';
 import '../../../../ministries/batismo/presentation/widgets/baptism_lesson_attendance.dart';
 import '../../../../study_groups/domain/models/study_group.dart';
+import '../turma_access.dart';
 import '../turma_origin.dart';
 import '../widgets/turma_sheet.dart';
 import 'turma_surfaces.dart';
@@ -25,13 +26,15 @@ import 'turma_surfaces.dart';
 /// compartilhadas da tela da turma.
 class BatismoTurmaAdapter implements TurmaSurfaces {
   final BatismoTurmaOrigin origin;
+  final TurmaAccess access;
 
-  const BatismoTurmaAdapter(this.origin);
+  const BatismoTurmaAdapter(this.origin, this.access);
 
   @override
   Widget alunos() => BatismoAlunosTab(
     ministryId: origin.ministryId,
     lockedTurmaId: origin.baptismTurmaId,
+    readOnly: access.readOnly,
   );
 
   @override
@@ -44,23 +47,35 @@ class BatismoTurmaAdapter implements TurmaSurfaces {
   Widget minhaFrequencia() =>
       BatismoMinhaFrequencia(baptismTurmaId: origin.baptismTurmaId);
 
+  /// A turma do Batismo se gerencia no workspace do ministério: é lá que
+  /// nascem turma e aluno, e é de lá que sai a porta de gestão desta tela.
+  @override
+  TurmaManageTarget? get manage => (
+    label: 'Gerenciar no Batismo',
+    route: '/ministries/${origin.ministryId}/batismo',
+  );
+
   /// A chamada do Batismo é feita aqui desde a 5.3: a presença por aula
   /// substituiu o encontro avulso da aba Presença.
+  ///
+  /// Marcar presença é escrita: na vitrine de Cursos a aula não oferece a
+  /// chamada, e a aba Presença do Batismo já é só leitura.
   @override
-  TurmaLessonAttendance get lessonAttendance =>
-      (context, lesson) => showTurmaSheet<void>(
-        context: context,
-        builder: (_) => TurmaSheetBody(
-          title: 'Presença · Aula ${lesson.lessonNumber}',
-          children: [
-            BaptismLessonAttendance(
-              ministryId: origin.ministryId,
-              turmaId: origin.baptismTurmaId,
-              lesson: batismoLessonRef(lesson),
-            ),
-          ],
-        ),
-      );
+  TurmaLessonAttendance? get lessonAttendance => access.readOnly
+      ? null
+      : (context, lesson) => showTurmaSheet<void>(
+          context: context,
+          builder: (_) => TurmaSheetBody(
+            title: 'Presença · Aula ${lesson.lessonNumber}',
+            children: [
+              BaptismLessonAttendance(
+                ministryId: origin.ministryId,
+                turmaId: origin.baptismTurmaId,
+                lesson: batismoLessonRef(lesson),
+              ),
+            ],
+          ),
+        );
 }
 
 /// A aula vista pela chamada do Batismo.

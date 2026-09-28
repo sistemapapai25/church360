@@ -160,6 +160,16 @@ final turmaByIdProvider = FutureProvider.family<CourseTurma?, String>((ref, stud
   return repo.getTurma(studyGroupId);
 });
 
+/// `baptism_turma_id` → id do `study_group` espelho, por ministério.
+///
+/// Só o sheet de Turmas do Batismo usa: é o que transforma um card de
+/// turma na rota da tela da turma.
+final ministryTurmaGroupIdsProvider =
+    FutureProvider.family<Map<String, String>, String>((ref, ministryId) async {
+  final repo = ref.watch(coursesRepositoryProvider);
+  return repo.getMinistryTurmaGroupIds(ministryId);
+});
+
 // ==================== COURSE LESSONS PROVIDERS ====================
 
 /// Provider de aulas de um curso
