@@ -21,6 +21,33 @@ def run_smoke_test(edits) -> None:
     print(f"Smoke test OK: acesso confirmado a {PACKAGE_NAME} via Play Developer API")
 
 
+def list_tracks(edits) -> None:
+    """Lista as faixas que existem de verdade neste app, sem publicar nada.
+    O nome de uma faixa de teste fechado nao e adivinhavel: o primeiro teste
+    fechado costuma ocupar 'alpha', mas faixas criadas depois tem nome
+    proprio. Publicar numa faixa errada e erro 404 no meio do commit, entao
+    confira aqui antes. Cria um rascunho de edicao e descarta em seguida.
+    """
+    edit_id = edits.insert(body={}, packageName=PACKAGE_NAME).execute()["id"]
+    try:
+        tracks = edits.tracks().list(
+            editId=edit_id, packageName=PACKAGE_NAME
+        ).execute().get("tracks", [])
+        if not tracks:
+            print("Nenhuma faixa retornada pela API.")
+        for t in tracks:
+            releases = t.get("releases", [])
+            resumo = ", ".join(
+                "{} versionCodes={}".format(
+                    r.get("status", "?"), r.get("versionCodes", [])
+                )
+                for r in releases
+            ) or "sem release"
+            print(f"faixa '{t.get('track')}': {resumo}")
+    finally:
+        edits.delete(editId=edit_id, packageName=PACKAGE_NAME).execute()
+
+
 def main() -> None:
     credentials, _ = google.auth.default(
         scopes=["https://www.googleapis.com/auth/androidpublisher"]
@@ -30,6 +57,10 @@ def main() -> None:
 
     if TRACK == "smoke_test":
         run_smoke_test(edits)
+        return
+
+    if TRACK == "list_tracks":
+        list_tracks(edits)
         return
 
     if not os.path.isfile(AAB_PATH):

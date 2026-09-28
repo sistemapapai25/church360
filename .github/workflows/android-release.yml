@@ -11,7 +11,9 @@ on:
         options:
           - 'none'
           - 'smoke_test'
+          - 'list_tracks'
           - 'internal'
+          - 'alpha'
 
 env:
   ANDROID_PACKAGE_NAME: com.papai.myapp
