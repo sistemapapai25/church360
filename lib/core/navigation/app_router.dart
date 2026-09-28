@@ -431,18 +431,31 @@ final appRouter = GoRouter(
         );
       },
     ),
+    // CHU-376: as três rotas abaixo entravam sem guard nenhum. A ficha de
+    // OUTRA pessoa é tela de gestão — `members.*` ou `visitors.*` (a mesma
+    // rota serve membro e visitante) ou nível administrativo. O caminho da
+    // própria ficha NÃO passa por aqui: `/profile` monta a
+    // `MemberProfileScreen` direto pela `ProfileScreen`, e continua aberto.
     GoRoute(
       path: '/members/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return MemberFormScreen(memberId: id);
+        return AnyPermissionOrLevelRoute(
+          permissions: const ['members.edit', 'visitors.edit'],
+          requiredLevel: AccessLevelType.admin,
+          child: MemberFormScreen(memberId: id),
+        );
       },
     ),
     GoRoute(
       path: '/members/:id/profile',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return MemberProfileScreen(memberId: id);
+        return AnyPermissionOrLevelRoute(
+          permissions: const ['members.view', 'visitors.view'],
+          requiredLevel: AccessLevelType.admin,
+          child: MemberProfileScreen(memberId: id),
+        );
       },
     ),
     GoRoute(
@@ -450,7 +463,11 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         // Padronizando para usar o MemberProfileScreen que é mais completo
-        return MemberProfileScreen(memberId: id);
+        return AnyPermissionOrLevelRoute(
+          permissions: const ['members.view', 'visitors.view'],
+          requiredLevel: AccessLevelType.admin,
+          child: MemberProfileScreen(memberId: id),
+        );
       },
     ),
     GoRoute(

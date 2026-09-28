@@ -1484,11 +1484,32 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     );
   }
 
+  /// CHU-376: quem pode definir a foto DESTA pessoa.
+  ///
+  /// Espelha a policy de UPDATE de `user_account`: a própria foto sempre;
+  /// a de terceiro só com `members.edit` (ou `visitors.edit`, quando a ficha
+  /// é de visitante) ou sendo elevado. A tela é só conforto — a autoridade
+  /// continua sendo a RLS. Fail-closed: enquanto a resposta não chega, ou se
+  /// ela falha, o avatar não é clicável.
+  bool _canChangePhotoOf(Member member) {
+    final currentMember = ref.watch(currentMemberProvider).valueOrNull;
+    if (currentMember != null && currentMember.id == member.id) return true;
+
+    final isElevated =
+        ref.watch(currentUserIsElevatedProvider).valueOrNull ?? false;
+    if (isElevated) return true;
+
+    final needed = member.isVisitor ? 'visitors.edit' : 'members.edit';
+    return ref.watch(currentUserHasPermissionProvider(needed)).valueOrNull ??
+        false;
+  }
+
   Widget _buildHeaderAvatar(BuildContext context, Member member) {
     final colorScheme = Theme.of(context).colorScheme;
     final resolvedUrl = _resolvePhotoUrl(member);
+    final canChangePhoto = _canChangePhotoOf(member);
     return GestureDetector(
-      onTap: _isUploadingPhoto
+      onTap: (_isUploadingPhoto || !canChangePhoto)
           ? null
           : () => _showPhotoOptions(context, member.id),
       child: Stack(
@@ -1541,26 +1562,29 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                     ),
             ),
           ),
-          Positioned(
-            right: -2,
-            bottom: -2,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: colorScheme.primary,
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.surface,
-                  width: 2,
+          // Sem o selo de câmera quando a troca não é permitida: convidar para
+          // um toque que a RLS vai recusar é pior que não oferecer.
+          if (canChangePhoto)
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorScheme.primary,
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.surface,
+                    width: 2,
+                  ),
+                ),
+                child: Icon(
+                  AppIcons.camera,
+                  size: 12,
+                  color: colorScheme.onPrimary,
                 ),
               ),
-              child: Icon(
-                AppIcons.camera,
-                size: 12,
-                color: colorScheme.onPrimary,
-              ),
             ),
-          ),
         ],
       ),
     );
