@@ -12,6 +12,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../../../core/constants/supabase_constants.dart';
+import '../../../../core/utils/storage_upload_path.dart';
 import '../../data/support_agents_data.dart';
 import '../../domain/models/support_agent.dart';
 import '../providers/agents_providers.dart';
@@ -512,8 +513,29 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       return;
     }
 
-    final filePath = 'support-chat-wallpapers/${memberId}_${_activeAgentKey.toLowerCase()}_wallpaper';
+    // CHU-374: este é o único upload do app que sobrescreve sempre o mesmo
+    // objeto (`upsert: true` em path fixo). Com o legado read-only, o path
+    // antigo, na raiz do bucket, deixaria de aceitar UPDATE — daí o wallpaper
+    // passar a morar dentro da pasta do próprio usuário. O `upsert` continua,
+    // mas agora só alcança objeto do próprio auth uid, no tenant atual.
+    final authUid = supabase.auth.currentUser?.id;
+    if (authUid == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Usuário não autenticado')),
+        );
+      }
+      return;
+    }
     final contentType = _wallpaperContentTypeFromName(file.name);
+    final filePath = buildStorageUploadPath(
+      userId: authUid,
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+      extension: contentType.split('/').last,
+      tenantId: SupabaseConstants.currentTenantId,
+      namespace: 'support-chat-wallpapers',
+      fileName: _activeAgentKey.toLowerCase(),
+    );
     const buckets = <String>[
       'chat-wallpapers',
       'church-assets',

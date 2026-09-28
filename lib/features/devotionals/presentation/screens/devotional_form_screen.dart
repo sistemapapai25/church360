@@ -346,6 +346,7 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
                 });
               },
               storageBucket: 'devotional-images',
+              tenantScopedPath: true,
               label: 'Imagem do Devocional',
             ),
             const SizedBox(height: 16),

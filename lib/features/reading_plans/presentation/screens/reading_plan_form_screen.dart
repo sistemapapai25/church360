@@ -497,6 +497,7 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
                         });
                       },
                       storageBucket: 'banner-images',
+                      tenantScopedPath: true,
                       label: 'Imagem do Plano (Opcional)',
                     ),
                     const SizedBox(height: 16),

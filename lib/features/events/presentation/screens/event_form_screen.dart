@@ -1469,6 +1469,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                         });
                       },
                       storageBucket: 'event-images',
+                      tenantScopedPath: true,
                       label: 'Imagem do Evento',
                     ),
                     const SizedBox(height: 16),

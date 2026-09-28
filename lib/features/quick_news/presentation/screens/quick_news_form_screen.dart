@@ -5,9 +5,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 
+import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/utils/storage_upload_path.dart';
 import '../providers/quick_news_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
@@ -91,8 +93,17 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
     try {
       final bytes = await _selectedImage!.readAsBytes();
       final fileExt = _selectedImage!.path.split('.').last.toLowerCase();
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
-      final filePath = 'quick-news/$fileName';
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) throw Exception('Usuário não autenticado');
+
+      // CHU-374: `<tenant>/<auth uid>/quick-news/<ts>.<ext>`.
+      final filePath = buildStorageUploadPath(
+        userId: userId,
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+        extension: fileExt,
+        tenantId: SupabaseConstants.currentTenantId,
+        namespace: 'quick-news',
+      );
       final contentType = (fileExt == 'jpg' || fileExt == 'jpeg')
           ? 'image/jpeg'
           : 'image/$fileExt';

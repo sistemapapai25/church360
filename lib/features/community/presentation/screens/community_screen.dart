@@ -11,9 +11,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../providers/community_providers.dart';
+import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/utils/share_link_utils.dart';
+import '../../../../core/utils/storage_upload_path.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/pearl_fab.dart';
 import '../../domain/models/community_post.dart';
@@ -1243,14 +1245,23 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     final supabase = Supabase.instance.client;
     final member = await ref.read(currentMemberProvider.future);
     if (member == null) throw Exception('Usuário não autenticado');
-    final userId = member.id;
+    // CHU-374: o 2º segmento do path tem que ser o auth uid, não o
+    // `user_account.id` — é ele que a policy confere contra `auth.uid()`.
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('Usuário não autenticado');
 
     final bytes = await file.readAsBytes();
     final name = file.name;
     final extension = (name.contains('.') ? name.split('.').last : 'jpg')
         .toLowerCase();
     final timestamp = DateTime.now().microsecondsSinceEpoch;
-    final filePath = 'classifieds/$userId/$timestamp.$extension';
+    final filePath = buildStorageUploadPath(
+      userId: userId,
+      timestamp: timestamp,
+      extension: extension,
+      tenantId: SupabaseConstants.currentTenantId,
+      namespace: 'classifieds',
+    );
     final contentType = (extension == 'jpg' || extension == 'jpeg')
         ? 'image/jpeg'
         : 'image/$extension';
@@ -5705,14 +5716,23 @@ class _EditClassifiedSheetState extends ConsumerState<_EditClassifiedSheet> {
     final supabase = Supabase.instance.client;
     final member = await ref.read(currentMemberProvider.future);
     if (member == null) throw Exception('Usuário não autenticado');
-    final userId = member.id;
+    // CHU-374: o 2º segmento do path tem que ser o auth uid, não o
+    // `user_account.id` — é ele que a policy confere contra `auth.uid()`.
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('Usuário não autenticado');
 
     final bytes = await file.readAsBytes();
     final name = file.name;
     final extension = (name.contains('.') ? name.split('.').last : 'jpg')
         .toLowerCase();
     final timestamp = DateTime.now().microsecondsSinceEpoch;
-    final filePath = 'classifieds/$userId/$timestamp.$extension';
+    final filePath = buildStorageUploadPath(
+      userId: userId,
+      timestamp: timestamp,
+      extension: extension,
+      tenantId: SupabaseConstants.currentTenantId,
+      namespace: 'classifieds',
+    );
     final contentType = (extension == 'jpg' || extension == 'jpeg')
         ? 'image/jpeg'
         : 'image/$extension';

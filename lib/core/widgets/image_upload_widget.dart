@@ -19,6 +19,11 @@ class ImageUploadWidget extends StatefulWidget {
   /// bucket. Obrigatório nos buckets com policy por tenant (CHU-370).
   final bool tenantScopedPath;
 
+  /// Pasta de finalidade dentro de `<tenant>/<auth uid>/`, para os buckets
+  /// multiuso cuja policy distingue o uso do arquivo (CHU-374). Só tem efeito
+  /// junto com [tenantScopedPath].
+  final String? storageNamespace;
+
   const ImageUploadWidget({
     super.key,
     this.initialImageUrl,
@@ -27,6 +32,7 @@ class ImageUploadWidget extends StatefulWidget {
     this.fallbackBuckets = const [],
     this.label = 'Imagem',
     this.tenantScopedPath = false,
+    this.storageNamespace,
   });
 
   @override
@@ -119,6 +125,7 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
         tenantId: widget.tenantScopedPath
             ? SupabaseConstants.currentTenantId
             : null,
+        namespace: widget.storageNamespace,
       );
 
       final buckets = <String>[

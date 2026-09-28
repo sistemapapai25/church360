@@ -325,6 +325,7 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
                           });
                         },
                         storageBucket: 'event-images',
+                        tenantScopedPath: true,
                         label: 'Imagem (Opcional)',
                       ),
                       const SizedBox(height: 16),
