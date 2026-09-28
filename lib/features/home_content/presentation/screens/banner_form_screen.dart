@@ -368,6 +368,7 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
                         });
                       },
                       storageBucket: 'banner-images',
+                      tenantScopedPath: true,
                       label: 'Imagem do Banner *',
                     ),
                     const SizedBox(height: 16),

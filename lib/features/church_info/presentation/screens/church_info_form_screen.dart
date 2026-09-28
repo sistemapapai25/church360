@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/constants/supabase_constants.dart';
+import '../../../../core/utils/storage_upload_path.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../providers/church_info_provider.dart';
@@ -124,8 +125,19 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
 
       try {
         final bytes = await pickedFile.readAsBytes();
-        final fileName =
-            'church_logo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final userId = Supabase.instance.client.auth.currentUser?.id;
+        if (userId == null) throw Exception('Usuário não autenticado');
+
+        // CHU-374: `<tenant>/<auth uid>/church-branding/<ts>.jpg`. O namespace
+        // separa o logo (ato administrativo) do conteúdo pessoal que divide
+        // este bucket — classificados e wallpaper do chat.
+        final fileName = buildStorageUploadPath(
+          userId: userId,
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+          extension: 'jpg',
+          tenantId: SupabaseConstants.currentTenantId,
+          namespace: 'church-branding',
+        );
 
         // Upload para Supabase Storage
         await Supabase.instance.client.storage

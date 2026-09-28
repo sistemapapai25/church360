@@ -9,7 +9,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/utils/storage_upload_path.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/onboarding/onboarding_tour_prefs.dart';
 import '../../../../core/widgets/glass_card.dart';
@@ -258,9 +260,17 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) throw Exception('Usuário não autenticado');
 
+      // CHU-374: grava em `<tenant>/<auth uid>/<ts>.<ext>`. O 2º segmento é o
+      // uploader, não o dono da foto — quem pode definir a foto DESTE membro é
+      // a RLS de `user_account` no update abaixo (CHU-376).
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final extension = image.name.split('.').last;
-      final fileName = 'member_${memberId}_$timestamp.$extension';
+      final fileName = buildStorageUploadPath(
+        userId: userId,
+        timestamp: timestamp,
+        extension: extension,
+        tenantId: SupabaseConstants.currentTenantId,
+      );
 
       if (kIsWeb) {
         final bytes = await image.readAsBytes();
