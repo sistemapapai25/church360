@@ -1,14 +1,21 @@
 // CHU-310: QA automatizado do gating de widgets do Dashboard de Liderança
-// por perfil (membro, líder não-coordinator, coordinator, financeiro,
-// admin/owner). Cobre a lógica central em
+// por perfil (membro, quem tem só members.view, quem tem events.view,
+// financeiro, admin/owner). Cobre a lógica central em
 // lib/core/providers/dashboard_widget_provider.dart, que decide quais cards
 // aparecem para o usuário atual.
+//
+// CHU-384 (29/09/2026): estes testes passavam com a regra antiga, em que
+// `upcoming_events` exigia também ser `coordinator` de algum ministério —
+// porque o cenário "é coordinator" era um booleano injetado no container. Em
+// produção esse papel não existe em nenhuma das 195 linhas de
+// `ministry_member`, então o card sumia para todos, Owner incluído, e nenhum
+// teste reclamava. A régua agora é só a permissão RBAC, e o caso que faltava
+// ("tem events.view e não é coordenador de nada") virou teste explícito.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:church360_app/core/domain/models/dashboard_widget.dart';
 import 'package:church360_app/core/providers/dashboard_widget_provider.dart';
-import 'package:church360_app/features/ministries/presentation/providers/ministries_provider.dart';
 import 'package:church360_app/features/permissions/providers/permissions_providers.dart'
     hide supabaseClientProvider;
 
@@ -28,8 +35,8 @@ DashboardWidget _widget(String key) {
 }
 
 /// Conjunto de widgets do tenant usado nos cenários: um card sempre visível
-/// (birthdays_month), um gated por permissão simples (recent_members), um
-/// gated por coordinator + permissão (upcoming_events, a Agenda completa) e
+/// (birthdays_month), um gated por permissão simples (recent_members), a
+/// Agenda completa (upcoming_events, gated por events.view desde a CHU-384) e
 /// um gated por financial.view_reports (financial_summary).
 final _tenantWidgets = [
   _widget('birthdays_month'),
@@ -39,7 +46,6 @@ final _tenantWidgets = [
 ];
 
 ProviderContainer _buildContainer({
-  required bool isCoordinator,
   required Set<String> grantedPermissions,
   Map<String, bool> personalPreferences = const {},
 }) {
@@ -47,9 +53,6 @@ ProviderContainer _buildContainer({
     overrides: [
       tenantEnabledDashboardWidgetsProvider.overrideWith(
         (ref) => _tenantWidgets,
-      ),
-      currentUserIsMinistryCoordinatorProvider.overrideWith(
-        (ref) async => isCoordinator,
       ),
       currentUserHasPermissionProvider.overrideWith(
         (ref, permissionCode) async => grantedPermissions.contains(permissionCode),
@@ -71,7 +74,6 @@ void main() {
   group('permittedDashboardWidgetsProvider — perfis do CHU-310', () {
     test('Membro comum sem permissão extra vê só Aniversariantes', () async {
       final container = _buildContainer(
-        isCoordinator: false,
         grantedPermissions: {},
       );
       addTearDown(container.dispose);
@@ -82,11 +84,9 @@ void main() {
     });
 
     test(
-      'Líder de ministério (não-coordinator) não vê Agenda nem Financeiro '
-      'mesmo tendo outra permissão',
+      'Quem tem members.view não vê Agenda nem Financeiro',
       () async {
         final container = _buildContainer(
-          isCoordinator: false,
           grantedPermissions: {'members.view'},
         );
         addTearDown(container.dispose);
@@ -99,25 +99,30 @@ void main() {
       },
     );
 
-    test('Coordinator de um ministério vê a Agenda completa', () async {
-      final container = _buildContainer(
-        isCoordinator: true,
-        grantedPermissions: {'events.view'},
-      );
-      addTearDown(container.dispose);
-
-      final keys = await _permittedKeys(container);
-
-      expect(keys, contains('upcoming_events'));
-    });
-
     test(
-      'Coordinator sem events.view continua sem ver a Agenda '
-      '(precisa das duas condições)',
+      'CHU-384: quem tem events.view vê a Agenda, sem ser coordenador de nada',
       () async {
         final container = _buildContainer(
-          isCoordinator: true,
-          grantedPermissions: {},
+          grantedPermissions: {'events.view'},
+        );
+        addTearDown(container.dispose);
+
+        final keys = await _permittedKeys(container);
+
+        expect(
+          keys,
+          contains('upcoming_events'),
+          reason: 'a Agenda segue events.view e mais nada; era este o caso '
+              'que o gate de coordinator derrubava para todo mundo',
+        );
+      },
+    );
+
+    test(
+      'Sem events.view não vê a Agenda, mesmo com as outras permissões',
+      () async {
+        final container = _buildContainer(
+          grantedPermissions: {'members.view', 'financial.view_reports'},
         );
         addTearDown(container.dispose);
 
@@ -129,7 +134,6 @@ void main() {
 
     test('Usuário com financial.view_reports vê o card Financeiro', () async {
       final container = _buildContainer(
-        isCoordinator: false,
         grantedPermissions: {'financial.view_reports'},
       );
       addTearDown(container.dispose);
@@ -143,7 +147,6 @@ void main() {
 
     test('Admin/owner com todas as permissões vê todos os cards', () async {
       final container = _buildContainer(
-        isCoordinator: true,
         grantedPermissions: {
           'members.view',
           'events.view',
@@ -166,7 +169,6 @@ void main() {
       'widget permitido mas desativado manualmente pelo usuário não aparece',
       () async {
         final container = _buildContainer(
-          isCoordinator: true,
           grantedPermissions: {
             'members.view',
             'events.view',
@@ -188,7 +190,6 @@ void main() {
       'widget permitido sem preferência salva aparece por padrão (CHU-302)',
       () async {
         final container = _buildContainer(
-          isCoordinator: false,
           grantedPermissions: {},
         );
         addTearDown(container.dispose);
@@ -204,7 +205,6 @@ void main() {
       'preferência pessoal não libera widget sem permissão RBAC',
       () async {
         final container = _buildContainer(
-          isCoordinator: false,
           grantedPermissions: {},
           personalPreferences: {'financial_summary': true},
         );
@@ -235,9 +235,6 @@ void main() {
                   ? [_widget('birthdays_month')]
                   : [_widget('birthdays_month'), _widget('recent_members')];
             }),
-            currentUserIsMinistryCoordinatorProvider.overrideWith(
-              (ref) async => false,
-            ),
             currentUserHasPermissionProvider.overrideWith(
               (ref, permissionCode) async => true,
             ),

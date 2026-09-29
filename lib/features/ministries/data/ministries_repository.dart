@@ -396,19 +396,11 @@ class MinistriesRepository {
         .toList();
   }
 
-  /// Verifica se o membro é `coordinator` (líder direto do departamento,
-  /// CHU-302) em pelo menos um ministério.
-  Future<bool> isCoordinatorOfAnyMinistry(String memberId) async {
-    final response = await _supabase
-        .from('ministry_member')
-        .select('id')
-        .eq('user_id', memberId)
-        .eq('role', MinistryRole.coordinator.value)
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .limit(1);
-
-    return (response as List).isNotEmpty;
-  }
+  // CHU-384 (29/09/2026): aqui existia `isCoordinatorOfAnyMinistry`, que
+  // consultava ministry_member por `role = coordinator`. Nenhuma linha de
+  // produção tem esse papel, então a consulta respondia `false` sempre e
+  // escondia o card "Próximos Eventos" do Dashboard de todo mundo. Removida
+  // junto com o único consumidor.
 
   // ==================== ESCALAS ====================
 

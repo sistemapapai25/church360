@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/presentation/providers/auth_provider.dart';
-import '../../features/ministries/presentation/providers/ministries_provider.dart';
 import '../../features/permissions/providers/permissions_providers.dart'
     hide supabaseClientProvider;
 import '../constants/dashboard_widget_permissions.dart';
@@ -52,20 +51,19 @@ final currentUserDashboardWidgetPreferencesProvider = FutureProvider<Map<String,
 });
 
 /// Widgets habilitados no tenant que o usuário atual tem permissão de ver
-/// (CHU-305/306): cruza a permissão RBAC exigida por cada widget e, pros
-/// que exigem líder direto do departamento, se o usuário é `coordinator`
-/// de algum ministério. Widgets fora desse conjunto nunca aparecem, mesmo
-/// que o usuário tenha uma preferência salva pra exibi-los.
+/// (CHU-305/306): cruza a permissão RBAC exigida por cada widget em
+/// [dashboardWidgetPermissionMap]. Widgets fora desse conjunto nunca
+/// aparecem, mesmo que o usuário tenha uma preferência salva pra exibi-los.
+///
+/// CHU-384: havia aqui um segundo filtro, que exigia ser `coordinator` de
+/// algum ministério para ver `upcoming_events`. Ele escondia o card de todo
+/// mundo, porque esse papel não existe no dado — ver
+/// `dashboard_widget_permissions.dart`. A permissão RBAC é a única régua.
 final permittedDashboardWidgetsProvider = FutureProvider<List<DashboardWidget>>((ref) async {
   final tenantWidgets = await ref.watch(tenantEnabledDashboardWidgetsProvider.future);
-  final isCoordinator = await ref.watch(currentUserIsMinistryCoordinatorProvider.future);
 
   final permitted = <DashboardWidget>[];
   for (final widget in tenantWidgets) {
-    if (dashboardWidgetsRequiringCoordinator.contains(widget.widgetKey) && !isCoordinator) {
-      continue;
-    }
-
     final requiredPermission = dashboardWidgetPermissionMap[widget.widgetKey];
     if (requiredPermission != null) {
       final hasPermission = await ref.watch(
