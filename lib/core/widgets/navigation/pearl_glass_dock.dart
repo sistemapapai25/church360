@@ -26,25 +26,18 @@ class PearlGlassDock extends StatelessWidget {
     // Base bem translúcida: quem dá corpo ao vidro é o blur, não a cor.
     final gradient = dark
         ? [
-            const Color(0xFF2A2F38).withValues(alpha: 0.42),
-            const Color(0xFF0B0F16).withValues(alpha: 0.52),
+            const Color(0xFF1E232B).withValues(alpha: 0.22),
+            const Color(0xFF0B0F16).withValues(alpha: 0.32),
           ]
         : [
-            Colors.white.withValues(alpha: 0.52),
-            Colors.white.withValues(alpha: 0.34),
+            Colors.white.withValues(alpha: 0.30),
+            Colors.white.withValues(alpha: 0.16),
           ];
-    // Borda com brilho em cima e quase apagada embaixo, como luz batendo
-    // na aresta do vidro.
-    final rim = dark
-        ? [
-            Colors.white.withValues(alpha: 0.26),
-            Colors.white.withValues(alpha: 0.06),
-          ]
-        : [
-            Colors.white.withValues(alpha: 0.95),
-            Colors.white.withValues(alpha: 0.35),
-          ];
-    final shadowColor = Colors.black.withValues(alpha: dark ? 0.32 : 0.10);
+    // Só a aresta brilha. Antes o "brilho da borda" era um fundo inteiro
+    // (95% branco no claro) por baixo da cápsula e deixava o vidro leitoso.
+    final borderColor = dark
+        ? Colors.white.withValues(alpha: 0.16)
+        : Colors.white.withValues(alpha: 0.60);
 
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final radius = BorderRadius.circular(dockHeight / 2);
@@ -60,50 +53,27 @@ class PearlGlassDock extends StatelessWidget {
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: radius,
-                boxShadow: [
-                  // Sombra curta e difusa: deslocada demais ela vira uma
-                  // faixa escura sob a cápsula e lembra a barra antiga.
-                  BoxShadow(
-                    color: shadowColor,
-                    blurRadius: 18,
-                    spreadRadius: -4,
-                    offset: const Offset(0, 4),
+            // Sem sombra: embaixo de um fundo translúcido ela aparece
+            // através do vidro, escurece a cápsula e vira uma segunda barra.
+            child: ClipRRect(
+              borderRadius: radius,
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(
+                  height: dockHeight,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  decoration: BoxDecoration(
+                    borderRadius: radius,
+                    border: Border.all(color: borderColor, width: 1),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: gradient,
+                    ),
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: radius,
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-                  child: Container(
-                    height: dockHeight,
-                    padding: const EdgeInsets.all(1),
-                    decoration: BoxDecoration(
-                      borderRadius: radius,
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: rim,
-                      ),
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      decoration: BoxDecoration(
-                        borderRadius: radius,
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: gradient,
-                        ),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: children,
-                      ),
-                    ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: children,
                   ),
                 ),
               ),
