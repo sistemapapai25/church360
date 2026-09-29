@@ -276,6 +276,71 @@ class PermissionOnlyRoute extends ConsumerWidget {
   }
 }
 
+/// Guard de rota que abre com **qualquer uma** de N permissões RBAC **ou**
+/// pelo nível de acesso.
+///
+/// Existe porque a mesma tela serve duas populações: `/members/:id` é a ficha
+/// do membro E a do visitante, e quem cuida só de visitante carrega
+/// `visitors.*`, não `members.*`. Com um `PermissionOrLevelRoute` de uma
+/// permissão só, esse perfil bateria em parede numa tela que é dele.
+///
+/// A régua tem que espelhar a da policy: rota que abre por RBAC **ou** nível
+/// exige `check_user_permission(...) OR is_elevated_current_user()` no banco —
+/// só com RBAC os owners e admins perdem a tela (CHU-376).
+class AnyPermissionOrLevelRoute extends ConsumerWidget {
+  final List<String> permissions;
+  final AccessLevelType requiredLevel;
+  final Widget child;
+
+  const AnyPermissionOrLevelRoute({
+    super.key,
+    required this.permissions,
+    required this.requiredLevel,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Observa TODAS antes de decidir: sair do laço no primeiro `true` deixaria
+    // as demais sem assinatura e a tela sem rebuild quando elas chegassem.
+    var granted = false;
+    var loading = false;
+    for (final permission in permissions) {
+      final async = ref.watch(currentUserHasPermissionProvider(permission));
+      if (async.valueOrNull == true) granted = true;
+      if (async.isLoading) loading = true;
+    }
+    if (granted) return child;
+    if (loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final hasLevelAsync = ref.watch(hasPermissionProvider(requiredLevel));
+    return hasLevelAsync.when(
+      data: (hasLevel) {
+        if (hasLevel) return child;
+        return PermissionDeniedScreen(
+          requiredPermission: permissions.join(' ou '),
+        );
+      },
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (error, _) => Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text('Erro ao verificar permissões: $error'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class PermissionOrLevelRoute extends ConsumerWidget {
   final String permission;
   final AccessLevelType requiredLevel;
