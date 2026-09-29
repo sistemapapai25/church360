@@ -38,7 +38,11 @@ QuickNews _quickNews() => QuickNews(
   description: 'Uma atualização importante para a igreja.',
   priority: 2,
   isActive: true,
-  expiresAt: _now.add(const Duration(days: 2)),
+  // Ancorado no relogio, nao em `_now`. `QuickNews.isExpired` compara com
+  // `DateTime.now()` real (quick_news.dart:32), entao um `expiresAt` fixo
+  // vira bomba-relogio: o badge troca de 'Ativo' para 'Expirado' sozinho
+  // no dia seguinte e o teste passa a falhar sem ninguem ter mexido nele.
+  expiresAt: DateTime.now().add(const Duration(days: 2)),
   createdBy: 'member-1',
   createdAt: _now,
   updatedAt: _now,
