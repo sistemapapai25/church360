@@ -21,9 +21,18 @@ const Map<String, String?> dashboardWidgetPermissionMap = {
   'financial_goals': 'financial.view_reports',
 };
 
-/// Widgets que, além da permissão em [dashboardWidgetPermissionMap], exigem
-/// que o usuário seja `MinistryRole.coordinator` de pelo menos um
-/// ministério — o "líder direto" do departamento (decisão CHU-302). Hoje
-/// só a Agenda completa (`upcoming_events`); quem não é coordinator não vê
-/// esse card, mesmo tendo `events.view`.
-const Set<String> dashboardWidgetsRequiringCoordinator = {'upcoming_events'};
+// CHU-384 (29/09/2026): aqui existia `dashboardWidgetsRequiringCoordinator`,
+// o conjunto de widgets que, além da permissão acima, exigiam ser
+// `MinistryRole.coordinator` de algum ministério. Continha só
+// `upcoming_events`.
+//
+// Esse segundo filtro escondia o card de TODO MUNDO, inclusive do Owner,
+// desde 20/08: nenhuma linha de `ministry_member` tem `role = 'coordinator'`
+// em produção — os papéis em uso são `leader` e `member`. O servidor tinha o
+// mesmo filtro, e ainda comparava a chave errada (`auth.uid()` contra uma
+// coluna que guarda `user_account.id`).
+//
+// Decisão: a Agenda deixa de ter regra própria e segue `events.view`, como os
+// outros onze cards — é o que [dashboardWidgetPermissionMap] já dizia.
+// Se um dia voltar a existir card com régua além do RBAC, ele precisa de
+// prova de que o dado que a régua lê existe; foi isso que faltou aqui.
