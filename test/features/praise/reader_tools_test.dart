@@ -68,4 +68,28 @@ void main() {
     // 3/8 é simples: só o 1.
     expect([for (var i = 0; i < 3; i++) beatAccent(i, 3, 8)], [2, 0, 0]);
   });
+
+  testWidgets('acento: tocar no tempo troca fraco → médio → forte', (t) async {
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: MetronomePanel(
+              initialBpm: 80,
+              initialMeter: '7/8',
+              onClose: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.bySemanticsLabel('Tempo 3, fraco'), findsOneWidget);
+    await t.tap(find.bySemanticsLabel('Tempo 3, fraco'));
+    await t.pump();
+    expect(find.bySemanticsLabel('Tempo 3, médio'), findsOneWidget);
+    await t.tap(find.bySemanticsLabel('Tempo 3, médio'));
+    await t.pump();
+    expect(find.bySemanticsLabel('Tempo 3, forte'), findsOneWidget);
+    expect(find.text('Acento personalizado'), findsOneWidget);
+  });
 }
