@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'chord.dart';
 import 'chord_shapes.dart';
 
@@ -470,3 +472,32 @@ String foldTitle(String s) => s
     .join()
     .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
     .trim();
+
+/// Aviso de música repetida (decisão de 01/10: pegar também as parecidas).
+/// Iguais depois do [foldTitle]; um contido no outro como palavras inteiras
+/// ("Escape" e "Escape (Ao vivo)"); ou até ~1 letra trocada a cada 6
+/// ("Grande é o Senhor" e "Grande é Senhor"). Curtos demais só se iguais.
+bool similarTitle(String a, String b) {
+  final x = foldTitle(a), y = foldTitle(b);
+  if (x.isEmpty || y.isEmpty) return false;
+  if (x == y) return true;
+  final (short, long) = x.length <= y.length ? (x, y) : (y, x);
+  if (short.length >= 4 && ' $long '.contains(' $short ')) return true;
+  return _distance(x, y) <= math.max(1, long.length ~/ 6) && short.length >= 4;
+}
+
+/// Levenshtein, duas linhas.
+int _distance(String a, String b) {
+  var prev = List<int>.generate(b.length + 1, (i) => i);
+  for (var i = 1; i <= a.length; i++) {
+    final cur = [i, ...List.filled(b.length, 0)];
+    for (var j = 1; j <= b.length; j++) {
+      cur[j] = math.min(
+        math.min(cur[j - 1] + 1, prev[j] + 1),
+        prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1),
+      );
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}

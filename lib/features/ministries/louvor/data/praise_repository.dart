@@ -208,6 +208,41 @@ class PraiseSetlistRevision {
 /// Repertório (`public.praise_setlist`). Com evento, a data é a do evento —
 /// [eventStart] está no contrato de parede (hora de SP rotulada como UTC),
 /// então se formata direto, sem `toLocal()`.
+/// Linha do feed "O que mudou" do ministério.
+class PraiseActivity {
+  /// 'song_new' | 'song_version' | 'setlist_published'.
+  final String kind;
+  final DateTime at;
+  final String? who;
+  final String? songId;
+  final String? setlistId;
+  final String title;
+  final int number;
+  final String? note;
+
+  const PraiseActivity({
+    required this.kind,
+    required this.at,
+    required this.title,
+    required this.number,
+    this.who,
+    this.songId,
+    this.setlistId,
+    this.note,
+  });
+
+  factory PraiseActivity.fromJson(Map<String, dynamic> j) => PraiseActivity(
+    kind: j['kind'] as String,
+    at: DateTime.parse(j['happened_at'] as String),
+    who: j['who'] as String?,
+    songId: j['song_id'] as String?,
+    setlistId: j['setlist_id'] as String?,
+    title: j['title'] as String? ?? '',
+    number: (j['number'] as num?)?.toInt() ?? 1,
+    note: j['note'] as String?,
+  );
+}
+
 class PraiseSetlist {
   final String id;
   final String? eventId;
@@ -313,14 +348,16 @@ class PraiseRepository {
     return [for (final r in rows) PraiseSong.fromJson(r)];
   }
 
-  /// Em quantos repertórios cada música entrou (música → repertórios
-  /// distintos), para "Mais usadas". Revisões do mesmo repertório contam 1.
-  Future<Map<String, int>> songUsage() async {
+  /// Em quantos repertórios DO MINISTÉRIO cada música entrou (decisão de
+  /// 01/10), para "Mais usadas". Revisões do mesmo repertório contam 1.
+  Future<Map<String, int>> songUsage(String ministryId) async {
     final rows = await _db
         .from('praise_setlist_item')
         .select(
-          'praise_song_version(song_id), praise_setlist_revision(setlist_id)',
-        );
+          'praise_song_version(song_id), '
+          'praise_setlist_revision!inner(setlist_id, praise_setlist!inner(ministry_id))',
+        )
+        .eq('praise_setlist_revision.praise_setlist.ministry_id', ministryId);
     final seen = <String, Set<String>>{};
     for (final r in rows) {
       final song = (r['praise_song_version'] as Map?)?['song_id'] as String?;
@@ -329,6 +366,20 @@ class PraiseRepository {
       if (song != null && list != null) (seen[song] ??= {}).add(list);
     }
     return {for (final e in seen.entries) e.key: e.value.length};
+  }
+
+  /// "O que mudou" do ministério: músicas novas, versões novas e
+  /// repertórios publicados, com o nome de quem fez (RPC, por causa da RLS
+  /// de user_account).
+  Future<List<PraiseActivity>> ministryActivity(String ministryId) async {
+    final rows = await _db.rpc(
+      'praise_ministry_activity',
+      params: {'p_ministry_id': ministryId, 'p_limit': 40},
+    );
+    return [
+      for (final r in rows as List)
+        PraiseActivity.fromJson(r as Map<String, dynamic>),
+    ];
   }
 
   Future<PraiseSong?> getSong(String songId) async {

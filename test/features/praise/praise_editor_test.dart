@@ -13,6 +13,16 @@ void main() {
     expect(foldTitle('  Ação  de   Graças '), 'acao de gracas');
   });
 
+  test('título parecido também avisa', () {
+    expect(similarTitle('Escape', 'Escape (Ao vivo)'), isTrue);
+    expect(similarTitle('Grande é o Senhor', 'Grande é Senhor'), isTrue);
+    expect(similarTitle('Ousado Amor', 'Ousado amor!'), isTrue);
+    expect(similarTitle('Deus', 'Jesus'), isFalse);
+    expect(similarTitle('Oceanos', 'Oceano'), isTrue);
+    expect(similarTitle('Te Louvarei', 'Te Adorarei'), isFalse);
+    expect(similarTitle('Céu', 'Céus'), isFalse);
+  });
+
   testWidgets('música nova com título repetido avisa antes de salvar', (
     t,
   ) async {

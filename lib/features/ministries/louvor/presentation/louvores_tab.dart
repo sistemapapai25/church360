@@ -82,8 +82,7 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
         return songs.where((s) => (usage[s.id] ?? 0) > 0).toList()
           ..sort((a, b) => usage[b.id]!.compareTo(usage[a.id]!));
       case _Shelf.changes:
-        return songs.where((s) => s.latest != null).toList()
-          ..sort((a, b) => b.latest!.createdAt.compareTo(a.latest!.createdAt));
+        return const []; // é o feed do ministério, desenhado à parte
     }
   }
 
@@ -166,7 +165,9 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
         onRetry: () => ref.invalidate(praiseSongsProvider),
       ),
       data: (songs) {
-        final usage = ref.watch(praiseUsageProvider).valueOrNull ?? const {};
+        final usage =
+            ref.watch(praiseUsageProvider(widget.ministryId)).valueOrNull ??
+            const {};
         final visible = _shelve(songs, usage).where(_matches).toList();
         return RefreshIndicator(
           onRefresh: () => ref.refresh(praiseSongsProvider.future),
@@ -206,7 +207,9 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
                 ],
               ),
               const SizedBox(height: 8),
-              if (songs.isEmpty)
+              if (_shelf == _Shelf.changes)
+                ..._activity()
+              else if (songs.isEmpty)
                 PraiseMessage(
                   title: 'A biblioteca ainda está vazia',
                   message: canManage
@@ -221,69 +224,65 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
                       ? 'Tente outro título, artista ou trecho da letra.'
                       : _shelf.emptyMessage,
                 ),
-              for (final s in visible)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: GlassCard(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    onTap: () => context.push(
-                      '/ministries/${widget.ministryId}/louvores/musicas/${s.id}',
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                s.title,
-                                style: CommunityDesign.titleStyle(
-                                  context,
-                                ).copyWith(fontSize: 15),
-                              ),
-                              if (s.artist != null && s.artist!.isNotEmpty)
+              if (_shelf != _Shelf.changes)
+                for (final s in visible)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: GlassCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      onTap: () => context.push(
+                        '/ministries/${widget.ministryId}/louvores/musicas/${s.id}',
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                 Text(
-                                  s.artist!,
-                                  style: CommunityDesign.metaStyle(context),
+                                  s.title,
+                                  style: CommunityDesign.titleStyle(
+                                    context,
+                                  ).copyWith(fontSize: 15),
                                 ),
-                              if (_shelf == _Shelf.mostUsed)
-                                Text(
-                                  'Em ${usage[s.id]} repertório(s)',
-                                  style: CommunityDesign.metaStyle(context),
-                                ),
-                              if (_shelf == _Shelf.changes)
-                                Text(
-                                  _changeLine(s.latest!),
-                                  style: CommunityDesign.metaStyle(context),
-                                ),
-                            ],
+                                if (s.artist != null && s.artist!.isNotEmpty)
+                                  Text(
+                                    s.artist!,
+                                    style: CommunityDesign.metaStyle(context),
+                                  ),
+                                if (_shelf == _Shelf.mostUsed)
+                                  Text(
+                                    'Em ${usage[s.id]} repertório(s)',
+                                    style: CommunityDesign.metaStyle(context),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                        IconButton(
-                          tooltip: _favorites.contains(s.id)
-                              ? 'Tirar das favoritas'
-                              : 'Favoritar',
-                          icon: Icon(
-                            _favorites.contains(s.id)
-                                ? AppIcons.star
-                                : AppIcons.starOutline,
+                          IconButton(
+                            tooltip: _favorites.contains(s.id)
+                                ? 'Tirar das favoritas'
+                                : 'Favoritar',
+                            icon: Icon(
+                              _favorites.contains(s.id)
+                                  ? AppIcons.star
+                                  : AppIcons.starOutline,
+                            ),
+                            onPressed: () => _toggleFavorite(s.id),
                           ),
-                          onPressed: () => _toggleFavorite(s.id),
-                        ),
-                        Text(
-                          s.latest?.originalKey ??
-                              (s.latest == null ? 'sem cifra' : ''),
-                          style: CommunityDesign.metaStyle(
-                            context,
-                          ).copyWith(fontWeight: FontWeight.w700),
-                        ),
-                      ],
+                          Text(
+                            s.latest?.originalKey ??
+                                (s.latest == null ? 'sem cifra' : ''),
+                            style: CommunityDesign.metaStyle(
+                              context,
+                            ).copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
             ],
           ),
         );
@@ -291,6 +290,98 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
     );
   }
 }
+
+extension on _LouvoresTabState {
+  /// "O que mudou" do ministério inteiro (decisão de 01/10): músicas novas
+  /// e versões da biblioteca + repertórios publicados deste ministério,
+  /// com quem fez. A busca vale para o título.
+  List<Widget> _activity() {
+    final async = ref.watch(praiseActivityProvider(widget.ministryId));
+    final q = _searchQuery.trim().toLowerCase();
+    return async.when(
+      loading: () => const [
+        Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ],
+      error: (e, _) => [
+        PraiseMessage(
+          title: 'Não deu para carregar o que mudou',
+          message: '$e',
+          onRetry: () =>
+              ref.invalidate(praiseActivityProvider(widget.ministryId)),
+        ),
+      ],
+      data: (all) {
+        final items = [
+          for (final a in all)
+            if (q.isEmpty || a.title.toLowerCase().contains(q)) a,
+        ];
+        if (items.isEmpty) {
+          return [
+            PraiseMessage(
+              title: _Shelf.changes.emptyTitle,
+              message: q.isNotEmpty
+                  ? 'Tente outro título.'
+                  : _Shelf.changes.emptyMessage,
+            ),
+          ];
+        }
+        final base = '/ministries/${widget.ministryId}/louvores';
+        return [
+          for (final a in items)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: GlassCard(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                onTap: () => context.push(
+                  a.setlistId != null
+                      ? '$base/repertorios/${a.setlistId}'
+                      : '$base/musicas/${a.songId}',
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      activityTitle(a),
+                      style: CommunityDesign.titleStyle(
+                        context,
+                      ).copyWith(fontSize: 15),
+                    ),
+                    Text(
+                      activityLine(a),
+                      style: CommunityDesign.metaStyle(context),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ];
+      },
+    );
+  }
+}
+
+/// "Nova música: Escape", "Escape · versão 3", "Repertório publicado:
+/// Culto de domingo (rev. 2)".
+String activityTitle(PraiseActivity a) => switch (a.kind) {
+  'song_new' => 'Nova música: ${a.title}',
+  'song_version' => '${a.title} · versão ${a.number}',
+  _ =>
+    'Repertório publicado: ${a.title}'
+        '${a.number > 1 ? ' (rev. ${a.number})' : ''}',
+};
+
+/// "Debora · troquei o tom · 01/10 14:30".
+String activityLine(PraiseActivity a) => [
+  ?a.who,
+  if (a.note != null && a.note!.isNotEmpty) a.note!,
+  DateFormat('dd/MM HH:mm').format(a.at.toLocal()),
+].join(' · ');
 
 /// Aviso centralizado das telas de Louvores (vazio, erro, sem acesso).
 class PraiseMessage extends StatelessWidget {
@@ -384,16 +475,6 @@ Future<void> rememberRecentSong(String songId) async {
   } catch (_) {}
 }
 
-/// "Nova música" ou "Versão 3 · troquei o tom · 01/10".
-String _changeLine(PraiseSongVersion v) {
-  final date = DateFormat('dd/MM').format(v.createdAt.toLocal());
-  final what = v.versionNumber == 1
-      ? 'Nova música'
-      : 'Versão ${v.versionNumber}'
-            '${v.changeNote == null || v.changeNote!.isEmpty ? '' : ' · ${v.changeNote}'}';
-  return '$what · $date';
-}
-
 enum _Shelf {
   all('Todas', 'Nenhuma música encontrada', ''),
   favorites(
@@ -414,7 +495,8 @@ enum _Shelf {
   changes(
     'O que mudou',
     'Nada mudou ainda',
-    'Músicas novas e versões novas aparecem aqui, da mais recente.',
+    'Músicas novas, versões novas e repertórios publicados do ministério '
+        'aparecem aqui, do mais recente.',
   );
 
   const _Shelf(this.label, this.emptyTitle, this.emptyMessage);

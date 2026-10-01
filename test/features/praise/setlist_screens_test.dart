@@ -322,8 +322,8 @@ void main() {
       await t.tap(find.text('Instrumento'));
       await t.pumpAndSettle();
       await t.ensureVisible(find.text('Bateria'));
-    await t.pumpAndSettle();
-    await t.tap(find.text('Bateria'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Bateria'));
       await t.pumpAndSettle();
       expect(find.text('Capotraste'), findsNothing);
       expect(find.text('Afinação'), findsNothing);

@@ -17,9 +17,16 @@ final praiseSongsProvider = FutureProvider<List<PraiseSong>>(
   (ref) => ref.watch(praiseRepositoryProvider).listSongs(),
 );
 
-final praiseUsageProvider = FutureProvider<Map<String, int>>(
-  (ref) => ref.watch(praiseRepositoryProvider).songUsage(),
+final praiseUsageProvider = FutureProvider.family<Map<String, int>, String>(
+  (ref, ministryId) =>
+      ref.watch(praiseRepositoryProvider).songUsage(ministryId),
 );
+
+final praiseActivityProvider =
+    FutureProvider.family<List<PraiseActivity>, String>(
+      (ref, ministryId) =>
+          ref.watch(praiseRepositoryProvider).ministryActivity(ministryId),
+    );
 
 final praiseSongProvider = FutureProvider.family<PraiseSong?, String>(
   (ref, songId) => ref.watch(praiseRepositoryProvider).getSong(songId),
@@ -80,6 +87,8 @@ void invalidatePraise(WidgetRef ref, [String? songId]) {
   ref.invalidate(praiseSetlistProvider);
   ref.invalidate(praiseRecipientsProvider);
   ref.invalidate(praiseReceivedProvider);
+  ref.invalidate(praiseUsageProvider);
+  ref.invalidate(praiseActivityProvider);
   if (songId != null) {
     ref.invalidate(praiseSongProvider(songId));
     ref.invalidate(praiseVersionsProvider(songId));
