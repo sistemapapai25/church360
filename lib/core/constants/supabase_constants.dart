@@ -202,13 +202,29 @@ class SupabaseConstants {
       applyTenantHeadersToClient(client);
     }
 
-    if (!syncJwt) return;
-    try {
-      await client.auth.updateUser(
-        UserAttributes(data: {'tenant_id': currentTenantId}),
-      );
-      await client.auth.refreshSession();
-    } catch (_) {}
+    if (syncJwt) {
+      try {
+        await client.auth.updateUser(
+          UserAttributes(data: {'tenant_id': currentTenantId}),
+        );
+        await client.auth.refreshSession();
+      } catch (_) {}
+    }
+    _tenantContextCheck(client);
+  }
+
+  static String? _tenantCheckKey;
+
+  /// Modo sombra do tenant autorizado (CHU-387): avisa o servidor 1x por
+  /// usuario + igreja, para medir onde o tenant de hoje diverge do
+  /// autorizado antes da virada. So mede, nunca bloqueia: erro e ignorado.
+  static void _tenantContextCheck(SupabaseClient client) {
+    final uid = client.auth.currentUser?.id;
+    if (uid == null) return;
+    final key = '$uid:$currentTenantId';
+    if (_tenantCheckKey == key) return;
+    _tenantCheckKey = key;
+    client.rpc('tenant_context_check').then((_) {}, onError: (_) {});
   }
 }
 
