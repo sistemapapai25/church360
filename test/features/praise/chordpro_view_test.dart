@@ -66,14 +66,24 @@ void main() {
     expect(tapped.toString(), 'E/G#');
   });
 
-  testWidgets('tela larga divide em duas colunas na troca de seção', (t) async {
+  testWidgets('duas colunas só quando o usuário pede e a tela é larga', (
+    t,
+  ) async {
     final song = List.generate(
       4,
       (i) => '{c: Parte $i}\n[G]linha um\n[D]linha dois\n[C]linha três',
     ).join('\n\n');
     await t.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => t.binding.setSurfaceSize(null));
+    // Tela larga sem a escolha: uma coluna só.
     await t.pumpWidget(_wrap(ChordProView(source: song), width: 1000));
+    expect(
+      t.getTopLeft(find.text('Parte 2')).dx,
+      t.getTopLeft(find.text('Parte 0')).dx,
+    );
+    await t.pumpWidget(
+      _wrap(ChordProView(source: song, twoColumns: true), width: 1000),
+    );
     final left = t.getTopLeft(find.text('Parte 0'));
     final right = t.getTopLeft(find.text('Parte 2'));
     expect(right.dx, greaterThan(left.dx + 300));

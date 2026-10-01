@@ -25,6 +25,10 @@ class ChordProView extends StatelessWidget {
   /// Toque no acorde (já transposto). Nulo = acorde não é clicável.
   final ValueChanged<Chord>? onChordTap;
 
+  /// Escolha do usuário (como "Dividir em colunas" do CifraClub). Só divide
+  /// se também houver largura de [twoColumnWidth].
+  final bool twoColumns;
+
   const ChordProView({
     super.key,
     required this.source,
@@ -32,12 +36,13 @@ class ChordProView extends StatelessWidget {
     this.preferFlats,
     this.fontSize = 15,
     this.onChordTap,
+    this.twoColumns = false,
   });
 
   static const _chordLight = Color(0xFF9A3412);
   static const _chordDark = Color(0xFFFDBA74);
 
-  /// Largura a partir da qual a cifra vai para duas colunas.
+  /// Largura mínima para a cifra caber em duas colunas.
   static const twoColumnWidth = 900.0;
 
   static const _sections = {
@@ -177,7 +182,8 @@ class ChordProView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: children,
         );
-        if (c.maxWidth < twoColumnWidth ||
+        if (!twoColumns ||
+            c.maxWidth < twoColumnWidth ||
             breaks.isEmpty ||
             blocks.length < 12) {
           return column(blocks);

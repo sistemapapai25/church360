@@ -193,6 +193,7 @@ abstract final class AppIcons {
   static const rotateRight = Icons.rotate_right;
   static const savings = Icons.savings;
   static const tableView = Icons.table_view_outlined;
+  static const viewColumn = Icons.view_column_outlined;
   static const uploadFile = Icons.upload_file;
   static const warningAmber = Icons.warning_amber;
   static const zoomIn = Icons.zoom_in;

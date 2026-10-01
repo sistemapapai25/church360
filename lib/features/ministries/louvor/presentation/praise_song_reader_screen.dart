@@ -125,6 +125,10 @@ class _ReaderState extends ConsumerState<_Reader> {
   PraiseInstrument _instrument = PraiseInstrument.violao;
   static const _instrumentPref = 'praise_reader_instrument';
 
+  /// "Dividir em colunas" do CifraClub: escolha do usuário, salva no aparelho.
+  bool _twoColumns = false;
+  static const _columnsPref = 'praise_reader_two_columns';
+
   /// Nulo = a versão mais recente.
   PraiseSongVersion? _picked;
 
@@ -152,13 +156,14 @@ class _ReaderState extends ConsumerState<_Reader> {
 
   Future<void> _loadInstrument() async {
     try {
-      final name = (await SharedPreferences.getInstance()).getString(
-        _instrumentPref,
-      );
+      final prefs = await SharedPreferences.getInstance();
+      final name = prefs.getString(_instrumentPref);
       final saved = PraiseInstrument.values.where((i) => i.name == name);
-      if (mounted && saved.isNotEmpty) {
-        setState(() => _instrument = saved.first);
-      }
+      if (!mounted) return;
+      setState(() {
+        if (saved.isNotEmpty) _instrument = saved.first;
+        _twoColumns = prefs.getBool(_columnsPref) ?? false;
+      });
     } catch (_) {
       // Sem preferência salva o leitor fica no violão.
     }
@@ -168,6 +173,13 @@ class _ReaderState extends ConsumerState<_Reader> {
     setState(() => _instrument = i);
     SharedPreferences.getInstance()
         .then((p) => p.setString(_instrumentPref, i.name))
+        .ignore();
+  }
+
+  void _setTwoColumns(bool v) {
+    setState(() => _twoColumns = v);
+    SharedPreferences.getInstance()
+        .then((p) => p.setBool(_columnsPref, v))
         .ignore();
   }
 
@@ -494,6 +506,15 @@ class _ReaderState extends ConsumerState<_Reader> {
                 label: Text(_instrument.label),
               ),
             ),
+            // Só aparece onde duas colunas cabem.
+            if (MediaQuery.sizeOf(context).width >= ChordProView.twoColumnWidth)
+              FilterChip(
+                shape: const StadiumBorder(),
+                avatar: const Icon(AppIcons.viewColumn, size: 16),
+                label: const Text('Dividir em colunas'),
+                selected: _twoColumns,
+                onSelected: _setTwoColumns,
+              ),
           ],
         ),
         if (_item == null && _semitones % 12 != 0 && keyLabel != null)
@@ -514,6 +535,7 @@ class _ReaderState extends ConsumerState<_Reader> {
           preferFlats: flats,
           fontSize: _fontSize,
           onChordTap: _openChord,
+          twoColumns: _twoColumns,
         ),
       ],
     );
