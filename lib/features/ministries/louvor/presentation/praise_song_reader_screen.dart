@@ -769,6 +769,7 @@ class _ReaderState extends ConsumerState<_Reader> {
               FloatingTool(
                 area: area,
                 initial: tunerAt,
+                prefsKey: 'praise_reader_tuner_pos',
                 child: TunerPanel(
                   onClose: () => setState(() => _tuner = false),
                 ),
@@ -777,6 +778,7 @@ class _ReaderState extends ConsumerState<_Reader> {
               FloatingTool(
                 area: area,
                 initial: const Offset(12, 12),
+                prefsKey: 'praise_reader_metronome_pos',
                 child: MetronomePanel(
                   initialBpm: bpm ?? 80,
                   onClose: () => setState(() => _metronome = false),

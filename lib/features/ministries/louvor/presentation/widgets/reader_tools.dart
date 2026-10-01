@@ -6,6 +6,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:record/record.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
@@ -26,12 +27,17 @@ class FloatingTool extends StatefulWidget {
 
   /// Distância inicial da borda direita e de baixo.
   final Offset initial;
+
+  /// Onde a posição fica salva ao soltar o painel (como o círculo do
+  /// suporte): ao reabrir, ele volta para lá.
+  final String prefsKey;
   final Widget child;
 
   const FloatingTool({
     super.key,
     required this.area,
     required this.initial,
+    required this.prefsKey,
     required this.child,
   });
 
@@ -41,6 +47,27 @@ class FloatingTool extends StatefulWidget {
 
 class _FloatingToolState extends State<FloatingTool> {
   late Offset _pos = widget.initial;
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((p) {
+      final v = p.getStringList(widget.prefsKey);
+      final x = double.tryParse(v?.first ?? ''),
+          y = double.tryParse(v?.last ?? '');
+      if (mounted && x != null && y != null) {
+        setState(() => _pos = Offset(x, y));
+      }
+    });
+  }
+
+  Future<void> _save() async {
+    final p = _clamped;
+    (await SharedPreferences.getInstance()).setStringList(widget.prefsKey, [
+      '${p.dx}',
+      '${p.dy}',
+    ]);
+  }
 
   /// Sempre sobra o cabeçalho visível para puxar o painel de volta.
   Offset get _clamped {
@@ -60,7 +87,7 @@ class _FloatingToolState extends State<FloatingTool> {
     return Positioned(
       right: p.dx,
       bottom: p.dy,
-      child: _DragScope(onDrag: _drag, child: widget.child),
+      child: _DragScope(onDrag: _drag, onEnd: _save, child: widget.child),
     );
   }
 }
@@ -68,8 +95,13 @@ class _FloatingToolState extends State<FloatingTool> {
 /// Repassa o arrasto do cabeçalho do [_FloatingCard] para o [FloatingTool].
 class _DragScope extends InheritedWidget {
   final ValueChanged<Offset> onDrag;
+  final VoidCallback onEnd;
 
-  const _DragScope({required this.onDrag, required super.child});
+  const _DragScope({
+    required this.onDrag,
+    required this.onEnd,
+    required super.child,
+  });
 
   @override
   bool updateShouldNotify(_DragScope old) => false;
@@ -122,6 +154,7 @@ class _FloatingCard extends StatelessWidget {
                     onPanUpdate: drag == null
                         ? null
                         : (d) => drag.onDrag(d.delta),
+                    onPanEnd: drag == null ? null : (_) => drag.onEnd(),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(12, 2, 2, 0),
                       child: Row(
