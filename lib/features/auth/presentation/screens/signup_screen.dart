@@ -187,7 +187,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         return;
       }
       
-      await authRepo.signUp(
+      final response = await authRepo.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text,
         firstName: _firstNameController.text.trim(),
@@ -196,6 +196,22 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         lgpdConsent: _acceptedLgpd,
         commitmentTermsAccepted: _acceptedCommitmentTerms,
       );
+
+      if (mounted && response.session == null) {
+        // "Confirm email" ligado: sem sessão até a pessoa abrir o link.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Enviamos um link de confirmação para ${_emailController.text.trim()}. '
+              'Abra o e-mail, confirme e depois entre com sua senha.',
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 8),
+          ),
+        );
+        context.go('/login');
+        return;
+      }
 
       if (mounted) {
         // Cadastro bem-sucedido

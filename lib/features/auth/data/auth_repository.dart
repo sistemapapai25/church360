@@ -148,8 +148,9 @@ class AuthRepository {
   Future<void> _persistConsentWithStrategies({
     required String memberId,
     required List<List<String>> strategies,
+    String? acceptedAt,
   }) async {
-    final acceptedAt = DateTime.now().toIso8601String();
+    acceptedAt ??= DateTime.now().toIso8601String();
     for (final strategy in strategies) {
       final payload = <String, dynamic>{
         strategy[0]: true,
@@ -187,6 +188,40 @@ class AuthRepository {
       memberId: memberId,
       strategies: _commitmentTermsStrategies,
     );
+  }
+
+  /// Cadastro feito com "Confirm email" ligado nasce sem sessão: o aceite
+  /// fica no user_metadata e só chega à ficha aqui, no primeiro login, com a
+  /// data original do aceite.
+  Future<void> _syncPendingConsents(String memberId) async {
+    final meta = _supabase.auth.currentUser?.userMetadata ?? const {};
+    final wantsLgpd = meta['lgpd_consent'] == true;
+    final wantsTerms = meta['commitment_terms_accepted'] == true;
+    if (!wantsLgpd && !wantsTerms) return;
+
+    final row =
+        await _supabase
+            .from('user_account')
+            .select()
+            .eq('id', memberId)
+            .maybeSingle() ??
+        const <String, dynamic>{};
+    bool has(List<List<String>> s) => s.any((c) => row[c[0]] == true);
+
+    if (wantsLgpd && !has(_lgpdStrategies)) {
+      await _persistConsentWithStrategies(
+        memberId: memberId,
+        strategies: _lgpdStrategies,
+        acceptedAt: meta['lgpd_consent_at']?.toString(),
+      );
+    }
+    if (wantsTerms && !has(_commitmentTermsStrategies)) {
+      await _persistConsentWithStrategies(
+        memberId: memberId,
+        strategies: _commitmentTermsStrategies,
+        acceptedAt: meta['commitment_terms_accepted_at']?.toString(),
+      );
+    }
   }
 
   String? _resolveUserEmail(User user) {
@@ -264,6 +299,24 @@ class AuthRepository {
   }
 
   Future<String?> ensureUserAccountForSession({
+    String? preferredFullName,
+  }) async {
+    final id = await _ensureUserAccountForSession(
+      preferredFullName: preferredFullName,
+    );
+    // Roda em todo caminho de entrada (senha, link de confirmação, sessão
+    // restaurada): o aceite pendente do cadastro chega à ficha na primeira.
+    if (id != null) {
+      try {
+        await _syncPendingConsents(id);
+      } catch (e) {
+        debugPrint('❌ [AuthRepository] sync de consentimento falhou: $e');
+      }
+    }
+    return id;
+  }
+
+  Future<String?> _ensureUserAccountForSession({
     String? preferredFullName,
   }) async {
     final user =
@@ -853,18 +906,31 @@ class AuthRepository {
     required bool commitmentTermsAccepted,
   }) async {
     try {
+      final now = DateTime.now().toIso8601String();
       final response = await _supabase.auth.signUp(
         email: email,
         password: password,
+        // O link de confirmação volta pelo mesmo caminho do login com Google.
+        emailRedirectTo: _googleRedirectUrl(null),
         data: {
           'tenant_id': SupabaseConstants.currentTenantId,
           'full_name': '$firstName $lastName',
+          // Gravado já na criação: com "Confirm email" ligado o cadastro
+          // nasce sem sessão e nada abaixo roda; o aceite chega à ficha no
+          // primeiro login (_syncPendingConsents).
+          'lgpd_consent': lgpdConsent,
+          if (lgpdConsent) 'lgpd_consent_at': now,
+          'commitment_terms_accepted': commitmentTermsAccepted,
+          if (commitmentTermsAccepted) 'commitment_terms_accepted_at': now,
         },
       );
 
       if (response.user == null) {
         throw Exception('Erro ao criar usuário');
       }
+
+      // Sem sessão = aguardando confirmação do e-mail.
+      if (response.session == null) return response;
 
       try {
         await SupabaseConstants.syncTenantFromServer(_supabase);
@@ -918,26 +984,6 @@ class AuthRepository {
             );
           }
         }
-      }
-
-      try {
-        await _supabase.auth.updateUser(
-          UserAttributes(
-            data: {
-              'lgpd_consent': lgpdConsent,
-              if (lgpdConsent)
-                'lgpd_consent_at': DateTime.now().toIso8601String(),
-              'commitment_terms_accepted': commitmentTermsAccepted,
-              if (commitmentTermsAccepted)
-                'commitment_terms_accepted_at': DateTime.now()
-                    .toIso8601String(),
-            },
-          ),
-        );
-      } catch (e) {
-        debugPrint(
-          '❌ [AuthRepository.signUp] updateUser metadata de consentimento falhou: $e',
-        );
       }
 
       return response;
