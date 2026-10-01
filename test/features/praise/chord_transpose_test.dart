@@ -89,8 +89,7 @@ sem acorde
     });
 
     test('letra antes do primeiro acorde vira segmento sem acorde', () {
-      final seg =
-          (parseChordPro('Oh [C]vem').lines.single as LyricLine).segments;
+      final seg = (parseChordPro('Oh [C]vem').lines.single as LyricLine).segments;
       expect(seg.map((s) => s.chord), [null, 'C']);
       expect(seg.map((s) => s.lyric), ['Oh ', 'vem']);
     });
@@ -99,10 +98,7 @@ sem acorde
   group('transposeChordPro', () {
     test('G→A transpõe acordes e a diretiva key, letra intacta', () {
       const src = '{key: G}\n[G]Santo [D/F#]santo [N.C.]';
-      expect(
-        transposeChordPro(src, 2),
-        '{key: A}\n[A]Santo [E/G#]santo [N.C.]',
-      );
+      expect(transposeChordPro(src, 2), '{key: A}\n[A]Santo [E/G#]santo [N.C.]');
     });
 
     test('destino em tom de bemol escreve bemol (G+3 = Bb)', () {
@@ -112,10 +108,7 @@ sem acorde
 
     test('acordes compostos', () {
       const src = '{key: C}\n[C/E] [Am/G] [F#m7] [C#sus4] [Ebmaj7] [Gadd9]';
-      expect(
-        transposeChordPro(src, 2),
-        '{key: D}\n[D/F#] [Bm/A] [G#m7] [D#sus4] [Fmaj7] [Aadd9]',
-      );
+      expect(transposeChordPro(src, 2), '{key: D}\n[D/F#] [Bm/A] [G#m7] [D#sus4] [Fmaj7] [Aadd9]');
     });
 
     test('grafia não degrada em ida e volta enarmônica', () {
