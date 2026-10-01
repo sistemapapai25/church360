@@ -16,6 +16,7 @@ import 'praise_setlists_view.dart';
 import 'providers/praise_providers.dart';
 import 'widgets/recipients_sheet.dart';
 import 'widgets/setlist_item_sheet.dart';
+import 'widgets/spontaneous_sheet.dart';
 
 /// Repertório (`/ministries/:id/louvores/repertorios/:setlistId`).
 ///
@@ -126,6 +127,21 @@ class _Setlist extends ConsumerWidget {
               (received ? 'Repertório recebido' : 'Repertório'),
           overflow: TextOverflow.ellipsis,
         ),
+        actions: [
+          // Destinatário só lê o repertório: não tem a biblioteca.
+          if (!received)
+            TextButton(
+              onPressed: () => showSpontaneousSheet(
+                context,
+                ministryId: ministryId,
+                ministerId: setlistAsync.valueOrNull?.current?.items
+                    .map((i) => i.ministerId)
+                    .nonNulls
+                    .firstOrNull,
+              ),
+              child: const Text('Espontâneo'),
+            ),
+        ],
       ),
       body: Align(
         alignment: Alignment.topCenter,
@@ -228,6 +244,7 @@ class _DraftEditorState extends ConsumerState<_DraftEditor> {
   Future<void> _add() async {
     final item = await showSetlistItemSheet(
       context,
+      ministryId: widget.ministryId,
       songIds: [for (final i in _items) i.version.songId],
     );
     if (item != null) _changed(() => _items.add(item));
@@ -236,6 +253,7 @@ class _DraftEditorState extends ConsumerState<_DraftEditor> {
   Future<void> _edit(int index) async {
     final item = await showSetlistItemSheet(
       context,
+      ministryId: widget.ministryId,
       initial: _items[index],
       songIds: [for (final i in _items) i.version.songId],
     );

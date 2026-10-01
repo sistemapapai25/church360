@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/design/community_design.dart';
 import '../../../../praise/domain/chord.dart';
+import '../../../presentation/providers/ministries_provider.dart';
 import '../../data/praise_repository.dart';
 import '../louvores_tab.dart';
 import '../providers/praise_providers.dart';
@@ -14,23 +15,33 @@ import 'reader_tools.dart';
 /// repetida. Devolve o item montado; quem chama decide quando salvar.
 Future<PraiseSetlistItem?> showSetlistItemSheet(
   BuildContext context, {
+  required String ministryId,
   PraiseSetlistItem? initial,
   List<String> songIds = const [],
 }) => showModalBottomSheet<PraiseSetlistItem>(
   context: context,
   isScrollControlled: true,
   showDragHandle: true,
-  builder: (_) => _SetlistItemSheet(initial: initial, songIds: songIds),
+  builder: (_) => _SetlistItemSheet(
+    ministryId: ministryId,
+    initial: initial,
+    songIds: songIds,
+  ),
 );
 
 /// Mesmo formato do CHECK `praise_setlist_item_key_shape`.
 final _keyShape = RegExp(r'^[A-G][#b]?m?$');
 
 class _SetlistItemSheet extends ConsumerStatefulWidget {
+  final String ministryId;
   final PraiseSetlistItem? initial;
   final List<String> songIds;
 
-  const _SetlistItemSheet({this.initial, this.songIds = const []});
+  const _SetlistItemSheet({
+    required this.ministryId,
+    this.initial,
+    this.songIds = const [],
+  });
 
   @override
   ConsumerState<_SetlistItemSheet> createState() => _SetlistItemSheetState();
@@ -40,6 +51,7 @@ class _SetlistItemSheetState extends ConsumerState<_SetlistItemSheet> {
   String? _songId;
   PraiseSongVersion? _version;
   int _semitones = 0;
+  late String? _minister = widget.initial?.ministerId;
   final _capo = TextEditingController();
   final _bpm = TextEditingController();
   final _notes = TextEditingController();
@@ -115,7 +127,39 @@ class _SetlistItemSheetState extends ConsumerState<_SetlistItemSheet> {
         capo: capo,
         bpm: bpm,
         notes: notes.isEmpty ? null : notes,
+        ministerId: _minister,
       ),
+    );
+  }
+
+  /// Quem ministra: é o que alimenta o histórico de tons do Espontâneo.
+  Widget _ministerField() {
+    final members =
+        ref.watch(ministryMembersProvider(widget.ministryId)).valueOrNull ??
+        const [];
+    // Quem saiu do ministério continua gravado até alguém trocar.
+    final gone =
+        _minister != null && !members.any((m) => m.memberId == _minister);
+    return DropdownButtonFormField<String?>(
+      // Recria quando a lista chega.
+      key: ValueKey('minister-${members.length}'),
+      initialValue: gone && members.isEmpty ? null : _minister,
+      isExpanded: true,
+      decoration: const InputDecoration(labelText: 'Ministrante'),
+      items: [
+        const DropdownMenuItem(value: null, child: Text('Sem ministrante')),
+        if (gone && members.isNotEmpty)
+          DropdownMenuItem(
+            value: _minister,
+            child: const Text('Fora do ministério'),
+          ),
+        for (final m in members)
+          DropdownMenuItem(
+            value: m.memberId,
+            child: Text(m.memberName, overflow: TextOverflow.ellipsis),
+          ),
+      ],
+      onChanged: (id) => setState(() => _minister = id),
     );
   }
 
@@ -301,6 +345,8 @@ class _SetlistItemSheetState extends ConsumerState<_SetlistItemSheet> {
                 'Vêm preenchidos da versão. Mudar aqui vale só para este culto.',
                 style: meta,
               ),
+              const SizedBox(height: 12),
+              _ministerField(),
               const SizedBox(height: 12),
               TextField(
                 controller: _notes,

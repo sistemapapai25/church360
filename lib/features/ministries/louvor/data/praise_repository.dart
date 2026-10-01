@@ -116,6 +116,9 @@ class PraiseSetlistItem {
   final int? bpm;
   final String? notes;
 
+  /// Quem ministra (`user_account.id`). Base do histórico do Espontâneo.
+  final String? ministerId;
+
   /// `null` enquanto o item só existe na tela (rascunho não salvo).
   final String? id;
 
@@ -128,6 +131,7 @@ class PraiseSetlistItem {
     this.capo = 0,
     this.bpm,
     this.notes,
+    this.ministerId,
   });
 
   factory PraiseSetlistItem.fromJson(Map<String, dynamic> j) {
@@ -142,6 +146,7 @@ class PraiseSetlistItem {
       capo: (j['capo'] as int?) ?? 0,
       bpm: j['bpm'] as int?,
       notes: j['notes'] as String?,
+      ministerId: j['minister_user_id'] as String?,
     );
   }
 
@@ -152,6 +157,7 @@ class PraiseSetlistItem {
     'capo': capo,
     'bpm': bpm,
     'notes': notes,
+    'minister_user_id': ministerId,
   };
 }
 
@@ -319,6 +325,40 @@ List<({String sign, String text})> setlistChanges(
   ];
 }
 
+/// Um tom que o ministrante já usou numa música: quantas vezes e quando.
+typedef PraiseKeyUse = ({String key, int times, DateTime last});
+
+/// Agrupa os usos por música e tom. Em cada música, mais vezes primeiro;
+/// empate, o mais recente.
+Map<String, List<PraiseKeyUse>> praiseKeyHistory(
+  Iterable<({String songId, String key, DateTime at})> uses,
+) {
+  final acc = <String, Map<String, PraiseKeyUse>>{};
+  for (final u in uses) {
+    final keys = acc[u.songId] ??= {};
+    final o = keys[u.key];
+    keys[u.key] = (
+      key: u.key,
+      times: (o?.times ?? 0) + 1,
+      last: o == null || u.at.isAfter(o.last) ? u.at : o.last,
+    );
+  }
+  return {
+    for (final e in acc.entries)
+      e.key: e.value.values.toList()
+        ..sort(
+          (a, b) => a.times != b.times
+              ? b.times.compareTo(a.times)
+              : b.last.compareTo(a.last),
+        ),
+  };
+}
+
+/// O tom em destaque é o mais recente, não o mais frequente: quem passou a
+/// cantar em outro tom não fica preso ao antigo.
+PraiseKeyUse praiseLatestKey(List<PraiseKeyUse> uses) =>
+    uses.reduce((a, b) => b.last.isAfter(a.last) ? b : a);
+
 class PraiseRepository {
   final SupabaseClient _db;
   const PraiseRepository(this._db);
@@ -473,7 +513,7 @@ class PraiseRepository {
         .select(
           'id, event_id, event(name, start_date), ministry(name), '
           'praise_setlist_revision($_revisionCols, '
-          'praise_setlist_item(id, position, selected_key, capo, bpm, notes, '
+          'praise_setlist_item(id, position, selected_key, capo, bpm, notes, minister_user_id, '
           'praise_song_version(song_id, $_versionCols, praise_song(title, artist))))',
         )
         .eq('id', setlistId)
@@ -548,10 +588,45 @@ class PraiseRepository {
           )
           as String?;
 
+  /// Tons que [ministerId] já usou, por música (Espontâneo). Só revisões
+  /// publicadas: uma por repertório, então republicar não conta duas vezes.
+  /// Data = a do evento; sem evento, a da publicação.
+  Future<Map<String, List<PraiseKeyUse>>> ministerKeys(
+    String ministerId,
+  ) async {
+    final rows = await _db
+        .from('praise_setlist_item')
+        .select(
+          'selected_key, praise_song_version!inner(song_id, original_key), '
+          'praise_setlist_revision!inner(status, published_at, '
+          'praise_setlist!inner(event(start_date)))',
+        )
+        .eq('minister_user_id', ministerId)
+        .eq('praise_setlist_revision.status', 'published');
+    return praiseKeyHistory([
+      for (final r in rows)
+        if ((r['praise_song_version'] as Map)['song_id'] case final String song)
+          if (r['selected_key'] ??
+                  (r['praise_song_version'] as Map)['original_key']
+              case final String key)
+            if (_useDate(r['praise_setlist_revision'] as Map) case final at?)
+              (songId: song, key: key, at: at),
+    ]);
+  }
+
+  /// Evento está no contrato de parede (formata direto); publicação é UTC.
+  static DateTime? _useDate(Map rev) {
+    final start =
+        ((rev['praise_setlist'] as Map?)?['event'] as Map?)?['start_date'];
+    if (start is String) return DateTime.parse(start);
+    final pub = rev['published_at'];
+    return pub is String ? DateTime.parse(pub).toLocal() : null;
+  }
+
   // ---------------------------------------------------------------- Fase D
 
   static const _itemCols =
-      'praise_setlist_item(id, position, selected_key, capo, bpm, notes, '
+      'praise_setlist_item(id, position, selected_key, capo, bpm, notes, minister_user_id, '
       'praise_song_version(song_id, $_versionCols, praise_song(title, artist)))';
 
   /// Revisão [number] do repertório com os itens (para o "o que mudou" o
