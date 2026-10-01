@@ -210,12 +210,19 @@ class _DraftEditorState extends ConsumerState<_DraftEditor> {
   });
 
   Future<void> _add() async {
-    final item = await showSetlistItemSheet(context);
+    final item = await showSetlistItemSheet(
+      context,
+      songIds: [for (final i in _items) i.version.songId],
+    );
     if (item != null) _changed(() => _items.add(item));
   }
 
   Future<void> _edit(int index) async {
-    final item = await showSetlistItemSheet(context, initial: _items[index]);
+    final item = await showSetlistItemSheet(
+      context,
+      initial: _items[index],
+      songIds: [for (final i in _items) i.version.songId],
+    );
     if (item != null) _changed(() => _items[index] = item);
   }
 

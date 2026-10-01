@@ -454,8 +454,9 @@ class _MetronomePanelState extends State<MetronomePanel> {
             color: selected ? Colors.white : Colors.white70,
             fontWeight: FontWeight.w700,
           ),
-          selectedColor: accent,
-          backgroundColor: Colors.white10,
+          // `color` em vez de background/selectedColor: no Material 3 o chip
+          // não selecionado saía branco no tema claro, com o texto branco.
+          color: WidgetStatePropertyAll(selected ? accent : Colors.white10),
           side: BorderSide.none,
           onSelected: (_) => onTap(),
         );

@@ -77,6 +77,25 @@ ChordProDocument parseChordPro(String source) {
       lines.add(const EmptyLine());
       continue;
     }
+    // `[Intro] D D4` salvo antes do conversor saber separar: o rótulo vira
+    // título e o resto, linha de acordes.
+    final labeled = _labeledChords(line);
+    if (labeled != null) {
+      lines
+        ..add(DirectiveLine('comment', labeled.label))
+        ..add(
+          LyricLine(
+            _segments(
+              labeled.chords
+                  .trim()
+                  .split(RegExp(r'\s+'))
+                  .map((c) => '[$c]')
+                  .join(' '),
+            ),
+          ),
+        );
+      continue;
+    }
     final d = _directive.firstMatch(line.trim());
     if (d != null) {
       final name = d[1]!.toLowerCase();
@@ -175,6 +194,17 @@ final _strictSuffix = RegExp(
   r'^(?:maj|min|dim|aug|sus|add|m|M|º|°|\+|-|\d|\(|\)|#|b|,)*$',
 );
 
+/// `[Intro] D  D4  D  D4` (o CifraClub copia o rótulo e os acordes na mesma
+/// linha) → rótulo + acordes. Nulo se o rótulo for acorde ou o resto não for
+/// só acordes.
+({String label, String chords})? _labeledChords(String line) {
+  final m = RegExp(r'^\s*\[([^\]]+)\](\s+\S.*)$').firstMatch(line);
+  if (m == null || Chord.tryParse(m[1]!) != null || !_isChordLine(m[2]!)) {
+    return null;
+  }
+  return (label: m[1]!.trim(), chords: m[2]!);
+}
+
 bool _isChordLine(String line) {
   final tokens = line.trim().split(RegExp(r'\s+'));
   return line.trim().isNotEmpty &&
@@ -215,6 +245,14 @@ String chordsOverLyricsToChordPro(String source) {
     final key = _keyLine.firstMatch(line);
     if (key != null) {
       out.add('{key: ${key[1]}}');
+      continue;
+    }
+    final labeled = _labeledChords(line);
+    if (labeled != null) {
+      out.add('{comment: ${labeled.label}}');
+      // Brancos no lugar do rótulo: os acordes ficam na coluna original.
+      lines[i] = ' ' * (line.length - labeled.chords.length) + labeled.chords;
+      i--;
       continue;
     }
     final section = _sectionLine.firstMatch(line);

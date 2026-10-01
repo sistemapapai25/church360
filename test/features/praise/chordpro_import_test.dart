@@ -168,4 +168,18 @@ void main() {
       '{bateria: bumbo x...}\n[G]Santo',
     );
   });
+
+  test('B1: [Intro] com acordes na mesma linha (cópia do CifraClub)', () {
+    expect(
+      chordsOverLyricsToChordPro('[Intro] D  D4  D  D4\n\n[Primeira Parte]'),
+      '{comment: Intro}\n[D] [D4] [D] [D4]\n\n{comment: Primeira Parte}',
+    );
+    // Já salvo do jeito antigo: o leitor separa sozinho.
+    final l = parseChordPro('[Intro] D  D4').lines;
+    expect((l[0] as DirectiveLine).value, 'Intro');
+    expect((l[1] as LyricLine).segments.map((s) => s.chord), ['D', 'D4']);
+    // Rótulo com letra embaixo não é afetado; acorde de verdade também não.
+    expect(parseChordPro('[G] D A').lines.length, 1);
+    expect(parseChordPro('[Refrão] Santo').lines.length, 1);
+  });
 }
