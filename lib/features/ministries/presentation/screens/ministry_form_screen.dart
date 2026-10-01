@@ -427,6 +427,22 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
                     ],
                   ),
                 ),
+                if (isEditing) ...[
+                  const SizedBox(height: 24),
+                  PermissionGate(
+                    permission: 'ministries.delete',
+                    showLoading: false,
+                    child: OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _deleteMinistry,
+                      icon: const Icon(AppIcons.delete),
+                      label: const Text('Excluir ministério'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 32),
               ],
             ),
@@ -545,10 +561,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
                       color: colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(999),
                     ),
-                    child: Text(
-                      tab,
-                      style: CommunityDesign.metaStyle(context),
-                    ),
+                    child: Text(tab, style: CommunityDesign.metaStyle(context)),
                   ),
                 )
                 .toList(),
@@ -631,6 +644,84 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  /// Excluir é irreversível: pede o nome do ministério digitado antes.
+  Future<void> _deleteMinistry() async {
+    final name = _nameController.text.trim();
+    final typed = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Excluir ministério?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Isto não pode ser desfeito. Saem junto a equipe, as escalas, '
+                'os cargos e funções do ministério e tudo o que é só dele. '
+                'Cursos continuam, sem o vínculo; lançamentos financeiros '
+                'ficam no caixa geral.',
+              ),
+              const SizedBox(height: 16),
+              Text('Digite "$name" para confirmar:'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: typed,
+                autofocus: true,
+                onChanged: (_) => setDialogState(() {}),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: typed.text.trim() == name
+                  ? () => Navigator.of(dialogContext).pop(true)
+                  : null,
+              child: const Text('Excluir'),
+            ),
+          ],
+        ),
+      ),
+    );
+    typed.dispose();
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await ref
+          .read(ministriesRepositoryProvider)
+          .deleteMinistry(widget.ministryId!);
+      ref.invalidate(allMinistriesProvider);
+      ref.invalidate(activeMinistriesProvider);
+      ref.invalidate(currentMemberMinistriesProvider);
+      ref.invalidate(visibleMinistriesProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ministério excluído.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      // O workspace do ministério apagado está na pilha: voltar cairia nele.
+      context.go('/ministries');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao excluir ministério: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
