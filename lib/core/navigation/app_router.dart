@@ -30,6 +30,7 @@ import '../../features/ministries/batismo/presentation/screens/batismo_home_scre
 import '../../features/ministries/batismo/presentation/screens/baptism_public_registration_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_home_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_checklist_screen.dart';
+import '../../features/ministries/louvor/presentation/praise_setlist_screen.dart';
 import '../../features/ministries/louvor/presentation/praise_song_editor_screen.dart';
 import '../../features/ministries/louvor/presentation/praise_song_reader_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_absentees_screen.dart';
@@ -700,6 +701,21 @@ final appRouter = GoRouter(
       builder: (context, state) => PraiseSongEditorScreen(
         ministryId: state.pathParameters['id']!,
         songId: state.pathParameters['songId']!,
+      ),
+    ),
+    GoRoute(
+      path: '/ministries/:id/louvores/repertorios/:setlistId',
+      builder: (context, state) => PraiseSetlistScreen(
+        ministryId: state.pathParameters['id']!,
+        setlistId: state.pathParameters['setlistId']!,
+      ),
+    ),
+    GoRoute(
+      path: '/ministries/:id/louvores/repertorios/:setlistId/itens/:itemId',
+      builder: (context, state) => PraiseSetlistItemReaderScreen(
+        ministryId: state.pathParameters['id']!,
+        setlistId: state.pathParameters['setlistId']!,
+        itemId: state.pathParameters['itemId']!,
       ),
     ),
     GoRoute(

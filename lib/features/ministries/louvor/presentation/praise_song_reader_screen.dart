@@ -8,6 +8,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../praise/domain/chord.dart';
 import '../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../data/praise_repository.dart';
+import 'louvores_tab.dart';
 import 'providers/praise_providers.dart';
 import 'widgets/chordpro_view.dart';
 
@@ -36,11 +37,74 @@ class PraiseSongReaderScreen extends StatelessWidget {
   }
 }
 
+/// Leitor de uma música do repertório, no tom do item (canvas, tela 9):
+/// `/ministries/:id/louvores/repertorios/:setlistId/itens/:itemId`.
+/// Mexer no tom aqui também vale só na tela.
+class PraiseSetlistItemReaderScreen extends ConsumerWidget {
+  final String ministryId;
+  final String setlistId;
+  final String itemId;
+
+  const PraiseSetlistItemReaderScreen({
+    super.key,
+    required this.ministryId,
+    required this.setlistId,
+    required this.itemId,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return MinistrySubmoduleGuard(
+      ministryId: ministryId,
+      submoduleLabel: 'Louvores',
+      builder: (_) {
+        final setlist = ref.watch(praiseSetlistProvider(setlistId));
+        final s = setlist.valueOrNull;
+        final rev = [
+          s?.published,
+          s?.draft,
+        ].where((r) => r?.items.any((i) => i.id == itemId) ?? false).firstOrNull;
+        if (rev == null) {
+          return Scaffold(
+            appBar: AppBar(),
+            body: setlist.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : const PraiseMessage(
+                    title: 'Música fora do repertório',
+                    message: 'O repertório mudou ou você não tem acesso.',
+                  ),
+          );
+        }
+        final index = rev.items.indexWhere((i) => i.id == itemId);
+        return _Reader(
+          // Trocar de item recria o estado (tom e versão do novo item).
+          key: ValueKey(itemId),
+          ministryId: ministryId,
+          songId: rev.items[index].version.songId,
+          reading: (setlistId: setlistId, revision: rev, index: index),
+        );
+      },
+    );
+  }
+}
+
+typedef _SetlistReading = ({
+  String setlistId,
+  PraiseSetlistRevision revision,
+  int index,
+});
+
 class _Reader extends ConsumerStatefulWidget {
   final String ministryId;
   final String songId;
+  final _SetlistReading? reading;
 
-  const _Reader({required this.ministryId, required this.songId});
+  const _Reader({
+    super.key,
+    required this.ministryId,
+    required this.songId,
+    this.reading,
+  });
 
   @override
   ConsumerState<_Reader> createState() => _ReaderState();
@@ -52,6 +116,27 @@ class _ReaderState extends ConsumerState<_Reader> {
 
   /// Nulo = a versão mais recente.
   PraiseSongVersion? _picked;
+
+  PraiseSetlistItem? get _item {
+    final r = widget.reading;
+    return r == null ? null : r.revision.items[r.index];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final item = _item;
+    if (item != null) {
+      // A versão e o tom do repertório, não os da biblioteca.
+      _picked = item.version;
+      final from = item.version.originalKey;
+      if (from != null &&
+          item.selectedKey != null &&
+          Chord.tryParse(from) != null) {
+        _semitones = Chord.interval(from, item.selectedKey!);
+      }
+    }
+  }
 
   Future<void> _pickVersion() async {
     final versions = await ref.read(
@@ -143,14 +228,31 @@ class _ReaderState extends ConsumerState<_Reader> {
           icon: const Icon(AppIcons.back),
           onPressed: () => context.pop(),
         ),
-        title: Text(songAsync.valueOrNull?.title ?? 'Louvor'),
+        title: widget.reading == null
+            ? Text(songAsync.valueOrNull?.title ?? 'Louvor')
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_item!.songTitle),
+                  Text(
+                    '${widget.reading!.revision.title} · '
+                    '${widget.reading!.index + 1} de '
+                    '${widget.reading!.revision.items.length}',
+                    style: CommunityDesign.metaStyle(context),
+                  ),
+                ],
+              ),
         actions: [
-          IconButton(
+          // No repertório a versão é a do item: sem histórico nem edição.
+          if (widget.reading == null)
+            IconButton(
             tooltip: 'Versões',
             icon: const Icon(AppIcons.history),
             onPressed: _pickVersion,
           ),
-          if (canManage && songAsync.valueOrNull != null)
+          if (canManage &&
+              widget.reading == null &&
+              songAsync.valueOrNull != null)
             PopupMenuButton<String>(
               icon: const Icon(AppIcons.more),
               onSelected: (v) {
@@ -172,6 +274,9 @@ class _ReaderState extends ConsumerState<_Reader> {
             ),
         ],
       ),
+      bottomNavigationBar: widget.reading == null
+          ? null
+          : _SetlistNav(ministryId: widget.ministryId, reading: widget.reading!),
       body: songAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
@@ -181,6 +286,18 @@ class _ReaderState extends ConsumerState<_Reader> {
           ),
         ),
         data: (song) {
+          // Música arquivada continua tocável pelo repertório: a versão
+          // veio no item.
+          if (song == null && _item != null) {
+            return _body(
+              PraiseSong(
+                id: widget.songId,
+                title: _item!.songTitle,
+                artist: _item!.artist,
+              ),
+              _item!.version,
+            );
+          }
           if (song == null) {
             return const Center(
               child: Text('Música não encontrada ou sem acesso.'),
@@ -214,7 +331,14 @@ class _ReaderState extends ConsumerState<_Reader> {
       children: [
         if (song.artist != null && song.artist!.isNotEmpty)
           Text(song.artist!, style: meta),
-        if (_picked != null && _picked!.id != song.latest?.id)
+        if (_item != null)
+          Text(
+            'Tom do repertório ('
+            '${version.originalKey == null ? '' : 'original ${version.originalKey}, '}'
+            'versão ${version.versionNumber}). Mudar aqui vale só nesta tela.',
+            style: meta,
+          )
+        else if (_picked != null && _picked!.id != song.latest?.id)
           Text(
             'Versão ${version.versionNumber} (não é a mais recente)',
             style: meta.copyWith(fontStyle: FontStyle.italic),
@@ -246,8 +370,14 @@ class _ReaderState extends ConsumerState<_Reader> {
               icon: const Icon(AppIcons.add),
               onPressed: () => setState(() => _semitones++),
             ),
-            if (version.capo > 0) Chip(label: Text('Capo ${version.capo}')),
-            if (version.bpm != null) Chip(label: Text('${version.bpm} BPM')),
+            // No repertório, capo/BPM/observação são os do culto.
+            if ((_item?.capo ?? version.capo) > 0)
+              Chip(label: Text('Capo ${_item?.capo ?? version.capo}')),
+            if ((_item == null ? version.bpm : _item!.bpm) != null)
+              Chip(
+                label: Text('${_item == null ? version.bpm : _item!.bpm} BPM'),
+              ),
+            if (_item?.notes != null) Chip(label: Text(_item!.notes!)),
             IconButton(
               tooltip: 'Diminuir letra',
               icon: const Icon(AppIcons.zoomOut),
@@ -264,7 +394,7 @@ class _ReaderState extends ConsumerState<_Reader> {
             ),
           ],
         ),
-        if (_semitones % 12 != 0 && keyLabel != null)
+        if (_item == null && _semitones % 12 != 0 && keyLabel != null)
           Text(
             'Original em ${version.originalKey}. Trocar o tom aqui não altera a música.',
             style: meta,
@@ -277,6 +407,82 @@ class _ReaderState extends ConsumerState<_Reader> {
           fontSize: _fontSize,
         ),
       ],
+    );
+  }
+}
+
+/// Anterior / próxima do repertório (contrato do leitor §3.2). Troca a rota
+/// no lugar, para o voltar levar direto ao repertório.
+class _SetlistNav extends StatelessWidget {
+  final String ministryId;
+  final _SetlistReading reading;
+
+  const _SetlistNav({required this.ministryId, required this.reading});
+
+  void _go(BuildContext context, PraiseSetlistItem item) =>
+      context.pushReplacement(
+        '/ministries/$ministryId/louvores/repertorios/'
+        '${reading.setlistId}/itens/${item.id}',
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final items = reading.revision.items;
+    final i = reading.index;
+    final prev = i > 0 ? items[i - 1] : null;
+    final next = i + 1 < items.length ? items[i + 1] : null;
+    final nextKey = next?.selectedKey ?? next?.version.originalKey;
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(AppIcons.chevronLeft),
+                label: const Text('Anterior'),
+                onPressed: prev == null ? null : () => _go(context, prev),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: OutlinedButton(
+                onPressed: next == null ? null : () => _go(context, next),
+                child: next == null
+                    ? const Text('Última música')
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  nextKey == null
+                                      ? 'Próxima'
+                                      : 'Próxima · $nextKey',
+                                  style: CommunityDesign.metaStyle(
+                                    context,
+                                  ).copyWith(fontSize: 11),
+                                ),
+                                Text(
+                                  next.songTitle,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(AppIcons.forward, size: 18),
+                        ],
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

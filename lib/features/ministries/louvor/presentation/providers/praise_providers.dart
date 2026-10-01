@@ -26,10 +26,28 @@ final praiseVersionsProvider =
       (ref, songId) => ref.watch(praiseRepositoryProvider).listVersions(songId),
     );
 
+/// `praise_can_manage_setlist()` / `praise_can_publish_setlist()`.
+final praiseSetlistAccessProvider =
+    FutureProvider<({bool canManage, bool canPublish})>(
+      (ref) => ref.watch(praiseRepositoryProvider).setlistAccess(),
+    );
+
+final praiseSetlistsProvider =
+    FutureProvider.family<List<PraiseSetlist>, String>(
+      (ref, ministryId) =>
+          ref.watch(praiseRepositoryProvider).listSetlists(ministryId),
+    );
+
+final praiseSetlistProvider = FutureProvider.family<PraiseSetlist?, String>(
+  (ref, setlistId) => ref.watch(praiseRepositoryProvider).getSetlist(setlistId),
+);
+
 /// Realtime não é ligado por migration neste banco: depois de gravar,
 /// invalidar na mão.
 void invalidatePraise(WidgetRef ref, [String? songId]) {
   ref.invalidate(praiseSongsProvider);
+  ref.invalidate(praiseSetlistsProvider);
+  ref.invalidate(praiseSetlistProvider);
   if (songId != null) {
     ref.invalidate(praiseSongProvider(songId));
     ref.invalidate(praiseVersionsProvider(songId));
