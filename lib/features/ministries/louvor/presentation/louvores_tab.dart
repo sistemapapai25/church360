@@ -7,6 +7,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/app_filter_bar.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../data/praise_repository.dart';
+import 'praise_received_view.dart';
 import 'praise_setlists_view.dart';
 import 'providers/praise_providers.dart';
 
@@ -26,7 +27,9 @@ class LouvoresTab extends ConsumerStatefulWidget {
 class _LouvoresTabState extends ConsumerState<LouvoresTab> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
-  bool _setlists = true;
+
+  /// 0 = Repertórios, 1 = Biblioteca, 2 = Recebidos (de outro ministério).
+  int _side = 0;
 
   @override
   void dispose() {
@@ -68,27 +71,37 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
                 'Fora dele, é preciso a permissão "Ver louvores".',
           );
         }
+        final received =
+            ref
+                .watch(praiseReceivedProvider(widget.ministryId))
+                .valueOrNull
+                ?.isNotEmpty ??
+            false;
+        final side = !received && _side == 2 ? 0 : _side;
         return Column(
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
               child: SizedBox(
                 width: double.infinity,
-                child: SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: true, label: Text('Repertórios')),
-                    ButtonSegment(value: false, label: Text('Biblioteca')),
+                child: SegmentedButton<int>(
+                  segments: [
+                    const ButtonSegment(value: 0, label: Text('Repertórios')),
+                    const ButtonSegment(value: 1, label: Text('Biblioteca')),
+                    if (received)
+                      const ButtonSegment(value: 2, label: Text('Recebidos')),
                   ],
-                  selected: {_setlists},
-                  onSelectionChanged: (v) =>
-                      setState(() => _setlists = v.first),
+                  selected: {side},
+                  onSelectionChanged: (v) => setState(() => _side = v.first),
                 ),
               ),
             ),
             Expanded(
-              child: _setlists
-                  ? PraiseSetlistsView(ministryId: widget.ministryId)
-                  : _library(access.canManage),
+              child: switch (side) {
+                0 => PraiseSetlistsView(ministryId: widget.ministryId),
+                1 => _library(access.canManage),
+                _ => PraiseReceivedView(ministryId: widget.ministryId),
+              },
             ),
           ],
         );

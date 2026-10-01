@@ -718,6 +718,25 @@ final appRouter = GoRouter(
         itemId: state.pathParameters['itemId']!,
       ),
     ),
+    // Louvores, Fase D: repertório recebido de outro ministério. O :id é o
+    // do destinatário (é nele que a pessoa tem vínculo).
+    GoRoute(
+      path: '/ministries/:id/louvores/recebidos/:setlistId',
+      builder: (context, state) => PraiseSetlistScreen(
+        ministryId: state.pathParameters['id']!,
+        setlistId: state.pathParameters['setlistId']!,
+        received: true,
+      ),
+    ),
+    GoRoute(
+      path: '/ministries/:id/louvores/recebidos/:setlistId/itens/:itemId',
+      builder: (context, state) => PraiseSetlistItemReaderScreen(
+        ministryId: state.pathParameters['id']!,
+        setlistId: state.pathParameters['setlistId']!,
+        itemId: state.pathParameters['itemId']!,
+        received: true,
+      ),
+    ),
     GoRoute(
       path: '/ministries/:id/diaconato/checklist/:eventId',
       builder: (context, state) {

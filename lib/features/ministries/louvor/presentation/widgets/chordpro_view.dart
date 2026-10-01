@@ -94,6 +94,9 @@ class ChordProView extends StatelessWidget {
   /// se também houver largura de [twoColumnWidth].
   final bool twoColumns;
 
+  /// "Só letra": esconde a linha dos acordes (linha só de acorde some).
+  final bool lyricsOnly;
+
   /// `{batida: ...}`: desenhada no lugar ([StrumDisplay.always]), escondida,
   /// ou só marcada para o leitor saber onde cada uma está
   /// ([StrumDisplay.current], que mostra a da seção na tela fora do corpo).
@@ -114,6 +117,7 @@ class ChordProView extends StatelessWidget {
     this.fontSize = 15,
     this.onChordTap,
     this.twoColumns = false,
+    this.lyricsOnly = false,
     this.strums = StrumDisplay.always,
     this.strumKeys,
     this.diagramFor,
@@ -260,8 +264,10 @@ class ChordProView extends StatelessWidget {
             );
           }
         case LyricLine():
-          final hasChords = line.segments.any((s) => s.chord != null);
+          final hasChords =
+              !lyricsOnly && line.segments.any((s) => s.chord != null);
           final hasLyrics = line.segments.any((s) => s.lyric.trim().isNotEmpty);
+          if (!hasChords && !hasLyrics) break;
           blocks.add(
             Wrap(
               spacing: gap,

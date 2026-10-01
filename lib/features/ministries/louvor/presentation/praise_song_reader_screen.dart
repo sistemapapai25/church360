@@ -47,16 +47,21 @@ class PraiseSongReaderScreen extends StatelessWidget {
 /// Leitor de uma música do repertório, no tom do item (canvas, tela 9):
 /// `/ministries/:id/louvores/repertorios/:setlistId/itens/:itemId`.
 /// Mexer no tom aqui também vale só na tela.
+///
+/// [received]: o mesmo leitor para o ministério destinatário
+/// (`.../louvores/recebidos/...`, tela 12b). [ministryId] é o dele.
 class PraiseSetlistItemReaderScreen extends ConsumerWidget {
   final String ministryId;
   final String setlistId;
   final String itemId;
+  final bool received;
 
   const PraiseSetlistItemReaderScreen({
     super.key,
     required this.ministryId,
     required this.setlistId,
     required this.itemId,
+    this.received = false,
   });
 
   @override
@@ -87,18 +92,22 @@ class PraiseSetlistItemReaderScreen extends ConsumerWidget {
           key: ValueKey(itemId),
           ministryId: ministryId,
           songId: rev.items[index].version.songId,
-          reading: (setlistId: setlistId, revision: rev, index: index),
+          reading: (
+            base:
+                '/ministries/$ministryId/louvores/'
+                '${received ? 'recebidos' : 'repertorios'}/$setlistId',
+            revision: rev,
+            index: index,
+          ),
         );
       },
     );
   }
 }
 
-String _itemRoute(String ministryId, String setlistId, String? itemId) =>
-    '/ministries/$ministryId/louvores/repertorios/$setlistId/itens/$itemId';
-
+/// [base] = rota do repertório (do dono ou do recebido).
 typedef _SetlistReading = ({
-  String setlistId,
+  String base,
   PraiseSetlistRevision revision,
   int index,
 });
@@ -154,6 +163,11 @@ class _ReaderState extends ConsumerState<_Reader> {
   int _currentStrum = -1;
   final _scroll = ScrollController();
   final _listKey = GlobalKey();
+
+  /// "Só letra": sem acordes, diagramas nem batidas — para a Mídia projetar
+  /// e para quem canta. Preferência do aparelho.
+  bool _lyricsOnly = false;
+  static const _lyricsOnlyPref = 'praise_reader_lyrics_only';
 
   /// Tela cheia: sem barra do app nem navegação do repertório.
   bool _fullscreen = false;
@@ -231,6 +245,7 @@ class _ReaderState extends ConsumerState<_Reader> {
       setState(() {
         if (saved.isNotEmpty) _instrument = saved.first;
         _twoColumns = prefs.getBool(_columnsPref) ?? false;
+        _lyricsOnly = prefs.getBool(_lyricsOnlyPref) ?? false;
         _tuningDrop = (prefs.getInt(_tuningPref) ?? 0).clamp(0, 4);
         if (diagrams != null && diagrams.length >= 3) {
           _diagramsStart = diagrams[0] == 'true';
@@ -264,6 +279,13 @@ class _ReaderState extends ConsumerState<_Reader> {
     setState(() => _twoColumns = v);
     SharedPreferences.getInstance()
         .then((p) => p.setBool(_columnsPref, v))
+        .ignore();
+  }
+
+  void _setLyricsOnly(bool v) {
+    setState(() => _lyricsOnly = v);
+    SharedPreferences.getInstance()
+        .then((p) => p.setBool(_lyricsOnlyPref, v))
         .ignore();
   }
 
@@ -548,9 +570,7 @@ class _ReaderState extends ConsumerState<_Reader> {
       ),
     );
     if (picked != null && mounted && picked.id != _item!.id) {
-      context.pushReplacement(
-        _itemRoute(widget.ministryId, reading.setlistId, picked.id),
-      );
+      context.pushReplacement('${reading.base}/itens/${picked.id}');
     }
   }
 
@@ -798,7 +818,16 @@ class _ReaderState extends ConsumerState<_Reader> {
     if (_strums == StrumDisplay.current) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _trackStrum());
     }
-    final pinned = _diagramsStart && _diagramsPinned;
+    final pinned = !_lyricsOnly && _diagramsStart && _diagramsPinned;
+    final lyricsToggle = SegmentedButton<bool>(
+      showSelectedIcon: false,
+      segments: const [
+        ButtonSegment(value: false, label: Text('Cifra')),
+        ButtonSegment(value: true, label: Text('Só letra')),
+      ],
+      selected: {_lyricsOnly},
+      onSelectionChanged: (v) => _setLyricsOnly(v.first),
+    );
 
     final list = ListView(
       key: _listKey,
@@ -825,24 +854,26 @@ class _ReaderState extends ConsumerState<_Reader> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
+            lyricsToggle,
             // Controles pequenos em pílula (referência CifraClub §1.6).
-            _PillStepper(
-              onMinus: () => setState(() => _semitones--),
-              onPlus: () => setState(() => _semitones++),
-              minusTooltip: 'Meio tom abaixo',
-              plusTooltip: 'Meio tom acima',
-              child: GestureDetector(
-                onTap: () => setState(() => _semitones = 0),
-                child: Text(
-                  keyLabel != null
-                      ? 'Tom: $keyLabel'
-                      : 'Tom ${_semitones == 0 ? 'original' : (_semitones > 0 ? '+$_semitones' : '$_semitones')}',
-                  style: CommunityDesign.titleStyle(
-                    context,
-                  ).copyWith(fontSize: 16),
+            if (!_lyricsOnly)
+              _PillStepper(
+                onMinus: () => setState(() => _semitones--),
+                onPlus: () => setState(() => _semitones++),
+                minusTooltip: 'Meio tom abaixo',
+                plusTooltip: 'Meio tom acima',
+                child: GestureDetector(
+                  onTap: () => setState(() => _semitones = 0),
+                  child: Text(
+                    keyLabel != null
+                        ? 'Tom: $keyLabel'
+                        : 'Tom ${_semitones == 0 ? 'original' : (_semitones > 0 ? '+$_semitones' : '$_semitones')}',
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(fontSize: 16),
+                  ),
                 ),
               ),
-            ),
             _PillStepper(
               onMinus: _fontSize > 11
                   ? () => setState(() => _fontSize--)
@@ -854,13 +885,13 @@ class _ReaderState extends ConsumerState<_Reader> {
               plusIcon: AppIcons.zoomIn,
             ),
             // No repertório, capo/BPM/observação são os do culto.
-            if (capo > 0)
+            if (!_lyricsOnly && capo > 0)
               ActionChip(
                 shape: const StadiumBorder(),
                 label: Text('Capo $capo'),
                 onPressed: () => _openSettings(baseCapo),
               ),
-            if (bpm != null)
+            if (!_lyricsOnly && bpm != null)
               ActionChip(
                 shape: const StadiumBorder(),
                 label: Text('$bpm BPM'),
@@ -868,12 +899,13 @@ class _ReaderState extends ConsumerState<_Reader> {
               ),
             if (_item?.notes != null)
               Chip(shape: const StadiumBorder(), label: Text(_item!.notes!)),
-            ActionChip(
-              shape: const StadiumBorder(),
-              avatar: const Icon(AppIcons.tune, size: 16),
-              label: Text('Ajustes · ${_instrument.label}'),
-              onPressed: () => _openSettings(baseCapo),
-            ),
+            if (!_lyricsOnly)
+              ActionChip(
+                shape: const StadiumBorder(),
+                avatar: const Icon(AppIcons.tune, size: 16),
+                label: Text('Ajustes · ${_instrument.label}'),
+                onPressed: () => _openSettings(baseCapo),
+              ),
           ],
         ),
         if (_item == null && _semitones % 12 != 0 && keyLabel != null)
@@ -882,7 +914,10 @@ class _ReaderState extends ConsumerState<_Reader> {
             style: meta,
           ),
         const SizedBox(height: 12),
-        if (_diagramsStart && !pinned) ...[strip, const SizedBox(height: 12)],
+        if (!_lyricsOnly && _diagramsStart && !pinned) ...[
+          strip,
+          const SizedBox(height: 12),
+        ],
         ChordProView(
           source: version.chordpro,
           semitones: _semitones,
@@ -890,9 +925,10 @@ class _ReaderState extends ConsumerState<_Reader> {
           fontSize: _fontSize,
           onChordTap: (c) => _openChord(c, capo),
           twoColumns: _twoColumns,
-          strums: _strums,
+          lyricsOnly: _lyricsOnly,
+          strums: _lyricsOnly ? StrumDisplay.hidden : _strums,
           strumKeys: _strumKeys,
-          diagramFor: _diagramsInline
+          diagramFor: _diagramsInline && !_lyricsOnly
               ? (c) => ChordDiagram(
                   chord: _shapeOf(c, _instrument, capo),
                   instrument: _instrument,
@@ -900,12 +936,16 @@ class _ReaderState extends ConsumerState<_Reader> {
                 )
               : null,
         ),
-        if (_diagramsEnd) ...[const SizedBox(height: 16), strip],
+        if (!_lyricsOnly && _diagramsEnd) ...[
+          const SizedBox(height: 16),
+          strip,
+        ],
       ],
     );
 
     final current =
-        _strums == StrumDisplay.current &&
+        !_lyricsOnly &&
+            _strums == StrumDisplay.current &&
             _currentStrum >= 0 &&
             _currentStrum < patterns.length
         ? patterns[_currentStrum]
@@ -1115,8 +1155,8 @@ class _SetlistNav extends StatelessWidget {
 
   const _SetlistNav({required this.ministryId, required this.reading});
 
-  void _go(BuildContext context, PraiseSetlistItem item) => context
-      .pushReplacement(_itemRoute(ministryId, reading.setlistId, item.id));
+  void _go(BuildContext context, PraiseSetlistItem item) =>
+      context.pushReplacement('${reading.base}/itens/${item.id}');
 
   @override
   Widget build(BuildContext context) {

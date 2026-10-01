@@ -14,6 +14,7 @@ import '../data/praise_repository.dart';
 import 'louvores_tab.dart';
 import 'praise_setlists_view.dart';
 import 'providers/praise_providers.dart';
+import 'widgets/recipients_sheet.dart';
 import 'widgets/setlist_item_sheet.dart';
 
 /// Repertório (`/ministries/:id/louvores/repertorios/:setlistId`).
@@ -21,14 +22,19 @@ import 'widgets/setlist_item_sheet.dart';
 /// Quem monta ou publica e tem rascunho aberto cai no rascunho (canvas,
 /// tela 6); o resto vê o publicado (tela 8). A RLS já não devolve rascunho
 /// ao integrante comum.
+///
+/// [received]: repertório que outro ministério mandou para [ministryId]
+/// (`/ministries/:id/louvores/recebidos/:setlistId`, tela 12a). Só leitura.
 class PraiseSetlistScreen extends StatelessWidget {
   final String ministryId;
   final String setlistId;
+  final bool received;
 
   const PraiseSetlistScreen({
     super.key,
     required this.ministryId,
     required this.setlistId,
+    this.received = false,
   });
 
   @override
@@ -36,7 +42,11 @@ class PraiseSetlistScreen extends StatelessWidget {
     return MinistrySubmoduleGuard(
       ministryId: ministryId,
       submoduleLabel: 'Louvores',
-      builder: (_) => _Setlist(ministryId: ministryId, setlistId: setlistId),
+      builder: (_) => _Setlist(
+        ministryId: ministryId,
+        setlistId: setlistId,
+        received: received,
+      ),
     );
   }
 }
@@ -44,8 +54,13 @@ class PraiseSetlistScreen extends StatelessWidget {
 class _Setlist extends ConsumerWidget {
   final String ministryId;
   final String setlistId;
+  final bool received;
 
-  const _Setlist({required this.ministryId, required this.setlistId});
+  const _Setlist({
+    required this.ministryId,
+    required this.setlistId,
+    required this.received,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -54,10 +69,18 @@ class _Setlist extends ConsumerWidget {
 
     final body = switch ((setlistAsync, accessAsync)) {
       (AsyncData(value: final s), AsyncData(value: final a)) =>
-        s == null || s.current == null
+        s == null || (received ? s.published : s.current) == null
             ? const PraiseMessage(
                 title: 'Repertório não encontrado',
                 message: 'Ele não existe mais ou você não tem acesso.',
+              )
+            : received
+            ? _PublishedView(
+                ministryId: ministryId,
+                setlist: s,
+                canManage: false,
+                canPublish: false,
+                received: true,
               )
             : s.draft != null && (a.canManage || a.canPublish)
             ? _DraftEditor(
@@ -94,7 +117,7 @@ class _Setlist extends ConsumerWidget {
           // maybePop respeita o aviso de rascunho não salvo.
           onPressed: () => Navigator.maybePop(context),
         ),
-        title: const Text('Repertório'),
+        title: Text(received ? 'Repertório recebido' : 'Repertório'),
       ),
       body: body,
     );
@@ -146,9 +169,6 @@ class _KeyBox extends StatelessWidget {
     );
   }
 }
-
-String _keyOf(PraiseSetlistItem i) =>
-    i.selectedKey ?? i.version.originalKey ?? '—';
 
 // ------------------------------------------------------------ rascunho (6)
 
@@ -228,19 +248,31 @@ class _DraftEditorState extends ConsumerState<_DraftEditor> {
       _snack('Adicione ao menos uma música antes de publicar.');
       return;
     }
-    final ok = await _confirm(
-      'Publicar repertório?',
-      widget.setlist.published == null
-          ? 'A equipe do ministério passa a ver este repertório.'
+    final repo = ref.read(praiseRepositoryProvider);
+    // A revisão N+1 já nasce com os destinatários da anterior.
+    final current = await ref
+        .read(praiseRecipientsProvider(_draft.id).future)
+        .catchError((_) => <({String id, String name})>[]);
+    if (!mounted) return;
+    final picked = await showRecipientsSheet(
+      context,
+      ownerMinistryId: widget.ministryId,
+      initial: {for (final r in current) r.id},
+      title: 'Publicar repertório',
+      subtitle: widget.setlist.published == null
+          ? '${_title.text.trim()} · ${_items.length} músicas'
           : 'Esta revisão substitui a publicada (rev. '
                 '${widget.setlist.published!.number}) para toda a equipe.',
-      'Publicar',
+      actionLabel: (n) => n == 0
+          ? 'Publicar'
+          : 'Publicar para $n ${n == 1 ? 'ministério' : 'ministérios'}',
     );
-    if (!ok) return;
+    if (picked == null) return;
     if (_dirty && !await _save(quiet: true)) return;
     setState(() => _busy = true);
     try {
-      await ref.read(praiseRepositoryProvider).publishSetlist(_draft.id);
+      await repo.setRecipients(_draft.id, picked);
+      await repo.publishSetlist(_draft.id);
       invalidatePraise(ref);
       _snack('Repertório publicado.');
     } catch (e) {
@@ -513,7 +545,7 @@ class _DraftEditorState extends ConsumerState<_DraftEditor> {
                             ],
                           ),
                         ),
-                        _KeyBox(_keyOf(it)),
+                        _KeyBox(praiseItemKey(it)),
                         if (widget.canManage)
                           IconButton(
                             tooltip: 'Tirar do repertório',
@@ -571,11 +603,15 @@ class _PublishedView extends ConsumerStatefulWidget {
   final bool canManage;
   final bool canPublish;
 
+  /// Visto pelo ministério destinatário (tela 12a): sem ações.
+  final bool received;
+
   const _PublishedView({
     required this.ministryId,
     required this.setlist,
     required this.canManage,
     required this.canPublish,
+    this.received = false,
   });
 
   @override
@@ -592,6 +628,33 @@ class _PublishedViewState extends ConsumerState<_PublishedView> {
           .read(praiseRepositoryProvider)
           .newSetlistRevision(widget.setlist.id);
       // A tela volta como rascunho quando o repertório recarrega.
+      invalidatePraise(ref);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(praiseErrorText(e))));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// "Alterar" destinatários da publicada, sem republicar (tela 10b).
+  Future<void> _changeRecipients(List<({String id, String name})> now) async {
+    final rev = widget.setlist.published!;
+    final picked = await showRecipientsSheet(
+      context,
+      ownerMinistryId: widget.ministryId,
+      initial: {for (final r in now) r.id},
+      title: 'Destinatários',
+      subtitle: '${rev.title} · rev. ${rev.number}',
+      actionLabel: (_) => 'Salvar',
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(praiseRepositoryProvider).setRecipients(rev.id, picked);
       invalidatePraise(ref);
     } catch (e) {
       if (mounted) {
@@ -651,12 +714,20 @@ class _PublishedViewState extends ConsumerState<_PublishedView> {
     final rev = widget.setlist.published!;
     final meta = CommunityDesign.metaStyle(context);
     final by = ref.watch(praisePublisherNameProvider(rev.id)).value;
-    final line = [
-      ?_eventLine(widget.setlist),
-      if (rev.publishedAt != null)
-        'publicado em ${DateFormat('dd/MM', 'pt_BR').format(rev.publishedAt!.toLocal())}'
-            '${by == null ? '' : ' por $by'}',
-    ].join(' · ');
+    final published = rev.publishedAt == null
+        ? null
+        : 'publicad${widget.received ? 'a' : 'o'} em '
+              '${DateFormat('dd/MM', 'pt_BR').format(rev.publishedAt!.toLocal())}'
+              '${by == null ? '' : ' por $by'}';
+    final line = widget.received
+        ? [
+            'Recebido de ${widget.setlist.ministryName ?? 'outro ministério'}',
+            ?_eventLine(widget.setlist),
+          ].join(' · ')
+        : [?_eventLine(widget.setlist), ?published].join(' · ');
+    final base = widget.received
+        ? '/ministries/${widget.ministryId}/louvores/recebidos/'
+        : '/ministries/${widget.ministryId}/louvores/repertorios/';
 
     return Column(
       children: [
@@ -674,13 +745,34 @@ class _PublishedViewState extends ConsumerState<_PublishedView> {
                       ).copyWith(fontSize: 20, fontWeight: FontWeight.w800),
                     ),
                   ),
-                  SetlistStatusChip(
-                    label: 'Publicado · rev. ${rev.number}',
-                    published: true,
-                  ),
+                  if (widget.received)
+                    const Chip(
+                      shape: StadiumBorder(),
+                      avatar: Icon(AppIcons.lock, size: 14),
+                      label: Text('Só leitura'),
+                    )
+                  else
+                    SetlistStatusChip(
+                      label: 'Publicado · rev. ${rev.number}',
+                      published: true,
+                    ),
                 ],
               ),
               if (line.isNotEmpty) Text(line, style: meta),
+              if (widget.received)
+                Text(
+                  ['Rev. ${rev.number}', ?published].join(' · '),
+                  style: meta,
+                ),
+              if (widget.received && rev.number > 1)
+                _Changes(setlistId: widget.setlist.id, revision: rev)
+              else if (!widget.received)
+                _RecipientsLine(
+                  revisionId: rev.id,
+                  onChange: widget.canPublish && !_busy
+                      ? _changeRecipients
+                      : null,
+                ),
               const SizedBox(height: 12),
               for (final (i, it) in rev.items.indexed)
                 Padding(
@@ -688,8 +780,7 @@ class _PublishedViewState extends ConsumerState<_PublishedView> {
                   child: GlassCard(
                     padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
                     onTap: () => context.push(
-                      '/ministries/${widget.ministryId}/louvores/repertorios/'
-                      '${widget.setlist.id}/itens/${it.id}',
+                      '$base${widget.setlist.id}/itens/${it.id}',
                     ),
                     child: Row(
                       children: [
@@ -718,7 +809,7 @@ class _PublishedViewState extends ConsumerState<_PublishedView> {
                             ],
                           ),
                         ),
-                        _KeyBox(_keyOf(it)),
+                        _KeyBox(praiseItemKey(it)),
                         const Icon(AppIcons.forward, size: 18),
                       ],
                     ),
@@ -763,6 +854,120 @@ class _PublishedViewState extends ConsumerState<_PublishedView> {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// "Destinatários: Mídia · Diaconato" + Alterar (tela 10b). Sem
+/// destinatário e sem quem altere, some.
+class _RecipientsLine extends ConsumerWidget {
+  final String revisionId;
+  final ValueChanged<List<({String id, String name})>>? onChange;
+
+  const _RecipientsLine({required this.revisionId, this.onChange});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final list = ref.watch(praiseRecipientsProvider(revisionId)).valueOrNull;
+    if (list == null || (list.isEmpty && onChange == null)) {
+      return const SizedBox.shrink();
+    }
+    final meta = CommunityDesign.metaStyle(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: GlassCard(
+        padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+        child: Row(
+          children: [
+            const Icon(AppIcons.share, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Destinatários', style: meta),
+                  Text(
+                    list.isEmpty
+                        ? 'Só este ministério vê'
+                        : list.map((r) => r.name).join(' · '),
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+            if (onChange != null)
+              OutlinedButton(
+                onPressed: () => onChange!(list),
+                child: Text(list.isEmpty ? 'Escolher' : 'Alterar'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "O que mudou desde a rev. N−1" (tela 12a), contra a arquivada anterior.
+class _Changes extends ConsumerWidget {
+  final String setlistId;
+  final PraiseSetlistRevision revision;
+
+  const _Changes({required this.setlistId, required this.revision});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final before = ref
+        .watch(praiseRevisionProvider((setlistId, revision.number - 1)))
+        .valueOrNull;
+    if (before == null) return const SizedBox.shrink();
+    final changes = setlistChanges(before, revision);
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'O que mudou desde a rev. ${before.number}',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: scheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(height: 4),
+            if (changes.isEmpty)
+              Text(
+                'Só a ordem ou os detalhes das músicas.',
+                style: CommunityDesign.metaStyle(context),
+              ),
+            for (final c in changes)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 20,
+                      child: Text(
+                        c.sign,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    Expanded(child: Text(c.text)),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
