@@ -79,6 +79,13 @@ final praiseReceivedProvider =
           ref.watch(praiseRepositoryProvider).receivedSetlists(ministryId),
     );
 
+/// Tons por música de um ministrante (Espontâneo).
+final praiseMinisterKeysProvider =
+    FutureProvider.family<Map<String, List<PraiseKeyUse>>, String>(
+      (ref, ministerId) =>
+          ref.watch(praiseRepositoryProvider).ministerKeys(ministerId),
+    );
+
 /// Realtime não é ligado por migration neste banco: depois de gravar,
 /// invalidar na mão.
 void invalidatePraise(WidgetRef ref, [String? songId]) {
@@ -89,6 +96,7 @@ void invalidatePraise(WidgetRef ref, [String? songId]) {
   ref.invalidate(praiseReceivedProvider);
   ref.invalidate(praiseUsageProvider);
   ref.invalidate(praiseActivityProvider);
+  ref.invalidate(praiseMinisterKeysProvider);
   if (songId != null) {
     ref.invalidate(praiseSongProvider(songId));
     ref.invalidate(praiseVersionsProvider(songId));

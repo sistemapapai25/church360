@@ -694,6 +694,7 @@ final appRouter = GoRouter(
       builder: (context, state) => PraiseSongReaderScreen(
         ministryId: state.pathParameters['id']!,
         songId: state.pathParameters['songId']!,
+        initialKey: state.uri.queryParameters['tom'],
       ),
     ),
     GoRoute(

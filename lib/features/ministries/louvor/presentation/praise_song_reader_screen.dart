@@ -27,6 +27,7 @@ import 'widgets/chord_diagram.dart';
 import 'widgets/chordpro_view.dart';
 import 'widgets/reader_fullscreen.dart';
 import 'widgets/reader_tools.dart';
+import 'widgets/spontaneous_sheet.dart';
 
 /// Leitor de cifra — tela interna, não aba
 /// (`/ministries/:id/louvores/musicas/:songId`).
@@ -37,10 +38,14 @@ class PraiseSongReaderScreen extends StatelessWidget {
   final String ministryId;
   final String songId;
 
+  /// `?tom=G`: abre transposto (vem do Espontâneo).
+  final String? initialKey;
+
   const PraiseSongReaderScreen({
     super.key,
     required this.ministryId,
     required this.songId,
+    this.initialKey,
   });
 
   @override
@@ -48,7 +53,11 @@ class PraiseSongReaderScreen extends StatelessWidget {
     return MinistrySubmoduleGuard(
       ministryId: ministryId,
       submoduleLabel: 'Louvores',
-      builder: (_) => _Reader(ministryId: ministryId, songId: songId),
+      builder: (_) => _Reader(
+        ministryId: ministryId,
+        songId: songId,
+        initialKey: initialKey,
+      ),
     );
   }
 }
@@ -125,12 +134,14 @@ class _Reader extends ConsumerStatefulWidget {
   final String ministryId;
   final String songId;
   final _SetlistReading? reading;
+  final String? initialKey;
 
   const _Reader({
     super.key,
     required this.ministryId,
     required this.songId,
     this.reading,
+    this.initialKey,
   });
 
   @override
@@ -253,6 +264,20 @@ class _ReaderState extends ConsumerState<_Reader>
           item.selectedKey != null &&
           Chord.tryParse(from) != null) {
         _semitones = Chord.interval(from, item.selectedKey!);
+      }
+    } else if (widget.initialKey case final key?) {
+      // O Espontâneo abre da biblioteca já carregada: a versão mais recente.
+      final from = ref
+          .read(praiseSongsProvider)
+          .valueOrNull
+          ?.where((s) => s.id == widget.songId)
+          .firstOrNull
+          ?.latest
+          ?.originalKey;
+      if (from != null &&
+          Chord.tryParse(from) != null &&
+          Chord.tryParse(key) != null) {
+        _semitones = Chord.interval(from, key);
       }
     }
   }
@@ -1287,6 +1312,15 @@ class _ReaderState extends ConsumerState<_Reader>
                       ),
                     ),
               actions: [
+                if (!(widget.reading?.base.contains('/recebidos/') ?? false))
+                  TextButton(
+                    onPressed: () => showSpontaneousSheet(
+                      context,
+                      ministryId: widget.ministryId,
+                      ministerId: _item?.ministerId,
+                    ),
+                    child: const Text('Espontâneo'),
+                  ),
                 // No repertório a versão é a do item: sem histórico nem edição.
                 if (widget.reading == null)
                   IconButton(
