@@ -367,7 +367,9 @@ final appRouter = GoRouter(
     GoRoute(path: '/signup', builder: (context, state) => const SignUpScreen()),
     GoRoute(
       path: '/reset-password',
-      builder: (context, state) => const ResetPasswordScreen(),
+      builder: (context, state) => ResetPasswordScreen(
+        tokenHash: state.uri.queryParameters['token_hash'],
+      ),
     ),
     GoRoute(
       path: '/profile/change-password',

@@ -13,7 +13,12 @@ enum _RecoveryStatus { validating, ready, invalid, saving, saved }
 
 /// A senha só pode ser alterada após o callback `passwordRecovery` do Auth.
 class ResetPasswordScreen extends ConsumerStatefulWidget {
-  const ResetPasswordScreen({super.key});
+  const ResetPasswordScreen({super.key, this.tokenHash});
+
+  /// Link de primeiro acesso do `provision-access` (convite por WhatsApp):
+  /// `?token_hash=...` trocado aqui por `verifyOTP`, que emite o mesmo
+  /// `passwordRecovery` do fluxo "esqueci a senha".
+  final String? tokenHash;
 
   @override
   ConsumerState<ResetPasswordScreen> createState() =>
@@ -39,6 +44,11 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       _onAuthState,
       onError: (_, __) => _invalidate(),
     );
+    final tokenHash = widget.tokenHash;
+    if (tokenHash != null && tokenHash.isNotEmpty) {
+      unawaited(_verifyTokenHash(tokenHash));
+      return;
+    }
     // O stream do SDK reapresenta o callback recente. Sem o callback, uma
     // sessão comum nunca pode autorizar a redefinição nesta rota.
     unawaited(
@@ -46,6 +56,17 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
         if (mounted && _status == _RecoveryStatus.validating) _invalidate();
       }),
     );
+  }
+
+  Future<void> _verifyTokenHash(String tokenHash) async {
+    try {
+      await Supabase.instance.client.auth.verifyOTP(
+        tokenHash: tokenHash,
+        type: OtpType.recovery,
+      );
+    } catch (_) {
+      _invalidate();
+    }
   }
 
   void _onAuthState(AuthState state) {
