@@ -9,6 +9,7 @@ import 'package:church360_app/features/ministries/shared/domain/ministry_type_ca
 import 'package:church360_app/features/ministries/shared/presentation/widgets/ministry_workspace_shell.dart';
 import 'package:church360_app/features/permissions/providers/permissions_providers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -194,6 +195,16 @@ void main() {
     await t.pump(const Duration(seconds: 2));
     expect(scroll.offset, moved);
     expect(find.byTooltip('Rolagem automática'), findsOneWidget);
+
+    // Pedal/teclado: PageDown avança uma tela; espaço liga a rolagem.
+    await t.sendKeyEvent(LogicalKeyboardKey.pageDown);
+    await t.pumpAndSettle();
+    expect(scroll.offset, greaterThan(moved + 300));
+    await t.sendKeyEvent(LogicalKeyboardKey.space);
+    await t.pump();
+    expect(find.byTooltip('Pausar rolagem'), findsOneWidget);
+    await t.sendKeyEvent(LogicalKeyboardKey.space);
+    await t.pump();
   });
 
   testWidgets('leitor abre no tom do item e mostra a próxima', (t) async {

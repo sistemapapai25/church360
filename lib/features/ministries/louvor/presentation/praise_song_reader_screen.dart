@@ -2,10 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
@@ -222,6 +224,7 @@ class _ReaderState extends ConsumerState<_Reader>
 
   @override
   void dispose() {
+    if (_autoScroll.isActive) WakelockPlus.disable().ignore();
     _autoScroll.dispose();
     _scroll.dispose();
     if (_fullscreen) setReaderFullscreen(false);
@@ -246,8 +249,45 @@ class _ReaderState extends ConsumerState<_Reader>
     } else {
       _autoScroll.stop();
     }
+    // Tela acesa só enquanto rola: no palco ninguém toca no celular.
+    WakelockPlus.toggle(enable: on).ignore();
     if (mounted) setState(() {});
   }
+
+  /// Pedal bluetooth e teclado: o pedal manda tecla (seta ou PageDown).
+  /// ↓/PageDown e ↑/PageUp viram uma tela; → e ← trocam de música no
+  /// repertório (fora dele, também viram uma tela); espaço liga a rolagem.
+  void _page(int direction) {
+    if (!_scroll.hasClients) return;
+    final p = _scroll.position;
+    _scroll.animateTo(
+      (p.pixels + direction * p.viewportDimension * 0.8).clamp(
+        0,
+        p.maxScrollExtent,
+      ),
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
+
+  void _step(int delta) {
+    final r = widget.reading;
+    if (r == null) return _page(delta);
+    final i = r.index + delta;
+    if (i < 0 || i >= r.revision.items.length) return;
+    context.pushReplacement('${r.base}/itens/${r.revision.items[i].id}');
+  }
+
+  late final _keys = <ShortcutActivator, VoidCallback>{
+    const SingleActivator(LogicalKeyboardKey.pageDown): () => _page(1),
+    const SingleActivator(LogicalKeyboardKey.arrowDown): () => _page(1),
+    const SingleActivator(LogicalKeyboardKey.pageUp): () => _page(-1),
+    const SingleActivator(LogicalKeyboardKey.arrowUp): () => _page(-1),
+    const SingleActivator(LogicalKeyboardKey.arrowRight): () => _step(1),
+    const SingleActivator(LogicalKeyboardKey.arrowLeft): () => _step(-1),
+    const SingleActivator(LogicalKeyboardKey.space): () =>
+        _setAutoScroll(!_autoScroll.isActive),
+  };
 
   void _setAutoSpeed(int v) {
     setState(() => _autoSpeed = v);
@@ -746,7 +786,7 @@ class _ReaderState extends ConsumerState<_Reader>
         .watch(praiseAccessProvider)
         .maybeWhen(data: (a) => a.canManage, orElse: () => false);
 
-    return Scaffold(
+    final scaffold = Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: _fullscreen
           ? null
@@ -871,6 +911,10 @@ class _ReaderState extends ConsumerState<_Reader>
           return _body(song, version);
         },
       ),
+    );
+    return CallbackShortcuts(
+      bindings: _keys,
+      child: Focus(autofocus: true, child: scaffold),
     );
   }
 
