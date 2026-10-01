@@ -267,10 +267,9 @@ class MinistriesRepository {
       ).map((f) => f.toString()).toList();
     }
 
-    final cargosByUser = <String, List<String>>{};
-    final functionsByUser = <String, List<String>>{};
-
-    for (final m in members) {
+    // Uma RPC por integrante, mas em paralelo (CHU-388): a espera é a da
+    // mais lenta, não a soma de todas.
+    Future<MinistryMember> resolve(MinistryMember m) async {
       final accountId = m.memberId;
       final authId = authByAccount[accountId];
       final cargos = <String>{};
@@ -304,18 +303,15 @@ class MinistriesRepository {
         } catch (_) {}
       }
 
-      cargosByUser[accountId] = cargos.toList()..sort();
-      functionsByUser[accountId] = functions.toList()..sort();
+      final sortedCargos = cargos.toList()..sort();
+      return m.copyWith(
+        cargoName: sortedCargos.isEmpty ? null : sortedCargos.first,
+        cargoNames: sortedCargos,
+        assignedFunctions: functions.toList()..sort(),
+      );
     }
 
-    return members.map((m) {
-      final cargos = cargosByUser[m.memberId] ?? const <String>[];
-      return m.copyWith(
-        cargoName: cargos.isEmpty ? null : cargos.first,
-        cargoNames: cargos,
-        assignedFunctions: functionsByUser[m.memberId],
-      );
-    }).toList();
+    return Future.wait(members.map(resolve));
   }
 
   /// Verifica se já existe vínculo do membro com o ministério
