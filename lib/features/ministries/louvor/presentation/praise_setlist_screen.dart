@@ -71,6 +71,7 @@ class _Setlist extends ConsumerWidget {
                 ministryId: ministryId,
                 setlist: s,
                 canManage: a.canManage,
+                canPublish: a.canPublish,
               ),
       (AsyncError(:final error), _) ||
       (_, AsyncError(:final error)) => PraiseMessage(
@@ -568,11 +569,13 @@ class _PublishedView extends ConsumerStatefulWidget {
   final String ministryId;
   final PraiseSetlist setlist;
   final bool canManage;
+  final bool canPublish;
 
   const _PublishedView({
     required this.ministryId,
     required this.setlist,
     required this.canManage,
+    required this.canPublish,
   });
 
   @override
@@ -598,6 +601,48 @@ class _PublishedViewState extends ConsumerState<_PublishedView> {
       }
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _delete() async {
+    final ok =
+        await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Excluir repertório?'),
+            content: const Text(
+              'Some para toda a equipe, com todas as revisões. '
+              'Não dá para desfazer.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Excluir'),
+              ),
+            ],
+          ),
+        ) ==
+        true;
+    if (!ok) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(praiseRepositoryProvider).deleteSetlist(widget.setlist.id);
+      invalidatePraise(ref);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(praiseErrorText(e))));
+        setState(() => _busy = false);
+      }
     }
   }
 
@@ -682,7 +727,7 @@ class _PublishedViewState extends ConsumerState<_PublishedView> {
             ],
           ),
         ),
-        if (widget.canManage)
+        if (widget.canManage || widget.canPublish)
           SafeArea(
             top: false,
             child: Padding(
@@ -691,18 +736,28 @@ class _PublishedViewState extends ConsumerState<_PublishedView> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  OutlinedButton(
-                    onPressed: _busy ? null : _newRevision,
-                    child: Text(
-                      'Editar (abre a revisão ${rev.number + 1} em rascunho)',
+                  if (widget.canManage) ...[
+                    OutlinedButton(
+                      onPressed: _busy ? null : _newRevision,
+                      child: Text(
+                        'Editar (abre a revisão ${rev.number + 1} em rascunho)',
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Quem já abriu continua vendo esta até a nova ser publicada.',
-                    textAlign: TextAlign.center,
-                    style: meta,
-                  ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Quem já abriu continua vendo esta até a nova ser publicada.',
+                      textAlign: TextAlign.center,
+                      style: meta,
+                    ),
+                  ],
+                  if (widget.canPublish)
+                    TextButton(
+                      onPressed: _busy ? null : _delete,
+                      style: TextButton.styleFrom(
+                        foregroundColor: Theme.of(context).colorScheme.error,
+                      ),
+                      child: const Text('Excluir repertório'),
+                    ),
                 ],
               ),
             ),

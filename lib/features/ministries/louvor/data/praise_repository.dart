@@ -426,6 +426,10 @@ class PraiseRepository {
       ) ==
       true;
 
+  /// Apaga o repertório inteiro, publicado inclusive (exige publish).
+  Future<void> deleteSetlist(String setlistId) =>
+      _db.rpc('praise_setlist_delete', params: {'p_setlist_id': setlistId});
+
   /// Só com rascunho aberto (trigger). Vale também para a publicada.
   Future<void> setSetlistEvent(String setlistId, String? eventId) => _db
       .from('praise_setlist')
