@@ -197,7 +197,7 @@ String chordsOverLyricsToChordPro(String source) {
   // em cifra colada do site: sozinhas elas não fazem o texto ser ChordPro.
   bool isStrum(String l) {
     final name = _directive.firstMatch(l.trim())?[1]?.toLowerCase();
-    return name == 'batida' || _fixNames.contains(name);
+    return name == 'batida' || name == 'bateria' || _fixNames.contains(name);
   }
 
   if (lines.any((l) => _directive.hasMatch(l.trim()) && !isStrum(l))) {
@@ -367,3 +367,31 @@ List<({String label, int? bpm, int lines})> chordProSections(
   }
   return out;
 }
+
+/// Peças da grade de bateria, de cima para baixo como na partitura.
+const drumVoices = {
+  'prato': 'Prato',
+  'chimbal': 'Chimbal',
+  'caixa': 'Caixa',
+  'bumbo': 'Bumbo',
+};
+
+/// `{bateria: chimbal x.x.x.x. | caixa ..x...x. | bumbo x...x...}` →
+/// peça → toques (x = toca, `.` = não). Peça desconhecida é ignorada.
+Map<String, List<bool>> parseDrums(String? value) {
+  final out = <String, List<bool>>{};
+  for (final part in (value ?? '').split('|')) {
+    final m = RegExp(r'^\s*(\S+)\s+([xX.]+)\s*$').firstMatch(part);
+    final voice = m?[1]?.toLowerCase();
+    if (voice == null || !drumVoices.containsKey(voice)) continue;
+    out[voice] = [for (final c in m![2]!.split('')) c != '.'];
+  }
+  return out;
+}
+
+/// O inverso de [parseDrums], na ordem de [drumVoices]; peça vazia sai.
+String drumsToValue(Map<String, List<bool>> grid) => [
+  for (final v in drumVoices.keys)
+    if (grid[v]?.contains(true) ?? false)
+      '$v ${grid[v]!.map((on) => on ? 'x' : '.').join()}',
+].join(' | ');

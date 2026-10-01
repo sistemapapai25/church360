@@ -594,7 +594,10 @@ class _ReaderState extends ConsumerState<_Reader>
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        for (final i in PraiseInstrument.pickable)
+                        for (final i in [
+                          ...PraiseInstrument.pickable,
+                          PraiseInstrument.bateria,
+                        ])
                           ChoiceChip(
                             shape: const StadiumBorder(),
                             label: Text(i.label),
@@ -1150,7 +1153,9 @@ class _ReaderState extends ConsumerState<_Reader>
     if (_strums == StrumDisplay.current) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _trackStrum());
     }
-    final pinned = !_lyricsOnly && _diagramsStart && _diagramsPinned;
+    // Bateria lê a letra com a grade de cada seção, sem acorde.
+    final noChords = _lyricsOnly || _instrument.isDrums;
+    final pinned = !noChords && _diagramsStart && _diagramsPinned;
     // Principal / Simplificada / Letra (CifraClub §1.2).
     final lyricsToggle = SegmentedButton<int>(
       showSelectedIcon: false,
@@ -1290,7 +1295,7 @@ class _ReaderState extends ConsumerState<_Reader>
             style: meta,
           ),
         const SizedBox(height: 12),
-        if (!_lyricsOnly && _diagramsStart && !pinned) ...[
+        if (!noChords && _diagramsStart && !pinned) ...[
           strip,
           const SizedBox(height: 12),
         ],
@@ -1306,15 +1311,16 @@ class _ReaderState extends ConsumerState<_Reader>
             twoColumns: _twoColumns,
             columnCount: _columnCount,
             showTabs: _showTabs,
-            lyricsOnly: _lyricsOnly,
-            strums: _lyricsOnly ? StrumDisplay.hidden : _strums,
+            lyricsOnly: noChords,
+            drums: _instrument.isDrums,
+            strums: noChords ? StrumDisplay.hidden : _strums,
             strumKeys: _strumKeys,
             sectionKeys: _sectionKeys,
             onPlaySection: (i) {
               _setAutoScroll(false);
               setState(() => _playingSection = i);
             },
-            diagramFor: _diagramsInline && !_lyricsOnly
+            diagramFor: _diagramsInline && !noChords
                 ? (c) => ChordDiagram(
                     chord: _shapeOf(c, _instrument, capo),
                     instrument: _instrument,
@@ -1323,15 +1329,12 @@ class _ReaderState extends ConsumerState<_Reader>
                 : null,
           ),
         ),
-        if (!_lyricsOnly && _diagramsEnd) ...[
-          const SizedBox(height: 16),
-          strip,
-        ],
+        if (!noChords && _diagramsEnd) ...[const SizedBox(height: 16), strip],
       ],
     );
 
     final current =
-        !_lyricsOnly &&
+        !noChords &&
             _strums == StrumDisplay.current &&
             _currentStrum >= 0 &&
             _currentStrum < patterns.length

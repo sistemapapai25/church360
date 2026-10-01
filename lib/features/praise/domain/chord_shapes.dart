@@ -11,7 +11,9 @@ enum PraiseInstrument {
   // Baixo (E1 A1 D2 G2) e o de 5 cordas (B0 embaixo). Um chip só na tela; as
   // 4/5 cordas são a escolha que vem depois (§9.5).
   baixo('Baixo', [28, 33, 38, 43]),
-  baixo5('Baixo', [23, 28, 33, 38, 43]);
+  baixo5('Baixo', [23, 28, 33, 38, 43]),
+  // Sem acorde: o leitor mostra a grade `{bateria: ...}` de cada seção.
+  bateria('Bateria', null);
 
   const PraiseInstrument(this.label, this.tuning);
 
@@ -22,8 +24,11 @@ enum PraiseInstrument {
   bool get isBass => this == baixo || this == baixo5;
 
   /// Os chips de instrumento: o baixo de 5 cordas entra pelo chip "Baixo".
+  /// A bateria não entra: não tem desenho de acorde nem correção de acorde.
   static List<PraiseInstrument> get pickable =>
-      values.where((i) => i != baixo5).toList();
+      values.where((i) => i != baixo5 && i != bateria).toList();
+
+  bool get isDrums => this == bateria;
 
   /// O chip aceso para este instrumento.
   PraiseInstrument get chip => this == baixo5 ? baixo : this;
