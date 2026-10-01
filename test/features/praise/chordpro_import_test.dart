@@ -137,4 +137,11 @@ void main() {
       );
     });
   });
+
+  test('Simplificada: só a tríade, sem baixo', () {
+    expect(
+      simplifyChordPro('[C7M]a [Am7]b [G/B]c [Bm7(b5)]d [Dsus4]e'),
+      '[C]a [Am]b [G]c [Bm]d [D]e',
+    );
+  });
 }

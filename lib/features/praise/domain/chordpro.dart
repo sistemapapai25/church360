@@ -315,3 +315,10 @@ String forInstrument(String source, String instrument) {
   }
   return (offset: end, chords: chords.join(' '));
 }
+
+/// Modo Simplificada: troca cada `[acorde]` pela tríade ([Chord.simplified]).
+String simplifyChordPro(String source) =>
+    source.replaceAllMapped(_chordTag, (m) {
+      final c = Chord.tryParse(m[1]!);
+      return c == null ? m[0]! : '[${c.simplified}]';
+    });

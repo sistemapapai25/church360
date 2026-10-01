@@ -94,6 +94,13 @@ class ChordProView extends StatelessWidget {
   /// se também houver largura de [twoColumnWidth].
   final bool twoColumns;
 
+  /// Quantas colunas quando divide (2 ou 3).
+  final int columnCount;
+
+  /// "Tablaturas: mostrar/ocultar" (§1.5 item 7): falso esconde o bloco
+  /// `{start_of_tab}`…`{end_of_tab}` inteiro.
+  final bool showTabs;
+
   /// "Só letra": esconde a linha dos acordes (linha só de acorde some).
   final bool lyricsOnly;
 
@@ -117,6 +124,8 @@ class ChordProView extends StatelessWidget {
     this.fontSize = 15,
     this.onChordTap,
     this.twoColumns = false,
+    this.columnCount = 2,
+    this.showTabs = true,
     this.lyricsOnly = false,
     this.strums = StrumDisplay.always,
     this.strumKeys,
@@ -217,7 +226,14 @@ class ChordProView extends StatelessWidget {
     final breaks = <int>[];
     final blanks = <int>{};
     var strumIndex = 0;
+    var inTab = false;
     for (final line in parseChordPro(source).lines) {
+      if (line is DirectiveLine && line.name == 'start_of_tab') inTab = true;
+      if (line is DirectiveLine && line.name == 'end_of_tab') {
+        inTab = false;
+        continue;
+      }
+      if (inTab && !showTabs) continue;
       switch (line) {
         case EmptyLine():
           breaks.add(blocks.length);
@@ -308,24 +324,31 @@ class ChordProView extends StatelessWidget {
             blocks.length < 12) {
           return column(blocks);
         }
-        // Corta no início de seção/estrofe mais perto do meio.
-        final half = blocks.length / 2;
-        final cut = breaks.reduce(
-          (a, b) => (a - half).abs() <= (b - half).abs() ? a : b,
-        );
-        // A coluna da direita não começa com linha em branco.
-        var right = cut;
-        while (blanks.contains(right)) {
-          right++;
+        // Corta no início de seção/estrofe mais perto de cada divisão.
+        final n = columnCount.clamp(2, 3);
+        final cuts = <int>[0];
+        for (var k = 1; k < n; k++) {
+          final target = blocks.length * k / n;
+          final cut = breaks.reduce(
+            (a, b) => (a - target).abs() <= (b - target).abs() ? a : b,
+          );
+          if (cut > cuts.last) cuts.add(cut);
         }
-        if (cut == 0 || right >= blocks.length) return column(blocks);
+        if (cuts.length < 2) return column(blocks);
+        cuts.add(blocks.length);
+        final parts = <Widget>[];
+        for (var k = 0; k + 1 < cuts.length; k++) {
+          // A coluna não começa com linha em branco.
+          var from = cuts[k];
+          while (k > 0 && blanks.contains(from) && from < cuts[k + 1]) {
+            from++;
+          }
+          if (k > 0) parts.add(const SizedBox(width: 32));
+          parts.add(Expanded(child: column(blocks.sublist(from, cuts[k + 1]))));
+        }
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: column(blocks.sublist(0, cut))),
-            const SizedBox(width: 32),
-            Expanded(child: column(blocks.sublist(right))),
-          ],
+          children: parts,
         );
       },
     );

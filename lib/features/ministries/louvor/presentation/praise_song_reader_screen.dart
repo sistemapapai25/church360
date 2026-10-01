@@ -1,17 +1,20 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/file_download.dart';
 import '../../../praise/domain/chord.dart';
 import '../../../praise/domain/chord_shapes.dart';
 import '../../../praise/domain/chordpro.dart';
@@ -150,7 +153,23 @@ class _ReaderState extends ConsumerState<_Reader>
   bool _twoColumns = false;
   static const _columnsPref = 'praise_reader_two_columns';
 
-  /// Afinação do violão (semitons abaixo da padrão), também do aparelho.
+  /// Quantas colunas (2 ou 3) e largura do texto (% da tela, print 05).
+  int _columnCount = 2;
+  double _textWidth = 1;
+  static const _layoutPref = 'praise_reader_layout';
+
+  /// Simplificada (C7M → C) e blocos de tablatura.
+  bool _simplified = false;
+  bool _showTabs = true;
+  static const _simplifiedPref = 'praise_reader_simplified';
+  static const _tabsPref = 'praise_reader_tabs';
+
+  /// Tema só do leitor: nulo = o do app.
+  Brightness? _theme;
+  static const _themePref = 'praise_reader_theme';
+
+  /// Afinação (semitons abaixo da padrão) do violão e do baixo, também do
+  /// aparelho. Uma só: cada pessoa usa um instrumento no próprio celular.
   int _tuningDrop = 0;
   static const _tuningPref = 'praise_reader_tuning_drop';
 
@@ -325,6 +344,8 @@ class _ReaderState extends ConsumerState<_Reader>
       final prefs = await SharedPreferences.getInstance();
       final name = prefs.getString(_instrumentPref);
       final saved = PraiseInstrument.values.where((i) => i.name == name);
+      final layout = prefs.getStringList(_layoutPref);
+      final theme = prefs.getString(_themePref);
       final bass = prefs.getString(_bassPref);
       final diagrams = prefs.getStringList(_diagramsPref);
       if (!mounted) return;
@@ -335,6 +356,13 @@ class _ReaderState extends ConsumerState<_Reader>
         }
         _twoColumns = prefs.getBool(_columnsPref) ?? false;
         _lyricsOnly = prefs.getBool(_lyricsOnlyPref) ?? false;
+        _simplified = prefs.getBool(_simplifiedPref) ?? false;
+        _showTabs = prefs.getBool(_tabsPref) ?? true;
+        _theme = Brightness.values.where((b) => b.name == theme).firstOrNull;
+        if (layout != null && layout.length >= 2) {
+          _columnCount = (int.tryParse(layout[0]) ?? 2).clamp(2, 3);
+          _textWidth = (double.tryParse(layout[1]) ?? 1).clamp(0.5, 1.0);
+        }
         _tuningDrop = (prefs.getInt(_tuningPref) ?? 0).clamp(0, 4);
         _autoSpeed = (prefs.getInt(_autoSpeedPref) ?? 3).clamp(1, 10);
         if (diagrams != null && diagrams.length >= 3) {
@@ -402,20 +430,78 @@ class _ReaderState extends ConsumerState<_Reader>
         '$_inlineScale',
       ]);
       await p.setString(_strumsPref, _strums.name);
+      await p.setBool(_simplifiedPref, _simplified);
+      await p.setBool(_tabsPref, _showTabs);
+      await p.setStringList(_layoutPref, ['$_columnCount', '$_textWidth']);
+      if (_theme == null) {
+        await p.remove(_themePref);
+      } else {
+        await p.setString(_themePref, _theme!.name);
+      }
     }).ignore();
   }
 
-  /// Desenho que soa como [chord] com o capo e a afinação da tela. A
-  /// afinação é a do violão; o capo vale para todo instrumento de braço,
-  /// menos o baixo (baixista não usa capo: toca a nota que soa).
-  Chord _shapeOf(Chord chord, PraiseInstrument i, int capo) =>
-      i.tuning == null || i.isBass
+  /// "Restaurar padrões" (§1.5 item 16): apaga as preferências do leitor
+  /// neste aparelho e volta tudo ao começo. Tom e capo desta tela ficam.
+  Future<void> _resetPrefs() async {
+    final p = await SharedPreferences.getInstance();
+    for (final k in p.getKeys().where((k) => k.startsWith('praise_reader_'))) {
+      await p.remove(k);
+    }
+    _setAutoScroll(false);
+    if (_fullscreen) _setFullscreen(false);
+    if (!mounted) return;
+    setState(() {
+      _instrument = PraiseInstrument.violao;
+      _bass = PraiseInstrument.baixo;
+      _twoColumns = false;
+      _columnCount = 2;
+      _textWidth = 1;
+      _simplified = false;
+      _showTabs = true;
+      _theme = null;
+      _tuningDrop = 0;
+      _diagramsStart = true;
+      _diagramsEnd = false;
+      _diagramScale = 1;
+      _diagramsPinned = false;
+      _diagramsInline = false;
+      _inlineScale = 1;
+      _strums = StrumDisplay.always;
+      _lyricsOnly = false;
+      _autoSpeed = 3;
+      _fontSize = 15;
+    });
+  }
+
+  /// O texto da versão, como está gravado (ChordPro).
+  Future<void> _copy(PraiseSongVersion v) async {
+    await Clipboard.setData(ClipboardData(text: v.chordpro));
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Cifra copiada.')));
+    }
+  }
+
+  /// Arquivo `.cho` (ChordPro), que outros apps de cifra abrem.
+  void _export(String title, PraiseSongVersion v) {
+    final name = '${title.replaceAll(RegExp(r'[<>:"/\\|?*]'), '').trim()}.cho';
+    final text = v.chordpro.contains(RegExp(r'\{\s*(t|title)\s*:'))
+        ? v.chordpro
+        : '{title: $title}\n${v.chordpro}';
+    if (kIsWeb) {
+      downloadText(name, text);
+    } else {
+      Share.share(text, subject: title).ignore();
+    }
+  }
+
+  /// Desenho que soa como [chord] com o capo e a afinação da tela. O capo
+  /// vale para o violão, não para o baixo (baixista toca a nota que soa).
+  Chord _shapeOf(Chord chord, PraiseInstrument i, int capo) => i.tuning == null
       ? chord
-      : shapeChord(
-          chord,
-          drop: i == PraiseInstrument.violao ? _tuningDrop : 0,
-          capo: capo,
-        );
+      : shapeChord(chord, drop: _tuningDrop, capo: i.isBass ? 0 : capo);
 
   void _openChord(Chord chord, int capo) => showChordSheet(
     context,
@@ -471,15 +557,17 @@ class _ReaderState extends ConsumerState<_Reader>
             double value,
             ValueChanged<double> onChanged, {
             String label = 'Tamanho',
+            double min = 0.7,
+            double max = 1.6,
           }) => Row(
             children: [
               Text(label),
               Expanded(
                 child: Slider(
                   value: value,
-                  min: 0.7,
-                  max: 1.6,
-                  divisions: 9,
+                  min: min,
+                  max: max,
+                  divisions: ((max - min) * 10).round(),
                   label: '${(value * 100).round()}%',
                   onChanged: onChanged,
                   onChangeEnd: (_) => _savePrefs(),
@@ -514,9 +602,10 @@ class _ReaderState extends ConsumerState<_Reader>
                           ),
                       ],
                     ),
-                    if (_instrument == PraiseInstrument.violao) ...[
+                    if (_instrument.tuning != null) ...[
                       const SizedBox(height: 12),
                       DropdownButtonFormField<int>(
+                        key: ValueKey('tuning-${_instrument.isBass}'),
                         initialValue: _tuningDrop,
                         isExpanded: true,
                         decoration: const InputDecoration(
@@ -526,7 +615,9 @@ class _ReaderState extends ConsumerState<_Reader>
                           for (final t in praiseTunings)
                             DropdownMenuItem(
                               value: t.drop,
-                              child: Text(t.label),
+                              child: Text(
+                                _instrument.isBass ? t.bassLabel : t.label,
+                              ),
                             ),
                         ],
                         onChanged: (v) {
@@ -638,12 +729,60 @@ class _ReaderState extends ConsumerState<_Reader>
                       _setFullscreen(v);
                       setSheet(() {});
                     }),
-                    // Duas colunas só onde cabem.
-                    if (wide)
+                    toggle('Mostrar tablaturas', _showTabs, (v) {
+                      set(() => _showTabs = v);
+                      _savePrefs();
+                    }),
+                    const SizedBox(height: 8),
+                    const Text('Tema do leitor'),
+                    const SizedBox(height: 6),
+                    SegmentedButton<Brightness?>(
+                      showSelectedIcon: false,
+                      segments: const [
+                        ButtonSegment(value: null, label: Text('Do app')),
+                        ButtonSegment(
+                          value: Brightness.light,
+                          label: Text('Claro'),
+                        ),
+                        ButtonSegment(
+                          value: Brightness.dark,
+                          label: Text('Escuro'),
+                        ),
+                      ],
+                      selected: {_theme},
+                      onSelectionChanged: (v) {
+                        set(() => _theme = v.first);
+                        _savePrefs();
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    sizeSlider(
+                      _textWidth,
+                      (v) => set(() => _textWidth = v),
+                      label: 'Largura do texto',
+                      min: 0.5,
+                      max: 1,
+                    ),
+                    // Colunas só onde cabem.
+                    if (wide) ...[
                       toggle('Dividir em colunas', _twoColumns, (v) {
                         _setTwoColumns(v);
                         setSheet(() {});
                       }),
+                      if (_twoColumns)
+                        SegmentedButton<int>(
+                          showSelectedIcon: false,
+                          segments: const [
+                            ButtonSegment(value: 2, label: Text('2 colunas')),
+                            ButtonSegment(value: 3, label: Text('3 colunas')),
+                          ],
+                          selected: {_columnCount},
+                          onSelectionChanged: (v) {
+                            set(() => _columnCount = v.first);
+                            _savePrefs();
+                          },
+                        ),
+                    ],
                   ]),
                   card('Ferramentas', [
                     ListTile(
@@ -665,6 +804,18 @@ class _ReaderState extends ConsumerState<_Reader>
                       },
                     ),
                   ]),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      shape: const StadiumBorder(),
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    icon: const Icon(AppIcons.refresh),
+                    label: const Text('Restaurar padrões'),
+                    onPressed: () async {
+                      await _resetPrefs();
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                  ),
                 ],
               ),
             ),
@@ -836,26 +987,45 @@ class _ReaderState extends ConsumerState<_Reader>
                     icon: const Icon(AppIcons.history),
                     onPressed: _pickVersion,
                   ),
-                if (canManage &&
-                    widget.reading == null &&
-                    songAsync.valueOrNull != null)
+                if (_shown != null)
                   PopupMenuButton<String>(
                     icon: const Icon(AppIcons.more),
                     onSelected: (v) {
-                      if (v == 'edit') {
-                        context.push(
-                          '/ministries/${widget.ministryId}/louvores/musicas/${widget.songId}/editar',
-                        );
-                      } else {
-                        _archive(songAsync.value!);
+                      final shown = _shown!;
+                      switch (v) {
+                        case 'copy':
+                          _copy(shown.version);
+                        case 'export':
+                          _export(shown.title, shown.version);
+                        case 'edit':
+                          context.push(
+                            '/ministries/${widget.ministryId}/louvores/musicas/${widget.songId}/editar',
+                          );
+                        case 'archive':
+                          _archive(songAsync.value!);
                       }
                     },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Text('Editar (gera nova versão)'),
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'copy',
+                        child: Text('Copiar cifra'),
                       ),
-                      PopupMenuItem(value: 'archive', child: Text('Arquivar')),
+                      const PopupMenuItem(
+                        value: 'export',
+                        child: Text('Exportar ChordPro (.cho)'),
+                      ),
+                      if (canManage &&
+                          widget.reading == null &&
+                          songAsync.valueOrNull != null) ...[
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Text('Editar (gera nova versão)'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'archive',
+                          child: Text('Arquivar'),
+                        ),
+                      ],
                     ],
                   ),
               ],
@@ -912,10 +1082,27 @@ class _ReaderState extends ConsumerState<_Reader>
         },
       ),
     );
+    final themed = _theme == null
+        ? scaffold
+        : Theme(
+            data: _theme == Brightness.dark
+                ? AppTheme.darkTheme
+                : AppTheme.lightTheme,
+            child: scaffold,
+          );
     return CallbackShortcuts(
       bindings: _keys,
-      child: Focus(autofocus: true, child: scaffold),
+      child: Focus(autofocus: true, child: themed),
     );
+  }
+
+  /// Música e versão na tela (para copiar/exportar no ⋮). No repertório
+  /// [_picked] já é a versão do item.
+  ({String title, PraiseSongVersion version})? get _shown {
+    final song = ref.read(praiseSongProvider(widget.songId)).valueOrNull;
+    final v = _picked ?? song?.latest;
+    final title = song?.title ?? _item?.songTitle;
+    return v == null || title == null ? null : (title: title, version: v);
   }
 
   Widget _body(PraiseSong song, PraiseSongVersion version) {
@@ -932,7 +1119,8 @@ class _ReaderState extends ConsumerState<_Reader>
     final capo = _capoOverride ?? baseCapo;
     final bpm = _item == null ? version.bpm : _item!.bpm;
     // Correção da música para o instrumento escolhido (§9.5).
-    final chordpro = forInstrument(version.chordpro, _instrument.chip.name);
+    final fixed = forInstrument(version.chordpro, _instrument.chip.name);
+    final chordpro = _simplified ? simplifyChordPro(fixed) : fixed;
     final strip = _ChordStrip(
       chords: _uniqueChords(chordpro, flats),
       instrument: _instrument,
@@ -954,14 +1142,26 @@ class _ReaderState extends ConsumerState<_Reader>
       WidgetsBinding.instance.addPostFrameCallback((_) => _trackStrum());
     }
     final pinned = !_lyricsOnly && _diagramsStart && _diagramsPinned;
-    final lyricsToggle = SegmentedButton<bool>(
+    // Principal / Simplificada / Letra (CifraClub §1.2).
+    final lyricsToggle = SegmentedButton<int>(
       showSelectedIcon: false,
       segments: const [
-        ButtonSegment(value: false, label: Text('Cifra')),
-        ButtonSegment(value: true, label: Text('Só letra')),
+        ButtonSegment(value: 0, label: Text('Cifra')),
+        ButtonSegment(value: 1, label: Text('Simplificada')),
+        ButtonSegment(value: 2, label: Text('Só letra')),
       ],
-      selected: {_lyricsOnly},
-      onSelectionChanged: (v) => _setLyricsOnly(v.first),
+      selected: {
+        _lyricsOnly
+            ? 2
+            : _simplified
+            ? 1
+            : 0,
+      },
+      onSelectionChanged: (v) {
+        _simplified = v.first == 1;
+        _setLyricsOnly(v.first == 2);
+        _savePrefs();
+      },
     );
 
     final scrolling = _autoScroll.isActive;
@@ -1085,23 +1285,29 @@ class _ReaderState extends ConsumerState<_Reader>
           strip,
           const SizedBox(height: 12),
         ],
-        ChordProView(
-          source: chordpro,
-          semitones: _semitones,
-          preferFlats: flats,
-          fontSize: _fontSize,
-          onChordTap: (c) => _openChord(c, capo),
-          twoColumns: _twoColumns,
-          lyricsOnly: _lyricsOnly,
-          strums: _lyricsOnly ? StrumDisplay.hidden : _strums,
-          strumKeys: _strumKeys,
-          diagramFor: _diagramsInline && !_lyricsOnly
-              ? (c) => ChordDiagram(
-                  chord: _shapeOf(c, _instrument, capo),
-                  instrument: _instrument,
-                  width: 40 * _inlineScale,
-                )
-              : null,
+        FractionallySizedBox(
+          alignment: Alignment.topLeft,
+          widthFactor: _textWidth,
+          child: ChordProView(
+            source: chordpro,
+            semitones: _semitones,
+            preferFlats: flats,
+            fontSize: _fontSize,
+            onChordTap: (c) => _openChord(c, capo),
+            twoColumns: _twoColumns,
+            columnCount: _columnCount,
+            showTabs: _showTabs,
+            lyricsOnly: _lyricsOnly,
+            strums: _lyricsOnly ? StrumDisplay.hidden : _strums,
+            strumKeys: _strumKeys,
+            diagramFor: _diagramsInline && !_lyricsOnly
+                ? (c) => ChordDiagram(
+                    chord: _shapeOf(c, _instrument, capo),
+                    instrument: _instrument,
+                    width: 40 * _inlineScale,
+                  )
+                : null,
+          ),
         ),
         if (!_lyricsOnly && _diagramsEnd) ...[
           const SizedBox(height: 16),
