@@ -42,6 +42,12 @@ final praiseSetlistProvider = FutureProvider.family<PraiseSetlist?, String>(
   (ref, setlistId) => ref.watch(praiseRepositoryProvider).getSetlist(setlistId),
 );
 
+/// Revisão publicada é imutável: não precisa entrar no [invalidatePraise].
+final praisePublisherNameProvider = FutureProvider.family<String?, String>(
+  (ref, revisionId) =>
+      ref.watch(praiseRepositoryProvider).publisherName(revisionId),
+);
+
 /// Realtime não é ligado por migration neste banco: depois de gravar,
 /// invalidar na mão.
 void invalidatePraise(WidgetRef ref, [String? songId]) {
