@@ -43,9 +43,7 @@ class _MinistryTeamTabState extends ConsumerState<MinistryTeamTab> {
     if (query.isEmpty) return members;
     return members.where((m) {
       if (m.memberName.toLowerCase().contains(query)) return true;
-      final cargo = m.cargoName?.toLowerCase() ?? '';
-      if (cargo.contains(query)) return true;
-      return m.role.label.toLowerCase().contains(query);
+      return m.teamSubtitle.toLowerCase().contains(query);
     }).toList();
   }
 
@@ -212,12 +210,7 @@ class _TeamMemberTile extends StatelessWidget {
     final name = member.memberName.trim();
     final initial = name.isEmpty ? '?' : name.substring(0, 1).toUpperCase();
 
-    // `cargoName` é o cargo da pessoa na igreja; `role` é o papel dela
-    // dentro deste ministério. Quando os dois existem, os dois aparecem.
-    final cargo = member.cargoName;
-    final subtitle = (cargo == null || cargo.isEmpty)
-        ? member.role.label
-        : '${member.role.label} · $cargo';
+    final subtitle = member.teamSubtitle;
 
     final hasActions = onEditRole != null || onRemove != null;
 
