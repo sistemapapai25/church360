@@ -158,10 +158,23 @@ void main() {
       _setlistWith('published'),
     );
     expect(find.text('Tom: A'), findsOneWidget);
-    // G e D da versão, transpostos +2.
-    expect(find.text('A     E'), findsOneWidget);
+    // G e D da versão, transpostos +2 (na faixa de acordes e no corpo).
+    expect(find.text('E'), findsNWidgets(2));
+    expect(find.text('G'), findsNothing);
     expect(find.text('Culto de domingo · 1 de 2'), findsOneWidget);
     expect(find.text('Próxima · D'), findsOneWidget);
+
+    // Tocar no acorde abre o painel com as notas.
+    await t.tap(find.text('E').last);
+    await t.pumpAndSettle();
+    expect(find.text('Notas: E G# B'), findsOneWidget);
+    Navigator.of(t.element(find.text('Notas: E G# B'))).pop();
+    await t.pumpAndSettle();
+
+    // Tocar em "1 de 2" lista o repertório para pular direto.
+    await t.tap(find.text('Culto de domingo · 1 de 2'));
+    await t.pumpAndSettle();
+    expect(find.text('Música B'), findsNWidgets(2)); // lista + "Próxima"
   });
 
   testWidgets('arrastar reordena o rascunho e salvar manda a nova ordem', (

@@ -2,14 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../praise/domain/chord.dart';
+import '../../../praise/domain/chord_shapes.dart';
+import '../../../praise/domain/chordpro.dart';
 import '../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../data/praise_repository.dart';
 import 'louvores_tab.dart';
 import 'providers/praise_providers.dart';
+import 'widgets/chord_diagram.dart';
 import 'widgets/chordpro_view.dart';
 
 /// Leitor de cifra — tela interna, não aba
@@ -60,10 +65,9 @@ class PraiseSetlistItemReaderScreen extends ConsumerWidget {
       builder: (_) {
         final setlist = ref.watch(praiseSetlistProvider(setlistId));
         final s = setlist.valueOrNull;
-        final rev = [
-          s?.published,
-          s?.draft,
-        ].where((r) => r?.items.any((i) => i.id == itemId) ?? false).firstOrNull;
+        final rev = [s?.published, s?.draft]
+            .where((r) => r?.items.any((i) => i.id == itemId) ?? false)
+            .firstOrNull;
         if (rev == null) {
           return Scaffold(
             appBar: AppBar(),
@@ -87,6 +91,9 @@ class PraiseSetlistItemReaderScreen extends ConsumerWidget {
     );
   }
 }
+
+String _itemRoute(String ministryId, String setlistId, String? itemId) =>
+    '/ministries/$ministryId/louvores/repertorios/$setlistId/itens/$itemId';
 
 typedef _SetlistReading = ({
   String setlistId,
@@ -114,6 +121,10 @@ class _ReaderState extends ConsumerState<_Reader> {
   int _semitones = 0;
   double _fontSize = 15;
 
+  /// Preferência do aparelho (plano §12.4), não da música nem do repertório.
+  PraiseInstrument _instrument = PraiseInstrument.violao;
+  static const _instrumentPref = 'praise_reader_instrument';
+
   /// Nulo = a versão mais recente.
   PraiseSongVersion? _picked;
 
@@ -125,6 +136,7 @@ class _ReaderState extends ConsumerState<_Reader> {
   @override
   void initState() {
     super.initState();
+    _loadInstrument();
     final item = _item;
     if (item != null) {
       // A versão e o tom do repertório, não os da biblioteca.
@@ -135,6 +147,65 @@ class _ReaderState extends ConsumerState<_Reader> {
           Chord.tryParse(from) != null) {
         _semitones = Chord.interval(from, item.selectedKey!);
       }
+    }
+  }
+
+  Future<void> _loadInstrument() async {
+    try {
+      final name = (await SharedPreferences.getInstance()).getString(
+        _instrumentPref,
+      );
+      final saved = PraiseInstrument.values.where((i) => i.name == name);
+      if (mounted && saved.isNotEmpty) {
+        setState(() => _instrument = saved.first);
+      }
+    } catch (_) {
+      // Sem preferência salva o leitor fica no violão.
+    }
+  }
+
+  void _setInstrument(PraiseInstrument i) {
+    setState(() => _instrument = i);
+    SharedPreferences.getInstance()
+        .then((p) => p.setString(_instrumentPref, i.name))
+        .ignore();
+  }
+
+  void _openChord(Chord chord) => showChordSheet(
+    context,
+    chord: chord,
+    instrument: _instrument,
+    onInstrument: _setInstrument,
+  );
+
+  /// Lista do repertório para pular direto (toque em "1 de 6").
+  Future<void> _pickItem() async {
+    final reading = widget.reading!;
+    final picked = await showModalBottomSheet<PraiseSetlistItem>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final (i, item) in reading.revision.items.indexed)
+              ListTile(
+                selected: i == reading.index,
+                leading: CircleAvatar(radius: 14, child: Text('${i + 1}')),
+                title: Text(item.songTitle),
+                trailing: Text(
+                  item.selectedKey ?? item.version.originalKey ?? '',
+                ),
+                onTap: () => Navigator.pop(context, item),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked != null && mounted && picked.id != _item!.id) {
+      context.pushReplacement(
+        _itemRoute(widget.ministryId, reading.setlistId, picked.id),
+      );
     }
   }
 
@@ -230,26 +301,42 @@ class _ReaderState extends ConsumerState<_Reader> {
         ),
         title: widget.reading == null
             ? Text(songAsync.valueOrNull?.title ?? 'Louvor')
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_item!.songTitle),
-                  Text(
-                    '${widget.reading!.revision.title} · '
-                    '${widget.reading!.index + 1} de '
-                    '${widget.reading!.revision.items.length}',
-                    style: CommunityDesign.metaStyle(context),
-                  ),
-                ],
+            : InkWell(
+                borderRadius: BorderRadius.circular(AppTheme.controlRadius),
+                onTap: _pickItem,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_item!.songTitle),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            '${widget.reading!.revision.title} · '
+                            '${widget.reading!.index + 1} de '
+                            '${widget.reading!.revision.items.length}',
+                            style: CommunityDesign.metaStyle(context),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Icon(
+                          AppIcons.expand,
+                          size: 16,
+                          color: CommunityDesign.metaStyle(context).color,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
         actions: [
           // No repertório a versão é a do item: sem histórico nem edição.
           if (widget.reading == null)
             IconButton(
-            tooltip: 'Versões',
-            icon: const Icon(AppIcons.history),
-            onPressed: _pickVersion,
-          ),
+              tooltip: 'Versões',
+              icon: const Icon(AppIcons.history),
+              onPressed: _pickVersion,
+            ),
           if (canManage &&
               widget.reading == null &&
               songAsync.valueOrNull != null)
@@ -276,7 +363,10 @@ class _ReaderState extends ConsumerState<_Reader> {
       ),
       bottomNavigationBar: widget.reading == null
           ? null
-          : _SetlistNav(ministryId: widget.ministryId, reading: widget.reading!),
+          : _SetlistNav(
+              ministryId: widget.ministryId,
+              reading: widget.reading!,
+            ),
       body: songAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
@@ -349,48 +439,60 @@ class _ReaderState extends ConsumerState<_Reader> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            IconButton.outlined(
-              tooltip: 'Meio tom abaixo',
-              icon: const Icon(AppIcons.remove),
-              onPressed: () => setState(() => _semitones--),
-            ),
-            GestureDetector(
-              onTap: () => setState(() => _semitones = 0),
-              child: Text(
-                keyLabel != null
-                    ? 'Tom: $keyLabel'
-                    : 'Tom ${_semitones == 0 ? 'original' : (_semitones > 0 ? '+$_semitones' : '$_semitones')}',
-                style: CommunityDesign.titleStyle(
-                  context,
-                ).copyWith(fontSize: 16),
+            // Controles pequenos em pílula (referência CifraClub §1.6).
+            _PillStepper(
+              onMinus: () => setState(() => _semitones--),
+              onPlus: () => setState(() => _semitones++),
+              minusTooltip: 'Meio tom abaixo',
+              plusTooltip: 'Meio tom acima',
+              child: GestureDetector(
+                onTap: () => setState(() => _semitones = 0),
+                child: Text(
+                  keyLabel != null
+                      ? 'Tom: $keyLabel'
+                      : 'Tom ${_semitones == 0 ? 'original' : (_semitones > 0 ? '+$_semitones' : '$_semitones')}',
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontSize: 16),
+                ),
               ),
             ),
-            IconButton.outlined(
-              tooltip: 'Meio tom acima',
-              icon: const Icon(AppIcons.add),
-              onPressed: () => setState(() => _semitones++),
+            _PillStepper(
+              onMinus: _fontSize > 11
+                  ? () => setState(() => _fontSize--)
+                  : null,
+              onPlus: _fontSize < 26 ? () => setState(() => _fontSize++) : null,
+              minusTooltip: 'Diminuir letra',
+              plusTooltip: 'Aumentar letra',
+              minusIcon: AppIcons.zoomOut,
+              plusIcon: AppIcons.zoomIn,
             ),
             // No repertório, capo/BPM/observação são os do culto.
             if ((_item?.capo ?? version.capo) > 0)
-              Chip(label: Text('Capo ${_item?.capo ?? version.capo}')),
+              Chip(
+                shape: const StadiumBorder(),
+                label: Text('Capo ${_item?.capo ?? version.capo}'),
+              ),
             if ((_item == null ? version.bpm : _item!.bpm) != null)
               Chip(
+                shape: const StadiumBorder(),
                 label: Text('${_item == null ? version.bpm : _item!.bpm} BPM'),
               ),
-            if (_item?.notes != null) Chip(label: Text(_item!.notes!)),
-            IconButton(
-              tooltip: 'Diminuir letra',
-              icon: const Icon(AppIcons.zoomOut),
-              onPressed: _fontSize > 11
-                  ? () => setState(() => _fontSize--)
-                  : null,
-            ),
-            IconButton(
-              tooltip: 'Aumentar letra',
-              icon: const Icon(AppIcons.zoomIn),
-              onPressed: _fontSize < 26
-                  ? () => setState(() => _fontSize++)
-                  : null,
+            if (_item?.notes != null)
+              Chip(shape: const StadiumBorder(), label: Text(_item!.notes!)),
+            PopupMenuButton<PraiseInstrument>(
+              tooltip: 'Instrumento dos desenhos',
+              initialValue: _instrument,
+              onSelected: _setInstrument,
+              itemBuilder: (_) => [
+                for (final i in PraiseInstrument.values)
+                  PopupMenuItem(value: i, child: Text(i.label)),
+              ],
+              child: Chip(
+                shape: const StadiumBorder(),
+                avatar: const Icon(AppIcons.tune, size: 16),
+                label: Text(_instrument.label),
+              ),
             ),
           ],
         ),
@@ -399,14 +501,137 @@ class _ReaderState extends ConsumerState<_Reader> {
             'Original em ${version.originalKey}. Trocar o tom aqui não altera a música.',
             style: meta,
           ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+        _ChordStrip(
+          chords: _uniqueChords(version.chordpro, flats),
+          instrument: _instrument,
+          onTap: _openChord,
+        ),
+        const SizedBox(height: 12),
         ChordProView(
           source: version.chordpro,
           semitones: _semitones,
           preferFlats: flats,
           fontSize: _fontSize,
+          onChordTap: _openChord,
         ),
       ],
+    );
+  }
+
+  /// Acordes da música na ordem em que aparecem, sem repetir, já no tom da
+  /// tela.
+  List<Chord> _uniqueChords(String chordpro, bool? flats) {
+    final seen = <String>{};
+    final out = <Chord>[];
+    for (final line in parseChordPro(chordpro).lines.whereType<LyricLine>()) {
+      for (final s in line.segments) {
+        final c = s.chord == null ? null : Chord.tryParse(s.chord!);
+        if (c == null) continue;
+        final shown = _semitones % 12 == 0
+            ? c
+            : c.transpose(_semitones, preferFlats: flats);
+        if (seen.add('$shown')) out.add(shown);
+      }
+    }
+    return out;
+  }
+}
+
+/// [−] conteúdo [+] num contorno de pílula.
+class _PillStepper extends StatelessWidget {
+  final VoidCallback? onMinus;
+  final VoidCallback? onPlus;
+  final String minusTooltip;
+  final String plusTooltip;
+  final IconData minusIcon;
+  final IconData plusIcon;
+  final Widget? child;
+
+  const _PillStepper({
+    required this.onMinus,
+    required this.onPlus,
+    required this.minusTooltip,
+    required this.plusTooltip,
+    this.minusIcon = AppIcons.remove,
+    this.plusIcon = AppIcons.add,
+    this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: ShapeDecoration(
+        shape: StadiumBorder(
+          side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: minusTooltip,
+            icon: Icon(minusIcon),
+            onPressed: onMinus,
+          ),
+          ?child,
+          IconButton(
+            tooltip: plusTooltip,
+            icon: Icon(plusIcon),
+            onPressed: onPlus,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Faixa dos acordes da música (referência CifraClub §1.3): um cartão por
+/// acorde, refeita quando o tom ou o instrumento mudam. Toque abre o painel.
+class _ChordStrip extends StatelessWidget {
+  final List<Chord> chords;
+  final PraiseInstrument instrument;
+  final ValueChanged<Chord> onTap;
+
+  const _ChordStrip({
+    required this.chords,
+    required this.instrument,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (chords.isEmpty) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: instrument == PraiseInstrument.teclado ? 96 : 120,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: chords.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) => InkWell(
+          borderRadius: BorderRadius.circular(CommunityDesign.radius),
+          onTap: () => onTap(chords[i]),
+          child: Ink(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+            decoration: CommunityDesign.overlayDecoration(scheme),
+            child: Column(
+              children: [
+                Text(
+                  '${chords[i]}',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                ChordDiagram(
+                  chord: chords[i],
+                  instrument: instrument,
+                  width: 56,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -419,11 +644,8 @@ class _SetlistNav extends StatelessWidget {
 
   const _SetlistNav({required this.ministryId, required this.reading});
 
-  void _go(BuildContext context, PraiseSetlistItem item) =>
-      context.pushReplacement(
-        '/ministries/$ministryId/louvores/repertorios/'
-        '${reading.setlistId}/itens/${item.id}',
-      );
+  void _go(BuildContext context, PraiseSetlistItem item) => context
+      .pushReplacement(_itemRoute(ministryId, reading.setlistId, item.id));
 
   @override
   Widget build(BuildContext context) {
