@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -142,6 +145,7 @@ class _EditorState extends ConsumerState<_Editor> {
       );
       return;
     }
+    if (_original == null && !await _confirmNotDuplicate()) return;
     final repo = ref.read(praiseRepositoryProvider);
     final draft = PraiseVersionDraft(
       chordpro: chordsOverLyricsToChordPro(_chords.text.trim()),
@@ -211,6 +215,109 @@ class _EditorState extends ConsumerState<_Editor> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  /// Plano §8: música nova com o mesmo título (sem acento/caixa) de outra
+  /// da biblioteca. Nunca sobrescreve: abrir a existente ou criar mesmo assim.
+  Future<bool> _confirmNotDuplicate() async {
+    final List<PraiseSong> songs;
+    try {
+      songs = await ref.read(praiseSongsProvider.future);
+    } catch (_) {
+      return true; // sem a lista, não trava o cadastro
+    }
+    final title = foldTitle(_title.text);
+    final artist = foldTitle(_artist.text);
+    final same = songs.where(
+      (s) =>
+          foldTitle(s.title) == title &&
+          (artist.isEmpty ||
+              s.artist == null ||
+              foldTitle(s.artist!) == artist),
+    );
+    if (same.isEmpty || !mounted) return true;
+    final song = same.first;
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Música já cadastrada'),
+        content: Text(
+          '"${song.title}"${song.artist == null ? '' : ' — ${song.artist}'} '
+          'já está na biblioteca.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'open'),
+            child: const Text('Abrir a existente'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, 'create'),
+            child: const Text('Criar mesmo assim'),
+          ),
+        ],
+      ),
+    );
+    if (choice == 'open' && mounted) {
+      context.pushReplacement(
+        '/ministries/${widget.ministryId}/louvores/musicas/${song.id}',
+      );
+    }
+    return choice == 'create';
+  }
+
+  /// Arquivo .txt / .cho / .pro (plano §3): o texto entra no campo da cifra
+  /// como se tivesse sido colado. Título e artista vêm do `{title}` e do
+  /// `{artist}` quando os campos estão vazios.
+  Future<void> _importFile() async {
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const [
+        'txt',
+        'cho',
+        'pro',
+        'chordpro',
+        'chopro',
+        'crd',
+      ],
+      withData: true,
+    );
+    final bytes = picked?.files.firstOrNull?.bytes;
+    if (bytes == null || !mounted) return;
+    final text = utf8.decode(bytes, allowMalformed: true).trim();
+    if (_chords.text.trim().isNotEmpty) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Trocar a cifra?'),
+          content: const Text(
+            'O texto do arquivo substitui o que está no campo da cifra.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Trocar'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    final doc = parseChordPro(text);
+    setState(() {
+      _chords.text = text;
+      if (_title.text.trim().isEmpty) _title.text = doc.meta('title') ?? '';
+      if (_artist.text.trim().isEmpty) {
+        _artist.text = doc.meta('artist') ?? doc.meta('subtitle') ?? '';
+      }
+    });
   }
 
   /// Monta a batida com botões e põe `{batida: ...}` numa linha própria,
@@ -438,6 +545,11 @@ class _EditorState extends ConsumerState<_Editor> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
+                        OutlinedButton.icon(
+                          icon: const Icon(AppIcons.upload),
+                          label: const Text('Importar arquivo'),
+                          onPressed: _importFile,
+                        ),
                         OutlinedButton.icon(
                           icon: const Text('↓↑'),
                           label: const Text('Inserir batida'),
