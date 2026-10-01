@@ -1,4 +1,5 @@
 import 'chord.dart';
+import 'chord_shapes.dart';
 
 /// Pedaço de uma linha de cifra: acorde (opcional) sobre um trecho de letra.
 /// `[G]Grande é o [D/F#]Senhor` → (G, "Grande é o "), (D/F#, "Senhor").
@@ -192,10 +193,13 @@ bool _isChordLine(String line) {
 /// - `Tom: G` → `{key: G}`.
 String chordsOverLyricsToChordPro(String source) {
   final lines = source.replaceAll('\r\n', '\n').split('\n');
-  // A batida é inserida pelo editor também em cifra colada do site: sozinha
-  // ela não faz o texto ser ChordPro.
-  bool isStrum(String l) =>
-      _directive.firstMatch(l.trim())?[1]?.toLowerCase() == 'batida';
+  // A batida e a correção por instrumento são inseridas pelo editor também
+  // em cifra colada do site: sozinhas elas não fazem o texto ser ChordPro.
+  bool isStrum(String l) {
+    final name = _directive.firstMatch(l.trim())?[1]?.toLowerCase();
+    return name == 'batida' || _fixNames.contains(name);
+  }
+
   if (lines.any((l) => _directive.hasMatch(l.trim()) && !isStrum(l))) {
     return source;
   }
@@ -229,6 +233,7 @@ String chordsOverLyricsToChordPro(String source) {
     final next = i + 1 < lines.length ? lines[i + 1].trimRight() : '';
     if (next.trim().isEmpty ||
         _isChordLine(next) ||
+        _directive.hasMatch(next.trim()) ||
         _sectionLine.hasMatch(next)) {
       out.add(chords.map((c) => '[${c.$2}]').join(' '));
       continue;
@@ -242,4 +247,71 @@ String chordsOverLyricsToChordPro(String source) {
     i++;
   }
   return out.join('\n');
+}
+
+/// Correção por instrumento (§9.5): `{baixo: G - F#}` logo abaixo de uma linha
+/// troca os acordes dela, na ordem, só para quem lê com esse instrumento. `-`
+/// (ou acorde a menos) mantém o gerado. É a "diferença" por cima do gerado; a
+/// correção é salva como versão nova pelo editor, como qualquer edição.
+final _fixNames = {for (final i in PraiseInstrument.pickable) i.name};
+
+bool _isFix(String line) =>
+    _fixNames.contains(_directive.firstMatch(line.trim())?[1]?.toLowerCase());
+
+/// O texto como o [instrument] (`PraiseInstrument.chip.name`) lê: correções
+/// dele aplicadas, as de todos os instrumentos removidas.
+String forInstrument(String source, String instrument) {
+  final out = <String>[];
+  int? last; // linha com acordes logo acima
+  for (final raw in source.replaceAll('\r\n', '\n').split('\n')) {
+    if (_isFix(raw)) {
+      final d = _directive.firstMatch(raw.trim())!;
+      if (d[1]!.toLowerCase() == instrument && last != null) {
+        final fix = (d[2] ?? '').trim().split(RegExp(r'\s+'));
+        var i = 0;
+        out[last] = out[last].replaceAllMapped(_chordTag, (m) {
+          final t = i < fix.length ? fix[i] : '-';
+          i++;
+          return t == '-' || t.isEmpty ? m[0]! : '[$t]';
+        });
+      }
+      continue;
+    }
+    last = !_directive.hasMatch(raw.trim()) && _chordTag.hasMatch(raw)
+        ? out.length
+        : null;
+    out.add(raw);
+  }
+  return out.join('\n');
+}
+
+/// Onde o editor põe a correção da linha do cursor (fim da linha, depois das
+/// correções que já existem) e os acordes dela, para começar preenchido.
+/// Em cifra colada do site, linha de acordes vale pela letra de baixo.
+({int offset, String chords}) instrumentFixAt(String text, int cursor) {
+  final lines = text.split('\n');
+  var start = 0;
+  var i = 0;
+  while (i < lines.length - 1 && start + lines[i].length < cursor) {
+    start += lines[i].length + 1;
+    i++;
+  }
+  var chords = [for (final m in _chordTag.allMatches(lines[i])) m[1]!];
+  if (chords.isEmpty && _isChordLine(lines[i])) {
+    chords = lines[i].trim().split(RegExp(r'\s+'));
+    final next = i + 1 < lines.length ? lines[i + 1] : '';
+    if (next.trim().isNotEmpty &&
+        !_isChordLine(next) &&
+        !_directive.hasMatch(next.trim()) &&
+        !_sectionLine.hasMatch(next)) {
+      start += lines[i].length + 1;
+      i++;
+    }
+  }
+  var end = start + lines[i].length;
+  while (i + 1 < lines.length && _isFix(lines[i + 1])) {
+    i++;
+    end += lines[i].length + 1;
+  }
+  return (offset: end, chords: chords.join(' '));
 }

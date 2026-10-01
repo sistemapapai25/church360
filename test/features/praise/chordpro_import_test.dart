@@ -84,4 +84,57 @@ void main() {
     final out = chordsOverLyricsToChordPro(pasted);
     expect(out, '{batida: D . U}\n[G]Santo [D]santo');
   });
+
+  group('correção por instrumento', () {
+    const src =
+        '[G]Grande é o [D/F#]Senhor\n{baixo: - F#}\n{teclado: G7}\n'
+        '[C]Santo [D]santo';
+
+    test('troca só para o instrumento, na ordem; - mantém', () {
+      expect(
+        forInstrument(src, 'baixo'),
+        '[G]Grande é o [F#]Senhor\n[C]Santo [D]santo',
+      );
+      expect(
+        forInstrument(src, 'teclado'),
+        '[G7]Grande é o [D/F#]Senhor\n[C]Santo [D]santo',
+      );
+      expect(
+        forInstrument(src, 'violao'),
+        '[G]Grande é o [D/F#]Senhor\n[C]Santo [D]santo',
+      );
+    });
+
+    test('correção solta (sem linha de acordes acima) é ignorada', () {
+      expect(
+        forInstrument('{comment: Intro}\n{baixo: E}', 'baixo'),
+        '{comment: Intro}',
+      );
+    });
+
+    test('editor: insere no fim da linha, depois das correções', () {
+      final at = instrumentFixAt(src, 3);
+      expect(at.chords, 'G D/F#');
+      expect(at.offset, src.indexOf('\n[C]'));
+    });
+
+    test('cifra colada: linha de acordes vale pela letra de baixo', () {
+      const pasted = 'G          D/F#\nGrande é o Senhor\nC';
+      final at = instrumentFixAt(pasted, 0);
+      expect(at.chords, 'G D/F#');
+      expect(at.offset, pasted.indexOf('\nC'));
+      final withFix = pasted.replaceRange(at.offset, at.offset, '\n{baixo: E}');
+      expect(
+        chordsOverLyricsToChordPro(withFix),
+        '[G]Grande é o [D/F#]Senhor\n{baixo: E}\n[C]',
+      );
+    });
+
+    test('acordes sem letra antes de diretiva não engolem a diretiva', () {
+      expect(
+        chordsOverLyricsToChordPro('G  C\n{batida: D U}'),
+        '[G] [C]\n{batida: D U}',
+      );
+    });
+  });
 }
