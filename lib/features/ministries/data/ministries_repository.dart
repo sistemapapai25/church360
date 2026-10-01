@@ -160,17 +160,23 @@ class MinistriesRepository {
             first_name,
             last_name,
             nickname,
-            phone
+            phone,
+            auth_user_id
           )
         ''')
         .eq('ministry_id', ministryId)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('role', ascending: true);
 
+    // `user_roles` é chaveado pelo login (auth_user_id), `ministry_member` e
+    // `assigned_functions` pelo user_account.id — guardar as duas chaves.
+    final authByAccount = <String, String?>{};
     var members = (response as List).map((json) {
       final member = json['user_account'];
       String memberName = '';
       if (member != null) {
+        authByAccount[json['user_id'] as String] =
+            member['auth_user_id'] as String?;
         final nick = (member['nickname'] ?? member['apelido'] ?? '')
             .toString()
             .trim();
@@ -202,7 +208,7 @@ class MinistriesRepository {
       try {
         final details = await _supabase
             .from('user_account')
-            .select('id,first_name,last_name,nickname,phone')
+            .select('id,first_name,last_name,nickname,phone,auth_user_id')
             .inFilter('id', keys)
             .eq('tenant_id', SupabaseConstants.currentTenantId);
         final nameById = <String, String>{};
@@ -211,6 +217,7 @@ class MinistriesRepository {
           final id = row['id'] as String?;
           if (id != null) {
             phoneById[id] = row['phone'] as String?;
+            authByAccount[id] = row['auth_user_id'] as String?;
             final nick = (row['nickname'] ?? row['apelido'] ?? '')
                 .toString()
                 .trim();
@@ -238,7 +245,6 @@ class MinistriesRepository {
 
     if (members.isEmpty) return members;
 
-    final memberIds = members.map((m) => m.memberId).toList();
     final contexts = await _supabase
         .from('role_contexts')
         .select('id, role_id, metadata, is_active')
@@ -251,32 +257,65 @@ class MinistriesRepository {
         .toList();
     if (contextList.isEmpty) return members;
 
-    final contextIds = contextList.map((c) => c['id'] as String).toList();
-    final cargoByUser = <String, String>{};
-
-    for (final uid in memberIds) {
-      try {
-        final resp = await _supabase.rpc(
-          'get_user_role_contexts',
-          params: {'p_user_id': uid, 'p_role_id': null},
-        );
-        final items = (resp as List)
-            .map((e) => e as Map<String, dynamic>)
-            .toList();
-        final match = items.firstWhere(
-          (it) => contextIds.contains(it['context_id'] as String?),
-          orElse: () => {},
-        );
-        final name = match.isNotEmpty ? match['role_name'] as String? : null;
-        if (name != null) {
-          cargoByUser[uid] = name;
-        }
-      } catch (_) {}
+    final contextById = {for (final c in contextList) c['id'] as String: c};
+    List<String> functionsIn(Map<String, dynamic> ctx, String accountId) {
+      final meta = ctx['metadata'] as Map<String, dynamic>? ?? const {};
+      final assigned =
+          meta['assigned_functions'] as Map<String, dynamic>? ?? const {};
+      return List<dynamic>.from(
+        assigned[accountId] ?? const [],
+      ).map((f) => f.toString()).toList();
     }
 
-    return members
-        .map((m) => m.copyWith(cargoName: cargoByUser[m.memberId]))
-        .toList();
+    final cargosByUser = <String, List<String>>{};
+    final functionsByUser = <String, List<String>>{};
+
+    for (final m in members) {
+      final accountId = m.memberId;
+      final authId = authByAccount[accountId];
+      final cargos = <String>{};
+      final functions = <String>{};
+
+      if (!authByAccount.containsKey(accountId)) {
+        // Linha de user_account escondida pela RLS: não dá para saber se
+        // tem login, então não mostra cargo nem função.
+      } else if (authId == null) {
+        // Sem login não existe `user_roles` para validar: a função gravada
+        // pelo diálogo de edição é a única fonte, então vale como está.
+        for (final ctx in contextList) {
+          functions.addAll(functionsIn(ctx, accountId));
+        }
+      } else {
+        try {
+          // A RPC já filtra vínculo ativo e não expirado; só os contextos
+          // deste ministério que ela devolver contam — função de contexto
+          // cujo vínculo caiu não volta para a tela.
+          final resp = await _supabase.rpc(
+            'get_user_role_contexts',
+            params: {'p_user_id': authId, 'p_role_id': null},
+          );
+          for (final it in (resp as List).cast<Map<String, dynamic>>()) {
+            final ctx = contextById[it['context_id'] as String?];
+            if (ctx == null) continue;
+            final name = it['role_name'] as String?;
+            if (name != null && name.isNotEmpty) cargos.add(name);
+            functions.addAll(functionsIn(ctx, accountId));
+          }
+        } catch (_) {}
+      }
+
+      cargosByUser[accountId] = cargos.toList()..sort();
+      functionsByUser[accountId] = functions.toList()..sort();
+    }
+
+    return members.map((m) {
+      final cargos = cargosByUser[m.memberId] ?? const <String>[];
+      return m.copyWith(
+        cargoName: cargos.isEmpty ? null : cargos.first,
+        cargoNames: cargos,
+        assignedFunctions: functionsByUser[m.memberId],
+      );
+    }).toList();
   }
 
   /// Verifica se já existe vínculo do membro com o ministério

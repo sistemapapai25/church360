@@ -71,6 +71,28 @@ void main() {
     expect(find.text('Membro'), findsOneWidget);
   });
 
+  test('subtitulo junta papel, cargos e funcoes sem repetir nome', () {
+    MinistryMember m(List<String> cargos, List<String> funcs) =>
+        _member('X', MinistryRole.leader).copyWith(
+          cargoName: cargos.isEmpty ? null : cargos.first,
+          cargoNames: cargos,
+          assignedFunctions: funcs,
+        );
+
+    // Gabriel: cargo "Líder" + função individual.
+    expect(
+      m(['Líder'], ['Líder Auxiliar']).teamSubtitle,
+      'Líder · Líder Auxiliar',
+    );
+    // Berg/Débora: cargo contextualizado próprio.
+    expect(
+      m(['Líder de Departamento'], []).teamSubtitle,
+      'Líder · Líder de Departamento',
+    );
+    // Romullo: só o papel no ministério.
+    expect(m([], []).teamSubtitle, 'Líder');
+  });
+
   testWidgets('estado vazio quando nao ha ninguem vinculado', (tester) async {
     await tester.pumpWidget(_host(const []));
     await tester.pumpAndSettle();

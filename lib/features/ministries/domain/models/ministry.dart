@@ -65,8 +65,8 @@ class Ministry {
     final settings = rawSettings is Map<String, dynamic>
         ? rawSettings
         : (rawSettings is Map
-            ? Map<String, dynamic>.from(rawSettings)
-            : const <String, dynamic>{});
+              ? Map<String, dynamic>.from(rawSettings)
+              : const <String, dynamic>{});
 
     return Ministry(
       id: json['id'] as String,
@@ -190,6 +190,14 @@ class MinistryMember {
   final DateTime createdAt;
   final String? cargoName;
 
+  /// Todos os cargos contextualizados ativos da pessoa neste ministério
+  /// (`cargoName` é o primeiro deles, mantido para o diálogo de edição).
+  final List<String> cargoNames;
+
+  /// Funções individuais (`role_contexts.metadata.assigned_functions`,
+  /// chaveado por `user_account.id`) — não são cargos em `roles`.
+  final List<String> assignedFunctions;
+
   /// Telefone do cadastro, como está gravado — pode vir incompleto ou nulo.
   /// Quem decide se dá para discar é `ministryPhoneState`, não esta classe.
   final String? phone;
@@ -204,8 +212,19 @@ class MinistryMember {
     this.notes,
     required this.createdAt,
     this.cargoName,
+    this.cargoNames = const [],
+    this.assignedFunctions = const [],
     this.phone,
   });
+
+  /// "Papel · cargos · funções", sem repetir nome — o cargo "Líder" de quem
+  /// já é líder no ministério não aparece duas vezes.
+  String get teamSubtitle => {
+    role.label,
+    if (cargoName != null && cargoName!.isNotEmpty) cargoName!,
+    ...cargoNames,
+    ...assignedFunctions,
+  }.join(' · ');
 
   factory MinistryMember.fromJson(Map<String, dynamic> json) {
     return MinistryMember(
@@ -214,7 +233,9 @@ class MinistryMember {
       memberId: json['user_id'] as String,
       memberName: json['member_name'] as String? ?? '',
       role: MinistryRole.fromString(json['role'] as String? ?? 'member'),
-      joinedAt: DateTime.parse((json['joined_at'] ?? json['created_at']) as String),
+      joinedAt: DateTime.parse(
+        (json['joined_at'] ?? json['created_at']) as String,
+      ),
       notes: json['notes'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       cargoName: json['cargo_name'] as String?,
@@ -245,6 +266,8 @@ class MinistryMember {
     String? notes,
     DateTime? createdAt,
     String? cargoName,
+    List<String>? cargoNames,
+    List<String>? assignedFunctions,
     String? phone,
   }) {
     return MinistryMember(
@@ -257,6 +280,8 @@ class MinistryMember {
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       cargoName: cargoName ?? this.cargoName,
+      cargoNames: cargoNames ?? this.cargoNames,
+      assignedFunctions: assignedFunctions ?? this.assignedFunctions,
       phone: phone ?? this.phone,
     );
   }
@@ -299,7 +324,9 @@ class MinistrySchedule {
       id: json['id'] as String,
       eventId: json['event_id'] as String,
       eventName: json['event_name'] as String? ?? '',
-      eventStartDate: json['event_start_date'] != null ? DateTime.parse(json['event_start_date'] as String) : null,
+      eventStartDate: json['event_start_date'] != null
+          ? DateTime.parse(json['event_start_date'] as String)
+          : null,
       ministryId: json['ministry_id'] as String,
       ministryName: json['ministry_name'] as String? ?? '',
       memberId: json['user_id'] as String,
