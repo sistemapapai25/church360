@@ -30,6 +30,8 @@ import '../../features/ministries/batismo/presentation/screens/batismo_home_scre
 import '../../features/ministries/batismo/presentation/screens/baptism_public_registration_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_home_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_checklist_screen.dart';
+import '../../features/ministries/louvor/presentation/praise_song_editor_screen.dart';
+import '../../features/ministries/louvor/presentation/praise_song_reader_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_absentees_screen.dart';
 import '../../features/ministries/diaconato/presentation/screens/diaconato_communion_batch_screen.dart';
 // DEPRECATED: Old financial screens - replaced by native Flutter implementation
@@ -679,6 +681,26 @@ final appRouter = GoRouter(
         final id = state.pathParameters['id']!;
         return BatismoHomeScreen(ministryId: id);
       },
+    ),
+    // Louvores: 'nova' antes de ':songId', senão vira id de música.
+    GoRoute(
+      path: '/ministries/:id/louvores/musicas/nova',
+      builder: (context, state) =>
+          PraiseSongEditorScreen(ministryId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/ministries/:id/louvores/musicas/:songId',
+      builder: (context, state) => PraiseSongReaderScreen(
+        ministryId: state.pathParameters['id']!,
+        songId: state.pathParameters['songId']!,
+      ),
+    ),
+    GoRoute(
+      path: '/ministries/:id/louvores/musicas/:songId/editar',
+      builder: (context, state) => PraiseSongEditorScreen(
+        ministryId: state.pathParameters['id']!,
+        songId: state.pathParameters['songId']!,
+      ),
     ),
     GoRoute(
       path: '/ministries/:id/diaconato/checklist/:eventId',

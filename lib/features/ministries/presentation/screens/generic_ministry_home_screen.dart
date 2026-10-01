@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../shared/presentation/providers/ministry_finance_providers.dart';
+import '../../louvor/presentation/louvores_tab.dart';
 import '../../shared/domain/ministry_type_catalog.dart';
 import '../../shared/presentation/providers/ministry_type_catalog_providers.dart';
 import '../../shared/presentation/widgets/ministry_finance_tab.dart';
@@ -123,6 +124,10 @@ class _GenericWorkspace extends ConsumerWidget {
           MinistryTabKeys.financeiro: MinistryTabSlot(
             defaultLabel: 'Financeiro',
             builder: (_) => MinistryFinanceTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.louvores: MinistryTabSlot(
+            defaultLabel: 'Louvores',
+            builder: (_) => LouvoresTab(ministryId: ministryId),
           ),
           MinistryTabKeys.whatsapp: MinistryTabSlot(
             defaultLabel: 'WhatsApp',

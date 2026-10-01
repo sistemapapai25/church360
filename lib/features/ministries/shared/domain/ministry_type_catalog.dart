@@ -35,6 +35,9 @@ abstract final class MinistryTabKeys {
 
   // Raízes e Diaconato
   static const painel = 'painel';
+
+  // Louvor
+  static const louvores = 'louvores';
 }
 
 /// Os códigos de tipo que o Dart precisa nomear porque tem tela própria para

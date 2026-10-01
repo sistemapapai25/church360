@@ -72,7 +72,12 @@ ChordProDocument parseChordPro(String source) {
     if (d != null) {
       final name = d[1]!.toLowerCase();
       final value = d[2];
-      lines.add(DirectiveLine(_aliases[name] ?? name, (value == null || value.isEmpty) ? null : value));
+      lines.add(
+        DirectiveLine(
+          _aliases[name] ?? name,
+          (value == null || value.isEmpty) ? null : value,
+        ),
+      );
       continue;
     }
     lines.add(LyricLine(_segments(line)));
@@ -105,16 +110,118 @@ String transposeChordPro(String source, int semitones) {
   final key = parseChordPro(source).meta('key');
   final keyChord = key == null ? null : Chord.tryParse(key);
   final newKey = keyChord?.transpose(semitones);
-  final flats = newKey == null ? null : Chord.keyPrefersFlats(newKey.toString());
+  final flats = newKey == null
+      ? null
+      : Chord.keyPrefersFlats(newKey.toString());
   final target = newKey?.transpose(0, preferFlats: flats).toString();
 
   return source
       .replaceAllMapped(_chordTag, (m) {
         final c = Chord.tryParse(m[1]!);
-        return c == null ? m[0]! : '[${c.transpose(semitones, preferFlats: flats)}]';
+        return c == null
+            ? m[0]!
+            : '[${c.transpose(semitones, preferFlats: flats)}]';
       })
       .replaceAllMapped(
         RegExp(r'(\{\s*key\s*:\s*)([^}]*?)(\s*\})', caseSensitive: false),
         (m) => target == null ? m[0]! : '${m[1]}$target${m[3]}',
       );
+}
+
+/// Linha de leitor já alinhada: acordes em cima, letra embaixo, as duas com
+/// a mesma largura em caracteres (o leitor usa fonte monoespaçada).
+/// [chord] transforma cada acorde antes de medir (é onde entra o tom).
+({String chords, String lyrics}) alignLyricLine(
+  LyricLine line, [
+  String Function(String chord)? chord,
+]) {
+  final top = StringBuffer();
+  final bottom = StringBuffer();
+  for (final s in line.segments) {
+    final c = s.chord == null ? '' : (chord?.call(s.chord!) ?? s.chord!);
+    // Acorde mais largo que a sílaba empurra a letra: sem isso o próximo
+    // acorde colaria neste.
+    final width = c.isEmpty
+        ? s.lyric.length
+        : (c.length + 1 > s.lyric.length ? c.length + 1 : s.lyric.length);
+    top.write(c.padRight(width));
+    bottom.write(s.lyric.padRight(width));
+  }
+  return (
+    chords: top.toString().trimRight(),
+    lyrics: bottom.toString().trimRight(),
+  );
+}
+
+final _sectionLine = RegExp(r'^\s*\[([^\]]+)\]\s*$');
+final _keyLine = RegExp(
+  r'^\s*tom\s*:\s*([A-G][#b]?m?)\s*$',
+  caseSensitive: false,
+);
+
+// Dentro de [colchetes] o sufixo é livre; para ADIVINHAR se uma linha solta
+// é de acordes ele precisa parecer sufixo, senão "Aleluia" e "Deus" viram
+// acorde (raiz A/D + sufixo qualquer).
+final _strictSuffix = RegExp(
+  r'^(?:maj|min|dim|aug|sus|add|m|M|º|°|\+|-|\d|\(|\)|#|b|,)*$',
+);
+
+bool _isChordLine(String line) {
+  final tokens = line.trim().split(RegExp(r'\s+'));
+  return line.trim().isNotEmpty &&
+      tokens.every((t) {
+        final c = Chord.tryParse(t);
+        return c != null && _strictSuffix.hasMatch(c.suffix);
+      });
+}
+
+/// Converte a cifra no formato "acordes em cima da letra" (o que se copia de
+/// site de cifra) para ChordPro. Texto que já é ChordPro passa intacto.
+///
+/// - linha só de acordes + linha de letra → acordes inseridos na coluna certa;
+/// - linha só de acordes sem letra embaixo → `[G] [D]` (intro, passagem);
+/// - `[Refrão]`, `[Intro]` (rótulo que não é acorde) → `{comment: ...}`;
+/// - `Tom: G` → `{key: G}`.
+String chordsOverLyricsToChordPro(String source) {
+  final lines = source.replaceAll('\r\n', '\n').split('\n');
+  if (lines.any((l) => _directive.hasMatch(l.trim()))) return source;
+
+  final out = <String>[];
+  for (var i = 0; i < lines.length; i++) {
+    final line = lines[i].trimRight();
+
+    final key = _keyLine.firstMatch(line);
+    if (key != null) {
+      out.add('{key: ${key[1]}}');
+      continue;
+    }
+    final section = _sectionLine.firstMatch(line);
+    if (section != null && Chord.tryParse(section[1]!) == null) {
+      out.add('{comment: ${section[1]!.trim()}}');
+      continue;
+    }
+    if (!_isChordLine(line)) {
+      out.add(line);
+      continue;
+    }
+
+    final chords = [
+      for (final m in RegExp(r'\S+').allMatches(line)) (m.start, m[0]!),
+    ];
+    final next = i + 1 < lines.length ? lines[i + 1].trimRight() : '';
+    if (next.trim().isEmpty ||
+        _isChordLine(next) ||
+        _sectionLine.hasMatch(next)) {
+      out.add(chords.map((c) => '[${c.$2}]').join(' '));
+      continue;
+    }
+
+    var lyric = next.padRight(chords.last.$1);
+    for (final (col, c) in chords.reversed) {
+      lyric = '${lyric.substring(0, col)}[$c]${lyric.substring(col)}';
+    }
+    out.add(lyric.trimRight());
+    i++;
+  }
+  return out.join('\n');
 }

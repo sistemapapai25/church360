@@ -12,8 +12,34 @@ class Chord {
 
   static final _pattern = RegExp(r'^([A-G][#b]?)([^/]*)(?:/([A-G][#b]?))?$');
 
-  static const _sharps = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-  static const _flats = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+  static const _sharps = [
+    'C',
+    'C#',
+    'D',
+    'D#',
+    'E',
+    'F',
+    'F#',
+    'G',
+    'G#',
+    'A',
+    'A#',
+    'B',
+  ];
+  static const _flats = [
+    'C',
+    'Db',
+    'D',
+    'Eb',
+    'E',
+    'F',
+    'Gb',
+    'G',
+    'Ab',
+    'A',
+    'Bb',
+    'B',
+  ];
 
   /// Tons escritos com bemol, por semitom: maiores F Bb Eb Ab Db e menores
   /// Dm Gm Cm Fm Bbm Ebm. F#/Gb fica em sustenido (F# é o usual em louvor).
@@ -27,7 +53,15 @@ class Chord {
     return Chord(m[1]!, m[2]!, m[3]);
   }
 
-  static const _naturals = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11};
+  static const _naturals = {
+    'C': 0,
+    'D': 2,
+    'E': 4,
+    'F': 5,
+    'G': 7,
+    'A': 9,
+    'B': 11,
+  };
 
   /// Natural + acidente, então E#, B#, Cb e Fb também resolvem.
   static int semitoneOf(String note) {
@@ -40,7 +74,9 @@ class Chord {
 
   /// Distância em semitons (0..11) de um tom para outro. "G" → "A" = 2.
   static int interval(String fromKey, String toKey) =>
-      (semitoneOf(Chord.tryParse(toKey)!.root) - semitoneOf(Chord.tryParse(fromKey)!.root)) % 12;
+      (semitoneOf(Chord.tryParse(toKey)!.root) -
+          semitoneOf(Chord.tryParse(fromKey)!.root)) %
+      12;
 
   /// O tom de destino decide a grafia: Bb pede bemol, D pede sustenido.
   static bool keyPrefersFlats(String key) {
