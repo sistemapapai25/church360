@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../events/domain/models/event.dart';
+import '../../../events/presentation/providers/events_provider.dart';
 import '../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../data/praise_repository.dart';
 import 'louvores_tab.dart';
@@ -59,6 +62,7 @@ class _Setlist extends ConsumerWidget {
             : s.draft != null && (a.canManage || a.canPublish)
             ? _DraftEditor(
                 key: ValueKey(s.draft!.id),
+                ministryId: ministryId,
                 setlist: s,
                 canManage: a.canManage,
                 canPublish: a.canPublish,
@@ -148,12 +152,14 @@ String _keyOf(PraiseSetlistItem i) =>
 // ------------------------------------------------------------ rascunho (6)
 
 class _DraftEditor extends ConsumerStatefulWidget {
+  final String ministryId;
   final PraiseSetlist setlist;
   final bool canManage;
   final bool canPublish;
 
   const _DraftEditor({
     super.key,
+    required this.ministryId,
     required this.setlist,
     required this.canManage,
     required this.canPublish,
@@ -243,6 +249,82 @@ class _DraftEditorState extends ConsumerState<_DraftEditor> {
     }
   }
 
+  /// Apaga o rascunho. Se nunca foi publicado, o repertório some junto.
+  Future<void> _discard() async {
+    final published = widget.setlist.published;
+    final ok = await _confirm(
+      'Descartar rascunho?',
+      published == null
+          ? 'Este repertório nunca foi publicado e será apagado.'
+          : 'As mudanças da rev. ${_draft.number} se perdem. A rev. '
+                '${published.number} publicada continua valendo.',
+      'Descartar',
+    );
+    if (!ok) return;
+    setState(() => _busy = true);
+    try {
+      final gone = await ref
+          .read(praiseRepositoryProvider)
+          .discardDraft(_draft.id);
+      if (mounted) setState(() => _dirty = false);
+      invalidatePraise(ref);
+      _snack(gone ? 'Repertório apagado.' : 'Rascunho descartado.');
+      if (gone && mounted) Navigator.pop(context);
+    } catch (e) {
+      _snack(praiseErrorText(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Troca o evento na hora (é do repertório, não da revisão).
+  Future<void> _changeEvent() async {
+    final repo = ref.read(praiseRepositoryProvider);
+    setState(() => _busy = true);
+    final (events, setlists) = await (
+      ref.read(upcomingEventsProvider.future).catchError((_) => <Event>[]),
+      ref
+          .read(praiseSetlistsProvider(widget.ministryId).future)
+          .catchError((_) => <PraiseSetlist>[]),
+    ).wait;
+    if (!mounted) return;
+    setState(() => _busy = false);
+    final taken = {for (final s in setlists) s.eventId};
+    final fmt = DateFormat('dd/MM HH:mm', 'pt_BR');
+    final picked = await showDialog<(Event?,)>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Evento do repertório'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, (null,)),
+            child: const Text('Sem evento'),
+          ),
+          for (final e in events)
+            if (e.eventType != 'news' && !taken.contains(e.id))
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, (e,)),
+                child: Text('${fmt.format(e.startDate)} · ${e.name}'),
+              ),
+        ],
+      ),
+    );
+    if (picked == null || picked.$1?.id == widget.setlist.eventId) return;
+    setState(() => _busy = true);
+    try {
+      await repo.setSetlistEvent(widget.setlist.id, picked.$1?.id);
+      invalidatePraise(ref);
+    } catch (e) {
+      _snack(
+        e is PostgrestException && e.code == '23505'
+            ? 'Este ministério já tem repertório para este evento.'
+            : praiseErrorText(e),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<bool> _confirm(String title, String body, String action) async =>
       await showDialog<bool>(
         context: context,
@@ -322,7 +404,24 @@ class _DraftEditorState extends ConsumerState<_DraftEditor> {
                       ),
                     ],
                   ),
-                  if (event != null)
+                  if (widget.canManage)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            event == null
+                                ? 'Sem evento'
+                                : '$event · data do evento',
+                            style: meta,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: editable ? _changeEvent : null,
+                          child: const Text('Trocar evento'),
+                        ),
+                      ],
+                    )
+                  else if (event != null)
                     Text('$event · data do evento', style: meta),
                   if (widget.setlist.published != null)
                     Text(
@@ -341,10 +440,25 @@ class _DraftEditorState extends ConsumerState<_DraftEditor> {
               footer: widget.canManage
                   ? Padding(
                       padding: const EdgeInsets.only(top: 4),
-                      child: OutlinedButton.icon(
-                        icon: const Icon(AppIcons.add),
-                        label: const Text('Adicionar da Biblioteca'),
-                        onPressed: editable ? _add : null,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          OutlinedButton.icon(
+                            icon: const Icon(AppIcons.add),
+                            label: const Text('Adicionar da Biblioteca'),
+                            onPressed: editable ? _add : null,
+                          ),
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed: editable ? _discard : null,
+                            style: TextButton.styleFrom(
+                              foregroundColor: Theme.of(
+                                context,
+                              ).colorScheme.error,
+                            ),
+                            child: const Text('Descartar rascunho'),
+                          ),
+                        ],
                       ),
                     )
                   : null,
@@ -491,10 +605,12 @@ class _PublishedViewState extends ConsumerState<_PublishedView> {
   Widget build(BuildContext context) {
     final rev = widget.setlist.published!;
     final meta = CommunityDesign.metaStyle(context);
+    final by = ref.watch(praisePublisherNameProvider(rev.id)).value;
     final line = [
       ?_eventLine(widget.setlist),
       if (rev.publishedAt != null)
-        'publicado em ${DateFormat('dd/MM', 'pt_BR').format(rev.publishedAt!.toLocal())}',
+        'publicado em ${DateFormat('dd/MM', 'pt_BR').format(rev.publishedAt!.toLocal())}'
+            '${by == null ? '' : ' por $by'}',
     ].join(' · ');
 
     return Column(

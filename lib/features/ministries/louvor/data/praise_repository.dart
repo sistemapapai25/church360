@@ -417,6 +417,29 @@ class PraiseRepository {
     params: {'p_setlist_id': setlistId},
   );
 
+  /// Apaga o rascunho. `true` = o repertório nunca foi publicado e foi
+  /// apagado junto.
+  Future<bool> discardDraft(String revisionId) async =>
+      await _db.rpc(
+        'praise_setlist_discard_draft',
+        params: {'p_revision_id': revisionId},
+      ) ==
+      true;
+
+  /// Só com rascunho aberto (trigger). Vale também para a publicada.
+  Future<void> setSetlistEvent(String setlistId, String? eventId) => _db
+      .from('praise_setlist')
+      .update({'event_id': eventId})
+      .eq('id', setlistId);
+
+  /// Nome de quem publicou (a RLS de user_account não deixa ler a ficha).
+  Future<String?> publisherName(String revisionId) async =>
+      await _db.rpc(
+            'praise_setlist_publisher_name',
+            params: {'p_revision_id': revisionId},
+          )
+          as String?;
+
   Future<void> archive(String songId) => _db
       .from('praise_song')
       .update({'archived_at': DateTime.now().toUtc().toIso8601String()})
