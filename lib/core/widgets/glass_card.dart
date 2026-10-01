@@ -111,11 +111,11 @@ class GlassCard extends StatelessWidget {
                             begin: const Alignment(-0.7, -1),
                             end: const Alignment(0.7, 1),
                             colors: [
-                              Colors.transparent,
+                              Colors.white.withValues(alpha: 0),
                               Colors.white.withValues(
                                 alpha: dark ? 0.05 : 0.28,
                               ),
-                              Colors.transparent,
+                              Colors.white.withValues(alpha: 0),
                             ],
                             stops: const [0.28, 0.46, 0.64],
                           ),
@@ -300,9 +300,9 @@ class GlassCardDevotional extends StatelessWidget {
                               begin: const Alignment(-0.7, -1),
                               end: const Alignment(0.7, 1),
                               colors: [
-                                Colors.transparent,
+                                Colors.white.withValues(alpha: 0),
                                 Colors.white.withValues(alpha: 0.16),
-                                Colors.transparent,
+                                Colors.white.withValues(alpha: 0),
                               ],
                               stops: const [0.28, 0.46, 0.64],
                             ),
@@ -466,9 +466,9 @@ class _GlassCardTraceState extends State<GlassCardTrace>
                           begin: const Alignment(-0.7, -1),
                           end: const Alignment(0.7, 1),
                           colors: [
-                            Colors.transparent,
+                            Colors.white.withValues(alpha: 0),
                             Colors.white.withValues(alpha: dark ? 0.05 : 0.28),
-                            Colors.transparent,
+                            Colors.white.withValues(alpha: 0),
                           ],
                           stops: const [0.28, 0.46, 0.64],
                         ),
