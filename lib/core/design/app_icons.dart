@@ -223,6 +223,7 @@ abstract final class AppIcons {
   static const chevronLeft = Icons.chevron_left;
   static const play = Icons.play_circle_fill;
   static const playArrow = Icons.play_arrow;
+  static const pause = Icons.pause;
   static const restart = Icons.restart_alt;
   static const title = Icons.title;
 }

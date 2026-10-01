@@ -9,6 +9,7 @@ import 'package:church360_app/features/ministries/shared/domain/ministry_type_ca
 import 'package:church360_app/features/ministries/shared/presentation/widgets/ministry_workspace_shell.dart';
 import 'package:church360_app/features/permissions/providers/permissions_providers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,17 +30,23 @@ Map<String, dynamic> _version(String id, String key, String chordpro) => {
   'praise_song': {'title': 'Música $id', 'artist': null},
 };
 
-Map<String, dynamic> _item(String id, int pos, String version, String key) => {
+Map<String, dynamic> _item(
+  String id,
+  int pos,
+  String version,
+  String key, [
+  String chordpro = '{key: G}\n[G]Santo [D]santo',
+]) => {
   'id': id,
   'position': pos,
   'selected_key': key,
   'capo': 0,
   'bpm': null,
   'notes': null,
-  'praise_song_version': _version(version, 'G', '{key: G}\n[G]Santo [D]santo'),
+  'praise_song_version': _version(version, 'G', chordpro),
 };
 
-PraiseSetlist _setlistWith(String status, {int number = 1}) =>
+PraiseSetlist _setlistWith(String status, {int number = 1, String? first}) =>
     PraiseSetlist.fromJson({
       'id': _setlist,
       'event_id': null,
@@ -55,7 +62,9 @@ PraiseSetlist _setlistWith(String status, {int number = 1}) =>
           // Fora de ordem de propósito: a ordem vem de `position`.
           'praise_setlist_item': [
             _item('i2', 2, 'B', 'D'),
-            _item('i1', 1, 'A', 'A'),
+            first == null
+                ? _item('i1', 1, 'A', 'A')
+                : _item('i1', 1, 'A', 'A', first),
           ],
         },
       ],
@@ -158,6 +167,44 @@ void main() {
       PraiseSetlistsView.isUpcoming(DateTime.utc(2026, 10, 4, 23), now),
       isFalse,
     );
+  });
+
+  testWidgets('rolagem automática anda e para ao tocar na cifra', (t) async {
+    await _pump(
+      t,
+      const PraiseSetlistItemReaderScreen(
+        ministryId: _ministry,
+        setlistId: _setlist,
+        itemId: 'i1',
+      ),
+      _setlistWith(
+        'published',
+        first: List.generate(80, (i) => '[G]Linha $i').join('\n'),
+      ),
+    );
+    final scroll = t.widget<ListView>(find.byType(ListView).first).controller!;
+    expect(scroll.offset, 0);
+
+    await t.tap(find.byTooltip('Rolagem automática'));
+    await t.pump();
+    await t.pump(const Duration(seconds: 2));
+    final moved = scroll.offset;
+    expect(moved, greaterThan(0));
+
+    await t.tapAt(t.getCenter(find.byType(ListView).first));
+    await t.pump(const Duration(seconds: 2));
+    expect(scroll.offset, moved);
+    expect(find.byTooltip('Rolagem automática'), findsOneWidget);
+
+    // Pedal/teclado: PageDown avança uma tela; espaço liga a rolagem.
+    await t.sendKeyEvent(LogicalKeyboardKey.pageDown);
+    await t.pumpAndSettle();
+    expect(scroll.offset, greaterThan(moved + 300));
+    await t.sendKeyEvent(LogicalKeyboardKey.space);
+    await t.pump();
+    expect(find.byTooltip('Pausar rolagem'), findsOneWidget);
+    await t.sendKeyEvent(LogicalKeyboardKey.space);
+    await t.pump();
   });
 
   testWidgets('leitor abre no tom do item e mostra a próxima', (t) async {

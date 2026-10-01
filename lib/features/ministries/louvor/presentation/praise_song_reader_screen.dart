@@ -1,8 +1,13 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
@@ -128,7 +133,8 @@ class _Reader extends ConsumerStatefulWidget {
   ConsumerState<_Reader> createState() => _ReaderState();
 }
 
-class _ReaderState extends ConsumerState<_Reader> {
+class _ReaderState extends ConsumerState<_Reader>
+    with SingleTickerProviderStateMixin {
   int _semitones = 0;
   double _fontSize = 15;
 
@@ -182,6 +188,14 @@ class _ReaderState extends ConsumerState<_Reader> {
   bool _metronome = false;
   bool _tuner = false;
 
+  /// Rolagem automática (contrato do leitor §8): para ao tocar na cifra.
+  /// A velocidade (1–10) é do aparelho; em linhas por segundo, então não
+  /// muda com o tamanho da letra.
+  late final Ticker _autoScroll = createTicker(_autoTick);
+  Duration _autoLast = Duration.zero;
+  int _autoSpeed = 3;
+  static const _autoSpeedPref = 'praise_reader_scroll_speed';
+
   /// Nulo = a versão mais recente.
   PraiseSongVersion? _picked;
 
@@ -210,9 +224,76 @@ class _ReaderState extends ConsumerState<_Reader> {
 
   @override
   void dispose() {
+    if (_autoScroll.isActive) WakelockPlus.disable().ignore();
+    _autoScroll.dispose();
     _scroll.dispose();
     if (_fullscreen) setReaderFullscreen(false);
     super.dispose();
+  }
+
+  void _autoTick(Duration elapsed) {
+    final dt = (elapsed - _autoLast).inMicroseconds / 1e6;
+    _autoLast = elapsed;
+    if (!_scroll.hasClients) return;
+    final p = _scroll.position;
+    if (p.pixels >= p.maxScrollExtent) return _setAutoScroll(false);
+    final step = _autoSpeed * 0.15 * _fontSize * 1.35 * dt;
+    _scroll.jumpTo(math.min(p.pixels + step, p.maxScrollExtent));
+  }
+
+  void _setAutoScroll(bool on) {
+    if (on == _autoScroll.isActive) return;
+    if (on) {
+      _autoLast = Duration.zero;
+      _autoScroll.start();
+    } else {
+      _autoScroll.stop();
+    }
+    // Tela acesa só enquanto rola: no palco ninguém toca no celular.
+    WakelockPlus.toggle(enable: on).ignore();
+    if (mounted) setState(() {});
+  }
+
+  /// Pedal bluetooth e teclado: o pedal manda tecla (seta ou PageDown).
+  /// ↓/PageDown e ↑/PageUp viram uma tela; → e ← trocam de música no
+  /// repertório (fora dele, também viram uma tela); espaço liga a rolagem.
+  void _page(int direction) {
+    if (!_scroll.hasClients) return;
+    final p = _scroll.position;
+    _scroll.animateTo(
+      (p.pixels + direction * p.viewportDimension * 0.8).clamp(
+        0,
+        p.maxScrollExtent,
+      ),
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
+
+  void _step(int delta) {
+    final r = widget.reading;
+    if (r == null) return _page(delta);
+    final i = r.index + delta;
+    if (i < 0 || i >= r.revision.items.length) return;
+    context.pushReplacement('${r.base}/itens/${r.revision.items[i].id}');
+  }
+
+  late final _keys = <ShortcutActivator, VoidCallback>{
+    const SingleActivator(LogicalKeyboardKey.pageDown): () => _page(1),
+    const SingleActivator(LogicalKeyboardKey.arrowDown): () => _page(1),
+    const SingleActivator(LogicalKeyboardKey.pageUp): () => _page(-1),
+    const SingleActivator(LogicalKeyboardKey.arrowUp): () => _page(-1),
+    const SingleActivator(LogicalKeyboardKey.arrowRight): () => _step(1),
+    const SingleActivator(LogicalKeyboardKey.arrowLeft): () => _step(-1),
+    const SingleActivator(LogicalKeyboardKey.space): () =>
+        _setAutoScroll(!_autoScroll.isActive),
+  };
+
+  void _setAutoSpeed(int v) {
+    setState(() => _autoSpeed = v);
+    SharedPreferences.getInstance()
+        .then((p) => p.setInt(_autoSpeedPref, v))
+        .ignore();
   }
 
   void _setFullscreen(bool on) {
@@ -255,6 +336,7 @@ class _ReaderState extends ConsumerState<_Reader> {
         _twoColumns = prefs.getBool(_columnsPref) ?? false;
         _lyricsOnly = prefs.getBool(_lyricsOnlyPref) ?? false;
         _tuningDrop = (prefs.getInt(_tuningPref) ?? 0).clamp(0, 4);
+        _autoSpeed = (prefs.getInt(_autoSpeedPref) ?? 3).clamp(1, 10);
         if (diagrams != null && diagrams.length >= 3) {
           _diagramsStart = diagrams[0] == 'true';
           _diagramsEnd = diagrams[1] == 'true';
@@ -704,7 +786,7 @@ class _ReaderState extends ConsumerState<_Reader> {
         .watch(praiseAccessProvider)
         .maybeWhen(data: (a) => a.canManage, orElse: () => false);
 
-    return Scaffold(
+    final scaffold = Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: _fullscreen
           ? null
@@ -830,6 +912,10 @@ class _ReaderState extends ConsumerState<_Reader> {
         },
       ),
     );
+    return CallbackShortcuts(
+      bindings: _keys,
+      child: Focus(autofocus: true, child: scaffold),
+    );
   }
 
   Widget _body(PraiseSong song, PraiseSongVersion version) {
@@ -878,10 +964,42 @@ class _ReaderState extends ConsumerState<_Reader> {
       onSelectionChanged: (v) => _setLyricsOnly(v.first),
     );
 
+    final scrolling = _autoScroll.isActive;
+    final autoScrollBar = Material(
+      shape: const StadiumBorder(),
+      elevation: 3,
+      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: scrolling ? 'Pausar rolagem' : 'Rolagem automática',
+            icon: Icon(scrolling ? AppIcons.pause : AppIcons.playArrow),
+            onPressed: () => _setAutoScroll(!scrolling),
+          ),
+          _PillStepper(
+            onMinus: _autoSpeed > 1
+                ? () => _setAutoSpeed(_autoSpeed - 1)
+                : null,
+            onPlus: _autoSpeed < 10
+                ? () => _setAutoSpeed(_autoSpeed + 1)
+                : null,
+            minusTooltip: 'Mais devagar',
+            plusTooltip: 'Mais rápido',
+            child: Text(
+              '$_autoSpeed',
+              semanticsLabel: 'Velocidade $_autoSpeed',
+            ),
+          ),
+        ],
+      ),
+    );
+
     final list = ListView(
       key: _listKey,
       controller: _scroll,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 48),
+      // Espaço para a barra da rolagem não cobrir o fim da cifra.
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
       children: [
         if (song.artist != null && song.artist!.isNotEmpty)
           Text(song.artist!, style: meta),
@@ -999,9 +1117,14 @@ class _ReaderState extends ConsumerState<_Reader> {
             _currentStrum < patterns.length
         ? patterns[_currentStrum]
         : null;
+    // Tocar na cifra pausa a rolagem (para olhar ou voltar um trecho).
+    final touchList = Listener(
+      onPointerDown: (_) => _setAutoScroll(false),
+      child: list,
+    );
     // Faixa fixa e batida da seção ficam fora da rolagem.
     final body = !pinned && current == null
-        ? list
+        ? touchList
         : Column(
             children: [
               Material(
@@ -1030,11 +1153,10 @@ class _ReaderState extends ConsumerState<_Reader> {
                   ),
                 ),
               ),
-              Expanded(child: list),
+              Expanded(child: touchList),
             ],
           );
 
-    if (!_metronome && !_tuner) return body;
     return LayoutBuilder(
       builder: (context, c) {
         final area = c.biggest;
@@ -1047,6 +1169,7 @@ class _ReaderState extends ConsumerState<_Reader> {
         return Stack(
           children: [
             body,
+            Positioned(right: 12, bottom: 12, child: autoScrollBar),
             if (_tuner)
               FloatingTool(
                 area: area,
