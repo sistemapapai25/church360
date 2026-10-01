@@ -5,8 +5,12 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../../praise/domain/chord.dart';
 import '../../../../praise/domain/chord_shapes.dart';
 
-/// Desenho do acorde no instrumento: braço (cordas, casas, x/o, pestana) ou
-/// teclado com as notas acesas. Cor ativa = primary, nunca a do CifraClub.
+/// Desenho do acorde no instrumento: braço (cordas, casas, x/o, pestana e o
+/// número do dedo na bolinha) ou teclado com as notas acesas. Cor ativa =
+/// primary, nunca a do CifraClub.
+///
+/// [chord] é o desenho, não o som: com capo/afinação o leitor passa
+/// [shapeChord].
 class ChordDiagram extends StatelessWidget {
   final Chord chord;
   final PraiseInstrument instrument;
@@ -59,6 +63,7 @@ class _FretPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final fingers = fingersOf(shape);
     final fretted = [
       for (final f in shape)
         if (f != null && f > 0) f,
@@ -111,6 +116,12 @@ class _FretPainter extends CustomPainter {
     }
 
     final r = dx * 0.36 < dy * 0.36 ? dx * 0.36 : dy * 0.36;
+    final finger = TextStyle(
+      fontSize: r * 1.3,
+      height: 1,
+      color: scheme.onPrimary,
+      fontWeight: FontWeight.w700,
+    );
     final barre = barreOf(shape);
     if (barre != null) {
       final y = top + (barre.fret - base + 0.5) * dy;
@@ -124,6 +135,7 @@ class _FretPainter extends CustomPainter {
         ),
         dot,
       );
+      _text(canvas, '1', Offset(left + barre.from * dx, y), finger);
     }
     for (var i = 0; i < n; i++) {
       final f = shape[i];
@@ -131,7 +143,10 @@ class _FretPainter extends CustomPainter {
       if (f == null || f == 0) {
         _text(canvas, f == null ? '×' : '○', Offset(x, top * 0.45), small);
       } else {
-        canvas.drawCircle(Offset(x, top + (f - base + 0.5) * dy), r, dot);
+        if (barre != null && fingers[i] == 1) continue;
+        final c = Offset(x, top + (f - base + 0.5) * dy);
+        canvas.drawCircle(c, r, dot);
+        if (r >= 5) _text(canvas, '${fingers[i]}', c, finger);
       }
     }
   }
@@ -211,12 +226,14 @@ class _KeyboardPainter extends CustomPainter {
 }
 
 /// Painel ao tocar no acorde: nome, notas e desenho no instrumento. Trocar o
-/// instrumento aqui vale para o leitor todo ([onInstrument]).
+/// instrumento aqui vale para o leitor todo ([onInstrument]). [shapeOf] dá o
+/// desenho com o capo/afinação da tela.
 Future<void> showChordSheet(
   BuildContext context, {
   required Chord chord,
   required PraiseInstrument instrument,
   required ValueChanged<PraiseInstrument> onInstrument,
+  Chord Function(Chord chord, PraiseInstrument instrument)? shapeOf,
 }) {
   var current = instrument;
   return showModalBottomSheet<void>(
@@ -224,7 +241,8 @@ Future<void> showChordSheet(
     showDragHandle: true,
     builder: (context) => StatefulBuilder(
       builder: (context, setSheet) => SafeArea(
-        child: Padding(
+        // Rola em celular baixo: desenho grande + instrumentos não cabem.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -241,7 +259,19 @@ Future<void> showChordSheet(
                 style: CommunityDesign.metaStyle(context),
               ),
               const SizedBox(height: 16),
-              ChordDiagram(chord: chord, instrument: current, width: 140),
+              ChordDiagram(
+                chord: shapeOf?.call(chord, current) ?? chord,
+                instrument: current,
+                width: 140,
+              ),
+              if (shapeOf != null && '${shapeOf(chord, current)}' != '$chord')
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    'Desenho de ${shapeOf(chord, current)} (capo/afinação)',
+                    style: CommunityDesign.metaStyle(context),
+                  ),
+                ),
               const SizedBox(height: 16),
               Wrap(
                 spacing: 8,

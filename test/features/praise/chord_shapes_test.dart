@@ -59,4 +59,24 @@ void main() {
     }
     expect(_shape('C', PraiseInstrument.ukulele), '0003');
   });
+
+  test('dedos: pestana é o indicador, o resto pela casa', () {
+    String fingers(String c) => fingersOf(
+      fretShape(Chord.tryParse(c)!, PraiseInstrument.violao)!,
+    ).map((f) => f ?? '-').join();
+    expect(fingers('C'), '-32-1-');
+    expect(fingers('D'), '---132');
+    expect(fingers('Am'), '--231-');
+    expect(fingers('E'), '-231--');
+    expect(fingers('F'), '134211');
+  });
+
+  test('capo e afinação mudam o desenho, não o acorde', () {
+    String shape(String c, {int drop = 0, int capo = 0}) =>
+        '${shapeChord(Chord.tryParse(c)!, drop: drop, capo: capo)}';
+    expect(shape('A', capo: 2), 'G');
+    expect(shape('E', drop: 1), 'F');
+    expect(shape('D/F#', drop: 2, capo: 2), 'D/F#');
+    expect(shape('Bm', capo: 2), 'Am');
+  });
 }
