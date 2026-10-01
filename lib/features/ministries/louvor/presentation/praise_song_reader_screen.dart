@@ -212,6 +212,12 @@ class _ReaderState extends ConsumerState<_Reader>
   bool _metronome = false;
   bool _tuner = false;
 
+  /// Painel de Ajustes fixo do lado no computador (canvas 13h) e o grupo
+  /// aberto nele.
+  bool _sidePanel = true;
+  String? _sideOpen;
+  static const _sidePanelPref = 'praise_reader_side_panel';
+
   /// Rolagem automática (contrato do leitor §8): para ao tocar na cifra.
   /// A velocidade (1–10) é do aparelho; em linhas por segundo, então não
   /// muda com o tamanho da letra.
@@ -364,6 +370,7 @@ class _ReaderState extends ConsumerState<_Reader>
         _lyricsOnly = prefs.getBool(_lyricsOnlyPref) ?? false;
         _simplified = prefs.getBool(_simplifiedPref) ?? false;
         _showTabs = prefs.getBool(_tabsPref) ?? true;
+        _sidePanel = prefs.getBool(_sidePanelPref) ?? true;
         _theme = Brightness.values.where((b) => b.name == theme).firstOrNull;
         if (layout != null && layout.length >= 2) {
           _columnCount = (int.tryParse(layout[0]) ?? 2).clamp(2, 3);
@@ -465,6 +472,7 @@ class _ReaderState extends ConsumerState<_Reader>
       _textWidth = 1;
       _simplified = false;
       _showTabs = true;
+      _sidePanel = true;
       _theme = null;
       _tuningDrop = 0;
       _diagramsStart = true;
@@ -517,321 +525,600 @@ class _ReaderState extends ConsumerState<_Reader>
     shapeOf: (c, i) => _shapeOf(c, i, capo),
   );
 
-  /// Ajustes do leitor em cartões, como o menu lateral do CifraClub (prints
-  /// 01/02). Tudo vale na hora; só o capo é desta música.
-  void _openSettings(int capo) {
-    final wide =
-        MediaQuery.sizeOf(context).width >= ChordProView.twoColumnWidth;
+  /// Painel fixo do lado só onde sobra tela para a cifra (canvas 13h).
+  bool get _sideFits => MediaQuery.sizeOf(context).width >= 1100;
+
+  /// Ajustes do leitor (§10.4 S8, canvas 13a–13h): Tom e capo direto na
+  /// linha, o resto abre uma subtela. No celular é um sheet com subtelas; no
+  /// computador, o botão mostra/esconde o painel do lado.
+  void _openSettings() {
+    if (_sideFits) {
+      setState(() => _sidePanel = !_sidePanel);
+      SharedPreferences.getInstance()
+          .then((p) => p.setBool(_sidePanelPref, _sidePanel))
+          .ignore();
+      return;
+    }
+    String? open;
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheet) {
-          void set(VoidCallback f) {
-            setState(f);
-            setSheet(() {});
-          }
-
-          Widget card(String title, List<Widget> children) => Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: CommunityDesign.titleStyle(context)),
-                  const SizedBox(height: 8),
-                  ...children,
-                ],
-              ),
+      builder: (sheet) => StatefulBuilder(
+        builder: (sheet, setSheet) => SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(sheet).height * 0.85,
             ),
-          );
-
-          SwitchListTile toggle(
-            String label,
-            bool value,
-            ValueChanged<bool> onChanged,
-          ) => SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(label),
-            value: value,
-            onChanged: onChanged,
-          );
-
-          Widget sizeSlider(
-            double value,
-            ValueChanged<double> onChanged, {
-            String label = 'Tamanho',
-            double min = 0.7,
-            double max = 1.6,
-          }) => Row(
-            children: [
-              Text(label),
-              Expanded(
-                child: Slider(
-                  value: value,
-                  min: min,
-                  max: max,
-                  divisions: ((max - min) * 10).round(),
-                  label: '${(value * 100).round()}%',
-                  onChanged: onChanged,
-                  onChangeEnd: (_) => _savePrefs(),
-                ),
-              ),
-            ],
-          );
-
-          return SafeArea(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.sizeOf(context).height * 0.85,
-              ),
-              child: ListView(
-                shrinkWrap: true,
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                children: [
-                  card('Instrumento', [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final i in [
-                          ...PraiseInstrument.pickable,
-                          PraiseInstrument.bateria,
-                        ])
-                          ChoiceChip(
-                            shape: const StadiumBorder(),
-                            label: Text(i.label),
-                            selected: i == _instrument.chip,
-                            onSelected: (_) {
-                              _setInstrument(i);
-                              setSheet(() {});
-                            },
-                          ),
-                      ],
-                    ),
-                    if (_instrument.tuning != null) ...[
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<int>(
-                        key: ValueKey('tuning-${_instrument.isBass}'),
-                        initialValue: _tuningDrop,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Afinação',
-                        ),
-                        items: [
-                          for (final t in praiseTunings)
-                            DropdownMenuItem(
-                              value: t.drop,
-                              child: Text(
-                                _instrument.isBass ? t.bassLabel : t.label,
-                              ),
-                            ),
-                        ],
-                        onChanged: (v) {
-                          set(() => _tuningDrop = v ?? 0);
-                          _savePrefs();
-                        },
-                      ),
-                    ],
-                    if (_instrument.isBass) ...[
-                      const SizedBox(height: 12),
-                      SegmentedButton<PraiseInstrument>(
-                        segments: const [
-                          ButtonSegment(
-                            value: PraiseInstrument.baixo,
-                            label: Text('4 cordas'),
-                          ),
-                          ButtonSegment(
-                            value: PraiseInstrument.baixo5,
-                            label: Text('5 cordas'),
-                          ),
-                        ],
-                        selected: {_instrument},
-                        onSelectionChanged: (v) {
-                          _setBass(v.first);
-                          setSheet(() {});
-                        },
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'O desenho mostra a nota do baixo de cada acorde '
-                        '(em D/F#, o F#).',
-                        style: CommunityDesign.metaStyle(context),
-                      ),
-                    ],
-                    if (_instrument.tuning != null && !_instrument.isBass) ...[
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<int>(
-                        initialValue: _capoOverride ?? capo,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Capotraste',
-                          helperText: 'Muda o desenho; o som continua no tom.',
-                        ),
-                        items: [
-                          for (var c = 0; c <= 11; c++)
-                            DropdownMenuItem(
-                              value: c,
-                              child: Text(
-                                c == 0 ? 'Sem capotraste' : '$cª casa',
-                              ),
-                            ),
-                        ],
-                        onChanged: (v) => set(() => _capoOverride = v),
-                      ),
-                    ],
-                  ]),
-                  card('Diagramas', [
-                    toggle('No início', _diagramsStart, (v) {
-                      set(() => _diagramsStart = v);
-                      _savePrefs();
-                    }),
-                    toggle('No fim', _diagramsEnd, (v) {
-                      set(() => _diagramsEnd = v);
-                      _savePrefs();
-                    }),
-                    toggle('Fixar no topo ao rolar', _diagramsPinned, (v) {
-                      set(() => _diagramsPinned = v);
-                      _savePrefs();
-                    }),
-                    sizeSlider(
-                      _diagramScale,
-                      (v) => set(() => _diagramScale = v),
-                    ),
-                    toggle('No corpo da cifra', _diagramsInline, (v) {
-                      set(() => _diagramsInline = v);
-                      _savePrefs();
-                    }),
-                    if (_diagramsInline)
-                      sizeSlider(
-                        _inlineScale,
-                        (v) => set(() => _inlineScale = v),
-                        label: 'Tamanho no corpo',
-                      ),
-                  ]),
-                  card('Batidas', [
-                    RadioGroup<StrumDisplay>(
-                      groupValue: _strums,
-                      onChanged: (v) {
-                        set(() => _strums = v ?? _strums);
-                        _savePrefs();
-                        WidgetsBinding.instance.addPostFrameCallback(
-                          (_) => _trackStrum(),
-                        );
-                      },
-                      child: Column(
-                        children: [
-                          for (final s in StrumDisplay.values)
-                            RadioListTile<StrumDisplay>(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(s.label),
-                              value: s,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ]),
-                  card('Exibição', [
-                    toggle('Tela cheia', _fullscreen, (v) {
-                      _setFullscreen(v);
-                      setSheet(() {});
-                    }),
-                    toggle('Mostrar tablaturas', _showTabs, (v) {
-                      set(() => _showTabs = v);
-                      _savePrefs();
-                    }),
-                    const SizedBox(height: 8),
-                    const Text('Tema do leitor'),
-                    const SizedBox(height: 6),
-                    SegmentedButton<Brightness?>(
-                      showSelectedIcon: false,
-                      segments: const [
-                        ButtonSegment(value: null, label: Text('Do app')),
-                        ButtonSegment(
-                          value: Brightness.light,
-                          label: Text('Claro'),
-                        ),
-                        ButtonSegment(
-                          value: Brightness.dark,
-                          label: Text('Escuro'),
-                        ),
-                      ],
-                      selected: {_theme},
-                      onSelectionChanged: (v) {
-                        set(() => _theme = v.first);
-                        _savePrefs();
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    sizeSlider(
-                      _textWidth,
-                      (v) => set(() => _textWidth = v),
-                      label: 'Largura do texto',
-                      min: 0.5,
-                      max: 1,
-                    ),
-                    // Colunas só onde cabem.
-                    if (wide) ...[
-                      toggle('Dividir em colunas', _twoColumns, (v) {
-                        _setTwoColumns(v);
-                        setSheet(() {});
-                      }),
-                      if (_twoColumns)
-                        SegmentedButton<int>(
-                          showSelectedIcon: false,
-                          segments: const [
-                            ButtonSegment(value: 2, label: Text('2 colunas')),
-                            ButtonSegment(value: 3, label: Text('3 colunas')),
-                          ],
-                          selected: {_columnCount},
-                          onSelectionChanged: (v) {
-                            set(() => _columnCount = v.first);
-                            _savePrefs();
-                          },
-                        ),
-                    ],
-                  ]),
-                  card('Ferramentas', [
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(AppIcons.metronome),
-                      title: const Text('Metrônomo'),
-                      onTap: () {
-                        setState(() => _metronome = true);
-                        Navigator.pop(context);
-                      },
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(AppIcons.microphone),
-                      title: const Text('Afinador'),
-                      onTap: () {
-                        setState(() => _tuner = true);
-                        Navigator.pop(context);
-                      },
-                    ),
-                  ]),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      shape: const StadiumBorder(),
-                      minimumSize: const Size.fromHeight(48),
-                    ),
-                    icon: const Icon(AppIcons.refresh),
-                    label: const Text('Restaurar padrões'),
-                    onPressed: () async {
-                      await _resetPrefs();
-                      if (context.mounted) Navigator.pop(context);
-                    },
-                  ),
-                ],
-              ),
+            child: _settings(
+              set: (f) {
+                setState(f);
+                setSheet(() {});
+              },
+              open: open,
+              onOpen: (g) => setSheet(() => open = g),
+              side: false,
+              // Ferramenta flutuante não divide a tela com o sheet.
+              close: () => Navigator.pop(sheet),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
+  }
+
+  /// Tom [semitones] acima de [original], com a grafia do tom (Bb, não A#).
+  String? _keyAt(String? original, int semitones) {
+    final key = original == null ? null : Chord.tryParse(original);
+    final shifted = key?.transpose(semitones);
+    if (shifted == null) return null;
+    return shifted
+        .transpose(0, preferFlats: Chord.keyPrefersFlats(shifted.toString()))
+        .toString();
+  }
+
+  /// A lista dos Ajustes. [open] = grupo aberto: no celular vira a subtela,
+  /// no painel do lado abre no lugar (acordeão).
+  Widget _settings({
+    required void Function(VoidCallback) set,
+    required String? open,
+    required ValueChanged<String?> onOpen,
+    required bool side,
+    VoidCallback? close,
+  }) {
+    final v = _shown?.version;
+    final baseCapo = _item?.capo ?? v?.capo ?? 0;
+    final capo = _capoOverride ?? baseCapo;
+    final original = v?.originalKey;
+    final keyNow = _keyAt(original, _semitones);
+    final bpm = _item == null ? v?.bpm : _item!.bpm;
+    final meta = CommunityDesign.metaStyle(context);
+    final selectedBg = Theme.of(
+      context,
+    ).colorScheme.primary.withValues(alpha: 0.06);
+    // Só o que vale para o instrumento aparece (canvas 13a).
+    final hasCapo = _instrument.tuning != null && !_instrument.isBass;
+    final hasTuning = _instrument.tuning != null;
+    final hasDiagrams = !_instrument.isDrums;
+
+    void refresh() => set(() {});
+    void save(VoidCallback f) {
+      set(f);
+      _savePrefs();
+    }
+
+    String pct(double x) => '${(x * 100).round()}%';
+    double step(double x, double d, double min, double max) =>
+        ((x + d) * 10).round().clamp(min * 10, max * 10) / 10;
+
+    Widget group(String label) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+      child: Text(
+        label,
+        style: meta.copyWith(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.7,
+        ),
+      ),
+    );
+
+    Widget control(String title, Widget trailing, {String? subtitle}) =>
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+          title: Text(title),
+          subtitle: subtitle == null ? null : Text(subtitle, style: meta),
+          trailing: trailing,
+        );
+
+    Widget toggle(String title, bool value, ValueChanged<bool>? onChanged) =>
+        SwitchListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+          title: Text(title),
+          value: value,
+          onChanged: onChanged,
+        );
+
+    Widget scaleStepper(
+      double value,
+      ValueChanged<double>? onChanged, {
+      double min = 0.7,
+      double max = 1.6,
+    }) => PillStepper(
+      onMinus: onChanged == null || value <= min
+          ? null
+          : () => onChanged(step(value, -0.1, min, max)),
+      onPlus: onChanged == null || value >= max
+          ? null
+          : () => onChanged(step(value, 0.1, min, max)),
+      minusTooltip: 'Diminuir',
+      plusTooltip: 'Aumentar',
+      child: Text(pct(value)),
+    );
+
+    Widget hint(String text) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      child: Text(text, style: meta),
+    );
+
+    List<Widget> page(String id) => switch (id) {
+      'instrument' => [
+        RadioGroup<PraiseInstrument>(
+          groupValue: _instrument.chip,
+          onChanged: (i) {
+            if (i == null) return;
+            _setInstrument(i);
+            refresh();
+          },
+          child: Column(
+            children: [
+              for (final i in [
+                ...PraiseInstrument.pickable,
+                PraiseInstrument.bateria,
+              ]) ...[
+                RadioListTile<PraiseInstrument>(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: i,
+                  title: Text(i.label),
+                  subtitle: Text(switch (i) {
+                    PraiseInstrument.violao =>
+                      'Diagrama de 6 cordas, com capotraste e afinação',
+                    PraiseInstrument.teclado => 'Teclas de cada acorde',
+                    PraiseInstrument.bateria =>
+                      'Grade de ritmo no lugar dos acordes',
+                    _ => 'Nota do baixo de cada acorde (em D/F#, o F#)',
+                  }, style: meta),
+                ),
+                if (i == PraiseInstrument.baixo && _instrument.isBass)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(68, 0, 20, 8),
+                    child: AppTabs(
+                      tabs: const [
+                        AppTab(label: '4 cordas'),
+                        AppTab(label: '5 cordas'),
+                      ],
+                      selectedIndex: _instrument == PraiseInstrument.baixo5
+                          ? 1
+                          : 0,
+                      onChanged: (x) {
+                        _setBass(
+                          x == 1
+                              ? PraiseInstrument.baixo5
+                              : PraiseInstrument.baixo,
+                        );
+                        refresh();
+                      },
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
+        hint('Vale para todas as músicas neste aparelho.'),
+      ],
+      'tuning' => [
+        RadioGroup<int>(
+          groupValue: _tuningDrop,
+          onChanged: (d) => save(() => _tuningDrop = d ?? 0),
+          child: Column(
+            children: [
+              for (final t in praiseTunings)
+                RadioListTile<int>(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: t.drop,
+                  title: Text(_tuningName(t)),
+                  secondary: Text(
+                    _tuningNotes(t),
+                    style: meta.copyWith(fontFamily: 'monospace'),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        hint(
+          'Afinação não é tom: o tom muda o nome dos acordes para todos; a '
+          'afinação muda só o desenho para quem afinou o instrumento mais '
+          'baixo.',
+        ),
+      ],
+      'diagrams' => [
+        group('FAIXA DE ACORDES'),
+        toggle(
+          'No início',
+          _diagramsStart,
+          (x) => save(() => _diagramsStart = x),
+        ),
+        toggle('No fim', _diagramsEnd, (x) => save(() => _diagramsEnd = x)),
+        toggle(
+          'Fixar no topo ao rolar',
+          _diagramsPinned,
+          (x) => save(() => _diagramsPinned = x),
+        ),
+        control(
+          'Tamanho',
+          scaleStepper(_diagramScale, (x) => save(() => _diagramScale = x)),
+        ),
+        group('NO CORPO DA CIFRA'),
+        toggle(
+          'Ao lado de cada acorde',
+          _diagramsInline,
+          (x) => save(() => _diagramsInline = x),
+        ),
+        control(
+          'Tamanho no corpo',
+          scaleStepper(
+            _inlineScale,
+            _diagramsInline ? (x) => save(() => _inlineScale = x) : null,
+          ),
+        ),
+      ],
+      'strums' => [
+        RadioGroup<StrumDisplay>(
+          groupValue: _strums,
+          onChanged: (s) {
+            save(() => _strums = s ?? _strums);
+            WidgetsBinding.instance.addPostFrameCallback((_) => _trackStrum());
+          },
+          child: Column(
+            children: [
+              for (final s in StrumDisplay.values)
+                RadioListTile<StrumDisplay>(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: s,
+                  title: Text(s.label),
+                ),
+            ],
+          ),
+        ),
+        hint('A batida é escrita no editor. Música sem batida não muda.'),
+      ],
+      'display' => [
+        group('TEXTO'),
+        control(
+          'Tamanho do texto',
+          PillStepper(
+            onMinus: _fontSize > 11 ? () => set(() => _fontSize--) : null,
+            onPlus: _fontSize < 26 ? () => set(() => _fontSize++) : null,
+            minusTooltip: 'Diminuir letra',
+            plusTooltip: 'Aumentar letra',
+            child: Text(pct(_fontSize / 15)),
+          ),
+        ),
+        control(
+          'Largura do texto',
+          scaleStepper(
+            _textWidth,
+            (x) => save(() => _textWidth = x),
+            min: 0.5,
+            max: 1,
+          ),
+        ),
+        group('TEMA DO LEITOR'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+          child: AppTabs(
+            tabs: const [
+              AppTab(label: 'Do app'),
+              AppTab(label: 'Claro'),
+              AppTab(label: 'Escuro'),
+            ],
+            selectedIndex: switch (_theme) {
+              null => 0,
+              Brightness.light => 1,
+              Brightness.dark => 2,
+            },
+            onChanged: (i) => save(
+              () => _theme = const [null, Brightness.light, Brightness.dark][i],
+            ),
+          ),
+        ),
+        group('TELA'),
+        toggle('Tela cheia', _fullscreen, (x) {
+          _setFullscreen(x);
+          refresh();
+        }),
+        toggle(
+          'Mostrar tablaturas',
+          _showTabs,
+          (x) => save(() => _showTabs = x),
+        ),
+        // Colunas só onde cabem.
+        if (MediaQuery.sizeOf(context).width >=
+            ChordProView.twoColumnWidth) ...[
+          toggle('Dividir em colunas', _twoColumns, (x) {
+            _setTwoColumns(x);
+            refresh();
+          }),
+          if (_twoColumns)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: AppTabs(
+                tabs: const [
+                  AppTab(label: '2 colunas'),
+                  AppTab(label: '3 colunas'),
+                ],
+                selectedIndex: _columnCount - 2,
+                onChanged: (i) => save(() => _columnCount = i + 2),
+              ),
+            ),
+        ] else
+          const ListTile(
+            enabled: false,
+            contentPadding: EdgeInsets.symmetric(horizontal: 20),
+            title: Text('Dividir em colunas'),
+            trailing: Text('Só no computador'),
+          ),
+      ],
+      _ => const [],
+    };
+
+    const titles = {
+      'instrument': 'Instrumento',
+      'tuning': 'Afinação',
+      'diagrams': 'Diagramas',
+      'strums': 'Batidas',
+      'display': 'Exibição',
+    };
+
+    // Linha com o valor atual: abre a subtela (celular) ou o grupo no lugar.
+    List<Widget> nav(String id, IconData icon, String value) {
+      final isOpen = side && open == id;
+      return [
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+          tileColor: isOpen ? selectedBg : null,
+          leading: Icon(icon),
+          title: Text(titles[id]!),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 150),
+                child: Text(
+                  value,
+                  style: meta,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(isOpen ? AppIcons.expandLess : AppIcons.chevronRight),
+            ],
+          ),
+          onTap: () => onOpen(isOpen ? null : id),
+        ),
+        if (isOpen)
+          ColoredBox(
+            color: selectedBg,
+            child: Column(children: page(id)),
+          ),
+      ];
+    }
+
+    ListTile tool(IconData icon, String title, String value, VoidCallback on) =>
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+          leading: Icon(icon),
+          title: Text(title),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(value, style: meta),
+              const SizedBox(width: 4),
+              const Icon(AppIcons.floatingPanel),
+            ],
+          ),
+          onTap: () {
+            close?.call();
+            setState(on);
+          },
+        );
+
+    final diagramsValue = !_diagramsStart && !_diagramsEnd && !_diagramsInline
+        ? 'Ocultos'
+        : '${_diagramsStart
+              ? 'No início'
+              : _diagramsEnd
+              ? 'No fim'
+              : 'No corpo'} · ${pct(_diagramScale)}';
+
+    final List<Widget> rows = !side && open != null
+        ? page(open)
+        : [
+            group('RÁPIDO'),
+            control(
+              'Tom',
+              PillStepper(
+                onMinus: () => set(() => _semitones--),
+                onPlus: () => set(() => _semitones++),
+                minusTooltip: 'Meio tom abaixo',
+                plusTooltip: 'Meio tom acima',
+                child: Text(
+                  keyNow ??
+                      (_semitones == 0
+                          ? 'Original'
+                          : (_semitones > 0 ? '+$_semitones' : '$_semitones')),
+                ),
+              ),
+              subtitle: original == null ? null : 'Original: $original',
+            ),
+            if (hasCapo)
+              control(
+                'Capotraste',
+                PillStepper(
+                  onMinus: capo > 0
+                      ? () => set(() => _capoOverride = capo - 1)
+                      : null,
+                  onPlus: capo < 11
+                      ? () => set(() => _capoOverride = capo + 1)
+                      : null,
+                  minusTooltip: 'Casa abaixo',
+                  plusTooltip: 'Casa acima',
+                  child: Text(capo == 0 ? 'Sem capo' : '$capoª casa'),
+                ),
+                subtitle: capo > 0 && keyNow != null
+                    ? 'Toca em ${_keyAt(original, _semitones - capo)} · '
+                          'soa em $keyNow'
+                    : 'Muda o desenho; o som continua no tom.',
+              ),
+            ...nav(
+              'instrument',
+              AppIcons.instrument,
+              _instrument.isBass
+                  ? 'Baixo · ${_instrument == PraiseInstrument.baixo5 ? 5 : 4} cordas'
+                  : _instrument.label,
+            ),
+            group('CIFRA'),
+            if (hasTuning)
+              ...nav(
+                'tuning',
+                AppIcons.tuning,
+                _tuningName(
+                  praiseTunings.firstWhere((t) => t.drop == _tuningDrop),
+                ),
+              ),
+            if (hasDiagrams)
+              ...nav('diagrams', AppIcons.chordGrid, diagramsValue),
+            ...nav('strums', AppIcons.strum, _strums.label),
+            ...nav(
+              'display',
+              AppIcons.textFields,
+              'Texto ${pct(_fontSize / 15)} · ${switch (_theme) {
+                null => 'Tema do app',
+                Brightness.light => 'Claro',
+                Brightness.dark => 'Escuro',
+              }}',
+            ),
+            group('FERRAMENTAS'),
+            tool(
+              AppIcons.metronome,
+              'Metrônomo',
+              bpm == null ? '' : '$bpm BPM',
+              () => _metronome = true,
+            ),
+            tool(
+              AppIcons.microphone,
+              'Afinador',
+              'Lá = 440 Hz',
+              () => _tuner = true,
+            ),
+          ];
+
+    final header = !side && open != null
+        ? Row(
+            children: [
+              TextButton.icon(
+                icon: const Icon(AppIcons.chevronLeft),
+                label: const Text('Ajustes'),
+                onPressed: () => onOpen(null),
+              ),
+              Expanded(
+                child: Text(
+                  titles[open]!,
+                  textAlign: TextAlign.center,
+                  style: CommunityDesign.titleStyle(context),
+                ),
+              ),
+              // Contrapeso do botão, para o título ficar no meio.
+              const SizedBox(width: 100),
+            ],
+          )
+        : Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 8, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Ajustes',
+                    style: CommunityDesign.titleStyle(
+                      context,
+                    ).copyWith(fontSize: 18),
+                  ),
+                ),
+                if (side)
+                  IconButton(
+                    tooltip: 'Esconder ajustes',
+                    icon: const Icon(AppIcons.chevronRight),
+                    onPressed: _openSettings,
+                  ),
+              ],
+            ),
+          );
+
+    final list = ListView(
+      shrinkWrap: true,
+      padding: const EdgeInsets.only(bottom: 8),
+      children: rows,
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        header,
+        const Divider(height: 1),
+        side ? Expanded(child: list) : Flexible(child: list),
+        if (side || open == null) ...[
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+            child: Column(
+              children: [
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    shape: const StadiumBorder(),
+                    minimumSize: const Size.fromHeight(44),
+                  ),
+                  icon: const Icon(AppIcons.refresh),
+                  label: const Text('Restaurar padrões'),
+                  onPressed: () async {
+                    await _resetPrefs();
+                    close?.call();
+                  },
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Volta só as preferências do leitor neste aparelho. A '
+                  'música e o repertório não mudam.',
+                  style: meta,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// "1/2 tom abaixo (Eb Ab ...)" → "1/2 tom abaixo" e "Eb Ab ...".
+  String _tuningLabel(({String label, String bassLabel, int drop}) t) =>
+      _instrument.isBass ? t.bassLabel : t.label;
+  String _tuningName(({String label, String bassLabel, int drop}) t) =>
+      _tuningLabel(t).split(' (').first;
+  String _tuningNotes(({String label, String bassLabel, int drop}) t) {
+    final l = _tuningLabel(t);
+    return l.substring(l.indexOf('(') + 1, l.length - 1);
   }
 
   /// Lista do repertório para pular direto (toque em "1 de 6").
@@ -1261,22 +1548,12 @@ class _ReaderState extends ConsumerState<_Reader>
                   ),
                 ),
               ),
-            PillStepper(
-              onMinus: _fontSize > 11
-                  ? () => setState(() => _fontSize--)
-                  : null,
-              onPlus: _fontSize < 26 ? () => setState(() => _fontSize++) : null,
-              minusTooltip: 'Diminuir letra',
-              plusTooltip: 'Aumentar letra',
-              minusIcon: AppIcons.zoomOut,
-              plusIcon: AppIcons.zoomIn,
-            ),
             // No repertório, capo/BPM/observação são os do culto.
             if (!_lyricsOnly && capo > 0)
               ActionChip(
                 shape: const StadiumBorder(),
                 label: Text('Capo $capo'),
-                onPressed: () => _openSettings(baseCapo),
+                onPressed: () => _openSettings(),
               ),
             if (!_lyricsOnly && bpm != null)
               ActionChip(
@@ -1291,7 +1568,7 @@ class _ReaderState extends ConsumerState<_Reader>
                 shape: const StadiumBorder(),
                 avatar: const Icon(AppIcons.tune, size: 16),
                 label: Text('Ajustes · ${_instrument.label}'),
-                onPressed: () => _openSettings(baseCapo),
+                onPressed: () => _openSettings(),
               ),
           ],
         ),
@@ -1386,7 +1663,7 @@ class _ReaderState extends ConsumerState<_Reader>
             ],
           );
 
-    return LayoutBuilder(
+    final reader = LayoutBuilder(
       builder: (context, c) {
         final area = c.biggest;
         // Lado a lado se couber; senão o afinador abre em cima do metrônomo.
@@ -1448,6 +1725,26 @@ class _ReaderState extends ConsumerState<_Reader>
           ],
         );
       },
+    );
+    if (!_sideFits || !_sidePanel || _fullscreen) return reader;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(child: reader),
+        const VerticalDivider(width: 1),
+        SizedBox(
+          width: 360,
+          child: Material(
+            color: Theme.of(context).colorScheme.surface,
+            child: _settings(
+              set: setState,
+              open: _sideOpen,
+              onOpen: (g) => setState(() => _sideOpen = g),
+              side: true,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

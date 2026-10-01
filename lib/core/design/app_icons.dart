@@ -224,6 +224,15 @@ abstract final class AppIcons {
   static const play = Icons.play_circle_fill;
   static const playArrow = Icons.play_arrow;
   static const drums = Icons.grid_on;
+  // Painel de Ajustes do leitor de cifras.
+  static const chevronRight = Icons.chevron_right;
+  static const musicNote = Icons.music_note_outlined;
+  static const capo = Icons.linear_scale;
+  static const instrument = Icons.piano_outlined;
+  static const tuning = Icons.graphic_eq;
+  static const chordGrid = Icons.grid_view;
+  static const strum = Icons.swap_vert;
+  static const floatingPanel = Icons.picture_in_picture_alt_outlined;
   static const star = Icons.star_rounded;
   static const starOutline = Icons.star_outline_rounded;
   static const pause = Icons.pause;

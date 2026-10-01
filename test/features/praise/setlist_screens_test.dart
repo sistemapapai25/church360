@@ -281,10 +281,12 @@ void main() {
     // Capo nos Ajustes muda o desenho, não o nome do acorde.
     await t.tap(find.text('Ajustes · Violão e guitarra'));
     await t.pumpAndSettle();
-    await t.tap(find.text('Sem capotraste'));
-    await t.pumpAndSettle();
-    await t.tap(find.text('2ª casa').last);
-    await t.pumpAndSettle();
+    await t.tap(find.byTooltip('Casa acima'));
+    await t.pump();
+    await t.tap(find.byTooltip('Casa acima'));
+    await t.pump();
+    expect(find.text('2ª casa'), findsOneWidget);
+    expect(find.text('Toca em G · soa em A'), findsOneWidget);
     Navigator.of(t.element(find.text('Capotraste'))).pop();
     await t.pumpAndSettle();
     expect(find.text('Capo 2'), findsOneWidget);
@@ -292,6 +294,48 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('Desenho de D (capo/afinação)'), findsOneWidget);
   });
+
+  testWidgets(
+    'no computador os Ajustes ficam do lado e mostram só o que vale',
+    (t) async {
+      await _pump(
+        t,
+        const PraiseSetlistItemReaderScreen(
+          ministryId: _ministry,
+          setlistId: _setlist,
+          itemId: 'i1',
+        ),
+        _setlistWith('published'),
+      );
+      await t.binding.setSurfaceSize(const Size(1280, 800));
+      t.view.physicalSize = const Size(1280, 800);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      await t.pumpAndSettle();
+
+      // Painel fixo, sem abrir nada: Tom e Capotraste direto na linha.
+      expect(find.text('RÁPIDO'), findsOneWidget);
+      expect(find.text('Capotraste'), findsOneWidget);
+      expect(find.text('Afinação'), findsOneWidget);
+
+      // O grupo abre no lugar; bateria some com capo, afinação e diagramas.
+      await t.tap(find.text('Instrumento'));
+      await t.pumpAndSettle();
+      await t.ensureVisible(find.text('Bateria'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Bateria'));
+      await t.pumpAndSettle();
+      expect(find.text('Capotraste'), findsNothing);
+      expect(find.text('Afinação'), findsNothing);
+      expect(find.text('Diagramas'), findsNothing);
+      expect(find.text('Batidas'), findsOneWidget);
+
+      // O botão Ajustes esconde o painel.
+      await t.tap(find.text('Ajustes · Bateria'));
+      await t.pumpAndSettle();
+      expect(find.text('RÁPIDO'), findsNothing);
+    },
+  );
 
   testWidgets('arrastar reordena o rascunho e salvar manda a nova ordem', (
     t,

@@ -19,6 +19,10 @@ const _panelBg = Color(0xFF16161A);
 const _panelFg = Colors.white;
 const _inTune = Color(0xFF4ADE80);
 
+/// Exceção visual consciente: afinador e metrônomo usam superfície escura
+/// sólida, não o `GlassCard` translúcido do resto do app. Flutuam sobre a
+/// cifra, e o vidro ficaria ilegível em cima da letra. Não "corrigir".
+///
 /// Painel flutuante do leitor, arrastável pelo cabeçalho como o círculo do
 /// suporte. Tem que ser filho direto do `Stack` do leitor; [area] é o tamanho
 /// desse `Stack`, para não deixar o painel sair da tela.
