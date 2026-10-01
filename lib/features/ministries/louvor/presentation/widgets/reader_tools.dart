@@ -310,6 +310,21 @@ class _MetronomePanelState extends State<MetronomePanel> {
   late int _beats = parseMeter(widget.initialMeter).$1;
   late int _unit = parseMeter(widget.initialMeter).$2;
   late bool _custom = !metronomePresets.contains('$_beats/$_unit');
+
+  /// Acentos escolhidos tocando nas bolinhas (7/8 = 2+2+3, 6/8 com o forte
+  /// e o médio onde a música pede). Nulo = os de [beatAccent]. Trocar o
+  /// compasso volta ao padrão.
+  List<int>? _accents;
+
+  int _accentOf(int beat) => _accents?[beat] ?? beatAccent(beat, _beats, _unit);
+
+  /// fraco → médio → forte → fraco.
+  void _cycleAccent(int beat) => setState(() {
+    final a = _accents ??= [
+      for (var b = 0; b < _beats; b++) beatAccent(b, _beats, _unit),
+    ];
+    a[beat] = (a[beat] + 1) % 3;
+  });
   Timer? _timer;
   int _beat = -1;
   // Um tocador por força de clique: forte, médio, fraco.
@@ -367,7 +382,7 @@ class _MetronomePanelState extends State<MetronomePanel> {
   void _onBeat() {
     if (!mounted) return;
     setState(() => _beat = (_beat + 1) % _beats);
-    final p = _players[beatAccent(_beat, _beats, _unit)];
+    final p = _players[_accentOf(_beat)];
     p.seek(Duration.zero).then((_) => p.resume()).catchError((_) {});
   }
 
@@ -380,6 +395,7 @@ class _MetronomePanelState extends State<MetronomePanel> {
     setState(() {
       _beats = beats.clamp(1, 32);
       _unit = unit;
+      _accents = null;
     });
     if (_timer != null) _restart();
   }
@@ -449,34 +465,52 @@ class _MetronomePanelState extends State<MetronomePanel> {
             runSpacing: 6,
             children: [
               for (var i = 0; i < _beats; i++)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 80),
-                  width: dot,
-                  height: dot,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: i == _beat ? accent : Colors.white10,
-                    border: beatAccent(i, _beats, _unit) > 0 && i != _beat
-                        ? Border.all(
-                            color: accent.withValues(
-                              alpha: i == 0 ? 0.7 : 0.35,
-                            ),
-                          )
-                        : null,
-                  ),
-                  child: Text(
-                    '${i + 1}',
-                    style: TextStyle(
-                      fontSize: dot * 0.43,
-                      fontWeight: FontWeight.w700,
-                      color: i == _beat ? Colors.white : Colors.white60,
+                Semantics(
+                  button: true,
+                  label:
+                      'Tempo ${i + 1}, ${const ['fraco', 'médio', 'forte'][_accentOf(i)]}',
+                  child: GestureDetector(
+                    onTap: () => _cycleAccent(i),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 80),
+                      width: dot,
+                      height: dot,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: i == _beat ? accent : Colors.white10,
+                        border: _accentOf(i) > 0 && i != _beat
+                            ? Border.all(
+                                width: _accentOf(i).toDouble(),
+                                color: accent.withValues(
+                                  alpha: _accentOf(i) == 2 ? 0.8 : 0.45,
+                                ),
+                              )
+                            : null,
+                      ),
+                      child: ExcludeSemantics(
+                        child: Text(
+                          '${i + 1}',
+                          style: TextStyle(
+                            fontSize: dot * 0.43,
+                            fontWeight: FontWeight.w700,
+                            color: i == _beat ? Colors.white : Colors.white60,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
+          Text(
+            _accents == null
+                ? 'Toque num tempo para mudar o acento'
+                : 'Acento personalizado',
+            style: const TextStyle(fontSize: 11, color: Colors.white54),
+          ),
+          const SizedBox(height: 4),
           Row(
             children: [
               _RoundButton(
