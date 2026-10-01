@@ -119,7 +119,14 @@ class _Setlist extends ConsumerWidget {
         ),
         title: Text(received ? 'Repertório recebido' : 'Repertório'),
       ),
-      body: body,
+      body: Align(
+        alignment: Alignment.topCenter,
+        // §10.4 S3: em tela larga o conteúdo não estica de ponta a ponta.
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 960),
+          child: body,
+        ),
+      ),
     );
   }
 }
@@ -155,7 +162,8 @@ class _KeyBox extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: scheme.primaryContainer,
+        // Neutro: era o único lilás da tela (§10.4 S15).
+        color: scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
@@ -163,7 +171,7 @@ class _KeyBox extends StatelessWidget {
         style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w800,
-          color: scheme.onPrimaryContainer,
+          color: scheme.onSurface,
         ),
       ),
     );
@@ -365,6 +373,7 @@ class _DraftEditorState extends ConsumerState<_DraftEditor> {
     }
   }
 
+  /// Só para ação que perde algo (descartar, sair sem salvar): botão vermelho.
   Future<bool> _confirm(String title, String body, String action) async =>
       await showDialog<bool>(
         context: context,
@@ -377,6 +386,9 @@ class _DraftEditorState extends ConsumerState<_DraftEditor> {
               child: const Text('Cancelar'),
             ),
             FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
               onPressed: () => Navigator.pop(context, true),
               child: Text(action),
             ),
@@ -837,9 +849,7 @@ class _PublishedViewState extends ConsumerState<_PublishedView> {
                   if (widget.canManage) ...[
                     OutlinedButton(
                       onPressed: _busy ? null : _newRevision,
-                      child: Text(
-                        'Editar (abre a revisão ${rev.number + 1} em rascunho)',
-                      ),
+                      child: const Text('Editar repertório'),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -947,7 +957,7 @@ class _Changes extends ConsumerWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: scheme.onPrimaryContainer,
+                color: scheme.onSurface,
               ),
             ),
             const SizedBox(height: 4),
