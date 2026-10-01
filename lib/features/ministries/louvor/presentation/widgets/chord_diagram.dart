@@ -48,7 +48,7 @@ class ChordDiagram extends StatelessWidget {
     }
     return CustomPaint(
       size: Size(width, width * 1.25),
-      painter: _FretPainter(shape, scheme),
+      painter: _FretPainter(shape, scheme, bass: instrument.isBass),
     );
   }
 }
@@ -57,7 +57,10 @@ class _FretPainter extends CustomPainter {
   final List<int?> shape;
   final ColorScheme scheme;
 
-  _FretPainter(this.shape, this.scheme);
+  /// Baixo: uma nota só, então sem × nas outras cordas nem número de dedo.
+  final bool bass;
+
+  _FretPainter(this.shape, this.scheme, {this.bass = false});
 
   static const _rows = 5;
 
@@ -140,13 +143,14 @@ class _FretPainter extends CustomPainter {
     for (var i = 0; i < n; i++) {
       final f = shape[i];
       final x = left + i * dx;
+      if (f == null && bass) continue;
       if (f == null || f == 0) {
         _text(canvas, f == null ? '×' : '○', Offset(x, top * 0.45), small);
       } else {
         if (barre != null && fingers[i] == 1) continue;
         final c = Offset(x, top + (f - base + 0.5) * dy);
         canvas.drawCircle(c, r, dot);
-        if (r >= 5) _text(canvas, '${fingers[i]}', c, finger);
+        if (r >= 5 && !bass) _text(canvas, '${fingers[i]}', c, finger);
       }
     }
   }
@@ -161,7 +165,7 @@ class _FretPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_FretPainter old) =>
-      old.shape != shape || old.scheme != scheme;
+      old.shape != shape || old.scheme != scheme || old.bass != bass;
 }
 
 /// Duas oitavas a partir de Dó, as notas acesas subindo a partir do baixo.
@@ -226,13 +230,14 @@ class _KeyboardPainter extends CustomPainter {
 }
 
 /// Painel ao tocar no acorde: nome, notas e desenho no instrumento. Trocar o
-/// instrumento aqui vale para o leitor todo ([onInstrument]). [shapeOf] dá o
+/// instrumento aqui vale para o leitor todo ([onInstrument], que devolve o
+/// instrumento de fato: o chip "Baixo" vira o de 4 ou 5 cordas salvo). [shapeOf] dá o
 /// desenho com o capo/afinação da tela.
 Future<void> showChordSheet(
   BuildContext context, {
   required Chord chord,
   required PraiseInstrument instrument,
-  required ValueChanged<PraiseInstrument> onInstrument,
+  required PraiseInstrument Function(PraiseInstrument) onInstrument,
   Chord Function(Chord chord, PraiseInstrument instrument)? shapeOf,
 }) {
   var current = instrument;
@@ -278,15 +283,13 @@ Future<void> showChordSheet(
                 runSpacing: 8,
                 alignment: WrapAlignment.center,
                 children: [
-                  for (final i in PraiseInstrument.values)
+                  for (final i in PraiseInstrument.pickable)
                     ChoiceChip(
                       shape: const StadiumBorder(),
                       label: Text(i.label),
-                      selected: i == current,
-                      onSelected: (_) {
-                        setSheet(() => current = i);
-                        onInstrument(i);
-                      },
+                      selected: i == current.chip,
+                      onSelected: (_) =>
+                          setSheet(() => current = onInstrument(i)),
                     ),
                 ],
               ),

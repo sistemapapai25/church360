@@ -136,6 +136,10 @@ class _ReaderState extends ConsumerState<_Reader> {
   PraiseInstrument _instrument = PraiseInstrument.violao;
   static const _instrumentPref = 'praise_reader_instrument';
 
+  /// Baixo de 4 ou 5 cordas: o chip "Baixo" volta sempre no último escolhido.
+  PraiseInstrument _bass = PraiseInstrument.baixo;
+  static const _bassPref = 'praise_reader_bass';
+
   /// "Dividir em colunas" do CifraClub: escolha do usuário, salva no aparelho.
   bool _twoColumns = false;
   static const _columnsPref = 'praise_reader_two_columns';
@@ -240,10 +244,14 @@ class _ReaderState extends ConsumerState<_Reader> {
       final prefs = await SharedPreferences.getInstance();
       final name = prefs.getString(_instrumentPref);
       final saved = PraiseInstrument.values.where((i) => i.name == name);
+      final bass = prefs.getString(_bassPref);
       final diagrams = prefs.getStringList(_diagramsPref);
       if (!mounted) return;
       setState(() {
         if (saved.isNotEmpty) _instrument = saved.first;
+        if (bass == PraiseInstrument.baixo5.name) {
+          _bass = PraiseInstrument.baixo5;
+        }
         _twoColumns = prefs.getBool(_columnsPref) ?? false;
         _lyricsOnly = prefs.getBool(_lyricsOnlyPref) ?? false;
         _tuningDrop = (prefs.getInt(_tuningPref) ?? 0).clamp(0, 4);
@@ -268,10 +276,21 @@ class _ReaderState extends ConsumerState<_Reader> {
     }
   }
 
-  void _setInstrument(PraiseInstrument i) {
+  /// Devolve o instrumento de fato (o chip "Baixo" vira o de 4/5 salvo).
+  PraiseInstrument _setInstrument(PraiseInstrument chip) {
+    final i = chip.isBass ? _bass : chip;
     setState(() => _instrument = i);
     SharedPreferences.getInstance()
         .then((p) => p.setString(_instrumentPref, i.name))
+        .ignore();
+    return i;
+  }
+
+  void _setBass(PraiseInstrument bass) {
+    _bass = bass;
+    _setInstrument(bass);
+    SharedPreferences.getInstance()
+        .then((p) => p.setString(_bassPref, bass.name))
         .ignore();
   }
 
@@ -305,8 +324,10 @@ class _ReaderState extends ConsumerState<_Reader> {
   }
 
   /// Desenho que soa como [chord] com o capo e a afinação da tela. A
-  /// afinação é a do violão; o capo vale para todo instrumento de braço.
-  Chord _shapeOf(Chord chord, PraiseInstrument i, int capo) => i.tuning == null
+  /// afinação é a do violão; o capo vale para todo instrumento de braço,
+  /// menos o baixo (baixista não usa capo: toca a nota que soa).
+  Chord _shapeOf(Chord chord, PraiseInstrument i, int capo) =>
+      i.tuning == null || i.isBass
       ? chord
       : shapeChord(
           chord,
@@ -399,11 +420,11 @@ class _ReaderState extends ConsumerState<_Reader> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        for (final i in PraiseInstrument.values)
+                        for (final i in PraiseInstrument.pickable)
                           ChoiceChip(
                             shape: const StadiumBorder(),
                             label: Text(i.label),
-                            selected: i == _instrument,
+                            selected: i == _instrument.chip,
                             onSelected: (_) {
                               _setInstrument(i);
                               setSheet(() {});
@@ -432,7 +453,33 @@ class _ReaderState extends ConsumerState<_Reader> {
                         },
                       ),
                     ],
-                    if (_instrument.tuning != null) ...[
+                    if (_instrument.isBass) ...[
+                      const SizedBox(height: 12),
+                      SegmentedButton<PraiseInstrument>(
+                        segments: const [
+                          ButtonSegment(
+                            value: PraiseInstrument.baixo,
+                            label: Text('4 cordas'),
+                          ),
+                          ButtonSegment(
+                            value: PraiseInstrument.baixo5,
+                            label: Text('5 cordas'),
+                          ),
+                        ],
+                        selected: {_instrument},
+                        onSelectionChanged: (v) {
+                          _setBass(v.first);
+                          setSheet(() {});
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'O desenho mostra a nota do baixo de cada acorde '
+                        '(em D/F#, o F#).',
+                        style: CommunityDesign.metaStyle(context),
+                      ),
+                    ],
+                    if (_instrument.tuning != null && !_instrument.isBass) ...[
                       const SizedBox(height: 12),
                       DropdownButtonFormField<int>(
                         initialValue: _capoOverride ?? capo,

@@ -12,7 +12,11 @@ enum PraiseInstrument {
   ukulele('Ukulele', [67, 60, 64, 69], bassFree: true),
   cavaco('Cavaco', [62, 67, 71, 74], bassFree: true),
   // Cebolão em E (B E G# B E), a mais comum; os pares tocam juntos.
-  viola('Viola caipira', [47, 52, 56, 59, 64]);
+  viola('Viola caipira', [47, 52, 56, 59, 64]),
+  // Baixo (E1 A1 D2 G2) e o de 5 cordas (B0 embaixo). Um chip só na tela; as
+  // 4/5 cordas são a escolha que vem depois (§9.5).
+  baixo('Baixo', [28, 33, 38, 43]),
+  baixo5('Baixo', [23, 28, 33, 38, 43]);
 
   const PraiseInstrument(this.label, this.tuning, {this.bassFree = false});
 
@@ -21,6 +25,16 @@ enum PraiseInstrument {
 
   /// No ukulele e no cavaco ninguém procura o baixo na corda mais grave.
   final bool bassFree;
+
+  /// Toca só a nota do baixo do acorde, sem capotraste.
+  bool get isBass => this == baixo || this == baixo5;
+
+  /// Os chips de instrumento: o baixo de 5 cordas entra pelo chip "Baixo".
+  static List<PraiseInstrument> get pickable =>
+      values.where((i) => i != baixo5).toList();
+
+  /// O chip aceso para este instrumento.
+  PraiseInstrument get chip => this == baixo5 ? baixo : this;
 }
 
 /// Notas do acorde em semitons (0 = C), o baixo primeiro e depois raiz,
@@ -137,6 +151,7 @@ final _cache = <String, List<int?>?>{};
 List<int?>? _search(List<int> tones, int root, PraiseInstrument instrument) {
   final tuning = instrument.tuning;
   if (tuning == null) return null;
+  if (instrument.isBass) return _bassNote(tones.first, tuning);
   final bass = tones.first;
   // Com 4+ notas a quinta justa pode ficar de fora (é o que o músico faz).
   final optional = tones.length >= 4 ? {(root + 7) % 12} : <int>{};
@@ -177,6 +192,21 @@ List<int?>? _search(List<int> tones, int root, PraiseInstrument instrument) {
     walk(0, []);
   }
   return best;
+}
+
+/// A nota do baixo (fundamental, ou a de depois da barra em D/F#) no ponto
+/// mais grave da primeira posição (casas 0–4), onde o baixista toca a linha.
+/// No de 5 cordas a corda Si deixa D, D# e C mais graves.
+List<int?> _bassNote(int note, List<int> tuning) {
+  for (var pitch = tuning.first; ; pitch++) {
+    if (pitch % 12 != note) continue;
+    for (var s = 0; s < tuning.length; s++) {
+      final fret = pitch - tuning[s];
+      if (fret >= 0 && fret <= 4) {
+        return [for (var i = 0; i < tuning.length; i++) i == s ? fret : null];
+      }
+    }
+  }
 }
 
 double _cost(

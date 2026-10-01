@@ -60,6 +60,25 @@ void main() {
     expect(_shape('C', PraiseInstrument.ukulele), '0003');
   });
 
+  test('baixo: só a nota do baixo, na primeira posição', () {
+    const b4 = PraiseInstrument.baixo, b5 = PraiseInstrument.baixo5;
+    expect(_shape('E', b4), '0xxx');
+    expect(_shape('G', b4), '3xxx');
+    expect(_shape('Am7', b4), 'x0xx');
+    expect(_shape('C', b4), 'x3xx');
+    expect(_shape('D/F#', b4), '2xxx'); // a nota depois da barra
+    expect(_shape('D', b4), 'xx0x');
+    expect(_shape('Bb', b4), 'x1xx');
+    // A corda Si deixa o D e o C mais graves.
+    expect(_shape('D', b5), '3xxxx');
+    expect(_shape('C', b5), '1xxxx');
+    expect(_shape('G', b5), 'x3xxx');
+    for (final c in ['C#m', 'Eb', 'F#', 'Ab', 'B7', 'G/B', 'C9']) {
+      expect(_shape(c, b4), isNot('-'), reason: c);
+      expect(_shape(c, b5), isNot('-'), reason: c);
+    }
+  });
+
   test('dedos: pestana é o indicador, o resto pela casa', () {
     String fingers(String c) => fingersOf(
       fretShape(Chord.tryParse(c)!, PraiseInstrument.violao)!,
