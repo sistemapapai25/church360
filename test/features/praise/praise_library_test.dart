@@ -43,7 +43,30 @@ void main() {
               _song('c', 'Gama', 1, DateTime.utc(2026, 9, 15)),
             ],
           ),
-          praiseUsageProvider.overrideWith((ref) async => {'c': 4, 'a': 1}),
+          praiseUsageProvider(
+            'm1',
+          ).overrideWith((ref) async => {'c': 4, 'a': 1}),
+          praiseActivityProvider('m1').overrideWith(
+            (ref) async => [
+              PraiseActivity(
+                kind: 'setlist_published',
+                at: DateTime.utc(2026, 10, 1, 13),
+                who: 'Debora',
+                setlistId: 'sl1',
+                title: 'Culto de domingo',
+                number: 2,
+              ),
+              PraiseActivity(
+                kind: 'song_version',
+                at: DateTime.utc(2026, 10, 1, 12),
+                who: 'Gabriel',
+                songId: 'b',
+                title: 'Beta',
+                number: 3,
+                note: 'troquei o tom',
+              ),
+            ],
+          ),
         ],
         child: const MaterialApp(
           home: Scaffold(body: LouvoresTab(ministryId: 'm1')),
@@ -89,7 +112,16 @@ void main() {
 
     await t.tap(find.text('O que mudou'));
     await t.pumpAndSettle();
-    expect(titles(), ['Beta', 'Gama', 'Alfa']);
-    expect(find.text('Versão 3 · troquei o tom · 01/10'), findsOneWidget);
+    // Feed do ministério inteiro, com quem fez.
+    expect(
+      find.text('Repertório publicado: Culto de domingo (rev. 2)'),
+      findsOneWidget,
+    );
+    expect(find.text('Beta · versão 3'), findsOneWidget);
+    expect(
+      find.textContaining('Gabriel · troquei o tom · 01/10'),
+      findsOneWidget,
+    );
+    expect(find.text('Alfa'), findsNothing);
   });
 }

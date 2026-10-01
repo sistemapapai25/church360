@@ -231,20 +231,25 @@ class _EditorState extends ConsumerState<_Editor> {
     final artist = foldTitle(_artist.text);
     final same = songs.where(
       (s) =>
-          foldTitle(s.title) == title &&
+          similarTitle(s.title, _title.text) &&
           (artist.isEmpty ||
               s.artist == null ||
               foldTitle(s.artist!) == artist),
     );
     if (same.isEmpty || !mounted) return true;
-    final song = same.first;
+    // A igual primeiro; senão a parecida.
+    final song = same.firstWhere(
+      (s) => foldTitle(s.title) == title,
+      orElse: () => same.first,
+    );
+    final exact = foldTitle(song.title) == title;
     final choice = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Música já cadastrada'),
+        title: Text(exact ? 'Música já cadastrada' : 'Música parecida'),
         content: Text(
           '"${song.title}"${song.artist == null ? '' : ' — ${song.artist}'} '
-          'já está na biblioteca.',
+          '${exact ? 'já está' : 'tem título parecido e está'} na biblioteca.',
         ),
         actions: [
           TextButton(
