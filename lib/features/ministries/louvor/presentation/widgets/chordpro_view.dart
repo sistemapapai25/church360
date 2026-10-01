@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/design/app_icons.dart';
 import '../../../../praise/domain/chord.dart';
 import '../../../../praise/domain/chordpro.dart';
 
@@ -112,6 +113,13 @@ class ChordProView extends StatelessWidget {
   /// Uma chave por `{batida}`, na ordem do texto, presa no bloco dela.
   final List<GlobalKey>? strumKeys;
 
+  /// ▶ ao lado do título de cada seção (índice de [chordProSections]).
+  /// Nulo = sem player.
+  final ValueChanged<int>? onPlaySection;
+
+  /// Uma chave por seção, presa no título, para o player achar onde rolar.
+  final List<GlobalKey>? sectionKeys;
+
   /// "No corpo da cifra": diagrama em cima do acorde (já transposto) na
   /// primeira vez que ele aparece em cada seção. Nulo = sem diagrama.
   final Widget Function(Chord chord)? diagramFor;
@@ -130,6 +138,8 @@ class ChordProView extends StatelessWidget {
     this.strums = StrumDisplay.always,
     this.strumKeys,
     this.diagramFor,
+    this.onPlaySection,
+    this.sectionKeys,
   });
 
   static const _chordLight = Color(0xFF9A3412);
@@ -137,13 +147,6 @@ class ChordProView extends StatelessWidget {
 
   /// Largura mínima para a cifra caber em duas colunas.
   static const twoColumnWidth = 900.0;
-
-  static const _sections = {
-    'start_of_chorus': 'Refrão',
-    'start_of_verse': 'Verso',
-    'start_of_bridge': 'Ponte',
-    'start_of_tab': 'Tablatura',
-  };
 
   String _chord(String c) {
     if (semitones % 12 == 0) return c;
@@ -226,14 +229,21 @@ class ChordProView extends StatelessWidget {
     final breaks = <int>[];
     final blanks = <int>{};
     var strumIndex = 0;
+    var sectionIndex = 0;
     var inTab = false;
-    for (final line in parseChordPro(source).lines) {
+    final doc = parseChordPro(source);
+    final sections = chordProSections(doc);
+    for (final line in doc.lines) {
       if (line is DirectiveLine && line.name == 'start_of_tab') inTab = true;
       if (line is DirectiveLine && line.name == 'end_of_tab') {
         inTab = false;
         continue;
       }
-      if (inTab && !showTabs) continue;
+      if (inTab && !showTabs) {
+        // A seção oculta conta igual, senão o ▶ das seguintes desalinha.
+        if (line is DirectiveLine && sectionLabel(line) != null) sectionIndex++;
+        continue;
+      }
       switch (line) {
         case EmptyLine():
           breaks.add(blocks.length);
@@ -258,23 +268,41 @@ class ChordProView extends StatelessWidget {
                     ),
                   ),
           );
-        case DirectiveLine(:final name, :final value):
-          final label = name.startsWith('comment')
-              ? value
-              : (_sections.containsKey(name)
-                    ? (value ?? _sections[name])
-                    : null);
+        case DirectiveLine(:final name):
+          final label = sectionLabel(line);
           if (label != null) {
+            final i = sectionIndex++;
+            final keys = sectionKeys;
+            final bpm = i < sections.length ? sections[i].bpm : null;
             drawn.clear();
             breaks.add(blocks.length);
             blocks.add(
               Padding(
+                key: keys != null && i < keys.length ? keys[i] : null,
                 padding: const EdgeInsets.only(top: 10, bottom: 4),
-                child: Text(
-                  label,
-                  style: name.startsWith('comment')
-                      ? labelStyle?.copyWith(fontStyle: FontStyle.italic)
-                      : labelStyle,
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        label,
+                        style: name.startsWith('comment')
+                            ? labelStyle?.copyWith(fontStyle: FontStyle.italic)
+                            : labelStyle,
+                      ),
+                    ),
+                    if (onPlaySection != null)
+                      IconButton(
+                        tooltip: 'Tocar $label',
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(AppIcons.playArrow, size: 20),
+                        onPressed: () => onPlaySection!(i),
+                      ),
+                    if (bpm != null)
+                      Text(
+                        '$bpm bpm',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                  ],
                 ),
               ),
             );

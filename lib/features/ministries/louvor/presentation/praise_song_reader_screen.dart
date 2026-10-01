@@ -138,6 +138,10 @@ class _Reader extends ConsumerStatefulWidget {
 
 class _ReaderState extends ConsumerState<_Reader>
     with SingleTickerProviderStateMixin {
+  /// Seção no player (índice de [chordProSections]); nulo = fechado.
+  int? _playingSection;
+  List<GlobalKey> _sectionKeys = const [];
+
   int _semitones = 0;
   double _fontSize = 15;
 
@@ -1134,6 +1138,11 @@ class _ReaderState extends ConsumerState<_Reader>
       for (final l in source.lines)
         if (l is DirectiveLine && l.name == 'batida') parseStrum(l.value),
     ];
+    final sections = chordProSections(source);
+    if (_sectionKeys.length != sections.length) {
+      _sectionKeys = [for (final _ in sections) GlobalKey()];
+      _playingSection = null;
+    }
     if (_strumKeys.length != patterns.length) {
       _strumKeys = [for (final _ in patterns) GlobalKey()];
       _currentStrum = -1;
@@ -1300,6 +1309,11 @@ class _ReaderState extends ConsumerState<_Reader>
             lyricsOnly: _lyricsOnly,
             strums: _lyricsOnly ? StrumDisplay.hidden : _strums,
             strumKeys: _strumKeys,
+            sectionKeys: _sectionKeys,
+            onPlaySection: (i) {
+              _setAutoScroll(false);
+              setState(() => _playingSection = i);
+            },
             diagramFor: _diagramsInline && !_lyricsOnly
                 ? (c) => ChordDiagram(
                     chord: _shapeOf(c, _instrument, capo),
@@ -1375,7 +1389,33 @@ class _ReaderState extends ConsumerState<_Reader>
         return Stack(
           children: [
             body,
-            Positioned(right: 12, bottom: 12, child: autoScrollBar),
+            if (_playingSection == null)
+              Positioned(right: 12, bottom: 12, child: autoScrollBar)
+            else
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: 12,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 560),
+                    child: SectionPlayerBar(
+                      // Outra seção = player novo, do começo.
+                      key: ValueKey(_playingSection),
+                      label: sections[_playingSection!].label,
+                      bpm: sections[_playingSection!].bpm ?? bpm ?? 80,
+                      meter: source.meta('time'),
+                      lines: sections[_playingSection!].lines,
+                      scroll: _scroll,
+                      start: () => _sectionOffset(_playingSection!),
+                      end: () => _playingSection! + 1 < _sectionKeys.length
+                          ? _sectionOffset(_playingSection! + 1)
+                          : _scroll.position.maxScrollExtent,
+                      onClose: () => setState(() => _playingSection = null),
+                    ),
+                  ),
+                ),
+              ),
             if (_tuner)
               FloatingTool(
                 area: area,
@@ -1400,6 +1440,18 @@ class _ReaderState extends ConsumerState<_Reader>
         );
       },
     );
+  }
+
+  /// `offset` da rolagem que põe o título da seção [i] no topo da lista.
+  double _sectionOffset(int i) {
+    final list = _listKey.currentContext?.findRenderObject() as RenderBox?;
+    final box =
+        _sectionKeys[i].currentContext?.findRenderObject() as RenderBox?;
+    if (list == null || box == null || !_scroll.hasClients) return 0;
+    return _scroll.offset +
+        box.localToGlobal(Offset.zero).dy -
+        list.localToGlobal(Offset.zero).dy -
+        8;
   }
 
   /// Acordes da música na ordem em que aparecem, sem repetir, já no tom da

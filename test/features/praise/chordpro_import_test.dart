@@ -144,4 +144,16 @@ void main() {
       '[C]a [Am]b [G]c [Bm]d [D]e',
     );
   });
+
+  test('seções: título, BPM próprio e linhas', () {
+    final s = chordProSections(
+      parseChordPro(
+        '{title: X}\n[G]antes\n{c: Intro}\n{tempo: 64}\n[G] [D]\n\n'
+        '{soc}\n[C]a\n[D]b\n{eoc}',
+      ),
+    );
+    expect(s.map((e) => e.label), ['Intro', 'Refrão']);
+    expect(s.map((e) => e.bpm), [64, null]);
+    expect(s.map((e) => e.lines), [1, 2]);
+  });
 }
