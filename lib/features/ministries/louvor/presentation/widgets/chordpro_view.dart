@@ -69,6 +69,76 @@ class StrumView extends StatelessWidget {
   }
 }
 
+/// Grade de bateria: uma linha por peça, um quadrado por toque, a contagem
+/// embaixo (8 = colcheias `1 & 2 &`, 16 = semicolcheias `1 e & a`).
+class DrumGrid extends StatelessWidget {
+  final Map<String, List<bool>> grid;
+  final double fontSize;
+
+  const DrumGrid({super.key, required this.grid, this.fontSize = 15});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final meta = Theme.of(context).textTheme.bodySmall?.color;
+    final steps = grid.values.fold(0, (n, l) => l.length > n ? l.length : n);
+    final cell = fontSize * (steps > 8 ? 1.1 : 1.5);
+    final perBeat = steps > 8 ? 4 : 2;
+    const sub = ['', 'e', '&', 'a'];
+    Widget row(String label, List<Widget> cells) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: fontSize * 4.5,
+          child: Text(label, style: TextStyle(fontSize: fontSize * 0.8)),
+        ),
+        ...cells,
+      ],
+    );
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final MapEntry(key: v, value: label) in drumVoices.entries)
+            if (grid[v] != null)
+              row(label, [
+                for (var i = 0; i < steps; i++)
+                  Container(
+                    width: cell - 2,
+                    height: cell - 2,
+                    margin: EdgeInsets.only(
+                      right: (i + 1) % perBeat == 0 ? 6 : 2,
+                      bottom: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(3),
+                      color: i < grid[v]!.length && grid[v]![i]
+                          ? scheme.primary
+                          : scheme.surfaceContainerHighest,
+                    ),
+                  ),
+              ]),
+          row('', [
+            for (var i = 0; i < steps; i++)
+              Container(
+                width: cell - 2,
+                margin: EdgeInsets.only(right: (i + 1) % perBeat == 0 ? 6 : 2),
+                alignment: Alignment.center,
+                child: Text(
+                  i % perBeat == 0
+                      ? '${i ~/ perBeat + 1}'
+                      : (perBeat == 2 ? '&' : sub[i % perBeat]),
+                  style: TextStyle(fontSize: fontSize * 0.7, color: meta),
+                ),
+              ),
+          ]),
+        ],
+      ),
+    );
+  }
+}
+
 /// Corpo da cifra: acorde em cima da sílaba.
 ///
 /// A linha quebra entre palavras e cada pedaço (acorde + sílaba) é um bloco
@@ -120,6 +190,10 @@ class ChordProView extends StatelessWidget {
   /// Uma chave por seção, presa no título, para o player achar onde rolar.
   final List<GlobalKey>? sectionKeys;
 
+  /// Instrumento Bateria: desenha as grades `{bateria}` (nos outros elas
+  /// somem).
+  final bool drums;
+
   /// "No corpo da cifra": diagrama em cima do acorde (já transposto) na
   /// primeira vez que ele aparece em cada seção. Nulo = sem diagrama.
   final Widget Function(Chord chord)? diagramFor;
@@ -140,6 +214,7 @@ class ChordProView extends StatelessWidget {
     this.diagramFor,
     this.onPlaySection,
     this.sectionKeys,
+    this.drums = false,
   });
 
   static const _chordLight = Color(0xFF9A3412);
@@ -249,6 +324,15 @@ class ChordProView extends StatelessWidget {
           breaks.add(blocks.length);
           blanks.add(blocks.length);
           blocks.add(SizedBox(height: fontSize * 0.8));
+        case DirectiveLine(name: 'bateria', :final value):
+          if (drums) {
+            blocks.add(
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: DrumGrid(grid: parseDrums(value), fontSize: fontSize),
+              ),
+            );
+          }
         case DirectiveLine(name: 'batida', :final value):
           final keys = strumKeys;
           final key = keys != null && strumIndex < keys.length

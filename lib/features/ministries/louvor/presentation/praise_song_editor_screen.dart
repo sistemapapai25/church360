@@ -223,12 +223,29 @@ class _EditorState extends ConsumerState<_Editor> {
       builder: (context) => const _StrumBuilderSheet(),
     );
     if (pattern == null || pattern.isEmpty) return;
+    _insertLine('{batida: ${pattern.join(' ')}}');
+  }
+
+  /// Grade da bateria da seção, montada tocando nos quadrados.
+  Future<void> _insertDrums() async {
+    final value = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => const _DrumBuilderSheet(),
+    );
+    if (value == null || value.isEmpty) return;
+    _insertLine('{bateria: $value}');
+  }
+
+  /// Linha própria antes da linha do cursor.
+  void _insertLine(String directive) {
     final text = _chords.text;
     final cursor = _chords.selection.isValid
         ? _chords.selection.start.clamp(0, text.length)
         : text.length;
     final lineStart = cursor == 0 ? 0 : text.lastIndexOf('\n', cursor - 1) + 1;
-    final line = '{batida: ${pattern.join(' ')}}\n';
+    final line = '$directive\n';
     setState(() {
       _chords.value = TextEditingValue(
         text: text.replaceRange(lineStart, lineStart, line),
@@ -427,6 +444,11 @@ class _EditorState extends ConsumerState<_Editor> {
                           onPressed: _insertStrum,
                         ),
                         OutlinedButton.icon(
+                          icon: const Icon(AppIcons.drums),
+                          label: const Text('Inserir bateria'),
+                          onPressed: _insertDrums,
+                        ),
+                        OutlinedButton.icon(
                           icon: const Icon(AppIcons.edit),
                           label: const Text('Corrigir linha p/ instrumento'),
                           onPressed: _insertFix,
@@ -613,6 +635,112 @@ class _FixSheetState extends State<_FixSheet> {
               child: FilledButton(
                 onPressed: () =>
                     Navigator.pop(context, (_instrument, _text.text)),
+                child: const Text('Inserir na cifra'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Montador da grade de bateria: 8 ou 16 toques por compasso, uma linha por
+/// peça, com a prévia igual à do leitor.
+class _DrumBuilderSheet extends StatefulWidget {
+  const _DrumBuilderSheet();
+
+  @override
+  State<_DrumBuilderSheet> createState() => _DrumBuilderSheetState();
+}
+
+class _DrumBuilderSheetState extends State<_DrumBuilderSheet> {
+  var _steps = 8;
+  final _grid = {for (final v in drumVoices.keys) v: List.filled(16, false)};
+
+  Map<String, List<bool>> get _value => {
+    for (final e in _grid.entries) e.key: e.value.sublist(0, _steps),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final empty = drumsToValue(_value).isEmpty;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Bateria', style: CommunityDesign.titleStyle(context)),
+            const SizedBox(height: 4),
+            Text(
+              'Um compasso. Toque nos quadrados de cada peça.',
+              style: CommunityDesign.metaStyle(context),
+            ),
+            const SizedBox(height: 12),
+            SegmentedButton<int>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: 8, label: Text('8 (colcheias)')),
+                ButtonSegment(value: 16, label: Text('16 (semicolcheias)')),
+              ],
+              selected: {_steps},
+              onSelectionChanged: (v) => setState(() => _steps = v.first),
+            ),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final MapEntry(key: v, value: label)
+                      in drumVoices.entries)
+                    Row(
+                      children: [
+                        SizedBox(width: 72, child: Text(label)),
+                        for (var i = 0; i < _steps; i++)
+                          Padding(
+                            padding: EdgeInsets.only(
+                              right: (i + 1) % (_steps > 8 ? 4 : 2) == 0
+                                  ? 8
+                                  : 2,
+                              bottom: 4,
+                            ),
+                            child: Semantics(
+                              label: '$label ${i + 1}',
+                              toggled: _grid[v]![i],
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(6),
+                                onTap: () => setState(
+                                  () => _grid[v]![i] = !_grid[v]![i],
+                                ),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(6),
+                                    color: _grid[v]![i]
+                                        ? scheme.primary
+                                        : scheme.surfaceContainerHighest,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: empty
+                    ? null
+                    : () => Navigator.pop(context, drumsToValue(_value)),
                 child: const Text('Inserir na cifra'),
               ),
             ),

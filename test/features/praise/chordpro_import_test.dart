@@ -156,4 +156,16 @@ void main() {
     expect(s.map((e) => e.bpm), [64, null]);
     expect(s.map((e) => e.lines), [1, 2]);
   });
+
+  test('bateria: lê e escreve a grade; peça desconhecida some', () {
+    final g = parseDrums('chimbal x.x.x.x. | caixa ..x...x. | tuba xxxx');
+    expect(g.keys, ['chimbal', 'caixa']);
+    expect(g['caixa'], [false, false, true, false, false, false, true, false]);
+    expect(drumsToValue(g), 'chimbal x.x.x.x. | caixa ..x...x.');
+    // Na cifra colada, a grade não faz o texto virar ChordPro.
+    expect(
+      chordsOverLyricsToChordPro('{bateria: bumbo x...}\nG\nSanto'),
+      '{bateria: bumbo x...}\n[G]Santo',
+    );
+  });
 }

@@ -171,4 +171,20 @@ void main() {
     };
     expect(xs.length, 3);
   });
+
+  testWidgets('bateria: grade só para quem lê com bateria, sem acordes', (
+    t,
+  ) async {
+    const src = '{c: Intro}\n{bateria: caixa ..x...x.}\n[G]Santo';
+    await t.pumpWidget(_wrap(const ChordProView(source: src)));
+    expect(find.byType(DrumGrid), findsNothing);
+    expect(find.text('G'), findsOneWidget);
+    await t.pumpWidget(
+      _wrap(const ChordProView(source: src, drums: true, lyricsOnly: true)),
+    );
+    expect(find.byType(DrumGrid), findsOneWidget);
+    expect(find.text('Caixa'), findsOneWidget);
+    expect(find.text('G'), findsNothing);
+    expect(find.text('Santo'), findsOneWidget);
+  });
 }
