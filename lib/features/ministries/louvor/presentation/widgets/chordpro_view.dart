@@ -3,6 +3,71 @@ import 'package:flutter/material.dart';
 import '../../../../praise/domain/chord.dart';
 import '../../../../praise/domain/chordpro.dart';
 
+/// Como o leitor mostra as batidas (print 12, mais "só a da seção atual").
+enum StrumDisplay {
+  always('Mostrar sempre'),
+  hidden('Ocultar sempre'),
+  current('Só a da seção atual');
+
+  const StrumDisplay(this.label);
+  final String label;
+}
+
+/// Batida em setas com a contagem em colcheias embaixo:
+/// ```text
+/// ↓     ↓ ↑     ↑ ↓ ↑
+/// 1  &  2  &  3  &  4  &
+/// ```
+class StrumView extends StatelessWidget {
+  final List<String> pattern;
+  final double fontSize;
+
+  const StrumView({super.key, required this.pattern, this.fontSize = 15});
+
+  @override
+  Widget build(BuildContext context) {
+    final meta = Theme.of(context).textTheme.bodySmall?.color;
+    return Semantics(
+      label:
+          'Batida: ${pattern.map((p) => switch (p) {
+            'D' => 'baixo',
+            'U' => 'cima',
+            _ => 'pausa',
+          }).join(', ')}',
+      child: ExcludeSemantics(
+        child: Wrap(
+          children: [
+            for (final (i, p) in pattern.indexed)
+              SizedBox(
+                width: fontSize * 1.4,
+                child: Column(
+                  children: [
+                    Text(
+                      switch (p) {
+                        'D' => '↓',
+                        'U' => '↑',
+                        _ => ' ',
+                      },
+                      style: TextStyle(
+                        fontSize: fontSize * 1.3,
+                        fontWeight: FontWeight.w700,
+                        height: 1.1,
+                      ),
+                    ),
+                    Text(
+                      i.isEven ? '${i ~/ 2 + 1}' : '&',
+                      style: TextStyle(fontSize: fontSize * 0.75, color: meta),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Corpo da cifra: acorde em cima da sílaba.
 ///
 /// A linha quebra entre palavras e cada pedaço (acorde + sílaba) é um bloco
@@ -29,6 +94,18 @@ class ChordProView extends StatelessWidget {
   /// se também houver largura de [twoColumnWidth].
   final bool twoColumns;
 
+  /// `{batida: ...}`: desenhada no lugar ([StrumDisplay.always]), escondida,
+  /// ou só marcada para o leitor saber onde cada uma está
+  /// ([StrumDisplay.current], que mostra a da seção na tela fora do corpo).
+  final StrumDisplay strums;
+
+  /// Uma chave por `{batida}`, na ordem do texto, presa no bloco dela.
+  final List<GlobalKey>? strumKeys;
+
+  /// "No corpo da cifra": diagrama em cima do acorde (já transposto) na
+  /// primeira vez que ele aparece em cada seção. Nulo = sem diagrama.
+  final Widget Function(Chord chord)? diagramFor;
+
   const ChordProView({
     super.key,
     required this.source,
@@ -37,6 +114,9 @@ class ChordProView extends StatelessWidget {
     this.fontSize = 15,
     this.onChordTap,
     this.twoColumns = false,
+    this.strums = StrumDisplay.always,
+    this.strumKeys,
+    this.diagramFor,
   });
 
   static const _chordLight = Color(0xFF9A3412);
@@ -97,13 +177,26 @@ class ChordProView extends StatelessWidget {
     // Um caractere da monoespaçada: espaço entre palavras e folga do acorde.
     final gap = fontSize * 0.6;
 
+    // Acordes que já ganharam diagrama na seção atual.
+    final drawn = <String>{};
+
     Widget chordText(String raw) {
       final shown = _chord(raw);
+      final parsed = Chord.tryParse(shown);
+      final withDiagram =
+          diagramFor != null && parsed != null && drawn.add('$parsed');
       final text = Padding(
         padding: EdgeInsets.only(right: gap),
-        child: Text(shown, style: chordStyle),
+        child: withDiagram
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  diagramFor!(parsed),
+                  Text(shown, style: chordStyle),
+                ],
+              )
+            : Text(shown, style: chordStyle),
       );
-      final parsed = Chord.tryParse(shown);
       if (onChordTap == null || parsed == null) return text;
       return MouseRegion(
         cursor: SystemMouseCursors.click,
@@ -119,12 +212,32 @@ class ChordProView extends StatelessWidget {
     // Pontos onde dá para cortar em colunas sem partir uma estrofe.
     final breaks = <int>[];
     final blanks = <int>{};
+    var strumIndex = 0;
     for (final line in parseChordPro(source).lines) {
       switch (line) {
         case EmptyLine():
           breaks.add(blocks.length);
           blanks.add(blocks.length);
           blocks.add(SizedBox(height: fontSize * 0.8));
+        case DirectiveLine(name: 'batida', :final value):
+          final keys = strumKeys;
+          final key = keys != null && strumIndex < keys.length
+              ? keys[strumIndex]
+              : null;
+          strumIndex++;
+          if (strums == StrumDisplay.hidden) break;
+          blocks.add(
+            strums == StrumDisplay.current
+                ? SizedBox(key: key)
+                : Padding(
+                    key: key,
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: StrumView(
+                      pattern: parseStrum(value),
+                      fontSize: fontSize,
+                    ),
+                  ),
+          );
         case DirectiveLine(:final name, :final value):
           final label = name.startsWith('comment')
               ? value
@@ -132,6 +245,7 @@ class ChordProView extends StatelessWidget {
                     ? (value ?? _sections[name])
                     : null);
           if (label != null) {
+            drawn.clear();
             breaks.add(blocks.length);
             blocks.add(
               Padding(

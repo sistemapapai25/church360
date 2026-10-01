@@ -89,4 +89,39 @@ void main() {
     expect(right.dx, greaterThan(left.dx + 300));
     expect(right.dy, left.dy);
   });
+
+  testWidgets('batida em setas com a contagem embaixo', (t) async {
+    await t.pumpWidget(
+      _wrap(
+        const ChordProView(source: '{c: Intro}\n{batida: D . U}\n[G]Santo'),
+      ),
+    );
+    expect(find.text('↓'), findsOneWidget);
+    expect(find.text('↑'), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('&'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+
+    await t.pumpWidget(
+      _wrap(
+        const ChordProView(
+          source: '{batida: D . U}\n[G]Santo',
+          strums: StrumDisplay.hidden,
+        ),
+      ),
+    );
+    expect(find.text('↓'), findsNothing);
+  });
+
+  testWidgets('diagrama no corpo: 1ª vez de cada acorde em cada seção', (
+    t,
+  ) async {
+    const src = '{c: Verso}\n[G]a [D]b [G]c\n{c: Refrão}\n[G]d';
+    await t.pumpWidget(
+      _wrap(ChordProView(source: src, diagramFor: (c) => Text('diagrama $c'))),
+    );
+    // G no verso, D no verso, G de novo no refrão.
+    expect(find.text('diagrama G'), findsNWidgets(2));
+    expect(find.text('diagrama D'), findsOneWidget);
+  });
 }

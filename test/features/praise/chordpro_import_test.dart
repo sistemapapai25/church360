@@ -14,13 +14,16 @@ void main() {
       expect(chordsOverLyricsToChordPro(src), '[C]Aleluia  [G]');
     });
 
-    test('linha só de acordes vira passagem; rótulo vira comentário; tom vira key', () {
-      const src = 'Tom: G\n[Intro]\nG  C  D\n\n[Refrão]\nEm   C\nSanto santo';
-      expect(
-        chordsOverLyricsToChordPro(src),
-        '{key: G}\n{comment: Intro}\n[G] [C] [D]\n\n{comment: Refrão}\n[Em]Santo[C] santo',
-      );
-    });
+    test(
+      'linha só de acordes vira passagem; rótulo vira comentário; tom vira key',
+      () {
+        const src = 'Tom: G\n[Intro]\nG  C  D\n\n[Refrão]\nEm   C\nSanto santo';
+        expect(
+          chordsOverLyricsToChordPro(src),
+          '{key: G}\n{comment: Intro}\n[G] [C] [D]\n\n{comment: Refrão}\n[Em]Santo[C] santo',
+        );
+      },
+    );
 
     test('letra sem acorde e ChordPro já pronto passam intactos', () {
       expect(chordsOverLyricsToChordPro('só letra\noutra'), 'só letra\noutra');
@@ -59,5 +62,26 @@ void main() {
       final a = alignLyricLine(line(chordsOverLyricsToChordPro(colada)));
       expect('${a.chords}\n${a.lyrics}', colada);
     });
+  });
+
+  test('batida: só D, U e ponto', () {
+    expect(parseStrum('D . d U . U D U'), [
+      'D',
+      '.',
+      'D',
+      'U',
+      '.',
+      'U',
+      'D',
+      'U',
+    ]);
+    expect(parseStrum('B C D'), ['D']);
+    expect(parseStrum(null), isEmpty);
+  });
+
+  test('batida inserida não impede a conversão da cifra colada', () {
+    const pasted = '{batida: D . U}\nG     D\nSanto santo';
+    final out = chordsOverLyricsToChordPro(pasted);
+    expect(out, '{batida: D . U}\n[G]Santo [D]santo');
   });
 }

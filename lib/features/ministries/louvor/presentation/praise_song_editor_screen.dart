@@ -212,6 +212,30 @@ class _EditorState extends ConsumerState<_Editor> {
     }
   }
 
+  /// Monta a batida com botões e põe `{batida: ...}` numa linha própria,
+  /// antes da linha onde está o cursor (de preferência logo abaixo do título
+  /// da seção). Ninguém digita código.
+  Future<void> _insertStrum() async {
+    final pattern = await showModalBottomSheet<List<String>>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => const _StrumBuilderSheet(),
+    );
+    if (pattern == null || pattern.isEmpty) return;
+    final text = _chords.text;
+    final cursor = _chords.selection.isValid
+        ? _chords.selection.start.clamp(0, text.length)
+        : text.length;
+    final lineStart = cursor == 0 ? 0 : text.lastIndexOf('\n', cursor - 1) + 1;
+    final line = '{batida: ${pattern.join(' ')}}\n';
+    setState(() {
+      _chords.value = TextEditingValue(
+        text: text.replaceRange(lineStart, lineStart, line),
+        selection: TextSelection.collapsed(offset: lineStart + line.length),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final canManage = ref
@@ -361,6 +385,15 @@ class _EditorState extends ConsumerState<_Editor> {
                           ? 'A cifra não pode ficar vazia'
                           : null,
                     ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        icon: const Text('↓↑'),
+                        label: const Text('Inserir batida'),
+                        onPressed: _insertStrum,
+                      ),
+                    ),
                   ],
                   if (editing) ...[
                     const SizedBox(height: 12),
@@ -374,6 +407,97 @@ class _EditorState extends ConsumerState<_Editor> {
                 ],
               ),
             ),
+    );
+  }
+}
+
+/// Montador da batida: ↓, ↑ e pausa, com a prévia igual à do leitor.
+class _StrumBuilderSheet extends StatefulWidget {
+  const _StrumBuilderSheet();
+
+  @override
+  State<_StrumBuilderSheet> createState() => _StrumBuilderSheetState();
+}
+
+class _StrumBuilderSheetState extends State<_StrumBuilderSheet> {
+  final _pattern = <String>[];
+
+  @override
+  Widget build(BuildContext context) {
+    Widget add(String label, String code, String tooltip) => Tooltip(
+      message: tooltip,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          shape: const StadiumBorder(),
+          minimumSize: const Size(64, 48),
+          textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+        ),
+        onPressed: _pattern.length < 32
+            ? () => setState(() => _pattern.add(code))
+            : null,
+        child: Text(label),
+      ),
+    );
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Batida', style: CommunityDesign.titleStyle(context)),
+            const SizedBox(height: 4),
+            Text(
+              'Cada toque é uma colcheia (1 & 2 & ...). Use a pausa onde não '
+              'há ataque.',
+              style: CommunityDesign.metaStyle(context),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(minHeight: 56),
+              padding: const EdgeInsets.all(8),
+              decoration: CommunityDesign.overlayDecoration(
+                Theme.of(context).colorScheme,
+              ),
+              child: _pattern.isEmpty
+                  ? Text(
+                      'Toque nos botões abaixo.',
+                      style: CommunityDesign.metaStyle(context),
+                    )
+                  : StrumView(pattern: _pattern),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                add('↓', 'D', 'Para baixo'),
+                add('↑', 'U', 'Para cima'),
+                add('pausa', '.', 'Sem ataque'),
+                IconButton(
+                  tooltip: 'Apagar o último',
+                  icon: const Icon(AppIcons.backspace),
+                  onPressed: _pattern.isEmpty
+                      ? null
+                      : () => setState(() => _pattern.removeLast()),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _pattern.isEmpty
+                    ? null
+                    : () => Navigator.pop(context, _pattern),
+                child: const Text('Inserir na cifra'),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

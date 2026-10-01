@@ -150,6 +150,8 @@ abstract final class AppIcons {
   static const visibilityOff = Icons.visibility_off_outlined;
   static const restore = Icons.restore;
   static const dragHandle = Icons.drag_handle;
+  static const fullscreenExit = Icons.fullscreen_exit;
+  static const backspace = Icons.backspace_outlined;
   static const menu = Icons.menu;
   static const widgets = Icons.widgets_outlined;
   static const refresh = Icons.refresh;
