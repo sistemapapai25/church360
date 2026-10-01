@@ -91,7 +91,15 @@ class GroupsRepository {
   /// Buscar grupo por ID
   Future<Group?> getGroupById(String id) async {
     try {
-      final response = await _supabase
+      // Sem sessao (rota publica), le pela RPC: depois da virada do
+      // current_tenant_id() as policies de group nao servem mais anon
+      // (CHU-387). Mesmo json do select.
+      final response = _supabase.auth.currentSession == null
+          ? await _supabase.rpc('get_public_group', params: {
+              'p_tenant_id': SupabaseConstants.currentTenantId,
+              'p_group_id': id,
+            })
+          : await _supabase
           .from('group')
           .select('''
             *,
