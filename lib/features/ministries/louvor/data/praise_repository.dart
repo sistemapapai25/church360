@@ -185,11 +185,12 @@ class PraiseSetlistRevision {
     final isCount = raw.length == 1 && (raw.first as Map).containsKey('count');
     final items = isCount
         ? <PraiseSetlistItem>[]
-        : ([
-            for (final i in raw) i as Map<String, dynamic>,
-          ]..sort((a, b) => (a['position'] as int).compareTo(b['position'] as int)))
-            .map(PraiseSetlistItem.fromJson)
-            .toList();
+        : ([for (final i in raw) i as Map<String, dynamic>]..sort(
+                (a, b) =>
+                    (a['position'] as int).compareTo(b['position'] as int),
+              ))
+              .map(PraiseSetlistItem.fromJson)
+              .toList();
     return PraiseSetlistRevision(
       id: j['id'] as String,
       number: j['revision_number'] as int,

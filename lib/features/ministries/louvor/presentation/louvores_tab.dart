@@ -151,8 +151,7 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
               else if (visible.isEmpty)
                 const PraiseMessage(
                   title: 'Nenhuma música encontrada',
-                  message:
-                      'Tente outro título, artista ou trecho da letra.',
+                  message: 'Tente outro título, artista ou trecho da letra.',
                 ),
               for (final s in visible)
                 Padding(

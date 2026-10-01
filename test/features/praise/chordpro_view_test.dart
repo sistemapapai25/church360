@@ -135,6 +135,24 @@ void main() {
     expect(find.text('fim'), findsOneWidget);
   });
 
+  testWidgets('tablatura oculta não desalinha o ▶ das seções seguintes', (
+    t,
+  ) async {
+    const src = '{sot}\ne|--3--|\n{eot}\n{soc}\n[C]fim\n{eoc}';
+    int? played;
+    await t.pumpWidget(
+      _wrap(
+        ChordProView(
+          source: src,
+          showTabs: false,
+          onPlaySection: (i) => played = i,
+        ),
+      ),
+    );
+    await t.tap(find.byTooltip('Tocar Refrão'));
+    expect(played, 1);
+  });
+
   testWidgets('três colunas cortam nas estrofes', (t) async {
     final song = List.generate(
       6,

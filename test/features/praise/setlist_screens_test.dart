@@ -207,6 +207,46 @@ void main() {
     await t.pump();
   });
 
+  testWidgets('player por seção rola a partir da seção e para', (t) async {
+    await _pump(
+      t,
+      const PraiseSetlistItemReaderScreen(
+        ministryId: _ministry,
+        setlistId: _setlist,
+        itemId: 'i1',
+      ),
+      _setlistWith(
+        'published',
+        first: [
+          '{c: Verso}',
+          for (var i = 0; i < 30; i++) '[G]verso $i',
+          '{c: Final}',
+          '{tempo: 120}',
+          for (var i = 0; i < 30; i++) '[D]fim $i',
+        ].join('\n'),
+      ),
+    );
+    final scroll = t.widget<ListView>(find.byType(ListView).first).controller!;
+    // A última seção já está no fim da rolagem: testa a primeira.
+    await t.tap(find.byTooltip('Tocar Verso'));
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 100));
+    expect(find.text('Verso · 80 bpm'), findsOneWidget);
+    expect(find.text('120 bpm'), findsOneWidget); // BPM da seção Final
+    final start = scroll.offset;
+    await t.pump(const Duration(seconds: 2));
+    expect(scroll.offset, greaterThan(start));
+
+    await t.tap(find.byTooltip('Pausar seção'));
+    await t.pump();
+    final paused = scroll.offset;
+    await t.pump(const Duration(seconds: 2));
+    expect(scroll.offset, paused);
+    await t.tap(find.byTooltip('Fechar player'));
+    await t.pump();
+    expect(find.byTooltip('Rolagem automática'), findsOneWidget);
+  });
+
   testWidgets('leitor abre no tom do item e mostra a próxima', (t) async {
     await _pump(
       t,

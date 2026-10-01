@@ -322,3 +322,48 @@ String simplifyChordPro(String source) =>
       final c = Chord.tryParse(m[1]!);
       return c == null ? m[0]! : '[${c.simplified}]';
     });
+
+const _sectionNames = {
+  'start_of_chorus': 'Refrão',
+  'start_of_verse': 'Verso',
+  'start_of_bridge': 'Ponte',
+  'start_of_tab': 'Tablatura',
+};
+
+/// Título de seção que o leitor desenha (`{comment: Intro}`, `{soc}`...).
+/// Nulo = a diretiva não abre seção.
+String? sectionLabel(DirectiveLine l) => l.name.startsWith('comment')
+    ? l.value
+    : (_sectionNames.containsKey(l.name)
+          ? (l.value ?? _sectionNames[l.name])
+          : null);
+
+/// Seções na ordem do texto, para o player por seção: título, BPM próprio
+/// (`{tempo: 64}` dentro dela) e quantas linhas de cifra/letra tem.
+List<({String label, int? bpm, int lines})> chordProSections(
+  ChordProDocument doc,
+) {
+  final out = <({String label, int? bpm, int lines})>[];
+  for (final l in doc.lines) {
+    if (l is DirectiveLine && sectionLabel(l) != null) {
+      out.add((label: sectionLabel(l)!, bpm: null, lines: 0));
+    } else if (out.isEmpty) {
+      continue;
+    } else if (l is DirectiveLine &&
+        l.name == 'tempo' &&
+        out.last.bpm == null) {
+      out.last = (
+        label: out.last.label,
+        bpm: int.tryParse(l.value ?? ''),
+        lines: out.last.lines,
+      );
+    } else if (l is LyricLine) {
+      out.last = (
+        label: out.last.label,
+        bpm: out.last.bpm,
+        lines: out.last.lines + 1,
+      );
+    }
+  }
+  return out;
+}

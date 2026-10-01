@@ -259,6 +259,27 @@ Source _source(Uint8List wav) => kIsWeb
     ? UrlSource('data:audio/wav;base64,${base64Encode(wav)}')
     : BytesSource(wav);
 
+/// Um tocador por força de clique (fraco, médio, forte).
+Future<void> _loadClicks(List<AudioPlayer> players) async {
+  try {
+    for (final (p, hz) in [
+      (players[0], 1175.0),
+      (players[1], 1400.0),
+      (players[2], 1760.0),
+    ]) {
+      // `release` (o padrão) solta o som ao fim de cada clique e os
+      // seguintes saem mudos.
+      await p.setReleaseMode(ReleaseMode.stop);
+      await p.setSource(_source(_click(hz)));
+    }
+  } catch (_) {
+    // Sem som o metrônomo segue piscando.
+  }
+}
+
+void _playClick(AudioPlayer p) =>
+    p.seek(Duration.zero).then((_) => p.resume()).catchError((_) {});
+
 /// Compassos de um toque; o resto sai do "Personalizado".
 const metronomePresets = ['2/4', '3/4', '4/4', '6/8', '9/8', '12/8'];
 
@@ -351,20 +372,7 @@ class _MetronomePanelState extends State<MetronomePanel> {
     }
     if (!_loaded) {
       _loaded = true;
-      try {
-        for (final (p, hz) in [
-          (_players[0], 1175.0),
-          (_players[1], 1400.0),
-          (_players[2], 1760.0),
-        ]) {
-          // `release` (o padrão) solta o som ao fim de cada clique e os
-          // seguintes saem mudos.
-          await p.setReleaseMode(ReleaseMode.stop);
-          await p.setSource(_source(_click(hz)));
-        }
-      } catch (_) {
-        // Sem som o metrônomo segue piscando.
-      }
+      await _loadClicks(_players);
     }
     _restart();
   }
@@ -382,8 +390,7 @@ class _MetronomePanelState extends State<MetronomePanel> {
   void _onBeat() {
     if (!mounted) return;
     setState(() => _beat = (_beat + 1) % _beats);
-    final p = _players[_accentOf(_beat)];
-    p.seek(Duration.zero).then((_) => p.resume()).catchError((_) {});
+    _playClick(_players[_accentOf(_beat)]);
   }
 
   void _setBpm(int v) {
@@ -910,6 +917,203 @@ class _TunerPanelState extends State<TunerPanel> {
                 ),
               ],
             ),
+    );
+  }
+}
+
+/// Player por seção (CifraClub §1.4, sem áudio da música): clique no BPM da
+/// seção e a cifra rolando de [start] até [end] no tempo dela, com barra de
+/// progresso e repetir. Cada linha conta 2 compassos. Mexer na tela para.
+class SectionPlayerBar extends StatefulWidget {
+  final String label;
+  final int bpm;
+  final String? meter;
+  final int lines;
+  final ScrollController scroll;
+
+  /// Onde a seção começa e onde a próxima começa, no `offset` da rolagem.
+  final double Function() start;
+  final double Function() end;
+  final VoidCallback onClose;
+
+  const SectionPlayerBar({
+    super.key,
+    required this.label,
+    required this.bpm,
+    this.meter,
+    required this.lines,
+    required this.scroll,
+    required this.start,
+    required this.end,
+    required this.onClose,
+  });
+
+  @override
+  State<SectionPlayerBar> createState() => _SectionPlayerBarState();
+}
+
+class _SectionPlayerBarState extends State<SectionPlayerBar>
+    with SingleTickerProviderStateMixin {
+  late final _ticker = createTicker(_tick);
+  final _players = [AudioPlayer(), AudioPlayer(), AudioPlayer()];
+  bool _loaded = false;
+  bool _loop = false;
+
+  /// Posição em segundos dentro da seção; [_from] = onde estava ao dar play.
+  double _pos = 0;
+  double _from = 0;
+  int _lastClick = -1;
+  double? _jumped;
+
+  (int, int) get _meter => parseMeter(widget.meter);
+  double get _clickSeconds => 60 / widget.bpm.clamp(20, 400);
+  int get _clicks => math.max(1, widget.lines) * 2 * _meter.$1;
+  double get _total => _clicks * _clickSeconds;
+
+  @override
+  void initState() {
+    super.initState();
+    _play();
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    for (final p in _players) {
+      p.dispose();
+    }
+    super.dispose();
+  }
+
+  void _play() {
+    // Não espera o som carregar: a rolagem começa já.
+    if (!_loaded) {
+      _loaded = true;
+      _loadClicks(_players).ignore();
+    }
+    if (_pos >= _total) _pos = 0;
+    _from = _pos;
+    _lastClick = -1;
+    _jumped = null;
+    _ticker.start();
+    setState(() {});
+  }
+
+  void _pause() {
+    _ticker.stop();
+    if (mounted) setState(() {});
+  }
+
+  void _seek(double seconds) {
+    _pos = seconds.clamp(0, _total);
+    _from = _pos;
+    _lastClick = (_pos / _clickSeconds).floor();
+    if (_ticker.isActive) {
+      _ticker.stop();
+      _ticker.start();
+    }
+    _scrollTo();
+    setState(() {});
+  }
+
+  void _scrollTo() {
+    final s = widget.scroll;
+    if (!s.hasClients) return;
+    final a = widget.start(), b = widget.end();
+    final to = (a + (b - a) * (_pos / _total)).clamp(
+      0.0,
+      s.position.maxScrollExtent,
+    );
+    s.jumpTo(to);
+    _jumped = to;
+  }
+
+  void _tick(Duration elapsed) {
+    final s = widget.scroll;
+    // Alguém rolou com o dedo ou o mouse: para e deixa a pessoa olhar.
+    if (_jumped != null && s.hasClients && (s.offset - _jumped!).abs() > 2) {
+      return _pause();
+    }
+    _pos = _from + elapsed.inMicroseconds / 1e6;
+    if (_pos >= _total) {
+      if (_loop) {
+        _seek(0);
+        return;
+      }
+      _pos = _total;
+      _scrollTo();
+      return _pause();
+    }
+    final click = (_pos / _clickSeconds).floor();
+    if (click != _lastClick) {
+      _lastClick = click;
+      final beat = click % _meter.$1;
+      _playClick(_players[beatAccent(beat, _meter.$1, _meter.$2)]);
+    }
+    _scrollTo();
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final playing = _ticker.isActive;
+    final accent = Theme.of(context).colorScheme.primary;
+    return Material(
+      elevation: 8,
+      color: _panelBg,
+      shape: const StadiumBorder(),
+      child: DefaultTextStyle.merge(
+        style: const TextStyle(color: _panelFg),
+        child: IconTheme.merge(
+          data: const IconThemeData(color: _panelFg),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: playing ? 'Pausar seção' : 'Tocar seção',
+                  icon: Icon(playing ? AppIcons.pause : AppIcons.playArrow),
+                  onPressed: playing ? _pause : _play,
+                ),
+                Flexible(
+                  child: Text(
+                    '${widget.label} · ${widget.bpm} bpm',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: accent,
+                      thumbColor: accent,
+                      inactiveTrackColor: Colors.white12,
+                    ),
+                    child: Slider(
+                      value: _pos.clamp(0, _total),
+                      max: _total,
+                      onChanged: _seek,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: _loop ? 'Repetir ligado' : 'Repetir desligado',
+                  isSelected: _loop,
+                  color: _loop ? accent : Colors.white54,
+                  icon: const Icon(AppIcons.repeat),
+                  onPressed: () => setState(() => _loop = !_loop),
+                ),
+                IconButton(
+                  tooltip: 'Fechar player',
+                  icon: const Icon(AppIcons.close),
+                  onPressed: widget.onClose,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
