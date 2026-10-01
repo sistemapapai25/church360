@@ -24,6 +24,7 @@ import '../../../permissions/providers/permissions_providers.dart';
 import '../../../tags/presentation/widgets/member_tags_panel.dart';
 
 import '../providers/members_provider.dart';
+import '../widgets/send_access_invite.dart';
 import '../../data/members_repository.dart';
 import '../../data/family_relationships_repository.dart';
 import '../../domain/models/member.dart';
@@ -2546,6 +2547,34 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                 ),
                 Row(
                   children: [
+                    // Sem login: a igreja manda o link de primeiro acesso.
+                    if (member.authUserId == null && !member.isVisitor) ...[
+                      PermissionGate(
+                        permission: 'members.edit',
+                        showLoading: false,
+                        child: IconButton(
+                          icon: const Icon(Icons.key_outlined),
+                          onPressed: () async {
+                            final sent = await sendAccessInvite(
+                              context,
+                              userAccountId: member.id,
+                              memberName: member.displayName,
+                            );
+                            if (sent) {
+                              ref.invalidate(memberByIdProvider(member.id));
+                            }
+                          },
+                          tooltip: 'Enviar acesso',
+                          style: IconButton.styleFrom(
+                            backgroundColor: colorScheme.primary.withValues(
+                              alpha: 0.12,
+                            ),
+                            foregroundColor: colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
                     PermissionGate(
                       permission: member.status == 'visitor'
                           ? 'visitors.edit'
