@@ -244,3 +244,44 @@ double _cost(
   final ok = shape.sublist(first, last + 1).every((f) => f != null && f >= low);
   return ok ? (fret: low, from: first, to: last) : null;
 }
+
+/// Afinações do violão (print 08 do CifraClub): todas são a padrão descida
+/// por igual, então bastam os semitons. Afinar mais grave muda o desenho,
+/// não o nome do acorde.
+const praiseTunings = [
+  (label: 'Padrão (E A D G B E)', drop: 0),
+  (label: '1/2 tom abaixo (Eb Ab Db Gb Bb Eb)', drop: 1),
+  (label: '1 tom abaixo (D G C F A D)', drop: 2),
+  (label: '1 tom e 1/2 abaixo (Db Gb B E Ab Db)', drop: 3),
+  (label: '2 tons abaixo (C F Bb Eb G C)', drop: 4),
+];
+
+/// Acorde cujo desenho soa como [sounding] com a corda [drop] semitons mais
+/// grave e o capo na casa [capo] (o `keyShape` do CifraClub): A com capo 2 é
+/// desenho de G; E com 1/2 tom abaixo é desenho de F.
+Chord shapeChord(Chord sounding, {int drop = 0, int capo = 0}) =>
+    (drop - capo) % 12 == 0 ? sounding : sounding.transpose(drop - capo);
+
+/// Dedo de cada corda (1 = indicador; `null` = solta ou abafada). A pestana é
+/// o indicador; o resto vai pela casa e, na mesma casa, da corda grave para a
+/// aguda — é o que dá o C (x32010 → 3 2 1) e o D (xx0232 → 1 3 2) usuais.
+List<int?> fingersOf(List<int?> shape) {
+  final barre = barreOf(shape);
+  final out = List<int?>.filled(shape.length, null);
+  final rest = <int>[];
+  for (var i = 0; i < shape.length; i++) {
+    final f = shape[i];
+    if (f == null || f == 0) continue;
+    if (barre != null && f == barre.fret && i >= barre.from && i <= barre.to) {
+      out[i] = 1;
+    } else {
+      rest.add(i);
+    }
+  }
+  rest.sort((a, b) => shape[a] != shape[b] ? shape[a]! - shape[b]! : a - b);
+  var next = barre == null ? 1 : 2;
+  for (final i in rest) {
+    out[i] = next++;
+  }
+  return out;
+}

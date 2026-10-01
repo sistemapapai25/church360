@@ -16,6 +16,7 @@ import 'louvores_tab.dart';
 import 'providers/praise_providers.dart';
 import 'widgets/chord_diagram.dart';
 import 'widgets/chordpro_view.dart';
+import 'widgets/reader_tools.dart';
 
 /// Leitor de cifra — tela interna, não aba
 /// (`/ministries/:id/louvores/musicas/:songId`).
@@ -129,6 +130,22 @@ class _ReaderState extends ConsumerState<_Reader> {
   bool _twoColumns = false;
   static const _columnsPref = 'praise_reader_two_columns';
 
+  /// Afinação do violão (semitons abaixo da padrão), também do aparelho.
+  int _tuningDrop = 0;
+  static const _tuningPref = 'praise_reader_tuning_drop';
+
+  /// Faixa de diagramas (print 10): no início, no fim e tamanho.
+  bool _diagramsStart = true;
+  bool _diagramsEnd = false;
+  double _diagramScale = 1;
+  static const _diagramsPref = 'praise_reader_diagrams';
+
+  /// Capo só desta tela. Nulo = o do repertório ou da versão.
+  int? _capoOverride;
+
+  bool _metronome = false;
+  bool _tuner = false;
+
   /// Nulo = a versão mais recente.
   PraiseSongVersion? _picked;
 
@@ -159,10 +176,17 @@ class _ReaderState extends ConsumerState<_Reader> {
       final prefs = await SharedPreferences.getInstance();
       final name = prefs.getString(_instrumentPref);
       final saved = PraiseInstrument.values.where((i) => i.name == name);
+      final diagrams = prefs.getStringList(_diagramsPref);
       if (!mounted) return;
       setState(() {
         if (saved.isNotEmpty) _instrument = saved.first;
         _twoColumns = prefs.getBool(_columnsPref) ?? false;
+        _tuningDrop = (prefs.getInt(_tuningPref) ?? 0).clamp(0, 4);
+        if (diagrams != null && diagrams.length == 3) {
+          _diagramsStart = diagrams[0] == 'true';
+          _diagramsEnd = diagrams[1] == 'true';
+          _diagramScale = (double.tryParse(diagrams[2]) ?? 1).clamp(0.7, 1.6);
+        }
       });
     } catch (_) {
       // Sem preferência salva o leitor fica no violão.
@@ -183,12 +207,208 @@ class _ReaderState extends ConsumerState<_Reader> {
         .ignore();
   }
 
-  void _openChord(Chord chord) => showChordSheet(
+  void _savePrefs() {
+    SharedPreferences.getInstance().then((p) async {
+      await p.setInt(_tuningPref, _tuningDrop);
+      await p.setStringList(_diagramsPref, [
+        '$_diagramsStart',
+        '$_diagramsEnd',
+        '$_diagramScale',
+      ]);
+    }).ignore();
+  }
+
+  /// Desenho que soa como [chord] com o capo e a afinação da tela. A
+  /// afinação é a do violão; o capo vale para todo instrumento de braço.
+  Chord _shapeOf(Chord chord, PraiseInstrument i, int capo) => i.tuning == null
+      ? chord
+      : shapeChord(
+          chord,
+          drop: i == PraiseInstrument.violao ? _tuningDrop : 0,
+          capo: capo,
+        );
+
+  void _openChord(Chord chord, int capo) => showChordSheet(
     context,
     chord: chord,
     instrument: _instrument,
     onInstrument: _setInstrument,
+    shapeOf: (c, i) => _shapeOf(c, i, capo),
   );
+
+  /// Ajustes do leitor em cartões, como o menu lateral do CifraClub (prints
+  /// 01/02). Tudo vale na hora; só o capo é desta música.
+  void _openSettings(int capo) {
+    final wide =
+        MediaQuery.sizeOf(context).width >= ChordProView.twoColumnWidth;
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheet) {
+          void set(VoidCallback f) {
+            setState(f);
+            setSheet(() {});
+          }
+
+          Widget card(String title, List<Widget> children) => Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: CommunityDesign.titleStyle(context)),
+                  const SizedBox(height: 8),
+                  ...children,
+                ],
+              ),
+            ),
+          );
+
+          SwitchListTile toggle(
+            String label,
+            bool value,
+            ValueChanged<bool> onChanged,
+          ) => SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(label),
+            value: value,
+            onChanged: onChanged,
+          );
+
+          return SafeArea(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+              ),
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                children: [
+                  card('Instrumento', [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final i in PraiseInstrument.values)
+                          ChoiceChip(
+                            shape: const StadiumBorder(),
+                            label: Text(i.label),
+                            selected: i == _instrument,
+                            onSelected: (_) {
+                              _setInstrument(i);
+                              setSheet(() {});
+                            },
+                          ),
+                      ],
+                    ),
+                    if (_instrument == PraiseInstrument.violao) ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<int>(
+                        initialValue: _tuningDrop,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Afinação',
+                        ),
+                        items: [
+                          for (final t in praiseTunings)
+                            DropdownMenuItem(
+                              value: t.drop,
+                              child: Text(t.label),
+                            ),
+                        ],
+                        onChanged: (v) {
+                          set(() => _tuningDrop = v ?? 0);
+                          _savePrefs();
+                        },
+                      ),
+                    ],
+                    if (_instrument.tuning != null) ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<int>(
+                        initialValue: _capoOverride ?? capo,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Capotraste',
+                          helperText: 'Muda o desenho; o som continua no tom.',
+                        ),
+                        items: [
+                          for (var c = 0; c <= 11; c++)
+                            DropdownMenuItem(
+                              value: c,
+                              child: Text(
+                                c == 0 ? 'Sem capotraste' : '$cª casa',
+                              ),
+                            ),
+                        ],
+                        onChanged: (v) => set(() => _capoOverride = v),
+                      ),
+                    ],
+                  ]),
+                  card('Diagramas', [
+                    toggle('No início', _diagramsStart, (v) {
+                      set(() => _diagramsStart = v);
+                      _savePrefs();
+                    }),
+                    toggle('No fim', _diagramsEnd, (v) {
+                      set(() => _diagramsEnd = v);
+                      _savePrefs();
+                    }),
+                    Row(
+                      children: [
+                        const Text('Tamanho'),
+                        Expanded(
+                          child: Slider(
+                            value: _diagramScale,
+                            min: 0.7,
+                            max: 1.6,
+                            divisions: 9,
+                            label: '${(_diagramScale * 100).round()}%',
+                            onChanged: (v) => set(() => _diagramScale = v),
+                            onChangeEnd: (_) => _savePrefs(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ]),
+                  // Duas colunas só onde cabem.
+                  if (wide)
+                    card('Exibição', [
+                      toggle('Dividir em colunas', _twoColumns, (v) {
+                        _setTwoColumns(v);
+                        setSheet(() {});
+                      }),
+                    ]),
+                  card('Ferramentas', [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(AppIcons.metronome),
+                      title: const Text('Metrônomo'),
+                      onTap: () {
+                        setState(() => _metronome = true);
+                        Navigator.pop(context);
+                      },
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(AppIcons.microphone),
+                      title: const Text('Afinador'),
+                      onTap: () {
+                        setState(() => _tuner = true);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ]),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   /// Lista do repertório para pular direto (toque em "1 de 6").
   Future<void> _pickItem() async {
@@ -257,6 +477,7 @@ class _ReaderState extends ConsumerState<_Reader> {
       setState(() {
         _picked = picked;
         _semitones = 0;
+        _capoOverride = null;
       });
     }
   }
@@ -427,8 +648,18 @@ class _ReaderState extends ConsumerState<_Reader> {
         : Chord.keyPrefersFlats(shifted.toString());
     final keyLabel = shifted?.transpose(0, preferFlats: flats).toString();
     final meta = CommunityDesign.metaStyle(context);
+    final baseCapo = _item?.capo ?? version.capo;
+    final capo = _capoOverride ?? baseCapo;
+    final bpm = _item == null ? version.bpm : _item!.bpm;
+    final strip = _ChordStrip(
+      chords: _uniqueChords(version.chordpro, flats),
+      instrument: _instrument,
+      shapeOf: (c) => _shapeOf(c, _instrument, capo),
+      scale: _diagramScale,
+      onTap: (c) => _openChord(c, capo),
+    );
 
-    return ListView(
+    final list = ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 48),
       children: [
         if (song.artist != null && song.artist!.isNotEmpty)
@@ -480,41 +711,26 @@ class _ReaderState extends ConsumerState<_Reader> {
               plusIcon: AppIcons.zoomIn,
             ),
             // No repertório, capo/BPM/observação são os do culto.
-            if ((_item?.capo ?? version.capo) > 0)
-              Chip(
+            if (capo > 0)
+              ActionChip(
                 shape: const StadiumBorder(),
-                label: Text('Capo ${_item?.capo ?? version.capo}'),
+                label: Text('Capo $capo'),
+                onPressed: () => _openSettings(baseCapo),
               ),
-            if ((_item == null ? version.bpm : _item!.bpm) != null)
-              Chip(
+            if (bpm != null)
+              ActionChip(
                 shape: const StadiumBorder(),
-                label: Text('${_item == null ? version.bpm : _item!.bpm} BPM'),
+                label: Text('$bpm BPM'),
+                onPressed: () => setState(() => _metronome = true),
               ),
             if (_item?.notes != null)
               Chip(shape: const StadiumBorder(), label: Text(_item!.notes!)),
-            PopupMenuButton<PraiseInstrument>(
-              tooltip: 'Instrumento dos desenhos',
-              initialValue: _instrument,
-              onSelected: _setInstrument,
-              itemBuilder: (_) => [
-                for (final i in PraiseInstrument.values)
-                  PopupMenuItem(value: i, child: Text(i.label)),
-              ],
-              child: Chip(
-                shape: const StadiumBorder(),
-                avatar: const Icon(AppIcons.tune, size: 16),
-                label: Text(_instrument.label),
-              ),
+            ActionChip(
+              shape: const StadiumBorder(),
+              avatar: const Icon(AppIcons.tune, size: 16),
+              label: Text('Ajustes · ${_instrument.label}'),
+              onPressed: () => _openSettings(baseCapo),
             ),
-            // Só aparece onde duas colunas cabem.
-            if (MediaQuery.sizeOf(context).width >= ChordProView.twoColumnWidth)
-              FilterChip(
-                shape: const StadiumBorder(),
-                avatar: const Icon(AppIcons.viewColumn, size: 16),
-                label: const Text('Dividir em colunas'),
-                selected: _twoColumns,
-                onSelected: _setTwoColumns,
-              ),
           ],
         ),
         if (_item == null && _semitones % 12 != 0 && keyLabel != null)
@@ -523,19 +739,40 @@ class _ReaderState extends ConsumerState<_Reader> {
             style: meta,
           ),
         const SizedBox(height: 12),
-        _ChordStrip(
-          chords: _uniqueChords(version.chordpro, flats),
-          instrument: _instrument,
-          onTap: _openChord,
-        ),
-        const SizedBox(height: 12),
+        if (_diagramsStart) ...[strip, const SizedBox(height: 12)],
         ChordProView(
           source: version.chordpro,
           semitones: _semitones,
           preferFlats: flats,
           fontSize: _fontSize,
-          onChordTap: _openChord,
+          onChordTap: (c) => _openChord(c, capo),
           twoColumns: _twoColumns,
+        ),
+        if (_diagramsEnd) ...[const SizedBox(height: 16), strip],
+      ],
+    );
+
+    if (!_metronome && !_tuner) return list;
+    return Stack(
+      children: [
+        list,
+        Positioned(
+          right: 12,
+          bottom: 12,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (_tuner)
+                TunerPanel(onClose: () => setState(() => _tuner = false)),
+              if (_tuner && _metronome) const SizedBox(height: 8),
+              if (_metronome)
+                MetronomePanel(
+                  initialBpm: bpm ?? 80,
+                  onClose: () => setState(() => _metronome = false),
+                ),
+            ],
+          ),
         ),
       ],
     );
@@ -615,10 +852,16 @@ class _ChordStrip extends StatelessWidget {
   final PraiseInstrument instrument;
   final ValueChanged<Chord> onTap;
 
+  /// Desenho com capo/afinação; o nome em cima continua o do som.
+  final Chord Function(Chord) shapeOf;
+  final double scale;
+
   const _ChordStrip({
     required this.chords,
     required this.instrument,
     required this.onTap,
+    required this.shapeOf,
+    this.scale = 1,
   });
 
   @override
@@ -626,7 +869,7 @@ class _ChordStrip extends StatelessWidget {
     if (chords.isEmpty) return const SizedBox.shrink();
     final scheme = Theme.of(context).colorScheme;
     return SizedBox(
-      height: instrument == PraiseInstrument.teclado ? 96 : 120,
+      height: (instrument == PraiseInstrument.teclado ? 56 : 84) * scale + 36,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: chords.length,
@@ -645,9 +888,9 @@ class _ChordStrip extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 ChordDiagram(
-                  chord: chords[i],
+                  chord: shapeOf(chords[i]),
                   instrument: instrument,
-                  width: 56,
+                  width: 56 * scale,
                 ),
               ],
             ),

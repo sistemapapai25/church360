@@ -175,6 +175,22 @@ void main() {
     await t.tap(find.text('Culto de domingo · 1 de 2'));
     await t.pumpAndSettle();
     expect(find.text('Música B'), findsNWidgets(2)); // lista + "Próxima"
+    Navigator.of(t.element(find.text('Música B').last)).pop();
+    await t.pumpAndSettle();
+
+    // Capo nos Ajustes muda o desenho, não o nome do acorde.
+    await t.tap(find.text('Ajustes · Violão e guitarra'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Sem capotraste'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('2ª casa').last);
+    await t.pumpAndSettle();
+    Navigator.of(t.element(find.text('Capotraste'))).pop();
+    await t.pumpAndSettle();
+    expect(find.text('Capo 2'), findsOneWidget);
+    await t.tap(find.text('E').last);
+    await t.pumpAndSettle();
+    expect(find.text('Desenho de D (capo/afinação)'), findsOneWidget);
   });
 
   testWidgets('arrastar reordena o rascunho e salvar manda a nova ordem', (
