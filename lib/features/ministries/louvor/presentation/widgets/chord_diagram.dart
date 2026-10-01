@@ -245,58 +245,70 @@ Future<void> showChordSheet(
     context: context,
     showDragHandle: true,
     builder: (context) => StatefulBuilder(
-      builder: (context, setSheet) => SafeArea(
-        // Rola em celular baixo: desenho grande + instrumentos não cabem.
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$chord',
-                style: CommunityDesign.titleStyle(
-                  context,
-                ).copyWith(fontSize: 24),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Notas: ${chordNoteNames(chord)}',
-                style: CommunityDesign.metaStyle(context),
-              ),
-              const SizedBox(height: 16),
-              ChordDiagram(
-                chord: shapeOf?.call(chord, current) ?? chord,
-                instrument: current,
-                width: 140,
-              ),
-              if (shapeOf != null && '${shapeOf(chord, current)}' != '$chord')
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    'Desenho de ${shapeOf(chord, current)} (capo/afinação)',
-                    style: CommunityDesign.metaStyle(context),
-                  ),
+      builder: (context, setSheet) {
+        final shape = shapeOf?.call(chord, current) ?? chord;
+        // Afinação baixada: o desenho sobe o tanto que as cordas desceram.
+        final drop =
+            (Chord.semitoneOf(shape.root) - Chord.semitoneOf(chord.root)) % 12;
+        return SafeArea(
+          // Rola em celular baixo: desenho grande + instrumentos não cabem.
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$chord',
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontSize: 24),
                 ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: [
-                  for (final i in PraiseInstrument.pickable)
-                    ChoiceChip(
-                      shape: const StadiumBorder(),
-                      label: Text(i.label),
-                      selected: i == current.chip,
-                      onSelected: (_) =>
-                          setSheet(() => current = onInstrument(i)),
+                const SizedBox(height: 4),
+                Text(
+                  current.isBass
+                      ? 'Baixo: ${chord.bass ?? chord.root}'
+                      : 'Notas: ${chordNoteNames(chord)}',
+                  style: CommunityDesign.metaStyle(context),
+                ),
+                const SizedBox(height: 16),
+                ChordDiagram(chord: shape, instrument: current, width: 140),
+                if (current.isBass)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Cordas (grave → aguda): ${[for (final t in current.tuning!) Chord.noteName(t - drop, flats: drop > 0)].join(' ')}',
+                      style: CommunityDesign.metaStyle(context),
                     ),
-                ],
-              ),
-            ],
+                  ),
+                if (shapeOf != null && '${shapeOf(chord, current)}' != '$chord')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Desenho de ${shapeOf(chord, current)} (capo/afinação)',
+                      style: CommunityDesign.metaStyle(context),
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    for (final i in PraiseInstrument.pickable)
+                      ChoiceChip(
+                        shape: const StadiumBorder(),
+                        label: Text(i.label),
+                        selected: i == current.chip,
+                        onSelected: (_) =>
+                            setSheet(() => current = onInstrument(i)),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     ),
   );
 }

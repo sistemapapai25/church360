@@ -401,23 +401,26 @@ class ChordProView extends StatelessWidget {
               spacing: gap,
               children: [
                 for (final w in words(line))
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (final p in w)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (hasChords)
-                              p.chord == null
-                                  ? Text('', style: chordStyle)
-                                  : chordText(p.chord!),
-                            if (hasLyrics) Text(p.lyric, style: base),
-                          ],
-                        ),
-                    ],
-                  ),
+                  // Só letra: a "palavra" que era só o acorde sobre um
+                  // espaço viraria um recuo no começo da linha.
+                  if (hasChords || w.any((p) => p.lyric.isNotEmpty))
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final p in w)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (hasChords)
+                                p.chord == null
+                                    ? Text('', style: chordStyle)
+                                    : chordText(p.chord!),
+                              if (hasLyrics) Text(p.lyric, style: base),
+                            ],
+                          ),
+                      ],
+                    ),
               ],
             ),
           );

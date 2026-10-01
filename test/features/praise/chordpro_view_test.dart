@@ -187,4 +187,14 @@ void main() {
     expect(find.text('G'), findsNothing);
     expect(find.text('Santo'), findsOneWidget);
   });
+
+  testWidgets('B5: Só letra não começa a linha com espaço', (t) async {
+    await t.pumpWidget(
+      _wrap(const ChordProView(source: '[C] O inimigo', lyricsOnly: true)),
+    );
+    final first = t.widget<Text>(
+      find.descendant(of: find.byType(Wrap), matching: find.byType(Text)).first,
+    );
+    expect(first.data, 'O');
+  });
 }

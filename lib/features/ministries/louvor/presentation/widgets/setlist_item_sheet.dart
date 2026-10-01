@@ -9,15 +9,17 @@ import '../../data/praise_repository.dart';
 import '../providers/praise_providers.dart';
 
 /// Folha "Adicionar ao repertório" (canvas, tela 7). Com [initial], edita o
-/// item. Devolve o item montado; quem chama decide quando salvar.
+/// item. [songIds] = músicas já no repertório, na ordem, para avisar de
+/// repetida. Devolve o item montado; quem chama decide quando salvar.
 Future<PraiseSetlistItem?> showSetlistItemSheet(
   BuildContext context, {
   PraiseSetlistItem? initial,
+  List<String> songIds = const [],
 }) => showModalBottomSheet<PraiseSetlistItem>(
   context: context,
   isScrollControlled: true,
   showDragHandle: true,
-  builder: (_) => _SetlistItemSheet(initial: initial),
+  builder: (_) => _SetlistItemSheet(initial: initial, songIds: songIds),
 );
 
 /// Mesmo formato do CHECK `praise_setlist_item_key_shape`.
@@ -25,8 +27,9 @@ final _keyShape = RegExp(r'^[A-G][#b]?m?$');
 
 class _SetlistItemSheet extends ConsumerStatefulWidget {
   final PraiseSetlistItem? initial;
+  final List<String> songIds;
 
-  const _SetlistItemSheet({this.initial});
+  const _SetlistItemSheet({this.initial, this.songIds = const []});
 
   @override
   ConsumerState<_SetlistItemSheet> createState() => _SetlistItemSheetState();
@@ -132,6 +135,11 @@ class _SetlistItemSheetState extends ConsumerState<_SetlistItemSheet> {
         ? const <PraiseSongVersion>[]
         : ref.watch(praiseVersionsProvider(_songId!)).valueOrNull ?? const [];
     final meta = CommunityDesign.metaStyle(context);
+    // Quem edita o próprio item não conta como repetida.
+    final repeatedAt =
+        _songId == null || (i != null && i.version.songId == _songId)
+        ? -1
+        : widget.songIds.indexOf(_songId!);
     final original = _version?.originalKey;
 
     return Padding(
@@ -177,6 +185,16 @@ class _SetlistItemSheetState extends ConsumerState<_SetlistItemSheet> {
                 if (s.latest != null) _useVersion(s.latest!);
               },
             ),
+            if (repeatedAt >= 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Esta música já está na posição ${repeatedAt + 1} do '
+                'repertório. Pode adicionar de novo se for de propósito.',
+                style: meta.copyWith(
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+            ],
             if (song != null) ...[
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
