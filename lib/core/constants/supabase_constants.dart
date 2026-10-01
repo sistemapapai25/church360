@@ -91,6 +91,17 @@ class SupabaseConstants {
     final user = client.auth.currentUser ?? client.auth.currentSession?.user;
     if (user == null) return null;
 
+    // Platform owner (CHU-387): a igreja que ele administra é a gravada no
+    // servidor por trocar_de_igreja, não o vínculo dele. Sem isto o app
+    // voltaria em silêncio para a igreja "casa" ao reabrir.
+    try {
+      final platformTenant =
+          (await client.rpc('platform_active_tenant'))?.toString().trim();
+      if (platformTenant != null && platformTenant.isNotEmpty) {
+        return platformTenant;
+      }
+    } catch (_) {}
+
     final preferred = currentTenantId.trim();
     final jwtTenant =
         (user.userMetadata?['tenant_id'] ?? user.appMetadata['tenant_id'])
