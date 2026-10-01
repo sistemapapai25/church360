@@ -9,6 +9,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../events/domain/models/event.dart';
 import '../../../events/presentation/providers/events_provider.dart';
+import '../../presentation/providers/ministries_provider.dart';
 import '../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../data/praise_repository.dart';
 import 'louvores_tab.dart';
@@ -162,8 +163,14 @@ String? _eventLine(PraiseSetlist s) {
   return s.eventId == null ? null : 'evento sem acesso';
 }
 
-/// Linha de baixo do item: versão, tom original, capo, BPM, observação.
-String _itemMeta(PraiseSetlistItem i, {bool withVersion = true}) => [
+/// Linha de baixo do item: ministrante, versão, tom original, capo, BPM,
+/// observação. [minister] = nome já resolvido (nulo = não mostra).
+String _itemMeta(
+  PraiseSetlistItem i, {
+  bool withVersion = true,
+  String? minister,
+}) => [
+  ?minister,
   if (withVersion) 'versão ${i.version.versionNumber}',
   if (withVersion && i.version.originalKey != null)
     'original ${i.version.originalKey}',
@@ -171,6 +178,13 @@ String _itemMeta(PraiseSetlistItem i, {bool withVersion = true}) => [
   if (i.bpm != null) '${i.bpm} BPM',
   if (i.notes != null) 'obs: ${i.notes}',
 ].join(' · ');
+
+/// Nome de quem ministra cada item, pelos integrantes do ministério.
+Map<String, String> _ministerNames(WidgetRef ref, String ministryId) => {
+  for (final m
+      in ref.watch(ministryMembersProvider(ministryId)).valueOrNull ?? const [])
+    m.memberId: m.memberName,
+};
 
 class _KeyBox extends StatelessWidget {
   final String text;
@@ -433,6 +447,7 @@ class _DraftEditorState extends ConsumerState<_DraftEditor> {
     final meta = CommunityDesign.metaStyle(context);
     final event = _eventLine(widget.setlist);
     final editable = widget.canManage && !_busy;
+    final names = _ministerNames(ref, widget.ministryId);
 
     return PopScope(
       canPop: !_dirty,
@@ -586,7 +601,17 @@ class _DraftEditorState extends ConsumerState<_DraftEditor> {
                                   context,
                                 ).copyWith(fontSize: 15),
                               ),
-                              Text(_itemMeta(it), style: meta),
+                              Text(
+                                _itemMeta(
+                                  it,
+                                  // No rascunho o vazio aparece: é onde se
+                                  // preenche o histórico do Espontâneo.
+                                  minister: it.ministerId == null
+                                      ? 'sem ministrante'
+                                      : '🎤 ${names[it.ministerId] ?? 'fora do ministério'}',
+                                ),
+                                style: meta,
+                              ),
                             ],
                           ),
                         ),
@@ -758,6 +783,10 @@ class _PublishedViewState extends ConsumerState<_PublishedView> {
   Widget build(BuildContext context) {
     final rev = widget.setlist.published!;
     final meta = CommunityDesign.metaStyle(context);
+    // Recebido: os integrantes são de outro ministério, então sem nome.
+    final names = widget.received
+        ? const <String, String>{}
+        : _ministerNames(ref, widget.ministryId);
     final by = ref.watch(praisePublisherNameProvider(rev.id)).value;
     final published = rev.publishedAt == null
         ? null
@@ -838,11 +867,13 @@ class _PublishedViewState extends ConsumerState<_PublishedView> {
                                   context,
                                 ).copyWith(fontSize: 15),
                               ),
-                              if (_itemMeta(it, withVersion: false).isNotEmpty)
-                                Text(
-                                  _itemMeta(it, withVersion: false),
-                                  style: meta,
-                                ),
+                              if (_itemMeta(
+                                    it,
+                                    withVersion: false,
+                                    minister: _minister(names, it),
+                                  )
+                                  case final line when line.isNotEmpty)
+                                Text(line, style: meta),
                             ],
                           ),
                         ),
@@ -892,6 +923,12 @@ class _PublishedViewState extends ConsumerState<_PublishedView> {
     );
   }
 }
+
+String? _minister(Map<String, String> names, PraiseSetlistItem it) =>
+    switch (names[it.ministerId]) {
+      final n? => '🎤 $n',
+      null => null,
+    };
 
 /// "Destinatários: Mídia · Diaconato" + Alterar (tela 10b). Sem
 /// destinatário e sem quem altere, some.
