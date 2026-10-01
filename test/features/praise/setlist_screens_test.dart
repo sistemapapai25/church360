@@ -5,9 +5,13 @@ import 'package:church360_app/features/ministries/louvor/presentation/praise_set
 import 'package:church360_app/features/ministries/louvor/presentation/praise_song_reader_screen.dart';
 import 'package:church360_app/features/ministries/louvor/presentation/providers/praise_providers.dart';
 import 'package:church360_app/features/ministries/presentation/providers/ministries_provider.dart';
+import 'package:church360_app/features/ministries/shared/domain/ministry_type_catalog.dart';
+import 'package:church360_app/features/ministries/shared/presentation/widgets/ministry_workspace_shell.dart';
+import 'package:church360_app/features/permissions/providers/permissions_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const _ministry = 'm1';
 const _setlist = 's1';
@@ -35,25 +39,27 @@ Map<String, dynamic> _item(String id, int pos, String version, String key) => {
   'praise_song_version': _version(version, 'G', '{key: G}\n[G]Santo [D]santo'),
 };
 
-PraiseSetlist _setlistWith(String status) => PraiseSetlist.fromJson({
-  'id': _setlist,
-  'event_id': null,
-  'event': null,
-  'praise_setlist_revision': [
-    {
-      'id': 'r1',
-      'revision_number': 1,
-      'title': 'Culto de domingo',
-      'status': status,
-      'published_at': null,
-      // Fora de ordem de propósito: a ordem vem de `position`.
-      'praise_setlist_item': [
-        _item('i2', 2, 'B', 'D'),
-        _item('i1', 1, 'A', 'A'),
+PraiseSetlist _setlistWith(String status, {int number = 1}) =>
+    PraiseSetlist.fromJson({
+      'id': _setlist,
+      'event_id': null,
+      'event': null,
+      'ministry': {'name': 'Som das Águas'},
+      'praise_setlist_revision': [
+        {
+          'id': 'r1',
+          'revision_number': number,
+          'title': 'Culto de domingo',
+          'status': status,
+          'published_at': null,
+          // Fora de ordem de propósito: a ordem vem de `position`.
+          'praise_setlist_item': [
+            _item('i2', 2, 'B', 'D'),
+            _item('i1', 1, 'A', 'A'),
+          ],
+        },
       ],
-    },
-  ],
-});
+    });
 
 class _FakeRepo implements PraiseRepository {
   List<String>? savedOrder;
@@ -74,9 +80,14 @@ Future<void> _pump(
   Widget screen,
   PraiseSetlist setlist, {
   PraiseRepository? repo,
+  bool canPublish = true,
+  List<Override> extra = const [],
 }) async {
+  SharedPreferences.setMockInitialValues({});
   await t.binding.setSurfaceSize(const Size(420, 900));
   addTearDown(() => t.binding.setSurfaceSize(null));
+  // ProviderScope novo a cada montagem (overrides diferentes).
+  await t.pumpWidget(const SizedBox());
   await t.pumpWidget(
     ProviderScope(
       overrides: [
@@ -86,12 +97,14 @@ Future<void> _pump(
           (ref) async => (canView: true, canManage: false),
         ),
         praiseSetlistAccessProvider.overrideWith(
-          (ref) async => (canManage: true, canPublish: true),
+          (ref) async => (canManage: true, canPublish: canPublish),
         ),
         praiseSetlistProvider(_setlist).overrideWith((ref) async => setlist),
         // A música some da biblioteca: o leitor usa a versão do item.
         praiseSongProvider.overrideWith((ref, id) async => null),
         if (repo != null) praiseRepositoryProvider.overrideWithValue(repo),
+        praisePublisherNameProvider.overrideWith((ref, id) async => 'Debora'),
+        ...extra,
       ],
       child: MaterialApp(home: screen),
     ),
@@ -218,5 +231,171 @@ void main() {
     await t.tap(find.text('Salvar rascunho'));
     await t.pumpAndSettle();
     expect(repo.savedOrder, ['Música B', 'Música A']);
+  });
+
+  // ------------------------------------------------------------- Fase D
+
+  test('o que mudou: entrou, saiu e tom', () {
+    PraiseSetlistRevision rev(List<Map<String, dynamic>> items) =>
+        PraiseSetlistRevision.fromJson({
+          'id': 'r',
+          'revision_number': 1,
+          'title': 't',
+          'status': 'published',
+          'praise_setlist_item': items,
+        });
+    final before = rev([_item('i1', 1, 'A', 'G'), _item('i2', 2, 'B', 'D')]);
+    final after = rev([_item('i3', 1, 'A', 'A'), _item('i4', 2, 'C', 'E')]);
+    expect(
+      [for (final c in setlistChanges(before, after)) c.text],
+      ['Música C entrou', 'Música B saiu', 'Música A: tom G → A'],
+    );
+    expect(setlistChanges(before, before), isEmpty);
+  });
+
+  testWidgets('recebido é só leitura mesmo para quem publica', (t) async {
+    await _pump(
+      t,
+      const PraiseSetlistScreen(
+        ministryId: _ministry,
+        setlistId: _setlist,
+        received: true,
+      ),
+      _setlistWith('published'),
+    );
+    expect(find.text('Repertório recebido'), findsOneWidget);
+    expect(find.text('Só leitura'), findsOneWidget);
+    expect(find.text('Recebido de Som das Águas'), findsOneWidget);
+    expect(find.text('Música A'), findsOneWidget);
+    expect(find.textContaining('Editar'), findsNothing);
+    expect(find.text('Excluir repertório'), findsNothing);
+    expect(find.text('Destinatários'), findsNothing);
+  });
+
+  testWidgets('recebido na rev. 2 mostra o que mudou', (t) async {
+    final before = PraiseSetlistRevision.fromJson({
+      'id': 'r0',
+      'revision_number': 1,
+      'title': 'Culto de domingo',
+      'status': 'archived',
+      'praise_setlist_item': [_item('i0', 1, 'A', 'G')],
+    });
+    await _pump(
+      t,
+      const PraiseSetlistScreen(
+        ministryId: _ministry,
+        setlistId: _setlist,
+        received: true,
+      ),
+      _setlistWith('published', number: 2),
+      extra: [
+        praiseRevisionProvider((
+          _setlist,
+          1,
+        )).overrideWith((ref) async => before),
+      ],
+    );
+    expect(find.text('O que mudou desde a rev. 1'), findsOneWidget);
+    expect(find.text('Música B entrou'), findsOneWidget);
+    expect(find.text('Música A: tom G → A'), findsOneWidget);
+  });
+
+  testWidgets(
+    'publicado mostra destinatários e "Alterar" só para quem publica',
+    (t) async {
+      final recipients = praiseRecipientsProvider('r1').overrideWith(
+        (ref) async => [
+          (id: 'm2', name: 'Mídia'),
+          (id: 'm3', name: 'Diaconato'),
+        ],
+      );
+      const screen = PraiseSetlistScreen(
+        ministryId: _ministry,
+        setlistId: _setlist,
+      );
+      await _pump(t, screen, _setlistWith('published'), extra: [recipients]);
+      expect(find.text('Mídia · Diaconato'), findsOneWidget);
+      expect(find.text('Alterar'), findsOneWidget);
+
+      await _pump(
+        t,
+        screen,
+        _setlistWith('published'),
+        canPublish: false,
+        extra: [recipients],
+      );
+      expect(find.text('Mídia · Diaconato'), findsOneWidget);
+      expect(find.text('Alterar'), findsNothing);
+    },
+  );
+
+  testWidgets('"Só letra" tira os acordes do leitor recebido', (t) async {
+    await _pump(
+      t,
+      const PraiseSetlistItemReaderScreen(
+        ministryId: _ministry,
+        setlistId: _setlist,
+        itemId: 'i1',
+        received: true,
+      ),
+      _setlistWith('published'),
+    );
+    expect(find.text('E'), findsNWidgets(2));
+    await t.tap(find.text('Só letra'));
+    await t.pumpAndSettle();
+    expect(find.text('E'), findsNothing);
+    expect(find.text('Tom: A'), findsNothing);
+    expect(find.text('Santo'), findsOneWidget);
+  });
+
+  testWidgets('ministério que recebeu ganha a aba Louvores', (t) async {
+    Widget shell(List<MinistryWorkspaceTab> tabs, List<PraiseSetlist> got) =>
+        ProviderScope(
+          overrides: [
+            ministryByIdProvider(_ministry).overrideWith((ref) async => null),
+            currentUserHasPermissionProvider(
+              'ministries.edit',
+            ).overrideWith((ref) async => false),
+            praiseReceivedProvider(_ministry).overrideWith((ref) async => got),
+          ],
+          child: MaterialApp(
+            home: MinistryWorkspaceShell(
+              ministryId: _ministry,
+              fallbackTitle: 'Mídia',
+              tabs: tabs,
+            ),
+          ),
+        );
+    final equipe = MinistryWorkspaceTab(
+      label: 'Equipe',
+      builder: (_) => const Text('corpo-equipe'),
+    );
+
+    await t.pumpWidget(shell([equipe], const []));
+    await t.pumpAndSettle();
+    expect(find.text('Louvores'), findsNothing);
+
+    await t.pumpWidget(const SizedBox());
+    await t.pumpWidget(shell([equipe], [_setlistWith('published')]));
+    await t.pumpAndSettle();
+    expect(find.text('Louvores'), findsOneWidget);
+
+    // Ministério de louvor já tem a aba: não duplica.
+    await t.pumpWidget(const SizedBox());
+    await t.pumpWidget(
+      shell(
+        [
+          equipe,
+          MinistryWorkspaceTab(
+            label: 'Louvores',
+            key: MinistryTabKeys.louvores,
+            builder: (_) => const Text('corpo-louvores'),
+          ),
+        ],
+        [_setlistWith('published')],
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(find.text('Louvores'), findsOneWidget);
   });
 }

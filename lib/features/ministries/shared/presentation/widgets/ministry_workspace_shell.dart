@@ -8,6 +8,8 @@ import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/app_tabs.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
+import '../../../louvor/presentation/praise_received_view.dart';
+import '../../../louvor/presentation/providers/praise_providers.dart';
 import '../../../domain/models/ministry.dart';
 import '../../domain/ministry_type_catalog.dart';
 import '../../../notifications/presentation/screens/ministry_notification_config_screen.dart';
@@ -27,10 +29,14 @@ class MinistryWorkspaceTab {
 
   final WidgetBuilder builder;
 
+  /// Chave do catálogo ([MinistryTabKeys]), quando a aba veio dele.
+  final String? key;
+
   const MinistryWorkspaceTab({
     required this.label,
     this.count,
     required this.builder,
+    this.key,
   });
 }
 
@@ -79,6 +85,7 @@ List<MinistryWorkspaceTab> ministryTabsFromCatalog({
         label: entry.value.defaultLabel,
         count: entry.value.count,
         builder: entry.value.builder,
+        key: entry.key,
       ),
   ];
 
@@ -112,6 +119,7 @@ List<MinistryWorkspaceTab> ministryTabsFromCatalog({
         label: tab.label,
         count: slot.count,
         builder: slot.builder,
+        key: tab.key,
       ),
     );
   }
@@ -235,7 +243,31 @@ class _MinistryWorkspaceShellState
         .watch(currentUserHasPermissionProvider('ministries.edit'))
         .maybeWhen(data: (v) => v, orElse: () => false);
 
-    final tabs = widget.tabs;
+    // Repertório recebido de outro ministério (Louvores, Fase D): a aba
+    // aparece no ministério que recebeu algo publicado. Quem já tem a aba
+    // Louvores vê os recebidos dentro dela.
+    final hasLouvores = widget.tabs.any(
+      (t) => t.key == MinistryTabKeys.louvores,
+    );
+    final received = hasLouvores
+        ? false
+        : ref
+                  .watch(praiseReceivedProvider(widget.ministryId))
+                  .valueOrNull
+                  ?.isNotEmpty ??
+              false;
+    final tabs = [
+      ...widget.tabs,
+      if (received)
+        MinistryWorkspaceTab(
+          label: 'Louvores',
+          key: MinistryTabKeys.louvores,
+          builder: (_) => PraiseReceivedView(ministryId: widget.ministryId),
+        ),
+    ];
+    if (tabs.isNotEmpty && _selected >= tabs.length) {
+      _selected = tabs.length - 1;
+    }
     final active = tabs.isEmpty ? null : tabs[_selected];
     final headerColor = CommunityDesign.headerColor(context);
     final hasDescription = description != null && description.isNotEmpty;

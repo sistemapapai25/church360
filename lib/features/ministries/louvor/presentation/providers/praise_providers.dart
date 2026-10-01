@@ -48,12 +48,34 @@ final praisePublisherNameProvider = FutureProvider.family<String?, String>(
       ref.watch(praiseRepositoryProvider).publisherName(revisionId),
 );
 
+/// Revisão anterior (arquivada) para o "o que mudou". Imutável.
+final praiseRevisionProvider =
+    FutureProvider.family<PraiseSetlistRevision?, (String, int)>(
+      (ref, key) =>
+          ref.watch(praiseRepositoryProvider).getRevision(key.$1, key.$2),
+    );
+
+final praiseRecipientsProvider =
+    FutureProvider.family<List<({String id, String name})>, String>(
+      (ref, revisionId) =>
+          ref.watch(praiseRepositoryProvider).listRecipients(revisionId),
+    );
+
+/// Repertórios recebidos pelo ministério (Fase D).
+final praiseReceivedProvider =
+    FutureProvider.family<List<PraiseSetlist>, String>(
+      (ref, ministryId) =>
+          ref.watch(praiseRepositoryProvider).receivedSetlists(ministryId),
+    );
+
 /// Realtime não é ligado por migration neste banco: depois de gravar,
 /// invalidar na mão.
 void invalidatePraise(WidgetRef ref, [String? songId]) {
   ref.invalidate(praiseSongsProvider);
   ref.invalidate(praiseSetlistsProvider);
   ref.invalidate(praiseSetlistProvider);
+  ref.invalidate(praiseRecipientsProvider);
+  ref.invalidate(praiseReceivedProvider);
   if (songId != null) {
     ref.invalidate(praiseSongProvider(songId));
     ref.invalidate(praiseVersionsProvider(songId));

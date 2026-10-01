@@ -213,6 +213,9 @@ class PraiseSetlist {
   final String? eventName;
   final DateTime? eventStart;
 
+  /// Ministério dono (quem montou). Só vem nas leituras do destinatário.
+  final String? ministryName;
+
   /// Publicada vigente e rascunho aberto. A RLS só devolve o rascunho a quem
   /// monta ou publica, então para o integrante [draft] é sempre nulo.
   final PraiseSetlistRevision? published;
@@ -223,6 +226,7 @@ class PraiseSetlist {
     this.eventId,
     this.eventName,
     this.eventStart,
+    this.ministryName,
     this.published,
     this.draft,
   });
@@ -243,10 +247,40 @@ class PraiseSetlist {
       eventStart: event?['start_date'] == null
           ? null
           : DateTime.parse(event!['start_date'] as String),
+      ministryName:
+          (j['ministry'] as Map<String, dynamic>?)?['name'] as String?,
       published: revs.where((r) => r.status == 'published').firstOrNull,
       draft: revs.where((r) => r.isDraft).firstOrNull,
     );
   }
+}
+
+/// Tom do item no culto (o escolhido, senão o original da versão).
+String praiseItemKey(PraiseSetlistItem i) =>
+    i.selectedKey ?? i.version.originalKey ?? '—';
+
+/// "O que mudou" de [before] para [after], por música: entrou, saiu, tom.
+List<({String sign, String text})> setlistChanges(
+  PraiseSetlistRevision before,
+  PraiseSetlistRevision after,
+) {
+  final old = {for (final i in before.items) i.version.songId: i};
+  final now = {for (final i in after.items) i.version.songId: i};
+  return [
+    for (final i in after.items)
+      if (!old.containsKey(i.version.songId))
+        (sign: '+', text: '${i.songTitle} entrou'),
+    for (final i in before.items)
+      if (!now.containsKey(i.version.songId))
+        (sign: '−', text: '${i.songTitle} saiu'),
+    for (final i in after.items)
+      if (old[i.version.songId] case final o?
+          when praiseItemKey(o) != praiseItemKey(i))
+        (
+          sign: '♯',
+          text: '${i.songTitle}: tom ${praiseItemKey(o)} → ${praiseItemKey(i)}',
+        ),
+  ];
 }
 
 class PraiseRepository {
@@ -367,7 +401,7 @@ class PraiseRepository {
     final row = await _db
         .from('praise_setlist')
         .select(
-          'id, event_id, event(name, start_date), '
+          'id, event_id, event(name, start_date), ministry(name), '
           'praise_setlist_revision($_revisionCols, '
           'praise_setlist_item(id, position, selected_key, capo, bpm, notes, '
           'praise_song_version(song_id, $_versionCols, praise_song(title, artist))))',
@@ -443,6 +477,76 @@ class PraiseRepository {
             params: {'p_revision_id': revisionId},
           )
           as String?;
+
+  // ---------------------------------------------------------------- Fase D
+
+  static const _itemCols =
+      'praise_setlist_item(id, position, selected_key, capo, bpm, notes, '
+      'praise_song_version(song_id, $_versionCols, praise_song(title, artist)))';
+
+  /// Revisão [number] do repertório com os itens (para o "o que mudou" o
+  /// destinatário lê a arquivada anterior).
+  Future<PraiseSetlistRevision?> getRevision(
+    String setlistId,
+    int number,
+  ) async {
+    final row = await _db
+        .from('praise_setlist_revision')
+        .select('$_revisionCols, $_itemCols')
+        .eq('setlist_id', setlistId)
+        .eq('revision_number', number)
+        .maybeSingle();
+    return row == null ? null : PraiseSetlistRevision.fromJson(row);
+  }
+
+  /// Ministérios destinatários da revisão.
+  Future<List<({String id, String name})>> listRecipients(
+    String revisionId,
+  ) async {
+    final rows = await _db
+        .from('praise_setlist_recipient')
+        .select('ministry_id, ministry(name)')
+        .eq('revision_id', revisionId);
+    return [
+      for (final r in rows)
+        (
+          id: r['ministry_id'] as String,
+          name: (r['ministry'] as Map?)?['name'] as String? ?? 'Ministério',
+        ),
+    ]..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  /// Troca a lista inteira (rascunho ou publicada; exige publish).
+  Future<void> setRecipients(String revisionId, Iterable<String> ministryIds) =>
+      _db.rpc(
+        'praise_setlist_set_recipients',
+        params: {
+          'p_revision_id': revisionId,
+          'p_ministry_ids': ministryIds.toList(),
+        },
+      );
+
+  /// Repertórios que [ministryId] recebeu: a revisão publicada tem ele como
+  /// destinatário.
+  Future<List<PraiseSetlist>> receivedSetlists(String ministryId) async {
+    final rows = await _db
+        .from('praise_setlist_recipient')
+        .select(
+          'praise_setlist_revision!inner($_revisionCols, '
+          'praise_setlist_item(count), '
+          'praise_setlist!inner(id, event_id, event(name, start_date), ministry(name)))',
+        )
+        .eq('ministry_id', ministryId)
+        .eq('praise_setlist_revision.status', 'published');
+    return [
+      for (final r in rows)
+        if (r['praise_setlist_revision'] case final Map<String, dynamic> rev)
+          PraiseSetlist.fromJson({
+            ...rev['praise_setlist'] as Map<String, dynamic>,
+            'praise_setlist_revision': [rev],
+          }),
+    ];
+  }
 
   Future<void> archive(String songId) => _db
       .from('praise_song')
