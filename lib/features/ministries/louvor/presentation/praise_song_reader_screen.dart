@@ -753,28 +753,40 @@ class _ReaderState extends ConsumerState<_Reader> {
     );
 
     if (!_metronome && !_tuner) return list;
-    return Stack(
-      children: [
-        list,
-        Positioned(
-          right: 12,
-          bottom: 12,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (_tuner)
-                TunerPanel(onClose: () => setState(() => _tuner = false)),
-              if (_tuner && _metronome) const SizedBox(height: 8),
-              if (_metronome)
-                MetronomePanel(
+    return LayoutBuilder(
+      builder: (context, c) {
+        final area = c.biggest;
+        // Lado a lado se couber; senão o afinador abre em cima do metrônomo.
+        final tunerAt = !_metronome
+            ? const Offset(12, 12)
+            : area.width >= 620
+            ? const Offset(312, 12)
+            : const Offset(12, 380);
+        return Stack(
+          children: [
+            list,
+            if (_tuner)
+              FloatingTool(
+                area: area,
+                initial: tunerAt,
+                prefsKey: 'praise_reader_tuner_pos',
+                child: TunerPanel(
+                  onClose: () => setState(() => _tuner = false),
+                ),
+              ),
+            if (_metronome)
+              FloatingTool(
+                area: area,
+                initial: const Offset(12, 12),
+                prefsKey: 'praise_reader_metronome_pos',
+                child: MetronomePanel(
                   initialBpm: bpm ?? 80,
                   onClose: () => setState(() => _metronome = false),
                 ),
-            ],
-          ),
-        ),
-      ],
+              ),
+          ],
+        );
+      },
     );
   }
 
