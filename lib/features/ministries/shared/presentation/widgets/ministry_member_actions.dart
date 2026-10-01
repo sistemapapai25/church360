@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../members/presentation/providers/members_provider.dart';
+import '../../../../members/presentation/widgets/send_access_invite.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
 import '../../../domain/models/ministry.dart';
 import '../../../presentation/providers/ministries_provider.dart';
@@ -473,6 +474,20 @@ Future<void> showMinistryEditRoleDialog({
                   : 'Função atualizada. Permissões não sincronizadas: membro sem conta de acesso.',
             ),
             backgroundColor: userRoleSynced ? Colors.green : Colors.orange,
+            // Sem login o cargo não vale no RBAC: oferece o convite. Depois
+            // que o acesso sai a ficha já tem login, e salvar o cargo de
+            // novo grava em user_roles.
+            action: userRoleSynced
+                ? null
+                : SnackBarAction(
+                    label: 'Enviar acesso',
+                    textColor: Colors.white,
+                    onPressed: () => sendAccessInvite(
+                      context,
+                      userAccountId: member.memberId,
+                      memberName: member.memberName,
+                    ),
+                  ),
           ),
         );
       }
