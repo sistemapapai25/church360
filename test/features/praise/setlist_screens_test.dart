@@ -394,7 +394,8 @@ void main() {
       ),
       _setlistWith('published'),
     );
-    expect(find.text('Repertório recebido'), findsOneWidget);
+    // §10.4 S2: o título da tela é o nome do repertório.
+    expect(find.text('Culto de domingo'), findsOneWidget);
     expect(find.text('Só leitura'), findsOneWidget);
     expect(find.text('Recebido de Som das Águas'), findsOneWidget);
     expect(find.text('Música A'), findsOneWidget);

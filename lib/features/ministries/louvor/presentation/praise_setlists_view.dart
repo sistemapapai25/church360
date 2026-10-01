@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/app_filter_bar.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../events/domain/models/event.dart';
 import '../../../events/presentation/providers/events_provider.dart';
@@ -13,8 +14,9 @@ import 'louvores_tab.dart';
 import 'providers/praise_providers.dart';
 
 /// Lado "Repertórios" da aba Louvores (canvas, tela 5): próximos (com
-/// evento), sem evento e anteriores.
-class PraiseSetlistsView extends ConsumerWidget {
+/// evento), sem evento e anteriores. Busca e filtros na mesma barra da
+/// Biblioteca (§10.5).
+class PraiseSetlistsView extends ConsumerStatefulWidget {
   final String ministryId;
 
   const PraiseSetlistsView({super.key, required this.ministryId});
@@ -25,7 +27,38 @@ class PraiseSetlistsView extends ConsumerWidget {
       !eventStart.isBefore(DateTime.utc(now.year, now.month, now.day));
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PraiseSetlistsView> createState() => _PraiseSetlistsViewState();
+}
+
+class _PraiseSetlistsViewState extends ConsumerState<PraiseSetlistsView> {
+  final _search = TextEditingController();
+  String _query = '';
+
+  /// Nulo = todos; true = publicados; false = rascunho/editando.
+  bool? _published;
+
+  String get ministryId => widget.ministryId;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  bool _matches(PraiseSetlist s) {
+    if (_published != null && setlistStatus(s).published != _published) {
+      return false;
+    }
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    return [
+      s.current?.title ?? '',
+      s.eventName ?? '',
+    ].any((t) => t.toLowerCase().contains(q));
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final canManage = ref
         .watch(praiseSetlistAccessProvider)
         .maybeWhen(data: (a) => a.canManage, orElse: () => false);
@@ -40,16 +73,19 @@ class PraiseSetlistsView extends ConsumerWidget {
       ),
       data: (all) {
         final now = DateTime.now();
+        final shown = all.where(_matches).toList();
         final upcoming =
-            all
+            shown
                 .where(
-                  (s) => s.eventStart != null && isUpcoming(s.eventStart!, now),
+                  (s) =>
+                      s.eventStart != null &&
+                      PraiseSetlistsView.isUpcoming(s.eventStart!, now),
                 )
                 .toList()
               ..sort((a, b) => a.eventStart!.compareTo(b.eventStart!));
-        final noEvent = all.where((s) => s.eventId == null).toList();
+        final noEvent = shown.where((s) => s.eventId == null).toList();
         final past =
-            all
+            shown
                 .where((s) => s.eventId != null && !upcoming.contains(s))
                 .toList()
               ..sort(
@@ -64,21 +100,50 @@ class PraiseSetlistsView extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
             children: [
-              if (canManage)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton.icon(
-                    icon: const Icon(AppIcons.add),
-                    label: const Text('Novo repertório'),
-                    onPressed: () => _create(context, ref, all),
-                  ),
+              AppFilterBar(
+                searchController: _search,
+                searchHint: 'Buscar por título ou evento...',
+                onSearchChanged: (v) => setState(() => _query = v),
+                primaryAction: canManage
+                    ? AppFilterAction(
+                        label: 'Novo repertório',
+                        icon: AppIcons.add,
+                        onPressed: () => _create(context, ref, all),
+                      )
+                    : null,
+              ),
+              // Integrante só vê publicados: filtro de situação é de quem monta.
+              if (canManage) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final (label, value) in const [
+                      ('Todos', null),
+                      ('Rascunho', false),
+                      ('Publicado', true),
+                    ])
+                      ChoiceChip(
+                        shape: const StadiumBorder(),
+                        label: Text(label),
+                        selected: _published == value,
+                        onSelected: (_) => setState(() => _published = value),
+                      ),
+                  ],
                 ),
+              ],
               if (all.isEmpty)
                 PraiseMessage(
                   title: 'Nenhum repertório ainda',
                   message: canManage
                       ? 'Monte o primeiro em "Novo repertório".'
                       : 'Quando a liderança publicar um repertório, ele aparece aqui.',
+                )
+              else if (shown.isEmpty)
+                const PraiseMessage(
+                  title: 'Nenhum repertório encontrado',
+                  message: 'Tente outro título ou evento, ou troque o filtro.',
                 ),
               ..._section(context, 'Próximos', upcoming),
               ..._section(context, 'Sem evento', noEvent),

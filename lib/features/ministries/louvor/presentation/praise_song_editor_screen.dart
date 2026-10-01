@@ -6,8 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/app_icons.dart';
-import '../../../../core/widgets/app_tabs.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/app_tabs.dart';
 import '../../../praise/domain/chord_shapes.dart';
 import '../../../praise/domain/chordpro.dart';
 import '../../shared/presentation/widgets/ministry_submodule_guard.dart';
@@ -810,14 +810,14 @@ class _DrumBuilderSheetState extends State<_DrumBuilderSheet> {
               style: CommunityDesign.metaStyle(context),
             ),
             const SizedBox(height: 12),
-            SegmentedButton<int>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: 8, label: Text('8 (colcheias)')),
-                ButtonSegment(value: 16, label: Text('16 (semicolcheias)')),
+            // §10.4 S1: pílula do sistema, não SegmentedButton.
+            AppTabs(
+              tabs: const [
+                AppTab(label: '8 (colcheias)'),
+                AppTab(label: '16 (semicolcheias)'),
               ],
-              selected: {_steps},
-              onSelectionChanged: (v) => setState(() => _steps = v.first),
+              selectedIndex: _steps == 8 ? 0 : 1,
+              onChanged: (i) => setState(() => _steps = i == 0 ? 8 : 16),
             ),
             const SizedBox(height: 12),
             SingleChildScrollView(

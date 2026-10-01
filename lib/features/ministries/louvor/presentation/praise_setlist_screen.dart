@@ -117,7 +117,15 @@ class _Setlist extends ConsumerWidget {
           // maybePop respeita o aviso de rascunho não salvo.
           onPressed: () => Navigator.maybePop(context),
         ),
-        title: Text(received ? 'Repertório recebido' : 'Repertório'),
+        // §10.4 S2: o nome do repertório no título, não repetido no corpo.
+        title: Text(
+          switch (setlistAsync.valueOrNull) {
+                final s? => (received ? s.published : s.current)?.title,
+                null => null,
+              } ??
+              (received ? 'Repertório recebido' : 'Repertório'),
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
       body: Align(
         alignment: Alignment.topCenter,
@@ -756,14 +764,6 @@ class _PublishedViewState extends ConsumerState<_PublishedView> {
             children: [
               Row(
                 children: [
-                  Expanded(
-                    child: Text(
-                      rev.title,
-                      style: CommunityDesign.titleStyle(
-                        context,
-                      ).copyWith(fontSize: 20, fontWeight: FontWeight.w800),
-                    ),
-                  ),
                   if (widget.received)
                     const Chip(
                       shape: StadiumBorder(),
