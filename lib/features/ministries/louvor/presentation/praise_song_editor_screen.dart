@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../praise/domain/chord_shapes.dart';
 import '../../../praise/domain/chordpro.dart';
 import '../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../data/praise_repository.dart';
@@ -236,6 +237,36 @@ class _EditorState extends ConsumerState<_Editor> {
     });
   }
 
+  /// Correção da linha do cursor para um instrumento (§9.5): vira
+  /// `{baixo: G - F#}` logo abaixo dela e vale só para quem lê com ele.
+  Future<void> _insertFix() async {
+    final text = _chords.text;
+    final cursor = _chords.selection.isValid
+        ? _chords.selection.start.clamp(0, text.length)
+        : text.length;
+    final at = instrumentFixAt(text, cursor);
+    if (at.chords.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ponha o cursor numa linha com acordes.')),
+      );
+      return;
+    }
+    final fix = await showModalBottomSheet<(PraiseInstrument, String)>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => _FixSheet(chords: at.chords),
+    );
+    if (fix == null || fix.$2.trim().isEmpty) return;
+    final line = '\n{${fix.$1.name}: ${fix.$2.trim()}}';
+    setState(() {
+      _chords.value = TextEditingValue(
+        text: text.replaceRange(at.offset, at.offset, line),
+        selection: TextSelection.collapsed(offset: at.offset + line.length),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final canManage = ref
@@ -386,13 +417,21 @@ class _EditorState extends ConsumerState<_Editor> {
                           : null,
                     ),
                     const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: OutlinedButton.icon(
-                        icon: const Text('↓↑'),
-                        label: const Text('Inserir batida'),
-                        onPressed: _insertStrum,
-                      ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          icon: const Text('↓↑'),
+                          label: const Text('Inserir batida'),
+                          onPressed: _insertStrum,
+                        ),
+                        OutlinedButton.icon(
+                          icon: const Icon(AppIcons.edit),
+                          label: const Text('Corrigir linha p/ instrumento'),
+                          onPressed: _insertFix,
+                        ),
+                      ],
                     ),
                   ],
                   if (editing) ...[
@@ -492,6 +531,88 @@ class _StrumBuilderSheetState extends State<_StrumBuilderSheet> {
                 onPressed: _pattern.isEmpty
                     ? null
                     : () => Navigator.pop(context, _pattern),
+                child: const Text('Inserir na cifra'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Instrumento + acordes da linha como ele deve tocar. Começa com os acordes
+/// da própria linha; `-` mantém o gerado daquele acorde.
+class _FixSheet extends StatefulWidget {
+  final String chords;
+
+  const _FixSheet({required this.chords});
+
+  @override
+  State<_FixSheet> createState() => _FixSheetState();
+}
+
+class _FixSheetState extends State<_FixSheet> {
+  var _instrument = PraiseInstrument.baixo;
+  late final _text = TextEditingController(text: widget.chords);
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          16 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Corrigir linha', style: CommunityDesign.titleStyle(context)),
+            const SizedBox(height: 4),
+            Text(
+              'Só quem lê com este instrumento vê a troca. Um acorde por '
+              'posição, na ordem da linha; "-" mantém o original.',
+              style: CommunityDesign.metaStyle(context),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final i in PraiseInstrument.pickable)
+                  ChoiceChip(
+                    label: Text(i.label),
+                    selected: _instrument == i,
+                    onSelected: (_) => setState(() => _instrument = i),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _text,
+              autofocus: true,
+              style: const TextStyle(fontFamily: 'monospace'),
+              decoration: InputDecoration(
+                labelText: 'Acordes para ${_instrument.label.toLowerCase()}',
+                helperText: 'Original: ${widget.chords}',
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () =>
+                    Navigator.pop(context, (_instrument, _text.text)),
                 child: const Text('Inserir na cifra'),
               ),
             ),

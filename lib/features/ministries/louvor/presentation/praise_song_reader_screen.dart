@@ -845,15 +845,17 @@ class _ReaderState extends ConsumerState<_Reader> {
     final baseCapo = _item?.capo ?? version.capo;
     final capo = _capoOverride ?? baseCapo;
     final bpm = _item == null ? version.bpm : _item!.bpm;
+    // Correção da música para o instrumento escolhido (§9.5).
+    final chordpro = forInstrument(version.chordpro, _instrument.chip.name);
     final strip = _ChordStrip(
-      chords: _uniqueChords(version.chordpro, flats),
+      chords: _uniqueChords(chordpro, flats),
       instrument: _instrument,
       shapeOf: (c) => _shapeOf(c, _instrument, capo),
       scale: _diagramScale,
       onTap: (c) => _openChord(c, capo),
     );
 
-    final source = parseChordPro(version.chordpro);
+    final source = parseChordPro(chordpro);
     final patterns = [
       for (final l in source.lines)
         if (l is DirectiveLine && l.name == 'batida') parseStrum(l.value),
@@ -966,7 +968,7 @@ class _ReaderState extends ConsumerState<_Reader> {
           const SizedBox(height: 12),
         ],
         ChordProView(
-          source: version.chordpro,
+          source: chordpro,
           semitones: _semitones,
           preferFlats: flats,
           fontSize: _fontSize,
