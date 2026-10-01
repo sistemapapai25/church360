@@ -70,7 +70,11 @@ class Chord {
   }
 
   static String _shift(String note, int semitones, bool flats) =>
-      (flats ? _flats : _sharps)[(semitoneOf(note) + semitones) % 12];
+      noteName(semitoneOf(note) + semitones, flats: flats);
+
+  /// Nome da nota pelo semitom (0 = C).
+  static String noteName(int semitone, {bool flats = false}) =>
+      (flats ? _flats : _sharps)[semitone % 12];
 
   /// Distância em semitons (0..11) de um tom para outro. "G" → "A" = 2.
   static int interval(String fromKey, String toKey) =>
