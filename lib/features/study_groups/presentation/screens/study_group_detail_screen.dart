@@ -8,6 +8,7 @@ import '../../../permissions/providers/permissions_providers.dart';
 import '../providers/study_group_provider.dart';
 import '../../domain/models/study_group.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/utils/name_sort.dart';
 import '../../../../core/utils/share_link_utils.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/widgets/glass_card.dart';
@@ -479,6 +480,11 @@ class StudyGroupDetailScreen extends ConsumerWidget {
     if (participants.isEmpty) {
       return const Center(child: Text('Nenhum participante neste grupo'));
     }
+
+    String nameOf(StudyParticipant p) =>
+        nameById[p.userId] ?? 'Usuário ${p.userId}';
+    participants = participants.toList()
+      ..sort((a, b) => compareNames(nameOf(a), nameOf(b)));
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),

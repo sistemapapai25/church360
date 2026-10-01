@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
+import '../../../core/utils/name_sort.dart';
 
 import '../domain/models/ministry.dart';
 
@@ -243,6 +244,7 @@ class MinistriesRepository {
       } catch (_) {}
     }
 
+    members.sort((a, b) => compareNames(a.memberName, b.memberName));
     if (members.isEmpty) return members;
 
     final contexts = await _supabase
