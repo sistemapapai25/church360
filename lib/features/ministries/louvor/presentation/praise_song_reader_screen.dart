@@ -145,6 +145,7 @@ class _ReaderState extends ConsumerState<_Reader>
 
   int _semitones = 0;
   double _fontSize = 15;
+  static const _fontSizePref = 'praise_reader_font_size';
 
   /// Preferência do aparelho (plano §12.4), não da música nem do repertório.
   PraiseInstrument _instrument = PraiseInstrument.violao;
@@ -228,6 +229,9 @@ class _ReaderState extends ConsumerState<_Reader>
 
   /// Nulo = a versão mais recente.
   PraiseSongVersion? _picked;
+
+  /// Estrela da Biblioteca, também pelo ⋮ (favoritas ficam no aparelho).
+  bool _favorite = false;
 
   PraiseSetlistItem? get _item {
     final r = widget.reading;
@@ -378,6 +382,9 @@ class _ReaderState extends ConsumerState<_Reader>
         }
         _tuningDrop = (prefs.getInt(_tuningPref) ?? 0).clamp(0, 4);
         _autoSpeed = (prefs.getInt(_autoSpeedPref) ?? 3).clamp(1, 10);
+        _fontSize = (prefs.getDouble(_fontSizePref) ?? 15).clamp(11, 26);
+        _favorite = (prefs.getStringList(praiseFavoritesPref) ?? const [])
+            .contains(widget.songId);
         if (diagrams != null && diagrams.length >= 3) {
           _diagramsStart = diagrams[0] == 'true';
           _diagramsEnd = diagrams[1] == 'true';
@@ -434,6 +441,7 @@ class _ReaderState extends ConsumerState<_Reader>
   void _savePrefs() {
     SharedPreferences.getInstance().then((p) async {
       await p.setInt(_tuningPref, _tuningDrop);
+      await p.setDouble(_fontSizePref, _fontSize);
       await p.setStringList(_diagramsPref, [
         '$_diagramsStart',
         '$_diagramsEnd',
@@ -800,8 +808,8 @@ class _ReaderState extends ConsumerState<_Reader>
         control(
           'Tamanho do texto',
           PillStepper(
-            onMinus: _fontSize > 11 ? () => set(() => _fontSize--) : null,
-            onPlus: _fontSize < 26 ? () => set(() => _fontSize++) : null,
+            onMinus: _fontSize > 11 ? () => save(() => _fontSize--) : null,
+            onPlus: _fontSize < 26 ? () => save(() => _fontSize++) : null,
             minusTooltip: 'Diminuir letra',
             plusTooltip: 'Aumentar letra',
             child: Text(pct(_fontSize / 15)),
@@ -1292,6 +1300,9 @@ class _ReaderState extends ConsumerState<_Reader>
                     onSelected: (v) {
                       final shown = _shown!;
                       switch (v) {
+                        case 'favorite':
+                          setState(() => _favorite = !_favorite);
+                          togglePraiseFavorite(widget.songId).ignore();
                         case 'copy':
                           _copy(shown.version);
                         case 'export':
@@ -1305,6 +1316,12 @@ class _ReaderState extends ConsumerState<_Reader>
                       }
                     },
                     itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: 'favorite',
+                        child: Text(
+                          _favorite ? 'Tirar das favoritas' : 'Favoritar',
+                        ),
+                      ),
                       const PopupMenuItem(
                         value: 'copy',
                         child: Text('Copiar cifra'),
@@ -1781,7 +1798,7 @@ class _ReaderState extends ConsumerState<_Reader>
 
 /// Faixa dos acordes da música (referência CifraClub §1.3): um cartão por
 /// acorde, refeita quando o tom ou o instrumento mudam. Toque abre o painel.
-class _ChordStrip extends StatelessWidget {
+class _ChordStrip extends StatefulWidget {
   final List<Chord> chords;
   final PraiseInstrument instrument;
   final ValueChanged<Chord> onTap;
@@ -1799,34 +1816,56 @@ class _ChordStrip extends StatelessWidget {
   });
 
   @override
+  State<_ChordStrip> createState() => _ChordStripState();
+}
+
+class _ChordStripState extends State<_ChordStrip> {
+  final _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final _ChordStrip(:chords, :instrument, :onTap, :shapeOf, :scale) = widget;
     if (chords.isEmpty) return const SizedBox.shrink();
     final scheme = Theme.of(context).colorScheme;
+    // Barra sempre à mostra: sem ela não se vê que a faixa rola para o lado
+    // (no computador não há gesto de arrastar). Só aparece se não couber.
     return SizedBox(
-      height: (instrument == PraiseInstrument.teclado ? 56 : 84) * scale + 36,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: chords.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, i) => InkWell(
-          borderRadius: BorderRadius.circular(CommunityDesign.radius),
-          onTap: () => onTap(chords[i]),
-          child: Ink(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
-            decoration: CommunityDesign.overlayDecoration(scheme),
-            child: Column(
-              children: [
-                Text(
-                  '${chords[i]}',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 4),
-                ChordDiagram(
-                  chord: shapeOf(chords[i]),
-                  instrument: instrument,
-                  width: 56 * scale,
-                ),
-              ],
+      height: (instrument == PraiseInstrument.teclado ? 56 : 84) * scale + 48,
+      child: Scrollbar(
+        controller: _controller,
+        thumbVisibility: true,
+        child: ListView.separated(
+          controller: _controller,
+          padding: const EdgeInsets.only(bottom: 12),
+          scrollDirection: Axis.horizontal,
+          itemCount: chords.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 8),
+          itemBuilder: (context, i) => InkWell(
+            borderRadius: BorderRadius.circular(CommunityDesign.radius),
+            onTap: () => onTap(chords[i]),
+            child: Ink(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+              decoration: CommunityDesign.overlayDecoration(scheme),
+              child: Column(
+                children: [
+                  Text(
+                    '${chords[i]}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  ChordDiagram(
+                    chord: shapeOf(chords[i]),
+                    instrument: instrument,
+                    width: 56 * scale,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

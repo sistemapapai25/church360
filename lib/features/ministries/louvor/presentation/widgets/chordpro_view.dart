@@ -398,7 +398,9 @@ class ChordProView extends StatelessWidget {
           if (!hasChords && !hasLyrics) break;
           blocks.add(
             Wrap(
-              spacing: gap,
+              // §10.4 S10: meio caractere entre palavras; o acorde mantém a
+              // folga inteira para não colar no seguinte.
+              spacing: gap / 2,
               children: [
                 for (final w in words(line))
                   // Só letra: a "palavra" que era só o acorde sobre um

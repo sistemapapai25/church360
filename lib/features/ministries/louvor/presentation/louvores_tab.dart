@@ -62,9 +62,7 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
           ? [..._favorites.where((f) => f != id)]
           : [id, ..._favorites],
     );
-    SharedPreferences.getInstance()
-        .then((p) => p.setStringList(praiseFavoritesPref, _favorites))
-        .ignore();
+    togglePraiseFavorite(id).ignore();
   }
 
   /// Músicas do filtro, na ordem dele.
@@ -95,19 +93,7 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
     super.dispose();
   }
 
-  /// Título, artista ou trecho da letra (sem os acordes).
-  bool _matches(PraiseSong s) {
-    final q = _searchQuery.trim().toLowerCase();
-    if (q.isEmpty) return true;
-    final lyrics = s.latest == null
-        ? ''
-        : s.latest!.chordpro.replaceAll(RegExp(r'\[[^\]]*\]|\{[^}]*\}'), '');
-    return [
-      s.title,
-      s.artist ?? '',
-      lyrics,
-    ].any((t) => t.toLowerCase().contains(q));
-  }
+  bool _matches(PraiseSong s) => praiseSongMatches(s, _searchQuery);
 
   @override
   Widget build(BuildContext context) {
@@ -356,6 +342,35 @@ class PraiseMessage extends StatelessWidget {
 /// como as preferências do leitor.
 const praiseFavoritesPref = 'praise_favorites';
 const praiseRecentPref = 'praise_recent';
+
+/// Liga/desliga a estrela da música (Biblioteca e ⋮ do leitor).
+Future<void> togglePraiseFavorite(String songId) async {
+  try {
+    final p = await SharedPreferences.getInstance();
+    final list = p.getStringList(praiseFavoritesPref) ?? const [];
+    await p.setStringList(
+      praiseFavoritesPref,
+      list.contains(songId)
+          ? [...list.where((id) => id != songId)]
+          : [songId, ...list],
+    );
+  } catch (_) {}
+}
+
+/// Busca da Biblioteca e do seletor do repertório: título, artista ou
+/// trecho da letra (sem os acordes).
+bool praiseSongMatches(PraiseSong s, String query) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return true;
+  final lyrics = s.latest == null
+      ? ''
+      : s.latest!.chordpro.replaceAll(RegExp(r'\[[^\]]*\]|\{[^}]*\}'), '');
+  return [
+    s.title,
+    s.artist ?? '',
+    lyrics,
+  ].any((t) => t.toLowerCase().contains(q));
+}
 
 /// O leitor chama ao abrir: a música vai para o topo de "Recentes" (20).
 Future<void> rememberRecentSong(String songId) async {

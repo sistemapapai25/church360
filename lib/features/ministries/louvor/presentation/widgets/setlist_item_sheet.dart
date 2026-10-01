@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../praise/domain/chord.dart';
 import '../../data/praise_repository.dart';
+import '../louvores_tab.dart';
 import '../providers/praise_providers.dart';
 import 'reader_tools.dart';
 
@@ -118,6 +119,11 @@ class _SetlistItemSheetState extends ConsumerState<_SetlistItemSheet> {
     );
   }
 
+  static String _songLabel(PraiseSong s) =>
+      s.artist == null || s.artist!.isEmpty
+      ? s.title
+      : '${s.title} — ${s.artist}';
+
   @override
   Widget build(BuildContext context) {
     final songs = ref.watch(praiseSongsProvider).valueOrNull ?? const [];
@@ -163,23 +169,34 @@ class _SetlistItemSheetState extends ConsumerState<_SetlistItemSheet> {
               ).copyWith(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
-              initialValue: _songId,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Música'),
-              items: [
+            // §10.4 S7: com a biblioteca crescendo, a lista precisa de busca
+            // (a mesma da Biblioteca: título, artista ou trecho da letra).
+            DropdownMenu<String>(
+              initialSelection: _songId,
+              expandedInsets: EdgeInsets.zero,
+              enableFilter: true,
+              requestFocusOnTap: true,
+              menuHeight: 320,
+              label: const Text('Música'),
+              hintText: 'Buscar por título, artista ou trecho',
+              filterCallback: (entries, q) {
+                // Campo mostrando a escolhida = lista inteira, não só ela.
+                if (song != null && q == _songLabel(song)) return entries;
+                return [
+                  for (final e in entries)
+                    if (praiseSongMatches(
+                      withChords.firstWhere((s) => s.id == e.value),
+                      q,
+                    ))
+                      e,
+                ];
+              },
+              dropdownMenuEntries: [
                 for (final s in withChords)
-                  DropdownMenuItem(
-                    value: s.id,
-                    child: Text(
-                      s.artist == null || s.artist!.isEmpty
-                          ? s.title
-                          : '${s.title} — ${s.artist}',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
+                  DropdownMenuEntry(value: s.id, label: _songLabel(s)),
               ],
-              onChanged: (id) {
+              onSelected: (id) {
+                if (id == null || id == _songId) return;
                 final s = withChords.firstWhere((s) => s.id == id);
                 setState(() => _songId = id);
                 if (s.latest != null) _useVersion(s.latest!);
