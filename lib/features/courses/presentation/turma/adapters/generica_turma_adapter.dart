@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/design/app_icons.dart';
+import '../../../../../core/utils/name_sort.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/widgets/glass_card.dart';
 import '../../../../members/presentation/providers/members_provider.dart';
@@ -96,6 +97,15 @@ final genericaParticipantNamesProvider = FutureProvider<Map<String, String>>((
 String _nameOf(Map<String, String> names, String userId) =>
     names[userId] ?? 'Participante';
 
+/// Em ordem alfabética pelo nome que a tela vai mostrar.
+List<StudyParticipant> _byName(
+  Iterable<StudyParticipant> list,
+  Map<String, String> names,
+) => list.toList()
+  ..sort(
+    (a, b) => compareNames(_nameOf(names, a.userId), _nameOf(names, b.userId)),
+  );
+
 /// Participantes ativos que são alunos (sem líder e co-líder).
 List<StudyParticipant> genericaStudents(List<StudyParticipant> all) => [
   for (final p in all)
@@ -127,10 +137,7 @@ class GenericaParticipantes extends ConsumerWidget {
         onRetry: () => ref.invalidate(groupParticipantsProvider(studyGroupId)),
       ),
       data: (participants) {
-        final active = [
-          for (final p in participants)
-            if (p.isActive) p,
-        ];
+        final active = _byName(participants.where((p) => p.isActive), names);
         if (active.isEmpty) {
           return const TurmaMessage(
             icon: AppIcons.student,
@@ -369,7 +376,7 @@ class _RollSheetState extends ConsumerState<_RollSheet> {
           error: (error, _) =>
               Text('Não foi possível carregar os participantes.', style: meta),
           data: (all) {
-            final students = genericaStudents(all);
+            final students = _byName(genericaStudents(all), names);
             if (students.isEmpty) {
               return Text('Nenhum participante nesta turma.', style: meta);
             }
