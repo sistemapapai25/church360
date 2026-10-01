@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/app_tabs.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../praise/domain/chord_shapes.dart';
 import '../../../praise/domain/chordpro.dart';
@@ -415,171 +416,188 @@ class _EditorState extends ConsumerState<_Editor> {
             ),
         ],
       ),
-      body: !canManage
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'Cadastrar e editar músicas exige a permissão "Gerenciar louvores".',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            )
-          : !_loaded
-          ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _form,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 48),
-                children: [
-                  TextFormField(
-                    controller: _title,
-                    decoration: const InputDecoration(labelText: 'Título *'),
-                    validator: (v) =>
-                        (v ?? '').trim().isEmpty ? 'Informe o título' : null,
-                  ),
-                  TextFormField(
-                    controller: _artist,
-                    decoration: const InputDecoration(
-                      labelText: 'Artista / ministério',
+      body: Align(
+        alignment: Alignment.topCenter,
+        // §10.4 S3: em tela larga o conteúdo não estica de ponta a ponta.
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 960),
+          child: !canManage
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text(
+                      'Cadastrar e editar músicas exige a permissão "Gerenciar louvores".',
+                      textAlign: TextAlign.center,
                     ),
                   ),
-                  TextFormField(
-                    controller: _source,
-                    keyboardType: TextInputType.url,
-                    decoration: const InputDecoration(
-                      labelText: 'Link da cifra original (referência)',
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
+                )
+              : !_loaded
+              ? const Center(child: CircularProgressIndicator())
+              : Form(
+                  key: _form,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 48),
                     children: [
-                      SizedBox(
-                        width: 140,
-                        child: DropdownButtonFormField<String?>(
-                          initialValue: _key,
-                          decoration: const InputDecoration(labelText: 'Tom'),
-                          items: [
-                            const DropdownMenuItem(
-                              value: null,
-                              child: Text('—'),
-                            ),
-                            for (final k in _keys)
-                              DropdownMenuItem(value: k, child: Text(k)),
-                          ],
-                          onChanged: (v) => setState(() => _key = v),
+                      TextFormField(
+                        controller: _title,
+                        decoration: const InputDecoration(
+                          labelText: 'Título *',
+                        ),
+                        validator: (v) => (v ?? '').trim().isEmpty
+                            ? 'Informe o título'
+                            : null,
+                      ),
+                      TextFormField(
+                        controller: _artist,
+                        decoration: const InputDecoration(
+                          labelText: 'Artista / ministério',
                         ),
                       ),
-                      SizedBox(
-                        width: 110,
-                        child: DropdownButtonFormField<int>(
-                          initialValue: _capo,
-                          decoration: const InputDecoration(labelText: 'Capo'),
-                          items: [
-                            for (var i = 0; i <= 11; i++)
-                              DropdownMenuItem(
-                                value: i,
-                                child: Text(i == 0 ? 'Sem' : '$i'),
+                      TextFormField(
+                        controller: _source,
+                        keyboardType: TextInputType.url,
+                        decoration: const InputDecoration(
+                          labelText: 'Link da cifra original (referência)',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 8,
+                        children: [
+                          SizedBox(
+                            width: 140,
+                            child: DropdownButtonFormField<String?>(
+                              initialValue: _key,
+                              decoration: const InputDecoration(
+                                labelText: 'Tom',
                               ),
+                              items: [
+                                const DropdownMenuItem(
+                                  value: null,
+                                  child: Text('—'),
+                                ),
+                                for (final k in _keys)
+                                  DropdownMenuItem(value: k, child: Text(k)),
+                              ],
+                              onChanged: (v) => setState(() => _key = v),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 110,
+                            child: DropdownButtonFormField<int>(
+                              initialValue: _capo,
+                              decoration: const InputDecoration(
+                                labelText: 'Capo',
+                              ),
+                              items: [
+                                for (var i = 0; i <= 11; i++)
+                                  DropdownMenuItem(
+                                    value: i,
+                                    child: Text(i == 0 ? 'Sem' : '$i'),
+                                  ),
+                              ],
+                              onChanged: (v) => setState(() => _capo = v ?? 0),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 110,
+                            child: TextFormField(
+                              controller: _bpm,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'BPM',
+                              ),
+                              validator: (v) {
+                                final t = (v ?? '').trim();
+                                if (t.isEmpty) return null;
+                                final n = int.tryParse(t);
+                                return n == null || n < 20 || n > 400
+                                    ? '20 a 400'
+                                    : null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      AppTabs(
+                        tabs: const [
+                          AppTab(label: 'Cifra'),
+                          AppTab(label: 'Prévia'),
+                        ],
+                        selectedIndex: _preview ? 1 : 0,
+                        onChanged: (i) => setState(() => _preview = i == 1),
+                      ),
+                      const SizedBox(height: 8),
+                      if (_preview)
+                        ChordProView(
+                          source: chordsOverLyricsToChordPro(_chords.text),
+                        )
+                      else ...[
+                        Text(
+                          'Cole a cifra como vem do site (acordes em cima da letra) '
+                          'ou em ChordPro. Rótulos como [Refrão] viram título de seção.',
+                          style: CommunityDesign.metaStyle(context),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _chords,
+                          minLines: 12,
+                          maxLines: null,
+                          style: const TextStyle(fontFamily: 'monospace'),
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            alignLabelWithHint: true,
+                          ),
+                          validator: (v) => (v ?? '').trim().isEmpty
+                              ? 'A cifra não pode ficar vazia'
+                              : null,
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            OutlinedButton.icon(
+                              icon: const Icon(AppIcons.upload),
+                              label: const Text('Importar arquivo'),
+                              onPressed: _importFile,
+                            ),
+                            OutlinedButton.icon(
+                              icon: const Text('↓↑'),
+                              label: const Text('Inserir batida'),
+                              onPressed: _insertStrum,
+                            ),
+                            OutlinedButton.icon(
+                              icon: const Icon(AppIcons.drums),
+                              label: const Text('Inserir bateria'),
+                              onPressed: _insertDrums,
+                            ),
+                            OutlinedButton.icon(
+                              icon: const Icon(AppIcons.edit),
+                              label: const Text(
+                                'Corrigir linha p/ instrumento',
+                              ),
+                              onPressed: _insertFix,
+                            ),
                           ],
-                          onChanged: (v) => setState(() => _capo = v ?? 0),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 110,
-                        child: TextFormField(
-                          controller: _bpm,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'BPM'),
-                          validator: (v) {
-                            final t = (v ?? '').trim();
-                            if (t.isEmpty) return null;
-                            final n = int.tryParse(t);
-                            return n == null || n < 20 || n > 400
-                                ? '20 a 400'
-                                : null;
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  SegmentedButton<bool>(
-                    segments: const [
-                      ButtonSegment(value: false, label: Text('Cifra')),
-                      ButtonSegment(value: true, label: Text('Prévia')),
-                    ],
-                    selected: {_preview},
-                    onSelectionChanged: (s) =>
-                        setState(() => _preview = s.first),
-                  ),
-                  const SizedBox(height: 8),
-                  if (_preview)
-                    ChordProView(
-                      source: chordsOverLyricsToChordPro(_chords.text),
-                    )
-                  else ...[
-                    Text(
-                      'Cole a cifra como vem do site (acordes em cima da letra) '
-                      'ou em ChordPro. Rótulos como [Refrão] viram título de seção.',
-                      style: CommunityDesign.metaStyle(context),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _chords,
-                      minLines: 12,
-                      maxLines: null,
-                      style: const TextStyle(fontFamily: 'monospace'),
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        alignLabelWithHint: true,
-                      ),
-                      validator: (v) => (v ?? '').trim().isEmpty
-                          ? 'A cifra não pode ficar vazia'
-                          : null,
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        OutlinedButton.icon(
-                          icon: const Icon(AppIcons.upload),
-                          label: const Text('Importar arquivo'),
-                          onPressed: _importFile,
-                        ),
-                        OutlinedButton.icon(
-                          icon: const Text('↓↑'),
-                          label: const Text('Inserir batida'),
-                          onPressed: _insertStrum,
-                        ),
-                        OutlinedButton.icon(
-                          icon: const Icon(AppIcons.drums),
-                          label: const Text('Inserir bateria'),
-                          onPressed: _insertDrums,
-                        ),
-                        OutlinedButton.icon(
-                          icon: const Icon(AppIcons.edit),
-                          label: const Text('Corrigir linha p/ instrumento'),
-                          onPressed: _insertFix,
                         ),
                       ],
-                    ),
-                  ],
-                  if (editing) ...[
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _note,
-                      decoration: const InputDecoration(
-                        labelText: 'O que mudou nesta versão (opcional)',
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+                      if (editing) ...[
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _note,
+                          decoration: const InputDecoration(
+                            labelText: 'O que mudou nesta versão (opcional)',
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+        ),
+      ),
     );
   }
 }

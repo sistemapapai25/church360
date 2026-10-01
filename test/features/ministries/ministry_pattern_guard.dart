@@ -38,7 +38,19 @@ const String _workspaceShellFile = 'ministry_workspace_shell.dart';
 /// Está vazio de propósito. Uma exceção nova entra aqui **com o motivo
 /// escrito**, e não afrouxando a regra: a régua serve justamente para que o
 /// desvio fique visível em diff.
-const Map<String, Map<String, String>> patternExemptions = {};
+const Map<String, Map<String, String>> patternExemptions = {
+  'abas-fora-do-shell': {
+    // §10.4 S1 de LOUVORES-CIFRACLUB-REFERENCIA.md: sub-navegação interna
+    // (Repertórios/Biblioteca, Cifra/Prévia, modos do leitor), não abas do
+    // ministério. Mesma pílula de Cursos e Turma.
+    'louvor/presentation/louvores_tab.dart':
+        'sub-navegação Repertórios/Biblioteca/Recebidos',
+    'louvor/presentation/praise_song_editor_screen.dart':
+        'Cifra/Prévia do editor',
+    'louvor/presentation/praise_song_reader_screen.dart':
+        'modos Cifra/Simplificada/Só letra do leitor',
+  },
+};
 
 /// Um desvio do padrão, já com endereço.
 class MinistryPatternViolation {

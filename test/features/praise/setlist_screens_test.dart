@@ -484,5 +484,27 @@ void main() {
     );
     await t.pumpAndSettle();
     expect(find.text('Louvores'), findsOneWidget);
+
+    // Recebida entra logo depois de Escala, não no fim.
+    MinistryWorkspaceTab tab(String label, String key) =>
+        MinistryWorkspaceTab(label: label, key: key, builder: (_) => Text(key));
+    await t.pumpWidget(const SizedBox());
+    await t.pumpWidget(
+      shell(
+        [
+          tab('Equipe', MinistryTabKeys.equipe),
+          tab('Escala', MinistryTabKeys.escala),
+          tab('Financeiro', MinistryTabKeys.financeiro),
+        ],
+        [_setlistWith('published')],
+      ),
+    );
+    await t.pumpAndSettle();
+    final x = {
+      for (final l in ['Escala', 'Louvores', 'Financeiro'])
+        l: t.getTopLeft(find.text(l)).dx,
+    };
+    expect(x['Escala']! < x['Louvores']!, isTrue);
+    expect(x['Louvores']! < x['Financeiro']!, isTrue);
   });
 }

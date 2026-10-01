@@ -1118,3 +1118,53 @@ class _SectionPlayerBarState extends State<SectionPlayerBar>
     );
   }
 }
+
+/// [−] conteúdo [+] num contorno de pílula: o único desenho de "− valor +"
+/// de Louvores (§10.4 S5), fora o do painel escuro do metrônomo.
+class PillStepper extends StatelessWidget {
+  final VoidCallback? onMinus;
+  final VoidCallback? onPlus;
+  final String minusTooltip;
+  final String plusTooltip;
+  final IconData minusIcon;
+  final IconData plusIcon;
+  final Widget? child;
+
+  const PillStepper({
+    super.key,
+    required this.onMinus,
+    required this.onPlus,
+    required this.minusTooltip,
+    required this.plusTooltip,
+    this.minusIcon = AppIcons.remove,
+    this.plusIcon = AppIcons.add,
+    this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: ShapeDecoration(
+        shape: StadiumBorder(
+          side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: minusTooltip,
+            icon: Icon(minusIcon),
+            onPressed: onMinus,
+          ),
+          ?child,
+          IconButton(
+            tooltip: plusTooltip,
+            icon: Icon(plusIcon),
+            onPressed: onPlus,
+          ),
+        ],
+      ),
+    );
+  }
+}

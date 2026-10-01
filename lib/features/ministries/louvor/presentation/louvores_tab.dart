@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/app_filter_bar.dart';
+import '../../../../core/widgets/app_tabs.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../data/praise_repository.dart';
 import 'praise_received_view.dart';
@@ -15,8 +16,8 @@ import 'providers/praise_providers.dart';
 
 /// Aba Louvores: repertórios do ministério e a biblioteca da igreja (que é
 /// do tenant, não do ministério — qualquer ministério de tipo louvor abre a
-/// mesma lista). Os dois lados num `SegmentedButton`: abas aqui dentro a
-/// régua do padrão de ministério não aceita.
+/// mesma lista). Os lados são sub-navegação em `AppTabs`, a mesma pílula de
+/// Cursos e Turma (exceção registrada na régua do padrão de ministério).
 class LouvoresTab extends ConsumerStatefulWidget {
   final String ministryId;
 
@@ -135,32 +136,35 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
                 ?.isNotEmpty ??
             false;
         final side = !received && _side == 2 ? 0 : _side;
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: SegmentedButton<int>(
-                  segments: [
-                    const ButtonSegment(value: 0, label: Text('Repertórios')),
-                    const ButtonSegment(value: 1, label: Text('Biblioteca')),
-                    if (received)
-                      const ButtonSegment(value: 2, label: Text('Recebidos')),
-                  ],
-                  selected: {side},
-                  onSelectionChanged: (v) => setState(() => _side = v.first),
+        return Align(
+          alignment: Alignment.topCenter,
+          // §10.4 S3: em tela larga o conteúdo não estica de ponta a ponta.
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 960),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  child: AppTabs(
+                    tabs: [
+                      const AppTab(label: 'Repertórios'),
+                      const AppTab(label: 'Biblioteca'),
+                      if (received) const AppTab(label: 'Recebidos'),
+                    ],
+                    selectedIndex: side,
+                    onChanged: (i) => setState(() => _side = i),
+                  ),
                 ),
-              ),
+                Expanded(
+                  child: switch (side) {
+                    0 => PraiseSetlistsView(ministryId: widget.ministryId),
+                    1 => _library(access.canManage),
+                    _ => PraiseReceivedView(ministryId: widget.ministryId),
+                  },
+                ),
+              ],
             ),
-            Expanded(
-              child: switch (side) {
-                0 => PraiseSetlistsView(ministryId: widget.ministryId),
-                1 => _library(access.canManage),
-                _ => PraiseReceivedView(ministryId: widget.ministryId),
-              },
-            ),
-          ],
+          ),
         );
       },
     );

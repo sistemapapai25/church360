@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../praise/domain/chord.dart';
 import '../../data/praise_repository.dart';
 import '../providers/praise_providers.dart';
+import 'reader_tools.dart';
 
 /// Folha "Adicionar ao repertório" (canvas, tela 7). Com [initial], edita o
 /// item. [songIds] = músicas já no repertório, na ordem, para avisar de
@@ -224,25 +224,21 @@ class _SetlistItemSheetState extends ConsumerState<_SetlistItemSheet> {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    IconButton.outlined(
-                      tooltip: 'Meio tom abaixo',
-                      icon: const Icon(AppIcons.remove),
-                      onPressed: () => setState(() => _semitones--),
-                    ),
-                    SizedBox(
-                      width: 64,
-                      child: Text(
-                        _selectedKey ?? original,
-                        textAlign: TextAlign.center,
-                        style: CommunityDesign.titleStyle(
-                          context,
-                        ).copyWith(fontSize: 22, fontWeight: FontWeight.w800),
+                    PillStepper(
+                      onMinus: () => setState(() => _semitones--),
+                      onPlus: () => setState(() => _semitones++),
+                      minusTooltip: 'Meio tom abaixo',
+                      plusTooltip: 'Meio tom acima',
+                      child: SizedBox(
+                        width: 56,
+                        child: Text(
+                          _selectedKey ?? original,
+                          textAlign: TextAlign.center,
+                          style: CommunityDesign.titleStyle(
+                            context,
+                          ).copyWith(fontSize: 20, fontWeight: FontWeight.w800),
+                        ),
                       ),
-                    ),
-                    IconButton.outlined(
-                      tooltip: 'Meio tom acima',
-                      icon: const Icon(AppIcons.add),
-                      onPressed: () => setState(() => _semitones++),
                     ),
                     const SizedBox(width: 8),
                     Expanded(

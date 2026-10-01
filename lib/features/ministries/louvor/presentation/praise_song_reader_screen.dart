@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../../core/design/app_icons.dart';
+import '../../../../core/widgets/app_tabs.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/file_download.dart';
@@ -918,6 +919,9 @@ class _ReaderState extends ConsumerState<_Reader>
             child: const Text('Cancelar'),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Arquivar'),
           ),
@@ -1158,25 +1162,26 @@ class _ReaderState extends ConsumerState<_Reader>
     final noChords = _lyricsOnly || _instrument.isDrums;
     final pinned = !noChords && _diagramsStart && _diagramsPinned;
     // Principal / Simplificada / Letra (CifraClub §1.2).
-    final lyricsToggle = SegmentedButton<int>(
-      showSelectedIcon: false,
-      segments: const [
-        ButtonSegment(value: 0, label: Text('Cifra')),
-        ButtonSegment(value: 1, label: Text('Simplificada')),
-        ButtonSegment(value: 2, label: Text('Só letra')),
-      ],
-      selected: {
-        _lyricsOnly
+    // AppTabs ocupa a largura toda: no Wrap da barra ele divide a linha.
+    final lyricsToggle = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 380),
+      child: AppTabs(
+        tabs: const [
+          AppTab(label: 'Cifra'),
+          AppTab(label: 'Simplificada'),
+          AppTab(label: 'Só letra'),
+        ],
+        selectedIndex: _lyricsOnly
             ? 2
             : _simplified
             ? 1
             : 0,
-      },
-      onSelectionChanged: (v) {
-        _simplified = v.first == 1;
-        _setLyricsOnly(v.first == 2);
-        _savePrefs();
-      },
+        onChanged: (i) {
+          _simplified = i == 1;
+          _setLyricsOnly(i == 2);
+          _savePrefs();
+        },
+      ),
     );
 
     final scrolling = _autoScroll.isActive;
@@ -1192,7 +1197,7 @@ class _ReaderState extends ConsumerState<_Reader>
             icon: Icon(scrolling ? AppIcons.pause : AppIcons.playArrow),
             onPressed: () => _setAutoScroll(!scrolling),
           ),
-          _PillStepper(
+          PillStepper(
             onMinus: _autoSpeed > 1
                 ? () => _setAutoSpeed(_autoSpeed - 1)
                 : null,
@@ -1239,7 +1244,7 @@ class _ReaderState extends ConsumerState<_Reader>
             lyricsToggle,
             // Controles pequenos em pílula (referência CifraClub §1.6).
             if (!_lyricsOnly)
-              _PillStepper(
+              PillStepper(
                 onMinus: () => setState(() => _semitones--),
                 onPlus: () => setState(() => _semitones++),
                 minusTooltip: 'Meio tom abaixo',
@@ -1256,7 +1261,7 @@ class _ReaderState extends ConsumerState<_Reader>
                   ),
                 ),
               ),
-            _PillStepper(
+            PillStepper(
               onMinus: _fontSize > 11
                   ? () => setState(() => _fontSize--)
                   : null,
@@ -1477,54 +1482,6 @@ class _ReaderState extends ConsumerState<_Reader>
   }
 }
 
-/// [−] conteúdo [+] num contorno de pílula.
-class _PillStepper extends StatelessWidget {
-  final VoidCallback? onMinus;
-  final VoidCallback? onPlus;
-  final String minusTooltip;
-  final String plusTooltip;
-  final IconData minusIcon;
-  final IconData plusIcon;
-  final Widget? child;
-
-  const _PillStepper({
-    required this.onMinus,
-    required this.onPlus,
-    required this.minusTooltip,
-    required this.plusTooltip,
-    this.minusIcon = AppIcons.remove,
-    this.plusIcon = AppIcons.add,
-    this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: ShapeDecoration(
-        shape: StadiumBorder(
-          side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: minusTooltip,
-            icon: Icon(minusIcon),
-            onPressed: onMinus,
-          ),
-          ?child,
-          IconButton(
-            tooltip: plusTooltip,
-            icon: Icon(plusIcon),
-            onPressed: onPlus,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Faixa dos acordes da música (referência CifraClub §1.3): um cartão por
 /// acorde, refeita quando o tom ou o instrumento mudam. Toque abre o painel.
 class _ChordStrip extends StatelessWidget {
@@ -1606,21 +1563,28 @@ class _SetlistNav extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
         child: Row(
           children: [
+            // Sem anterior/próxima não fica botão vazio (§10.4 S11).
             Expanded(
-              child: OutlinedButton.icon(
-                icon: const Icon(AppIcons.chevronLeft),
-                label: const Text('Anterior'),
-                onPressed: prev == null ? null : () => _go(context, prev),
-              ),
+              child: prev == null
+                  ? const SizedBox.shrink()
+                  : OutlinedButton.icon(
+                      icon: const Icon(AppIcons.chevronLeft),
+                      label: const Text('Anterior'),
+                      onPressed: () => _go(context, prev),
+                    ),
             ),
             const SizedBox(width: 10),
             Expanded(
               flex: 2,
-              child: OutlinedButton(
-                onPressed: next == null ? null : () => _go(context, next),
-                child: next == null
-                    ? const Text('Última música')
-                    : Row(
+              child: next == null
+                  ? Text(
+                      'Última música do repertório',
+                      textAlign: TextAlign.center,
+                      style: CommunityDesign.metaStyle(context),
+                    )
+                  : OutlinedButton(
+                      onPressed: () => _go(context, next),
+                      child: Row(
                         children: [
                           Expanded(
                             child: Column(
@@ -1645,7 +1609,7 @@ class _SetlistNav extends StatelessWidget {
                           const Icon(AppIcons.forward, size: 18),
                         ],
                       ),
-              ),
+                    ),
             ),
           ],
         ),

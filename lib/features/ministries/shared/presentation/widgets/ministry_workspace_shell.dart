@@ -256,15 +256,23 @@ class _MinistryWorkspaceShellState
                   .valueOrNull
                   ?.isNotEmpty ??
               false;
-    final tabs = [
-      ...widget.tabs,
-      if (received)
+    // Posição PADRÃO: logo depois de Escala (ou no fim, sem Escala), igual
+    // ao ministério de louvor. Não é trava: a distribuição por usuário que
+    // vem depois reordena por cima.
+    final escala = widget.tabs.indexWhere(
+      (t) => t.key == MinistryTabKeys.escala,
+    );
+    final tabs = [...widget.tabs];
+    if (received) {
+      tabs.insert(
+        escala < 0 ? tabs.length : escala + 1,
         MinistryWorkspaceTab(
           label: 'Louvores',
           key: MinistryTabKeys.louvores,
           builder: (_) => PraiseReceivedView(ministryId: widget.ministryId),
         ),
-    ];
+      );
+    }
     if (tabs.isNotEmpty && _selected >= tabs.length) {
       _selected = tabs.length - 1;
     }
