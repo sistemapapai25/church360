@@ -232,6 +232,7 @@ class _ReaderState extends ConsumerState<_Reader>
     super.initState();
     _loadInstrument();
     _scroll.addListener(_trackStrum);
+    rememberRecentSong(widget.songId);
     final item = _item;
     if (item != null) {
       // A versão e o tom do repertório, não os da biblioteca.

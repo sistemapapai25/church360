@@ -313,6 +313,24 @@ class PraiseRepository {
     return [for (final r in rows) PraiseSong.fromJson(r)];
   }
 
+  /// Em quantos repertórios cada música entrou (música → repertórios
+  /// distintos), para "Mais usadas". Revisões do mesmo repertório contam 1.
+  Future<Map<String, int>> songUsage() async {
+    final rows = await _db
+        .from('praise_setlist_item')
+        .select(
+          'praise_song_version(song_id), praise_setlist_revision(setlist_id)',
+        );
+    final seen = <String, Set<String>>{};
+    for (final r in rows) {
+      final song = (r['praise_song_version'] as Map?)?['song_id'] as String?;
+      final list =
+          (r['praise_setlist_revision'] as Map?)?['setlist_id'] as String?;
+      if (song != null && list != null) (seen[song] ??= {}).add(list);
+    }
+    return {for (final e in seen.entries) e.key: e.value.length};
+  }
+
   Future<PraiseSong?> getSong(String songId) async {
     final row = await _db
         .from('praise_song')

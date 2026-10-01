@@ -17,6 +17,10 @@ final praiseSongsProvider = FutureProvider<List<PraiseSong>>(
   (ref) => ref.watch(praiseRepositoryProvider).listSongs(),
 );
 
+final praiseUsageProvider = FutureProvider<Map<String, int>>(
+  (ref) => ref.watch(praiseRepositoryProvider).songUsage(),
+);
+
 final praiseSongProvider = FutureProvider.family<PraiseSong?, String>(
   (ref, songId) => ref.watch(praiseRepositoryProvider).getSong(songId),
 );
