@@ -1,8 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:record/record.dart';
 
@@ -11,52 +12,179 @@ import '../../../../../core/design/community_design.dart';
 import '../../../../praise/domain/chord.dart';
 import '../../../../praise/domain/pitch.dart';
 
-/// Cartão flutuante dos painéis do leitor (print 13 do CifraClub).
+/// Fundo escuro fixo dos painéis (cara de aparelho, como no print 13), igual
+/// nos dois temas.
+const _panelBg = Color(0xFF16161A);
+const _panelFg = Colors.white;
+const _inTune = Color(0xFF4ADE80);
+
+/// Painel flutuante do leitor, arrastável pelo cabeçalho como o círculo do
+/// suporte. Tem que ser filho direto do `Stack` do leitor; [area] é o tamanho
+/// desse `Stack`, para não deixar o painel sair da tela.
+class FloatingTool extends StatefulWidget {
+  final Size area;
+
+  /// Distância inicial da borda direita e de baixo.
+  final Offset initial;
+  final Widget child;
+
+  const FloatingTool({
+    super.key,
+    required this.area,
+    required this.initial,
+    required this.child,
+  });
+
+  @override
+  State<FloatingTool> createState() => _FloatingToolState();
+}
+
+class _FloatingToolState extends State<FloatingTool> {
+  late Offset _pos = widget.initial;
+
+  /// Sempre sobra o cabeçalho visível para puxar o painel de volta.
+  Offset get _clamped {
+    final a = widget.area;
+    return Offset(
+      _pos.dx.clamp(0.0, math.max(0.0, a.width - _toolWidth)).toDouble(),
+      _pos.dy.clamp(0.0, math.max(0.0, a.height - 56)).toDouble(),
+    );
+  }
+
+  // Lê o estado na hora (não na build): o cabeçalho guarda este callback.
+  void _drag(Offset d) => setState(() => _pos = _clamped - d);
+
+  @override
+  Widget build(BuildContext context) {
+    final p = _clamped;
+    return Positioned(
+      right: p.dx,
+      bottom: p.dy,
+      child: _DragScope(onDrag: _drag, child: widget.child),
+    );
+  }
+}
+
+/// Repassa o arrasto do cabeçalho do [_FloatingCard] para o [FloatingTool].
+class _DragScope extends InheritedWidget {
+  final ValueChanged<Offset> onDrag;
+
+  const _DragScope({required this.onDrag, required super.child});
+
+  @override
+  bool updateShouldNotify(_DragScope old) => false;
+}
+
+const _toolWidth = 288.0;
+
 class _FloatingCard extends StatelessWidget {
   final String title;
   final VoidCallback onClose;
   final Widget child;
+  final Color? border;
 
   const _FloatingCard({
     required this.title,
     required this.onClose,
     required this.child,
+    this.border,
   });
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final drag = context.dependOnInheritedWidgetOfExactType<_DragScope>();
     return Material(
-      elevation: 6,
-      color: scheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(CommunityDesign.radius),
-      child: SizedBox(
-        width: 280,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 4, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: CommunityDesign.titleStyle(context),
+      elevation: 10,
+      color: _panelBg,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(CommunityDesign.radius),
+        side: BorderSide(
+          color: border ?? Colors.white12,
+          width: border == null ? 1 : 2,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: DefaultTextStyle.merge(
+        style: const TextStyle(color: _panelFg),
+        child: IconTheme.merge(
+          data: const IconThemeData(color: _panelFg),
+          child: SizedBox(
+            width: _toolWidth,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                MouseRegion(
+                  cursor: drag == null
+                      ? MouseCursor.defer
+                      : SystemMouseCursors.move,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanUpdate: drag == null
+                        ? null
+                        : (d) => drag.onDrag(d.delta),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 2, 2, 0),
+                      child: Row(
+                        children: [
+                          if (drag != null)
+                            const Padding(
+                              padding: EdgeInsets.only(right: 6),
+                              child: Icon(
+                                AppIcons.dragHandle,
+                                size: 18,
+                                color: Colors.white38,
+                              ),
+                            ),
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Fechar',
+                            icon: const Icon(AppIcons.close, size: 20),
+                            onPressed: onClose,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Fechar',
-                    icon: const Icon(AppIcons.close),
-                    onPressed: onClose,
-                  ),
-                ],
-              ),
-              Padding(padding: const EdgeInsets.only(right: 12), child: child),
-            ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: child,
+                ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Botão redondo de − / + dos painéis.
+class _RoundButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  const _RoundButton(this.icon, this.tooltip, this.onPressed);
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton.outlined(
+      tooltip: tooltip,
+      icon: Icon(icon),
+      style: IconButton.styleFrom(
+        foregroundColor: _panelFg,
+        side: const BorderSide(color: Colors.white24),
+      ),
+      onPressed: onPressed,
     );
   }
 }
@@ -91,6 +219,12 @@ Uint8List _click(double hz) {
   }
   return data.buffer.asUint8List();
 }
+
+/// O audioplayers_web 4.x não implementa `BytesSource` (falha calado): no web
+/// o WAV vai como data URI.
+Source _source(Uint8List wav) => kIsWeb
+    ? UrlSource('data:audio/wav;base64,${base64Encode(wav)}')
+    : BytesSource(wav);
 
 /// Metrônomo: bolinhas 1-2-3-4 (o 1 acentuado), BPM grande e Iniciar.
 class MetronomePanel extends StatefulWidget {
@@ -136,8 +270,12 @@ class _MetronomePanelState extends State<MetronomePanel> {
     if (!_loaded) {
       _loaded = true;
       try {
-        await _accent.setSource(BytesSource(_click(1760)));
-        await _tick.setSource(BytesSource(_click(1175)));
+        for (final (p, hz) in [(_accent, 1760.0), (_tick, 1175.0)]) {
+          // `release` (o padrão) solta o som ao fim de cada clique e os
+          // seguintes saem mudos.
+          await p.setReleaseMode(ReleaseMode.stop);
+          await p.setSource(_source(_click(hz)));
+        }
       } catch (_) {
         // Sem som o metrônomo segue piscando.
       }
@@ -169,7 +307,8 @@ class _MetronomePanelState extends State<MetronomePanel> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final accent = Theme.of(context).colorScheme.primary;
+    final running = _timer != null;
     return _FloatingCard(
       title: 'Metrônomo',
       onClose: widget.onClose,
@@ -180,60 +319,97 @@ class _MetronomePanelState extends State<MetronomePanel> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               for (var i = 0; i < _beats; i++)
-                Container(
-                  margin: const EdgeInsets.all(5),
-                  width: 26,
-                  height: 26,
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 80),
+                  margin: const EdgeInsets.symmetric(horizontal: 6),
+                  width: 28,
+                  height: 28,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: i == _beat
-                        ? scheme.primary
-                        : scheme.surfaceContainerHighest,
+                    color: i == _beat ? accent : Colors.white10,
+                    border: i == 0 && i != _beat
+                        ? Border.all(color: accent.withValues(alpha: 0.6))
+                        : null,
                   ),
                   child: Text(
                     '${i + 1}',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: i == _beat ? scheme.onPrimary : null,
+                      color: i == _beat ? Colors.white : Colors.white60,
                     ),
                   ),
                 ),
             ],
           ),
+          const SizedBox(height: 8),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              IconButton(
-                tooltip: 'Mais devagar',
-                icon: const Icon(AppIcons.remove),
-                onPressed: () => _setBpm(_bpm - 1),
+              _RoundButton(
+                AppIcons.remove,
+                'Mais devagar',
+                () => _setBpm(_bpm - 1),
               ),
-              Text(
-                '$_bpm',
-                style: CommunityDesign.titleStyle(
-                  context,
-                ).copyWith(fontSize: 40),
+              Expanded(
+                child: Column(
+                  children: [
+                    Text(
+                      '$_bpm',
+                      style: const TextStyle(
+                        fontSize: 64,
+                        height: 1,
+                        fontWeight: FontWeight.w800,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    const Text(
+                      'BPM',
+                      style: TextStyle(
+                        fontSize: 12,
+                        letterSpacing: 2,
+                        color: Colors.white54,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 4),
-              Text('BPM', style: CommunityDesign.metaStyle(context)),
-              IconButton(
-                tooltip: 'Mais rápido',
-                icon: const Icon(AppIcons.add),
-                onPressed: () => _setBpm(_bpm + 1),
+              _RoundButton(
+                AppIcons.add,
+                'Mais rápido',
+                () => _setBpm(_bpm + 1),
               ),
             ],
           ),
-          Slider(
-            value: _bpm.toDouble(),
-            min: 30,
-            max: 240,
-            onChanged: (v) => _setBpm(v.round()),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: accent,
+              thumbColor: accent,
+              inactiveTrackColor: Colors.white12,
+            ),
+            child: Slider(
+              value: _bpm.toDouble(),
+              min: 30,
+              max: 240,
+              onChanged: (v) => _setBpm(v.round()),
+            ),
           ),
-          FilledButton(
-            onPressed: _toggle,
-            child: Text(_timer == null ? 'Iniciar' : 'Parar'),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: running ? Colors.white12 : accent,
+                foregroundColor: Colors.white,
+                shape: const StadiumBorder(),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              onPressed: _toggle,
+              child: Text(running ? 'Parar' : 'Iniciar'),
+            ),
           ),
         ],
       ),
@@ -320,36 +496,49 @@ class _TunerPanelState extends State<TunerPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final meta = CommunityDesign.metaStyle(context);
+    const dim = TextStyle(color: Colors.white54, fontSize: 13);
     final hz = _hz;
     final near = hz == null ? null : nearestNote(hz);
     final inTune = near != null && near.cents.abs() < 5;
+    final off = Theme.of(context).colorScheme.error;
 
     return _FloatingCard(
       title: 'Afinador',
       onClose: widget.onClose,
+      border: inTune ? _inTune : null,
       child: !_listening
           ? Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'O afinador ouve o instrumento pelo microfone do aparelho.',
+                const SizedBox(height: 8),
+                const Icon(AppIcons.microphone, size: 36),
+                const SizedBox(height: 8),
+                const Text(
+                  'Precisamos acessar seu microfone para ouvir o instrumento.',
                   textAlign: TextAlign.center,
-                  style: meta,
                 ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  icon: const Icon(AppIcons.microphone),
-                  label: const Text('Habilitar meu microfone'),
-                  onPressed: _start,
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white70),
+                      shape: const StadiumBorder(),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    onPressed: _start,
+                    child: const Text('Habilitar meu microfone'),
+                  ),
                 ),
                 if (_error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       _error!,
-                      style: meta.copyWith(color: scheme.error),
+                      textAlign: TextAlign.center,
+                      style: dim.copyWith(color: off),
                     ),
                   ),
               ],
@@ -359,6 +548,7 @@ class _TunerPanelState extends State<TunerPanel> {
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     for (var d = -2; d <= 2; d++)
                       Text(
@@ -366,49 +556,61 @@ class _TunerPanelState extends State<TunerPanel> {
                             ? (d == 0 ? '–' : '')
                             : Chord.noteName(near.semitone + d),
                         style: d == 0
-                            ? CommunityDesign.titleStyle(context).copyWith(
-                                fontSize: 36,
-                                color: inTune ? scheme.primary : null,
+                            ? TextStyle(
+                                fontSize: 56,
+                                height: 1.1,
+                                fontWeight: FontWeight.w800,
+                                color: inTune ? _inTune : Colors.white,
                               )
-                            : meta.copyWith(fontSize: 16),
+                            : TextStyle(
+                                fontSize: d.abs() == 1 ? 20 : 16,
+                                color: d.abs() == 1
+                                    ? Colors.white38
+                                    : Colors.white24,
+                              ),
                       ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                // Ponteiro: centro = afinado; esquerda = baixo, direita = alto.
+                Text(
+                  hz == null
+                      ? 'Toque uma corda'
+                      : '${hz.toStringAsFixed(1)} Hz',
+                  style: dim,
+                ),
+                const SizedBox(height: 12),
+                // Régua de −50 a +50 cents: centro = afinado; esquerda =
+                // baixo, direita = alto.
                 LayoutBuilder(
                   builder: (context, c) {
+                    final w = c.maxWidth;
                     final x = near == null
-                        ? c.maxWidth / 2
-                        : c.maxWidth / 2 + near.cents / 50 * (c.maxWidth / 2);
+                        ? w / 2
+                        : w / 2 + near.cents.clamp(-50, 50) / 50 * (w / 2);
                     return SizedBox(
-                      height: 24,
+                      height: 40,
                       child: Stack(
                         children: [
-                          Positioned.fill(
-                            child: Center(
+                          for (var i = 0; i <= 10; i++)
+                            Positioned(
+                              left: w * i / 10 - 1,
+                              top: i == 5 ? 4 : (i.isEven ? 12 : 16),
                               child: Container(
-                                height: 4,
-                                color: scheme.surfaceContainerHighest,
+                                width: 2,
+                                height: i == 5 ? 28 : (i.isEven ? 14 : 8),
+                                color: i == 5 ? Colors.white70 : Colors.white24,
                               ),
                             ),
-                          ),
-                          Positioned(
-                            left: c.maxWidth / 2 - 1,
-                            top: 0,
-                            bottom: 0,
-                            child: Container(width: 2, color: scheme.outline),
-                          ),
                           if (near != null)
-                            Positioned(
-                              left: x.clamp(0, c.maxWidth) - 6,
-                              top: 6,
+                            AnimatedPositioned(
+                              duration: const Duration(milliseconds: 120),
+                              left: x - 2,
+                              top: 0,
                               child: Container(
-                                width: 12,
-                                height: 12,
+                                width: 4,
+                                height: 36,
                                 decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: inTune ? scheme.primary : scheme.error,
+                                  color: inTune ? _inTune : off,
+                                  borderRadius: BorderRadius.circular(2),
                                 ),
                               ),
                             ),
@@ -417,15 +619,28 @@ class _TunerPanelState extends State<TunerPanel> {
                     );
                   },
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  near == null
-                      ? 'Toque uma corda'
-                      : '${hz!.toStringAsFixed(1)} Hz · '
-                            '${near.cents >= 0 ? '+' : ''}${near.cents.round()} cents',
-                  style: meta,
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Text('♭', style: dim),
+                    Expanded(
+                      child: Text(
+                        near == null
+                            ? 'Lá = 440 Hz'
+                            : inTune
+                            ? 'Afinado'
+                            : '${near.cents >= 0 ? '+' : ''}'
+                                  '${near.cents.round()} cents',
+                        textAlign: TextAlign.center,
+                        style: dim.copyWith(
+                          color: inTune ? _inTune : null,
+                          fontWeight: inTune ? FontWeight.w700 : null,
+                        ),
+                      ),
+                    ),
+                    const Text('♯', style: dim),
+                  ],
                 ),
-                Text('Lá = 440 Hz', style: meta.copyWith(fontSize: 11)),
               ],
             ),
     );
