@@ -7,12 +7,13 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/app_filter_bar.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../data/praise_repository.dart';
+import 'praise_setlists_view.dart';
 import 'providers/praise_providers.dart';
 
-/// Aba Louvores: a biblioteca da igreja (é do tenant, não do ministério —
-/// qualquer ministério de tipo louvor abre a mesma lista).
-///
-/// Repertórios entram na Fase C.
+/// Aba Louvores: repertórios do ministério e a biblioteca da igreja (que é
+/// do tenant, não do ministério — qualquer ministério de tipo louvor abre a
+/// mesma lista). Os dois lados num `SegmentedButton`: abas aqui dentro a
+/// régua do padrão de ministério não aceita.
 class LouvoresTab extends ConsumerStatefulWidget {
   final String ministryId;
 
@@ -25,6 +26,7 @@ class LouvoresTab extends ConsumerStatefulWidget {
 class _LouvoresTabState extends ConsumerState<LouvoresTab> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _setlists = true;
 
   @override
   void dispose() {
@@ -52,122 +54,155 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
 
     return accessAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => _Message(
+      error: (e, _) => PraiseMessage(
         title: 'Não deu para verificar seu acesso',
         message: '$e',
         onRetry: () => ref.invalidate(praiseAccessProvider),
       ),
       data: (access) {
         if (!access.canView) {
-          return const _Message(
+          return const PraiseMessage(
             title: 'Biblioteca de louvores fechada para você',
             message:
                 'Quem faz parte de um ministério de louvor vê as cifras. '
                 'Fora dele, é preciso a permissão "Ver louvores".',
           );
         }
-        final songsAsync = ref.watch(praiseSongsProvider);
-        return songsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => _Message(
-            title: 'Não deu para carregar a biblioteca',
-            message: '$e',
-            onRetry: () => ref.invalidate(praiseSongsProvider),
-          ),
-          data: (songs) {
-            final visible = songs.where(_matches).toList();
-            return RefreshIndicator(
-              onRefresh: () => ref.refresh(praiseSongsProvider.future),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                children: [
-                  AppFilterBar(
-                    searchController: _searchController,
-                    searchHint: 'Buscar por título, artista ou trecho...',
-                    onSearchChanged: (v) => setState(() => _searchQuery = v),
-                    primaryAction: access.canManage
-                        ? AppFilterAction(
-                            label: 'Nova música',
-                            icon: AppIcons.add,
-                            onPressed: () => context.push(
-                              '/ministries/${widget.ministryId}/louvores/musicas/nova',
-                            ),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(height: 8),
-                  if (songs.isEmpty)
-                    _Message(
-                      title: 'A biblioteca ainda está vazia',
-                      message: access.canManage
-                          ? 'Cadastre a primeira música em "Nova música". '
-                                'Dá para colar a cifra direto do site.'
-                          : 'Quando a liderança cadastrar as músicas, elas aparecem aqui.',
-                    )
-                  else if (visible.isEmpty)
-                    const _Message(
-                      title: 'Nenhuma música encontrada',
-                      message:
-                          'Tente outro título, artista ou trecho da letra.',
-                    ),
-                  for (final s in visible)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: GlassCard(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        onTap: () => context.push(
-                          '/ministries/${widget.ministryId}/louvores/musicas/${s.id}',
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    s.title,
-                                    style: CommunityDesign.titleStyle(
-                                      context,
-                                    ).copyWith(fontSize: 15),
-                                  ),
-                                  if (s.artist != null && s.artist!.isNotEmpty)
-                                    Text(
-                                      s.artist!,
-                                      style: CommunityDesign.metaStyle(context),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              s.latest?.originalKey ??
-                                  (s.latest == null ? 'sem cifra' : ''),
-                              style: CommunityDesign.metaStyle(
-                                context,
-                              ).copyWith(fontWeight: FontWeight.w700),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: true, label: Text('Repertórios')),
+                    ButtonSegment(value: false, label: Text('Biblioteca')),
+                  ],
+                  selected: {_setlists},
+                  onSelectionChanged: (v) =>
+                      setState(() => _setlists = v.first),
+                ),
               ),
-            );
-          },
+            ),
+            Expanded(
+              child: _setlists
+                  ? PraiseSetlistsView(ministryId: widget.ministryId)
+                  : _library(access.canManage),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _library(bool canManage) {
+    final songsAsync = ref.watch(praiseSongsProvider);
+    return songsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => PraiseMessage(
+        title: 'Não deu para carregar a biblioteca',
+        message: '$e',
+        onRetry: () => ref.invalidate(praiseSongsProvider),
+      ),
+      data: (songs) {
+        final visible = songs.where(_matches).toList();
+        return RefreshIndicator(
+          onRefresh: () => ref.refresh(praiseSongsProvider.future),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+            children: [
+              AppFilterBar(
+                searchController: _searchController,
+                searchHint: 'Buscar por título, artista ou trecho...',
+                onSearchChanged: (v) => setState(() => _searchQuery = v),
+                primaryAction: canManage
+                    ? AppFilterAction(
+                        label: 'Nova música',
+                        icon: AppIcons.add,
+                        onPressed: () => context.push(
+                          '/ministries/${widget.ministryId}/louvores/musicas/nova',
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(height: 8),
+              if (songs.isEmpty)
+                PraiseMessage(
+                  title: 'A biblioteca ainda está vazia',
+                  message: canManage
+                      ? 'Cadastre a primeira música em "Nova música". '
+                            'Dá para colar a cifra direto do site.'
+                      : 'Quando a liderança cadastrar as músicas, elas aparecem aqui.',
+                )
+              else if (visible.isEmpty)
+                const PraiseMessage(
+                  title: 'Nenhuma música encontrada',
+                  message:
+                      'Tente outro título, artista ou trecho da letra.',
+                ),
+              for (final s in visible)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: GlassCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    onTap: () => context.push(
+                      '/ministries/${widget.ministryId}/louvores/musicas/${s.id}',
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                s.title,
+                                style: CommunityDesign.titleStyle(
+                                  context,
+                                ).copyWith(fontSize: 15),
+                              ),
+                              if (s.artist != null && s.artist!.isNotEmpty)
+                                Text(
+                                  s.artist!,
+                                  style: CommunityDesign.metaStyle(context),
+                                ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          s.latest?.originalKey ??
+                              (s.latest == null ? 'sem cifra' : ''),
+                          style: CommunityDesign.metaStyle(
+                            context,
+                          ).copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );
   }
 }
 
-class _Message extends StatelessWidget {
+/// Aviso centralizado das telas de Louvores (vazio, erro, sem acesso).
+class PraiseMessage extends StatelessWidget {
   final String title;
   final String message;
   final VoidCallback? onRetry;
 
-  const _Message({required this.title, required this.message, this.onRetry});
+  const PraiseMessage({
+    super.key,
+    required this.title,
+    required this.message,
+    this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -101,6 +101,154 @@ class PraiseVersionDraft {
   };
 }
 
+/// Texto de erro para a tela. As RPCs da Fase C já levantam mensagem em
+/// português (sem acento); o resto cai no `toString`.
+String praiseErrorText(Object e) => e is PostgrestException ? e.message : '$e';
+
+/// Música de um repertório (`public.praise_setlist_item`). Aponta para a
+/// VERSÃO; tom/capo/BPM/observação são do culto e não mexem na versão.
+class PraiseSetlistItem {
+  final PraiseSongVersion version;
+  final String songTitle;
+  final String? artist;
+  final String? selectedKey;
+  final int capo;
+  final int? bpm;
+  final String? notes;
+
+  /// `null` enquanto o item só existe na tela (rascunho não salvo).
+  final String? id;
+
+  const PraiseSetlistItem({
+    this.id,
+    required this.version,
+    required this.songTitle,
+    this.artist,
+    this.selectedKey,
+    this.capo = 0,
+    this.bpm,
+    this.notes,
+  });
+
+  factory PraiseSetlistItem.fromJson(Map<String, dynamic> j) {
+    final v = j['praise_song_version'] as Map<String, dynamic>;
+    final song = v['praise_song'] as Map<String, dynamic>? ?? const {};
+    return PraiseSetlistItem(
+      id: j['id'] as String,
+      version: PraiseSongVersion.fromJson(v),
+      songTitle: song['title'] as String? ?? 'Música',
+      artist: song['artist'] as String?,
+      selectedKey: j['selected_key'] as String?,
+      capo: (j['capo'] as int?) ?? 0,
+      bpm: j['bpm'] as int?,
+      notes: j['notes'] as String?,
+    );
+  }
+
+  /// Formato de `p_items` de `praise_setlist_save_draft`.
+  Map<String, dynamic> toRpc() => {
+    'song_version_id': version.id,
+    'selected_key': selectedKey,
+    'capo': capo,
+    'bpm': bpm,
+    'notes': notes,
+  };
+}
+
+/// Revisão do repertório: `draft` → `published` → `archived`.
+class PraiseSetlistRevision {
+  final String id;
+  final int number;
+  final String title;
+  final String status;
+  final DateTime? publishedAt;
+  final int itemCount;
+
+  /// Só vem preenchido no detalhe ([PraiseRepository.getSetlist]).
+  final List<PraiseSetlistItem> items;
+
+  const PraiseSetlistRevision({
+    required this.id,
+    required this.number,
+    required this.title,
+    required this.status,
+    this.publishedAt,
+    this.itemCount = 0,
+    this.items = const [],
+  });
+
+  bool get isDraft => status == 'draft';
+
+  factory PraiseSetlistRevision.fromJson(Map<String, dynamic> j) {
+    final raw = j['praise_setlist_item'] as List? ?? const [];
+    // Na lista vem `[{count: n}]`; no detalhe, os itens.
+    final isCount = raw.length == 1 && (raw.first as Map).containsKey('count');
+    final items = isCount
+        ? <PraiseSetlistItem>[]
+        : ([
+            for (final i in raw) i as Map<String, dynamic>,
+          ]..sort((a, b) => (a['position'] as int).compareTo(b['position'] as int)))
+            .map(PraiseSetlistItem.fromJson)
+            .toList();
+    return PraiseSetlistRevision(
+      id: j['id'] as String,
+      number: j['revision_number'] as int,
+      title: j['title'] as String,
+      status: j['status'] as String,
+      publishedAt: j['published_at'] == null
+          ? null
+          : DateTime.parse(j['published_at'] as String),
+      itemCount: isCount ? (raw.first as Map)['count'] as int : items.length,
+      items: items,
+    );
+  }
+}
+
+/// Repertório (`public.praise_setlist`). Com evento, a data é a do evento —
+/// [eventStart] está no contrato de parede (hora de SP rotulada como UTC),
+/// então se formata direto, sem `toLocal()`.
+class PraiseSetlist {
+  final String id;
+  final String? eventId;
+  final String? eventName;
+  final DateTime? eventStart;
+
+  /// Publicada vigente e rascunho aberto. A RLS só devolve o rascunho a quem
+  /// monta ou publica, então para o integrante [draft] é sempre nulo.
+  final PraiseSetlistRevision? published;
+  final PraiseSetlistRevision? draft;
+
+  const PraiseSetlist({
+    required this.id,
+    this.eventId,
+    this.eventName,
+    this.eventStart,
+    this.published,
+    this.draft,
+  });
+
+  /// O que a tela mostra: o rascunho para quem o enxerga, senão o publicado.
+  PraiseSetlistRevision? get current => draft ?? published;
+
+  factory PraiseSetlist.fromJson(Map<String, dynamic> j) {
+    final revs = [
+      for (final r in (j['praise_setlist_revision'] as List? ?? const []))
+        PraiseSetlistRevision.fromJson(r as Map<String, dynamic>),
+    ];
+    final event = j['event'] as Map<String, dynamic>?;
+    return PraiseSetlist(
+      id: j['id'] as String,
+      eventId: j['event_id'] as String?,
+      eventName: event?['name'] as String?,
+      eventStart: event?['start_date'] == null
+          ? null
+          : DateTime.parse(event!['start_date'] as String),
+      published: revs.where((r) => r.status == 'published').firstOrNull,
+      draft: revs.where((r) => r.isDraft).firstOrNull,
+    );
+  }
+}
+
 class PraiseRepository {
   final SupabaseClient _db;
   const PraiseRepository(this._db);
@@ -185,6 +333,89 @@ class PraiseRepository {
 
   Future<void> addVersion(String songId, PraiseVersionDraft version) =>
       _db.from('praise_song_version').insert(version.toJson(songId));
+
+  // ---------------------------------------------------------------- Fase C
+  // Escrita só pelas RPCs praise_setlist_* (o banco não dá INSERT/UPDATE).
+
+  Future<({bool canManage, bool canPublish})> setlistAccess() async {
+    final r = await Future.wait([
+      _db.rpc('praise_can_manage_setlist'),
+      _db.rpc('praise_can_publish_setlist'),
+    ]);
+    return (canManage: r[0] == true, canPublish: r[1] == true);
+  }
+
+  static const _revisionCols =
+      'id, revision_number, title, status, published_at';
+
+  /// Repertórios do ministério com a publicada e o rascunho (arquivadas
+  /// ficam de fora) e a contagem de itens.
+  Future<List<PraiseSetlist>> listSetlists(String ministryId) async {
+    final rows = await _db
+        .from('praise_setlist')
+        .select(
+          'id, event_id, event(name, start_date), '
+          'praise_setlist_revision($_revisionCols, praise_setlist_item(count))',
+        )
+        .eq('ministry_id', ministryId)
+        .inFilter('praise_setlist_revision.status', ['draft', 'published'])
+        .order('created_at', ascending: false);
+    return [for (final r in rows) PraiseSetlist.fromJson(r)];
+  }
+
+  Future<PraiseSetlist?> getSetlist(String setlistId) async {
+    final row = await _db
+        .from('praise_setlist')
+        .select(
+          'id, event_id, event(name, start_date), '
+          'praise_setlist_revision($_revisionCols, '
+          'praise_setlist_item(id, position, selected_key, capo, bpm, notes, '
+          'praise_song_version(song_id, $_versionCols, praise_song(title, artist))))',
+        )
+        .eq('id', setlistId)
+        .inFilter('praise_setlist_revision.status', ['draft', 'published'])
+        .maybeSingle();
+    return row == null ? null : PraiseSetlist.fromJson(row);
+  }
+
+  /// Cria o repertório com a revisão 1 em rascunho. Devolve o id.
+  Future<String> createSetlist({
+    required String ministryId,
+    required String title,
+    String? eventId,
+  }) async =>
+      await _db.rpc(
+            'praise_setlist_create',
+            params: {
+              'p_ministry_id': ministryId,
+              'p_title': title,
+              'p_event_id': eventId,
+            },
+          )
+          as String;
+
+  /// Troca título e a lista inteira de itens (posição = ordem da lista).
+  Future<void> saveDraft(
+    String revisionId,
+    String title,
+    List<PraiseSetlistItem> items,
+  ) => _db.rpc(
+    'praise_setlist_save_draft',
+    params: {
+      'p_revision_id': revisionId,
+      'p_title': title,
+      'p_items': [for (final i in items) i.toRpc()],
+    },
+  );
+
+  Future<void> publishSetlist(String revisionId) =>
+      _db.rpc('praise_setlist_publish', params: {'p_revision_id': revisionId});
+
+  /// "Editar" um publicado: abre (ou devolve) o rascunho N+1.
+  Future<void> newSetlistRevision(String setlistId) => _db.rpc(
+    'praise_setlist_new_revision',
+    params: {'p_setlist_id': setlistId},
+  );
 
   Future<void> archive(String songId) => _db
       .from('praise_song')

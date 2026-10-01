@@ -86,6 +86,16 @@ class Chord {
     return k.suffix == 'm' ? _flatMinor.contains(s) : _flatMajor.contains(s);
   }
 
+  /// Tom deslocado, já na grafia que o tom de destino pede ("G" +3 = "Bb").
+  /// `null` quando [key] não é tom.
+  static String? shiftKey(String key, int semitones) {
+    final shifted = Chord.tryParse(key)?.transpose(semitones);
+    if (shifted == null) return null;
+    return shifted
+        .transpose(0, preferFlats: keyPrefersFlats(shifted.toString()))
+        .toString();
+  }
+
   /// Sem [preferFlats], mantém o estilo do próprio acorde (Bb+3 = Db).
   Chord transpose(int semitones, {bool? preferFlats}) {
     final flats = preferFlats ?? root.endsWith('b');
