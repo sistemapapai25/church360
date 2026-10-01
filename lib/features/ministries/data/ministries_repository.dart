@@ -119,13 +119,11 @@ class MinistriesRepository {
     return Ministry.fromJson(response);
   }
 
-  /// Deletar ministério
+  /// Excluir ministério com tudo o que é dele (cargos de contexto, equipe,
+  /// escalas...). Cursos ficam, só desvinculados; financeiro vai para o caixa
+  /// geral. A RPC faz tudo numa transação e exige `ministries.delete`.
   Future<void> deleteMinistry(String id) async {
-    await _supabase
-        .from('ministry')
-        .delete()
-        .eq('id', id)
-        .eq('tenant_id', SupabaseConstants.currentTenantId);
+    await _supabase.rpc('delete_ministry', params: {'p_ministry_id': id});
   }
 
   /// Contar ministérios
