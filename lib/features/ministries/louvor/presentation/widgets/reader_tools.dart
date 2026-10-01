@@ -259,14 +259,44 @@ Source _source(Uint8List wav) => kIsWeb
     ? UrlSource('data:audio/wav;base64,${base64Encode(wav)}')
     : BytesSource(wav);
 
-/// Metrônomo: bolinhas 1-2-3-4 (o 1 acentuado), BPM grande e Iniciar.
+/// Compassos de um toque; o resto sai do "Personalizado".
+const metronomePresets = ['2/4', '3/4', '4/4', '6/8', '9/8', '12/8'];
+
+/// Denominadores que existem na notação: a figura que vale um tempo.
+const meterUnits = [1, 2, 4, 8, 16, 32];
+
+/// `"6/8"` → (6, 8). Numerador de 1 a 32 e unidade de [meterUnits]; o que
+/// não servir vira 4/4.
+(int, int) parseMeter(String? s) {
+  final m = RegExp(r'^\s*(\d+)\s*/\s*(\d+)\s*$').firstMatch(s ?? '');
+  final n = int.tryParse(m?[1] ?? ''), d = int.tryParse(m?[2] ?? '');
+  if (n == null || d == null || n < 1 || n > 32 || !meterUnits.contains(d)) {
+    return (4, 4);
+  }
+  return (n, d);
+}
+
+/// Força do clique: 2 = primeiro tempo, 1 = início de cada grupo de três
+/// colcheias nos compostos (6/8, 9/8, 12/8...), 0 = o resto.
+int beatAccent(int beat, int beats, int unit) {
+  if (beat == 0) return 2;
+  final compound = unit == 8 && beats > 3 && beats % 3 == 0;
+  return compound && beat % 3 == 0 ? 1 : 0;
+}
+
+/// Metrônomo: bolinhas de cada tempo (o 1 acentuado), BPM grande, compasso e
+/// Iniciar. Cada clique é uma figura do denominador (em 6/8, uma colcheia).
 class MetronomePanel extends StatefulWidget {
   final int initialBpm;
+
+  /// `{time: 6/8}` da cifra, se houver.
+  final String? initialMeter;
   final VoidCallback onClose;
 
   const MetronomePanel({
     super.key,
     required this.initialBpm,
+    this.initialMeter,
     required this.onClose,
   });
 
@@ -275,19 +305,23 @@ class MetronomePanel extends StatefulWidget {
 }
 
 class _MetronomePanelState extends State<MetronomePanel> {
-  static const _beats = 4;
-  late int _bpm = widget.initialBpm.clamp(30, 240);
+  static const _minBpm = 20, _maxBpm = 400;
+  late int _bpm = widget.initialBpm.clamp(_minBpm, _maxBpm);
+  late int _beats = parseMeter(widget.initialMeter).$1;
+  late int _unit = parseMeter(widget.initialMeter).$2;
+  late bool _custom = !metronomePresets.contains('$_beats/$_unit');
   Timer? _timer;
   int _beat = -1;
-  final _accent = AudioPlayer();
-  final _tick = AudioPlayer();
+  // Um tocador por força de clique: forte, médio, fraco.
+  final _players = [AudioPlayer(), AudioPlayer(), AudioPlayer()];
   bool _loaded = false;
 
   @override
   void dispose() {
     _timer?.cancel();
-    _accent.dispose();
-    _tick.dispose();
+    for (final p in _players) {
+      p.dispose();
+    }
     super.dispose();
   }
 
@@ -303,7 +337,11 @@ class _MetronomePanelState extends State<MetronomePanel> {
     if (!_loaded) {
       _loaded = true;
       try {
-        for (final (p, hz) in [(_accent, 1760.0), (_tick, 1175.0)]) {
+        for (final (p, hz) in [
+          (_players[0], 1175.0),
+          (_players[1], 1400.0),
+          (_players[2], 1760.0),
+        ]) {
           // `release` (o padrão) solta o som ao fim de cada clique e os
           // seguintes saem mudos.
           await p.setReleaseMode(ReleaseMode.stop);
@@ -329,46 +367,108 @@ class _MetronomePanelState extends State<MetronomePanel> {
   void _onBeat() {
     if (!mounted) return;
     setState(() => _beat = (_beat + 1) % _beats);
-    final p = _beat == 0 ? _accent : _tick;
+    final p = _players[beatAccent(_beat, _beats, _unit)];
     p.seek(Duration.zero).then((_) => p.resume()).catchError((_) {});
   }
 
   void _setBpm(int v) {
-    setState(() => _bpm = v.clamp(30, 240));
+    setState(() => _bpm = v.clamp(_minBpm, _maxBpm));
     if (_timer != null) _restart();
+  }
+
+  void _setMeter(int beats, int unit) {
+    setState(() {
+      _beats = beats.clamp(1, 32);
+      _unit = unit;
+    });
+    if (_timer != null) _restart();
+  }
+
+  /// Tocar no número abre o campo para digitar o BPM.
+  Future<void> _typeBpm() async {
+    final c = TextEditingController(text: '$_bpm');
+    final v = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('BPM'),
+        content: TextField(
+          controller: c,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(helperText: '$_minBpm a $_maxBpm'),
+          onSubmitted: (t) => Navigator.pop(context, int.tryParse(t)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, int.tryParse(c.text)),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    c.dispose();
+    if (v != null) _setBpm(v);
   }
 
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
     final running = _timer != null;
+    final dot = _beats > 8 ? 20.0 : 28.0;
+
+    Widget meterChip(String label, bool selected, VoidCallback onTap) =>
+        ChoiceChip(
+          label: Text(label),
+          selected: selected,
+          showCheckmark: false,
+          shape: const StadiumBorder(),
+          visualDensity: VisualDensity.compact,
+          labelStyle: TextStyle(
+            color: selected ? Colors.white : Colors.white70,
+            fontWeight: FontWeight.w700,
+          ),
+          selectedColor: accent,
+          backgroundColor: Colors.white10,
+          side: BorderSide.none,
+          onSelected: (_) => onTap(),
+        );
+
     return _FloatingCard(
       title: 'Metrônomo',
       onClose: widget.onClose,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
               for (var i = 0; i < _beats; i++)
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 80),
-                  margin: const EdgeInsets.symmetric(horizontal: 6),
-                  width: 28,
-                  height: 28,
+                  width: dot,
+                  height: dot,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: i == _beat ? accent : Colors.white10,
-                    border: i == 0 && i != _beat
-                        ? Border.all(color: accent.withValues(alpha: 0.6))
+                    border: beatAccent(i, _beats, _unit) > 0 && i != _beat
+                        ? Border.all(
+                            color: accent.withValues(
+                              alpha: i == 0 ? 0.7 : 0.35,
+                            ),
+                          )
                         : null,
                   ),
                   child: Text(
                     '${i + 1}',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: dot * 0.43,
                       fontWeight: FontWeight.w700,
                       color: i == _beat ? Colors.white : Colors.white60,
                     ),
@@ -385,26 +485,30 @@ class _MetronomePanelState extends State<MetronomePanel> {
                 () => _setBpm(_bpm - 1),
               ),
               Expanded(
-                child: Column(
-                  children: [
-                    Text(
-                      '$_bpm',
-                      style: const TextStyle(
-                        fontSize: 64,
-                        height: 1,
-                        fontWeight: FontWeight.w800,
-                        fontFeatures: [FontFeature.tabularFigures()],
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: _typeBpm,
+                  child: Column(
+                    children: [
+                      Text(
+                        '$_bpm',
+                        style: const TextStyle(
+                          fontSize: 64,
+                          height: 1,
+                          fontWeight: FontWeight.w800,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
                       ),
-                    ),
-                    const Text(
-                      'BPM',
-                      style: TextStyle(
-                        fontSize: 12,
-                        letterSpacing: 2,
-                        color: Colors.white54,
+                      Text(
+                        'BPM · $_beats/$_unit',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          letterSpacing: 2,
+                          color: Colors.white54,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               _RoundButton(
@@ -421,12 +525,83 @@ class _MetronomePanelState extends State<MetronomePanel> {
               inactiveTrackColor: Colors.white12,
             ),
             child: Slider(
-              value: _bpm.toDouble(),
+              value: _bpm.clamp(30, 240).toDouble(),
               min: 30,
               max: 240,
               onChanged: (v) => _setBpm(v.round()),
             ),
           ),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final m in metronomePresets)
+                meterChip(m, !_custom && m == '$_beats/$_unit', () {
+                  final (n, d) = parseMeter(m);
+                  _custom = false;
+                  _setMeter(n, d);
+                }),
+              meterChip(
+                'Personalizado',
+                _custom,
+                () => setState(() => _custom = true),
+              ),
+            ],
+          ),
+          if (_custom) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  tooltip: 'Menos tempos',
+                  icon: const Icon(AppIcons.remove, size: 18),
+                  onPressed: _beats > 1
+                      ? () => _setMeter(_beats - 1, _unit)
+                      : null,
+                ),
+                SizedBox(
+                  width: 28,
+                  child: Text(
+                    '$_beats',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Mais tempos',
+                  icon: const Icon(AppIcons.add, size: 18),
+                  onPressed: _beats < 32
+                      ? () => _setMeter(_beats + 1, _unit)
+                      : null,
+                ),
+                const Text(
+                  ' / ',
+                  style: TextStyle(fontSize: 18, color: Colors.white54),
+                ),
+                DropdownButton<int>(
+                  value: _unit,
+                  dropdownColor: _panelBg,
+                  underline: const SizedBox.shrink(),
+                  style: const TextStyle(
+                    color: _panelFg,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  items: [
+                    for (final u in meterUnits)
+                      DropdownMenuItem(value: u, child: Text('$u')),
+                  ],
+                  onChanged: (u) => _setMeter(_beats, u ?? _unit),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -584,23 +759,48 @@ class _TunerPanelState extends State<TunerPanel> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     for (var d = -2; d <= 2; d++)
-                      Text(
-                        near == null
-                            ? (d == 0 ? '–' : '')
-                            : Chord.noteName(near.semitone + d),
-                        style: d == 0
-                            ? TextStyle(
-                                fontSize: 56,
-                                height: 1.1,
-                                fontWeight: FontWeight.w800,
-                                color: inTune ? _inTune : Colors.white,
-                              )
-                            : TextStyle(
-                                fontSize: d.abs() == 1 ? 20 : 16,
-                                color: d.abs() == 1
-                                    ? Colors.white38
-                                    : Colors.white24,
-                              ),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Builder(
+                            builder: (context) {
+                              final style = d == 0
+                                  ? TextStyle(
+                                      fontSize: 56,
+                                      height: 1.1,
+                                      fontWeight: FontWeight.w800,
+                                      color: inTune ? _inTune : Colors.white,
+                                    )
+                                  : TextStyle(
+                                      fontSize: d.abs() == 1 ? 20 : 16,
+                                      color: d.abs() == 1
+                                          ? Colors.white38
+                                          : Colors.white24,
+                                    );
+                              if (near == null) {
+                                return Text(d == 0 ? '–' : '', style: style);
+                              }
+                              // Nota grande e oitava pequena: A4, E2.
+                              final midi =
+                                  (near.octave + 1) * 12 + near.semitone;
+                              return Text.rich(
+                                TextSpan(
+                                  text: Chord.noteName(near.semitone + d),
+                                  children: [
+                                    TextSpan(
+                                      text: '${(midi + d) ~/ 12 - 1}',
+                                      style: TextStyle(
+                                        fontSize: style.fontSize! * 0.4,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                style: style,
+                              );
+                            },
+                          ),
+                        ),
                       ),
                   ],
                 ),

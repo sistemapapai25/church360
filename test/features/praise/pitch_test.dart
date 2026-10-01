@@ -37,4 +37,11 @@ void main() {
     expect(flat.cents, closeTo(-19.8, 0.5));
     expect(nearestNote(82.41).note, 'E');
   });
+
+  test('oitava científica: Lá 440 = A4, Mi grave do violão = E2', () {
+    expect(nearestNote(440).octave, 4);
+    expect(nearestNote(82.41).note, 'E');
+    expect(nearestNote(82.41).octave, 2);
+    expect(nearestNote(261.63).octave, 4); // Dó central
+  });
 }

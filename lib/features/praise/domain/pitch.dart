@@ -46,8 +46,9 @@ double? detectPitch(Float32List samples, int sampleRate) {
   return null;
 }
 
-/// Nota mais perto de [hz] (Lá = [a4]) e quanto falta em cents (-50..50).
-({String note, int semitone, double cents}) nearestNote(
+/// Nota mais perto de [hz] (Lá = [a4]), a oitava científica (Lá 440 = A4,
+/// Mi grave do violão = E2) e quanto falta em cents (-50..50).
+({String note, int semitone, int octave, double cents}) nearestNote(
   double hz, {
   double a4 = 440,
 }) {
@@ -57,6 +58,7 @@ double? detectPitch(Float32List samples, int sampleRate) {
   return (
     note: Chord.noteName(semi, flats: false),
     semitone: semi,
+    octave: near ~/ 12 - 1,
     cents: (midi - near) * 100,
   );
 }

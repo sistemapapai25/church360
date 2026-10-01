@@ -42,6 +42,14 @@ class ChordProDocument {
   }
 }
 
+/// `{batida: D . D U . U D U}` → `['D', '.', 'D', 'U', '.', 'U', 'D', 'U']`.
+/// D = ↓, U = ↑, `.` = colcheia sem ataque. Sem B/C de propósito: são nomes
+/// de nota. O que não for D/U/. é ignorado.
+List<String> parseStrum(String? value) => [
+  for (final c in (value ?? '').toUpperCase().split(''))
+    if (c == 'D' || c == 'U' || c == '.') c,
+];
+
 const _aliases = {
   't': 'title',
   'st': 'subtitle',
@@ -184,11 +192,21 @@ bool _isChordLine(String line) {
 /// - `Tom: G` → `{key: G}`.
 String chordsOverLyricsToChordPro(String source) {
   final lines = source.replaceAll('\r\n', '\n').split('\n');
-  if (lines.any((l) => _directive.hasMatch(l.trim()))) return source;
+  // A batida é inserida pelo editor também em cifra colada do site: sozinha
+  // ela não faz o texto ser ChordPro.
+  bool isStrum(String l) =>
+      _directive.firstMatch(l.trim())?[1]?.toLowerCase() == 'batida';
+  if (lines.any((l) => _directive.hasMatch(l.trim()) && !isStrum(l))) {
+    return source;
+  }
 
   final out = <String>[];
   for (var i = 0; i < lines.length; i++) {
     final line = lines[i].trimRight();
+    if (isStrum(line)) {
+      out.add(line.trim());
+      continue;
+    }
 
     final key = _keyLine.firstMatch(line);
     if (key != null) {

@@ -50,4 +50,22 @@ void main() {
     final saved = (await SharedPreferences.getInstance()).getStringList('pos');
     expect(saved, ['${400 - 288.0}', '${600 - 56.0}']);
   });
+
+  test('compasso: numerador livre e unidade da notação', () {
+    expect(parseMeter('6/8'), (6, 8));
+    expect(parseMeter(' 7 / 8 '), (7, 8));
+    expect(parseMeter('4/12'), (4, 4)); // 12 não é figura
+    expect(parseMeter('0/4'), (4, 4));
+    expect(parseMeter(null), (4, 4));
+  });
+
+  test('acento: 1 forte; compostos com médio a cada 3 colcheias', () {
+    expect([for (var i = 0; i < 4; i++) beatAccent(i, 4, 4)], [2, 0, 0, 0]);
+    expect(
+      [for (var i = 0; i < 6; i++) beatAccent(i, 6, 8)],
+      [2, 0, 0, 1, 0, 0],
+    );
+    // 3/8 é simples: só o 1.
+    expect([for (var i = 0; i < 3; i++) beatAccent(i, 3, 8)], [2, 0, 0]);
+  });
 }

@@ -16,6 +16,7 @@ import 'louvores_tab.dart';
 import 'providers/praise_providers.dart';
 import 'widgets/chord_diagram.dart';
 import 'widgets/chordpro_view.dart';
+import 'widgets/reader_fullscreen.dart';
 import 'widgets/reader_tools.dart';
 
 /// Leitor de cifra — tela interna, não aba
@@ -134,11 +135,28 @@ class _ReaderState extends ConsumerState<_Reader> {
   int _tuningDrop = 0;
   static const _tuningPref = 'praise_reader_tuning_drop';
 
-  /// Faixa de diagramas (print 10): no início, no fim e tamanho.
+  /// Faixa de diagramas (print 10): no início, no fim, tamanho, fixa no
+  /// topo ao rolar e "no corpo da cifra" (com tamanho próprio).
   bool _diagramsStart = true;
   bool _diagramsEnd = false;
   double _diagramScale = 1;
+  bool _diagramsPinned = false;
+  bool _diagramsInline = false;
+  double _inlineScale = 1;
   static const _diagramsPref = 'praise_reader_diagrams';
+
+  /// Batidas (print 12): sempre, nunca ou só a da seção na tela.
+  StrumDisplay _strums = StrumDisplay.always;
+  static const _strumsPref = 'praise_reader_strums';
+
+  /// Uma chave por `{batida}` da cifra, para saber qual está no topo.
+  List<GlobalKey> _strumKeys = const [];
+  int _currentStrum = -1;
+  final _scroll = ScrollController();
+  final _listKey = GlobalKey();
+
+  /// Tela cheia: sem barra do app nem navegação do repertório.
+  bool _fullscreen = false;
 
   /// Capo só desta tela. Nulo = o do repertório ou da versão.
   int? _capoOverride;
@@ -158,6 +176,7 @@ class _ReaderState extends ConsumerState<_Reader> {
   void initState() {
     super.initState();
     _loadInstrument();
+    _scroll.addListener(_trackStrum);
     final item = _item;
     if (item != null) {
       // A versão e o tom do repertório, não os da biblioteca.
@@ -171,6 +190,37 @@ class _ReaderState extends ConsumerState<_Reader> {
     }
   }
 
+  @override
+  void dispose() {
+    _scroll.dispose();
+    if (_fullscreen) setReaderFullscreen(false);
+    super.dispose();
+  }
+
+  void _setFullscreen(bool on) {
+    setState(() => _fullscreen = on);
+    setReaderFullscreen(on);
+  }
+
+  /// A batida "atual" é a última cujo lugar já passou do primeiro terço da
+  /// tela.
+  void _trackStrum() {
+    if (_strums != StrumDisplay.current || !mounted) return;
+    final list = _listKey.currentContext?.findRenderObject() as RenderBox?;
+    if (list == null || !list.attached) return;
+    final line = list.localToGlobal(Offset.zero).dy + list.size.height / 3;
+    var current = -1;
+    for (final (i, k) in _strumKeys.indexed) {
+      final box = k.currentContext?.findRenderObject() as RenderBox?;
+      if (box != null &&
+          box.attached &&
+          box.localToGlobal(Offset.zero).dy <= line) {
+        current = i;
+      }
+    }
+    if (current != _currentStrum) setState(() => _currentStrum = current);
+  }
+
   Future<void> _loadInstrument() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -182,11 +232,21 @@ class _ReaderState extends ConsumerState<_Reader> {
         if (saved.isNotEmpty) _instrument = saved.first;
         _twoColumns = prefs.getBool(_columnsPref) ?? false;
         _tuningDrop = (prefs.getInt(_tuningPref) ?? 0).clamp(0, 4);
-        if (diagrams != null && diagrams.length == 3) {
+        if (diagrams != null && diagrams.length >= 3) {
           _diagramsStart = diagrams[0] == 'true';
           _diagramsEnd = diagrams[1] == 'true';
           _diagramScale = (double.tryParse(diagrams[2]) ?? 1).clamp(0.7, 1.6);
         }
+        // Até a B2.2 a lista tinha só os 3 primeiros.
+        if (diagrams != null && diagrams.length >= 6) {
+          _diagramsPinned = diagrams[3] == 'true';
+          _diagramsInline = diagrams[4] == 'true';
+          _inlineScale = (double.tryParse(diagrams[5]) ?? 1).clamp(0.7, 1.6);
+        }
+        _strums = StrumDisplay.values.firstWhere(
+          (s) => s.name == prefs.getString(_strumsPref),
+          orElse: () => StrumDisplay.always,
+        );
       });
     } catch (_) {
       // Sem preferência salva o leitor fica no violão.
@@ -214,7 +274,11 @@ class _ReaderState extends ConsumerState<_Reader> {
         '$_diagramsStart',
         '$_diagramsEnd',
         '$_diagramScale',
+        '$_diagramsPinned',
+        '$_diagramsInline',
+        '$_inlineScale',
       ]);
+      await p.setString(_strumsPref, _strums.name);
     }).ignore();
   }
 
@@ -276,6 +340,27 @@ class _ReaderState extends ConsumerState<_Reader> {
             title: Text(label),
             value: value,
             onChanged: onChanged,
+          );
+
+          Widget sizeSlider(
+            double value,
+            ValueChanged<double> onChanged, {
+            String label = 'Tamanho',
+          }) => Row(
+            children: [
+              Text(label),
+              Expanded(
+                child: Slider(
+                  value: value,
+                  min: 0.7,
+                  max: 1.6,
+                  divisions: 9,
+                  label: '${(value * 100).round()}%',
+                  onChanged: onChanged,
+                  onChangeEnd: (_) => _savePrefs(),
+                ),
+              ),
+            ],
           );
 
           return SafeArea(
@@ -356,31 +441,59 @@ class _ReaderState extends ConsumerState<_Reader> {
                       set(() => _diagramsEnd = v);
                       _savePrefs();
                     }),
-                    Row(
-                      children: [
-                        const Text('Tamanho'),
-                        Expanded(
-                          child: Slider(
-                            value: _diagramScale,
-                            min: 0.7,
-                            max: 1.6,
-                            divisions: 9,
-                            label: '${(_diagramScale * 100).round()}%',
-                            onChanged: (v) => set(() => _diagramScale = v),
-                            onChangeEnd: (_) => _savePrefs(),
-                          ),
-                        ),
-                      ],
+                    toggle('Fixar no topo ao rolar', _diagramsPinned, (v) {
+                      set(() => _diagramsPinned = v);
+                      _savePrefs();
+                    }),
+                    sizeSlider(
+                      _diagramScale,
+                      (v) => set(() => _diagramScale = v),
+                    ),
+                    toggle('No corpo da cifra', _diagramsInline, (v) {
+                      set(() => _diagramsInline = v);
+                      _savePrefs();
+                    }),
+                    if (_diagramsInline)
+                      sizeSlider(
+                        _inlineScale,
+                        (v) => set(() => _inlineScale = v),
+                        label: 'Tamanho no corpo',
+                      ),
+                  ]),
+                  card('Batidas', [
+                    RadioGroup<StrumDisplay>(
+                      groupValue: _strums,
+                      onChanged: (v) {
+                        set(() => _strums = v ?? _strums);
+                        _savePrefs();
+                        WidgetsBinding.instance.addPostFrameCallback(
+                          (_) => _trackStrum(),
+                        );
+                      },
+                      child: Column(
+                        children: [
+                          for (final s in StrumDisplay.values)
+                            RadioListTile<StrumDisplay>(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(s.label),
+                              value: s,
+                            ),
+                        ],
+                      ),
                     ),
                   ]),
-                  // Duas colunas só onde cabem.
-                  if (wide)
-                    card('Exibição', [
+                  card('Exibição', [
+                    toggle('Tela cheia', _fullscreen, (v) {
+                      _setFullscreen(v);
+                      setSheet(() {});
+                    }),
+                    // Duas colunas só onde cabem.
+                    if (wide)
                       toggle('Dividir em colunas', _twoColumns, (v) {
                         _setTwoColumns(v);
                         setSheet(() {});
                       }),
-                    ]),
+                  ]),
                   card('Ferramentas', [
                     ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -526,80 +639,94 @@ class _ReaderState extends ConsumerState<_Reader> {
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
-      appBar: AppBar(
-        backgroundColor: CommunityDesign.headerColor(context),
-        leading: IconButton(
-          icon: const Icon(AppIcons.back),
-          onPressed: () => context.pop(),
-        ),
-        title: widget.reading == null
-            ? Text(songAsync.valueOrNull?.title ?? 'Louvor')
-            : InkWell(
-                borderRadius: BorderRadius.circular(AppTheme.controlRadius),
-                onTap: _pickItem,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_item!.songTitle),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            '${widget.reading!.revision.title} · '
-                            '${widget.reading!.index + 1} de '
-                            '${widget.reading!.revision.items.length}',
-                            style: CommunityDesign.metaStyle(context),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Icon(
-                          AppIcons.expand,
-                          size: 16,
-                          color: CommunityDesign.metaStyle(context).color,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+      appBar: _fullscreen
+          ? null
+          : AppBar(
+              backgroundColor: CommunityDesign.headerColor(context),
+              leading: IconButton(
+                icon: const Icon(AppIcons.back),
+                onPressed: () => context.pop(),
               ),
-        actions: [
-          // No repertório a versão é a do item: sem histórico nem edição.
-          if (widget.reading == null)
-            IconButton(
-              tooltip: 'Versões',
-              icon: const Icon(AppIcons.history),
-              onPressed: _pickVersion,
-            ),
-          if (canManage &&
-              widget.reading == null &&
-              songAsync.valueOrNull != null)
-            PopupMenuButton<String>(
-              icon: const Icon(AppIcons.more),
-              onSelected: (v) {
-                if (v == 'edit') {
-                  context.push(
-                    '/ministries/${widget.ministryId}/louvores/musicas/${widget.songId}/editar',
-                  );
-                } else {
-                  _archive(songAsync.value!);
-                }
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(
-                  value: 'edit',
-                  child: Text('Editar (gera nova versão)'),
-                ),
-                PopupMenuItem(value: 'archive', child: Text('Arquivar')),
+              title: widget.reading == null
+                  ? Text(songAsync.valueOrNull?.title ?? 'Louvor')
+                  : InkWell(
+                      borderRadius: BorderRadius.circular(
+                        AppTheme.controlRadius,
+                      ),
+                      onTap: _pickItem,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(_item!.songTitle),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  '${widget.reading!.revision.title} · '
+                                  '${widget.reading!.index + 1} de '
+                                  '${widget.reading!.revision.items.length}',
+                                  style: CommunityDesign.metaStyle(context),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Icon(
+                                AppIcons.expand,
+                                size: 16,
+                                color: CommunityDesign.metaStyle(context).color,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+              actions: [
+                // No repertório a versão é a do item: sem histórico nem edição.
+                if (widget.reading == null)
+                  IconButton(
+                    tooltip: 'Versões',
+                    icon: const Icon(AppIcons.history),
+                    onPressed: _pickVersion,
+                  ),
+                if (canManage &&
+                    widget.reading == null &&
+                    songAsync.valueOrNull != null)
+                  PopupMenuButton<String>(
+                    icon: const Icon(AppIcons.more),
+                    onSelected: (v) {
+                      if (v == 'edit') {
+                        context.push(
+                          '/ministries/${widget.ministryId}/louvores/musicas/${widget.songId}/editar',
+                        );
+                      } else {
+                        _archive(songAsync.value!);
+                      }
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Text('Editar (gera nova versão)'),
+                      ),
+                      PopupMenuItem(value: 'archive', child: Text('Arquivar')),
+                    ],
+                  ),
               ],
             ),
-        ],
-      ),
-      bottomNavigationBar: widget.reading == null
+      bottomNavigationBar: widget.reading == null || _fullscreen
           ? null
           : _SetlistNav(
               ministryId: widget.ministryId,
               reading: widget.reading!,
             ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
+      floatingActionButton: _fullscreen
+          ? SafeArea(
+              child: IconButton.filledTonal(
+                tooltip: 'Sair da tela cheia',
+                icon: const Icon(AppIcons.fullscreenExit),
+                onPressed: () => _setFullscreen(false),
+              ),
+            )
+          : null,
       body: songAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
@@ -659,7 +786,23 @@ class _ReaderState extends ConsumerState<_Reader> {
       onTap: (c) => _openChord(c, capo),
     );
 
+    final source = parseChordPro(version.chordpro);
+    final patterns = [
+      for (final l in source.lines)
+        if (l is DirectiveLine && l.name == 'batida') parseStrum(l.value),
+    ];
+    if (_strumKeys.length != patterns.length) {
+      _strumKeys = [for (final _ in patterns) GlobalKey()];
+      _currentStrum = -1;
+    }
+    if (_strums == StrumDisplay.current) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _trackStrum());
+    }
+    final pinned = _diagramsStart && _diagramsPinned;
+
     final list = ListView(
+      key: _listKey,
+      controller: _scroll,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 48),
       children: [
         if (song.artist != null && song.artist!.isNotEmpty)
@@ -739,7 +882,7 @@ class _ReaderState extends ConsumerState<_Reader> {
             style: meta,
           ),
         const SizedBox(height: 12),
-        if (_diagramsStart) ...[strip, const SizedBox(height: 12)],
+        if (_diagramsStart && !pinned) ...[strip, const SizedBox(height: 12)],
         ChordProView(
           source: version.chordpro,
           semitones: _semitones,
@@ -747,12 +890,62 @@ class _ReaderState extends ConsumerState<_Reader> {
           fontSize: _fontSize,
           onChordTap: (c) => _openChord(c, capo),
           twoColumns: _twoColumns,
+          strums: _strums,
+          strumKeys: _strumKeys,
+          diagramFor: _diagramsInline
+              ? (c) => ChordDiagram(
+                  chord: _shapeOf(c, _instrument, capo),
+                  instrument: _instrument,
+                  width: 40 * _inlineScale,
+                )
+              : null,
         ),
         if (_diagramsEnd) ...[const SizedBox(height: 16), strip],
       ],
     );
 
-    if (!_metronome && !_tuner) return list;
+    final current =
+        _strums == StrumDisplay.current &&
+            _currentStrum >= 0 &&
+            _currentStrum < patterns.length
+        ? patterns[_currentStrum]
+        : null;
+    // Faixa fixa e batida da seção ficam fora da rolagem.
+    final body = !pinned && current == null
+        ? list
+        : Column(
+            children: [
+              Material(
+                color: CommunityDesign.scaffoldBackgroundColor(context),
+                elevation: 1,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (pinned) strip,
+                      if (current != null)
+                        Row(
+                          children: [
+                            Text('Batida', style: meta),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: StrumView(
+                                pattern: current,
+                                fontSize: _fontSize,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(child: list),
+            ],
+          );
+
+    if (!_metronome && !_tuner) return body;
     return LayoutBuilder(
       builder: (context, c) {
         final area = c.biggest;
@@ -764,7 +957,7 @@ class _ReaderState extends ConsumerState<_Reader> {
             : const Offset(12, 380);
         return Stack(
           children: [
-            list,
+            body,
             if (_tuner)
               FloatingTool(
                 area: area,
@@ -781,6 +974,7 @@ class _ReaderState extends ConsumerState<_Reader> {
                 prefsKey: 'praise_reader_metronome_pos',
                 child: MetronomePanel(
                   initialBpm: bpm ?? 80,
+                  initialMeter: source.meta('time'),
                   onClose: () => setState(() => _metronome = false),
                 ),
               ),
