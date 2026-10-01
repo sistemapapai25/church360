@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
@@ -30,6 +32,61 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
 
   /// 0 = Repertórios, 1 = Biblioteca, 2 = Recebidos (de outro ministério).
   int _side = 0;
+
+  /// Filtro da Biblioteca (contrato do leitor §7).
+  _Shelf _shelf = _Shelf.all;
+  List<String> _favorites = const [];
+  List<String> _recent = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocal();
+  }
+
+  Future<void> _loadLocal() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _favorites = p.getStringList(praiseFavoritesPref) ?? const [];
+        _recent = p.getStringList(praiseRecentPref) ?? const [];
+      });
+    } catch (_) {}
+  }
+
+  void _toggleFavorite(String id) {
+    setState(
+      () => _favorites = _favorites.contains(id)
+          ? [..._favorites.where((f) => f != id)]
+          : [id, ..._favorites],
+    );
+    SharedPreferences.getInstance()
+        .then((p) => p.setStringList(praiseFavoritesPref, _favorites))
+        .ignore();
+  }
+
+  /// Músicas do filtro, na ordem dele.
+  List<PraiseSong> _shelve(List<PraiseSong> songs, Map<String, int> usage) {
+    switch (_shelf) {
+      case _Shelf.all:
+        return songs;
+      case _Shelf.favorites:
+        return songs.where((s) => _favorites.contains(s.id)).toList();
+      case _Shelf.recent:
+        final byId = {for (final s in songs) s.id: s};
+        return [
+          for (final id in _recent)
+            if (byId[id] != null) byId[id]!,
+        ];
+      case _Shelf.mostUsed:
+        return songs.where((s) => (usage[s.id] ?? 0) > 0).toList()
+          ..sort((a, b) => usage[b.id]!.compareTo(usage[a.id]!));
+      case _Shelf.changes:
+        return songs.where((s) => s.latest != null).toList()
+          ..sort((a, b) => b.latest!.createdAt.compareTo(a.latest!.createdAt));
+    }
+  }
 
   @override
   void dispose() {
@@ -119,7 +176,8 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
         onRetry: () => ref.invalidate(praiseSongsProvider),
       ),
       data: (songs) {
-        final visible = songs.where(_matches).toList();
+        final usage = ref.watch(praiseUsageProvider).valueOrNull ?? const {};
+        final visible = _shelve(songs, usage).where(_matches).toList();
         return RefreshIndicator(
           onRefresh: () => ref.refresh(praiseSongsProvider.future),
           child: ListView(
@@ -140,6 +198,24 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
                     : null,
               ),
               const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final f in _Shelf.values)
+                    ChoiceChip(
+                      shape: const StadiumBorder(),
+                      label: Text(f.label),
+                      selected: _shelf == f,
+                      onSelected: (_) {
+                        setState(() => _shelf = f);
+                        // Recentes muda ao abrir músicas: relê ao voltar.
+                        if (f == _Shelf.recent) _loadLocal();
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
               if (songs.isEmpty)
                 PraiseMessage(
                   title: 'A biblioteca ainda está vazia',
@@ -149,9 +225,11 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
                       : 'Quando a liderança cadastrar as músicas, elas aparecem aqui.',
                 )
               else if (visible.isEmpty)
-                const PraiseMessage(
-                  title: 'Nenhuma música encontrada',
-                  message: 'Tente outro título, artista ou trecho da letra.',
+                PraiseMessage(
+                  title: _shelf.emptyTitle,
+                  message: _searchQuery.trim().isNotEmpty
+                      ? 'Tente outro título, artista ou trecho da letra.'
+                      : _shelf.emptyMessage,
                 ),
               for (final s in visible)
                 Padding(
@@ -181,8 +259,29 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
                                   s.artist!,
                                   style: CommunityDesign.metaStyle(context),
                                 ),
+                              if (_shelf == _Shelf.mostUsed)
+                                Text(
+                                  'Em ${usage[s.id]} repertório(s)',
+                                  style: CommunityDesign.metaStyle(context),
+                                ),
+                              if (_shelf == _Shelf.changes)
+                                Text(
+                                  _changeLine(s.latest!),
+                                  style: CommunityDesign.metaStyle(context),
+                                ),
                             ],
                           ),
+                        ),
+                        IconButton(
+                          tooltip: _favorites.contains(s.id)
+                              ? 'Tirar das favoritas'
+                              : 'Favoritar',
+                          icon: Icon(
+                            _favorites.contains(s.id)
+                                ? AppIcons.star
+                                : AppIcons.starOutline,
+                          ),
+                          onPressed: () => _toggleFavorite(s.id),
                         ),
                         Text(
                           s.latest?.originalKey ??
@@ -247,4 +346,60 @@ class PraiseMessage extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Favoritas e recentes ficam no aparelho (cada pessoa no seu celular),
+/// como as preferências do leitor.
+const praiseFavoritesPref = 'praise_favorites';
+const praiseRecentPref = 'praise_recent';
+
+/// O leitor chama ao abrir: a música vai para o topo de "Recentes" (20).
+Future<void> rememberRecentSong(String songId) async {
+  try {
+    final p = await SharedPreferences.getInstance();
+    final list = p.getStringList(praiseRecentPref) ?? const [];
+    await p.setStringList(praiseRecentPref, [
+      songId,
+      ...list.where((id) => id != songId).take(19),
+    ]);
+  } catch (_) {}
+}
+
+/// "Nova música" ou "Versão 3 · troquei o tom · 01/10".
+String _changeLine(PraiseSongVersion v) {
+  final date = DateFormat('dd/MM').format(v.createdAt.toLocal());
+  final what = v.versionNumber == 1
+      ? 'Nova música'
+      : 'Versão ${v.versionNumber}'
+            '${v.changeNote == null || v.changeNote!.isEmpty ? '' : ' · ${v.changeNote}'}';
+  return '$what · $date';
+}
+
+enum _Shelf {
+  all('Todas', 'Nenhuma música encontrada', ''),
+  favorites(
+    'Favoritas',
+    'Nenhuma favorita ainda',
+    'Toque na estrela de uma música para ela aparecer aqui.',
+  ),
+  recent(
+    'Recentes',
+    'Nenhuma música aberta ainda',
+    'As músicas que você abrir aparecem aqui.',
+  ),
+  mostUsed(
+    'Mais usadas',
+    'Nenhuma música em repertório',
+    'As músicas que entram nos repertórios aparecem aqui.',
+  ),
+  changes(
+    'O que mudou',
+    'Nada mudou ainda',
+    'Músicas novas e versões novas aparecem aqui, da mais recente.',
+  );
+
+  const _Shelf(this.label, this.emptyTitle, this.emptyMessage);
+  final String label;
+  final String emptyTitle;
+  final String emptyMessage;
 }
