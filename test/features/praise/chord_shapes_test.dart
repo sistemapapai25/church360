@@ -47,19 +47,6 @@ void main() {
     expect(barreOf(shape('C')), isNull);
   });
 
-  test('outros instrumentos acham desenho', () {
-    for (final i in [
-      PraiseInstrument.ukulele,
-      PraiseInstrument.cavaco,
-      PraiseInstrument.viola,
-    ]) {
-      for (final c in ['G', 'C', 'D', 'Em', 'Am', 'F', 'Bb']) {
-        expect(_shape(c, i), isNot('-'), reason: '$c ${i.name}');
-      }
-    }
-    expect(_shape('C', PraiseInstrument.ukulele), '0003');
-  });
-
   test('baixo: só a nota do baixo, na primeira posição', () {
     const b4 = PraiseInstrument.baixo, b5 = PraiseInstrument.baixo5;
     expect(_shape('E', b4), '0xxx');

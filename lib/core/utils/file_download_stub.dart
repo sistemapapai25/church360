@@ -12,3 +12,7 @@ void downloadFile(String filename, Uint8List bytes) {
 void downloadCsv(String filename, String csv) {
   throw UnimplementedError('CSV download is not supported on this platform.');
 }
+
+void downloadText(String filename, String text) {
+  throw UnimplementedError('Text download is not supported on this platform.');
+}

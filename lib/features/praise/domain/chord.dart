@@ -110,6 +110,13 @@ class Chord {
     );
   }
 
+  /// "Simplificada" do CifraClub: só a tríade, maior ou menor, sem baixo
+  /// (C7M → C, Am7 → Am, G/B → G).
+  Chord get simplified => Chord(
+    root,
+    suffix.startsWith('m') && !suffix.startsWith('maj') ? 'm' : '',
+  );
+
   @override
   String toString() => bass == null ? '$root$suffix' : '$root$suffix/$bass';
 }

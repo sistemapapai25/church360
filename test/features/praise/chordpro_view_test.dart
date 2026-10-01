@@ -124,4 +124,33 @@ void main() {
     expect(find.text('diagrama G'), findsNWidgets(2));
     expect(find.text('diagrama D'), findsOneWidget);
   });
+
+  testWidgets('tablatura: ocultar esconde o bloco inteiro', (t) async {
+    const src = '[G]Santo\n{sot}\ne|--3--|\n{eot}\n[C]fim';
+    await t.pumpWidget(_wrap(const ChordProView(source: src)));
+    expect(find.text('e|--3--|'), findsOneWidget);
+    await t.pumpWidget(_wrap(const ChordProView(source: src, showTabs: false)));
+    expect(find.text('e|--3--|'), findsNothing);
+    expect(find.text('Tablatura'), findsNothing);
+    expect(find.text('fim'), findsOneWidget);
+  });
+
+  testWidgets('três colunas cortam nas estrofes', (t) async {
+    final song = List.generate(
+      6,
+      (i) => '{c: Parte $i}\n[G]linha um\n[D]linha dois',
+    ).join('\n\n');
+    await t.binding.setSurfaceSize(const Size(1300, 900));
+    addTearDown(() => t.binding.setSurfaceSize(null));
+    await t.pumpWidget(
+      _wrap(
+        ChordProView(source: song, twoColumns: true, columnCount: 3),
+        width: 1200,
+      ),
+    );
+    final xs = {
+      for (var i = 0; i < 6; i++) t.getTopLeft(find.text('Parte $i')).dx,
+    };
+    expect(xs.length, 3);
+  });
 }

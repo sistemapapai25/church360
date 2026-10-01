@@ -30,3 +30,16 @@ void downloadCsv(String filename, String csv) {
   a.click();
   a.remove();
 }
+
+/// Arquivo de texto (ChordPro) no web.
+void downloadText(String filename, String text) {
+  final dataUrl =
+      'data:text/plain;charset=utf-8;base64,${base64Encode(utf8.encode(text))}';
+  final a = web.HTMLAnchorElement()
+    ..href = dataUrl
+    ..download = filename
+    ..style.display = 'none';
+  web.document.body?.append(a);
+  a.click();
+  a.remove();
+}

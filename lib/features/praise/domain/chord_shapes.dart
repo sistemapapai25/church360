@@ -8,23 +8,15 @@ import 'chord.dart';
 enum PraiseInstrument {
   violao('Violão e guitarra', [40, 45, 50, 55, 59, 64]),
   teclado('Teclado', null),
-  // Afinação reentrante (G4 C4 E4 A4): o baixo do acorde não é a 1ª corda.
-  ukulele('Ukulele', [67, 60, 64, 69], bassFree: true),
-  cavaco('Cavaco', [62, 67, 71, 74], bassFree: true),
-  // Cebolão em E (B E G# B E), a mais comum; os pares tocam juntos.
-  viola('Viola caipira', [47, 52, 56, 59, 64]),
   // Baixo (E1 A1 D2 G2) e o de 5 cordas (B0 embaixo). Um chip só na tela; as
   // 4/5 cordas são a escolha que vem depois (§9.5).
   baixo('Baixo', [28, 33, 38, 43]),
   baixo5('Baixo', [23, 28, 33, 38, 43]);
 
-  const PraiseInstrument(this.label, this.tuning, {this.bassFree = false});
+  const PraiseInstrument(this.label, this.tuning);
 
   final String label;
   final List<int>? tuning;
-
-  /// No ukulele e no cavaco ninguém procura o baixo na corda mais grave.
-  final bool bassFree;
 
   /// Toca só a nota do baixo do acorde, sem capotraste.
   bool get isBass => this == baixo || this == baixo5;
@@ -226,7 +218,7 @@ double _cost(
     return double.infinity;
   }
   final lowest = sounding.reduce((a, b) => a < b ? a : b);
-  if (!instrument.bassFree && lowest % 12 != bass) return double.infinity;
+  if (lowest % 12 != bass) return double.infinity;
 
   final fretted = [
     for (final f in shape)
@@ -279,11 +271,27 @@ double _cost(
 /// por igual, então bastam os semitons. Afinar mais grave muda o desenho,
 /// não o nome do acorde.
 const praiseTunings = [
-  (label: 'Padrão (E A D G B E)', drop: 0),
-  (label: '1/2 tom abaixo (Eb Ab Db Gb Bb Eb)', drop: 1),
-  (label: '1 tom abaixo (D G C F A D)', drop: 2),
-  (label: '1 tom e 1/2 abaixo (Db Gb B E Ab Db)', drop: 3),
-  (label: '2 tons abaixo (C F Bb Eb G C)', drop: 4),
+  (label: 'Padrão (E A D G B E)', bassLabel: 'Padrão (E A D G)', drop: 0),
+  (
+    label: '1/2 tom abaixo (Eb Ab Db Gb Bb Eb)',
+    bassLabel: '1/2 tom abaixo (Eb Ab Db Gb)',
+    drop: 1,
+  ),
+  (
+    label: '1 tom abaixo (D G C F A D)',
+    bassLabel: '1 tom abaixo (D G C F)',
+    drop: 2,
+  ),
+  (
+    label: '1 tom e 1/2 abaixo (Db Gb B E Ab Db)',
+    bassLabel: '1 tom e 1/2 abaixo (Db Gb B E)',
+    drop: 3,
+  ),
+  (
+    label: '2 tons abaixo (C F Bb Eb G C)',
+    bassLabel: '2 tons abaixo (C F Bb Eb)',
+    drop: 4,
+  ),
 ];
 
 /// Acorde cujo desenho soa como [sounding] com a corda [drop] semitons mais
