@@ -106,6 +106,28 @@ sem acorde
       expect(transposeChordPro(src, 3), '{key: Bb}\n[Bb] [F/A] [Eb]');
     });
 
+    test('acordes compostos', () {
+      const src = '{key: C}\n[C/E] [Am/G] [F#m7] [C#sus4] [Ebmaj7] [Gadd9]';
+      expect(transposeChordPro(src, 2), '{key: D}\n[D/F#] [Bm/A] [G#m7] [D#sus4] [Fmaj7] [Aadd9]');
+    });
+
+    test('grafia não degrada em ida e volta enarmônica', () {
+      const g = '{key: G}\n[G] [D/F#] [Em7] [C]';
+      final ab = transposeChordPro(g, 1);
+      expect(ab, '{key: Ab}\n[Ab] [Eb/G] [Fm7] [Db]');
+      expect(transposeChordPro(ab, -1), g);
+
+      const bb = '{key: Bb}\n[Bb] [F/A] [Gm] [Eb]';
+      final c = transposeChordPro(bb, 2);
+      expect(c, '{key: C}\n[C] [G/B] [Am] [F]');
+      expect(transposeChordPro(c, -2), bb);
+
+      const fs = '{key: F#}\n[F#] [C#/E#] [D#m] [B]';
+      final eb = transposeChordPro(fs, -3);
+      expect(eb, '{key: Eb}\n[Eb] [Bb/D] [Cm] [Ab]');
+      expect(transposeChordPro(eb, 3), fs.replaceAll('E#', 'F'));
+    });
+
     test('ida e volta no documento', () {
       const src = '{key: D}\n[D]Eu [A/C#]te [Bm7]louvo [G]';
       expect(transposeChordPro(transposeChordPro(src, 2), -2), src);

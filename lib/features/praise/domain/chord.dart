@@ -27,9 +27,12 @@ class Chord {
     return Chord(m[1]!, m[2]!, m[3]);
   }
 
+  static const _naturals = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11};
+
+  /// Natural + acidente, então E#, B#, Cb e Fb também resolvem.
   static int semitoneOf(String note) {
-    final i = _sharps.indexOf(note);
-    return i >= 0 ? i : _flats.indexOf(note);
+    final acc = note.length > 1 ? (note[1] == '#' ? 1 : -1) : 0;
+    return (_naturals[note[0]]! + acc) % 12;
   }
 
   static String _shift(String note, int semitones, bool flats) =>
