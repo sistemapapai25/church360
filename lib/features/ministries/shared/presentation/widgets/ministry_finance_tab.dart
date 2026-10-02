@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/app_filter_bar.dart';
+import '../../../../../core/widgets/app_tabs.dart';
 import '../../../../../core/widgets/glass_card.dart';
 import '../../../../financeiro/domain/models/lancamento.dart';
 import '../../domain/ministry_finance.dart';
+import '../../domain/ministry_stock.dart';
+import '../../domain/ministry_type_catalog.dart';
 import '../providers/ministry_finance_providers.dart';
+import '../providers/ministry_stock_providers.dart';
+import 'ministry_audit_view.dart';
 import 'ministry_finance_form_sheet.dart';
+import 'ministry_stock_view.dart';
 
 /// Aba Financeiro do workspace: o caixa do departamento.
 ///
@@ -22,41 +29,163 @@ import 'ministry_finance_form_sheet.dart';
 /// Financeiro e não aparece aqui, nem o contrário: desde 22/09 as leituras
 /// da igreja filtram lançamento de ministério não aprovado
 /// (`kLancamentosIgrejaScope`).
-class MinistryFinanceTab extends ConsumerWidget {
+///
+/// Desde 02/10 a aba é o host de três lados — `Caixa | Estoque | Auditoria`
+/// —, e cada pessoa vê só os que pode abrir (D1/D2 do
+/// HANDOFF-2026-10-02-ESTOQUE-MINISTERIO). O gate do Caixa continua sendo
+/// [ministryFinanceAccessProvider]; Estoque e Auditoria perguntam ao banco.
+///
+/// O link do alerta de estoque chega como
+/// `?tab=financeiro&side=estoque&item=<id>`: o lado e o item são lidos uma
+/// vez por link.
+class MinistryFinanceTab extends ConsumerStatefulWidget {
   final String ministryId;
 
   const MinistryFinanceTab({super.key, required this.ministryId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final accessAsync = ref.watch(ministryFinanceAccessProvider(ministryId));
+  ConsumerState<MinistryFinanceTab> createState() => _MinistryFinanceTabState();
+}
 
-    return accessAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => _MessagePanel(
+class _MinistryFinanceTabState extends ConsumerState<MinistryFinanceTab> {
+  /// Link já atendido: voltar para a aba não reabre o item.
+  static String? _consumedLink;
+
+  FinanceSide? _side;
+  String? _openItemId;
+
+  @override
+  void initState() {
+    super.initState();
+    final uri = GoRouter.maybeOf(context)?.routeInformationProvider.value.uri;
+    final q = uri?.queryParameters ?? const {};
+    if (q['tab'] == MinistryTabKeys.financeiro && '$uri' != _consumedLink) {
+      _consumedLink = '$uri';
+      _side = FinanceSide.values.asNameMap()[q['side']];
+      _openItemId = q['item'];
+    }
+  }
+
+  void _retry() {
+    ref.invalidate(ministryFinanceAccessProvider(widget.ministryId));
+    ref.invalidate(ministryStockCapsProvider(widget.ministryId));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ministryId = widget.ministryId;
+    final accessAsync = ref.watch(ministryFinanceAccessProvider(ministryId));
+    final capsAsync = ref.watch(ministryStockCapsProvider(ministryId));
+
+    final error = accessAsync.error ?? capsAsync.error;
+    if (error != null) {
+      return _MessagePanel(
         icon: AppIcons.finance,
         title: 'Não deu para verificar suas permissões',
         message: '$error',
-        onRetry: () =>
-            ref.invalidate(ministryFinanceAccessProvider(ministryId)),
+        onRetry: _retry,
+      );
+    }
+    if (!accessAsync.hasValue || !capsAsync.hasValue) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final access = accessAsync.requireValue;
+    final caps = capsAsync.requireValue;
+    final sides = financeSides(
+      caixa: access.canView,
+      estoque: caps.canView,
+      auditoria: caps.canAudit,
+    );
+
+    if (sides.isEmpty) {
+      // Estado honesto em vez de lista vazia: sem a permissão em um
+      // cargo, ou sem vínculo no ministério, o banco não devolve linha
+      // nenhuma e a tela ficaria muda sem dizer por quê.
+      return const _MessagePanel(
+        icon: AppIcons.finance,
+        title: 'Caixa do ministério fechado para você',
+        message:
+            'Para ver o caixa deste departamento é preciso ter a '
+            'permissão "Ver caixa do ministério" em um cargo e estar '
+            'vinculado a este ministério. Quem administra o financeiro '
+            'da igreja também enxerga.',
+      );
+    }
+
+    final side = sides.contains(_side) ? _side! : sides.first;
+    // D18: o contador de itens em falta fica na pílula Estoque.
+    final lowCount = caps.canView
+        ? (ref
+                  .watch(ministryStockItemsProvider(ministryId))
+                  .valueOrNull
+                  ?.where((i) => !i.archived && i.isLow)
+                  .length ??
+              0)
+        : 0;
+
+    final body = switch (side) {
+      FinanceSide.caixa => _MinistryFinanceBody(
+        ministryId: ministryId,
+        access: access,
       ),
-      data: (access) {
-        if (!access.canView) {
-          // Estado honesto em vez de lista vazia: sem a permissão em um
-          // cargo, ou sem vínculo no ministério, o banco não devolve linha
-          // nenhuma e a tela ficaria muda sem dizer por quê.
-          return const _MessagePanel(
-            icon: AppIcons.finance,
-            title: 'Caixa do ministério fechado para você',
-            message:
-                'Para ver o caixa deste departamento é preciso ter a '
-                'permissão "Ver caixa do ministério" em um cargo e estar '
-                'vinculado a este ministério. Quem administra o financeiro '
-                'da igreja também enxerga.',
-          );
-        }
-        return _MinistryFinanceBody(ministryId: ministryId, access: access);
-      },
+      FinanceSide.estoque => MinistryStockView(
+        ministryId: ministryId,
+        canManage: caps.canManage,
+        openItemId: _openItemId,
+      ),
+      FinanceSide.auditoria => MinistryAuditView(ministryId: ministryId),
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          child: sides.length > 1
+              ? AppTabs(
+                  tabs: [
+                    for (final s in sides)
+                      AppTab(
+                        label: switch (s) {
+                          FinanceSide.caixa => 'Caixa',
+                          FinanceSide.estoque => 'Estoque',
+                          FinanceSide.auditoria => 'Auditoria',
+                        },
+                        count: s == FinanceSide.estoque && lowCount > 0
+                            ? '$lowCount'
+                            : null,
+                      ),
+                  ],
+                  selectedIndex: sides.indexOf(side),
+                  onChanged: (i) => setState(() {
+                    _side = sides[i];
+                    _openItemId = null;
+                  }),
+                )
+              // Um lado só: sem pílula (D2). O integrante sem caixa vê o
+              // título "Estoque" (canvas tela 2).
+              : side == FinanceSide.estoque
+              ? Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Estoque',
+                        style: CommunityDesign.titleStyle(
+                          context,
+                        ).copyWith(fontSize: 18, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    Text(
+                      'sem acesso ao caixa',
+                      style: CommunityDesign.metaStyle(context),
+                    ),
+                  ],
+                )
+              : const SizedBox.shrink(),
+        ),
+        Expanded(child: body),
+      ],
     );
   }
 }

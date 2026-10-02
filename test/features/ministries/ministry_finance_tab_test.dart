@@ -2,6 +2,7 @@ import 'package:church360_app/core/theme/app_theme.dart';
 import 'package:church360_app/features/financeiro/domain/models/lancamento.dart';
 import 'package:church360_app/features/ministries/shared/domain/ministry_finance.dart';
 import 'package:church360_app/features/ministries/shared/presentation/providers/ministry_finance_providers.dart';
+import 'package:church360_app/features/ministries/shared/presentation/providers/ministry_stock_providers.dart';
 import 'package:church360_app/features/ministries/shared/presentation/widgets/ministry_finance_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,9 +51,18 @@ Widget _host(
   bool canView = true,
   bool canCreate = false,
   bool canApprove = false,
+  MinistryStockCaps stock = const MinistryStockCaps(
+    canView: false,
+    canManage: false,
+    canAudit: false,
+  ),
 }) {
   return ProviderScope(
     overrides: [
+      ministryStockCapsProvider(_ministryId).overrideWith((ref) async => stock),
+      ministryStockItemsProvider(
+        _ministryId,
+      ).overrideWith((ref) async => const []),
       ministryFinanceAccessProvider(_ministryId).overrideWith(
         (ref) async => MinistryFinanceAccess(
           canView: canView,
@@ -129,6 +139,48 @@ void main() {
 
     expect(find.text('Caixa do ministério fechado para você'), findsOneWidget);
     expect(find.text('Novo lançamento'), findsNothing);
+  });
+
+  testWidgets('integrante sem caixa ve so o Estoque, sem pilula', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        const [],
+        canView: false,
+        stock: const MinistryStockCaps(
+          canView: true,
+          canManage: false,
+          canAudit: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('sem acesso ao caixa'), findsOneWidget);
+    expect(find.text('Caixa'), findsNothing);
+    expect(find.text('Auditoria'), findsNothing);
+    expect(find.text('Novo item'), findsNothing);
+  });
+
+  testWidgets('quem pode tudo ve a pilula Caixa | Estoque | Auditoria', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        const [],
+        stock: const MinistryStockCaps(
+          canView: true,
+          canManage: true,
+          canAudit: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Caixa'), findsOneWidget);
+    expect(find.text('Estoque'), findsOneWidget);
+    expect(find.text('Auditoria'), findsOneWidget);
   });
 
   testWidgets('quem so enxerga nao ganha o botao de lancar', (tester) async {

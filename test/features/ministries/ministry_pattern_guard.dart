@@ -49,6 +49,10 @@ const Map<String, Map<String, String>> patternExemptions = {
         'Cifra/Prévia do editor',
     'louvor/presentation/praise_song_reader_screen.dart':
         'modos Cifra/Simplificada/Só letra do leitor',
+    // HANDOFF-2026-10-02-ESTOQUE-MINISTERIO D1/D2: lados do Financeiro,
+    // montados pela capacidade de cada um.
+    'shared/presentation/widgets/ministry_finance_tab.dart':
+        'sub-navegação Caixa/Estoque/Auditoria',
   },
 };
 

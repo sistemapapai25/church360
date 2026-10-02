@@ -192,10 +192,18 @@ class _MinistryWorkspaceShellState
     extends ConsumerState<MinistryWorkspaceShell> {
   late int _selected;
 
+  /// Aba pedida pelo link (`?tab=<chave>`, ex.: o alerta de estoque). Vale
+  /// até a pessoa trocar de aba: a lista visível muda enquanto o ministério
+  /// e a ordem pessoal carregam, e um índice fixo apontaria para outra aba.
+  String? _linkedTab;
+
   @override
   void initState() {
     super.initState();
     _selected = widget.initialIndex.clamp(0, widget.tabs.length - 1);
+    _linkedTab = GoRouter.maybeOf(
+      context,
+    )?.routeInformationProvider.value.uri.queryParameters['tab'];
   }
 
   @override
@@ -272,6 +280,10 @@ class _MinistryWorkspaceShellState
         ),
       );
     }
+    final linked = _linkedTab == null
+        ? -1
+        : tabs.indexWhere((t) => t.key == _linkedTab);
+    if (linked >= 0) _selected = linked;
     if (tabs.isNotEmpty && _selected >= tabs.length) {
       _selected = tabs.length - 1;
     }
@@ -338,7 +350,10 @@ class _MinistryWorkspaceShellState
                       AppTab(label: tab.label, count: tab.count),
                   ],
                   selectedIndex: _selected,
-                  onChanged: (i) => setState(() => _selected = i),
+                  onChanged: (i) => setState(() {
+                    _selected = i;
+                    _linkedTab = null;
+                  }),
                   trailing: _SettingsButton(onTap: _openEdit),
                 ),
                 const SizedBox(height: 16),
