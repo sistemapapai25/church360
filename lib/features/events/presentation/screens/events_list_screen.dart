@@ -1023,6 +1023,15 @@ class _EventTypesManageScreenState
 
   @override
   Widget build(BuildContext context) {
+    // A entrada na tela já exige events.create || events.edit; cada ação
+    // interna exige a sua (CHU-383).
+    bool can(String code) => ref
+        .watch(currentUserHasPermissionProvider(code))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+    final canCreate = can('events.create');
+    final canEdit = can('events.edit');
+    final canDelete = can('events.delete');
+
     return Scaffold(
       appBar: AppBar(title: const Text('Gerenciar Tipos de Evento')),
       body: Padding(
@@ -1047,7 +1056,10 @@ class _EventTypesManageScreenState
                   ),
                 ),
                 const SizedBox(width: 8),
-                ElevatedButton(onPressed: _add, child: const Text('Incluir')),
+                ElevatedButton(
+                  onPressed: canCreate ? _add : null,
+                  child: const Text('Incluir'),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -1067,11 +1079,15 @@ class _EventTypesManageScreenState
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                onPressed: () => _editLabel(code, label),
+                                onPressed: canEdit
+                                    ? () => _editLabel(code, label)
+                                    : null,
                                 icon: const Icon(AppIcons.edit),
                               ),
                               IconButton(
-                                onPressed: () => _delete(code),
+                                onPressed: canDelete
+                                    ? () => _delete(code)
+                                    : null,
                                 icon: const Icon(AppIcons.delete),
                               ),
                             ],

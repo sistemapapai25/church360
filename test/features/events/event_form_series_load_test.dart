@@ -91,6 +91,17 @@ class _EventFormApiSpy {
     if (path.endsWith('/event') && request.method == 'GET') {
       return http.Response(eventRows, 200, request: request, headers: headers);
     }
+    // Sem sessão (é o caso aqui), `getEventById` lê pela RPC pública
+    // (CHU-387), que devolve o objeto, não a lista.
+    if (path.endsWith('/rpc/get_public_event')) {
+      final rows = jsonDecode(eventRows) as List;
+      return http.Response(
+        jsonEncode(rows.isEmpty ? null : rows.first),
+        200,
+        request: request,
+        headers: headers,
+      );
+    }
 
     // Tudo o mais (event_type, event_location, event_audience,
     // event_reminder) responde vazio: o formulário tolera e cai nos padrões.
