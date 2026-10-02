@@ -12,9 +12,9 @@ class SupabaseConstants {
       'sb_publishable_LfPOQeLcfniZohiBvmesnw_sgRWht18';
 
   // URL do build web (Flutter Web) publicado, usada como destino de links de
-  // confirmação de auth (troca de email, etc). Usar o domínio da Vercel em vez
-  // de app.church360.com.br enquanto o CNAME desse subdomínio não propaga.
-  static const String authRedirectUrl = 'https://church360-app.vercel.app/';
+  // confirmação de auth (troca de email, etc). church360-app.vercel.app
+  // continua no ar, mas redireciona para este domínio.
+  static const String authRedirectUrl = 'https://papai.church360.com.br/';
 
   // LINK-01 (Fase 2): host canônico do app na web. É a fonte ÚNICA do domínio
   // usado para montar qualquer link compartilhável (ShareLinkUtils) e é o mesmo
@@ -25,7 +25,7 @@ class SupabaseConstants {
   // Deliberadamente separado de `authRedirectUrl` (que é consumida pelo fluxo de
   // auth do Supabase e tem allowlist própria no painel), mesmo com o mesmo valor
   // hoje: os dois podem divergir sem que um quebre o outro.
-  static const String appWebBaseUrl = 'https://church360-app.vercel.app/';
+  static const String appWebBaseUrl = 'https://papai.church360.com.br/';
 
   // ⚠️ NUNCA exponha o service_role key no app!
   // Ele deve ser usado apenas em scripts backend

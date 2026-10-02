@@ -1,4 +1,4 @@
-# Deploy do Church360 (Flutter Web) para a Vercel — app.church360.com.br
+# Deploy do Church360 (Flutter Web) para a Vercel — papai.church360.com.br
 # Uso: pwsh .\deploy-vercel.ps1
 
 $ErrorActionPreference = "Stop"
@@ -37,4 +37,4 @@ try {
     Pop-Location
 }
 
-Write-Host "==> Pronto: https://app.church360.com.br" -ForegroundColor Green
+Write-Host "==> Pronto: https://papai.church360.com.br" -ForegroundColor Green
