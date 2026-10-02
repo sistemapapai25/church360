@@ -18,7 +18,7 @@ void main() {
     test('devolve URL absoluta no host canonico fora do web', () {
       final url = ShareLinkUtils.buildShareUrl('/events/abc');
 
-      expect(url, 'https://church360-app.vercel.app/events/abc');
+      expect(url, 'https://papai.church360.com.br/events/abc');
     });
 
     test('normaliza path sem barra inicial para o mesmo resultado', () {
@@ -28,7 +28,7 @@ void main() {
       );
       expect(
         ShareLinkUtils.buildShareUrl('events/abc'),
-        'https://church360-app.vercel.app/events/abc',
+        'https://papai.church360.com.br/events/abc',
       );
     });
 

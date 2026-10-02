@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy do Church360 (Flutter Web) para a Vercel — app.church360.com.br
+# Deploy do Church360 (Flutter Web) para a Vercel — papai.church360.com.br
 # Uso: ./deploy-vercel.sh
 set -euo pipefail
 
@@ -28,4 +28,4 @@ EOF
 echo "==> Deploy de producao na Vercel..."
 (cd "$web_dir" && vercel deploy --prod --yes)
 
-echo "==> Pronto: https://app.church360.com.br"
+echo "==> Pronto: https://papai.church360.com.br"
