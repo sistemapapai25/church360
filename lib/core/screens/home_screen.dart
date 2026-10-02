@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
@@ -22,6 +24,7 @@ import '../../features/bible/presentation/screens/bible_books_screen.dart';
 import '../../features/courses/presentation/screens/courses_list_screen.dart';
 import '../../features/events/domain/models/event.dart';
 import '../../features/events/presentation/screens/event_detail_screen.dart';
+import '../../features/notifications/presentation/providers/notification_provider.dart';
 import '../../features/notifications/presentation/widgets/notification_badge.dart';
 import '../../features/events/presentation/providers/events_provider.dart';
 import '../../features/devotionals/presentation/providers/devotional_provider.dart';
@@ -95,8 +98,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (_tourJaConsultado) return;
     _tourJaConsultado = true;
     final jaViu = await OnboardingTourPrefs.jaConcluiu();
-    if (!mounted || jaViu) return;
+    if (!mounted) return;
+    if (jaViu) return _oferecerPush();
     setState(() => _tourVisivel = true);
+  }
+
+  /// Convite único para ativar o push na web (o navegador só pede a permissão
+  /// depois de um toque). Some depois de mostrado uma vez, respondido ou não;
+  /// quem já decidiu (permitiu ou bloqueou) nunca vê. Fica fora do tour.
+  Future<void> _oferecerPush() async {
+    const vistoKey = 'push_aviso_visto';
+    if (!kIsWeb || Supabase.instance.client.auth.currentUser == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(vistoKey) ?? false) return;
+    final push = ref.read(pushRegistrationServiceProvider);
+    try {
+      if (await push.permissionStatus() != AuthorizationStatus.notDetermined) {
+        return;
+      }
+    } catch (_) {
+      return; // Navegador sem suporte a push (ex.: Safari fora do PWA).
+    }
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    await prefs.setBool(vistoKey, true);
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 20),
+        showCloseIcon: true,
+        content: const Text(
+          'Ative as notificações para receber os avisos da igreja.',
+        ),
+        action: SnackBarAction(
+          label: 'Ativar',
+          onPressed: () async {
+            final result = await push.registerCurrentDevice();
+            messenger.showSnackBar(SnackBar(content: Text(result.message)));
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _irParaAba(int index) async {
