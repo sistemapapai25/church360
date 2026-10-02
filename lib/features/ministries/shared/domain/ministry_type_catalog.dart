@@ -38,6 +38,55 @@ abstract final class MinistryTabKeys {
 
   // Louvor
   static const louvores = 'louvores';
+
+  /// As abas que **todo** ministério pode ligar na engrenagem, na ordem
+  /// padrão. Aba nova que deve chegar a todos os ministérios entra aqui (e em
+  /// `ministryStandardSlots`); o padrão dela é desligada, salvo no tipo cujo
+  /// catálogo a liste. O Painel fica de fora: é do Raízes e do Diaconato.
+  static const standard = <MinistryTypeTab>[
+    MinistryTypeTab(equipe, 'Equipe'),
+    MinistryTypeTab(escala, 'Escala'),
+    MinistryTypeTab(financeiro, 'Financeiro'),
+    MinistryTypeTab(louvores, 'Louvores'),
+    MinistryTypeTab(alunos, 'Alunos'),
+    MinistryTypeTab(checklist, 'Checklist'),
+    MinistryTypeTab(presenca, 'Presença'),
+    MinistryTypeTab(whatsapp, 'WhatsApp'),
+    MinistryTypeTab(relatorios, 'Relatórios'),
+  ];
+}
+
+/// Aplica a escolha do líder ([overrides], o `settings.tabs` do ministério)
+/// e a ordem pessoal ([order]) sobre [available] (ver
+/// [MinistryTypeCatalog.availableTabsFor]).
+///
+/// Devolve todas as abas, ligadas e desligadas, na ordem em que a pessoa as
+/// vê: primeiro as que ela já ordenou, na ordem salva; depois as que ela
+/// nunca ordenou (aba nova, aba recém-ligada), na ordem padrão.
+List<(MinistryTypeTab, bool)> resolveMinistryTabs({
+  required List<(MinistryTypeTab, bool)> available,
+  Map<String, dynamic> overrides = const {},
+  List<String> order = const [],
+}) {
+  int rank(String key) {
+    final i = order.indexOf(key);
+    return i < 0 ? order.length : i;
+  }
+
+  final indexed = [
+    for (final (i, (tab, byDefault)) in available.indexed)
+      (
+        i,
+        tab,
+        overrides[tab.key] is bool ? overrides[tab.key] as bool : byDefault,
+      ),
+  ];
+  // List.sort não é estável: o índice original desempata.
+  indexed.sort((a, b) {
+    final byRank = rank(a.$2.key).compareTo(rank(b.$2.key));
+    return byRank != 0 ? byRank : a.$1.compareTo(b.$1);
+  });
+  return [for (final (_, tab, on) in indexed) (tab, on)];
 }
 
 /// Os códigos de tipo que o Dart precisa nomear porque tem tela própria para
@@ -197,6 +246,22 @@ class MinistryTypeCatalog {
   List<String> tabLabelsFor(String? code) =>
       (specFor(code) ?? specFor(MinistryTypeCodes.generic))?.tabLabels ??
       const [];
+
+  /// Todas as abas que um ministério do tipo [code] pode ter, cada uma com o
+  /// padrão de quem nunca mexeu na engrenagem: as do tipo nascem ligadas, na
+  /// ordem do catálogo; as de [MinistryTabKeys.standard] que o tipo não lista
+  /// vêm depois, desligadas. Tipo desconhecido usa o `generic`.
+  List<(MinistryTypeTab, bool)> availableTabsFor(String? code) {
+    final own =
+        (specFor(code) ?? specFor(MinistryTypeCodes.generic))?.tabs ??
+        const <MinistryTypeTab>[];
+    final keys = {for (final t in own) t.key};
+    return [
+      for (final t in own) (t, true),
+      for (final t in MinistryTabKeys.standard)
+        if (!keys.contains(t.key)) (t, false),
+    ];
+  }
 
   /// Para onde navegar ao abrir [ministryId] do tipo [code]. Tipo sem atalho
   /// (ou desconhecido) abre o workspace comum.

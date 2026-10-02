@@ -32,11 +32,16 @@ class MinistryWorkspaceTab {
   /// Chave do catálogo ([MinistryTabKeys]), quando a aba veio dele.
   final String? key;
 
+  /// Ligada para quem nunca mexeu na engrenagem. O shell aplica por cima a
+  /// escolha do líder (`settings.tabs`) e a ordem pessoal.
+  final bool enabledByDefault;
+
   const MinistryWorkspaceTab({
     required this.label,
     this.count,
     required this.builder,
     this.key,
+    this.enabledByDefault = true,
   });
 }
 
@@ -59,27 +64,45 @@ class MinistryTabSlot {
   });
 }
 
-/// Monta a lista de abas cruzando o que a tela sabe construir ([slots]) com o
-/// que o catálogo manda para [typeCode].
+/// Monta a lista de abas cruzando o que a tela sabe construir ([slots]) com
+/// [MinistryTypeCatalog.availableTabsFor]: as abas do tipo [typeCode] vêm
+/// marcadas como ligadas por padrão, as demais de [MinistryTabKeys.standard]
+/// como desligadas. Quem decide o que aparece de fato, e em que ordem, é o
+/// [MinistryWorkspaceShell].
 ///
-/// As duas falhas possíveis têm saída pelo lado seguro:
-///
-/// - **tipo fora do catálogo** (ou catálogo que não chegou): usa todos os
-///   slots, na ordem em que a tela os declarou. É exatamente o comportamento
-///   de antes da Fase 2;
-/// - **chave que o app não conhece**: ignorada. Uma aba sem widget nasceria
-///   vazia, e uma tela com aba vazia é pior que uma aba a menos.
-///
-/// O caso que **não** tem rede é o inverso: chave que a tela tem e o catálogo
-/// não lista sai da tela. É o preço de o catálogo mandar de verdade, e é por
-/// isso que a tabela só muda por migration e que o fallback embutido é travado
-/// por teste. Em debug, cada slot descartado vira aviso no console.
+/// Chave que o app não sabe montar é ignorada (uma aba sem widget nasceria
+/// vazia). Tipo fora do catálogo usa o padrão do `generic`. Se nada casar, a
+/// tela ganha de volta tudo o que declarou.
 List<MinistryWorkspaceTab> ministryTabsFromCatalog({
   required MinistryTypeCatalog catalog,
   required String typeCode,
   required Map<String, MinistryTabSlot> slots,
 }) {
-  List<MinistryWorkspaceTab> allSlots() => [
+  final tabs = <MinistryWorkspaceTab>[];
+  for (final (tab, byDefault) in catalog.availableTabsFor(typeCode)) {
+    final slot = slots[tab.key];
+    if (slot == null) {
+      if (kDebugMode) {
+        debugPrint(
+          'ministry_type[$typeCode]: aba "${tab.key}" não tem widget '
+          'registrado nesta tela — ignorada.',
+        );
+      }
+      continue;
+    }
+    tabs.add(
+      MinistryWorkspaceTab(
+        label: tab.label,
+        count: slot.count,
+        builder: slot.builder,
+        key: tab.key,
+        enabledByDefault: byDefault,
+      ),
+    );
+  }
+
+  if (tabs.isNotEmpty) return tabs;
+  return [
     for (final entry in slots.entries)
       MinistryWorkspaceTab(
         label: entry.value.defaultLabel,
@@ -88,58 +111,31 @@ List<MinistryWorkspaceTab> ministryTabsFromCatalog({
         key: entry.key,
       ),
   ];
+}
 
-  final spec = catalog.specFor(typeCode);
-  if (spec == null || spec.tabs.isEmpty) {
-    if (kDebugMode) {
-      debugPrint(
-        'ministry_type: tipo "$typeCode" não está no catálogo; '
-        'a tela usou as abas que ela mesma declara.',
-      );
-    }
-    return allSlots();
+/// As abas que a pessoa vê, na ordem dela: [tabs] filtradas pela escolha do
+/// líder ([overrides]) e ordenadas pela ordem pessoal ([order]). Ver
+/// [resolveMinistryTabs].
+List<MinistryWorkspaceTab> visibleMinistryTabs(
+  List<MinistryWorkspaceTab> tabs, {
+  Map<String, dynamic> overrides = const {},
+  List<String> order = const [],
+}) {
+  final byKey = <String, MinistryWorkspaceTab>{};
+  final available = <(MinistryTypeTab, bool)>[];
+  for (final (i, tab) in tabs.indexed) {
+    final key = tab.key ?? '#$i';
+    byKey[key] = tab;
+    available.add((MinistryTypeTab(key, tab.label), tab.enabledByDefault));
   }
-
-  final used = <String>{};
-  final tabs = <MinistryWorkspaceTab>[];
-  for (final tab in spec.tabs) {
-    final slot = slots[tab.key];
-    if (slot == null) {
-      if (kDebugMode) {
-        debugPrint(
-          'ministry_type[$typeCode]: aba "${tab.key}" está no catálogo mas '
-          'não tem widget registrado nesta tela — ignorada.',
-        );
-      }
-      continue;
-    }
-    used.add(tab.key);
-    tabs.add(
-      MinistryWorkspaceTab(
-        label: tab.label,
-        count: slot.count,
-        builder: slot.builder,
-        key: tab.key,
-      ),
-    );
-  }
-
-  if (kDebugMode) {
-    for (final key in slots.keys) {
-      if (!used.contains(key)) {
-        debugPrint(
-          'ministry_type[$typeCode]: a tela sabe montar a aba "$key", mas o '
-          'catálogo não a lista — ela não vai aparecer.',
-        );
-      }
-    }
-  }
-
-  // Catálogo que não casou com nada (todas as chaves desconhecidas) deixaria a
-  // tela sem aba nenhuma. Nesse caso a tela ganha de volta o que ela declara.
-  if (tabs.isEmpty) return allSlots();
-
-  return tabs;
+  return [
+    for (final (tab, on) in resolveMinistryTabs(
+      available: available,
+      overrides: overrides,
+      order: order,
+    ))
+      if (on) byKey[tab.key]!,
+  ];
 }
 
 /// Um indicador da linha logo abaixo do título.
@@ -236,34 +232,37 @@ class _MinistryWorkspaceShellState
     final name = ministry?.name ?? widget.fallbackTitle;
     final description = ministry?.description?.trim();
 
-    // Notificações e edição eram as duas ações que só existiam na ficha, e
-    // lá as duas pediam `ministries.edit`. A régua continua a mesma para
-    // não abrir no workspace quem a ficha bloqueava.
+    // Notificações pedem `ministries.edit`, como na ficha antiga. A
+    // engrenagem é de todos: quem é do ministério ordena as abas dele lá, e
+    // o líder liga/desliga (ver MinistryTabsSettingsCard).
     final canEdit = ref
         .watch(currentUserHasPermissionProvider('ministries.edit'))
         .maybeWhen(data: (v) => v, orElse: () => false);
 
-    // Repertório recebido de outro ministério (Louvores, Fase D): a aba
-    // aparece no ministério que recebeu algo publicado. Quem já tem a aba
-    // Louvores vê os recebidos dentro dela.
-    final hasLouvores = widget.tabs.any(
-      (t) => t.key == MinistryTabKeys.louvores,
+    final overrides = ministry?.tabSettings ?? const <String, dynamic>{};
+    final order =
+        ref.watch(myMinistryTabOrderProvider(widget.ministryId)).valueOrNull ??
+        const <String>[];
+    final tabs = visibleMinistryTabs(
+      widget.tabs,
+      overrides: overrides,
+      order: order,
     );
-    final received = hasLouvores
-        ? false
-        : ref
-                  .watch(praiseReceivedProvider(widget.ministryId))
-                  .valueOrNull
-                  ?.isNotEmpty ??
-              false;
-    // Posição PADRÃO: logo depois de Escala (ou no fim, sem Escala), igual
-    // ao ministério de louvor. Não é trava: a distribuição por usuário que
-    // vem depois reordena por cima.
-    final escala = widget.tabs.indexWhere(
-      (t) => t.key == MinistryTabKeys.escala,
-    );
-    final tabs = [...widget.tabs];
+
+    // Repertório recebido de outro ministério (Louvores, Fase D): enquanto o
+    // líder não decidiu nada sobre a aba Louvores, ela aparece sozinha no
+    // ministério que recebeu algo publicado. Ligada, os recebidos estão
+    // dentro dela; desligada pelo líder, não aparece.
+    final received =
+        !overrides.containsKey(MinistryTabKeys.louvores) &&
+        !tabs.any((t) => t.key == MinistryTabKeys.louvores) &&
+        (ref
+                .watch(praiseReceivedProvider(widget.ministryId))
+                .valueOrNull
+                ?.isNotEmpty ??
+            false);
     if (received) {
+      final escala = tabs.indexWhere((t) => t.key == MinistryTabKeys.escala);
       tabs.insert(
         escala < 0 ? tabs.length : escala + 1,
         MinistryWorkspaceTab(
@@ -340,7 +339,7 @@ class _MinistryWorkspaceShellState
                   ],
                   selectedIndex: _selected,
                   onChanged: (i) => setState(() => _selected = i),
-                  trailing: canEdit ? _SettingsButton(onTap: _openEdit) : null,
+                  trailing: _SettingsButton(onTap: _openEdit),
                 ),
                 const SizedBox(height: 16),
               ],
@@ -410,7 +409,7 @@ class _SettingsButton extends StatelessWidget {
     // somaria uma borda no meio da barra. A altura acompanha a das abas para
     // não engordar a trilha.
     return Tooltip(
-      message: 'Editar ministério',
+      message: 'Configurar ministério',
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),

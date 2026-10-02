@@ -28,8 +28,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // 5 desde a Fase 5: o card de tipo entrou entre a cor e o status.
-    expect(find.byType(GlassCard), findsNWidgets(5));
+    // 3 desde 01/10: saíram a cor e o "Ministério ativo"; ficam dados
+    // básicos, tipo e prévia.
+    expect(find.byType(GlassCard), findsNWidgets(3));
     expect(find.byIcon(AppIcons.church), findsNWidgets(2));
     expect(find.byIcon(AppIcons.description), findsOneWidget);
     expect(find.text('Salvar'), findsOneWidget);

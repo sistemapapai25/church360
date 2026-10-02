@@ -580,11 +580,12 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/ministries/:id/edit',
       builder: (context, state) {
+        // Sem PermissionOnlyRoute: é a engrenagem do ministério, aberta a
+        // quem é dele (ordem pessoal das abas). Cada parte da tela cobra a
+        // própria régua — abas: líder ou ministries.edit; dados:
+        // ministries.edit; excluir: ministries.delete.
         final id = state.pathParameters['id']!;
-        return PermissionOnlyRoute(
-          permission: 'ministries.edit',
-          child: MinistryFormScreen(ministryId: id),
-        );
+        return MinistryFormScreen(ministryId: id);
       },
     ),
     // O workspace do ministerio nao usa `PermissionOnlyRoute`: quem decide

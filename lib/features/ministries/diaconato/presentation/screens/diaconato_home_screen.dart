@@ -9,12 +9,8 @@ import '../../../../../core/widgets/glass_card.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../shared/domain/ministry_type_catalog.dart';
 import '../../../shared/presentation/providers/ministry_type_catalog_providers.dart';
-import '../../../shared/presentation/widgets/ministry_finance_tab.dart';
-import '../../../shared/presentation/widgets/ministry_whatsapp_tab.dart';
-import '../../../shared/presentation/widgets/ministry_reports_tab.dart';
-import '../../../shared/presentation/widgets/ministry_scale_tab.dart';
+import '../../../shared/presentation/widgets/ministry_standard_slots.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
-import '../../../shared/presentation/widgets/ministry_team_tab.dart';
 import '../../../shared/presentation/widgets/ministry_workspace_shell.dart';
 import '../../domain/models/diaconato_dashboard_stats.dart';
 import '../../domain/models/worship_attendance.dart';
@@ -70,30 +66,10 @@ class _DiaconatoWorkspace extends ConsumerWidget {
         catalog: ref.watch(ministryTypeCatalogSyncProvider),
         typeCode: MinistryTypeCodes.diaconato,
         slots: {
+          ...ministryStandardSlots(ministryId, teamCount: teamCount),
           MinistryTabKeys.painel: MinistryTabSlot(
             defaultLabel: 'Painel',
             builder: (_) => DiaconatoPainelTab(ministryId: ministryId),
-          ),
-          MinistryTabKeys.equipe: MinistryTabSlot(
-            defaultLabel: 'Equipe',
-            count: teamCount?.toString(),
-            builder: (_) => MinistryTeamTab(ministryId: ministryId),
-          ),
-          MinistryTabKeys.escala: MinistryTabSlot(
-            defaultLabel: 'Escala',
-            builder: (_) => MinistryScaleTab(ministryId: ministryId),
-          ),
-          MinistryTabKeys.financeiro: MinistryTabSlot(
-            defaultLabel: 'Financeiro',
-            builder: (_) => MinistryFinanceTab(ministryId: ministryId),
-          ),
-          MinistryTabKeys.whatsapp: MinistryTabSlot(
-            defaultLabel: 'WhatsApp',
-            builder: (_) => MinistryWhatsAppTab(ministryId: ministryId),
-          ),
-          MinistryTabKeys.relatorios: MinistryTabSlot(
-            defaultLabel: 'Relatórios',
-            builder: (_) => MinistryReportsTab(ministryId: ministryId),
           ),
         },
       ),

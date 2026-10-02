@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/ministries_provider.dart';
 import '../../shared/domain/ministry_type_catalog.dart';
 import '../../shared/presentation/providers/ministry_type_catalog_providers.dart';
+import '../../shared/presentation/widgets/ministry_tabs_settings_card.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
@@ -26,8 +27,9 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
 
-  bool _isActive = true;
-  String _selectedColor = '0xFF2196F3'; // Azul padrão
+  /// A cor saiu do formulário (01/10): fica a do cadastro, e ministério novo
+  /// nasce azul.
+  String _selectedColor = '0xFF2196F3';
 
   /// Só vale na criação. Editar o tipo de um ministério que já existe trocaria
   /// as abas debaixo de quem está usando — é assunto da Fase 2, com migração.
@@ -36,20 +38,6 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
   final _newFunctionController = TextEditingController();
   Map<String, int> _functionRequirements = {};
   bool _isLoadingFunctions = false;
-
-  // Cores disponíveis
-  final List<Map<String, dynamic>> _colors = [
-    {'name': 'Azul', 'value': '0xFF2196F3'},
-    {'name': 'Rosa', 'value': '0xFFE91E63'},
-    {'name': 'Roxo', 'value': '0xFF9C27B0'},
-    {'name': 'Verde', 'value': '0xFF4CAF50'},
-    {'name': 'Laranja', 'value': '0xFFFF9800'},
-    {'name': 'Vermelho', 'value': '0xFFFF5722'},
-    {'name': 'Ciano', 'value': '0xFF00BCD4'},
-    {'name': 'Amarelo', 'value': '0xFFFFC107'},
-    {'name': 'Índigo', 'value': '0xFF3F51B5'},
-    {'name': 'Teal', 'value': '0xFF009688'},
-  ];
 
   @override
   void initState() {
@@ -69,7 +57,6 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
         _nameController.text = ministry.name;
         _descriptionController.text = ministry.description ?? '';
         _selectedColor = ministry.color;
-        _isActive = ministry.isActive;
       });
     }
   }
@@ -85,13 +72,21 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.ministryId != null;
+    // A engrenagem abre para quem é do ministério (ordem das abas). Dados,
+    // funções e exclusão continuam de quem edita ministérios.
+    final canEdit =
+        !isEditing ||
+        (ref
+                .watch(currentUserHasPermissionProvider('ministries.edit'))
+                .valueOrNull ??
+            false);
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surface,
         title: Text(
-          isEditing ? 'Editar Ministério' : 'Novo Ministério',
+          isEditing ? 'Configurar ministério' : 'Novo Ministério',
           style: CommunityDesign.titleStyle(
             context,
           ).copyWith(fontSize: 18, fontWeight: FontWeight.bold),
@@ -101,7 +96,9 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
           onPressed: () => context.pop(),
         ),
         actions: [
-          if (_isLoading)
+          if (!canEdit)
+            const SizedBox.shrink()
+          else if (_isLoading)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: Center(
@@ -141,6 +138,11 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
             key: _formKey,
             child: Column(
               children: [
+                if (isEditing) ...[
+                  MinistryTabsSettingsCard(ministryId: widget.ministryId!),
+                  const SizedBox(height: 16),
+                ],
+                if (canEdit) ...[
                 // Dados Básicos
                 GlassCard(
                   padding: const EdgeInsets.all(20),
@@ -182,66 +184,6 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
                         maxLines: 3,
                         maxLength: 500,
                         textCapitalization: TextCapitalization.sentences,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Cor
-                GlassCard(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Cor do Ministério',
-                        style: CommunityDesign.titleStyle(
-                          context,
-                        ).copyWith(fontSize: 18),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: _colors.map((colorData) {
-                          final colorValue = int.parse(
-                            colorData['value'] as String,
-                          );
-                          final color = Color(colorValue);
-                          final isSelected =
-                              _selectedColor == colorData['value'];
-
-                          return InkWell(
-                            onTap: () {
-                              setState(() {
-                                _selectedColor = colorData['value'] as String;
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                color: color,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? Colors.black
-                                      : Colors.transparent,
-                                  width: 3,
-                                ),
-                              ),
-                              child: isSelected
-                                  ? const Icon(
-                                      AppIcons.check,
-                                      color: Colors.white,
-                                      size: 32,
-                                    )
-                                  : null,
-                            ),
-                          );
-                        }).toList(),
                       ),
                     ],
                   ),
@@ -342,31 +284,6 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
                   const SizedBox(height: 16),
                 ],
 
-                // Status ativo/inativo
-                GlassCard(
-                  child: SwitchListTile(
-                    title: Text(
-                      'Ministério Ativo',
-                      style: CommunityDesign.titleStyle(
-                        context,
-                      ).copyWith(fontSize: 16),
-                    ),
-                    subtitle: Text(
-                      _isActive
-                          ? 'Ministério está ativo e visível'
-                          : 'Ministério está inativo',
-                      style: CommunityDesign.metaStyle(context),
-                    ),
-                    value: _isActive,
-                    onChanged: (value) {
-                      setState(() {
-                        _isActive = value;
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-
                 // Preview
                 GlassCard(
                   padding: const EdgeInsets.all(20),
@@ -442,6 +359,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
                       ),
                     ),
                   ),
+                ],
                 ],
                 const SizedBox(height: 32),
               ],
@@ -582,8 +500,6 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
         'name': _nameController.text.trim(),
         if (_descriptionController.text.isNotEmpty)
           'description': _descriptionController.text.trim(),
-        'color': _selectedColor,
-        'is_active': _isActive,
       };
 
       if (widget.ministryId != null) {
@@ -594,7 +510,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
         // Criar — pela RPC, para o ministério e o vínculo do líder nascerem
         // juntos. Sem o vínculo, um ministério novo some da lista de quem não
         // tem visão global, inclusive de quem acabou de criá-lo.
-        final newId = await repository.createMinistryWithLeader(
+        await repository.createMinistryWithLeader(
           name: _nameController.text.trim(),
           ministryType: _ministryType,
           description: _descriptionController.text.trim().isEmpty
@@ -603,12 +519,8 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
           color: _selectedColor,
         );
 
-        // A RPC sempre cria ativo — é o estado seguro para o rollback dela.
-        // Quem desmarcou "ativo" recebe o UPDATE logo depois; se este falhar,
-        // sobra um ministério ativo, não um ministério perdido.
-        if (!_isActive) {
-          await repository.updateMinistry(newId, {'is_active': false});
-        }
+        // Nasce ativo: a RPC sempre cria assim, e "Ministério ativo" saiu do
+        // formulário em 01/10.
       }
 
       ref.invalidate(allMinistriesProvider);

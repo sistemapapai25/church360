@@ -126,6 +126,42 @@ class MinistriesRepository {
     await _supabase.rpc('delete_ministry', params: {'p_ministry_id': id});
   }
 
+  /// Liga/desliga uma aba do ministério (`settings.tabs`). A RPC aceita o
+  /// líder do ministério ou quem tem `ministries.edit`.
+  Future<void> setMinistryTab(String ministryId, String key, bool enabled) =>
+      _supabase.rpc(
+        'set_ministry_tab',
+        params: {
+          'p_ministry_id': ministryId,
+          'p_key': key,
+          'p_enabled': enabled,
+        },
+      );
+
+  /// Ordem pessoal das abas do ministério (a RLS só devolve a linha de quem
+  /// está logado). Vazia = ordem padrão.
+  Future<List<String>> getMyTabOrder(String ministryId) async {
+    final row = await _supabase
+        .from('user_ministry_tab_order')
+        .select('tab_keys')
+        .eq('ministry_id', ministryId)
+        .maybeSingle();
+    final keys = row?['tab_keys'];
+    return keys is List ? [for (final k in keys) k.toString()] : const [];
+  }
+
+  /// `user_id` é o `auth.uid()` (a RLS confere).
+  Future<void> saveMyTabOrder(String ministryId, List<String> keys) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw StateError('Sessão expirada.');
+    await _supabase.from('user_ministry_tab_order').upsert({
+      'user_id': userId,
+      'ministry_id': ministryId,
+      'tab_keys': keys,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }, onConflict: 'user_id,ministry_id');
+  }
+
   /// Contar ministérios
   Future<int> countMinistries() async {
     final response = await _supabase
