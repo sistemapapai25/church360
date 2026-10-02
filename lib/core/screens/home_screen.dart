@@ -478,14 +478,7 @@ class _DashboardTab extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Sino (mesmo do Mais): também pede a permissão de push.
-                const Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: EdgeInsets.only(right: 8),
-                    child: NotificationBadge(),
-                  ),
-                ),
+                const SizedBox(height: 12),
                 // Slider de banners (cabeçalho da Home)
                 const _HomeBannerSlider(),
 
