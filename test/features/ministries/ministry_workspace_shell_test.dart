@@ -251,14 +251,16 @@ void main() {
     );
   });
 
-  testWidgets('sem ministries.edit nao mostra sino nem configuracao', (
+  testWidgets('sem ministries.edit nao mostra o sino, mas mostra a engrenagem', (
     tester,
   ) async {
+    // A engrenagem é de todos desde 01/10: quem é do ministério ordena as
+    // abas lá. O que ela deixa fazer é decidido dentro dela.
     await tester.pumpWidget(_host());
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.notifications_active_outlined), findsNothing);
-    expect(find.byIcon(Icons.settings_outlined), findsNothing);
+    expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
   });
 
   testWidgets('com ministries.edit mostra sino e configuracao', (tester) async {

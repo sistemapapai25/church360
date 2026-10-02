@@ -264,4 +264,65 @@ void main() {
       expect(tabs.single.count, '7');
     });
   });
+
+  group('abas configuráveis — líder liga/desliga, cada um ordena', () {
+    List<String> keys(List<(MinistryTypeTab, bool)> l) => [
+      for (final (t, on) in l) '${t.key}${on ? '' : '-off'}',
+    ];
+
+    test('as do tipo nascem ligadas; as outras padrão, desligadas', () {
+      final all = MinistryTypeCatalog.fallback.availableTabsFor('generic');
+      expect(keys(all), [
+        'equipe', 'escala', 'financeiro', 'whatsapp', 'relatorios',
+        'louvores-off', 'alunos-off', 'checklist-off', 'presenca-off',
+      ]);
+    });
+
+    test('tipo desconhecido herda o padrão do generic', () {
+      expect(
+        keys(MinistryTypeCatalog.fallback.availableTabsFor('nao_existe')),
+        keys(MinistryTypeCatalog.fallback.availableTabsFor('generic')),
+      );
+    });
+
+    test('a escolha do líder vence o padrão; chave ausente fica no padrão', () {
+      final all = MinistryTypeCatalog.fallback.availableTabsFor('generic');
+      final r = resolveMinistryTabs(
+        available: all,
+        overrides: {'alunos': true, 'whatsapp': false, 'lixo': 'sim'},
+      );
+      expect(keys(r), [
+        'equipe', 'escala', 'financeiro', 'whatsapp-off', 'relatorios',
+        'louvores-off', 'alunos', 'checklist-off', 'presenca-off',
+      ]);
+    });
+
+    test('ordem pessoal primeiro; o que nunca foi ordenado vai pro fim', () {
+      const a = MinistryTypeTab('a', 'A');
+      const b = MinistryTypeTab('b', 'B');
+      const c = MinistryTypeTab('c', 'C');
+      const d = MinistryTypeTab('d', 'D');
+      final r = resolveMinistryTabs(
+        available: [(a, true), (b, true), (c, true), (d, true)],
+        order: ['c', 'sumiu', 'a'],
+      );
+      expect(keys(r), ['c', 'a', 'b', 'd']);
+    });
+
+    test('visibleMinistryTabs some com as desligadas e respeita a ordem', () {
+      MinistryWorkspaceTab tab(String k, {bool on = true}) =>
+          MinistryWorkspaceTab(
+            label: k,
+            key: k,
+            enabledByDefault: on,
+            builder: (_) => const SizedBox.shrink(),
+          );
+      final v = visibleMinistryTabs(
+        [tab('a'), tab('b', on: false), tab('c')],
+        overrides: {'b': true, 'c': false},
+        order: ['b'],
+      );
+      expect([for (final t in v) t.key], ['b', 'a']);
+    });
+  });
 }

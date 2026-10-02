@@ -55,6 +55,13 @@ class Ministry {
     this.whatsappGroupNumber,
   });
 
+  /// Abas que o líder ligou/desligou na engrenagem (`settings.tabs`), chave →
+  /// ligada. Chave ausente = padrão do tipo. Ver `resolveMinistryTabs`.
+  Map<String, dynamic> get tabSettings {
+    final tabs = settings['tabs'];
+    return tabs is Map ? Map<String, dynamic>.from(tabs) : const {};
+  }
+
   static String _typeCodeFromJson(Object? raw) {
     final code = raw is String ? raw.trim() : '';
     return code.isEmpty ? MinistryTypeCodes.generic : code;

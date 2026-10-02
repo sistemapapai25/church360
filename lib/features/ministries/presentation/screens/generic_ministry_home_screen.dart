@@ -3,15 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../shared/presentation/providers/ministry_finance_providers.dart';
-import '../../louvor/presentation/louvores_tab.dart';
 import '../../shared/domain/ministry_type_catalog.dart';
 import '../../shared/presentation/providers/ministry_type_catalog_providers.dart';
-import '../../shared/presentation/widgets/ministry_finance_tab.dart';
-import '../../shared/presentation/widgets/ministry_whatsapp_tab.dart';
-import '../../shared/presentation/widgets/ministry_reports_tab.dart';
-import '../../shared/presentation/widgets/ministry_scale_tab.dart';
+import '../../shared/presentation/widgets/ministry_standard_slots.dart';
 import '../../shared/presentation/widgets/ministry_submodule_guard.dart';
-import '../../shared/presentation/widgets/ministry_team_tab.dart';
 import '../../shared/presentation/widgets/ministry_workspace_shell.dart';
 import '../../domain/models/ministry.dart';
 import '../providers/ministries_provider.dart';
@@ -19,9 +14,10 @@ import '../providers/ministries_provider.dart';
 /// Workspace de qualquer ministério — o esqueleto que o Batismo estreou,
 /// agora sem dono.
 ///
-/// São cinco abas base: Equipe, Escala, Financeiro, WhatsApp e Relatórios.
-/// Um ministério de tipo próprio (Batismo, Raízes, Diaconato) é esta mesma
-/// tela com abas a mais; nenhum deles tem tela de layout próprio.
+/// Monta todas as abas de [ministryStandardSlots]; quais aparecem e em que
+/// ordem decide o shell (escolha do líder na engrenagem + ordem pessoal). Um
+/// ministério de tipo próprio (Batismo, Raízes, Diaconato) é esta mesma tela
+/// com abas a mais; nenhum deles tem tela de layout próprio.
 ///
 /// **Quem entra:** vínculo ativo no ministério **ou** visão global de
 /// ministérios — é o [MinistrySubmoduleGuard] sem permissão de submódulo.
@@ -111,33 +107,7 @@ class _GenericWorkspace extends ConsumerWidget {
       tabs: ministryTabsFromCatalog(
         catalog: ref.watch(ministryTypeCatalogSyncProvider),
         typeCode: typeCode,
-        slots: {
-          MinistryTabKeys.equipe: MinistryTabSlot(
-            defaultLabel: 'Equipe',
-            count: teamCount?.toString(),
-            builder: (_) => MinistryTeamTab(ministryId: ministryId),
-          ),
-          MinistryTabKeys.escala: MinistryTabSlot(
-            defaultLabel: 'Escala',
-            builder: (_) => MinistryScaleTab(ministryId: ministryId),
-          ),
-          MinistryTabKeys.financeiro: MinistryTabSlot(
-            defaultLabel: 'Financeiro',
-            builder: (_) => MinistryFinanceTab(ministryId: ministryId),
-          ),
-          MinistryTabKeys.louvores: MinistryTabSlot(
-            defaultLabel: 'Louvores',
-            builder: (_) => LouvoresTab(ministryId: ministryId),
-          ),
-          MinistryTabKeys.whatsapp: MinistryTabSlot(
-            defaultLabel: 'WhatsApp',
-            builder: (_) => MinistryWhatsAppTab(ministryId: ministryId),
-          ),
-          MinistryTabKeys.relatorios: MinistryTabSlot(
-            defaultLabel: 'Relatórios',
-            builder: (_) => MinistryReportsTab(ministryId: ministryId),
-          ),
-        },
+        slots: ministryStandardSlots(ministryId, teamCount: teamCount),
       ),
     );
   }

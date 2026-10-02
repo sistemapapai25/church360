@@ -142,3 +142,26 @@ final ministryAccessProvider =
 // isDiaconato/isBatismo que ninguém lia e uma segunda cópia do switch de rota
 // (specializedRoutePath) que nunca foi chamada. Quem precisa da rota hoje
 // pergunta ao catálogo: ministryTypeCatalogSyncProvider + catalog.routeFor().
+
+/// Ordem pessoal das abas do ministério (vazia = ordem padrão). Quem grava
+/// invalida — Realtime não é ligado por migration neste banco.
+final myMinistryTabOrderProvider =
+    FutureProvider.family<List<String>, String>((ref, ministryId) async {
+  if (ref.watch(currentUserIdProvider) == null) return const [];
+  return ref.watch(ministriesRepositoryProvider).getMyTabOrder(ministryId);
+});
+
+/// Quem liga/desliga abas na engrenagem: o líder **deste** ministério ou
+/// quem tem `ministries.edit`. É a mesma régua da RPC `set_ministry_tab`.
+final canConfigureMinistryTabsProvider =
+    FutureProvider.family<bool, String>((ref, ministryId) async {
+  if (await ref.watch(
+    currentUserHasPermissionProvider('ministries.edit').future,
+  )) {
+    return true;
+  }
+  final me = await ref.watch(currentMemberIdProvider.future);
+  if (me == null) return false;
+  final members = await ref.watch(ministryMembersProvider(ministryId).future);
+  return members.any((m) => m.memberId == me && m.role == MinistryRole.leader);
+});
