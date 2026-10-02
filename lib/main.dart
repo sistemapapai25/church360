@@ -16,6 +16,7 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/theme_mode_provider.dart';
 import 'core/widgets/app_logo.dart';
 import 'core/widgets/app_restart_scope.dart';
+import 'features/notifications/presentation/providers/notification_provider.dart';
 import 'features/support_chat/domain/models/support_agent.dart';
 import 'features/support_chat/presentation/providers/agents_providers.dart';
 import 'features/support_chat/presentation/widgets/support_chat_container.dart';
@@ -281,6 +282,17 @@ class Church360App extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Idempotente: o serviço só liga os listeners na primeira chamada.
+    unawaited(
+      ref.read(pushRegistrationServiceProvider).start(
+        onForegroundMessage: () {
+          ref.invalidate(unreadNotificationsCountProvider);
+          ref.invalidate(unreadNotificationsProvider);
+          ref.invalidate(allNotificationsProvider);
+        },
+        onOpenRoute: appRouter.go,
+      ).catchError((Object e) => debugPrint('Push indisponivel: $e')),
+    );
     return MaterialApp.router(
       title: AppBranding.appName,
       debugShowCheckedModeBanner: false,

@@ -30,14 +30,30 @@ jobs:
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
           FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
           FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_VAPID_KEY: ${{ secrets.FIREBASE_VAPID_KEY }}
         run: |
-          flutter build web --release \
+          flutter build web --release             --dart-define=FIREBASE_VAPID_KEY=$FIREBASE_VAPID_KEY \
             --dart-define=FIREBASE_API_KEY=$FIREBASE_API_KEY \
             --dart-define=FIREBASE_APP_ID=$FIREBASE_APP_ID \
             --dart-define=FIREBASE_MESSAGING_SENDER_ID=$FIREBASE_MESSAGING_SENDER_ID \
             --dart-define=FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID \
             --dart-define=FIREBASE_STORAGE_BUCKET=$FIREBASE_STORAGE_BUCKET \
             --dart-define=FIREBASE_AUTH_DOMAIN=$FIREBASE_AUTH_DOMAIN
+
+          # Service worker do push web: precisa estar na raiz do site com a
+          # config do Firebase (pública). Ele mostra a notificação com a aba
+          # fechada e, no clique, abre o link (rota) que o send-push manda.
+          cat > build/web/firebase-messaging-sw.js << EOF
+          importScripts('https://www.gstatic.com/firebasejs/11.9.1/firebase-app-compat.js');
+          importScripts('https://www.gstatic.com/firebasejs/11.9.1/firebase-messaging-compat.js');
+          firebase.initializeApp({
+            apiKey: '$FIREBASE_API_KEY',
+            appId: '$FIREBASE_APP_ID',
+            messagingSenderId: '$FIREBASE_MESSAGING_SENDER_ID',
+            projectId: '$FIREBASE_PROJECT_ID',
+          });
+          firebase.messaging();
+          EOF
 
       - name: Write Vercel rewrites config
         run: |

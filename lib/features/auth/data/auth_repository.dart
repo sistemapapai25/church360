@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
+import '../../notifications/data/push/push_registration_service.dart';
 
 /// Repository de autenticação
 /// Responsável por toda comunicação com Supabase Auth
@@ -995,6 +996,7 @@ class AuthRepository {
   /// Logout
   Future<void> signOut() async {
     try {
+      await PushRegistrationService.deactivateThisDevice();
       await _supabase.auth.signOut();
     } catch (e) {
       rethrow;

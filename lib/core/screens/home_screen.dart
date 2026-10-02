@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import '../../features/notifications/presentation/widgets/push_permission_card.dart';
 import '../constants/app_branding.dart';
 import '../domain/models/more_menu_item.dart';
 import '../providers/more_menu_layout_provider.dart';
@@ -481,6 +482,11 @@ class _DashboardTab extends ConsumerWidget {
                 const SizedBox(height: 12),
                 // Slider de banners (cabeçalho da Home)
                 const _HomeBannerSlider(),
+
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: _homePagePadding),
+                  child: PushPermissionCard(),
+                ),
 
                 const SizedBox(height: _homeSectionGap),
 
