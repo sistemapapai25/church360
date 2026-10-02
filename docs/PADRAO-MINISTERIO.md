@@ -21,7 +21,8 @@ Este documento existe para o próximo ministério **não ser escrito do zero**.
 | :--- | :--- | :--- |
 | **Guarda** | `shared/presentation/widgets/ministry_submodule_guard.dart` | quem entra |
 | **Shell** | `shared/presentation/widgets/ministry_workspace_shell.dart` | como a tela se parece |
-| **Catálogo** | `shared/domain/ministry_type_catalog.dart` + `public.ministry_type` | quais abas, em que ordem, sob que rótulo |
+| **Catálogo** | `shared/domain/ministry_type_catalog.dart` + `public.ministry_type` | quais abas cada tipo traz **ligadas por padrão**, e sob que rótulo |
+| **Engrenagem** | `shared/presentation/widgets/ministry_tabs_settings_card.dart` + `ministry.settings->'tabs'` + `user_ministry_tab_order` | quais abas o ministério mostra (líder) e em que ordem cada pessoa as vê |
 
 Nenhuma tela de ministério desenha cabeçalho, barra de abas ou controle de
 entrada por conta própria. Quem faz isso são essas três, e é só o que a régua
@@ -46,15 +47,46 @@ ministérios. Por isso a rota `/ministries/:id` **não** tem `PermissionOnlyRout
 
 ## 2. O caminho normal: ministério novo sem código nenhum
 
-Um ministério de tipo `generic` já nasce com as cinco abas base — Equipe,
-Escala, Financeiro, WhatsApp e Relatórios — pela rota `/ministries/:id`, que
-monta a `GenericMinistryHomeScreen`. **Vinte e quatro dos vinte e sete
-ministérios em produção são assim.**
+Desde 01/10/2026 (supabase#91 + app#222) **todo ministério tem todas as abas
+padrão** — `MinistryTabKeys.standard`: Equipe, Escala, Financeiro, Louvores,
+Alunos, Checklist, Presença, WhatsApp e Relatórios. O Painel é a exceção: só
+Raízes e Diaconato o têm.
+
+| Quem | Faz o quê, na engrenagem | Grava em |
+| :--- | :--- | :--- |
+| Líder do ministério (`ministry_member.role = 'leader'`) ou quem tem `ministries.edit` | liga/desliga abas — vale para todos | `ministry.settings->'tabs'`, pela RPC `set_ministry_tab` |
+| Qualquer pessoa do ministério | arrasta para ordenar — vale só para ela | `user_ministry_tab_order` |
+| `ministries.edit` | nome, descrição, funções | `ministry` |
+| `ministries.delete` | excluir | RPC `delete_ministry` |
+
+Regras que não são óbvias:
+
+- `settings.tabs` guarda **só o que o líder mexeu**. Chave ausente = padrão do
+  tipo: as abas que o catálogo lista nascem ligadas, as demais desligadas.
+- A última aba ligada não desliga (o ministério ficaria sem tela).
+- Ordem pessoal: as abas que a pessoa já ordenou vêm primeiro; aba nova ou
+  recém-ligada entra no fim. A regra é `resolveMinistryTabs`, testada em
+  `ministry_type_catalog_test.dart`.
+- No banco, "a aba está ligada?" é `public.ministry_has_tab(ministry, key)`.
+  Louvores usa (escopo da biblioteca e criação de repertório). Quem precisar
+  saber disso no servidor usa a função, **nunca** `ministry_type.tabs`.
+- Repertório recebido (Louvores, Fase D): enquanto o líder não decidiu nada
+  sobre `louvores`, a aba aparece sozinha no ministério que recebeu algo.
+- Cor e "Ministério ativo" saíram do formulário em 01/10.
 
 Se o pedido é "quero um ministério novo", a resposta quase sempre é: cadastre
-o ministério. Não há código a escrever.
+o ministério e ligue as abas na engrenagem. Não há código a escrever.
 
----
+### 2.1 Aba nova para todos os ministérios
+
+Dois lugares, e mais nada:
+
+1. a chave e o rótulo em `MinistryTabKeys.standard` (`ministry_type_catalog.dart`);
+2. o widget em `ministryStandardSlots` (`ministry_standard_slots.dart`).
+
+Ela chega a todo ministério, já criado ou futuro, **desligada**. Para nascer
+ligada num tipo, liste a chave no `tabs` desse tipo em `public.ministry_type`
+(migration) e no `MinistryTypeCatalog.fallback`.
 
 ## 3. Quando o tipo precisa de abas próprias
 
@@ -105,18 +137,21 @@ tabs: ministryTabsFromCatalog(
 ```
 
 Chaves já registradas: `equipe`, `escala`, `financeiro`, `whatsapp`,
-`relatorios`, `alunos`, `checklist`, `presenca`, `painel`
-(`MinistryTabKeys`).
+`relatorios`, `alunos`, `checklist`, `presenca`, `painel`, `louvores`
+(`MinistryTabKeys`). As telas partem de `ministryStandardSlots` e só
+acrescentam ou trocam o que é delas (ex.: `{...ministryStandardSlots(id),
+MinistryTabKeys.painel: ...}`).
 
 O cruzamento tem saída pelo lado seguro nas duas falhas possíveis:
 
-- **tipo fora do catálogo** (ou catálogo que não chegou): a tela usa todos os
-  slots que declarou, na ordem em que os declarou;
+- **tipo fora do catálogo**: vale o padrão do `generic`; se nada casar, a
+  tela usa todos os slots que declarou;
 - **chave que o app não conhece**: ignorada, porque uma aba sem widget
   nasceria vazia.
 
-O caso que **não** tem rede é o inverso: chave que a tela tem e o catálogo não
-lista **sai da tela**. É o preço de o catálogo mandar de verdade.
+Desde 01/10 o catálogo não tira mais aba da tela: chave que ele não lista vem
+**desligada** (se estiver em `MinistryTabKeys.standard`), e o líder liga na
+engrenagem. Tipo fora do catálogo usa o padrão do `generic`.
 
 ### 3.3 Tela própria — último recurso
 
