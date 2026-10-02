@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../features/notifications/data/push/push_registration_service.dart';
+
 Future<void> exitApp(BuildContext context) async {
   if (kIsWeb || defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS) {
     if (context.mounted) {
@@ -16,6 +18,7 @@ Future<void> exitApp(BuildContext context) async {
 
 Future<void> signOutAndExit(BuildContext context) async {
   try {
+    await PushRegistrationService.deactivateThisDevice();
     await Supabase.instance.client.auth.signOut();
   } catch (_) {}
   if (!context.mounted) {

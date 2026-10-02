@@ -11,6 +11,7 @@ class FirebasePushConfig {
   final String? androidClientId;
   final String? authDomain;
   final String appName;
+  final String? vapidKey;
 
   const FirebasePushConfig({
     required this.apiKey,
@@ -23,6 +24,7 @@ class FirebasePushConfig {
     this.iosClientId,
     this.androidClientId,
     this.authDomain,
+    this.vapidKey,
   });
 
   static FirebasePushConfig fromEnvironment() {
@@ -36,6 +38,7 @@ class FirebasePushConfig {
     const iosClientId = String.fromEnvironment('FIREBASE_IOS_CLIENT_ID');
     const androidClientId = String.fromEnvironment('FIREBASE_ANDROID_CLIENT_ID');
     const authDomain = String.fromEnvironment('FIREBASE_AUTH_DOMAIN');
+    const vapidKey = String.fromEnvironment('FIREBASE_VAPID_KEY');
 
     return FirebasePushConfig(
       apiKey: apiKey,
@@ -48,6 +51,7 @@ class FirebasePushConfig {
       iosClientId: iosClientId.isEmpty ? null : iosClientId,
       androidClientId: androidClientId.isEmpty ? null : androidClientId,
       authDomain: authDomain.isEmpty ? null : authDomain,
+      vapidKey: vapidKey.isEmpty ? null : vapidKey,
     );
   }
 
