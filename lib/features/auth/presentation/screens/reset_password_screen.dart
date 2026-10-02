@@ -65,7 +65,10 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
         type: OtpType.recovery,
       );
     } catch (_) {
-      _invalidate();
+      // O token é de uso único. Se a tela montar de novo, a 2ª chamada falha
+      // com o link já trocado, mas o `passwordRecovery` da 1ª (reapresentado
+      // pelo stream) já deixou a tela pronta. Não derrubar isso.
+      if (_status != _RecoveryStatus.ready) _invalidate();
     }
   }
 
