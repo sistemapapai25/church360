@@ -40,7 +40,7 @@ class PushRegistrationService {
   /// Liga os listeners uma vez. A cada login sincroniza o token; no Android
   /// pede a permissão sozinho. Na web o navegador exige um toque da pessoa,
   /// então lá só sincroniza se a permissão já foi dada (o cartão de
-  /// [PushPermissionCard] chama [registerCurrentDevice]).
+  /// toque no sino ([NotificationBadge]) chama [registerCurrentDevice]).
   Future<void> start({
     required void Function() onForegroundMessage,
     required void Function(String route) onOpenRoute,
