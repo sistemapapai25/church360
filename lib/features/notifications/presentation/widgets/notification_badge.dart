@@ -19,8 +19,15 @@ class NotificationBadge extends ConsumerWidget {
     final push = ref.read(pushRegistrationServiceProvider);
     try {
       final status = await push.permissionStatus();
-      if (status == AuthorizationStatus.notDetermined) {
-        await push.registerCurrentDevice();
+      if (status == AuthorizationStatus.notDetermined ||
+          status == AuthorizationStatus.authorized) {
+        // Já autorizado: re-sincroniza o token (barato e idempotente).
+        final result = await push.registerCurrentDevice();
+        if (!result.success && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(duration: const Duration(seconds: 10), content: Text(result.message)),
+          );
+        }
       } else if (status == AuthorizationStatus.denied &&
           kIsWeb &&
           !_blockedHintShown &&
@@ -37,8 +44,13 @@ class NotificationBadge extends ConsumerWidget {
           ),
         );
       }
-    } catch (_) {
+    } catch (e) {
       // Navegador sem suporte a push: segue só com o sino.
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(duration: const Duration(seconds: 10), content: Text('Push indisponivel: $e')),
+        );
+      }
     }
     if (context.mounted) context.push('/notifications');
   }

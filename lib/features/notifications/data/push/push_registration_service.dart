@@ -37,10 +37,11 @@ class PushRegistrationService {
     FirebasePushConfig Function()? configFactory,
   }) : _configFactory = configFactory ?? FirebasePushConfig.fromEnvironment;
 
-  /// Liga os listeners uma vez. A cada login sincroniza o token; no Android
-  /// pede a permissão sozinho. Na web o navegador exige um toque da pessoa,
-  /// então lá só sincroniza se a permissão já foi dada (o cartão de
-  /// toque no sino ([NotificationBadge]) chama [registerCurrentDevice]).
+  /// Liga os listeners uma vez. A cada login (e já na abertura, se houver
+  /// sessão) sincroniza o token; no Android pede a permissão sozinho. Na web o
+  /// navegador exige um toque da pessoa, então lá só sincroniza se a permissão
+  /// já foi dada (o toque no sino, [NotificationBadge], chama
+  /// [registerCurrentDevice]).
   Future<void> start({
     required void Function() onForegroundMessage,
     required void Function(String route) onOpenRoute,
@@ -51,19 +52,7 @@ class PushRegistrationService {
     await _ensureFirebaseInitialized(config);
     final messaging = FirebaseMessaging.instance;
 
-    FirebaseMessaging.onMessage.listen((_) => onForegroundMessage());
-    FirebaseMessaging.onMessageOpenedApp.listen((m) => _openRoute(m, onOpenRoute));
-    final initial = await messaging.getInitialMessage();
-    if (initial != null) _openRoute(initial, onOpenRoute);
-
-    messaging.onTokenRefresh.listen((token) => _save(token));
-
-    Supabase.instance.client.auth.onAuthStateChange.listen((state) async {
-      if (state.session == null) return;
-      if (state.event != AuthChangeEvent.signedIn &&
-          state.event != AuthChangeEvent.initialSession) {
-        return;
-      }
+    Future<void> syncOnLogin() async {
       try {
         final settings = await messaging.getNotificationSettings();
         if (_isGranted(settings.authorizationStatus)) {
@@ -75,7 +64,21 @@ class PushRegistrationService {
       } catch (e) {
         debugPrint('Push sync falhou: $e');
       }
+    }
+
+    final auth = Supabase.instance.client.auth;
+    auth.onAuthStateChange.listen((state) {
+      if (state.event == AuthChangeEvent.signedIn) syncOnLogin();
     });
+    if (auth.currentUser != null) unawaited(syncOnLogin());
+
+    FirebaseMessaging.onMessage.listen((_) => onForegroundMessage());
+    FirebaseMessaging.onMessageOpenedApp.listen((m) => _openRoute(m, onOpenRoute));
+    messaging.onTokenRefresh.listen((token) => _save(token));
+    try {
+      final initial = await messaging.getInitialMessage();
+      if (initial != null) _openRoute(initial, onOpenRoute);
+    } catch (_) {}
   }
 
   /// Pede a permissão (precisa vir de um toque na web) e registra o token.
@@ -103,10 +106,17 @@ class PushRegistrationService {
       );
     }
 
-    if (!await _syncToken(config)) {
-      return const PushRegistrationResult(
+    try {
+      if (!await _syncToken(config)) {
+        return const PushRegistrationResult(
+          success: false,
+          message: 'Nao foi possivel obter o token push do dispositivo.',
+        );
+      }
+    } catch (e) {
+      return PushRegistrationResult(
         success: false,
-        message: 'Nao foi possivel obter o token push do dispositivo.',
+        message: 'Falha ao registrar o push: $e',
       );
     }
 
