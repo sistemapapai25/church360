@@ -122,10 +122,16 @@ class RoleContextsRepository {
 
       updates['updated_at'] = DateTime.now().toIso8601String();
 
-      await _supabase
+      // Sem o select, update barrado pela RLS volta "0 linhas" sem erro e a
+      // tela diz que salvou.
+      final rows = await _supabase
           .from('role_contexts')
           .update(updates)
-          .eq('id', contextId);
+          .eq('id', contextId)
+          .select('id');
+      if ((rows as List).isEmpty) {
+        throw Exception('nenhuma linha gravada (sem permissão?)');
+      }
     } catch (e) {
       throw Exception('Erro ao atualizar contexto: $e');
     }

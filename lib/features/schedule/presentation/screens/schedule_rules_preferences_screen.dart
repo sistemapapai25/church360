@@ -320,7 +320,15 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
         setState(() => _loading = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Defina a categoria para: ${missingCats.join(', ')}')),
+            SnackBar(content: Text('Nada foi salvo. Escolha a categoria (no card Funções) de: ${missingCats.join(', ')}')),
+          );
+        }
+        return;
+      }
+      if (contexts.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Nada foi salvo: este ministério não tem cargos vinculados para guardar as regras.')),
           );
         }
         return;
@@ -497,6 +505,12 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
       // Vínculos de função são gerenciados na tela de Ministério; não sobrescrever aqui
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Regras salvas')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Não foi possível salvar: $e')),
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -762,10 +776,17 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
       appBar: AppBar(
         title: const Text('Regras & Preferências'),
         actions: [
-          FilledButton.icon(
-            onPressed: _save,
-            icon: const Icon(Icons.rule),
-            label: const Text('Aplicar estas regras na próxima geração de escala'),
+          // Rótulo curto: o antigo ("Aplicar estas regras na próxima
+          // geração de escala") sumia no celular e não dizia que é o salvar
+          // de tudo, inclusive de funções e categorias.
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilledButton.icon(
+              key: const ValueKey('regras-salvar'),
+              onPressed: _save,
+              icon: const Icon(Icons.save),
+              label: const Text('Salvar'),
+            ),
           ),
         ],
       ),
@@ -1670,6 +1691,8 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
               );
             }).toList(),
           ),
+        const SizedBox(height: 8),
+        const Text('Escolha a categoria de cada função e toque em Salvar, no topo. Adicionar só põe na lista.'),
         const SizedBox(height: 8),
         Row(children: [
           Expanded(
