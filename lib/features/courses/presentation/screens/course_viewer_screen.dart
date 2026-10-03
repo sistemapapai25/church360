@@ -7,6 +7,7 @@ import '../../domain/models/course.dart';
 import '../../domain/models/course_lesson.dart';
 import '../providers/courses_provider.dart';
 import '../hub/course_hub_cta.dart';
+import '../widgets/course_subjects_section.dart';
 import '../widgets/course_turmas_section.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/media/video_play_overlay.dart';
@@ -100,6 +101,9 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
                       _buildCourseTypeInfo(course),
 
                     const SizedBox(height: 24),
+
+                    // Matérias do curso (PR 2a): só a gestão vê.
+                    CourseSubjectsSection(courseId: course.id),
 
                     // Turmas do curso (study_groups.course_id), para
                     // qualquer tipo de curso. Carrega à parte das aulas.

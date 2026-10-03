@@ -325,6 +325,9 @@ class StudyGroupRepository {
     String? videoUrl,
     String? audioUrl,
     String? pdfUrl,
+    String? subjectId,
+    String? teacherId,
+    String? startTime,
   }) async {
     final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
@@ -344,6 +347,9 @@ class StudyGroupRepository {
           'video_url': videoUrl,
           'audio_url': audioUrl,
           'pdf_url': pdfUrl,
+          'subject_id': subjectId,
+          'teacher_id': teacherId,
+          'start_time': startTime,
           'created_by': userId,
           'tenant_id': SupabaseConstants.currentTenantId,
         })
@@ -369,6 +375,9 @@ class StudyGroupRepository {
     DateTime? scheduledDate,
     String? videoUrl,
     String? pdfUrl,
+    String? subjectId,
+    String? teacherId,
+    String? startTime,
   }) async {
     final response = await _supabase
         .from('study_lessons')
@@ -381,6 +390,9 @@ class StudyGroupRepository {
           'scheduled_date': scheduledDate?.toIso8601String(),
           'video_url': videoUrl,
           'pdf_url': pdfUrl,
+          'subject_id': subjectId,
+          'teacher_id': teacherId,
+          'start_time': startTime,
         })
         .eq('id', id)
         .eq('tenant_id', SupabaseConstants.currentTenantId)

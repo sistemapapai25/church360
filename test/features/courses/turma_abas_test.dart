@@ -2,6 +2,10 @@ import 'dart:typed_data';
 
 import 'package:church360_app/core/theme/app_theme.dart';
 import 'package:church360_app/core/widgets/media/inline_video.dart';
+import 'package:church360_app/features/courses/domain/models/course_subject.dart';
+import 'package:church360_app/features/courses/domain/models/course_turma.dart';
+import 'package:church360_app/features/courses/presentation/providers/courses_provider.dart';
+import 'package:church360_app/features/courses/presentation/widgets/course_subjects_section.dart';
 import 'package:church360_app/features/courses/presentation/turma/adapters/batismo_turma_adapter.dart';
 import 'package:church360_app/features/courses/presentation/turma/adapters/generica_turma_adapter.dart';
 import 'package:church360_app/features/courses/presentation/turma/adapters/turma_surfaces.dart';
@@ -130,9 +134,15 @@ class _FakeStudyRepo implements StudyGroupRepository {
     String? videoUrl,
     String? audioUrl,
     String? pdfUrl,
+    String? subjectId,
+    String? teacherId,
+    String? startTime,
   }) async {
     created.add((groupId: studyGroupId, number: lessonNumber, title: title));
     createdFields.add({
+      'subject_id': subjectId,
+      'teacher_id': teacherId,
+      'start_time': startTime,
       'description': description,
       'bible_references': bibleReferences,
       'content': content,
@@ -154,8 +164,14 @@ class _FakeStudyRepo implements StudyGroupRepository {
     DateTime? scheduledDate,
     String? videoUrl,
     String? pdfUrl,
+    String? subjectId,
+    String? teacherId,
+    String? startTime,
   }) async {
     replaced.add({
+      'subject_id': subjectId,
+      'teacher_id': teacherId,
+      'start_time': startTime,
       'id': id,
       'title': title,
       'description': description,
@@ -370,6 +386,29 @@ class _FakeMedia implements LessonMediaService {
 }
 
 const _leader = TurmaAccess(role: TurmaRole.leadership, canWriteLessons: true);
+
+/// Turma do curso c1 com a matéria "Doutrina" (professor padrão: Bruno).
+final _courseOverrides = <Override>[
+  turmaByIdProvider.overrideWith(
+    (ref, id) async => CourseTurma(
+      id: id,
+      name: 'Turma',
+      status: StudyGroupStatus.active,
+      courseId: 'c1',
+    ),
+  ),
+  courseSubjectsProvider.overrideWith(
+    (ref, courseId) async => const [
+      CourseSubject(
+        id: 's1',
+        courseId: 'c1',
+        title: 'Doutrina',
+        lessonCount: 4,
+        defaultTeacherId: 'u2',
+      ),
+    ],
+  ),
+];
 
 void _noop(StudyLesson _) {}
 
@@ -618,6 +657,40 @@ void main() {
       // Campo em branco vai como null, não como texto vazio.
       expect(f['description'], isNull);
       expect(f['content'], isNull);
+    });
+
+    testWidgets('matéria preenche o professor padrão e os dois são gravados', (
+      tester,
+    ) async {
+      final repo = _FakeStudyRepo(lessons: const []);
+      await _pump(
+        tester,
+        _host(
+          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
+          overrides: [
+            studyGroupRepositoryProvider.overrideWithValue(repo),
+            ..._courseOverrides,
+          ],
+        ),
+      );
+
+      await tester.tap(find.text('Nova aula'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Título da aula *'),
+        'Trindade',
+      );
+      await tester.tap(find.byKey(const ValueKey('lesson-subject')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Doutrina').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Bruno'), findsOneWidget);
+      await tapSave(tester);
+
+      final f = repo.createdFields.single;
+      expect(f['subject_id'], 's1');
+      expect(f['teacher_id'], 'u2');
+      expect(f['start_time'], isNull);
     });
 
     testWidgets('link inválido barra o salvamento', (tester) async {
@@ -1580,6 +1653,40 @@ void main() {
 
       await _pump(tester, _host(view(_leader.asReadOnly())));
       expect(find.byKey(const ValueKey('aula-acoes')), findsNothing);
+    });
+
+    testWidgets('cabeçalho mostra horário, matéria e professor (PR 2a)', (
+      tester,
+    ) async {
+      final lesson = StudyLesson(
+        id: 'l1',
+        studyGroupId: _sgId,
+        lessonNumber: 1,
+        title: 'Tema 1',
+        status: LessonStatus.published,
+        subjectId: 's1',
+        teacherId: 'u1',
+        startTime: '19:30',
+        createdAt: _t0,
+        updatedAt: _t0,
+      );
+      await _pump(
+        tester,
+        _host(
+          TurmaAulaView(
+            lesson: lesson,
+            access: _leader,
+            surfaces: turmaSurfacesFor(
+              const GenericaTurmaOrigin(studyGroupId: _sgId),
+              _leader,
+            ),
+          ),
+          overrides: _courseOverrides,
+        ),
+      );
+      expect(find.text('19:30'), findsOneWidget);
+      expect(find.text('Doutrina'), findsOneWidget);
+      expect(find.text('Professor: Ana'), findsOneWidget);
     });
 
     test('rota segue a porta da turma', () {

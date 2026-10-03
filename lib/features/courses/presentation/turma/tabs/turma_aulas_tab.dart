@@ -12,6 +12,8 @@ import '../../../../study_groups/presentation/providers/study_group_provider.dar
 import '../../../../support_materials/domain/models/support_material.dart';
 import '../../../../support_materials/domain/models/support_material_link.dart';
 import '../../../../support_materials/presentation/providers/support_materials_provider.dart';
+import '../../providers/courses_provider.dart';
+import '../../widgets/course_subjects_section.dart';
 import '../lesson_media.dart';
 import '../turma_access.dart';
 import '../widgets/turma_sheet.dart';
@@ -528,6 +530,9 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
   late final TextEditingController _videoUrl;
   late final TextEditingController _pdfUrl;
   DateTime? _date;
+  String? _subjectId;
+  String? _teacherId;
+  TimeOfDay? _startTime;
   bool _saving = false;
   String? _error;
   PickedLessonFile? _pendingVideo;
@@ -552,6 +557,29 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
     _videoUrl = TextEditingController(text: l?.videoUrl ?? '');
     _pdfUrl = TextEditingController(text: l?.pdfUrl ?? '');
     _date = l?.scheduledDate;
+    _subjectId = l?.subjectId;
+    _teacherId = l?.teacherId;
+    final time = l?.startTime?.split(':');
+    _startTime = time == null
+        ? null
+        : TimeOfDay(hour: int.parse(time[0]), minute: int.parse(time[1]));
+  }
+
+  /// `HH:mm` para a coluna `time`.
+  String? get _startTimeValue {
+    final t = _startTime;
+    if (t == null) return null;
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(t.hour)}:${two(t.minute)}';
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _startTime ?? const TimeOfDay(hour: 19, minute: 30),
+      helpText: 'Horário da aula',
+    );
+    if (picked != null) setState(() => _startTime = picked);
   }
 
   @override
@@ -639,6 +667,9 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
           scheduledDate: _date,
           videoUrl: videoUrl,
           pdfUrl: pdfUrl,
+          subjectId: _subjectId,
+          teacherId: _teacherId,
+          startTime: _startTimeValue,
         );
         lessonId = created.id;
         _createdLessonId = lessonId;
@@ -681,6 +712,9 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
         scheduledDate: _date,
         videoUrl: videoUrl,
         pdfUrl: pdfUrl,
+        subjectId: _subjectId,
+        teacherId: _teacherId,
+        startTime: _startTimeValue,
       );
 
       // Banco gravado: agora sim o arquivo antigo da aula pode sumir. Falha
@@ -753,6 +787,14 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
   @override
   Widget build(BuildContext context) {
     final date = _date;
+    final time = _startTimeValue;
+    final courseId = ref
+        .watch(turmaByIdProvider(widget.studyGroupId))
+        .valueOrNull
+        ?.courseId;
+    final subjects = courseId == null
+        ? null
+        : ref.watch(courseSubjectsProvider(courseId)).valueOrNull;
     return Form(
       key: _formKey,
       child: TurmaSheetBody(
@@ -778,6 +820,57 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          InkWell(
+            key: const ValueKey('lesson-time'),
+            onTap: _pickTime,
+            borderRadius: BorderRadius.circular(8),
+            child: InputDecorator(
+              decoration: InputDecoration(
+                labelText: 'Horário (opcional)',
+                suffixIcon: time == null
+                    ? null
+                    : IconButton(
+                        tooltip: 'Tirar horário',
+                        icon: const Icon(Icons.close),
+                        onPressed: () => setState(() => _startTime = null),
+                      ),
+              ),
+              child: Text(time ?? '—'),
+            ),
+          ),
+          if (courseId != null) ...[
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String?>(
+              key: const ValueKey('lesson-subject'),
+              initialValue: _subjectId,
+              decoration: const InputDecoration(labelText: 'Matéria'),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('—')),
+                for (final s in subjects ?? const [])
+                  DropdownMenuItem(value: s.id, child: Text(s.title)),
+                // Ainda carregando, ou matéria apagada: não derruba o campo.
+                if (_subjectId != null &&
+                    !(subjects?.any((s) => s.id == _subjectId) ?? false))
+                  DropdownMenuItem(value: _subjectId, child: const Text('…')),
+              ],
+              onChanged: (id) => setState(() {
+                _subjectId = id;
+                // Professor vazio herda o padrão da matéria.
+                _teacherId ??= subjects
+                    ?.where((s) => s.id == id)
+                    .firstOrNull
+                    ?.defaultTeacherId;
+              }),
+            ),
+            const SizedBox(height: 12),
+            TeacherField(
+              courseId: courseId,
+              label: 'Professor',
+              value: _teacherId,
+              onChanged: (id) => setState(() => _teacherId = id),
+            ),
+          ],
           const SizedBox(height: 12),
           TextFormField(
             controller: _description,
