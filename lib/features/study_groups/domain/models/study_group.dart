@@ -187,6 +187,16 @@ class StudyLesson {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// Matéria do curso (`course_subject.id`), PR 2a.
+  final String? subjectId;
+
+  /// Professor da aula = `user_account.id` (a mesma chave de
+  /// `member_function.user_id`), PR 2a.
+  final String? teacherId;
+
+  /// Horário (opcional), `HH:mm`.
+  final String? startTime;
+
   StudyLesson({
     required this.id,
     required this.studyGroupId,
@@ -204,6 +214,9 @@ class StudyLesson {
     this.createdBy,
     required this.createdAt,
     required this.updatedAt,
+    this.subjectId,
+    this.teacherId,
+    this.startTime,
   });
 
   factory StudyLesson.fromJson(Map<String, dynamic> json) {
@@ -232,6 +245,10 @@ class StudyLesson {
       createdBy: json['created_by'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      subjectId: json['subject_id'] as String?,
+      teacherId: json['teacher_id'] as String?,
+      // `time` volta como HH:mm:ss; a tela só usa HH:mm.
+      startTime: (json['start_time'] as String?)?.substring(0, 5),
     );
   }
 
@@ -253,6 +270,9 @@ class StudyLesson {
       'created_by': createdBy,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'subject_id': subjectId,
+      'teacher_id': teacherId,
+      'start_time': startTime,
     };
   }
 

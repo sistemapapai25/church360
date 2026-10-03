@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/course.dart';
 import '../domain/models/course_lesson.dart';
+import '../domain/models/course_subject.dart';
 import '../domain/models/course_turma.dart';
 
 /// Repository para gerenciar cursos
@@ -541,5 +542,62 @@ class CoursesRepository {
     } catch (e) {
       rethrow;
     }
+  }
+
+  // ==================== MATÉRIAS (course_subject) ====================
+
+  /// Matérias do curso, na ordem em que foram criadas.
+  Future<List<CourseSubject>> getCourseSubjects(String courseId) async {
+    final response = await _supabase
+        .from('course_subject')
+        .select('id, course_id, title, lesson_count, default_teacher_id')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('course_id', courseId)
+        .order('created_at');
+
+    return (response as List)
+        .map((json) => CourseSubject.fromJson(Map<String, dynamic>.from(json)))
+        .toList();
+  }
+
+  /// Cria ([id] nulo) ou grava a matéria inteira; professor nulo apaga.
+  Future<void> saveCourseSubject({
+    String? id,
+    required String courseId,
+    required String title,
+    required int lessonCount,
+    String? defaultTeacherId,
+  }) async {
+    final data = {
+      'title': title,
+      'lesson_count': lessonCount,
+      'default_teacher_id': defaultTeacherId,
+    };
+    if (id == null) {
+      await _supabase.from('course_subject').insert({
+        ...data,
+        'course_id': courseId,
+        'tenant_id': SupabaseConstants.currentTenantId,
+      });
+    } else {
+      await _supabase
+          .from('course_subject')
+          .update(data)
+          .eq('id', id)
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .select('id')
+          .single();
+    }
+  }
+
+  /// Apaga a matéria. As aulas dela ficam, sem matéria (FK SET NULL).
+  Future<void> deleteCourseSubject(String id) async {
+    await _supabase
+        .from('course_subject')
+        .delete()
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .select('id')
+        .single();
   }
 }

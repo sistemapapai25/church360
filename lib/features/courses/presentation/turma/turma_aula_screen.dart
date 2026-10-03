@@ -11,6 +11,7 @@ import '../../../../core/widgets/status_badge.dart';
 import '../../../study_groups/domain/models/study_group.dart';
 import '../../../study_groups/presentation/providers/study_group_provider.dart';
 import '../providers/courses_provider.dart';
+import '../widgets/course_subjects_section.dart';
 import 'adapters/turma_surfaces.dart';
 import 'tabs/aula_observacoes_tab.dart';
 import 'tabs/turma_aulas_tab.dart';
@@ -176,6 +177,22 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
     final lesson = widget.lesson;
     final next = lessonNextStep(lesson.status);
     final date = lesson.scheduledDate;
+    final courseId = ref
+        .watch(turmaByIdProvider(lesson.studyGroupId))
+        .valueOrNull
+        ?.courseId;
+    final subject = lesson.subjectId == null || courseId == null
+        ? null
+        : ref
+              .watch(courseSubjectsProvider(courseId))
+              .valueOrNull
+              ?.where((s) => s.id == lesson.subjectId)
+              .firstOrNull;
+    final teacher = memberNameById(ref, lesson.teacherId);
+    final when = [
+      if (date != null) DateFormat('dd/MM/yyyy').format(date),
+      ?lesson.startTime,
+    ].join(' · ');
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -226,7 +243,6 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Matéria, professor e horário entram aqui no PR 2.
           Container(
             color: CommunityDesign.headerColor(context),
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -240,9 +256,16 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
                     label: lesson.status.displayName,
                     tone: lessonStatusTone(lesson.status),
                   ),
-                if (date != null)
+                if (when.isNotEmpty)
+                  Text(when, style: CommunityDesign.metaStyle(context)),
+                if (subject != null)
                   Text(
-                    DateFormat('dd/MM/yyyy').format(date),
+                    subject.title,
+                    style: CommunityDesign.metaStyle(context),
+                  ),
+                if (teacher != null)
+                  Text(
+                    'Professor: $teacher',
                     style: CommunityDesign.metaStyle(context),
                   ),
               ],
