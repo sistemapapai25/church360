@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/widgets/glass_card.dart';
+import '../../../../../core/widgets/media/inline_video.dart';
 import '../../../../../core/widgets/status_badge.dart';
 import '../../../../study_groups/domain/models/study_group.dart';
 import '../../../../study_groups/presentation/providers/study_group_provider.dart';
@@ -352,8 +353,9 @@ class _LessonCard extends StatelessWidget {
 }
 
 /// Materiais complementares da aula (`support_material_link` com
-/// `link_type = study_lesson`), na aba Materiais da tela da aula. Quem
-/// edita a aula vê o botão de vincular.
+/// `link_type = study_lesson`), no fim da aba Conteúdo da tela da aula. O
+/// vídeo do material já aparece tocável na lista. Quem edita a aula vê o
+/// botão de vincular.
 class LessonComplementaryMaterials extends ConsumerWidget {
   final String lessonId;
   final bool canWrite;
@@ -461,7 +463,7 @@ class LessonComplementaryMaterials extends ConsumerWidget {
         else if (materials.isEmpty)
           Text('Nenhum material vinculado a esta aula.', style: meta)
         else
-          for (final m in materials)
+          for (final m in materials) ...[
             ListTile(
               key: ValueKey('lesson-material-${m.id}'),
               contentPadding: EdgeInsets.zero,
@@ -480,6 +482,12 @@ class LessonComplementaryMaterials extends ConsumerWidget {
                     )
                   : null,
             ),
+            if (blankToNull(m.videoUrl) case final video?)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: InlineVideo(url: video),
+              ),
+          ],
       ],
     );
   }

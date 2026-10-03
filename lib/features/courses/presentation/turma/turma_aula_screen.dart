@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/app_tabs.dart';
+import '../../../../core/widgets/media/inline_video.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../study_groups/domain/models/study_group.dart';
 import '../../../study_groups/presentation/providers/study_group_provider.dart';
@@ -116,11 +117,11 @@ class TurmaAulaScreen extends ConsumerWidget {
   }
 }
 
-/// As abas da tela da aula. Todo papel vê as quatro; o que muda é o
-/// conteúdo de Presença e Observações.
+/// As abas da tela da aula. Todo papel vê as três; o que muda é o
+/// conteúdo de Presença e Observações. Os materiais ficam no fim de
+/// Conteúdo.
 enum AulaTabId {
   conteudo('Conteúdo'),
-  materiais('Materiais'),
   presenca('Presença'),
   observacoes('Observações');
 
@@ -155,15 +156,12 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
   Widget _buildTab(AulaTabId tab) {
     final lesson = widget.lesson;
     return switch (tab) {
-      AulaTabId.conteudo => LessonContentTab(lesson: lesson),
-      AulaTabId.materiais => ListView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-        children: [
-          LessonComplementaryMaterials(
-            lessonId: lesson.id,
-            canWrite: _canWrite,
-          ),
-        ],
+      AulaTabId.conteudo => LessonContentTab(
+        lesson: lesson,
+        materials: LessonComplementaryMaterials(
+          lessonId: lesson.id,
+          canWrite: _canWrite,
+        ),
       ),
       AulaTabId.presenca => widget.surfaces.lessonPresence(lesson),
       AulaTabId.observacoes => AulaObservacoesTab(
@@ -269,12 +267,13 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
   }
 }
 
-/// Aba Conteúdo: vídeo e PDF da aula, descrição, referências, texto e
-/// perguntas.
+/// Aba Conteúdo: vídeo (tocando no app) e PDF da aula, descrição,
+/// referências, texto, perguntas e, no fim, os [materials] da aula.
 class LessonContentTab extends StatelessWidget {
   final StudyLesson lesson;
+  final Widget? materials;
 
-  const LessonContentTab({super.key, required this.lesson});
+  const LessonContentTab({super.key, required this.lesson, this.materials});
 
   @override
   Widget build(BuildContext context) {
@@ -303,24 +302,18 @@ class LessonContentTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
       children: [
-        if (videoUrl != null || pdfUrl != null) ...[
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (videoUrl != null)
-                FilledButton.icon(
-                  onPressed: () => openLessonLink(context, videoUrl),
-                  icon: const Icon(AppIcons.playArrow, size: 18),
-                  label: const Text('Assistir vídeo'),
-                ),
-              if (pdfUrl != null)
-                OutlinedButton.icon(
-                  onPressed: () => openLessonLink(context, pdfUrl),
-                  icon: const Icon(AppIcons.pdf, size: 18),
-                  label: const Text('Abrir PDF'),
-                ),
-            ],
+        if (videoUrl != null) ...[
+          InlineVideo(url: videoUrl),
+          const SizedBox(height: 12),
+        ],
+        if (pdfUrl != null) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: () => openLessonLink(context, pdfUrl),
+              icon: const Icon(AppIcons.pdf, size: 18),
+              label: const Text('Abrir PDF'),
+            ),
           ),
           const SizedBox(height: 16),
         ],
@@ -341,6 +334,7 @@ class LessonContentTab extends StatelessWidget {
               ),
             ),
         if (empty) Text('Esta aula ainda não tem conteúdo.', style: meta),
+        if (materials != null) ...[const SizedBox(height: 24), materials!],
       ],
     );
   }

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:church360_app/core/theme/app_theme.dart';
+import 'package:church360_app/core/widgets/media/inline_video.dart';
 import 'package:church360_app/features/courses/presentation/turma/adapters/batismo_turma_adapter.dart';
 import 'package:church360_app/features/courses/presentation/turma/adapters/generica_turma_adapter.dart';
 import 'package:church360_app/features/courses/presentation/turma/adapters/turma_surfaces.dart';
@@ -680,10 +681,12 @@ void main() {
       expect(repo.statusUpdates, isEmpty);
     });
 
-    testWidgets('Conteúdo mostra Assistir vídeo e Abrir PDF', (tester) async {
+    testWidgets('Conteúdo toca o vídeo no app e mostra Abrir PDF', (
+      tester,
+    ) async {
       await _pump(tester, _host(LessonContentTab(lesson: withMedia())));
 
-      expect(find.text('Assistir vídeo'), findsOneWidget);
+      expect(find.byType(InlineVideo), findsOneWidget);
       expect(find.text('Abrir PDF'), findsOneWidget);
       expect(find.text('Esta aula ainda não tem conteúdo.'), findsNothing);
     });
@@ -919,6 +922,26 @@ void main() {
   });
 
   group('Materiais complementares da aula', () {
+    testWidgets('vídeo do material aparece tocável na lista', (tester) async {
+      final materials = _FakeMaterialsRepo(
+        linked: [
+          _material('m1').copyWith(videoUrl: 'https://youtu.be/abc12345678'),
+        ],
+      );
+      await _pump(
+        tester,
+        _host(
+          const LessonComplementaryMaterials(lessonId: 'l1', canWrite: false),
+          overrides: [
+            supportMaterialsRepositoryProvider.overrideWithValue(materials),
+          ],
+        ),
+      );
+
+      expect(find.text('Material m1'), findsOneWidget);
+      expect(find.byType(InlineVideo), findsOneWidget);
+    });
+
     testWidgets('liderança vincula material à aula (tipo study_lesson)', (
       tester,
     ) async {
@@ -961,6 +984,7 @@ void main() {
 
       expect(find.text('Materiais complementares'), findsOneWidget);
       expect(find.text('Material m1'), findsOneWidget);
+      expect(find.byType(InlineVideo), findsNothing);
       expect(find.byKey(const ValueKey('lesson-link-material')), findsNothing);
       expect(find.byTooltip('Desvincular'), findsNothing);
     });
@@ -1496,13 +1520,20 @@ void main() {
       ),
     );
 
-    testWidgets('quatro abas; ações só para quem escreve aula', (
+    testWidgets('três abas, sem Materiais; ações só para quem escreve aula', (
       tester,
     ) async {
       await _pump(tester, _host(view(_leader)));
+      expect(AulaTabId.values.map((t) => t.label), [
+        'Conteúdo',
+        'Presença',
+        'Observações',
+      ]);
       for (final tab in AulaTabId.values) {
         expect(find.text(tab.label), findsOneWidget);
       }
+      // Os materiais da aula ficam dentro de Conteúdo.
+      expect(find.text('Materiais complementares'), findsOneWidget);
       expect(find.text('RASCUNHO'), findsOneWidget);
       expect(find.byKey(const ValueKey('aula-acoes')), findsOneWidget);
 

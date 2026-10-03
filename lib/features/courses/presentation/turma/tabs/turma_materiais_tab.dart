@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/widgets/glass_card.dart';
+import '../../../../../core/widgets/media/inline_video.dart';
 import '../../../../../core/widgets/status_badge.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
 import '../../../../study_groups/domain/models/study_group.dart';
@@ -389,11 +390,11 @@ class TurmaMaterialReadSheet extends StatelessWidget {
 
   const TurmaMaterialReadSheet({super.key, required this.material});
 
-  /// Arquivo, vídeo explicativo e link externo: cada um com o seu botão.
+  /// Arquivo e link externo, cada um com o seu botão. O vídeo explicativo
+  /// toca na própria janela ([InlineVideo]).
   List<({String url, IconData icon, String label})> get _links => [
     for (final (raw, icon, label) in [
       (material.fileUrl, AppIcons.forward, 'Abrir arquivo'),
-      (material.videoUrl, AppIcons.playArrow, 'Assistir vídeo'),
       (material.externalLink, AppIcons.link, 'Abrir link'),
     ])
       if (raw != null && raw.trim().isNotEmpty)
@@ -418,11 +419,16 @@ class TurmaMaterialReadSheet extends StatelessWidget {
     final links = _links;
     final description = (material.description ?? '').trim();
     final content = (material.content ?? '').trim();
+    final video = (material.videoUrl ?? '').trim();
 
     return TurmaSheetBody(
       title: material.title,
       children: [
         Text(material.materialType.label, style: meta),
+        if (video.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          InlineVideo(url: video),
+        ],
         if (description.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text(description),
@@ -449,7 +455,10 @@ class TurmaMaterialReadSheet extends StatelessWidget {
             ],
           ),
         ],
-        if (links.isEmpty && content.isEmpty && description.isEmpty)
+        if (links.isEmpty &&
+            video.isEmpty &&
+            content.isEmpty &&
+            description.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: Text(
