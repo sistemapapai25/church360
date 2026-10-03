@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../core/widgets/glass_card.dart';
 
 /// Abre uma folha inferior da tela da turma, no mesmo desenho das folhas do
 /// Batismo (`baptism_turmas_sheet.dart`): fundo transparente, cantos de 20,
@@ -124,6 +125,42 @@ class TurmaMessage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// A própria marca do aluno numa aula (aba Presença da tela da aula).
+/// [status] `null` = sem marcação, nunca falta.
+class TurmaMyLessonPresence extends StatelessWidget {
+  final String? status;
+
+  const TurmaMyLessonPresence({super.key, this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+      children: [
+        GlassCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Sua presença nesta aula',
+                style: CommunityDesign.metaStyle(context),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                status ?? 'Sem marcação',
+                key: const ValueKey('minha-presenca-aula'),
+                style: CommunityDesign.titleStyle(
+                  context,
+                ).copyWith(fontSize: 20, fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

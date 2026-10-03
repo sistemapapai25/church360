@@ -10,11 +10,16 @@ class BaptismMyMeeting {
   final String title;
   final BaptismAttendanceStatus? status;
 
+  /// A aula de onde o encontro nasceu (Etapa 5.3). `null` em encontro
+  /// avulso antigo.
+  final String? studyLessonId;
+
   const BaptismMyMeeting({
     required this.meetingId,
     required this.meetingDate,
     required this.title,
     this.status,
+    this.studyLessonId,
   });
 
   factory BaptismMyMeeting.fromJson(Map<String, dynamic> json) {
@@ -25,6 +30,7 @@ class BaptismMyMeeting {
       meetingDate: DateTime.parse(json['meeting_date'] as String),
       title: (json['title'] as String?) ?? '',
       status: status == null ? null : BaptismAttendanceStatus.fromCode(status),
+      studyLessonId: json['study_lesson_id'] as String?,
     );
   }
 }

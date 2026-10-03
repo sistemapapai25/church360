@@ -6,10 +6,6 @@ import '../turma_origin.dart';
 import 'batismo_turma_adapter.dart';
 import 'generica_turma_adapter.dart';
 
-/// "Registrar presença" dentro de uma aula: abre a chamada daquela aula.
-typedef TurmaLessonAttendance =
-    Future<void> Function(BuildContext context, StudyLesson lesson);
-
 /// Onde esta turma se edita, para o botão que a vitrine de Cursos oferece
 /// à liderança: o rótulo e a rota.
 typedef TurmaManageTarget = ({String label, String route});
@@ -20,9 +16,10 @@ abstract interface class TurmaSurfaces {
   Widget alunos();
   Widget minhaFrequencia();
 
-  /// Ação "Registrar presença" na aula, ou `null` quando quem vê a turma
-  /// não faz a chamada. É o único lugar da chamada nas duas origens.
-  TurmaLessonAttendance? get lessonAttendance;
+  /// Aba Presença da tela da aula — o único lugar da chamada nas duas
+  /// origens. Quem faz (ou lê) a chamada vê a da aula; o aluno, a própria
+  /// marca; o resto, um aviso.
+  Widget lessonPresence(StudyLesson lesson);
 
   /// Para onde a liderança vai quando quer editar a turma que abriu pela
   /// vitrine de Cursos. Cada origem sabe a sua porta — a tela só mostra o

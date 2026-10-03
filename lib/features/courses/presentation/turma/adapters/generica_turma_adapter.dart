@@ -34,24 +34,38 @@ class GenericaTurmaAdapter implements TurmaSurfaces {
   Widget minhaFrequencia() =>
       GenericaMinhaFrequencia(studyGroupId: origin.studyGroupId);
 
-  /// A chamada abre dentro da aula, como no Batismo.
+  /// A chamada fica na aba Presença da aula, como no Batismo.
   ///
   /// Só o líder ativo do grupo grava (`study_lesson_led_by_me`); o elevado
-  /// abre só para ler. Quem é liderança só por `courses.*` não enxerga a
-  /// presença pela RLS, então não ganha a ação — uma chamada vazia diria que
-  /// ninguém foi marcado. Na vitrine de Cursos também não há chamada.
+  /// só lê. Quem é liderança só por `courses.*` não enxerga a presença pela
+  /// RLS — uma chamada vazia diria que ninguém foi marcado, então recebe um
+  /// aviso. Na vitrine de Cursos também não há chamada.
   @override
-  TurmaLessonAttendance? get lessonAttendance =>
-      access.readOnly || !(access.leadsGroup || access.elevated)
-      ? null
-      : (context, lesson) => showTurmaSheet<void>(
-          context: context,
-          builder: (_) => _LessonRoll(
-            studyGroupId: origin.studyGroupId,
-            lesson: lesson,
-            canMark: access.leadsGroup,
-          ),
-        );
+  Widget lessonPresence(StudyLesson lesson) {
+    if (access.isStudent) {
+      return _MyLessonPresence(
+        studyGroupId: origin.studyGroupId,
+        lessonId: lesson.id,
+      );
+    }
+    if (access.readOnly) {
+      return const TurmaMessage(
+        icon: AppIcons.lock,
+        message: 'A chamada é feita em Gerenciar.',
+      );
+    }
+    if (!access.leadsGroup && !access.elevated) {
+      return const TurmaMessage(
+        icon: AppIcons.lock,
+        message: 'A chamada é feita pelo líder da turma.',
+      );
+    }
+    return _LessonRoll(
+      studyGroupId: origin.studyGroupId,
+      lesson: lesson,
+      canMark: access.leadsGroup,
+    );
+  }
 
   /// A turma genérica não tem ministério: a gestão dela é esta mesma tela,
   /// pela porta que grava.
@@ -239,8 +253,8 @@ class GenericaParticipantes extends ConsumerWidget {
 // Presença
 // ---------------------------------------------------------------------
 
-/// A chamada de uma aula, aberta pela própria aula: carrega o que já foi
-/// marcado e entrega a folha.
+/// A chamada de uma aula, na aba Presença: carrega o que já foi marcado e
+/// entrega a lista.
 class _LessonRoll extends ConsumerWidget {
   final String studyGroupId;
   final StudyLesson lesson;
@@ -254,29 +268,18 @@ class _LessonRoll extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final title = 'Aula ${lesson.lessonNumber} · ${lesson.title}';
     return ref
         .watch(lessonAttendanceProvider(lesson.id))
         .when(
-          loading: () => TurmaSheetBody(
-            title: title,
-            children: const [
-              Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            ],
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, _) => TurmaMessage.error(
+            message: 'Não foi possível carregar a chamada.',
+            onRetry: () => ref.invalidate(lessonAttendanceProvider(lesson.id)),
           ),
-          error: (_, _) => TurmaSheetBody(
-            title: title,
-            children: [
-              Text(
-                'Não foi possível carregar a chamada.',
-                style: CommunityDesign.metaStyle(context),
-              ),
-            ],
-          ),
-          data: (rows) => _RollSheet(
+          // Chave pelas linhas: depois de salvar, a chamada recarregada
+          // recomeça do banco (senão a próxima gravação inseriria de novo).
+          data: (rows) => _Roll(
+            key: ObjectKey(rows),
             studyGroupId: studyGroupId,
             lesson: lesson,
             existing: rows,
@@ -288,13 +291,14 @@ class _LessonRoll extends ConsumerWidget {
 
 /// A chamada de uma aula. Toque escolhe o status; nada vai ao banco até
 /// "Salvar". Participante sem marca fica sem linha ("—").
-class _RollSheet extends ConsumerStatefulWidget {
+class _Roll extends ConsumerStatefulWidget {
   final String studyGroupId;
   final StudyLesson lesson;
   final List<StudyAttendance> existing;
   final bool canMark;
 
-  const _RollSheet({
+  const _Roll({
+    super.key,
     required this.studyGroupId,
     required this.lesson,
     required this.existing,
@@ -302,10 +306,10 @@ class _RollSheet extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_RollSheet> createState() => _RollSheetState();
+  ConsumerState<_Roll> createState() => _RollState();
 }
 
-class _RollSheetState extends ConsumerState<_RollSheet> {
+class _RollState extends ConsumerState<_Roll> {
   late final Map<String, StudyAttendance> _byUser = {
     for (final a in widget.existing) a.userId: a,
   };
@@ -335,7 +339,11 @@ class _RollSheetState extends ConsumerState<_RollSheet> {
         }
       }
       ref.invalidate(lessonAttendanceProvider(widget.lesson.id));
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Presença salva.')));
+      }
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -355,8 +363,8 @@ class _RollSheetState extends ConsumerState<_RollSheet> {
         ref.watch(genericaParticipantNamesProvider).valueOrNull ?? const {};
     final meta = CommunityDesign.metaStyle(context);
 
-    return TurmaSheetBody(
-      title: 'Aula ${widget.lesson.lessonNumber} · ${widget.lesson.title}',
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
       children: [
         participantsAsync.when(
           loading: () => const Padding(
@@ -422,11 +430,6 @@ class _RollSheetState extends ConsumerState<_RollSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TextButton(
-                onPressed: _saving ? null : () => Navigator.of(context).pop(),
-                child: const Text('Cancelar'),
-              ),
-              const SizedBox(width: 8),
               FilledButton(
                 onPressed: _saving ? null : _save,
                 child: const Text('Salvar'),
@@ -458,6 +461,30 @@ final genericaMyAttendanceProvider =
       ]);
       return {for (final r in rows) r.studyLessonId: r.status};
     });
+
+/// A marca do próprio aluno numa aula.
+class _MyLessonPresence extends ConsumerWidget {
+  final String studyGroupId;
+  final String lessonId;
+
+  const _MyLessonPresence({required this.studyGroupId, required this.lessonId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ref
+        .watch(genericaMyAttendanceProvider(studyGroupId))
+        .when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, _) => TurmaMessage.error(
+            message: 'Não foi possível carregar sua presença.',
+            onRetry: () =>
+                ref.invalidate(genericaMyAttendanceProvider(studyGroupId)),
+          ),
+          data: (marks) =>
+              TurmaMyLessonPresence(status: marks[lessonId]?.displayName),
+        );
+  }
+}
 
 class GenericaMinhaFrequencia extends ConsumerWidget {
   final String studyGroupId;

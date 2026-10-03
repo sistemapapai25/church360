@@ -12,7 +12,6 @@ import '../../../../study_groups/presentation/providers/study_group_provider.dar
 import '../../../../support_materials/domain/models/support_material.dart';
 import '../../../../support_materials/domain/models/support_material_link.dart';
 import '../../../../support_materials/presentation/providers/support_materials_provider.dart';
-import '../adapters/turma_surfaces.dart';
 import '../lesson_media.dart';
 import '../turma_access.dart';
 import '../widgets/turma_sheet.dart';
@@ -27,66 +26,38 @@ import 'turma_materiais_tab.dart';
 /// os comentários dela (conferido no banco em 25/09). O ciclo é Rascunho →
 /// Publicar → Arquivar → Restaurar (volta a rascunho).
 ///
-/// Com [lessonAttendance] (hoje só o Batismo, Etapa 5.3) cada aula ganha
-/// "Registrar presença" no menu de quem escreve aula.
+/// Tocar na aula abre a tela da aula ([onOpenLesson]), onde ficam o
+/// conteúdo, os materiais, a chamada e as observações (PR 1b).
 class TurmaAulasTab extends ConsumerWidget {
   final String studyGroupId;
   final TurmaAccess access;
-  final TurmaLessonAttendance? lessonAttendance;
+  final ValueChanged<StudyLesson> onOpenLesson;
 
   const TurmaAulasTab({
     super.key,
     required this.studyGroupId,
     required this.access,
-    this.lessonAttendance,
+    required this.onOpenLesson,
   });
 
   FutureProvider<List<StudyLesson>> get _lessonsProvider =>
       turmaVisibleLessonsProvider(access, studyGroupId);
 
-  void _invalidate(WidgetRef ref, [String? lessonId]) {
-    invalidateTurmaLessons(ref, studyGroupId);
-    if (lessonId != null) ref.invalidate(lessonByIdProvider(lessonId));
-  }
-
   Future<void> _openForm(
     BuildContext context,
     WidgetRef ref,
-    List<StudyLesson> lessons, {
-    StudyLesson? lesson,
-  }) async {
+    List<StudyLesson> lessons,
+  ) {
     final nextNumber = lessons.isEmpty
         ? 1
         : lessons.map((l) => l.lessonNumber).reduce((a, b) => a > b ? a : b) +
               1;
-    final saved = await showTurmaSheet<bool>(
-      context: context,
-      builder: (_) => _LessonFormSheet(
-        studyGroupId: studyGroupId,
-        nextNumber: nextNumber,
-        lesson: lesson,
-      ),
+    return openTurmaLessonForm(
+      context,
+      ref,
+      studyGroupId: studyGroupId,
+      nextNumber: nextNumber,
     );
-    if (saved == true) _invalidate(ref, lesson?.id);
-  }
-
-  Future<void> _setStatus(
-    BuildContext context,
-    WidgetRef ref,
-    StudyLesson lesson,
-    LessonStatus status,
-  ) async {
-    try {
-      await ref
-          .read(studyGroupRepositoryProvider)
-          .updateLesson(lesson.id, status: status);
-      _invalidate(ref, lesson.id);
-    } catch (error) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Não foi possível salvar: $error')),
-      );
-    }
   }
 
   @override
@@ -98,12 +69,12 @@ class TurmaAulasTab extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => TurmaMessage.error(
         message: 'Não foi possível carregar as aulas.',
-        onRetry: () => _invalidate(ref),
+        onRetry: () => invalidateTurmaLessons(ref, studyGroupId),
       ),
       data: (lessons) {
         return RefreshIndicator(
           onRefresh: () async {
-            _invalidate(ref);
+            invalidateTurmaLessons(ref, studyGroupId);
             await ref.read(_lessonsProvider.future);
           },
           child: ListView(
@@ -145,18 +116,21 @@ class TurmaAulasTab extends ConsumerWidget {
                     lesson: lesson,
                     showStatus: access.isLeadership,
                     canWrite: canWrite,
-                    onRegisterAttendance: lessonAttendance == null
-                        ? null
-                        : () => lessonAttendance!(context, lesson),
-                    onOpen: () => showTurmaSheet<void>(
-                      context: context,
-                      builder: (_) =>
-                          _LessonReadSheet(lesson: lesson, canWrite: canWrite),
+                    onOpen: () => onOpenLesson(lesson),
+                    onEdit: () => openTurmaLessonForm(
+                      context,
+                      ref,
+                      studyGroupId: studyGroupId,
+                      nextNumber: lesson.lessonNumber,
+                      lesson: lesson,
                     ),
-                    onEdit: () =>
-                        _openForm(context, ref, lessons, lesson: lesson),
-                    onSetStatus: (status) =>
-                        _setStatus(context, ref, lesson, status),
+                    onSetStatus: (status) => setTurmaLessonStatus(
+                      context,
+                      ref,
+                      studyGroupId: studyGroupId,
+                      lesson: lesson,
+                      status: status,
+                    ),
                   ),
             ],
           ),
@@ -183,6 +157,50 @@ void invalidateTurmaLessons(WidgetRef ref, String studyGroupId) {
   ref.invalidate(groupLessonsProvider(studyGroupId));
   ref.invalidate(publishedLessonsProvider(studyGroupId));
   ref.invalidate(materialsByEntitiesProvider);
+}
+
+/// Abre o formulário da aula (nova ou edição) e, se salvou, recarrega as
+/// aulas da turma e a própria aula.
+Future<void> openTurmaLessonForm(
+  BuildContext context,
+  WidgetRef ref, {
+  required String studyGroupId,
+  required int nextNumber,
+  StudyLesson? lesson,
+}) async {
+  final saved = await showTurmaSheet<bool>(
+    context: context,
+    builder: (_) => LessonFormSheet(
+      studyGroupId: studyGroupId,
+      nextNumber: nextNumber,
+      lesson: lesson,
+    ),
+  );
+  if (saved != true) return;
+  invalidateTurmaLessons(ref, studyGroupId);
+  if (lesson != null) ref.invalidate(lessonByIdProvider(lesson.id));
+}
+
+/// Publicar, arquivar ou restaurar a aula.
+Future<void> setTurmaLessonStatus(
+  BuildContext context,
+  WidgetRef ref, {
+  required String studyGroupId,
+  required StudyLesson lesson,
+  required LessonStatus status,
+}) async {
+  try {
+    await ref
+        .read(studyGroupRepositoryProvider)
+        .updateLesson(lesson.id, status: status);
+    invalidateTurmaLessons(ref, studyGroupId);
+    ref.invalidate(lessonByIdProvider(lesson.id));
+  } catch (error) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Não foi possível salvar: $error')));
+  }
 }
 
 /// Próximo passo do ciclo de vida da aula, a partir do estado atual.
@@ -225,7 +243,7 @@ List<String>? parseLessonQuestions(String raw) {
   return questions.isEmpty ? null : questions;
 }
 
-String? _blankToNull(String? raw) {
+String? blankToNull(String? raw) {
   final text = (raw ?? '').trim();
   return text.isEmpty ? null : text;
 }
@@ -251,7 +269,6 @@ class _LessonCard extends StatelessWidget {
   final StudyLesson lesson;
   final bool showStatus;
   final bool canWrite;
-  final VoidCallback? onRegisterAttendance;
   final VoidCallback onOpen;
   final VoidCallback onEdit;
   final ValueChanged<LessonStatus> onSetStatus;
@@ -261,7 +278,6 @@ class _LessonCard extends StatelessWidget {
     required this.lesson,
     required this.showStatus,
     required this.canWrite,
-    this.onRegisterAttendance,
     required this.onOpen,
     required this.onEdit,
     required this.onSetStatus,
@@ -316,18 +332,11 @@ class _LessonCard extends StatelessWidget {
               PopupMenuButton<String>(
                 tooltip: 'Ações da aula',
                 itemBuilder: (context) => [
-                  if (onRegisterAttendance != null)
-                    const PopupMenuItem(
-                      value: 'attendance',
-                      child: Text('Registrar presença'),
-                    ),
                   const PopupMenuItem(value: 'edit', child: Text('Editar')),
                   PopupMenuItem(value: 'status', child: Text(next.label)),
                 ],
                 onSelected: (value) {
                   switch (value) {
-                    case 'attendance':
-                      onRegisterAttendance?.call();
                     case 'edit':
                       onEdit();
                     case 'status':
@@ -342,98 +351,8 @@ class _LessonCard extends StatelessWidget {
   }
 }
 
-/// Leitura da aula, para liderança e aluno.
-///
-/// A tela antiga `/study-groups/:id/lessons/:lessonId` exige a permissão
-/// `study_groups.manage_lessons`; o aluno bateria nela. Por isso a leitura
-/// fica aqui, numa folha.
-///
-/// Com [canWrite], a seção de materiais complementares ganha "Vincular" e
-/// "Desvincular" (no banco, quem edita a aula vincula a ela qualquer
-/// material que enxerga — `study_lesson_editable`).
-class _LessonReadSheet extends StatelessWidget {
-  final StudyLesson lesson;
-  final bool canWrite;
-
-  const _LessonReadSheet({required this.lesson, required this.canWrite});
-
-  @override
-  Widget build(BuildContext context) {
-    final meta = CommunityDesign.metaStyle(context);
-    final body = Theme.of(context).textTheme.bodyMedium;
-    final date = lesson.scheduledDate;
-
-    Widget section(String label, String? text) {
-      if (text == null || text.trim().isEmpty) return const SizedBox.shrink();
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: meta.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text(text.trim(), style: body),
-          ],
-        ),
-      );
-    }
-
-    final questions = lesson.discussionQuestions ?? const <String>[];
-    final videoUrl = _blankToNull(lesson.videoUrl);
-    final pdfUrl = _blankToNull(lesson.pdfUrl);
-
-    return TurmaSheetBody(
-      title: 'Aula ${lesson.lessonNumber} · ${lesson.title}',
-      children: [
-        if (date != null) ...[
-          Text(DateFormat('dd/MM/yyyy').format(date), style: meta),
-          const SizedBox(height: 12),
-        ],
-        if (videoUrl != null || pdfUrl != null) ...[
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (videoUrl != null)
-                FilledButton.icon(
-                  onPressed: () => openLessonLink(context, videoUrl),
-                  icon: const Icon(AppIcons.playArrow, size: 18),
-                  label: const Text('Assistir vídeo'),
-                ),
-              if (pdfUrl != null)
-                OutlinedButton.icon(
-                  onPressed: () => openLessonLink(context, pdfUrl),
-                  icon: const Icon(AppIcons.pdf, size: 18),
-                  label: const Text('Abrir PDF'),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-        ],
-        section('Descrição', lesson.description),
-        section('Referências bíblicas', lesson.bibleReferences),
-        section('Conteúdo', lesson.content),
-        if (questions.isNotEmpty)
-          section(
-            'Perguntas para discussão',
-            [for (final q in questions) '• $q'].join('\n'),
-          ),
-        if ((lesson.description ?? '').trim().isEmpty &&
-            (lesson.bibleReferences ?? '').trim().isEmpty &&
-            (lesson.content ?? '').trim().isEmpty &&
-            questions.isEmpty &&
-            videoUrl == null &&
-            pdfUrl == null)
-          Text('Esta aula ainda não tem conteúdo.', style: meta),
-        const SizedBox(height: 8),
-        LessonComplementaryMaterials(lessonId: lesson.id, canWrite: canWrite),
-      ],
-    );
-  }
-}
-
 /// Materiais complementares da aula (`support_material_link` com
-/// `link_type = study_lesson`). Sem nenhum, o aluno não vê a seção; quem
+/// `link_type = study_lesson`), na aba Materiais da tela da aula. Quem
 /// edita a aula vê o botão de vincular.
 class LessonComplementaryMaterials extends ConsumerWidget {
   final String lessonId;
@@ -509,7 +428,6 @@ class LessonComplementaryMaterials extends ConsumerWidget {
     final meta = CommunityDesign.metaStyle(context);
     final async = ref.watch(materialsByEntityProvider(_key));
     final materials = async.valueOrNull ?? const <SupportMaterial>[];
-    if (!canWrite && materials.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -584,22 +502,23 @@ class LessonComplementaryMaterials extends ConsumerWidget {
 ///
 /// Aula nova nasce como rascunho, com o próximo número da turma e o
 /// `study_group_id` da tela — não há como escolher outro grupo.
-class _LessonFormSheet extends ConsumerStatefulWidget {
+class LessonFormSheet extends ConsumerStatefulWidget {
   final String studyGroupId;
   final int nextNumber;
   final StudyLesson? lesson;
 
-  const _LessonFormSheet({
+  const LessonFormSheet({
+    super.key,
     required this.studyGroupId,
     required this.nextNumber,
     this.lesson,
   });
 
   @override
-  ConsumerState<_LessonFormSheet> createState() => _LessonFormSheetState();
+  ConsumerState<LessonFormSheet> createState() => _LessonFormSheetState();
 }
 
-class _LessonFormSheetState extends ConsumerState<_LessonFormSheet> {
+class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _title;
   late final TextEditingController _description;
@@ -696,9 +615,9 @@ class _LessonFormSheetState extends ConsumerState<_LessonFormSheet> {
     final media = ref.read(lessonMediaServiceProvider);
     try {
       final title = _title.text.trim();
-      final description = _blankToNull(_description.text);
-      final bibleReferences = _blankToNull(_bibleReferences.text);
-      final content = _blankToNull(_content.text);
+      final description = blankToNull(_description.text);
+      final bibleReferences = blankToNull(_bibleReferences.text);
+      final content = blankToNull(_content.text);
       final questions = parseLessonQuestions(_questions.text);
       var videoUrl = _pendingVideo == null
           ? normalizeLessonUrl(_videoUrl.text)
@@ -772,7 +691,7 @@ class _LessonFormSheetState extends ConsumerState<_LessonFormSheet> {
           (LessonMediaKind.video, old.videoUrl, videoUrl),
           (LessonMediaKind.pdf, old.pdfUrl, pdfUrl),
         ]) {
-          if (_blankToNull(before) == null || before == after) continue;
+          if (blankToNull(before) == null || before == after) continue;
           try {
             await media.removeIfLessonFile(
               kind: kind,

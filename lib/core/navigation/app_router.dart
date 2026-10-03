@@ -94,6 +94,7 @@ import '../../features/courses/presentation/screens/course_lessons_screen.dart';
 import '../../features/courses/presentation/screens/course_lesson_form_screen.dart';
 import '../../features/courses/presentation/screens/course_viewer_screen.dart';
 import '../../features/courses/presentation/turma/turma_detail_screen.dart';
+import '../../features/courses/presentation/turma/turma_aula_screen.dart';
 import '../../features/courses/presentation/turma/turma_mode.dart';
 import '../../features/courses/presentation/legacy_study_group_redirect.dart';
 import '../../features/courses/presentation/screens/lesson_viewer_screen.dart';
@@ -1496,6 +1497,25 @@ final appRouter = GoRouter(
       path: '/turmas/:studyGroupId/gestao',
       builder: (context, state) => TurmaDetailScreen(
         studyGroupId: state.pathParameters['studyGroupId']!,
+        mode: TurmaMode.gestao,
+      ),
+    ),
+
+    // Tela da aula (PR 1b), pelas mesmas duas portas da turma: o modo vem
+    // da porta. Sem guard, como a turma.
+    GoRoute(
+      path: '/courses/:courseId/turmas/:studyGroupId/aulas/:lessonId',
+      builder: (context, state) => TurmaAulaScreen(
+        courseId: state.pathParameters['courseId']!,
+        studyGroupId: state.pathParameters['studyGroupId']!,
+        lessonId: state.pathParameters['lessonId']!,
+      ),
+    ),
+    GoRoute(
+      path: '/turmas/:studyGroupId/gestao/aulas/:lessonId',
+      builder: (context, state) => TurmaAulaScreen(
+        studyGroupId: state.pathParameters['studyGroupId']!,
+        lessonId: state.pathParameters['lessonId']!,
         mode: TurmaMode.gestao,
       ),
     ),

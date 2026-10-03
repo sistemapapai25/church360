@@ -602,6 +602,43 @@ class StudyGroupRepository {
   // =====================================================
 
   /// Obter presença de uma lição
+  /// Observações da aula de uma visibilidade, mais novas primeiro. A RLS
+  /// devolve só as que a pessoa lê (pessoal: as dela; liderança: quem
+  /// edita a aula).
+  Future<List<StudyLessonNote>> getLessonNotes(
+    String lessonId,
+    LessonNoteVisibility visibility,
+  ) async {
+    final response = await _supabase
+        .from('study_lesson_note')
+        .select()
+        .eq('study_lesson_id', lessonId)
+        .eq('visibility', visibility.name)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .order('created_at', ascending: false);
+    return (response as List)
+        .map((json) => StudyLessonNote.fromJson(json))
+        .toList();
+  }
+
+  /// O autor é preenchido pelo banco (`my_user_account_id()`).
+  Future<void> addLessonNote({
+    required String lessonId,
+    required LessonNoteVisibility visibility,
+    required String body,
+  }) async {
+    await _supabase.from('study_lesson_note').insert({
+      'tenant_id': SupabaseConstants.currentTenantId,
+      'study_lesson_id': lessonId,
+      'visibility': visibility.name,
+      'body': body,
+    });
+  }
+
+  Future<void> deleteLessonNote(String id) async {
+    await _supabase.from('study_lesson_note').delete().eq('id', id);
+  }
+
   Future<List<StudyAttendance>> getLessonAttendance(String lessonId) async {
     final response = await _supabase
         .from('study_attendance')

@@ -15,6 +15,7 @@ import 'adapters/turma_surfaces.dart';
 import 'tabs/turma_aulas_tab.dart';
 import 'tabs/turma_materiais_tab.dart';
 import 'turma_access.dart';
+import 'turma_aula_screen.dart';
 import 'turma_mode.dart';
 import 'turma_origin.dart';
 import 'turma_tabs.dart';
@@ -66,14 +67,21 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
     ref.invalidate(turmaAccessProvider(widget.studyGroupId));
   }
 
-  /// Aulas e Materiais são iguais para qualquer turma; Alunos, Presença e
-  /// Minha frequência vêm da origem ([turmaSurfacesFor]).
+  /// Aulas e Materiais são iguais para qualquer turma; Alunos e Minha
+  /// frequência vêm da origem ([turmaSurfacesFor]). A chamada fica na tela
+  /// da aula.
   Widget _buildTab(TurmaTabId tab, TurmaSurfaces surfaces, TurmaAccess access) {
     return switch (tab) {
       TurmaTabId.aulas => TurmaAulasTab(
         studyGroupId: widget.studyGroupId,
         access: access,
-        lessonAttendance: surfaces.lessonAttendance,
+        onOpenLesson: (lesson) => context.push(
+          turmaLessonRoute(
+            courseId: widget.courseId,
+            studyGroupId: widget.studyGroupId,
+            lessonId: lesson.id,
+          ),
+        ),
       ),
       TurmaTabId.materiais => TurmaMateriaisTab(
         studyGroupId: widget.studyGroupId,
@@ -90,12 +98,12 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
     final accessAsync = ref.watch(turmaAccessProvider(widget.studyGroupId));
 
     if (turmaAsync.isLoading || accessAsync.isLoading) {
-      return const _TurmaMessageScaffold(
+      return const TurmaMessageScaffold(
         child: Center(child: CircularProgressIndicator()),
       );
     }
     if (turmaAsync.hasError || accessAsync.hasError) {
-      return _TurmaMessageScaffold(
+      return TurmaMessageScaffold(
         child: _TurmaMessage(
           icon: AppIcons.info,
           message: 'Não foi possível abrir a turma. Tente novamente.',
@@ -114,7 +122,7 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
     if (turma != null &&
         turma.status == StudyGroupStatus.cancelled &&
         !access.isLeadership) {
-      return const _TurmaMessageScaffold(
+      return const TurmaMessageScaffold(
         child: _TurmaMessage(
           icon: AppIcons.info,
           message: 'Esta turma foi cancelada.',
@@ -125,7 +133,7 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
         origin == null ||
         (widget.courseId != null && turma.courseId != widget.courseId) ||
         !access.hasAccess) {
-      return const _TurmaMessageScaffold(
+      return const TurmaMessageScaffold(
         child: _TurmaMessage(
           icon: AppIcons.lock,
           message: 'Você não tem acesso a esta turma.',
@@ -290,10 +298,15 @@ class _ManageAction extends StatelessWidget {
   }
 }
 
-class _TurmaMessageScaffold extends StatelessWidget {
+class TurmaMessageScaffold extends StatelessWidget {
+  final String title;
   final Widget child;
 
-  const _TurmaMessageScaffold({required this.child});
+  const TurmaMessageScaffold({
+    super.key,
+    this.title = 'Turma',
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -307,7 +320,7 @@ class _TurmaMessageScaffold extends StatelessWidget {
           tooltip: 'Voltar',
           onPressed: () => context.pop(),
         ),
-        title: const Text('Turma'),
+        title: Text(title),
       ),
       body: child,
     );

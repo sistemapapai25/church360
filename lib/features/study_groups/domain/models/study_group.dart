@@ -500,3 +500,44 @@ class StudyResource {
     return '${mb.toStringAsFixed(1)} MB';
   }
 }
+
+/// Quem lê uma observação da aula (`study_lesson_note.visibility`).
+enum LessonNoteVisibility {
+  /// Liderança da turma (quem edita a aula). O aluno nunca lê.
+  lideranca,
+
+  /// Só o autor.
+  pessoal,
+}
+
+/// Observação da aula (PR 1b). [authorId] é `user_account.id`.
+class StudyLessonNote {
+  final String id;
+  final String studyLessonId;
+  final String authorId;
+  final LessonNoteVisibility visibility;
+  final String body;
+  final DateTime createdAt;
+
+  const StudyLessonNote({
+    required this.id,
+    required this.studyLessonId,
+    required this.authorId,
+    required this.visibility,
+    required this.body,
+    required this.createdAt,
+  });
+
+  factory StudyLessonNote.fromJson(Map<String, dynamic> json) {
+    return StudyLessonNote(
+      id: json['id'] as String,
+      studyLessonId: json['study_lesson_id'] as String,
+      authorId: json['author_id'] as String,
+      visibility: LessonNoteVisibility.values.byName(
+        json['visibility'] as String,
+      ),
+      body: json['body'] as String,
+      createdAt: DateTime.parse(json['created_at'] as String),
+    );
+  }
+}

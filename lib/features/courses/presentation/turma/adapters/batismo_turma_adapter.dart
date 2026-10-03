@@ -48,27 +48,36 @@ class BatismoTurmaAdapter implements TurmaSurfaces {
     route: '/ministries/${origin.ministryId}/batismo',
   );
 
-  /// A chamada do Batismo é feita aqui desde a 5.3: a presença por aula
-  /// substituiu o encontro avulso da aba Presença.
+  /// A chamada do Batismo é feita pela aula desde a 5.3: a presença por
+  /// aula substituiu o encontro avulso da aba Presença.
   ///
-  /// Marcar presença é escrita: na vitrine de Cursos a aula não oferece a
-  /// chamada.
+  /// Marcar presença é escrita: na vitrine de Cursos a liderança não faz a
+  /// chamada. O aluno vê a própria marca naquela aula.
   @override
-  TurmaLessonAttendance? get lessonAttendance => access.readOnly
-      ? null
-      : (context, lesson) => showTurmaSheet<void>(
-          context: context,
-          builder: (_) => TurmaSheetBody(
-            title: 'Presença · Aula ${lesson.lessonNumber}',
-            children: [
-              BaptismLessonAttendance(
-                ministryId: origin.ministryId,
-                turmaId: origin.baptismTurmaId,
-                lesson: batismoLessonRef(lesson),
-              ),
-            ],
-          ),
-        );
+  Widget lessonPresence(StudyLesson lesson) {
+    if (access.isStudent) {
+      return BatismoMinhaPresencaNaAula(
+        baptismTurmaId: origin.baptismTurmaId,
+        lessonId: lesson.id,
+      );
+    }
+    if (access.readOnly) {
+      return const TurmaMessage(
+        icon: AppIcons.lock,
+        message: 'A chamada é feita em Gerenciar no Batismo.',
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+      children: [
+        BaptismLessonAttendance(
+          ministryId: origin.ministryId,
+          turmaId: origin.baptismTurmaId,
+          lesson: batismoLessonRef(lesson),
+        ),
+      ],
+    );
+  }
 }
 
 /// A aula vista pela chamada do Batismo.
@@ -125,6 +134,40 @@ class BatismoMyFrequency {
   double? get rate => marked == 0 ? null : present / marked;
 
   String get rateLabel => formatFrequency(rate);
+}
+
+/// A marca do aluno do Batismo numa aula, pela mesma RPC de "Minha
+/// frequência" (o encontro carrega a aula de origem).
+class BatismoMinhaPresencaNaAula extends ConsumerWidget {
+  final String baptismTurmaId;
+  final String lessonId;
+
+  const BatismoMinhaPresencaNaAula({
+    super.key,
+    required this.baptismTurmaId,
+    required this.lessonId,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ref
+        .watch(myBaptismAttendanceProvider(baptismTurmaId))
+        .when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, _) => TurmaMessage.error(
+            message: 'Não foi possível carregar sua presença.',
+            onRetry: () =>
+                ref.invalidate(myBaptismAttendanceProvider(baptismTurmaId)),
+          ),
+          data: (meetings) {
+            final status = meetings
+                .where((m) => m.studyLessonId == lessonId)
+                .firstOrNull
+                ?.status;
+            return TurmaMyLessonPresence(status: status?.label);
+          },
+        );
+  }
 }
 
 /// "Minha frequência" do aluno do Batismo, pela RPC
