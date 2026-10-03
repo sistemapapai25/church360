@@ -389,21 +389,33 @@ class TurmaMaterialReadSheet extends StatelessWidget {
 
   const TurmaMaterialReadSheet({super.key, required this.material});
 
-  String? get _url {
-    for (final u in [
-      material.fileUrl,
-      material.videoUrl,
-      material.externalLink,
-    ]) {
-      if (u != null && u.trim().isNotEmpty) return u.trim();
+  /// Arquivo, vídeo explicativo e link externo: cada um com o seu botão.
+  List<({String url, IconData icon, String label})> get _links => [
+    for (final (raw, icon, label) in [
+      (material.fileUrl, AppIcons.forward, 'Abrir arquivo'),
+      (material.videoUrl, AppIcons.playArrow, 'Assistir vídeo'),
+      (material.externalLink, AppIcons.link, 'Abrir link'),
+    ])
+      if (raw != null && raw.trim().isNotEmpty)
+        (url: raw.trim(), icon: icon, label: label),
+  ];
+
+  Future<void> _open(BuildContext context, String url) async {
+    final uri = Uri.tryParse(url);
+    final ok =
+        uri != null &&
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível abrir o material.')),
+      );
     }
-    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     final meta = CommunityDesign.metaStyle(context);
-    final url = _url;
+    final links = _links;
     final description = (material.description ?? '').trim();
     final content = (material.content ?? '').trim();
 
@@ -416,29 +428,28 @@ class TurmaMaterialReadSheet extends StatelessWidget {
           Text(description),
         ],
         if (content.isNotEmpty) ...[const SizedBox(height: 12), Text(content)],
-        if (url != null) ...[
+        if (links.isNotEmpty) ...[
           const SizedBox(height: 20),
-          FilledButton.icon(
-            onPressed: () async {
-              final uri = Uri.tryParse(url);
-              if (uri == null) return;
-              final ok = await launchUrl(
-                uri,
-                mode: LaunchMode.externalApplication,
-              );
-              if (!ok && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Não foi possível abrir o material.'),
-                  ),
-                );
-              }
-            },
-            icon: const Icon(AppIcons.forward, size: 18),
-            label: const Text('Abrir'),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final (i, link) in links.indexed)
+                i == 0
+                    ? FilledButton.icon(
+                        onPressed: () => _open(context, link.url),
+                        icon: Icon(link.icon, size: 18),
+                        label: Text(link.label),
+                      )
+                    : OutlinedButton.icon(
+                        onPressed: () => _open(context, link.url),
+                        icon: Icon(link.icon, size: 18),
+                        label: Text(link.label),
+                      ),
+            ],
           ),
         ],
-        if (url == null && content.isEmpty && description.isEmpty)
+        if (links.isEmpty && content.isEmpty && description.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: Text(

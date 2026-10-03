@@ -5,9 +5,11 @@ import 'package:church360_app/features/courses/presentation/turma/adapters/batis
 import 'package:church360_app/features/courses/presentation/turma/adapters/generica_turma_adapter.dart';
 import 'package:church360_app/features/courses/presentation/turma/adapters/turma_surfaces.dart';
 import 'package:church360_app/features/courses/presentation/turma/lesson_media.dart';
+import 'package:church360_app/features/courses/presentation/turma/tabs/aula_observacoes_tab.dart';
 import 'package:church360_app/features/courses/presentation/turma/tabs/turma_aulas_tab.dart';
 import 'package:church360_app/features/courses/presentation/turma/tabs/turma_materiais_tab.dart';
 import 'package:church360_app/features/courses/presentation/turma/turma_access.dart';
+import 'package:church360_app/features/courses/presentation/turma/turma_aula_screen.dart';
 import 'package:church360_app/features/courses/presentation/turma/turma_origin.dart';
 import 'package:church360_app/features/members/domain/models/member_directory_entry.dart';
 import 'package:church360_app/features/members/presentation/providers/members_provider.dart';
@@ -223,6 +225,31 @@ class _FakeStudyRepo implements StudyGroupRepository {
     return _att('x', 'x', status ?? AttendanceStatus.present);
   }
 
+  final notes = <StudyLessonNote>[];
+  final noteRequests = <LessonNoteVisibility>[];
+  final addedNotes = <({String lessonId, LessonNoteVisibility v, String body})>[];
+
+  @override
+  Future<List<StudyLessonNote>> getLessonNotes(
+    String lessonId,
+    LessonNoteVisibility visibility,
+  ) async {
+    noteRequests.add(visibility);
+    return [
+      for (final n in notes)
+        if (n.studyLessonId == lessonId && n.visibility == visibility) n,
+    ];
+  }
+
+  @override
+  Future<void> addLessonNote({
+    required String lessonId,
+    required LessonNoteVisibility visibility,
+    required String body,
+  }) async {
+    addedNotes.add((lessonId: lessonId, v: visibility, body: body));
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -343,6 +370,8 @@ class _FakeMedia implements LessonMediaService {
 
 const _leader = TurmaAccess(role: TurmaRole.leadership, canWriteLessons: true);
 
+void _noop(StudyLesson _) {}
+
 Widget _host(Widget child, {List<Override> overrides = const []}) {
   return ProviderScope(
     overrides: [
@@ -383,7 +412,7 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(studyGroupId: _sgId, access: TurmaAccess.student),
+          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: TurmaAccess.student),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
@@ -400,7 +429,7 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
@@ -416,6 +445,7 @@ void main() {
         tester,
         _host(
           const TurmaAulasTab(
+            onOpenLesson: _noop,
             studyGroupId: _sgId,
             access: TurmaAccess(role: TurmaRole.leadership),
           ),
@@ -434,7 +464,7 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
@@ -449,11 +479,8 @@ void main() {
       expect(repo.statusUpdates.single.status, LessonStatus.published);
     });
 
-    // Etapa 5.3: só a origem que registra presença pela aula (Batismo)
-    // entrega a ação; a turma genérica não ganha o item.
-    testWidgets('Registrar presença só quando a origem oferece', (
-      tester,
-    ) async {
+    // PR 1b: tocar na aula abre a tela da aula; a chamada saiu do menu.
+    testWidgets('tocar na aula abre a tela da aula', (tester) async {
       final repo = _FakeStudyRepo(lessons: lessons);
       final opened = <String>[];
       await _pump(
@@ -462,25 +489,23 @@ void main() {
           TurmaAulasTab(
             studyGroupId: _sgId,
             access: _leader,
-            lessonAttendance: (context, lesson) async => opened.add(lesson.id),
+            onOpenLesson: (lesson) => opened.add(lesson.id),
           ),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
 
-      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.tap(find.text('Aula 2 · Tema 2'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Registrar presença'));
-      await tester.pumpAndSettle();
-      expect(opened, ['l1']);
+      expect(opened, ['l2']);
     });
 
-    testWidgets('sem ação da origem, sem Registrar presença', (tester) async {
+    testWidgets('menu da aula sem Registrar presença', (tester) async {
       final repo = _FakeStudyRepo(lessons: lessons);
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
@@ -488,6 +513,7 @@ void main() {
       await tester.tap(find.byType(PopupMenuButton<String>).first);
       await tester.pumpAndSettle();
       expect(find.text('Registrar presença'), findsNothing);
+      expect(find.text('Editar'), findsOneWidget);
     });
 
     test('ciclo: Publicar → Arquivar → Restaurar (volta a rascunho)', () {
@@ -504,7 +530,7 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
@@ -554,7 +580,7 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
@@ -598,7 +624,7 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
@@ -626,7 +652,7 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
@@ -654,36 +680,20 @@ void main() {
       expect(repo.statusUpdates, isEmpty);
     });
 
-    testWidgets('leitura mostra Assistir vídeo e Abrir PDF', (tester) async {
-      final lesson = withMedia();
-      final repo = _FakeStudyRepo(
-        lessons: [
-          StudyLesson(
-            id: lesson.id,
-            studyGroupId: _sgId,
-            lessonNumber: 9,
-            title: lesson.title,
-            videoUrl: lesson.videoUrl,
-            pdfUrl: lesson.pdfUrl,
-            status: LessonStatus.published,
-            createdAt: _t0,
-            updatedAt: _t0,
-          ),
-        ],
-      );
-      await _pump(
-        tester,
-        _host(
-          const TurmaAulasTab(studyGroupId: _sgId, access: TurmaAccess.student),
-          overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
-        ),
-      );
+    testWidgets('Conteúdo mostra Assistir vídeo e Abrir PDF', (tester) async {
+      await _pump(tester, _host(LessonContentTab(lesson: withMedia())));
 
-      await tester.tap(find.text('Aula 9 · Batismo nas águas'));
-      await tester.pumpAndSettle();
       expect(find.text('Assistir vídeo'), findsOneWidget);
       expect(find.text('Abrir PDF'), findsOneWidget);
       expect(find.text('Esta aula ainda não tem conteúdo.'), findsNothing);
+    });
+
+    testWidgets('Conteúdo vazio avisa', (tester) async {
+      await _pump(
+        tester,
+        _host(LessonContentTab(lesson: _lesson(1, LessonStatus.published))),
+      );
+      expect(find.text('Esta aula ainda não tem conteúdo.'), findsOneWidget);
     });
 
     test('regras dos campos', () {
@@ -739,7 +749,7 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
           overrides: [
             studyGroupRepositoryProvider.overrideWithValue(repo),
             lessonMediaServiceProvider.overrideWithValue(media),
@@ -773,7 +783,7 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
           overrides: [
             studyGroupRepositoryProvider.overrideWithValue(repo),
             lessonMediaServiceProvider.overrideWithValue(media),
@@ -802,7 +812,7 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
           overrides: [
             studyGroupRepositoryProvider.overrideWithValue(repo),
             lessonMediaServiceProvider.overrideWithValue(media),
@@ -837,7 +847,7 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
           overrides: [
             studyGroupRepositoryProvider.overrideWithValue(repo),
             lessonMediaServiceProvider.overrideWithValue(media),
@@ -912,23 +922,19 @@ void main() {
     testWidgets('liderança vincula material à aula (tipo study_lesson)', (
       tester,
     ) async {
-      final repo = _FakeStudyRepo(lessons: [_lesson(1, LessonStatus.draft)]);
       final materials = _FakeMaterialsRepo(
         all: [_material('alheio', createdBy: 'outro')],
       );
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(studyGroupId: _sgId, access: _leader),
+          const LessonComplementaryMaterials(lessonId: 'l1', canWrite: true),
           overrides: [
-            studyGroupRepositoryProvider.overrideWithValue(repo),
             supportMaterialsRepositoryProvider.overrideWithValue(materials),
           ],
         ),
       );
 
-      await tester.tap(find.text('Aula 1 · Tema 1'));
-      await tester.pumpAndSettle();
       expect(find.text('Nenhum material vinculado a esta aula.'), findsOne);
       await tester.tap(find.byKey(const ValueKey('lesson-link-material')));
       await tester.pumpAndSettle();
@@ -942,23 +948,17 @@ void main() {
     });
 
     testWidgets('aluno vê os vinculados, sem Vincular', (tester) async {
-      final repo = _FakeStudyRepo(
-        lessons: [_lesson(1, LessonStatus.published)],
-      );
       final materials = _FakeMaterialsRepo(linked: [_material('m1')]);
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(studyGroupId: _sgId, access: TurmaAccess.student),
+          const LessonComplementaryMaterials(lessonId: 'l1', canWrite: false),
           overrides: [
-            studyGroupRepositoryProvider.overrideWithValue(repo),
             supportMaterialsRepositoryProvider.overrideWithValue(materials),
           ],
         ),
       );
 
-      await tester.tap(find.text('Aula 1 · Tema 1'));
-      await tester.pumpAndSettle();
       expect(find.text('Materiais complementares'), findsOneWidget);
       expect(find.text('Material m1'), findsOneWidget);
       expect(find.byKey(const ValueKey('lesson-link-material')), findsNothing);
@@ -1209,6 +1209,51 @@ void main() {
       expect(BatismoMyFrequency.of([m('1', null)]).rateLabel, '—');
     });
 
+    testWidgets('aba Presença da aula: a marca do encontro daquela aula', (
+      tester,
+    ) async {
+      const origin = BatismoTurmaOrigin(
+        studyGroupId: _sgId,
+        ministryId: 'min-1',
+        baptismTurmaId: 'bt-1',
+      );
+      await _pump(
+        tester,
+        _host(
+          turmaSurfacesFor(
+            origin,
+            TurmaAccess.student,
+          ).lessonPresence(_lesson(2, LessonStatus.published)),
+          overrides: [
+            myBaptismAttendanceProvider('bt-1').overrideWith(
+              (ref) async => [
+                BaptismMyMeeting(
+                  meetingId: '1',
+                  meetingDate: DateTime(2026, 9, 6),
+                  title: 'Aula 1',
+                  status: BaptismAttendanceStatus.ausente,
+                  studyLessonId: 'l1',
+                ),
+                BaptismMyMeeting(
+                  meetingId: '2',
+                  meetingDate: DateTime(2026, 9, 13),
+                  title: 'Aula 2',
+                  status: BaptismAttendanceStatus.presente,
+                  studyLessonId: 'l2',
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('minha-presenca-aula')))
+            .data,
+        BaptismAttendanceStatus.presente.label,
+      );
+    });
+
     testWidgets('mostra a taxa pela RPC da turma', (tester) async {
       await _pump(
         tester,
@@ -1268,32 +1313,60 @@ void main() {
     });
   });
 
-  group('Presença — genérica (dentro da aula)', () {
+  group('Presença — genérica (aba da aula)', () {
     const origin = GenericaTurmaOrigin(studyGroupId: _sgId);
 
-    /// Um botão que faz o que o menu da aula faz: chama a ação de presença
-    /// da origem para a aula.
-    Widget openFromLesson(TurmaAccess access, StudyLesson lesson) => Builder(
-      builder: (context) => TextButton(
-        onPressed: () => turmaSurfacesFor(
-          origin,
-          access,
-        ).lessonAttendance!(context, lesson),
-        child: const Text('abrir chamada'),
-      ),
-    );
+    /// A aba Presença da tela da aula, como a origem entrega.
+    Widget presence(TurmaAccess access, StudyLesson lesson) =>
+        turmaSurfacesFor(origin, access).lessonPresence(lesson);
 
-    test('liderança só por courses.* não ganha a chamada', () {
-      expect(turmaSurfacesFor(origin, _leader).lessonAttendance, isNull);
+    testWidgets('liderança só por courses.* não ganha a chamada', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        _host(presence(_leader, _lesson(1, LessonStatus.published))),
+      );
+      expect(find.text('A chamada é feita pelo líder da turma.'), findsOne);
+      expect(find.text('Salvar'), findsNothing);
     });
 
-    test('vitrine de Cursos não oferece a chamada nem ao líder', () {
+    testWidgets('vitrine de Cursos não oferece a chamada nem ao líder', (
+      tester,
+    ) async {
       const access = TurmaAccess(
         role: TurmaRole.leadership,
         leadsGroup: true,
         readOnly: true,
       );
-      expect(turmaSurfacesFor(origin, access).lessonAttendance, isNull);
+      await _pump(
+        tester,
+        _host(presence(access, _lesson(1, LessonStatus.published))),
+      );
+      expect(find.text('A chamada é feita em Gerenciar.'), findsOne);
+    });
+
+    testWidgets('aluno vê a própria marca naquela aula', (tester) async {
+      final repo = _FakeStudyRepo(
+        lessons: [
+          _lesson(1, LessonStatus.published),
+          _lesson(2, LessonStatus.published),
+        ],
+        mine: [_att('l2', 'auth-me', AttendanceStatus.justified)],
+      );
+      await _pump(
+        tester,
+        _host(
+          presence(TurmaAccess.student, _lesson(2, LessonStatus.published)),
+          overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
+        ),
+      );
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('minha-presenca-aula')))
+            .data,
+        AttendanceStatus.justified.displayName,
+      );
     });
 
     testWidgets('líder marca e salva: insere o novo, atualiza o existente', (
@@ -1313,7 +1386,7 @@ void main() {
       await _pump(
         tester,
         _host(
-          openFromLesson(
+          presence(
             const TurmaAccess(role: TurmaRole.leadership, leadsGroup: true),
             _lesson(1, LessonStatus.published),
           ),
@@ -1321,8 +1394,6 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('abrir chamada'));
-      await tester.pumpAndSettle();
 
       // Líder não entra na chamada.
       expect(find.byKey(const ValueKey('roll-lider-present')), findsNothing);
@@ -1349,7 +1420,7 @@ void main() {
       await _pump(
         tester,
         _host(
-          openFromLesson(
+          presence(
             const TurmaAccess(role: TurmaRole.leadership, elevated: true),
             _lesson(1, LessonStatus.published),
           ),
@@ -1357,8 +1428,6 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('abrir chamada'));
-      await tester.pumpAndSettle();
       expect(find.text('Ana'), findsOneWidget);
       expect(find.byKey(const ValueKey('roll-u1-present')), findsNothing);
       expect(find.text('Salvar'), findsNothing);
@@ -1414,6 +1483,118 @@ void main() {
 
       expect(find.text('Ana'), findsOneWidget);
       expect(find.textContaining('presentes'), findsNothing);
+    });
+  });
+
+  group('Tela da aula', () {
+    TurmaAulaView view(TurmaAccess access) => TurmaAulaView(
+      lesson: _lesson(1, LessonStatus.draft),
+      access: access,
+      surfaces: turmaSurfacesFor(
+        const GenericaTurmaOrigin(studyGroupId: _sgId),
+        access,
+      ),
+    );
+
+    testWidgets('quatro abas; ações só para quem escreve aula', (
+      tester,
+    ) async {
+      await _pump(tester, _host(view(_leader)));
+      for (final tab in AulaTabId.values) {
+        expect(find.text(tab.label), findsOneWidget);
+      }
+      expect(find.text('RASCUNHO'), findsOneWidget);
+      expect(find.byKey(const ValueKey('aula-acoes')), findsOneWidget);
+
+      await _pump(tester, _host(view(_leader.asReadOnly())));
+      expect(find.byKey(const ValueKey('aula-acoes')), findsNothing);
+    });
+
+    test('rota segue a porta da turma', () {
+      expect(
+        turmaLessonRoute(courseId: 'c1', studyGroupId: _sgId, lessonId: 'l1'),
+        '/courses/c1/turmas/$_sgId/aulas/l1',
+      );
+      expect(
+        turmaLessonRoute(studyGroupId: _sgId, lessonId: 'l1'),
+        '/turmas/$_sgId/gestao/aulas/l1',
+      );
+    });
+  });
+
+  group('Observações da aula', () {
+    StudyLessonNote note(String id, LessonNoteVisibility v) => StudyLessonNote(
+      id: id,
+      studyLessonId: 'l1',
+      authorId: 'u1',
+      visibility: v,
+      body: 'Nota $id',
+      createdAt: _t0,
+    );
+
+    testWidgets('aluno lê e escreve só a pessoal', (tester) async {
+      final repo = _FakeStudyRepo()
+        ..notes.addAll([
+          note('p', LessonNoteVisibility.pessoal),
+          note('l', LessonNoteVisibility.lideranca),
+        ]);
+      await _pump(
+        tester,
+        _host(
+          const AulaObservacoesTab(lessonId: 'l1', access: TurmaAccess.student),
+          overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
+        ),
+      );
+
+      expect(repo.noteRequests.toSet(), {LessonNoteVisibility.pessoal});
+      expect(find.text('Nota p'), findsOneWidget);
+      expect(find.text('Nota l'), findsNothing);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('aula-nota-campo')),
+        '  lembrar de ler Atos 2  ',
+      );
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+      expect(repo.addedNotes.single.v, LessonNoteVisibility.pessoal);
+      expect(repo.addedNotes.single.body, 'lembrar de ler Atos 2');
+    });
+
+    testWidgets('liderança lê a de liderança com o autor', (tester) async {
+      final repo = _FakeStudyRepo()
+        ..notes.add(note('l', LessonNoteVisibility.lideranca));
+      await _pump(
+        tester,
+        _host(
+          const AulaObservacoesTab(lessonId: 'l1', access: _leader),
+          overrides: [
+            studyGroupRepositoryProvider.overrideWithValue(repo),
+            currentMemberProvider.overrideWith((ref) async => null),
+          ],
+        ),
+      );
+
+      expect(repo.noteRequests.toSet(), {LessonNoteVisibility.lideranca});
+      expect(find.text('Nota l'), findsOneWidget);
+      expect(find.textContaining('Ana · '), findsOneWidget);
+      // Nota de outro líder: não apaga.
+      expect(find.byTooltip('Apagar'), findsNothing);
+    });
+
+    testWidgets('liderança na vitrine só lê', (tester) async {
+      final repo = _FakeStudyRepo();
+      await _pump(
+        tester,
+        _host(
+          AulaObservacoesTab(lessonId: 'l1', access: _leader.asReadOnly()),
+          overrides: [
+            studyGroupRepositoryProvider.overrideWithValue(repo),
+            currentMemberProvider.overrideWith((ref) async => null),
+          ],
+        ),
+      );
+      expect(find.byKey(const ValueKey('aula-nota-campo')), findsNothing);
+      expect(find.text('Nenhuma observação nesta aula.'), findsOneWidget);
     });
   });
 
