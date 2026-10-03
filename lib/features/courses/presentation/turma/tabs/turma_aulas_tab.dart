@@ -15,6 +15,7 @@ import '../../../../support_materials/presentation/providers/support_materials_p
 import '../../providers/courses_provider.dart';
 import '../../widgets/course_subjects_section.dart';
 import '../lesson_media.dart';
+import '../teaching_plan.dart';
 import '../turma_access.dart';
 import '../widgets/turma_sheet.dart';
 import 'turma_materiais_tab.dart';
@@ -66,6 +67,11 @@ class TurmaAulasTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final lessonsAsync = ref.watch(_lessonsProvider);
     final canWrite = access.isLeadership && access.canWriteLessons;
+    // Distribuir e Escala de ensino partem das matérias do curso (PR 2b).
+    final courseId = ref
+        .watch(turmaByIdProvider(studyGroupId))
+        .valueOrNull
+        ?.courseId;
 
     return lessonsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -97,6 +103,30 @@ class TurmaAulasTab extends ConsumerWidget {
                       onPressed: () => _openForm(context, ref, lessons),
                       icon: const Icon(AppIcons.add, size: 18),
                       label: const Text('Nova aula'),
+                    ),
+                  if (canWrite && courseId != null)
+                    PopupMenuButton<bool>(
+                      key: const ValueKey('turma-aulas-more'),
+                      tooltip: 'Distribuir e escala de ensino',
+                      onSelected: (distribute) => (distribute
+                          ? openDistributeLessons
+                          : openTeachingSchedule)(
+                        context,
+                        ref,
+                        studyGroupId: studyGroupId,
+                        courseId: courseId,
+                        lessons: lessons,
+                      ),
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: true,
+                          child: Text('Distribuir aulas'),
+                        ),
+                        PopupMenuItem(
+                          value: false,
+                          child: Text('Escala de ensino'),
+                        ),
+                      ],
                     ),
                 ],
               ),
