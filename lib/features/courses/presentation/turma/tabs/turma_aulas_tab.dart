@@ -529,6 +529,7 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
   late final TextEditingController _questions;
   late final TextEditingController _videoUrl;
   late final TextEditingController _pdfUrl;
+  late final TextEditingController _duration;
   DateTime? _date;
   String? _subjectId;
   String? _teacherId;
@@ -556,6 +557,9 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
     );
     _videoUrl = TextEditingController(text: l?.videoUrl ?? '');
     _pdfUrl = TextEditingController(text: l?.pdfUrl ?? '');
+    _duration = TextEditingController(
+      text: l?.durationMinutes?.toString() ?? '',
+    );
     _date = l?.scheduledDate;
     _subjectId = l?.subjectId;
     _teacherId = l?.teacherId;
@@ -591,6 +595,7 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
     _questions.dispose();
     _videoUrl.dispose();
     _pdfUrl.dispose();
+    _duration.dispose();
     super.dispose();
   }
 
@@ -670,6 +675,7 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
           subjectId: _subjectId,
           teacherId: _teacherId,
           startTime: _startTimeValue,
+          durationMinutes: int.tryParse(_duration.text.trim()),
         );
         lessonId = created.id;
         _createdLessonId = lessonId;
@@ -715,6 +721,7 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
         subjectId: _subjectId,
         teacherId: _teacherId,
         startTime: _startTimeValue,
+        durationMinutes: int.tryParse(_duration.text.trim()),
       );
 
       // Banco gravado: agora sim o arquivo antigo da aula pode sumir. Falha
@@ -838,6 +845,20 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
               ),
               child: Text(time ?? '—'),
             ),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _duration,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Duração em minutos (opcional)',
+            ),
+            validator: (v) {
+              final text = v?.trim() ?? '';
+              if (text.isEmpty) return null;
+              final n = int.tryParse(text);
+              return n == null || n < 1 || n > 600 ? 'De 1 a 600' : null;
+            },
           ),
           if (courseId != null) ...[
             const SizedBox(height: 12),

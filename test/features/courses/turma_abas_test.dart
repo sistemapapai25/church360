@@ -137,12 +137,14 @@ class _FakeStudyRepo implements StudyGroupRepository {
     String? subjectId,
     String? teacherId,
     String? startTime,
+    int? durationMinutes,
   }) async {
     created.add((groupId: studyGroupId, number: lessonNumber, title: title));
     createdFields.add({
       'subject_id': subjectId,
       'teacher_id': teacherId,
       'start_time': startTime,
+      'duration_minutes': durationMinutes,
       'description': description,
       'bible_references': bibleReferences,
       'content': content,
@@ -167,11 +169,13 @@ class _FakeStudyRepo implements StudyGroupRepository {
     String? subjectId,
     String? teacherId,
     String? startTime,
+    int? durationMinutes,
   }) async {
     replaced.add({
       'subject_id': subjectId,
       'teacher_id': teacherId,
       'start_time': startTime,
+      'duration_minutes': durationMinutes,
       'id': id,
       'title': title,
       'description': description,
@@ -688,6 +692,7 @@ void main() {
       await tapSave(tester);
 
       final f = repo.createdFields.single;
+      expect(f['duration_minutes'], isNull);
       expect(f['subject_id'], 's1');
       expect(f['teacher_id'], 'u2');
       expect(f['start_time'], isNull);
@@ -1667,6 +1672,7 @@ void main() {
         subjectId: 's1',
         teacherId: 'u1',
         startTime: '19:30',
+        durationMinutes: 15,
         createdAt: _t0,
         updatedAt: _t0,
       );
@@ -1684,7 +1690,7 @@ void main() {
           overrides: _courseOverrides,
         ),
       );
-      expect(find.text('19:30'), findsOneWidget);
+      expect(find.text('19:30–19:45'), findsOneWidget);
       expect(find.text('Doutrina'), findsOneWidget);
       expect(find.text('Professor: Ana'), findsOneWidget);
     });

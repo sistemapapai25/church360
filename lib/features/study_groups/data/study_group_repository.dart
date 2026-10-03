@@ -328,6 +328,7 @@ class StudyGroupRepository {
     String? subjectId,
     String? teacherId,
     String? startTime,
+    int? durationMinutes,
   }) async {
     final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
@@ -350,6 +351,7 @@ class StudyGroupRepository {
           'subject_id': subjectId,
           'teacher_id': teacherId,
           'start_time': startTime,
+          'duration_minutes': durationMinutes,
           'created_by': userId,
           'tenant_id': SupabaseConstants.currentTenantId,
         })
@@ -378,6 +380,7 @@ class StudyGroupRepository {
     String? subjectId,
     String? teacherId,
     String? startTime,
+    int? durationMinutes,
   }) async {
     final response = await _supabase
         .from('study_lessons')
@@ -393,6 +396,7 @@ class StudyGroupRepository {
           'subject_id': subjectId,
           'teacher_id': teacherId,
           'start_time': startTime,
+          'duration_minutes': durationMinutes,
         })
         .eq('id', id)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
