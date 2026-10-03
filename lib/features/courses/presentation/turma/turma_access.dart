@@ -16,6 +16,11 @@ enum TurmaRole {
   /// Área do aluno: aulas publicadas, Minha frequência, Materiais.
   student,
 
+  /// Professor de uma aula (`study_lessons.teacher_id`), entrando pela
+  /// Agenda: só aquela aula — conteúdo, a chamada dela e a anotação
+  /// pessoal. Não vê a turma (PR 2c).
+  teacher,
+
   /// Nada a ver aqui.
   none,
 }
@@ -53,6 +58,7 @@ class TurmaAccess {
 
   static const none = TurmaAccess(role: TurmaRole.none);
   static const student = TurmaAccess(role: TurmaRole.student);
+  static const teacher = TurmaAccess(role: TurmaRole.teacher);
 
   /// O mesmo papel, sem nenhuma escrita.
   ///
@@ -65,6 +71,7 @@ class TurmaAccess {
 
   bool get isLeadership => role == TurmaRole.leadership;
   bool get isStudent => role == TurmaRole.student;
+  bool get isTeacher => role == TurmaRole.teacher;
   bool get hasAccess => role != TurmaRole.none;
 }
 

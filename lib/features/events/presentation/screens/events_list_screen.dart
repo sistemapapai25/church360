@@ -17,6 +17,8 @@ import '../providers/events_provider.dart';
 import '../utils/series_error.dart';
 import '../widgets/series_impact_dialog.dart';
 import '../../domain/models/event.dart';
+import '../../../courses/presentation/turma/professor_aula.dart';
+import '../../../study_groups/domain/models/teaching_lesson.dart';
 import '../../domain/models/event_series_impact.dart';
 import 'event_detail_screen.dart';
 import 'event_form_screen.dart';
@@ -26,10 +28,15 @@ class EventsListScreen extends ConsumerStatefulWidget {
   final bool showAppBar;
   final bool enableCrud;
 
+  /// Mistura nos próximos as aulas de que eu sou o professor (Agenda,
+  /// PR 2c). Só vale no filtro 'upcoming'.
+  final bool showMyLessons;
+
   const EventsListScreen({
     super.key,
     this.showAppBar = true,
     this.enableCrud = true,
+    this.showMyLessons = false,
   });
 
   @override
@@ -335,6 +342,11 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
         : _filter == 'active'
         ? ref.watch(activeEventsProvider)
         : ref.watch(allEventsProvider);
+    // Aula que não carregou não derruba a lista de eventos.
+    final myLessons = widget.showMyLessons && _filter == 'upcoming'
+        ? ref.watch(myUpcomingTeachingLessonsProvider).valueOrNull ??
+              const <TeachingLesson>[]
+        : const <TeachingLesson>[];
 
     final canCreate = ref
         .watch(currentUserHasPermissionProvider('events.create'))
@@ -492,7 +504,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
           : null,
       body: eventsAsync.when(
         data: (events) {
-          if (events.isEmpty) {
+          if (events.isEmpty && myLessons.isEmpty) {
             final cs = Theme.of(context).colorScheme;
             return Center(
               child: Padding(
@@ -540,17 +552,26 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
             );
           }
 
+          final items = mergeByStart(events, myLessons);
           return RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(allEventsProvider);
               ref.invalidate(activeEventsProvider);
               ref.invalidate(upcomingEventsProvider);
+              ref.invalidate(myUpcomingTeachingLessonsProvider);
             },
             child: ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-              itemCount: events.length,
+              itemCount: items.length,
               itemBuilder: (context, index) {
-                final event = events[index];
+                final item = items[index];
+                if (item is TeachingLesson) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: TeachingLessonCard(lesson: item),
+                  );
+                }
+                final event = item as Event;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16),
                   child: GlassCard(
@@ -1120,4 +1141,21 @@ class _StatusChip extends StatelessWidget {
 
     return StatusBadge(label: label, tone: tone, icon: AppIcons.event);
   }
+}
+
+/// Eventos e aulas numa lista só, pela hora de início (as duas na hora de
+/// parede rotulada como UTC). Empate: o evento primeiro.
+List<Object> mergeByStart(List<Event> events, List<TeachingLesson> lessons) {
+  if (lessons.isEmpty) return events;
+  final merged = <Object>[];
+  var l = 0;
+  for (final event in events) {
+    while (l < lessons.length &&
+        lessons[l].startsAt.isBefore(event.startDate)) {
+      merged.add(lessons[l++]);
+    }
+    merged.add(event);
+  }
+  merged.addAll(lessons.skip(l));
+  return merged;
 }

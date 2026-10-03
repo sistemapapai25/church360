@@ -95,6 +95,7 @@ import '../../features/courses/presentation/screens/course_lesson_form_screen.da
 import '../../features/courses/presentation/screens/course_viewer_screen.dart';
 import '../../features/courses/presentation/turma/turma_detail_screen.dart';
 import '../../features/courses/presentation/turma/turma_aula_screen.dart';
+import '../../features/courses/presentation/turma/professor_aula.dart';
 import '../../features/courses/presentation/turma/turma_mode.dart';
 import '../../features/courses/presentation/legacy_study_group_redirect.dart';
 import '../../features/courses/presentation/screens/lesson_viewer_screen.dart';
@@ -1518,6 +1519,13 @@ final appRouter = GoRouter(
         lessonId: state.pathParameters['lessonId']!,
         mode: TurmaMode.gestao,
       ),
+    ),
+    // A aula pela porta do professor (PR 2c), vinda da Agenda. A tela
+    // confere se eu sou o professor dela; sem guard, como as de cima.
+    GoRoute(
+      path: '/aulas/:lessonId/professor',
+      builder: (context, state) =>
+          ProfessorAulaScreen(lessonId: state.pathParameters['lessonId']!),
     ),
 
     // Visualizar aula (para alunos)

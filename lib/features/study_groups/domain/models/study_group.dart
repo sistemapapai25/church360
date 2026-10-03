@@ -283,16 +283,7 @@ class StudyLesson {
   }
 
   /// "19:30–19:45" com duração, "19:30" sem; null sem horário.
-  String? get timeRange {
-    final start = startTime;
-    final minutes = durationMinutes;
-    if (start == null) return null;
-    if (minutes == null) return start;
-    final parts = start.split(':');
-    final total = int.parse(parts[0]) * 60 + int.parse(parts[1]) + minutes;
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '$start–${two(total ~/ 60 % 24)}:${two(total % 60)}';
-  }
+  String? get timeRange => lessonTimeRange(startTime, durationMinutes);
 
   bool get isPublished => status == LessonStatus.published;
   bool get isDraft => status == LessonStatus.draft;
@@ -578,4 +569,14 @@ class StudyLessonNote {
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
+}
+
+/// "19:30–19:45" com duração, "19:30" sem; null sem horário.
+String? lessonTimeRange(String? start, int? minutes) {
+  if (start == null) return null;
+  if (minutes == null) return start;
+  final parts = start.split(':');
+  final total = int.parse(parts[0]) * 60 + int.parse(parts[1]) + minutes;
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '$start–${two(total ~/ 60 % 24)}:${two(total % 60)}';
 }

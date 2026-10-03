@@ -32,6 +32,7 @@ List<TurmaTabId> turmaTabsFor(TurmaAccess access) {
         TurmaTabId.minhaFrequencia,
         TurmaTabId.materiais,
       ],
-    TurmaRole.none => const [],
+    // O professor não abre a turma: entra direto na aula, pela Agenda.
+    TurmaRole.teacher || TurmaRole.none => const [],
   };
 }
