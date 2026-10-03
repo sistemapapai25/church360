@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../ministries/presentation/providers/ministries_provider.dart';
+import '../../../permissions/data/role_contexts_repository.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../events/presentation/providers/events_provider.dart';
 import '../../../events/domain/models/event.dart';
@@ -36,15 +39,32 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
   List<String> _categoryOrder = ['other'];
   final TextEditingController _newFunctionController = TextEditingController();
   final TextEditingController _newCategoryController = TextEditingController();
+  String? _newFunctionCategory;
+  // Salvamento automático: cada mudança agenda um _save; um por vez, e
+  // mudança no meio de um save roda outro no fim.
+  late final RoleContextsRepository _contextsRepo;
+  Timer? _autosave;
+  bool _saving = false;
+  bool _saveAgain = false;
+  bool _disposed = false;
+  String _status = '';
 
   @override
   void initState() {
     super.initState();
+    // Lido aqui porque o save pendente ainda roda no dispose, quando o ref
+    // já não pode ser usado.
+    _contextsRepo = ref.read(roleContextsRepositoryProvider);
     _load();
   }
 
   @override
   void dispose() {
+    _disposed = true;
+    if (_autosave?.isActive ?? false) {
+      _autosave!.cancel();
+      _save();
+    }
     _newFunctionController.dispose();
     _newCategoryController.dispose();
     super.dispose();
@@ -249,10 +269,35 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
     }
   }
 
+  void _edit(VoidCallback fn) {
+    setState(fn);
+    _scheduleSave();
+  }
+
+  void _scheduleSave() {
+    _autosave?.cancel();
+    _autosave = Timer(const Duration(milliseconds: 800), _save);
+  }
+
+  void _setStatus(String s) {
+    if (!_disposed && mounted) setState(() => _status = s);
+  }
+
+  void _notify(String msg) {
+    if (!_disposed && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    }
+  }
+
   Future<void> _save() async {
-    setState(() => _loading = true);
+    if (_saving) {
+      _saveAgain = true;
+      return;
+    }
+    _saving = true;
+    _setStatus('Salvando…');
     try {
-      final contexts = await ref.read(roleContextsRepositoryProvider).getContextsByMinistry(widget.ministryId);
+      final contexts = await _contextsRepo.getContextsByMinistry(widget.ministryId);
       final hasBackIdx = _availableCategories.indexWhere((x) => x.trim().toLowerCase() == 'back');
       if (hasBackIdx >= 0) {
         final oldKey = _availableCategories[hasBackIdx];
@@ -316,21 +361,16 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
         if (v == 'other') return true;
         return false;
       }).toList();
+      // Função nova já nasce com categoria; isto sobra para quando uma
+      // categoria em uso é apagada no card Categorias.
       if (missingCats.isNotEmpty) {
-        setState(() => _loading = false);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Nada foi salvo. Escolha a categoria (no card Funções) de: ${missingCats.join(', ')}')),
-          );
-        }
+        _setStatus('Não salvo');
+        _notify('Nada foi salvo. Escolha a categoria (no card Funções) de: ${missingCats.join(', ')}');
         return;
       }
       if (contexts.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Nada foi salvo: este ministério não tem cargos vinculados para guardar as regras.')),
-          );
-        }
+        _setStatus('Não salvo');
+        _notify('Nada foi salvo: este ministério não tem cargos vinculados para guardar as regras.');
         return;
       }
       // Sanear filtros: garantir que categoria selecionada seja canônica/existente
@@ -499,21 +539,20 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
             meta.remove('schedule_rules');
             meta.remove('blocks');
           }
-          await ref.read(roleContextsRepositoryProvider).updateContext(contextId: c.id, metadata: meta);
+          await _contextsRepo.updateContext(contextId: c.id, metadata: meta);
         }
       }
       // Vínculos de função são gerenciados na tela de Ministério; não sobrescrever aqui
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Regras salvas')));
-      }
+      _setStatus('Salvo');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Não foi possível salvar: $e')),
-        );
-      }
+      _setStatus('Não salvo');
+      _notify('Não foi possível salvar: $e');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      _saving = false;
+      if (_saveAgain) {
+        _saveAgain = false;
+        _save();
+      }
     }
   }
 
@@ -635,7 +674,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                   ? () {
                       final list = List<dynamic>.from(_rules['prohibited_combinations'] ?? const []);
                       list.add({'a': a, 'a_func': af, 'b': b, 'b_func': bf});
-                      setState(() => _rules['prohibited_combinations'] = list);
+                      _edit(() => _rules['prohibited_combinations'] = list);
                       Navigator.pop(context);
                     }
                   : null,
@@ -720,7 +759,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                       });
                       if (!exists) {
                         list.add({'a': selA, 'a_func': selAf, 'b': selB, 'b_func': selBf});
-                        setState(() => _rules['preferred_combinations'] = list);
+                        _edit(() => _rules['preferred_combinations'] = list);
                       }
                       Navigator.pop(context);
                     }
@@ -776,18 +815,23 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
       appBar: AppBar(
         title: const Text('Regras & Preferências'),
         actions: [
-          // Rótulo curto: o antigo ("Aplicar estas regras na próxima
-          // geração de escala") sumia no celular e não dizia que é o salvar
-          // de tudo, inclusive de funções e categorias.
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilledButton.icon(
-              key: const ValueKey('regras-salvar'),
-              onPressed: _save,
-              icon: const Icon(Icons.save),
-              label: const Text('Salvar'),
+          // Salva sozinho; aqui só o estado. Tocar salva na hora (útil
+          // para tentar de novo depois de "Não salvo").
+          if (_status.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: TextButton.icon(
+                key: const ValueKey('regras-status'),
+                onPressed: _status == 'Salvando…'
+                    ? null
+                    : () {
+                        _autosave?.cancel();
+                        _save();
+                      },
+                icon: Icon(_status == 'Salvo' ? Icons.cloud_done : Icons.cloud_upload),
+                label: Text(_status),
+              ),
             ),
-          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -914,7 +958,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                               }
                               return true;
                             }).toList();
-                            setState(() => _rules['prohibited_combinations'] = filtered);
+                            _edit(() => _rules['prohibited_combinations'] = filtered);
                           },
                         ),
                       ),
@@ -987,7 +1031,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                               }
                               return true;
                             }).toList();
-                            setState(() => _rules['preferred_combinations'] = filtered);
+                            _edit(() => _rules['preferred_combinations'] = filtered);
                           },
                         ),
                       ),
@@ -1131,7 +1175,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
         final row = Map<String, dynamic>.from(map[memberId] ?? {});
         row[key] = nv ?? v;
         map[memberId] = row;
-        setState(() => _rules['member_priorities'] = map);
+        _edit(() => _rules['member_priorities'] = map);
       },
     );
   }
@@ -1173,7 +1217,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                               final row = Map<String, dynamic>.from(map[f] ?? {});
                               row['leader'] = v;
                               map[f] = row;
-                              setState(() => _rules['leaders_by_function'] = map);
+                              _edit(() => _rules['leaders_by_function'] = map);
                             },
                             decoration: const InputDecoration(labelText: 'Líder', border: OutlineInputBorder()),
                           ),
@@ -1201,7 +1245,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                                       list[idx] = v ?? '';
                                       row['subs'] = list;
                                       map[f] = row;
-                                      setState(() => _rules['leaders_by_function'] = map);
+                                      _edit(() => _rules['leaders_by_function'] = map);
                                     },
                                     decoration: InputDecoration(
                                       labelText: 'Suplente ${idx + 1}',
@@ -1219,7 +1263,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                                     if (idx < list.length) list.removeAt(idx);
                                     row['subs'] = list;
                                     map[f] = row;
-                                    setState(() => _rules['leaders_by_function'] = map);
+                                    _edit(() => _rules['leaders_by_function'] = map);
                                   },
                                 ),
                               ],
@@ -1238,7 +1282,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                               list.add('');
                               row['subs'] = list;
                               map[f] = row;
-                              setState(() => _rules['leaders_by_function'] = map);
+                              _edit(() => _rules['leaders_by_function'] = map);
                             },
                           ),
                         ),
@@ -1277,7 +1321,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
   void _setGeneral(String key, int value) {
     final map = Map<String, dynamic>.from(_rules['general_rules'] ?? {});
     map[key] = value;
-    setState(() => _rules['general_rules'] = map);
+    _edit(() => _rules['general_rules'] = map);
   }
 
   Widget _numberField(String label, int value, void Function(int) onChanged) {
@@ -1324,7 +1368,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                       final list = List<Map<String, dynamic>>.from(_rules['blocks'] ?? const []);
                       if (i >= 0 && i < list.length) {
                         list[i]['user_id'] = v ?? '';
-                        setState(() => _rules['blocks'] = list);
+                        _edit(() => _rules['blocks'] = list);
                       }
                     },
                   ),
@@ -1355,7 +1399,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                             );
                             if (picked != null) {
                               list[i]['start_date'] = DateFormat('yyyy-MM-dd').format(picked);
-                              setState(() => _rules['blocks'] = list);
+                              _edit(() => _rules['blocks'] = list);
                             }
                           }
                         },
@@ -1366,7 +1410,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                       if (i >= 0 && i < list.length) {
                         final iso = _isoFromDisplay(v);
                         list[i]['start_date'] = iso.isNotEmpty ? iso : v;
-                        setState(() => _rules['blocks'] = list);
+                        _edit(() => _rules['blocks'] = list);
                       }
                     },
                   ),
@@ -1396,7 +1440,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                             );
                             if (picked != null) {
                               list[i]['end_date'] = DateFormat('yyyy-MM-dd').format(picked);
-                              setState(() => _rules['blocks'] = list);
+                              _edit(() => _rules['blocks'] = list);
                             }
                           }
                         },
@@ -1407,7 +1451,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                       if (i >= 0 && i < list.length) {
                         final iso = _isoFromDisplay(v);
                         list[i]['end_date'] = iso.isNotEmpty ? iso : v;
-                        setState(() => _rules['blocks'] = list);
+                        _edit(() => _rules['blocks'] = list);
                       }
                     },
                   ),
@@ -1424,6 +1468,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                       final list = List<Map<String, dynamic>>.from(_rules['blocks'] ?? const []);
                       if (i >= 0 && i < list.length) {
                         list[i]['reason'] = v;
+                        _scheduleSave();
                       }
                     },
                   ),
@@ -1442,7 +1487,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                       final list = List<Map<String, dynamic>>.from(_rules['blocks'] ?? const []);
                       if (i >= 0 && i < list.length) {
                         list[i]['type'] = v ?? 'total';
-                        setState(() => _rules['blocks'] = list);
+                        _edit(() => _rules['blocks'] = list);
                       }
                     },
                   ),
@@ -1458,7 +1503,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                         final list = List<Map<String, dynamic>>.from(_rules['blocks'] ?? const []);
                         if (i >= 0 && i < list.length) {
                           list[i]['event_type'] = v ?? '';
-                          setState(() => _rules['blocks'] = list);
+                          _edit(() => _rules['blocks'] = list);
                         }
                       },
                     );
@@ -1476,7 +1521,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                         final list = List<Map<String, dynamic>>.from(_rules['blocks'] ?? const []);
                         if (i >= 0 && i < list.length) {
                           list[i]['event_id'] = v ?? '';
-                          setState(() => _rules['blocks'] = list);
+                          _edit(() => _rules['blocks'] = list);
                         }
                       },
                     );
@@ -1489,7 +1534,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                     final list = List<Map<String, dynamic>>.from(_rules['blocks'] ?? const []);
                     if (i >= 0 && i < list.length) {
                       list.removeAt(i);
-                      setState(() => _rules['blocks'] = list);
+                      _edit(() => _rules['blocks'] = list);
                     }
                   },
                 )),
@@ -1504,7 +1549,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
             onPressed: () {
               final list = List<Map<String, dynamic>>.from(_blocks);
               list.add({'user_id': '', 'start_date': '', 'end_date': '', 'reason': '', 'type': 'total', 'event_type': '', 'event_id': ''});
-              setState(() => _rules['blocks'] = list);
+              _edit(() => _rules['blocks'] = list);
             },
             backgroundColor: _red(),
             child: const Icon(Icons.add),
@@ -1630,6 +1675,30 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
     }
   }
 
+  List<DropdownMenuItem<String>> _categoryItems(String? selected) => [
+        if (_enabledGroups['instrument'] == true || selected == 'instrument')
+          const DropdownMenuItem(value: 'instrument', child: Text('Instrumento')),
+        if (_enabledGroups['voice_role'] == true || selected == 'voice_role')
+          const DropdownMenuItem(value: 'voice_role', child: Text('Back')),
+        ..._uniqueCategories().map((c) => DropdownMenuItem<String>(value: c, child: Text(c))),
+      ];
+
+  // Função só entra com categoria: no salvamento automático uma função sem
+  // categoria travaria todo save.
+  void _addFunction() {
+    final v = _newFunctionController.text.trim();
+    final cat = _newFunctionCategory;
+    if (v.isEmpty || cat == null) return;
+    _edit(() {
+      if (!_functions.contains(v)) {
+        _functions.add(v);
+        _functionCategory[v] = cat;
+      }
+      _newFunctionController.clear();
+      _newFunctionCategory = null;
+    });
+  }
+
   Widget _buildFunctionCategoryCard() {
     return _buildCard(
       color: _purple(),
@@ -1661,15 +1730,9 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                     child: DropdownButtonFormField<String>(
                       initialValue: selected,
                       decoration: const InputDecoration(labelText: 'Categoria', border: OutlineInputBorder()),
-                      items: [
-                        if (_enabledGroups['instrument'] == true || selected == 'instrument')
-                          const DropdownMenuItem(value: 'instrument', child: Text('Instrumento')),
-                        if (_enabledGroups['voice_role'] == true || selected == 'voice_role')
-                          const DropdownMenuItem(value: 'voice_role', child: Text('Back')),
-                        ..._uniqueCategories().map((c) => DropdownMenuItem<String>(value: c, child: Text(c))),
-                      ],
+                      items: _categoryItems(selected),
                       onChanged: (v) {
-                        setState(() {
+                        _edit(() {
                           if (v != null) {
                             final vCanon = canon(v);
                             _functionCategory[f] = (vCanon == 'other') ? v : vCanon;
@@ -1681,7 +1744,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                   IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),
                     onPressed: () {
-                      setState(() {
+                      _edit(() {
                         _functions.remove(f);
                         _functionCategory.remove(f);
                       });
@@ -1692,39 +1755,31 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
             }).toList(),
           ),
         const SizedBox(height: 8),
-        const Text('Escolha a categoria de cada função e toque em Salvar, no topo. Adicionar só põe na lista.'),
+        const Text('As mudanças desta tela são salvas sozinhas.'),
+        const SizedBox(height: 8),
+        TextField(
+          key: const ValueKey('regras-nova-funcao'),
+          controller: _newFunctionController,
+          decoration: const InputDecoration(labelText: 'Nova função', border: OutlineInputBorder()),
+          onSubmitted: (_) => _addFunction(),
+        ),
         const SizedBox(height: 8),
         Row(children: [
           Expanded(
-            child: TextField(
-              controller: _newFunctionController,
-              decoration: const InputDecoration(labelText: 'Nova função', border: OutlineInputBorder()),
-              onSubmitted: (name) {
-                final v = name.trim();
-                if (v.isEmpty) return;
-                setState(() {
-                  if (!_functions.contains(v)) {
-                    _functions.add(v);
-                    _functionCategory.putIfAbsent(v, () => 'other');
-                  }
-                  _newFunctionController.clear();
-                });
-              },
+            child: DropdownButton<String>(
+              key: const ValueKey('regras-nova-funcao-categoria'),
+              value: _newFunctionCategory,
+              isExpanded: true,
+              hint: const Text('Categoria da nova função'),
+              disabledHint: const Text('Crie uma categoria antes (card Categorias)'),
+              items: _categoryItems(null),
+              onChanged: (v) => setState(() => _newFunctionCategory = v),
             ),
           ),
           const SizedBox(width: 8),
           FilledButton.icon(
-            onPressed: () {
-              final v = _newFunctionController.text.trim();
-              if (v.isEmpty) return;
-              setState(() {
-                if (!_functions.contains(v)) {
-                  _functions.add(v);
-                  _functionCategory.putIfAbsent(v, () => 'other');
-                }
-                _newFunctionController.clear();
-              });
-            },
+            key: const ValueKey('regras-adicionar-funcao'),
+            onPressed: _newFunctionCategory == null ? null : _addFunction,
             icon: const Icon(Icons.add),
             label: const Text('Adicionar'),
           ),
@@ -1756,7 +1811,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                   label: Text(_reservedLabel(base)),
                   selectedColor: chipColor,
                   onDeleted: () {
-                    setState(() {
+                    _edit(() {
                       _enabledGroups[base] = false;
                       _exclusiveByGroup[base] = false;
                       _aloneByCategory[base] = false;
@@ -1773,7 +1828,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                   label: Text(c),
                   selectedColor: chipColor,
                   onDeleted: () {
-                    setState(() {
+                    _edit(() {
                       _availableCategories.removeWhere((x) => x == c);
                       _functionCategory.removeWhere((k, v) => v == c);
                     });
@@ -1807,7 +1862,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                         title: const Text('Exclusiva dentro da categoria'),
                         subtitle: const Text('Não permitir duas funções desta mesma categoria para a mesma pessoa'),
                         onChanged: (v) {
-                          setState(() {
+                          _edit(() {
                             if (isReserved) {
                               _exclusiveByGroup[cat] = v;
                             }
@@ -1820,7 +1875,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                         title: const Text('Não combinar com outras categorias'),
                         subtitle: const Text('Se marcada, a pessoa só pode ter funções desta categoria no evento'),
                         onChanged: (v) {
-                          setState(() {
+                          _edit(() {
                             _aloneByCategory[cat] = v;
                           });
                         },
@@ -1844,7 +1899,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                 if (_isReservedCategory(v)) {
                   final key = _canonReserved(v);
                   if (key.isNotEmpty) {
-                    setState(() {
+                    _edit(() {
                       _enabledGroups[key] = true;
                       _newCategoryController.clear();
                     });
@@ -1854,7 +1909,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                     return;
                   }
                 }
-                setState(() {
+                _edit(() {
                   if (!_availableCategories.any((x) => x.trim().toLowerCase() == v.toLowerCase())) {
                     _availableCategories.add(v);
                   }
@@ -1871,7 +1926,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
               if (_isReservedCategory(v)) {
                 final key = _canonReserved(v);
                 if (key.isNotEmpty) {
-                  setState(() {
+                  _edit(() {
                     _enabledGroups[key] = true;
                     _newCategoryController.clear();
                   });
@@ -1881,7 +1936,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                   return;
                 }
               }
-              setState(() {
+              _edit(() {
                 if (!_availableCategories.any((x) => x.trim().toLowerCase() == v.toLowerCase())) {
                   _availableCategories.add(v);
                 }
@@ -1907,7 +1962,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
             buildDefaultDragHandles: false,
             shrinkWrap: true,
             onReorder: (oldIndex, newIndex) {
-              setState(() {
+              _edit(() {
                 if (newIndex > oldIndex) newIndex -= 1;
                 final item = _categoryOrder.removeAt(oldIndex);
                 _categoryOrder.insert(newIndex, item);
