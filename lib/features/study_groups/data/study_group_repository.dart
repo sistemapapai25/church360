@@ -450,6 +450,15 @@ class StudyGroupRepository {
     return StudyLesson.fromJson(response);
   }
 
+  /// Grava só o professor da aula (Escala de ensino, PR 2b).
+  Future<void> setLessonTeacher(String id, String? teacherId) async {
+    await _supabase
+        .from('study_lessons')
+        .update({'teacher_id': teacherId})
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
+  }
+
   /// Deletar lição
   Future<void> deleteLesson(String id) async {
     await _supabase
