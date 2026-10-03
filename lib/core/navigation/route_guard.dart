@@ -13,6 +13,8 @@ import '../../core/constants/supabase_constants.dart';
 import '../../features/permissions/providers/permissions_providers.dart'
     hide supabaseClientProvider;
 import '../../features/branches/presentation/providers/branches_provider.dart';
+import '../../features/members/presentation/providers/members_provider.dart';
+import '../../features/kids/presentation/providers/kids_providers.dart';
 
 /// Tela de acesso negado
 class AccessDeniedScreen extends StatelessWidget {
@@ -557,6 +559,40 @@ class MemberOnlyRoute extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Edição da ficha `/members/:id/edit`: a própria ficha e a do filho
+/// vinculado entram sem RBAC (o `MemberFormScreen` já libera o Salvar para
+/// esses dois casos); a de terceiro cai no [AnyPermissionOrLevelRoute].
+/// Compara com `currentMember.id` (`user_account.id`), nunca com `auth.uid()`
+/// — as duas chaves diferem para parte das contas.
+class MemberEditRoute extends ConsumerWidget {
+  final String memberId;
+  final Widget child;
+
+  const MemberEditRoute({
+    super.key,
+    required this.memberId,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(currentMemberProvider);
+    final children = ref.watch(managedChildrenProvider);
+    if (me.valueOrNull?.id == memberId ||
+        (children.valueOrNull?.any((c) => c['id'] == memberId) ?? false)) {
+      return child;
+    }
+    if (me.isLoading || children.isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    return AnyPermissionOrLevelRoute(
+      permissions: const ['members.edit', 'visitors.edit'],
+      requiredLevel: AccessLevelType.admin,
+      child: child,
     );
   }
 }

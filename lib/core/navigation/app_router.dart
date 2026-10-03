@@ -439,16 +439,16 @@ final appRouter = GoRouter(
     ),
     // CHU-376: as três rotas abaixo entravam sem guard nenhum. A ficha de
     // OUTRA pessoa é tela de gestão — `members.*` ou `visitors.*` (a mesma
-    // rota serve membro e visitante) ou nível administrativo. O caminho da
-    // própria ficha NÃO passa por aqui: `/profile` monta a
-    // `MemberProfileScreen` direto pela `ProfileScreen`, e continua aberto.
+    // rota serve membro e visitante) ou nível administrativo. `/profile`
+    // monta a `MemberProfileScreen` direto, mas o "Editar Meu Perfil" cai em
+    // `/members/:id/edit` — por isso o `MemberEditRoute` libera a própria
+    // ficha e a do filho vinculado antes do RBAC.
     GoRoute(
       path: '/members/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return AnyPermissionOrLevelRoute(
-          permissions: const ['members.edit', 'visitors.edit'],
-          requiredLevel: AccessLevelType.admin,
+        return MemberEditRoute(
+          memberId: id,
           child: MemberFormScreen(memberId: id),
         );
       },
