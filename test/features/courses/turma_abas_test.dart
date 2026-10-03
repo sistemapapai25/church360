@@ -15,7 +15,6 @@ import 'package:church360_app/features/ministries/batismo/domain/models/baptism_
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_my_meeting.dart';
 import 'package:church360_app/features/ministries/batismo/presentation/providers/baptism_providers.dart';
 import 'package:church360_app/features/ministries/batismo/presentation/screens/tabs/batismo_alunos_tab.dart';
-import 'package:church360_app/features/ministries/batismo/presentation/screens/tabs/batismo_presenca_tab.dart';
 import 'package:church360_app/features/study_groups/data/study_group_repository.dart';
 import 'package:church360_app/features/study_groups/domain/models/study_group.dart';
 import 'package:church360_app/features/study_groups/presentation/providers/study_group_provider.dart';
@@ -1269,24 +1268,32 @@ void main() {
     });
   });
 
-  group('Presença — genérica', () {
-    testWidgets('liderança só por courses.* não faz nem vê a chamada', (
-      tester,
-    ) async {
-      final repo = _FakeStudyRepo(lessons: [_lesson(1, LessonStatus.draft)]);
-      await _pump(
-        tester,
-        _host(
-          const GenericaPresenca(studyGroupId: _sgId, access: _leader),
-          overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
-        ),
-      );
+  group('Presença — genérica (dentro da aula)', () {
+    const origin = GenericaTurmaOrigin(studyGroupId: _sgId);
 
-      expect(
-        find.text('A chamada desta turma é feita pelo líder do grupo.'),
-        findsOneWidget,
+    /// Um botão que faz o que o menu da aula faz: chama a ação de presença
+    /// da origem para a aula.
+    Widget openFromLesson(TurmaAccess access, StudyLesson lesson) => Builder(
+      builder: (context) => TextButton(
+        onPressed: () => turmaSurfacesFor(
+          origin,
+          access,
+        ).lessonAttendance!(context, lesson),
+        child: const Text('abrir chamada'),
+      ),
+    );
+
+    test('liderança só por courses.* não ganha a chamada', () {
+      expect(turmaSurfacesFor(origin, _leader).lessonAttendance, isNull);
+    });
+
+    test('vitrine de Cursos não oferece a chamada nem ao líder', () {
+      const access = TurmaAccess(
+        role: TurmaRole.leadership,
+        leadsGroup: true,
+        readOnly: true,
       );
-      expect(find.text('Aula 1 · Tema 1'), findsNothing);
+      expect(turmaSurfacesFor(origin, access).lessonAttendance, isNull);
     });
 
     testWidgets('líder marca e salva: insere o novo, atualiza o existente', (
@@ -1306,16 +1313,15 @@ void main() {
       await _pump(
         tester,
         _host(
-          const GenericaPresenca(
-            studyGroupId: _sgId,
-            access: TurmaAccess(role: TurmaRole.leadership, leadsGroup: true),
+          openFromLesson(
+            const TurmaAccess(role: TurmaRole.leadership, leadsGroup: true),
+            _lesson(1, LessonStatus.published),
           ),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
 
-      expect(find.text('0 presentes · 1 faltas · 0 justificadas'), findsOne);
-      await tester.tap(find.text('Aula 1 · Tema 1'));
+      await tester.tap(find.text('abrir chamada'));
       await tester.pumpAndSettle();
 
       // Líder não entra na chamada.
@@ -1343,18 +1349,71 @@ void main() {
       await _pump(
         tester,
         _host(
-          const GenericaPresenca(
-            studyGroupId: _sgId,
-            access: TurmaAccess(role: TurmaRole.leadership, elevated: true),
+          openFromLesson(
+            const TurmaAccess(role: TurmaRole.leadership, elevated: true),
+            _lesson(1, LessonStatus.published),
           ),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
 
-      await tester.tap(find.text('Aula 1 · Tema 1'));
+      await tester.tap(find.text('abrir chamada'));
       await tester.pumpAndSettle();
+      expect(find.text('Ana'), findsOneWidget);
       expect(find.byKey(const ValueKey('roll-u1-present')), findsNothing);
       expect(find.text('Salvar'), findsNothing);
+    });
+
+    testWidgets('Alunos mostra a contagem de cada participante', (
+      tester,
+    ) async {
+      final repo = _FakeStudyRepo(
+        lessons: [
+          _lesson(1, LessonStatus.published),
+          _lesson(2, LessonStatus.published, id: 'l2'),
+        ],
+        participants: [_participant('u1'), _participant('u2')],
+        attendance: {
+          'l1': [
+            _att('l1', 'u1', AttendanceStatus.present),
+            _att('l1', 'u2', AttendanceStatus.absent),
+          ],
+          'l2': [_att('l2', 'u1', AttendanceStatus.justified)],
+        },
+      );
+      await _pump(
+        tester,
+        _host(
+          const GenericaParticipantes(
+            studyGroupId: _sgId,
+            access: TurmaAccess(role: TurmaRole.leadership, leadsGroup: true),
+          ),
+          overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
+        ),
+      );
+
+      expect(find.text('1 presentes · 0 faltas · 1 justificadas'), findsOne);
+      expect(find.text('0 presentes · 1 faltas · 0 justificadas'), findsOne);
+    });
+
+    testWidgets('quem não vê a chamada não recebe contagem', (tester) async {
+      final repo = _FakeStudyRepo(
+        lessons: [_lesson(1, LessonStatus.published)],
+        participants: [_participant('u1')],
+        attendance: {
+          'l1': [_att('l1', 'u1', AttendanceStatus.present)],
+        },
+      );
+      await _pump(
+        tester,
+        _host(
+          const GenericaParticipantes(studyGroupId: _sgId, access: _leader),
+          overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
+        ),
+      );
+
+      expect(find.text('Ana'), findsOneWidget);
+      expect(find.textContaining('presentes'), findsNothing);
     });
   });
 
@@ -1370,15 +1429,12 @@ void main() {
       final alunos = surfaces.alunos() as BatismoAlunosTab;
       expect(alunos.ministryId, 'min-1');
       expect(alunos.lockedTurmaId, 'bt-1');
-      final presenca = surfaces.presenca() as BatismoPresencaTab;
-      expect(presenca.lockedTurmaId, 'bt-1');
     });
 
-    test('genérica: participantes e presença do grupo', () {
+    test('genérica: participantes e frequência do aluno', () {
       const origin = GenericaTurmaOrigin(studyGroupId: _sgId);
       final surfaces = turmaSurfacesFor(origin, _leader);
       expect(surfaces.alunos(), isA<GenericaParticipantes>());
-      expect(surfaces.presenca(), isA<GenericaPresenca>());
       expect(surfaces.minhaFrequencia(), isA<GenericaMinhaFrequencia>());
     });
   });

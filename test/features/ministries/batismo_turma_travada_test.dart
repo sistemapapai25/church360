@@ -8,7 +8,6 @@ import 'package:church360_app/features/ministries/batismo/domain/models/baptism_
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_turma.dart';
 import 'package:church360_app/features/ministries/batismo/presentation/providers/baptism_providers.dart';
 import 'package:church360_app/features/ministries/batismo/presentation/screens/tabs/batismo_alunos_tab.dart';
-import 'package:church360_app/features/ministries/batismo/presentation/screens/tabs/batismo_presenca_tab.dart';
 import 'package:church360_app/features/ministries/batismo/presentation/widgets/baptism_lesson_attendance.dart';
 import 'package:church360_app/features/ministries/batismo/presentation/widgets/baptism_locked_turma_unavailable.dart';
 import 'package:church360_app/features/ministries/presentation/providers/ministries_provider.dart';
@@ -317,7 +316,7 @@ void main() {
   });
 
   group('BatismoAlunosTab', () {
-    testWidgets('sem trava: seletor de turma, Turmas e todos os alunos', (
+    testWidgets('sem trava: seletor de turma e todos os alunos', (
       tester,
     ) async {
       final repo = _repo();
@@ -326,9 +325,11 @@ void main() {
         _host(repo, const BatismoAlunosTab(ministryId: _ministryId)),
       );
 
+      // Turmas e o link de inscrição moram na aba Turmas, que é a que abre
+      // esta lista.
       expect(find.text('Todas as turmas'), findsOneWidget);
-      expect(find.text('Turmas'), findsOneWidget);
-      expect(find.text('Link de inscrição'), findsOneWidget);
+      expect(find.text('Turmas'), findsNothing);
+      expect(find.text('Link de inscrição'), findsNothing);
       expect(find.text('Carla'), findsOneWidget);
       expect(repo.studentQueries, everyElement(isNull));
     });
@@ -412,88 +413,6 @@ void main() {
     });
   });
 
-  group('BatismoPresencaTab', () {
-    testWidgets('sem trava: filtro de turma e encontros de todas', (
-      tester,
-    ) async {
-      final repo = _repo();
-      await _pump(
-        tester,
-        _host(repo, const BatismoPresencaTab(ministryId: _ministryId)),
-      );
-
-      expect(find.text('Todas as turmas'), findsOneWidget);
-      expect(find.text('Aula da A'), findsOneWidget);
-      expect(find.text('Aula da B'), findsOneWidget);
-    });
-
-    testWidgets('travada: só os encontros da turma, sem filtro de turma', (
-      tester,
-    ) async {
-      final repo = _repo();
-      await _pump(
-        tester,
-        _host(
-          repo,
-          const BatismoPresencaTab(
-            ministryId: _ministryId,
-            lockedTurmaId: _turmaA,
-          ),
-        ),
-      );
-
-      expect(find.text('Aula da A'), findsOneWidget);
-      expect(find.text('Aula da B'), findsNothing);
-      expect(find.text('Todas as turmas'), findsNothing);
-      expect(repo.meetingQueries, everyElement([_turmaA]));
-    });
-
-    testWidgets('travada: só leitura, sem encontro novo nem marcação', (
-      tester,
-    ) async {
-      final repo = _repo();
-      await _pump(
-        tester,
-        _host(
-          repo,
-          const BatismoPresencaTab(
-            ministryId: _ministryId,
-            lockedTurmaId: _turmaA,
-          ),
-        ),
-      );
-
-      expect(find.text('Novo encontro'), findsNothing);
-      await tester.tap(find.text('Aula da A'));
-      await tester.pumpAndSettle();
-      expect(find.text('Marcar todos presentes'), findsNothing);
-      expect(find.textContaining('aba Aulas'), findsOneWidget);
-      expect(repo.marked, isEmpty);
-    });
-
-    testWidgets('travada em turma de outro ministério: fail-closed', (
-      tester,
-    ) async {
-      final repo = _repo();
-      await _pump(
-        tester,
-        _host(
-          repo,
-          const BatismoPresencaTab(
-            ministryId: _ministryId,
-            lockedTurmaId: 'turma-x',
-          ),
-        ),
-      );
-
-      expect(find.byType(BaptismLockedTurmaUnavailable), findsOneWidget);
-      expect(find.text('Aula da A'), findsNothing);
-      expect(find.text('Novo encontro'), findsNothing);
-      expect(repo.meetingQueries, isEmpty);
-    });
-  });
-
-  // Etapa 5.3: a presença por aula substituiu o encontro avulso.
   group('ensureBaptismLessonMeeting', () {
     test('aula sem encontro: cria na turma, com a aula e o título', () async {
       final repo = _repo();

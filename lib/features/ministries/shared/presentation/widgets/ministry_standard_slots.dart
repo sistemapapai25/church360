@@ -1,6 +1,5 @@
-import '../../../batismo/presentation/screens/tabs/batismo_alunos_tab.dart';
 import '../../../batismo/presentation/screens/tabs/batismo_checklist_tab.dart';
-import '../../../batismo/presentation/screens/tabs/batismo_presenca_tab.dart';
+import '../../../batismo/presentation/screens/tabs/batismo_turmas_tab.dart';
 import '../../../louvor/presentation/louvores_tab.dart';
 import '../../domain/ministry_type_catalog.dart';
 import 'ministry_finance_tab.dart';
@@ -37,16 +36,12 @@ Map<String, MinistryTabSlot> ministryStandardSlots(
     builder: (_) => LouvoresTab(ministryId: ministryId),
   ),
   MinistryTabKeys.alunos: MinistryTabSlot(
-    defaultLabel: 'Alunos',
-    builder: (_) => BatismoAlunosTab(ministryId: ministryId),
+    defaultLabel: 'Turmas',
+    builder: (_) => BatismoTurmasTab(ministryId: ministryId),
   ),
   MinistryTabKeys.checklist: MinistryTabSlot(
     defaultLabel: 'Checklist',
     builder: (_) => BatismoChecklistTab(ministryId: ministryId),
-  ),
-  MinistryTabKeys.presenca: MinistryTabSlot(
-    defaultLabel: 'Presença',
-    builder: (_) => BatismoPresencaTab(ministryId: ministryId),
   ),
   MinistryTabKeys.whatsapp: MinistryTabSlot(
     defaultLabel: 'WhatsApp',

@@ -9,7 +9,7 @@ import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../../../shared/presentation/widgets/ministry_workspace_shell.dart';
 import '../../domain/models/baptism_student.dart';
 import '../providers/baptism_providers.dart';
-import 'tabs/batismo_alunos_tab.dart';
+import 'tabs/batismo_turmas_tab.dart';
 import 'tabs/batismo_relatorios_tab.dart';
 import 'tabs/batismo_whatsapp_tab.dart';
 
@@ -60,10 +60,6 @@ class _BatismoWorkspace extends ConsumerWidget {
           .length,
       orElse: () => null,
     );
-    final studentCount = studentsAsync.maybeWhen(
-      data: (list) => list.length,
-      orElse: () => null,
-    );
     final turmaCount = ref.watch(baptismTurmasProvider(ministryId)).maybeWhen(
           data: (list) => list.length,
           orElse: () => null,
@@ -98,9 +94,9 @@ class _BatismoWorkspace extends ConsumerWidget {
         slots: {
           ...ministryStandardSlots(ministryId, teamCount: teamCount),
           MinistryTabKeys.alunos: MinistryTabSlot(
-            defaultLabel: 'Alunos',
-            count: studentCount?.toString(),
-            builder: (_) => BatismoAlunosTab(ministryId: ministryId),
+            defaultLabel: 'Turmas',
+            count: turmaCount?.toString(),
+            builder: (_) => BatismoTurmasTab(ministryId: ministryId),
           ),
           MinistryTabKeys.whatsapp: MinistryTabSlot(
             defaultLabel: 'WhatsApp',

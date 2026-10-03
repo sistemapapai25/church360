@@ -120,46 +120,7 @@ class BaptismTurmaAttendanceReport {
 
     final ordered = students.values.toList()..sort(_byStudentName);
 
-    final lines = <BaptismStudentFrequency>[];
-    for (final student in ordered) {
-      final statuses = <String, BaptismAttendanceStatus>{};
-      var present = 0;
-      var absent = 0;
-      var justified = 0;
-      var unmarked = 0;
-
-      for (final roll in mine) {
-        // Encontro de uma turma que o aluno não frequenta não deveria
-        // aparecer aqui — mas se aparecer, não conta contra ele.
-        if (!roll.students.any((s) => s.id == student.id)) continue;
-
-        final status = roll.statusByStudent[student.id];
-        if (status == null) {
-          unmarked++;
-          continue;
-        }
-        statuses[roll.meeting.id] = status;
-        switch (status) {
-          case BaptismAttendanceStatus.presente:
-            present++;
-          case BaptismAttendanceStatus.ausente:
-            absent++;
-          case BaptismAttendanceStatus.justificado:
-            justified++;
-        }
-      }
-
-      lines.add(
-        BaptismStudentFrequency(
-          student: student,
-          statusByMeeting: statuses,
-          present: present,
-          absent: absent,
-          justified: justified,
-          unmarked: unmarked,
-        ),
-      );
-    }
+    final lines = [for (final student in ordered) _frequencyOf(student, mine)];
 
     return BaptismTurmaAttendanceReport(
       turma: turma,
@@ -198,6 +159,63 @@ class BaptismTurmaAttendanceReport {
   /// Há justificada em algum lugar? Sem nenhuma, o adendo do rodapé não
   /// precisa ser impresso: ele explicaria uma diferença que não existe.
   bool get hasJustified => totalJustified > 0;
+}
+
+/// A frequência de cada aluno que aparece em [rolls], pela mesma régua do
+/// relatório. Chave: `baptism_student.id`.
+///
+/// Serve a lista de alunos (pílula "87% · 2 faltas"): as chamadas podem ser
+/// de várias turmas, porque cada uma só traz os alunos da própria turma.
+Map<String, BaptismStudentFrequency> baptismFrequencyByStudent(
+  List<BaptismMeetingRoll> rolls,
+) {
+  final students = <String, BaptismStudent>{};
+  for (final roll in rolls) {
+    for (final s in roll.students) {
+      students[s.id] = s;
+    }
+  }
+  return {for (final s in students.values) s.id: _frequencyOf(s, rolls)};
+}
+
+BaptismStudentFrequency _frequencyOf(
+  BaptismStudent student,
+  List<BaptismMeetingRoll> rolls,
+) {
+  final statuses = <String, BaptismAttendanceStatus>{};
+  var present = 0;
+  var absent = 0;
+  var justified = 0;
+  var unmarked = 0;
+
+  for (final roll in rolls) {
+    // Encontro de uma turma que o aluno não frequenta não conta contra ele.
+    if (!roll.students.any((s) => s.id == student.id)) continue;
+
+    final status = roll.statusByStudent[student.id];
+    if (status == null) {
+      unmarked++;
+      continue;
+    }
+    statuses[roll.meeting.id] = status;
+    switch (status) {
+      case BaptismAttendanceStatus.presente:
+        present++;
+      case BaptismAttendanceStatus.ausente:
+        absent++;
+      case BaptismAttendanceStatus.justificado:
+        justified++;
+    }
+  }
+
+  return BaptismStudentFrequency(
+    student: student,
+    statusByMeeting: statuses,
+    present: present,
+    absent: absent,
+    justified: justified,
+    unmarked: unmarked,
+  );
 }
 
 /// `84%`, ou um travessão quando não há nada marcado.

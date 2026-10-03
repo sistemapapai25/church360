@@ -11,7 +11,6 @@ import '../../../../ministries/batismo/domain/models/baptism_attendance.dart';
 import '../../../../ministries/batismo/domain/models/baptism_my_meeting.dart';
 import '../../../../ministries/batismo/presentation/providers/baptism_providers.dart';
 import '../../../../ministries/batismo/presentation/screens/tabs/batismo_alunos_tab.dart';
-import '../../../../ministries/batismo/presentation/screens/tabs/batismo_presenca_tab.dart';
 import '../../../../ministries/batismo/presentation/widgets/baptism_lesson_attendance.dart';
 import '../../../../study_groups/domain/models/study_group.dart';
 import '../turma_access.dart';
@@ -38,12 +37,6 @@ class BatismoTurmaAdapter implements TurmaSurfaces {
   );
 
   @override
-  Widget presenca() => BatismoPresencaTab(
-    ministryId: origin.ministryId,
-    lockedTurmaId: origin.baptismTurmaId,
-  );
-
-  @override
   Widget minhaFrequencia() =>
       BatismoMinhaFrequencia(baptismTurmaId: origin.baptismTurmaId);
 
@@ -59,7 +52,7 @@ class BatismoTurmaAdapter implements TurmaSurfaces {
   /// substituiu o encontro avulso da aba Presença.
   ///
   /// Marcar presença é escrita: na vitrine de Cursos a aula não oferece a
-  /// chamada, e a aba Presença do Batismo já é só leitura.
+  /// chamada.
   @override
   TurmaLessonAttendance? get lessonAttendance => access.readOnly
       ? null

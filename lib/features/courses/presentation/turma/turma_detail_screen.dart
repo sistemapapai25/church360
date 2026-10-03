@@ -80,7 +80,6 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
         access: access,
       ),
       TurmaTabId.alunos => surfaces.alunos(),
-      TurmaTabId.presenca => surfaces.presenca(),
       TurmaTabId.minhaFrequencia => surfaces.minhaFrequencia(),
     };
   }

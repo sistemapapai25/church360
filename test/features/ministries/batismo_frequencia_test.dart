@@ -7,6 +7,7 @@ import 'package:church360_app/features/ministries/batismo/domain/models/baptism_
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_meeting.dart';
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_student.dart';
 import 'package:church360_app/features/ministries/batismo/domain/models/baptism_turma.dart';
+import 'package:church360_app/features/ministries/batismo/presentation/widgets/student_card.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _ministryId = 'm1';
@@ -384,6 +385,61 @@ void main() {
       });
 
       expect(avisos, isEmpty, reason: avisos.join('\n'));
+    });
+  });
+
+  group('frequência na lista de alunos', () {
+    final ana = _student('Ana');
+    final bruno = _student('Bruno', turmaId: 'turma-2');
+
+    test('junta chamadas de turmas diferentes sem misturar alunos', () {
+      final freq = baptismFrequencyByStudent([
+        _roll(_meeting('e1', day: DateTime(2026, 9, 1)), [ana], {
+          ana.id: _presente,
+        }),
+        _roll(_meeting('e2', day: DateTime(2026, 9, 8)), [ana], {
+          ana.id: _justificado,
+        }),
+        _roll(
+          _meeting('e3', turmaId: 'turma-2', day: DateTime(2026, 9, 1)),
+          [bruno],
+          {bruno.id: _ausente},
+        ),
+      ]);
+
+      expect(freq.keys, unorderedEquals([ana.id, bruno.id]));
+      expect(freq[ana.id]!.present, 1);
+      expect(freq[ana.id]!.justified, 1);
+      expect(freq[ana.id]!.rate, 0.5); // justificada conta como falta
+      expect(freq[bruno.id]!.absent, 1);
+      expect(freq[bruno.id]!.present, 0);
+    });
+
+    test('não-marcado não vira falta nem percentual', () {
+      final freq = baptismFrequencyByStudent([
+        _roll(_meeting('e1', day: DateTime(2026, 9, 1)), [ana], {}),
+      ]);
+      expect(freq[ana.id]!.marked, 0);
+      expect(freq[ana.id]!.rate, isNull);
+      expect(freq[ana.id]!.unmarked, 1);
+    });
+
+    test('pílula: percentual, faltas e justificadas à parte', () {
+      final freq = baptismFrequencyByStudent([
+        for (final (i, m) in [
+          _presente,
+          _presente,
+          _ausente,
+          _justificado,
+        ].indexed)
+          _roll(_meeting('e$i', day: DateTime(2026, 9, 1 + i)), [ana], {
+            ana.id: m,
+          }),
+      ]);
+      expect(
+        frequencyPillLabel(freq[ana.id]!),
+        '50% de presença · 1 falta · 1 justificada',
+      );
     });
   });
 }
