@@ -390,16 +390,39 @@ class TurmaMaterialReadSheet extends StatelessWidget {
 
   const TurmaMaterialReadSheet({super.key, required this.material});
 
-  /// Arquivo e link externo, cada um com o seu botão. O vídeo explicativo
-  /// toca na própria janela ([InlineVideo]).
-  List<({String url, IconData icon, String label})> get _links => [
-    for (final (raw, icon, label) in [
-      (material.fileUrl, AppIcons.forward, 'Abrir arquivo'),
-      (material.externalLink, AppIcons.link, 'Abrir link'),
-    ])
-      if (raw != null && raw.trim().isNotEmpty)
-        (url: raw.trim(), icon: icon, label: label),
-  ];
+  @override
+  Widget build(BuildContext context) {
+    return TurmaSheetBody(
+      title: material.title,
+      children: [
+        Text(
+          material.materialType.label,
+          style: CommunityDesign.metaStyle(context),
+        ),
+        TurmaMaterialContent(material: material),
+      ],
+    );
+  }
+}
+
+/// Corpo do material: vídeo tocando no app, descrição, texto e os botões do
+/// arquivo (abrir e baixar) e do link. Usado na janela do material e, aberto
+/// direto, no fim do Conteúdo da aula.
+class TurmaMaterialContent extends StatelessWidget {
+  final SupportMaterial material;
+
+  const TurmaMaterialContent({super.key, required this.material});
+
+  /// URL que força o download: arquivo do Storage do Supabase aceita
+  /// `?download=` (vira `Content-Disposition: attachment`); qualquer outro
+  /// endereço (Drive, site) só abre.
+  static String? downloadUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.path.contains('/storage/v1/object/public/')) {
+      return null;
+    }
+    return '$url${uri.hasQuery ? '&' : '?'}download=';
+  }
 
   Future<void> _open(BuildContext context, String url) async {
     final uri = Uri.tryParse(url);
@@ -415,16 +438,39 @@ class TurmaMaterialReadSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String text(String? raw) => (raw ?? '').trim();
     final meta = CommunityDesign.metaStyle(context);
-    final links = _links;
-    final description = (material.description ?? '').trim();
-    final content = (material.content ?? '').trim();
-    final video = (material.videoUrl ?? '').trim();
+    final video = text(material.videoUrl);
+    final description = text(material.description);
+    final content = text(material.content);
+    final file = text(material.fileUrl);
+    final link = text(material.externalLink);
+    final download = file.isEmpty ? null : downloadUrl(file);
 
-    return TurmaSheetBody(
-      title: material.title,
+    final buttons = [
+      if (file.isNotEmpty)
+        FilledButton.icon(
+          onPressed: () => _open(context, file),
+          icon: const Icon(AppIcons.forward, size: 18),
+          label: const Text('Abrir arquivo'),
+        ),
+      if (download != null)
+        OutlinedButton.icon(
+          onPressed: () => _open(context, download),
+          icon: const Icon(AppIcons.download, size: 18),
+          label: const Text('Baixar'),
+        ),
+      if (link.isNotEmpty)
+        OutlinedButton.icon(
+          onPressed: () => _open(context, link),
+          icon: const Icon(AppIcons.link, size: 18),
+          label: const Text('Abrir link'),
+        ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(material.materialType.label, style: meta),
         if (video.isNotEmpty) ...[
           const SizedBox(height: 12),
           InlineVideo(url: video),
@@ -434,28 +480,11 @@ class TurmaMaterialReadSheet extends StatelessWidget {
           Text(description),
         ],
         if (content.isNotEmpty) ...[const SizedBox(height: 12), Text(content)],
-        if (links.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final (i, link) in links.indexed)
-                i == 0
-                    ? FilledButton.icon(
-                        onPressed: () => _open(context, link.url),
-                        icon: Icon(link.icon, size: 18),
-                        label: Text(link.label),
-                      )
-                    : OutlinedButton.icon(
-                        onPressed: () => _open(context, link.url),
-                        icon: Icon(link.icon, size: 18),
-                        label: Text(link.label),
-                      ),
-            ],
-          ),
+        if (buttons.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Wrap(spacing: 8, runSpacing: 8, children: buttons),
         ],
-        if (links.isEmpty &&
+        if (buttons.isEmpty &&
             video.isEmpty &&
             content.isEmpty &&
             description.isEmpty)

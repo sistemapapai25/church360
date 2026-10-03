@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart' as yi;
 
 import 'inline_video_web_stub.dart'
     if (dart.library.js_interop) 'inline_video_web.dart';
@@ -11,9 +10,12 @@ import 'video_play_overlay.dart';
 /// Vídeo que toca dentro do app, no mesmo desenho do devocional: capa 16:9
 /// com o botão de play; tocar troca a capa pelo player.
 ///
-/// YouTube toca embutido em qualquer plataforma. Arquivo enviado (mp4 do
-/// Storage) toca num `<video>` no navegador; no app nativo, sem player de
-/// arquivo instalado, abre por fora.
+/// No navegador, YouTube é o embed oficial direto (um iframe só, controles e
+/// tela cheia do próprio YouTube) e arquivo enviado (mp4 do Storage) toca
+/// num `<video>`. O `youtube_player_iframe` não serve aqui: ele monta um
+/// iframe intermediário que conversa por `postMessage` e, no app publicado,
+/// os controles não respondiam ao clique. No app nativo, YouTube usa o
+/// `youtube_player_flutter`; arquivo, sem player instalado, abre por fora.
 class InlineVideo extends StatefulWidget {
   final String url;
 
@@ -26,14 +28,12 @@ class InlineVideo extends StatefulWidget {
 class _InlineVideoState extends State<InlineVideo> {
   bool _playing = false;
   YoutubePlayerController? _yt;
-  yi.YoutubePlayerController? _ytWeb;
 
   String? get _youtubeId => YoutubePlayer.convertUrlToId(widget.url);
 
   @override
   void dispose() {
     _yt?.dispose();
-    _ytWeb?.close();
     super.dispose();
   }
 
@@ -51,16 +51,7 @@ class _InlineVideoState extends State<InlineVideo> {
       }
       return;
     }
-    if (id != null && kIsWeb) {
-      _ytWeb = yi.YoutubePlayerController.fromVideoId(
-        videoId: id,
-        autoPlay: true,
-        params: const yi.YoutubePlayerParams(
-          showControls: true,
-          showFullscreenButton: true,
-        ),
-      );
-    } else if (id != null) {
+    if (id != null && !kIsWeb) {
       _yt = YoutubePlayerController(
         initialVideoId: id,
         flags: const YoutubePlayerFlags(autoPlay: true, mute: false),
@@ -70,8 +61,11 @@ class _InlineVideoState extends State<InlineVideo> {
   }
 
   Widget _player(String? id) {
-    if (id == null) return HtmlElementView(viewType: videoViewType(widget.url));
-    if (_ytWeb != null) return yi.YoutubePlayer(controller: _ytWeb!);
+    if (kIsWeb) {
+      return HtmlElementView(
+        viewType: videoViewType(widget.url, youtubeId: id),
+      );
+    }
     return YoutubePlayer(controller: _yt!, showVideoProgressIndicator: true);
   }
 
