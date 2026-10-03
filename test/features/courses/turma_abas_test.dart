@@ -942,6 +942,47 @@ void main() {
       expect(find.byType(InlineVideo), findsOneWidget);
     });
 
+    testWidgets('material aparece aberto na aula, com Abrir e Baixar', (
+      tester,
+    ) async {
+      const file =
+          'https://x.supabase.co/storage/v1/object/public/support-material-files/t/u/a.pdf';
+      final materials = _FakeMaterialsRepo(
+        linked: [
+          _material(
+            'm1',
+          ).copyWith(description: 'Leia antes da aula', fileUrl: file),
+        ],
+      );
+      await _pump(
+        tester,
+        _host(
+          const LessonComplementaryMaterials(lessonId: 'l1', canWrite: false),
+          overrides: [
+            supportMaterialsRepositoryProvider.overrideWithValue(materials),
+          ],
+        ),
+      );
+
+      // Sem janela: descrição e botões já estão na lista.
+      expect(find.text('Leia antes da aula'), findsOneWidget);
+      expect(find.text('Abrir arquivo'), findsOneWidget);
+      expect(find.text('Baixar'), findsOneWidget);
+    });
+
+    test('Baixar só para arquivo do Storage', () {
+      expect(
+        TurmaMaterialContent.downloadUrl(
+          'https://x.supabase.co/storage/v1/object/public/b/a.pdf',
+        ),
+        'https://x.supabase.co/storage/v1/object/public/b/a.pdf?download=',
+      );
+      expect(
+        TurmaMaterialContent.downloadUrl('https://drive.google.com/file/d/1'),
+        isNull,
+      );
+    });
+
     testWidgets('liderança vincula material à aula (tipo study_lesson)', (
       tester,
     ) async {
