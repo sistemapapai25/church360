@@ -11,6 +11,8 @@ import '../../domain/models/holiday.dart';
 import '../../../church_schedule/domain/models/church_schedule.dart';
 import '../../../church_schedule/presentation/providers/church_schedule_provider.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../courses/presentation/turma/professor_aula.dart';
+import '../../../study_groups/domain/models/teaching_lesson.dart';
 
 /// Tela de Agenda
 class ScheduleScreen extends ConsumerStatefulWidget {
@@ -41,6 +43,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       churchSchedulesOfMonthProvider(_focusedDay),
     );
     final holidays = ref.watch(holidaysOfMonthProvider(_focusedDay));
+    final myLessons = _myLessonsOfMonth(_focusedDay);
 
     final content = SingleChildScrollView(
       child: Column(
@@ -49,8 +52,12 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           eventsAsync.when(
             data: (events) {
               return churchSchedulesAsync.when(
-                data: (churchSchedules) =>
-                    _buildCalendar(events, churchSchedules, holidays),
+                data: (churchSchedules) => _buildCalendar(
+                  events,
+                  churchSchedules,
+                  holidays,
+                  myLessons,
+                ),
                 loading: () => const Center(
                   child: Padding(
                     padding: EdgeInsets.all(32.0),
@@ -161,10 +168,21 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   }
 
   /// Constrói o calendário
+  /// Minhas aulas (sou o professor) no mês de [day]. Aula que não carregou
+  /// não derruba o calendário.
+  List<TeachingLesson> _myLessonsOfMonth(DateTime day) =>
+      ref
+          .watch(
+            myTeachingLessonsOfMonthProvider(DateTime(day.year, day.month)),
+          )
+          .valueOrNull ??
+      const [];
+
   Widget _buildCalendar(
     List<Event> events,
     List<ChurchSchedule> churchSchedules,
     List<Holiday> holidays,
+    List<TeachingLesson> myLessons,
   ) {
     return TableCalendar(
       firstDay: DateTime(2020, 1, 1),
@@ -176,7 +194,10 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
 
       // Eventos
       eventLoader: (day) {
-        return _getEventsForDay(day, events, churchSchedules, holidays);
+        return [
+          ..._getEventsForDay(day, events, churchSchedules, holidays),
+          ...myLessons.where((l) => isSameDay(l.scheduledDate, day)),
+        ];
       },
 
       // Callbacks
@@ -292,6 +313,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
             day,
             churchSchedules,
           );
+          final hasLesson = myLessons.any(
+            (l) => isSameDay(l.scheduledDate, day),
+          );
 
           return Positioned(
             bottom: 4,
@@ -327,6 +351,16 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                       color: Theme.of(
                         context,
                       ).colorScheme.primary, // Azul primário
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                if (hasLesson)
+                  Container(
+                    width: 8,
+                    height: 3,
+                    margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.tertiary, // Aula
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -398,6 +432,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       churchSchedulesOfDateProvider(_selectedDay),
     );
     final holidays = ref.watch(holidaysOfDateProvider(_selectedDay));
+    final myLessons = _myLessonsOfMonth(
+      _selectedDay,
+    ).where((l) => isSameDay(l.scheduledDate, _selectedDay)).toList();
 
     return eventsAsync.when(
       data: (events) {
@@ -406,7 +443,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
             final hasEvents =
                 events.isNotEmpty ||
                 churchSchedules.isNotEmpty ||
-                holidays.isNotEmpty;
+                holidays.isNotEmpty ||
+                myLessons.isNotEmpty;
 
             if (!hasEvents) {
               return Center(
@@ -477,6 +515,13 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   ...churchSchedules.map(
                     (schedule) => _buildChurchScheduleCard(schedule),
                   ),
+
+                  // Minhas aulas (professor)
+                  for (final lesson in myLessons)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: TeachingLessonCard(lesson: lesson),
+                    ),
                   const SizedBox(height: 80),
                 ],
               ),

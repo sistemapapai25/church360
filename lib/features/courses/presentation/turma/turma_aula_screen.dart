@@ -251,7 +251,7 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
               runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                if (widget.access.isLeadership)
+                if (widget.access.isLeadership || widget.access.isTeacher)
                   StatusBadge(
                     label: lesson.status.displayName,
                     tone: lessonStatusTone(lesson.status),

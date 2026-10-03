@@ -112,7 +112,11 @@ class _EventsTabContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Usa a tela de eventos existente, mas sem AppBar e sem CRUD (apenas visualização)
-    return const EventsListScreen(showAppBar: false, enableCrud: false);
+    return const EventsListScreen(
+      showAppBar: false,
+      enableCrud: false,
+      showMyLessons: true,
+    );
   }
 }
 

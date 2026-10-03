@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/study_group.dart';
+import '../domain/models/teaching_lesson.dart';
 
 class StudyGroupRepository {
   final SupabaseClient _supabase;
@@ -448,6 +449,56 @@ class StudyGroupRepository {
         .single();
 
     return StudyLesson.fromJson(response);
+  }
+
+  /// As aulas de que eu sou o professor, de [from] até [to] (sem [to], dali
+  /// em diante). RPC `my_teaching_lessons`: o professor não lê a turma.
+  Future<List<TeachingLesson>> getMyTeachingLessons(
+    DateTime from, [
+    DateTime? to,
+  ]) async {
+    String day(DateTime d) => d.toIso8601String().substring(0, 10);
+    final response = await _supabase.rpc(
+      'my_teaching_lessons',
+      params: {'p_from': day(from), 'p_to': to == null ? null : day(to)},
+    );
+    return (response as List)
+        .map((row) => TeachingLesson.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  /// A chamada da aula de que eu sou o professor (`teacher_lesson_roll`).
+  Future<List<TeacherRollEntry>> getTeacherLessonRoll(String lessonId) async {
+    final response = await _supabase.rpc(
+      'teacher_lesson_roll',
+      params: {'p_lesson_id': lessonId},
+    );
+    return [
+      for (final row in response as List)
+        (
+          studentId: row['student_id'] as String,
+          name: row['full_name'] as String,
+          status: row['status'] == null
+              ? null
+              : AttendanceStatus.fromString(row['status'] as String),
+        ),
+    ];
+  }
+
+  /// Marca a presença pelo professor da aula (`teacher_set_attendance`).
+  Future<void> teacherSetAttendance(
+    String lessonId,
+    String studentId,
+    AttendanceStatus status,
+  ) async {
+    await _supabase.rpc(
+      'teacher_set_attendance',
+      params: {
+        'p_lesson_id': lessonId,
+        'p_student_id': studentId,
+        'p_status': status.value,
+      },
+    );
   }
 
   /// Grava só o professor da aula (Escala de ensino, PR 2b).
