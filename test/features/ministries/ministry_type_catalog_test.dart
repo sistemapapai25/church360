@@ -45,9 +45,8 @@ void main() {
         'Equipe',
         'Escala',
         'Financeiro',
-        'Alunos',
+        'Turmas',
         'Checklist',
-        'Presença',
         'WhatsApp',
         'Relatórios',
       ]);
@@ -274,7 +273,7 @@ void main() {
       final all = MinistryTypeCatalog.fallback.availableTabsFor('generic');
       expect(keys(all), [
         'equipe', 'escala', 'financeiro', 'whatsapp', 'relatorios',
-        'louvores-off', 'alunos-off', 'checklist-off', 'presenca-off',
+        'louvores-off', 'alunos-off', 'checklist-off',
       ]);
     });
 
@@ -293,7 +292,7 @@ void main() {
       );
       expect(keys(r), [
         'equipe', 'escala', 'financeiro', 'whatsapp-off', 'relatorios',
-        'louvores-off', 'alunos', 'checklist-off', 'presenca-off',
+        'louvores-off', 'alunos', 'checklist-off',
       ]);
     });
 

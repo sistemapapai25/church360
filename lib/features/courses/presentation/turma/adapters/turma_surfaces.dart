@@ -18,12 +18,10 @@ typedef TurmaManageTarget = ({String label, String route});
 /// são as mesmas para qualquer turma e não passam por aqui.
 abstract interface class TurmaSurfaces {
   Widget alunos();
-  Widget presenca();
   Widget minhaFrequencia();
 
-  /// Ação "Registrar presença" na aula, ou `null` quando a origem não
-  /// registra presença pela aula. Só o Batismo tem (Etapa 5.3); a turma
-  /// genérica marca presença na aba Presença, por aula, desde a 5.2.
+  /// Ação "Registrar presença" na aula, ou `null` quando quem vê a turma
+  /// não faz a chamada. É o único lugar da chamada nas duas origens.
   TurmaLessonAttendance? get lessonAttendance;
 
   /// Para onde a liderança vai quando quer editar a turma que abriu pela

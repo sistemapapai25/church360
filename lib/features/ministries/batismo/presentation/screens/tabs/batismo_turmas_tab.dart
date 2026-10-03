@@ -2,65 +2,46 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../../core/design/community_design.dart';
-import '../../../../../core/theme/app_theme.dart';
-import '../../../../../core/widgets/status_badge.dart';
-import '../../../../events/domain/models/event.dart';
-import '../../../../courses/presentation/providers/courses_provider.dart';
-import '../../../../events/presentation/providers/events_provider.dart';
-import '../../data/baptism_repository.dart';
-import '../../domain/models/baptism_turma.dart';
-import '../providers/baptism_providers.dart';
+import '../../../../../../core/design/app_icons.dart';
+import '../../../../../../core/design/community_design.dart';
+import '../../../../../../core/theme/app_theme.dart';
+import '../../../../../../core/utils/share_link_utils.dart';
+import '../../../../../../core/widgets/app_filter_bar.dart';
+import '../../../../../../core/widgets/share_link_dialog.dart';
+import '../../../../../../core/widgets/status_badge.dart';
+import '../../../../../events/domain/models/event.dart';
+import '../../../../../courses/presentation/providers/courses_provider.dart';
+import '../../../../../events/presentation/providers/events_provider.dart';
+import '../../../data/baptism_repository.dart';
+import '../../../domain/models/baptism_turma.dart';
+import '../../providers/baptism_providers.dart';
+import 'batismo_alunos_tab.dart';
 
-/// Abre o gerenciador de turmas do ministério.
+/// Aba Turmas do workspace do Batismo — a entrada do módulo.
 ///
-/// É também a porta de gestão da tela da turma: tocar num card fecha a
-/// folha e abre a turma em `/turmas/:studyGroupId/gestao`, onde aula,
-/// aluno, presença e material se editam. Por Cursos a mesma tela abre em
-/// modo leitura.
-///
-/// Devolve `true` se alguma turma foi criada, alterada ou apagada — quem
-/// chamou invalida as listas.
-Future<bool> showBaptismTurmasSheet({
-  required BuildContext context,
-  required String ministryId,
-  required bool canCreate,
-  required bool canEdit,
-  required bool canDelete,
-}) async {
-  final changed = await showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _TurmasSheet(
-      ministryId: ministryId,
-      canCreate: canCreate,
-      canEdit: canEdit,
-      canDelete: canDelete,
-    ),
-  );
-  return changed ?? false;
-}
-
-class _TurmasSheet extends ConsumerStatefulWidget {
+/// A turma é o pai: tocar num card abre a turma em
+/// `/turmas/:studyGroupId/gestao`, onde aula, aluno, presença (dentro da
+/// aula) e material se editam. Por Cursos a mesma tela abre em modo
+/// leitura. O atalho "Alunos" abre todos os alunos de todas as turmas, para
+/// achar alguém rápido sem saber a turma.
+class BatismoTurmasTab extends ConsumerStatefulWidget {
   final String ministryId;
-  final bool canCreate;
-  final bool canEdit;
-  final bool canDelete;
 
-  const _TurmasSheet({
-    required this.ministryId,
-    required this.canCreate,
-    required this.canEdit,
-    required this.canDelete,
-  });
+  const BatismoTurmasTab({super.key, required this.ministryId});
 
   @override
-  ConsumerState<_TurmasSheet> createState() => _TurmasSheetState();
+  ConsumerState<BatismoTurmasTab> createState() => _BatismoTurmasTabState();
 }
 
-class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
-  bool _changed = false;
+class _BatismoTurmasTabState extends ConsumerState<BatismoTurmasTab> {
+  final _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   Future<void> _openForm({BaptismTurma? turma}) async {
     final saved = await showModalBottomSheet<bool>(
@@ -70,22 +51,23 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
       builder: (_) =>
           _TurmaFormSheet(ministryId: widget.ministryId, turma: turma),
     );
-    if (saved == true) {
-      _changed = true;
-      ref.invalidate(baptismTurmasProvider(widget.ministryId));
-      ref.invalidate(baptismStudentsProvider(widget.ministryId));
-    }
+    if (saved == true && mounted) invalidateBaptismData(ref, widget.ministryId);
   }
 
-  /// Fecha a folha e abre a tela da turma em modo gestão.
-  ///
-  /// Fechar antes de navegar não é detalhe: a tela da turma é rota, e quem
-  /// voltar dela tem de cair no workspace do ministério, não num sheet
-  /// pendurado por cima. O `_changed` vai junto para quem abriu recarregar
-  /// o que mudou aqui dentro.
-  void _openTurma(String studyGroupId) {
-    Navigator.of(context).pop(_changed);
-    context.push('/turmas/$studyGroupId/gestao');
+  void _openTurma(String studyGroupId) =>
+      context.push('/turmas/$studyGroupId/gestao');
+
+  /// Todos os alunos de todas as turmas: a mesma aba Alunos, sem trava de
+  /// turma, numa página própria por cima do workspace.
+  void _openAlunos() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('Alunos')),
+          body: BatismoAlunosTab(ministryId: widget.ministryId),
+        ),
+      ),
+    );
   }
 
   Future<void> _confirmDelete(BaptismTurma turma, int studentCount) async {
@@ -119,9 +101,7 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
 
     try {
       await ref.read(baptismRepositoryProvider).deleteTurma(turma.id);
-      _changed = true;
-      ref.invalidate(baptismTurmasProvider(widget.ministryId));
-      ref.invalidate(baptismStudentsProvider(widget.ministryId));
+      if (mounted) invalidateBaptismData(ref, widget.ministryId);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -129,6 +109,37 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
         ).showSnackBar(SnackBar(content: Text('Não foi possível excluir: $e')));
       }
     }
+  }
+
+  /// Abre o diálogo com o link público de inscrição.
+  ///
+  /// O aviso de "nenhuma turma aberta" existe porque o link continua
+  /// válido mesmo sem turma aceitando inscrição — quem o recebesse veria
+  /// "Inscrições fechadas" e ninguém aqui saberia por quê. A turma se abre
+  /// no formulário dela, nesta aba.
+  void _shareRegistrationLink(List<BaptismTurma> turmas) {
+    final abertas = turmas
+        .where(
+          (t) =>
+              t.acceptsPublicRegistration &&
+              t.status == BaptismTurmaStatus.ativa,
+        )
+        .length;
+    final url = ShareLinkUtils.buildShareUrl(
+      '/batismo/${widget.ministryId}/inscricao',
+    );
+
+    showShareLinkDialog(
+      context,
+      title: 'Link de inscrição',
+      url: url,
+      shareText: 'Inscreva-se no curso de batismo: $url',
+      warning: abertas == 0
+          ? 'Nenhuma turma está aceitando inscrição agora. Quem abrir o link '
+                'vai ver "Inscrições fechadas" — abra uma turma aqui antes '
+                'de divulgar.'
+          : null,
+    );
   }
 
   /// Quantos eventos da agenda caem na categoria e na janela da turma.
@@ -153,6 +164,18 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
     final turmasAsync = ref.watch(baptismTurmasProvider(widget.ministryId));
     final studentsAsync = ref.watch(baptismStudentsProvider(widget.ministryId));
 
+    bool can(BaptismWriteAction action) => ref
+        .watch(
+          baptismCanWriteProvider((
+            ministryId: widget.ministryId,
+            action: action,
+          )),
+        )
+        .maybeWhen(data: (v) => v, orElse: () => false);
+    final canCreate = can(BaptismWriteAction.create);
+    final canEdit = can(BaptismWriteAction.edit);
+    final canDelete = can(BaptismWriteAction.delete);
+
     final counts = <String, int>{};
     studentsAsync.whenData((students) {
       for (final s in students) {
@@ -161,7 +184,7 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
     });
 
     // Rótulo da categoria e contagem de encontros são resolvidos aqui, uma
-    // vez para a folha toda: o catálogo e a agenda já são carregados para o
+    // vez para a lista toda: o catálogo e a agenda já são carregados para o
     // formulário, e contar no cliente evita uma consulta por turma.
     final categoryLabels = <String?, String>{};
     ref.watch(baptismEventTypeCatalogProvider).whenData((catalog) {
@@ -172,7 +195,7 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
 
     // Espelho da turma em `study_groups`, que é o que a tela da turma abre.
     // Vazio enquanto carrega (e para turma sem espelho): o card só não
-    // abre, o resto da folha continua igual.
+    // abre, o resto continua igual.
     final groupIds = ref
         .watch(ministryTurmaGroupIdsProvider(widget.ministryId))
         .valueOrNull;
@@ -181,120 +204,104 @@ class _TurmasSheetState extends ConsumerState<_TurmasSheet> {
     // anunciar "nenhum encontro" antes de ter os eventos em mãos.
     final agenda = ref.watch(allEventsProvider).valueOrNull;
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) Navigator.of(context).pop(_changed);
-      },
-      child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
-        ),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppTheme.mutedForeground.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Turmas',
-                    style: CommunityDesign.titleStyle(
-                      context,
-                    ).copyWith(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
-                ),
-                if (widget.canCreate)
-                  TextButton.icon(
-                    onPressed: () => _openForm(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Nova turma'),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Cada turma aponta uma categoria da agenda e um período. Os '
-              'eventos daquela categoria dentro do período são os encontros '
-              'da turma.',
-              style: CommunityDesign.metaStyle(context),
-            ),
-            const SizedBox(height: 12),
-            Flexible(
-              child: turmasAsync.when(
-                loading: () => const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-                error: (e, _) => Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    'Não foi possível carregar as turmas.\n$e',
-                    style: CommunityDesign.metaStyle(context),
-                  ),
-                ),
-                data: (turmas) {
-                  if (turmas.isEmpty) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 32),
-                      child: Text(
-                        'Nenhuma turma ainda. Crie a primeira para poder '
-                        'cadastrar alunos.',
-                        textAlign: TextAlign.center,
-                        style: CommunityDesign.metaStyle(context),
-                      ),
-                    );
-                  }
+    final turmas = turmasAsync.valueOrNull ?? const <BaptismTurma>[];
+    final query = _query.trim().toLowerCase();
+    final visible = [
+      for (final t in turmas)
+        if (query.isEmpty || t.name.toLowerCase().contains(query)) t,
+    ];
 
-                  return ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: turmas.length,
-                    itemBuilder: (context, i) {
-                      final t = turmas[i];
-                      final studyGroupId = groupIds?[t.id];
-                      return _TurmaTile(
-                        turma: t,
-                        onOpen: studyGroupId == null
-                            ? null
-                            : () => _openTurma(studyGroupId),
-                        studentCount: counts[t.id] ?? 0,
-                        categoryLabel: categoryLabels[t.eventTypeCode],
-                        sessionCount: _sessionCount(t, agenda),
-                        onEdit: widget.canEdit
-                            ? () => _openForm(turma: t)
-                            : null,
-                        onDelete: widget.canDelete
-                            ? () => _confirmDelete(t, counts[t.id] ?? 0)
-                            : null,
-                      );
-                    },
-                  );
-                },
+    return RefreshIndicator(
+      onRefresh: () async {
+        invalidateBaptismData(ref, widget.ministryId);
+        await ref.read(baptismTurmasProvider(widget.ministryId).future);
+      },
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+        children: [
+          AppFilterBar(
+            searchController: _search,
+            searchHint: 'Buscar turma...',
+            onSearchChanged: (v) => setState(() => _query = v),
+            secondaryActions: [
+              AppFilterAction(
+                label: 'Alunos',
+                icon: AppIcons.student,
+                onPressed: _openAlunos,
               ),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(_changed),
-              child: const Text('Fechar'),
-            ),
-          ],
-        ),
+              // Só para quem administra: o link é um canal de entrada na
+              // igreja, não um botão de leitura.
+              if (canEdit)
+                AppFilterAction(
+                  label: 'Link de inscrição',
+                  icon: AppIcons.link,
+                  onPressed: () => _shareRegistrationLink(turmas),
+                ),
+            ],
+            primaryAction: canCreate
+                ? AppFilterAction(
+                    label: 'Nova turma',
+                    icon: AppIcons.add,
+                    onPressed: () => _openForm(),
+                  )
+                : null,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Cada turma aponta uma categoria da agenda e um período. Toque '
+            'numa turma para ver alunos, aulas, presença e materiais.',
+            style: CommunityDesign.metaStyle(context),
+          ),
+          const SizedBox(height: 12),
+          ...turmasAsync.when(
+            loading: () => const [
+              Padding(
+                padding: EdgeInsets.all(32),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ],
+            error: (e, _) => [
+              Text(
+                'Não foi possível carregar as turmas.\n$e',
+                style: CommunityDesign.metaStyle(context),
+              ),
+            ],
+            data: (_) {
+              if (visible.isEmpty) {
+                return [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: Text(
+                      turmas.isEmpty
+                          ? 'Nenhuma turma ainda. Crie a primeira para poder '
+                                'cadastrar alunos.'
+                          : 'Nenhuma turma encontrada.',
+                      textAlign: TextAlign.center,
+                      style: CommunityDesign.metaStyle(context),
+                    ),
+                  ),
+                ];
+              }
+              return [
+                for (final t in visible)
+                  _TurmaTile(
+                    turma: t,
+                    onOpen: groupIds?[t.id] == null
+                        ? null
+                        : () => _openTurma(groupIds![t.id]!),
+                    studentCount: counts[t.id] ?? 0,
+                    categoryLabel: categoryLabels[t.eventTypeCode],
+                    sessionCount: _sessionCount(t, agenda),
+                    onEdit: canEdit ? () => _openForm(turma: t) : null,
+                    onDelete: canDelete
+                        ? () => _confirmDelete(t, counts[t.id] ?? 0)
+                        : null,
+                  ),
+              ];
+            },
+          ),
+        ],
       ),
     );
   }

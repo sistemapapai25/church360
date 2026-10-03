@@ -5,6 +5,7 @@ import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/glass_card.dart';
 import '../../../../../core/widgets/status_badge.dart';
+import '../../domain/baptism_attendance_report.dart';
 import '../../domain/models/baptism_student.dart';
 
 /// Card de um aluno na aba Alunos.
@@ -37,6 +38,10 @@ class StudentCard extends StatelessWidget {
   /// mostra nada: "0/0" não informa, só ocupa espaço.
   final ({int done, int total})? checklist;
 
+  /// Frequência do aluno na turma. Nula enquanto as chamadas carregam; sem
+  /// nenhuma marcação a pílula não aparece (percentual nenhum é melhor que 0%).
+  final BaptismStudentFrequency? frequency;
+
   const StudentCard({
     super.key,
     required this.student,
@@ -44,6 +49,7 @@ class StudentCard extends StatelessWidget {
     this.onDelete,
     this.onWhatsApp,
     this.checklist,
+    this.frequency,
   });
 
   @override
@@ -144,6 +150,13 @@ class StudentCard extends StatelessWidget {
                     icon: checklist!.done == checklist!.total
                         ? AppIcons.completed
                         : AppIcons.checklist,
+                  ),
+                if (frequency != null && frequency!.marked > 0)
+                  _Pill(
+                    label: frequencyPillLabel(frequency!),
+                    color: muted,
+                    background: muted.withValues(alpha: 0.12),
+                    icon: AppIcons.howToReg,
                   ),
                 if (student.source == BaptismStudentSource.publica)
                   _Pill(
@@ -294,4 +307,17 @@ class _StudentMenu extends StatelessWidget {
       ],
     );
   }
+}
+
+/// `87% · 2 faltas · 1 justificada`. Justificada aparece à parte porque
+/// conta como falta no percentual (regra 1 do relatório) e sem ela o número
+/// pareceria errado.
+String frequencyPillLabel(BaptismStudentFrequency f) {
+  final parts = [
+    '${formatFrequency(f.rate)} de presença',
+    if (f.absent > 0) '${f.absent} ${f.absent == 1 ? 'falta' : 'faltas'}',
+    if (f.justified > 0)
+      '${f.justified} ${f.justified == 1 ? 'justificada' : 'justificadas'}',
+  ];
+  return parts.join(' · ');
 }

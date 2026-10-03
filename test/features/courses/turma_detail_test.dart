@@ -429,11 +429,10 @@ void main() {
   });
 
   group('turmaTabsFor', () {
-    test('liderança: Aulas, Alunos, Presença, Materiais', () {
+    test('liderança: Aulas, Alunos, Materiais — sem aba Presença', () {
       expect(turmaTabsFor(const TurmaAccess(role: TurmaRole.leadership)), [
         TurmaTabId.aulas,
         TurmaTabId.alunos,
-        TurmaTabId.presenca,
         TurmaTabId.materiais,
       ]);
     });
@@ -452,7 +451,7 @@ void main() {
   });
 
   group('TurmaDetailScreen', () {
-    testWidgets('liderança vê cabeçalho e as quatro abas', (tester) async {
+    testWidgets('liderança vê cabeçalho e as três abas', (tester) async {
       await tester.pumpWidget(
         _host(
           overrides: _accessOverrides(
@@ -466,7 +465,7 @@ void main() {
 
       expect(find.text('Batizandos 2026'), findsOneWidget);
       expect(find.text('Batismo'), findsOneWidget);
-      for (final label in ['Aulas', 'Alunos', 'Presença', 'Materiais']) {
+      for (final label in ['Aulas', 'Alunos', 'Materiais']) {
         expect(find.text(label), findsOneWidget);
       }
       expect(find.text('Minha frequência'), findsNothing);

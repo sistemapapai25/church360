@@ -13,8 +13,9 @@ import '../turma_origin.dart';
 import '../widgets/turma_sheet.dart';
 import 'turma_surfaces.dart';
 
-/// Superfícies da turma genérica: participantes, presença mínima e a
-/// frequência do próprio aluno.
+/// Superfícies da turma genérica: participantes (com a contagem de
+/// presença de cada um), a chamada dentro da aula e a frequência do próprio
+/// aluno.
 ///
 /// Semântica própria, **sem as regras do Batismo**: contagem crua por
 /// status (presentes, faltas, justificadas), participante sem linha é "—",
@@ -26,19 +27,31 @@ class GenericaTurmaAdapter implements TurmaSurfaces {
   const GenericaTurmaAdapter(this.origin, this.access);
 
   @override
-  Widget alunos() => GenericaParticipantes(studyGroupId: origin.studyGroupId);
-
-  @override
-  Widget presenca() =>
-      GenericaPresenca(studyGroupId: origin.studyGroupId, access: access);
+  Widget alunos() =>
+      GenericaParticipantes(studyGroupId: origin.studyGroupId, access: access);
 
   @override
   Widget minhaFrequencia() =>
       GenericaMinhaFrequencia(studyGroupId: origin.studyGroupId);
 
-  /// A turma genérica marca presença na aba Presença, aula por aula.
+  /// A chamada abre dentro da aula, como no Batismo.
+  ///
+  /// Só o líder ativo do grupo grava (`study_lesson_led_by_me`); o elevado
+  /// abre só para ler. Quem é liderança só por `courses.*` não enxerga a
+  /// presença pela RLS, então não ganha a ação — uma chamada vazia diria que
+  /// ninguém foi marcado. Na vitrine de Cursos também não há chamada.
   @override
-  TurmaLessonAttendance? get lessonAttendance => null;
+  TurmaLessonAttendance? get lessonAttendance =>
+      access.readOnly || !(access.leadsGroup || access.elevated)
+      ? null
+      : (context, lesson) => showTurmaSheet<void>(
+          context: context,
+          builder: (_) => _LessonRoll(
+            studyGroupId: origin.studyGroupId,
+            lesson: lesson,
+            canMark: access.leadsGroup,
+          ),
+        );
 
   /// A turma genérica não tem ministério: a gestão dela é esta mesma tela,
   /// pela porta que grava.
@@ -82,6 +95,20 @@ class GenericaAttendanceCount {
       '$present presentes · $absent faltas · $justified justificadas';
 }
 
+/// A contagem de cada participante somando as chamadas de várias aulas.
+/// Chave: `study_attendance.user_id`.
+Map<String, GenericaAttendanceCount> genericaCountsByUser(
+  Iterable<StudyAttendance> rows,
+) {
+  final byUser = <String, List<AttendanceStatus>>{};
+  for (final r in rows) {
+    byUser.putIfAbsent(r.userId, () => []).add(r.status);
+  }
+  return {
+    for (final e in byUser.entries) e.key: GenericaAttendanceCount.of(e.value),
+  };
+}
+
 /// Nome de quem participa, pelo diretório de membros do tenant.
 ///
 /// `study_participants.user_id` é `auth.uid()`; o diretório é por
@@ -118,8 +145,29 @@ List<StudyParticipant> genericaStudents(List<StudyParticipant> all) => [
 
 class GenericaParticipantes extends ConsumerWidget {
   final String studyGroupId;
+  final TurmaAccess access;
 
-  const GenericaParticipantes({super.key, required this.studyGroupId});
+  const GenericaParticipantes({
+    super.key,
+    required this.studyGroupId,
+    required this.access,
+  });
+
+  /// Presença de cada participante em todas as aulas não arquivadas.
+  ///
+  /// Só quem enxerga a chamada pela RLS (líder do grupo ou elevado) recebe
+  /// a contagem; para os demais o mapa fica vazio e a linha não diz nada,
+  /// em vez de dizer "0 presentes".
+  Map<String, GenericaAttendanceCount> _counts(WidgetRef ref) {
+    if (!access.leadsGroup && !access.elevated) return const {};
+    final lessons = ref.watch(groupLessonsProvider(studyGroupId)).valueOrNull;
+    if (lessons == null) return const {};
+    return genericaCountsByUser([
+      for (final l in lessons)
+        if (l.status != LessonStatus.archived)
+          ...?ref.watch(lessonAttendanceProvider(l.id)).valueOrNull,
+    ]);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -129,6 +177,7 @@ class GenericaParticipantes extends ConsumerWidget {
     final names =
         ref.watch(genericaParticipantNamesProvider).valueOrNull ?? const {};
     final meta = CommunityDesign.metaStyle(context);
+    final counts = _counts(ref);
 
     return participantsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -163,7 +212,17 @@ class GenericaParticipantes extends ConsumerWidget {
                   ),
                   child: Row(
                     children: [
-                      Expanded(child: Text(_nameOf(names, p.userId))),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_nameOf(names, p.userId)),
+                            if (p.role == ParticipantRole.participant &&
+                                counts[p.userId] != null)
+                              Text(counts[p.userId]!.label, style: meta),
+                          ],
+                        ),
+                      ),
                       Text(p.role.displayName, style: meta),
                     ],
                   ),
@@ -180,72 +239,14 @@ class GenericaParticipantes extends ConsumerWidget {
 // Presença
 // ---------------------------------------------------------------------
 
-/// Presença mínima: aula → participantes → marcação → salvar.
-///
-/// Só o líder ativo do grupo grava (`study_lesson_led_by_me`); o elevado lê.
-/// Quem é liderança só por `courses.*` não enxerga a presença pela RLS, e a
-/// aba diz isso em vez de mostrar uma chamada vazia.
-class GenericaPresenca extends ConsumerWidget {
-  final String studyGroupId;
-  final TurmaAccess access;
-
-  const GenericaPresenca({
-    super.key,
-    required this.studyGroupId,
-    required this.access,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (!access.leadsGroup && !access.elevated) {
-      return const TurmaMessage(
-        icon: AppIcons.lock,
-        message: 'A chamada desta turma é feita pelo líder do grupo.',
-      );
-    }
-
-    final lessonsAsync = ref.watch(groupLessonsProvider(studyGroupId));
-    return lessonsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => TurmaMessage.error(
-        message: 'Não foi possível carregar as aulas.',
-        onRetry: () => ref.invalidate(groupLessonsProvider(studyGroupId)),
-      ),
-      data: (all) {
-        final lessons = [
-          for (final l in all)
-            if (l.status != LessonStatus.archived) l,
-        ];
-        if (lessons.isEmpty) {
-          return const TurmaMessage(
-            icon: AppIcons.study,
-            message: 'Cadastre uma aula em Aulas para fazer a chamada.',
-          );
-        }
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-          children: [
-            for (final lesson in lessons)
-              _LessonRollCard(
-                key: ValueKey(lesson.id),
-                studyGroupId: studyGroupId,
-                lesson: lesson,
-                canMark: access.leadsGroup,
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _LessonRollCard extends ConsumerWidget {
+/// A chamada de uma aula, aberta pela própria aula: carrega o que já foi
+/// marcado e entrega a folha.
+class _LessonRoll extends ConsumerWidget {
   final String studyGroupId;
   final StudyLesson lesson;
   final bool canMark;
 
-  const _LessonRollCard({
-    super.key,
+  const _LessonRoll({
     required this.studyGroupId,
     required this.lesson,
     required this.canMark,
@@ -253,46 +254,35 @@ class _LessonRollCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final attendance = ref.watch(lessonAttendanceProvider(lesson.id));
-    final meta = CommunityDesign.metaStyle(context);
-    final summary = attendance.when(
-      loading: () => '…',
-      error: (_, _) => 'Não foi possível carregar a chamada.',
-      data: (rows) => rows.isEmpty
-          ? 'Chamada não feita'
-          : GenericaAttendanceCount.of(rows.map((r) => r.status)).label,
-    );
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: GlassCard(
-        onTap: attendance.hasValue
-            ? () => showTurmaSheet<void>(
-                context: context,
-                builder: (_) => _RollSheet(
-                  studyGroupId: studyGroupId,
-                  lesson: lesson,
-                  existing: attendance.value!,
-                  canMark: canMark,
-                ),
-              )
-            : null,
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Aula ${lesson.lessonNumber} · ${lesson.title}',
-              style: CommunityDesign.titleStyle(
-                context,
-              ).copyWith(fontSize: 15, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 4),
-            Text(summary, style: meta),
-          ],
-        ),
-      ),
-    );
+    final title = 'Aula ${lesson.lessonNumber} · ${lesson.title}';
+    return ref
+        .watch(lessonAttendanceProvider(lesson.id))
+        .when(
+          loading: () => TurmaSheetBody(
+            title: title,
+            children: const [
+              Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ],
+          ),
+          error: (_, _) => TurmaSheetBody(
+            title: title,
+            children: [
+              Text(
+                'Não foi possível carregar a chamada.',
+                style: CommunityDesign.metaStyle(context),
+              ),
+            ],
+          ),
+          data: (rows) => _RollSheet(
+            studyGroupId: studyGroupId,
+            lesson: lesson,
+            existing: rows,
+            canMark: canMark,
+          ),
+        );
   }
 }
 

@@ -28,10 +28,10 @@ abstract final class MinistryTabKeys {
   static const whatsapp = 'whatsapp';
   static const relatorios = 'relatorios';
 
-  // Batismo
+  // Batismo. A chave 'alunos' hoje abre a aba Turmas: o rótulo mudou, a
+  // chave ficou para não perder a escolha e a ordem salvas pelos líderes.
   static const alunos = 'alunos';
   static const checklist = 'checklist';
-  static const presenca = 'presenca';
 
   // Raízes e Diaconato
   static const painel = 'painel';
@@ -48,9 +48,8 @@ abstract final class MinistryTabKeys {
     MinistryTypeTab(escala, 'Escala'),
     MinistryTypeTab(financeiro, 'Financeiro'),
     MinistryTypeTab(louvores, 'Louvores'),
-    MinistryTypeTab(alunos, 'Alunos'),
+    MinistryTypeTab(alunos, 'Turmas'),
     MinistryTypeTab(checklist, 'Checklist'),
-    MinistryTypeTab(presenca, 'Presença'),
     MinistryTypeTab(whatsapp, 'WhatsApp'),
     MinistryTypeTab(relatorios, 'Relatórios'),
   ];
@@ -293,14 +292,13 @@ class MinistryTypeCatalog {
     MinistryTypeSpec(
       code: MinistryTypeCodes.batismo,
       label: 'Batismo',
-      description: 'Turmas, alunos, checklist e presença.',
+      description: 'Turmas, alunos, aulas e checklist.',
       tabs: [
         MinistryTypeTab(MinistryTabKeys.equipe, 'Equipe'),
         MinistryTypeTab(MinistryTabKeys.escala, 'Escala'),
         MinistryTypeTab(MinistryTabKeys.financeiro, 'Financeiro'),
-        MinistryTypeTab(MinistryTabKeys.alunos, 'Alunos'),
+        MinistryTypeTab(MinistryTabKeys.alunos, 'Turmas'),
         MinistryTypeTab(MinistryTabKeys.checklist, 'Checklist'),
-        MinistryTypeTab(MinistryTabKeys.presenca, 'Presença'),
         MinistryTypeTab(MinistryTabKeys.whatsapp, 'WhatsApp'),
         MinistryTypeTab(MinistryTabKeys.relatorios, 'Relatórios'),
       ],
