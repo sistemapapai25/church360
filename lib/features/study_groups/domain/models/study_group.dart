@@ -197,6 +197,9 @@ class StudyLesson {
   /// Horário (opcional), `HH:mm`.
   final String? startTime;
 
+  /// Duração em minutos (opcional); com [startTime] dá o término.
+  final int? durationMinutes;
+
   StudyLesson({
     required this.id,
     required this.studyGroupId,
@@ -217,6 +220,7 @@ class StudyLesson {
     this.subjectId,
     this.teacherId,
     this.startTime,
+    this.durationMinutes,
   });
 
   factory StudyLesson.fromJson(Map<String, dynamic> json) {
@@ -249,6 +253,7 @@ class StudyLesson {
       teacherId: json['teacher_id'] as String?,
       // `time` volta como HH:mm:ss; a tela só usa HH:mm.
       startTime: (json['start_time'] as String?)?.substring(0, 5),
+      durationMinutes: json['duration_minutes'] as int?,
     );
   }
 
@@ -273,7 +278,20 @@ class StudyLesson {
       'subject_id': subjectId,
       'teacher_id': teacherId,
       'start_time': startTime,
+      'duration_minutes': durationMinutes,
     };
+  }
+
+  /// "19:30–19:45" com duração, "19:30" sem; null sem horário.
+  String? get timeRange {
+    final start = startTime;
+    final minutes = durationMinutes;
+    if (start == null) return null;
+    if (minutes == null) return start;
+    final parts = start.split(':');
+    final total = int.parse(parts[0]) * 60 + int.parse(parts[1]) + minutes;
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '$start–${two(total ~/ 60 % 24)}:${two(total % 60)}';
   }
 
   bool get isPublished => status == LessonStatus.published;

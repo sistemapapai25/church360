@@ -191,7 +191,7 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
     final teacher = memberNameById(ref, lesson.teacherId);
     final when = [
       if (date != null) DateFormat('dd/MM/yyyy').format(date),
-      ?lesson.startTime,
+      ?lesson.timeRange,
     ].join(' · ');
 
     return Scaffold(
