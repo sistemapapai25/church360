@@ -808,6 +808,18 @@ void main() {
       expect(find.text('Esta aula ainda não tem conteúdo.'), findsNothing);
     });
 
+    testWidgets('Conteúdo sem showVideo (aluno) não mostra o vídeo', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        _host(LessonContentTab(lesson: withMedia(), showVideo: false)),
+      );
+
+      expect(find.byType(InlineVideo), findsNothing);
+      expect(find.text('Abrir PDF'), findsOneWidget);
+    });
+
     testWidgets('Conteúdo vazio avisa', (tester) async {
       await _pump(
         tester,
@@ -1216,7 +1228,8 @@ void main() {
 
       expect(find.text('Aula 1 · Tema 1'), findsOneWidget);
       expect(find.text('PDF da aula'), findsOneWidget);
-      expect(find.text('Vídeo da aula'), findsOneWidget);
+      // Vídeo é referência para professor e liderança.
+      expect(find.text('Vídeo de referência'), findsNothing);
       expect(find.text('Material pub'), findsOneWidget);
 
       // Rascunho: nem a seção, nem o PDF, nem o complementar.

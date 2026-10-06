@@ -172,6 +172,12 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
       AulaTabId.conteudo => LessonContentTab(
         lesson: lesson,
         teacher: teacher,
+        // Vídeo de referência: professor e liderança, não aluno.
+        showVideo:
+            !widget.access.isStudent ||
+            (lesson.teacherId != null &&
+                ref.watch(currentMemberIdProvider).valueOrNull ==
+                    lesson.teacherId),
         materials: LessonComplementaryMaterials(
           lessonId: lesson.id,
           canWrite: _canWrite,
@@ -319,19 +325,21 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
   }
 }
 
-/// Aba Conteúdo: o [teacher] ("Professor(a): apelido") no topo, vídeo
-/// (tocando no app) e PDF da aula, descrição, referências, texto,
+/// Aba Conteúdo: o [teacher] ("Professor(a): apelido") no topo, vídeo de
+/// referência (tocando no app, só se [showVideo]) e PDF da aula, descrição, referências, texto,
 /// perguntas e, no fim, os [materials] da aula.
 class LessonContentTab extends StatelessWidget {
   final StudyLesson lesson;
   final String? teacher;
   final Widget? materials;
+  final bool showVideo;
 
   const LessonContentTab({
     super.key,
     required this.lesson,
     this.teacher,
     this.materials,
+    this.showVideo = true,
   });
 
   @override
@@ -339,7 +347,7 @@ class LessonContentTab extends StatelessWidget {
     final meta = CommunityDesign.metaStyle(context);
     final body = Theme.of(context).textTheme.bodyMedium;
     final questions = lesson.discussionQuestions ?? const <String>[];
-    final videoUrl = blankToNull(lesson.videoUrl);
+    final videoUrl = showVideo ? blankToNull(lesson.videoUrl) : null;
     final pdfUrl = blankToNull(lesson.pdfUrl);
 
     final sections = [

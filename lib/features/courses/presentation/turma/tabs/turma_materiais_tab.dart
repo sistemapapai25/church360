@@ -138,9 +138,11 @@ class TurmaMateriaisTab extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
 
+    // O vídeo da aula é referência para professor e liderança, não aluno.
+    final showVideo = !access.isStudent;
     final sections = [
       for (final lesson in lessons)
-        if (_hasContent(lesson, byLesson[lesson.id]))
+        if (_hasContent(lesson, byLesson[lesson.id], showVideo))
           (lesson: lesson, materials: byLesson[lesson.id] ?? const []),
     ];
     final meta = CommunityDesign.metaStyle(context);
@@ -187,6 +189,7 @@ class TurmaMateriaisTab extends ConsumerWidget {
               lesson: section.lesson,
               materials: section.materials,
               showStatus: access.isLeadership,
+              showVideo: showVideo,
               onOpenMaterial: (m) => _openMaterial(context, m),
             ),
           if (groupMaterials.isNotEmpty) ...[
@@ -213,9 +216,13 @@ class TurmaMateriaisTab extends ConsumerWidget {
   }
 }
 
-bool _hasContent(StudyLesson lesson, List<SupportMaterial>? materials) =>
+bool _hasContent(
+  StudyLesson lesson,
+  List<SupportMaterial>? materials,
+  bool showVideo,
+) =>
     (lesson.pdfUrl ?? '').trim().isNotEmpty ||
-    (lesson.videoUrl ?? '').trim().isNotEmpty ||
+    (showVideo && (lesson.videoUrl ?? '').trim().isNotEmpty) ||
     (materials ?? const []).isNotEmpty;
 
 /// Uma aula na aba Materiais: título, status (só liderança, e só quando não
@@ -224,6 +231,7 @@ class _LessonMaterialsSection extends StatelessWidget {
   final StudyLesson lesson;
   final List<SupportMaterial> materials;
   final bool showStatus;
+  final bool showVideo;
   final ValueChanged<SupportMaterial> onOpenMaterial;
 
   const _LessonMaterialsSection({
@@ -231,13 +239,14 @@ class _LessonMaterialsSection extends StatelessWidget {
     required this.lesson,
     required this.materials,
     required this.showStatus,
+    required this.showVideo,
     required this.onOpenMaterial,
   });
 
   @override
   Widget build(BuildContext context) {
     final meta = CommunityDesign.metaStyle(context);
-    final videoUrl = (lesson.videoUrl ?? '').trim();
+    final videoUrl = showVideo ? (lesson.videoUrl ?? '').trim() : '';
     final pdfUrl = (lesson.pdfUrl ?? '').trim();
 
     return Padding(
@@ -275,7 +284,7 @@ class _LessonMaterialsSection extends StatelessWidget {
                     OutlinedButton.icon(
                       onPressed: () => openLessonLink(context, videoUrl),
                       icon: const Icon(AppIcons.playArrow, size: 18),
-                      label: const Text('Vídeo da aula'),
+                      label: const Text('Vídeo de referência'),
                     ),
                   if (pdfUrl.isNotEmpty)
                     OutlinedButton.icon(
