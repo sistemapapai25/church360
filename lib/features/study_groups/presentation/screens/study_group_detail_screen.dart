@@ -58,11 +58,15 @@ class StudyGroupDetailScreen extends ConsumerWidget {
     final canManageLessonsByPermissionAsync = ref.watch(
       currentUserHasPermissionProvider('study_groups.manage_lessons'),
     );
+    // Por permissão, só pela Dashboard; o líder do grupo (papel no
+    // próprio grupo) continua editando por qualquer entrada.
     final canManageGroupByContext =
-        canEditByPermissionAsync.valueOrNull == true ||
-        canManageOwnByPermissionAsync.valueOrNull == true;
+        fromDashboard &&
+        (canEditByPermissionAsync.valueOrNull == true ||
+            canManageOwnByPermissionAsync.valueOrNull == true);
     final canManageLessonsByContext =
-        canManageLessonsByPermissionAsync.valueOrNull == true ||
+        (fromDashboard &&
+            canManageLessonsByPermissionAsync.valueOrNull == true) ||
         canManageGroupByContext;
 
     return groupAsync.when(

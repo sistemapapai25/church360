@@ -2,6 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/permissions_providers.dart';
 
+/// Marca a subárvore como tela de exibição: ações de gestão (todo
+/// [PermissionGate] dentro dela) somem, mesmo para quem tem a permissão.
+/// Gestão fica na entrada da Dashboard (`?from=dashboard`); a tela envolve
+/// o conteúdo com `ViewOnlyScope(enabled: !fromDashboard)`.
+class ViewOnlyScope extends InheritedWidget {
+  final bool enabled;
+
+  const ViewOnlyScope({super.key, this.enabled = true, required super.child});
+
+  static bool isActive(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ViewOnlyScope>()?.enabled ??
+      false;
+
+  /// Sufixo para levar o modo de gestão adiante ao abrir outra tela:
+  /// `?from=dashboard` só dentro de um escopo de gestão (enabled: false).
+  static String fromQuery(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<ViewOnlyScope>();
+    return scope != null && !scope.enabled ? '?from=dashboard' : '';
+  }
+
+  @override
+  bool updateShouldNotify(ViewOnlyScope oldWidget) =>
+      enabled != oldWidget.enabled;
+}
+
 /// Widget: PermissionGate
 /// Controla a exibição de widgets baseado em permissões do usuário
 /// 
@@ -41,6 +66,9 @@ class PermissionGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (ViewOnlyScope.isActive(context)) {
+      return fallback ?? const SizedBox.shrink();
+    }
     final hasPermissionAsync = ref.watch(
       currentUserHasPermissionProvider(permission),
     );

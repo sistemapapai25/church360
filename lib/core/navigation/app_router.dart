@@ -423,7 +423,12 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/members',
-      builder: (context, state) => const MembersListScreen(),
+      // Lista de gestão (só a Dashboard abre): mesma régua da ficha.
+      builder: (context, state) => const AnyPermissionOrLevelRoute(
+        permissions: ['members.view', 'visitors.view'],
+        requiredLevel: AccessLevelType.admin,
+        child: MembersListScreen(),
+      ),
     ),
     GoRoute(
       path: '/members/new',
@@ -502,7 +507,9 @@ final appRouter = GoRouter(
     // Lista de grupos de comunhão
     GoRoute(
       path: '/groups',
-      builder: (context, state) => const GroupsListScreen(),
+      builder: (context, state) => GroupsListScreen(
+        fromDashboard: state.uri.queryParameters['from'] == 'dashboard',
+      ),
     ),
     GoRoute(
       path: '/groups/new',
@@ -525,7 +532,10 @@ final appRouter = GoRouter(
       path: '/groups/:id',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return GroupDetailScreen(groupId: id);
+        return GroupDetailScreen(
+          groupId: id,
+          fromDashboard: state.uri.queryParameters['from'] == 'dashboard',
+        );
       },
     ),
     // Rotas de reuniões
@@ -555,7 +565,11 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final groupId = state.pathParameters['groupId']!;
         final meetingId = state.pathParameters['meetingId']!;
-        return MeetingDetailScreen(groupId: groupId, meetingId: meetingId);
+        return MeetingDetailScreen(
+          groupId: groupId,
+          meetingId: meetingId,
+          fromDashboard: state.uri.queryParameters['from'] == 'dashboard',
+        );
       },
     ),
     // Novo visitante de reunião
@@ -1097,7 +1111,9 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/prayer-requests',
-      builder: (context, state) => const PrayerRequestsListScreen(),
+      builder: (context, state) => PrayerRequestsListScreen(
+        fromDashboard: state.uri.queryParameters['from'] == 'dashboard',
+      ),
     ),
     GoRoute(
       path: '/prayer-requests/new',
@@ -1107,7 +1123,10 @@ final appRouter = GoRouter(
       path: '/prayer-requests/:id',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return PrayerRequestDetailScreen(prayerRequestId: id);
+        return PrayerRequestDetailScreen(
+          prayerRequestId: id,
+          fromDashboard: state.uri.queryParameters['from'] == 'dashboard',
+        );
       },
     ),
     GoRoute(
@@ -1205,9 +1224,11 @@ final appRouter = GoRouter(
     // Lista de materiais de apoio
     GoRoute(
       path: '/support-materials',
-      builder: (context, state) => const PermissionOnlyRoute(
+      builder: (context, state) => PermissionOnlyRoute(
         permission: 'support_materials.view',
-        child: SupportMaterialsScreen(),
+        child: SupportMaterialsScreen(
+          fromDashboard: state.uri.queryParameters['from'] == 'dashboard',
+        ),
       ),
     ),
 
@@ -1239,7 +1260,10 @@ final appRouter = GoRouter(
         final id = state.pathParameters['id']!;
         return PermissionOnlyRoute(
           permission: 'support_materials.view',
-          child: MaterialViewerScreen(materialId: id),
+          child: MaterialViewerScreen(
+            materialId: id,
+            fromDashboard: state.uri.queryParameters['from'] == 'dashboard',
+          ),
         );
       },
     ),

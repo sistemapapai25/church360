@@ -465,7 +465,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: const _DrawerMenuItem(
                     icon: Icons.group,
                     title: 'Grupos de Comunhão',
-                    route: '/groups',
+                    route: '/groups?from=dashboard',
                   ),
                 ),
                 PermissionGate(
@@ -481,7 +481,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: const _DrawerMenuItem(
                     icon: Icons.library_books,
                     title: 'Material de Apoio',
-                    route: '/support-materials',
+                    route: '/support-materials?from=dashboard',
                   ),
                 ),
               ],
@@ -525,6 +525,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     icon: Icons.groups,
                     title: 'Comunidade',
                     route: '/community/admin',
+                  ),
+                ),
+                // Pedidos de oração (moderação)
+                PermissionGate(
+                  permission: 'prayer_requests.moderate',
+                  child: const _DrawerMenuItem(
+                    icon: Icons.volunteer_activism_outlined,
+                    title: 'Pedidos de oração',
+                    route: '/prayer-requests?from=dashboard',
                   ),
                 ),
                 // Devocionais

@@ -24,7 +24,11 @@ class MeetingDetailScreen extends ConsumerWidget {
     super.key,
     required this.groupId,
     required this.meetingId,
+    this.fromDashboard = false,
   });
+
+  /// Aberta pela Dashboard: só então aparecem as ações de gestão.
+  final bool fromDashboard;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -35,7 +39,7 @@ class MeetingDetailScreen extends ConsumerWidget {
       Share.share('Convite para reunião:\n$url');
     }
 
-    return Scaffold(
+    final page = Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
         backgroundColor: CommunityDesign.headerColor(context),
@@ -98,6 +102,7 @@ class MeetingDetailScreen extends ConsumerWidget {
         ),
       ),
     );
+    return ViewOnlyScope(enabled: !fromDashboard, child: page);
   }
 
   void _showDeleteDialog(BuildContext context, WidgetRef ref) {
@@ -448,9 +453,11 @@ class _AttendanceCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final canManageMeetings = ref
-        .watch(currentUserHasPermissionProvider('groups.manage_meetings'))
-        .maybeWhen(data: (v) => v, orElse: () => false);
+    final canManageMeetings =
+        !ViewOnlyScope.isActive(context) &&
+        ref
+            .watch(currentUserHasPermissionProvider('groups.manage_meetings'))
+            .maybeWhen(data: (v) => v, orElse: () => false);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
