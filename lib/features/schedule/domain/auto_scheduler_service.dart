@@ -5,11 +5,34 @@ import '../../ministries/presentation/providers/ministries_provider.dart';
 import '../../ministries/domain/models/ministry.dart';
 import '../../permissions/providers/permissions_providers.dart';
 
-/// Lote 6 / B8: tolerância em dias entre dois "serviços consecutivos".
-/// Eventos semanais têm gap=7; o slack para 9 cobre deslizes (feriado moveu
-/// o culto, evento extra no meio da semana). Acima disso, considera-se que
-/// o streak quebrou.
-const int _consecutiveGapDays = 9;
+/// Em quantos dos eventos do ministério imediatamente anteriores a
+/// [eventId] (data [start]) [uid] serviu seguidos. "Seguido" é o evento
+/// anterior do ministério, quantos dias tenham passado: antes era "qualquer
+/// escala nos últimos 9 dias", o que com culto quarta+domingo e máximo 1
+/// travava a pessoa por 10 dias.
+int consecutiveStreak(
+  String uid,
+  String eventId,
+  DateTime start,
+  Iterable<MinistrySchedule> schedules,
+) {
+  final dates = <String, DateTime>{};
+  final served = <String>{};
+  for (final s in schedules) {
+    final d = s.eventStartDate;
+    if (d == null || s.eventId == eventId || !d.isBefore(start)) continue;
+    dates[s.eventId] = d;
+    if (s.memberId == uid) served.add(s.eventId);
+  }
+  final previous = dates.keys.toList()
+    ..sort((a, b) => dates[b]!.compareTo(dates[a]!));
+  var streak = 0;
+  for (final id in previous) {
+    if (!served.contains(id)) break;
+    streak++;
+  }
+  return streak;
+}
 
 class AutoSchedulerService {
   /// Gera escalas para um evento específico, aplicando regras por tipo.
@@ -571,30 +594,8 @@ class AutoSchedulerService {
         bool violatesMinDays(String uid) =>
             relaxMinDays ? false : violatesMinDaysStrict(uid);
 
-        int consecutiveGlobalFor(String uid) {
-          final list = List<DateTime>.from(datesByUser[uid] ?? const []);
-          if (list.isEmpty) return 0;
-          list.sort((a, b) => a.compareTo(b));
-          final prevs = list.where((d) => d.isBefore(event.startDate)).toList();
-          if (prevs.isEmpty) return 0;
-          // Se o último serviço não for "consecutivo" ao evento atual, zera o streak.
-          // Isso evita bloquear para sempre quando `max_consecutive` é baixo (ex.: 1).
-          final diffToCurrent = dayDiff(event.startDate, prevs.last).abs();
-          if (diffToCurrent > _consecutiveGapDays) return 0;
-          int streak = 1;
-          DateTime last = prevs.last;
-          for (int i = prevs.length - 2; i >= 0; i--) {
-            final d = prevs[i];
-            final diff = dayDiff(last, d).abs();
-            if (diff <= _consecutiveGapDays) {
-              streak++;
-              last = d;
-            } else {
-              break;
-            }
-          }
-          return streak;
-        }
+        int consecutiveGlobalFor(String uid) =>
+            consecutiveStreak(uid, event.id, event.startDate, existingSchedules);
 
         bool violatesConsecutiveStrict(String uid) {
           final mc = maxConsecutive ?? 0;
@@ -1637,28 +1638,8 @@ class AutoSchedulerService {
         bool violatesMinDays(String uid) =>
             relaxMinDays ? false : violatesMinDaysStrict(uid);
 
-        int consecutiveGlobalFor(String uid) {
-          final list = List<DateTime>.from(datesByUser[uid] ?? const []);
-          if (list.isEmpty) return 0;
-          list.sort((a, b) => a.compareTo(b));
-          final prevs = list.where((d) => d.isBefore(event.startDate)).toList();
-          if (prevs.isEmpty) return 0;
-          final diffToCurrent = dayDiff(event.startDate, prevs.last).abs();
-          if (diffToCurrent > _consecutiveGapDays) return 0;
-          int streak = 1;
-          DateTime last = prevs.last;
-          for (int i = prevs.length - 2; i >= 0; i--) {
-            final d = prevs[i];
-            final diff = dayDiff(last, d).abs();
-            if (diff <= _consecutiveGapDays) {
-              streak++;
-              last = d;
-            } else {
-              break;
-            }
-          }
-          return streak;
-        }
+        int consecutiveGlobalFor(String uid) =>
+            consecutiveStreak(uid, event.id, event.startDate, existingSchedules);
 
         bool violatesConsecutiveStrict(String uid) {
           final mc = maxConsecutive ?? 0;
