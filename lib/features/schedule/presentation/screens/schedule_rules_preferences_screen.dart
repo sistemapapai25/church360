@@ -885,7 +885,6 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
         spacing: spacing,
         runSpacing: spacing,
         children: [
-          SizedBox(width: constraints.maxWidth, child: _buildServedTypesCard()),
           SizedBox(width: half, child: _buildProhibitedCard()),
           SizedBox(width: half, child: _buildPreferredCard()),
           SizedBox(width: constraints.maxWidth, child: _buildPrioritiesCard()),
@@ -910,7 +909,6 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
 
   Widget _buildAccordionLayout() {
     return Column(children: [
-      _buildServedTypesCard(),
       _buildProhibitedCard(),
       _buildPreferredCard(),
       _buildPrioritiesCard(),
@@ -1069,17 +1067,27 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
     );
   }
 
-  Widget _buildServedTypesCard() {
+  Widget _buildPrioritiesCard() {
+    // Os tipos marcados aqui são os que o ministério atende: só eles viram
+    // coluna de prioridade e só eles entram no gerador (nenhum = gerador
+    // usa todos, como antes).
     final served = servedEventTypes([{'schedule_rules': _rules}]);
+    final eventTypes = _eventTypes.where(served.contains).toList();
     return _buildCard(
       color: _purple(),
-      title: 'Tipos de evento que o ministério atende',
+      title: 'Prioridade de membros por tipo de evento',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            'Tipos de evento que o ministério atende',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
           Text(
             served.isEmpty
-                ? 'Nenhum marcado: o gerador usa todos os eventos.'
+                ? 'Marque os tipos para escolher a prioridade em cada um. '
+                      'Sem nenhum marcado, o gerador usa todos os eventos.'
                 : 'O gerador só usa eventos destes tipos.',
           ),
           const SizedBox(height: 8),
@@ -1101,22 +1109,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
                 ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPrioritiesCard() {
-    final served = servedEventTypes([{'schedule_rules': _rules}]);
-    final eventTypes = served.isEmpty
-        ? _eventTypes
-        : _eventTypes.where(served.contains).toList();
-    return _buildCard(
-      color: _purple(),
-      title: 'Prioridade de membros por tipo de evento',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          const SizedBox(height: 16),
           const Text(
             'Nível de prioridade',
             style: TextStyle(fontWeight: FontWeight.w600),

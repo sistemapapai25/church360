@@ -813,6 +813,19 @@ void main() {
       expect(find.text('Esta aula ainda não tem conteúdo.'), findsOneWidget);
     });
 
+    testWidgets('Conteúdo mostra o professor no topo', (tester) async {
+      await _pump(
+        tester,
+        _host(
+          LessonContentTab(
+            lesson: _lesson(1, LessonStatus.published),
+            teacher: 'Professor(a): Clarissa',
+          ),
+        ),
+      );
+      expect(find.text('Professor(a): Clarissa'), findsOneWidget);
+    });
+
     test('regras dos campos', () {
       expect(normalizeLessonUrl('  '), isNull);
       expect(normalizeLessonUrl(' https://a.com/x '), 'https://a.com/x');

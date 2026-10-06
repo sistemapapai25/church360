@@ -156,15 +156,35 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
 
   Widget _buildTab(AulaTabId tab) {
     final lesson = widget.lesson;
+    final teacher = teacherLabelById(ref, lesson.teacherId);
     return switch (tab) {
       AulaTabId.conteudo => LessonContentTab(
         lesson: lesson,
+        teacher: teacher,
         materials: LessonComplementaryMaterials(
           lessonId: lesson.id,
           canWrite: _canWrite,
         ),
       ),
-      AulaTabId.presenca => widget.surfaces.lessonPresence(lesson),
+      // O professor aparece na Presença só para ver: não entra na chamada.
+      AulaTabId.presenca => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (teacher != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Card(
+                key: const ValueKey('aula-presenca-professor'),
+                margin: EdgeInsets.zero,
+                child: ListTile(
+                  leading: const Icon(AppIcons.person),
+                  title: Text(teacher),
+                ),
+              ),
+            ),
+          Expanded(child: widget.surfaces.lessonPresence(lesson)),
+        ],
+      ),
       AulaTabId.observacoes => AulaObservacoesTab(
         lessonId: lesson.id,
         access: widget.access,
@@ -188,7 +208,6 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
               .valueOrNull
               ?.where((s) => s.id == lesson.subjectId)
               .firstOrNull;
-    final teacher = teacherLabelById(ref, lesson.teacherId);
     final when = [
       if (date != null) DateFormat('dd/MM/yyyy').format(date),
       ?lesson.timeRange,
@@ -263,11 +282,6 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
                     subject.title,
                     style: CommunityDesign.metaStyle(context),
                   ),
-                if (teacher != null)
-                  Text(
-                    teacher,
-                    style: CommunityDesign.metaStyle(context),
-                  ),
               ],
             ),
           ),
@@ -290,13 +304,20 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
   }
 }
 
-/// Aba Conteúdo: vídeo (tocando no app) e PDF da aula, descrição,
-/// referências, texto, perguntas e, no fim, os [materials] da aula.
+/// Aba Conteúdo: o [teacher] ("Professor(a): apelido") no topo, vídeo
+/// (tocando no app) e PDF da aula, descrição, referências, texto,
+/// perguntas e, no fim, os [materials] da aula.
 class LessonContentTab extends StatelessWidget {
   final StudyLesson lesson;
+  final String? teacher;
   final Widget? materials;
 
-  const LessonContentTab({super.key, required this.lesson, this.materials});
+  const LessonContentTab({
+    super.key,
+    required this.lesson,
+    this.teacher,
+    this.materials,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -325,6 +346,10 @@ class LessonContentTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
       children: [
+        if (teacher != null) ...[
+          Text(teacher!, style: meta.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+        ],
         if (videoUrl != null) ...[
           InlineVideo(url: videoUrl),
           const SizedBox(height: 12),
