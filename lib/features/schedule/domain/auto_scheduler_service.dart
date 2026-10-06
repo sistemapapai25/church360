@@ -574,7 +574,14 @@ class AutoSchedulerService {
           final list = List<DateTime>.from(datesByUser[uid] ?? const []);
           final m = event.startDate.month;
           final y = event.startDate.year;
-          final count = list.where((d) => d.month == m && d.year == y).length;
+          final count = list
+              .where(
+                (d) =>
+                    !d.isAtSameMomentAs(event.startDate) &&
+                    d.month == m &&
+                    d.year == y,
+              )
+              .length;
           return count >= maxPerMonth;
         }
 
@@ -590,6 +597,9 @@ class AutoSchedulerService {
           final list = datesByUser[uid] ?? const <DateTime>[];
           if (list.isEmpty) return false;
           for (final d in list) {
+            // O próprio culto não conta: senão a 2ª função (cantar e tocar,
+            // quando a categoria permite) era barrada contra ele mesmo (B5).
+            if (d.isAtSameMomentAs(event.startDate)) continue;
             if (dayDiff(event.startDate, d).abs() < minDaysBetween) return true;
           }
           return false;
@@ -1628,7 +1638,14 @@ class AutoSchedulerService {
           final list = List<DateTime>.from(datesByUser[uid] ?? const []);
           final m = event.startDate.month;
           final y = event.startDate.year;
-          final count = list.where((d) => d.month == m && d.year == y).length;
+          final count = list
+              .where(
+                (d) =>
+                    !d.isAtSameMomentAs(event.startDate) &&
+                    d.month == m &&
+                    d.year == y,
+              )
+              .length;
           return count >= maxPerMonth;
         }
 
@@ -1641,6 +1658,9 @@ class AutoSchedulerService {
           final list = datesByUser[uid] ?? const <DateTime>[];
           if (list.isEmpty) return false;
           for (final d in list) {
+            // O próprio culto não conta: senão a 2ª função (cantar e tocar,
+            // quando a categoria permite) era barrada contra ele mesmo (B5).
+            if (d.isAtSameMomentAs(event.startDate)) continue;
             if (dayDiff(event.startDate, d).abs() < minDaysBetween) return true;
           }
           return false;
