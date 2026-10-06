@@ -101,6 +101,7 @@ class _FakeStudyRepo implements StudyGroupRepository {
   final createdFields = <Map<String, Object?>>[];
   final replaced = <Map<String, Object?>>[];
   final statusUpdates = <({String id, LessonStatus? status})>[];
+  final pdfUpdates = <({String id, String url})>[];
   final marked = <({String lessonId, String userId, AttendanceStatus s})>[];
   final updatedAttendance = <({String id, AttendanceStatus? s})>[];
 
@@ -204,8 +205,13 @@ class _FakeStudyRepo implements StudyGroupRepository {
     String? audioUrl,
     String? pdfUrl,
   }) async {
-    statusUpdates.add((id: id, status: status));
-    return lessons.firstWhere((l) => l.id == id);
+    if (pdfUrl != null) {
+      pdfUpdates.add((id: id, url: pdfUrl));
+    } else {
+      statusUpdates.add((id: id, status: status));
+    }
+    return lessons.where((l) => l.id == id).firstOrNull ??
+        _lesson(1, status ?? LessonStatus.draft, id: id);
   }
 
   @override
@@ -982,6 +988,65 @@ void main() {
       expect(repo.created, hasLength(1));
       expect(repo.replaced.single['id'], 'l1');
       expect(repo.replaced.single['pdf_url'], 'https://up/pdf/l1');
+    });
+
+    testWidgets('Repetir: PDF do aparelho sobe uma cópia por aula e só '
+        'depois ela é publicada', (tester) async {
+      final repo = _FakeStudyRepo(lessons: const []);
+      final media = _FakeMedia();
+      await _pump(
+        tester,
+        _host(
+          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
+          overrides: [
+            studyGroupRepositoryProvider.overrideWithValue(repo),
+            lessonMediaServiceProvider.overrideWithValue(media),
+          ],
+        ),
+      );
+
+      await tester.tap(find.text('Nova aula'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Título da aula *'),
+        'Aula',
+      );
+      await tester.tap(find.text('Data (opcional)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('lesson-time')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const ValueKey('lesson-repeat')));
+      await tester.tap(find.byKey(const ValueKey('lesson-repeat')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('lesson-repeat-until')),
+      );
+      await tester.tap(find.byKey(const ValueKey('lesson-repeat-until')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      await pickPdf(tester);
+      await tapSave(tester);
+
+      final n = repo.created.length;
+      expect(n, greaterThan(1));
+      // Nasce rascunho sem PDF (nenhum encontro recebe "Novo material"),
+      // recebe a própria cópia e só então é publicada.
+      expect(repo.createdFields.every((f) => f['pdf_url'] == null), isTrue);
+      expect(media.uploads, hasLength(n));
+      expect(media.uploads.map((u) => u.lessonId).toSet(), hasLength(n));
+      expect(repo.pdfUpdates, hasLength(n));
+      expect(repo.statusUpdates, hasLength(n));
+      expect(
+        repo.statusUpdates.every((u) => u.status == LessonStatus.published),
+        isTrue,
+      );
+      // Vídeo segue só por link no Repetir.
+      expect(find.byKey(const ValueKey('lesson-pick-video')), findsNothing);
     });
 
     testWidgets('arquivo acima de 50 MB é recusado antes de enviar', (
