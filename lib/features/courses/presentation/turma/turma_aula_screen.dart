@@ -188,7 +188,7 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
               .valueOrNull
               ?.where((s) => s.id == lesson.subjectId)
               .firstOrNull;
-    final teacher = memberNameById(ref, lesson.teacherId);
+    final teacher = teacherLabelById(ref, lesson.teacherId);
     final when = [
       if (date != null) DateFormat('dd/MM/yyyy').format(date),
       ?lesson.timeRange,
@@ -265,7 +265,7 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
                   ),
                 if (teacher != null)
                   Text(
-                    'Professor: $teacher',
+                    teacher,
                     style: CommunityDesign.metaStyle(context),
                   ),
               ],
