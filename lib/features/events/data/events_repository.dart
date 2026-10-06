@@ -671,6 +671,35 @@ class EventsRepository {
         .toList();
   }
 
+  /// Publica um aviso no feed. tenant_id e created_by vêm do DEFAULT do
+  /// banco; a RLS decide quem pode (elevado, events.edit ou responsável).
+  Future<void> createEventNotice({
+    required String eventId,
+    String? title,
+    required String body,
+  }) async {
+    final t = title?.trim();
+    await _supabase.from('event_update').insert({
+      'event_id': eventId,
+      'kind': 'notice',
+      'title': (t == null || t.isEmpty) ? null : t,
+      'body': body.trim(),
+    });
+  }
+
+  /// Exclui um aviso. A RLS barra DELETE sem erro (0 linhas), então o
+  /// retorno confere se a linha saiu de fato.
+  Future<void> deleteEventNotice(String id) async {
+    final deleted = await _supabase
+        .from('event_update')
+        .delete()
+        .eq('id', id)
+        .select('id');
+    if ((deleted as List).isEmpty) {
+      throw Exception('Você não tem permissão para excluir este aviso.');
+    }
+  }
+
   /// Substitui o conjunto de alvos de audiência de um evento para o papel
   /// recebido. Delete-then-insert declarativo (não upsert): torna a operação
   /// idempotente para o formulário sem exigir `onConflict` sobre a UNIQUE

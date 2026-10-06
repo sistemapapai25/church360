@@ -219,6 +219,19 @@ final isEventResponsibleProvider = FutureProvider.family<bool, String>((
   return repo.isEventResponsible(eventId);
 });
 
+/// "Posso publicar/excluir aviso neste evento?" — mesma régua das policies
+/// de event_update: elevado OU events.edit OU responsável. Só para UX.
+final canPostEventUpdateProvider = FutureProvider.family<bool, String>((
+  ref,
+  eventId,
+) async {
+  if (await ref.watch(currentUserIsElevatedProvider.future)) return true;
+  if (await ref.watch(currentUserHasPermissionProvider('events.edit').future)) {
+    return true;
+  }
+  return ref.watch(isEventResponsibleProvider(eventId).future);
+});
+
 /// REG-03: "posso gerenciar os inscritos deste evento?".
 ///
 /// Gate composto de propósito: permissão global de cargo OU vínculo de
