@@ -8,6 +8,7 @@ import 'package:printing/printing.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../core/utils/file_download.dart';
 
+import '../../data/schedule_repository.dart';
 import '../providers/schedule_provider.dart';
 import '../../../courses/domain/models/course_turma.dart';
 import '../../../courses/presentation/turma/teaching_plan.dart';
@@ -47,23 +48,32 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
 
   // Tipos de evento que o ministério atende (Regras & Preferências);
   // vazio = todos.
-  List<String> _served = const [];
+  late final Future<List<String>> _served;
 
   @override
   void initState() {
     super.initState();
     _selectedMinistryIds.add(widget.ministryId);
-    _loadServedTypes();
+    _served = ref
+        .read(roleContextsRepositoryProvider)
+        .getContextsByMinistry(widget.ministryId)
+        .then((contexts) => servedEventTypes(contexts.map((c) => c.metadata)));
   }
 
-  Future<void> _loadServedTypes() async {
-    final contexts = await ref
-        .read(roleContextsRepositoryProvider)
-        .getContextsByMinistry(widget.ministryId);
-    if (!mounted) return;
-    setState(
-      () => _served = servedEventTypes(contexts.map((c) => c.metadata)),
+  /// (todos do período, os deste ministério). Espera os tipos atendidos:
+  /// antes a lista abria com "vazio = todos" e erro também virava todos.
+  Future<(List<Event>, List<Event>)> _loadEvents(ScheduleRepository repo) async {
+    final served = await _served;
+    final all = await repo.getEventsByDateRange(_start, _end);
+    final typed = [
+      for (final e in all)
+        if (servesEventType(served, e.eventType)) e,
+    ];
+    final others = await repo.eventsVisibleOnlyToOtherMinistries(
+      [for (final e in typed) e.id],
+      widget.ministryId,
     );
+    return (all, [for (final e in typed) if (!others.contains(e.id)) e]);
   }
 
   IconData _iconForType(String? type) {
@@ -1088,14 +1098,11 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
           ),
         ],
       ),
-      body: FutureBuilder<List<Event>>(
-        future: repo.getEventsByDateRange(_start, _end),
+      body: FutureBuilder<(List<Event>, List<Event>)>(
+        future: _loadEvents(repo),
         builder: (context, snapshot) {
-          final all = snapshot.data ?? const <Event>[];
-          final events = [
-            for (final e in all)
-              if (servesEventType(_served, e.eventType)) e,
-          ];
+          final all = snapshot.data?.$1 ?? const <Event>[];
+          final events = snapshot.data?.$2 ?? const <Event>[];
           return Column(
             children: [
               Padding(
@@ -1119,10 +1126,13 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
-                          all.isEmpty
+                          snapshot.hasError
+                              ? 'Erro ao carregar os eventos: ${snapshot.error}'
+                              : all.isEmpty
                               ? 'Nenhum evento na Agenda neste período. Mude o período acima.'
                               : '${all.length} evento(s) no período, mas de tipos que este '
-                                    'ministério não atende. Marque os tipos (ex.: Aula) em '
+                                    'ministério não atende ou com público só de outros '
+                                    'ministérios. Marque os tipos (ex.: Aula) em '
                                     '"Regras para gerar escalas".',
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.error,

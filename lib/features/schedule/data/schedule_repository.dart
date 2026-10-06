@@ -41,6 +41,32 @@ class ScheduleRepository {
     }
   }
 
+  /// Dos [eventIds], os que só outros ministérios veem: têm público
+  /// `visibility` com ministério e nenhum deles é [ministryId] (ex.: Ensaio
+  /// da Dança com público = Dança não entra na escala do Louvor).
+  Future<Set<String>> eventsVisibleOnlyToOtherMinistries(
+    List<String> eventIds,
+    String ministryId,
+  ) async {
+    if (eventIds.isEmpty) return {};
+    final rows = await _supabase
+        .from('event_audience')
+        .select('event_id, ministry_id')
+        .eq('role', 'visibility')
+        .not('ministry_id', 'is', null)
+        .inFilter('event_id', eventIds);
+    final byEvent = <String, Set<String>>{};
+    for (final r in rows as List) {
+      byEvent
+          .putIfAbsent(r['event_id'].toString(), () => {})
+          .add(r['ministry_id'].toString());
+    }
+    return {
+      for (final e in byEvent.entries)
+        if (!e.value.contains(ministryId)) e.key,
+    };
+  }
+
   /// Buscar eventos de um mês específico
   Future<List<Event>> getEventsByMonth(int year, int month) async {
     final start = DateTime(year, month, 1);
