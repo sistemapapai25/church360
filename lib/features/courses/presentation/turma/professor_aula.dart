@@ -57,7 +57,8 @@ final teacherLessonRollProvider =
           .getTeacherLessonRoll(lessonId);
     });
 
-/// A aula na Agenda: "Aula · Doutrina — 1/4", a turma e quando.
+/// A aula na Agenda: "Aula · Doutrina — 1/4", a turma e quando. A do
+/// aluno diz também quem dá a aula e abre pela porta da turma.
 class TeachingLessonCard extends StatelessWidget {
   final TeachingLesson lesson;
 
@@ -75,7 +76,15 @@ class TeachingLessonCard extends StatelessWidget {
     return GlassCard(
       key: ValueKey('aula-agenda-${lesson.id}'),
       padding: const EdgeInsets.all(20),
-      onTap: () => context.push(professorLessonRoute(lesson.id)),
+      onTap: () => context.push(
+        lesson.asTeacher
+            ? professorLessonRoute(lesson.id)
+            : turmaLessonRoute(
+                courseId: lesson.courseId,
+                studyGroupId: lesson.studyGroupId,
+                lessonId: lesson.id,
+              ),
+      ),
       child: Row(
         children: [
           Container(
@@ -100,6 +109,8 @@ class TeachingLessonCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(lesson.turmaName, style: meta),
                 Text(when, style: meta),
+                if (!lesson.asTeacher && lesson.teacherName != null)
+                  Text('Professor(a): ${lesson.teacherName}', style: meta),
               ],
             ),
           ),

@@ -168,7 +168,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   }
 
   /// Constrói o calendário
-  /// Minhas aulas (sou o professor) no mês de [day]. Aula que não carregou
+  /// Minhas aulas (professor ou aluno) no mês de [day]. Aula que não carregou
   /// não derruba o calendário.
   List<TeachingLesson> _myLessonsOfMonth(DateTime day) =>
       ref

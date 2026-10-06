@@ -451,20 +451,28 @@ class StudyGroupRepository {
     return StudyLesson.fromJson(response);
   }
 
-  /// As aulas de que eu sou o professor, de [from] até [to] (sem [to], dali
-  /// em diante). RPC `my_teaching_lessons`: o professor não lê a turma.
+  /// Minhas aulas de [from] até [to] (sem [to], dali em diante): as de que
+  /// eu sou o professor (`my_teaching_lessons`: o professor não lê a turma)
+  /// e as de que eu sou aluno (`my_student_lessons`: só publicadas).
   Future<List<TeachingLesson>> getMyTeachingLessons(
     DateTime from, [
     DateTime? to,
   ]) async {
     String day(DateTime d) => d.toIso8601String().substring(0, 10);
-    final response = await _supabase.rpc(
-      'my_teaching_lessons',
-      params: {'p_from': day(from), 'p_to': to == null ? null : day(to)},
-    );
-    return (response as List)
-        .map((row) => TeachingLesson.fromJson(Map<String, dynamic>.from(row)))
-        .toList();
+    final params = {'p_from': day(from), 'p_to': to == null ? null : day(to)};
+    final [teaching, studying] = await Future.wait([
+      _supabase.rpc('my_teaching_lessons', params: params),
+      _supabase.rpc('my_student_lessons', params: params),
+    ]);
+    return [
+      for (final row in teaching as List)
+        TeachingLesson.fromJson(Map<String, dynamic>.from(row)),
+      for (final row in studying as List)
+        TeachingLesson.fromJson(
+          Map<String, dynamic>.from(row),
+          asTeacher: false,
+        ),
+    ]..sort((a, b) => a.startsAt.compareTo(b.startsAt));
   }
 
   /// A chamada da aula de que eu sou o professor (`teacher_lesson_roll`).

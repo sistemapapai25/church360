@@ -52,6 +52,24 @@ void main() {
     expect(l.startsAt, DateTime.utc(2026, 10, 8, 19, 30));
   });
 
+  test('aula do aluno traz a porta da turma e o professor', () {
+    final l = TeachingLesson.fromJson({
+      'id': 'l1',
+      'study_group_id': 'g',
+      'lesson_number': 1,
+      'title': 'Doutrina — 1/4',
+      'scheduled_date': '2026-10-08',
+      'status': 'published',
+      'turma_name': 'Turma Março',
+      'course_id': 'c1',
+      'teacher_name': 'Aninha',
+    }, asTeacher: false);
+    expect(l.asTeacher, isFalse);
+    expect(l.courseId, 'c1');
+    expect(l.teacherName, 'Aninha');
+    expect(_lesson('2026-10-08').asTeacher, isTrue);
+  });
+
   test('mergeByStart intercala pela hora; empate deixa o evento antes', () {
     final culto = _event('2026-10-08T19:30:00.000Z');
     final domingo = _event('2026-10-11T10:00:00.000Z');

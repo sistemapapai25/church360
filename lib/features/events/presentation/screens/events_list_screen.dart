@@ -28,8 +28,8 @@ class EventsListScreen extends ConsumerStatefulWidget {
   final bool showAppBar;
   final bool enableCrud;
 
-  /// Mistura nos próximos as aulas de que eu sou o professor (Agenda,
-  /// PR 2c). Só vale no filtro 'upcoming'.
+  /// Mistura nos próximos as minhas aulas, de professor ou de aluno (Agenda,
+  /// PR 2c e 05/10). Só vale no filtro 'upcoming'.
   final bool showMyLessons;
 
   const EventsListScreen({
