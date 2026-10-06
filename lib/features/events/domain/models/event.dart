@@ -35,6 +35,15 @@ class Event {
   /// junto com as aulas publicadas). Só leitura no app.
   final String? autoStudyGroupId;
 
+  /// 'presencial' | 'online' (20261006001000). Vídeo do evento só aparece
+  /// em evento online. Só leitura aqui: a seção Materiais da edição grava
+  /// direto (fora de [toJson], para o salvar do formulário não sobrescrever).
+  final String modality;
+  final String? pdfUrl;
+  final String? videoUrl;
+
+  bool get isOnline => modality == 'online';
+
   // Campos computados do join
   final int? registrationCount;
 
@@ -61,6 +70,9 @@ class Event {
     this.courseId,
     this.enrollStudyGroupId,
     this.autoStudyGroupId,
+    this.modality = 'presencial',
+    this.pdfUrl,
+    this.videoUrl,
     this.registrationCount,
   });
 
@@ -93,6 +105,9 @@ class Event {
       courseId: json['course_id'] as String?,
       enrollStudyGroupId: json['enroll_study_group_id'] as String?,
       autoStudyGroupId: json['auto_study_group_id'] as String?,
+      modality: json['modality'] as String? ?? 'presencial',
+      pdfUrl: json['pdf_url'] as String?,
+      videoUrl: json['video_url'] as String?,
       registrationCount: json['registration_count'] as int?,
     );
   }

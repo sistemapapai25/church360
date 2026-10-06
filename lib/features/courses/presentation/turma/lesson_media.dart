@@ -33,13 +33,18 @@ const int lessonMediaMaxBytes = 50 * 1024 * 1024;
 
 const String _lessonFolder = 'study-lessons';
 
+/// Pasta do PDF/vídeo do evento (20261006001000), mesmo formato da aula:
+/// [lessonId] vira o id do evento.
+const String eventMediaFolder = 'events';
+
 String buildLessonMediaPath({
   required String tenantId,
   required String userId,
   required String lessonId,
   required int timestamp,
   required String extension,
-}) => '$tenantId/$userId/$_lessonFolder/$lessonId/$timestamp.$extension';
+  String folder = _lessonFolder,
+}) => '$tenantId/$userId/$folder/$lessonId/$timestamp.$extension';
 
 /// Caminho do objeto no bucket de [kind] quando [url] é um arquivo enviado
 /// pela pasta da aula [lessonId]; `null` para qualquer outra coisa (link do
@@ -49,6 +54,7 @@ String? lessonMediaObjectPath(
   String? url, {
   required LessonMediaKind kind,
   required String lessonId,
+  String folder = _lessonFolder,
 }) {
   final uri = Uri.tryParse((url ?? '').trim());
   if (uri == null) return null;
@@ -65,7 +71,7 @@ String? lessonMediaObjectPath(
     if (!match) continue;
     final object = segs.sublist(i + marker.length);
     if (object.length == 5 &&
-        object[2] == _lessonFolder &&
+        object[2] == folder &&
         object[3] == lessonId &&
         object.every((s) => s.isNotEmpty)) {
       return object.join('/');
@@ -110,11 +116,13 @@ class PickedLessonFile {
 abstract class LessonMediaService {
   Future<PickedLessonFile?> pick(LessonMediaKind kind);
 
-  /// Envia para a pasta da aula e devolve a URL pública.
+  /// Envia para a pasta da aula (ou do evento, com [folder]) e devolve a
+  /// URL pública.
   Future<String> upload({
     required LessonMediaKind kind,
     required String lessonId,
     required PickedLessonFile file,
+    String folder = _lessonFolder,
   });
 
   /// Apaga o arquivo antigo da aula. Só age em URL da pasta da própria aula
@@ -123,6 +131,7 @@ abstract class LessonMediaService {
     required LessonMediaKind kind,
     required String lessonId,
     required String? url,
+    String folder = _lessonFolder,
   });
 }
 
@@ -157,6 +166,7 @@ class SupabaseLessonMediaService implements LessonMediaService {
     required LessonMediaKind kind,
     required String lessonId,
     required PickedLessonFile file,
+    String folder = _lessonFolder,
   }) async {
     final uid = _supabase.auth.currentUser?.id;
     if (uid == null) throw Exception('Usuário não autenticado');
@@ -166,6 +176,7 @@ class SupabaseLessonMediaService implements LessonMediaService {
       lessonId: lessonId,
       timestamp: DateTime.now().millisecondsSinceEpoch,
       extension: file.extension,
+      folder: folder,
     );
     final options = FileOptions(
       contentType: lessonMediaContentType(file.extension),
@@ -186,8 +197,14 @@ class SupabaseLessonMediaService implements LessonMediaService {
     required LessonMediaKind kind,
     required String lessonId,
     required String? url,
+    String folder = _lessonFolder,
   }) async {
-    final path = lessonMediaObjectPath(url, kind: kind, lessonId: lessonId);
+    final path = lessonMediaObjectPath(
+      url,
+      kind: kind,
+      lessonId: lessonId,
+      folder: folder,
+    );
     if (path == null) return;
     await _supabase.storage.from(kind.bucket).remove([path]);
   }
