@@ -534,6 +534,21 @@ class StudyGroupRepository {
         .toList();
   }
 
+  /// Curso de cada turma: `{study_group_id: course_id}`.
+  Future<Map<String, String>> getGroupCourseIds(Set<String> groupIds) async {
+    if (groupIds.isEmpty) return const {};
+    final response = await _supabase
+        .from('study_groups')
+        .select('id, course_id')
+        .inFilter('id', groupIds.toList())
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
+    return {
+      for (final row in response as List)
+        if (row['course_id'] != null)
+          row['id'] as String: row['course_id'] as String,
+    };
+  }
+
   /// Deletar lição
   Future<void> deleteLesson(String id) async {
     await _supabase

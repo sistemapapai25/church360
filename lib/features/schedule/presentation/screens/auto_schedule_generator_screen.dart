@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/utils/file_download.dart';
 
 import '../providers/schedule_provider.dart';
+import '../../../courses/presentation/turma/teaching_plan.dart';
 import '../../../events/domain/models/event.dart';
 import '../../../events/presentation/providers/events_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
@@ -111,7 +112,31 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
     final reports = <EventScheduleReport>[];
     final failures = <String>[];
     try {
+      // Encontros tipo Aula com aulas de curso deste ministério: o professor
+      // vem das aulas (a escala do evento acompanha pelo banco); o gerador
+      // por função não mexe neles.
+      var teachingIds = const <String>{};
+      String? teachingNote;
+      try {
+        final t = await fillMinistryEventTeachers(
+          ref,
+          ministryId: widget.ministryId,
+          events: events,
+        );
+        teachingIds = t.eventIds;
+        if (t.lessons > 0) {
+          teachingNote =
+              'Aulas nos encontros: ${t.lessons} analisadas, ${t.filled} '
+              'receberam professor'
+              '${t.missing > 0 ? ', ${t.missing} sem professor (ninguém do ministério tem a função Professor)' : ''}'
+              '. O professor aparece na escala do encontro.';
+        }
+      } catch (e) {
+        failures.add('Aulas dos encontros: $e');
+      }
+
       for (final event in events) {
+        if (teachingIds.contains(event.id)) continue;
         // Fix #15: tratar string vazia / whitespace como ausência de tipo
         // (default = culto_normal) para não cair no ramo errado.
         final rawType = event.eventType?.trim();
@@ -190,7 +215,7 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
       }
 
       if (mounted) {
-        _showGenerationReport(reports, failures, events);
+        _showGenerationReport(reports, failures, events, teachingNote);
       }
     } catch (e) {
       if (mounted) {
@@ -208,6 +233,7 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
     List<EventScheduleReport> reports,
     List<String> failures,
     List<Event> events,
+    String? teachingNote,
   ) {
     final ok = reports.where((r) => r.status == ScheduleSlotStatus.ok).length;
     final partial = reports
@@ -285,6 +311,10 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
                     ],
                   ),
                   const SizedBox(height: 12),
+                  if (teachingNote != null) ...[
+                    Text(teachingNote),
+                    const Divider(),
+                  ],
                   if (failures.isNotEmpty) ...[
                     const Text('Eventos com erro:',
                         style: TextStyle(fontWeight: FontWeight.bold)),
@@ -489,6 +519,29 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
 
   void _openScalePreview(List<Event> events) async {
     final ids = _selectedMinistryIds.isEmpty ? [widget.ministryId] : _selectedMinistryIds.toList();
+    // Encontros com aulas deste ministério ficam fora da prévia: o professor
+    // é o da aula e só "Gerar escala" o preenche.
+    final teaching = await ministryEventLessons(
+      ref,
+      ministryId: widget.ministryId,
+      events: events,
+    );
+    final skip = {
+      for (final lessons in teaching.values)
+        for (final l in lessons) l.eventId,
+    };
+    if (!mounted) return;
+    if (skip.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${skip.length} encontro(s) de aula ficaram fora da prévia: o '
+            'professor vem das aulas (use "Gerar escala").',
+          ),
+        ),
+      );
+      events = [for (final e in events) if (!skip.contains(e.id)) e];
+    }
     Navigator.push(
       context,
       MaterialPageRoute(
