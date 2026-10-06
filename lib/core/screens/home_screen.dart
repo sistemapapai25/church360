@@ -16,6 +16,7 @@ import '../constants/app_branding.dart';
 import '../domain/models/more_menu_item.dart';
 import '../providers/more_menu_layout_provider.dart';
 import '../widgets/church_image.dart';
+import '../theme/app_theme.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/theme_mode_selector.dart';
 import '../../features/permissions/presentation/widgets/dashboard_access_gate.dart';
@@ -293,7 +294,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         activeColor: const Color(0xFF2563EB),
         itemKey: _tourNavIgrejaKey,
         iconBuilder: (context, isActive, activeColor) {
-          return _NavLogoIcon(isActive: isActive);
+          return _NavLogoIcon(isActive: isActive, activeColor: activeColor);
         },
       ),
       const PremiumNavItem(
@@ -434,14 +435,16 @@ BoxDecoration _homeCardDecoration(ColorScheme cs, {bool hovered = false}) {
 
 class _NavLogoIcon extends StatelessWidget {
   final bool isActive;
+  final Color activeColor;
 
-  const _NavLogoIcon({required this.isActive});
+  const _NavLogoIcon({required this.isActive, required this.activeColor});
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: isActive ? 1 : 0.65,
-      child: const AppLogo(width: 22, height: 22),
+    // Mesmas cores dos ícones vizinhos; em 26 a folha some, a silhueta fica.
+    return AppLogo(
+      height: 26,
+      color: isActive ? activeColor : AppTheme.mutedForeground,
     );
   }
 }
@@ -2426,9 +2429,15 @@ class _ChurchIdentityHeader extends StatelessWidget {
                             ? Image.network(
                                 logoUrl,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const AppLogo(),
+                                errorBuilder: (_, __, ___) => const AppLogo(
+                                  variant: AppLogoVariant.selo,
+                                  fit: BoxFit.cover,
+                                ),
                               )
-                            : const AppLogo(),
+                            : const AppLogo(
+                                variant: AppLogoVariant.selo,
+                                fit: BoxFit.cover,
+                              ),
                       ),
                     ),
                   ),
@@ -2514,11 +2523,15 @@ class _ChurchIdentityHeader extends StatelessWidget {
           Container(
             width: 56,
             height: 56,
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: cs.surfaceContainerHighest,
             ),
-            child: const AppLogo(),
+            child: const AppLogo(
+              variant: AppLogoVariant.selo,
+              fit: BoxFit.cover,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(

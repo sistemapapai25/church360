@@ -627,9 +627,9 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                 _logoUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
-                  return Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: const AppLogo(),
+                  return const AppLogo(
+                    variant: AppLogoVariant.selo,
+                    fit: BoxFit.cover,
                   );
                 },
               ),
@@ -647,9 +647,8 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                 width: 3,
               ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: const AppLogo(),
+            child: const ClipOval(
+              child: AppLogo(variant: AppLogoVariant.selo, fit: BoxFit.cover),
             ),
           ),
         const SizedBox(height: 16),
