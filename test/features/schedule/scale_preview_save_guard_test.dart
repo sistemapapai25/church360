@@ -56,6 +56,16 @@ class _FakeMinistries implements MinistriesRepository {
     for (final id in ids)
       if (names[id] != null) id: names[id]!,
   };
+  final removed = <String>[];
+  final added = <Map<String, dynamic>>[];
+  @override
+  Future<void> removeSchedule(String id) async => removed.add(id);
+  @override
+  Future<MinistrySchedule> addSchedule(Map<String, dynamic> data) async {
+    added.add(data);
+    throw UnimplementedError();
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -187,5 +197,76 @@ void main() {
 
     expect(find.textContaining('Não foi possível carregar'), findsOneWidget);
     expect(_saveButton(tester), isNull);
+  });
+  testWidgets('encontro de aula aparece com o professor e Salvar não mexe', (
+    tester,
+  ) async {
+    final repo = _FakeMinistries()..members.complete([]);
+    final now = DateTime.now();
+    final day = DateTime.utc(now.year, now.month, now.day, 20).add(
+      const Duration(days: 2),
+    );
+    repo.saved['aula'] = [
+      MinistrySchedule(
+        id: 's-prof',
+        eventId: 'aula',
+        eventName: 'Aula',
+        eventStartDate: day,
+        ministryId: 'm-1',
+        ministryName: 'Batismo',
+        memberId: 'u-gabi',
+        memberName: 'Gabriela',
+        notes: 'Professor(a)',
+        createdAt: now,
+      ),
+    ];
+    tester.view.physicalSize = const Size(1400, 2000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ministriesRepositoryProvider.overrideWithValue(repo),
+          roleContextsRepositoryProvider.overrideWithValue(_FakeContexts()),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ScalePreviewScreen(
+                      ministryId: 'm-1',
+                      events: [
+                        Event(
+                          id: 'aula',
+                          name: 'Aula',
+                          eventType: 'aula',
+                          startDate: day,
+                          createdAt: now,
+                        ),
+                      ],
+                      jointMinistryIds: const [],
+                      byFunction: true,
+                      lockedEventIds: const {'aula'},
+                    ),
+                  ),
+                ),
+                child: const Text('abrir'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('abrir'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Gabriela'), findsOneWidget);
+    await tester.tap(find.text('Salvar Escala'));
+    await tester.pumpAndSettle();
+    expect(repo.removed, isEmpty);
+    expect(repo.added, isEmpty);
   });
 }

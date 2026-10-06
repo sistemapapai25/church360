@@ -19,6 +19,9 @@ class ScalePreviewScreen extends ConsumerStatefulWidget {
   final List<Event> events;
   final List<String> jointMinistryIds;
   final bool byFunction;
+  // Encontros com aula deste ministério: aparecem com o professor gravado
+  // pela aula, mas o gerador não propõe, a grade não edita e Salvar não mexe.
+  final Set<String> lockedEventIds;
   // Lote 3: preview reflete os flags que o usuário marcou na tela de geração.
   // Default = comportamento conservador (sem relaxamento, sem distribuição justa).
   final bool relaxMinDays;
@@ -32,6 +35,7 @@ class ScalePreviewScreen extends ConsumerStatefulWidget {
     required this.events,
     required this.jointMinistryIds,
     required this.byFunction,
+    this.lockedEventIds = const {},
     this.relaxMinDays = false,
     this.relaxMaxConsecutive = false,
     this.relaxMaxPerMonth = false,
@@ -407,6 +411,10 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
           _functions.add(canon);
         }
       }
+      if (widget.lockedEventIds.contains(e.id)) {
+        _assignmentsByEvent[e.id] = assigns;
+        continue;
+      }
       final props = await service.generateProposalForEvent(
         ref: ref,
         event: e,
@@ -557,6 +565,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
           ? [widget.ministryId]
           : widget.jointMinistryIds;
       for (final e in _events) {
+        if (widget.lockedEventIds.contains(e.id)) continue;
         final existing = await repo.getEventSchedules(e.id);
         for (final s in existing.where((s) => ids.contains(s.ministryId))) {
           await repo.removeSchedule(s.id);
@@ -564,6 +573,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       }
       final Set<String> seen = {};
       for (final entry in _assignmentsByEvent.entries) {
+        if (widget.lockedEventIds.contains(entry.key)) continue;
         for (final a in entry.value.where(
           (it) => ((it['user_id'] ?? '').isNotEmpty),
         )) {
@@ -1143,7 +1153,9 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
                         )
                         .toList(),
                     isExpanded: true,
-                    onChanged: allowedLocal.isEmpty
+                    onChanged:
+                        allowedLocal.isEmpty ||
+                            widget.lockedEventIds.contains(e.id)
                         ? null
                         : (uid) {
                             setState(() {
