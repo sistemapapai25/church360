@@ -34,13 +34,14 @@ AppStatusTone courseTurmaStatusTone(StudyGroupStatus status) {
 class CourseTurmasSection extends ConsumerWidget {
   final String courseId;
 
-  /// "Nova turma" só pela Dashboard; por Cursos a seção só exibe.
-  final bool allowCreate;
+  /// Aberta pela Dashboard: "Nova turma" e a turma abre com a gestão. Por
+  /// Cursos a seção só exibe.
+  final bool fromDashboard;
 
   const CourseTurmasSection({
     super.key,
     required this.courseId,
-    this.allowCreate = false,
+    this.fromDashboard = false,
   });
 
   @override
@@ -52,7 +53,7 @@ class CourseTurmasSection extends ConsumerWidget {
     // nasce pelo ministério.
     final course = ref.watch(courseByIdProvider(courseId)).valueOrNull;
     final canCreate =
-        allowCreate &&
+        fromDashboard &&
         hub != null &&
         hub.management &&
         course != null &&
@@ -96,7 +97,11 @@ class CourseTurmasSection extends ConsumerWidget {
                   for (final turma in turmas)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: _TurmaCard(turma: turma, courseId: courseId),
+                      child: _TurmaCard(
+                        turma: turma,
+                        courseId: courseId,
+                        fromDashboard: fromDashboard,
+                      ),
                     ),
                 ],
               );
@@ -211,7 +216,13 @@ class _TurmaCard extends StatelessWidget {
   final CourseTurma turma;
   final String courseId;
 
-  const _TurmaCard({required this.turma, required this.courseId});
+  final bool fromDashboard;
+
+  const _TurmaCard({
+    required this.turma,
+    required this.courseId,
+    this.fromDashboard = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -221,7 +232,7 @@ class _TurmaCard extends StatelessWidget {
     final dates = turma.periodLabel;
 
     return GlassCard(
-      onTap: () => context.push(turma.routeWithin(courseId)),
+      onTap: () => context.push('${turma.routeWithin(courseId)}${fromDashboard ? '?from=dashboard' : ''}'),
       child: Row(
         children: [
           Container(

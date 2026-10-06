@@ -76,6 +76,7 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
                     CourseHubCta(
                       courseId: course.id,
                       onManage: _scrollToTurmas,
+                      fromDashboard: widget.fromDashboard,
                     ),
 
                     const Divider(height: 32),
@@ -117,7 +118,7 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
                     CourseTurmasSection(
                       key: _turmasKey,
                       courseId: course.id,
-                      allowCreate: widget.fromDashboard,
+                      fromDashboard: widget.fromDashboard,
                     ),
 
                     const SizedBox(height: 32),

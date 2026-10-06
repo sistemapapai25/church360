@@ -25,10 +25,14 @@ class LegacyStudyGroupRedirect extends ConsumerWidget {
   final String studyGroupId;
   final Widget fallback;
 
+  /// Mantém o `from=dashboard` na rota canônica.
+  final bool fromDashboard;
+
   const LegacyStudyGroupRedirect({
     super.key,
     required this.studyGroupId,
     required this.fallback,
+    this.fromDashboard = false,
   });
 
   @override
@@ -42,7 +46,9 @@ class LegacyStudyGroupRedirect extends ConsumerWidget {
       data: (turma) {
         final courseId = turma?.courseId;
         if (courseId == null) return fallback;
-        final target = '/courses/$courseId/turmas/$studyGroupId';
+        final target =
+            '/courses/$courseId/turmas/$studyGroupId'
+            '${fromDashboard ? '?from=dashboard' : ''}';
         // Troca depois do frame: navegar dentro do build é proibido. O
         // scheduleFrame garante que o callback rode mesmo com a tela parada.
         WidgetsBinding.instance.addPostFrameCallback((_) {

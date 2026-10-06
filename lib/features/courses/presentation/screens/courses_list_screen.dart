@@ -159,7 +159,7 @@ class _CoursesListScreenState extends ConsumerState<CoursesListScreen> {
             ),
             Expanded(
               child: _tab == 1
-                  ? const FormacaoTurmasTab()
+                  ? FormacaoTurmasTab(fromDashboard: widget.showFab)
                   : coursesAsync.when(
                       data: (courses) {
                         if (courses.isEmpty) {

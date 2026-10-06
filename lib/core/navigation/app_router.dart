@@ -1183,6 +1183,7 @@ final appRouter = GoRouter(
         final fromDashboard = state.uri.queryParameters['from'] == 'dashboard';
         return LegacyStudyGroupRedirect(
           studyGroupId: id,
+          fromDashboard: fromDashboard,
           fallback: PermissionOnlyRoute(
             permission: 'study_groups.view',
             child: StudyGroupDetailScreen(
@@ -1521,6 +1522,7 @@ final appRouter = GoRouter(
       builder: (context, state) => TurmaDetailScreen(
         courseId: state.pathParameters['courseId']!,
         studyGroupId: state.pathParameters['studyGroupId']!,
+        fromDashboard: state.uri.queryParameters['from'] == 'dashboard',
       ),
     ),
 

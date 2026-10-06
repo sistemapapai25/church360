@@ -129,14 +129,17 @@ Future<CourseHubState> _hub(List<Override> overrides) {
   return container.read(courseHubProvider(_courseId).future);
 }
 
-Widget _screen(List<Override> overrides) {
+Widget _screen(List<Override> overrides, {bool fromDashboard = false}) {
   final router = GoRouter(
-    initialLocation: '/courses/$_courseId/view',
+    initialLocation:
+        '/courses/$_courseId/view${fromDashboard ? '?from=dashboard' : ''}',
     routes: [
       GoRoute(
         path: '/courses/:id/view',
-        builder: (context, state) =>
-            CourseViewerScreen(courseId: state.pathParameters['id']!),
+        builder: (context, state) => CourseViewerScreen(
+          courseId: state.pathParameters['id']!,
+          fromDashboard: state.uri.queryParameters['from'] == 'dashboard',
+        ),
       ),
       GoRoute(
         path: '/courses/:courseId/turmas/:studyGroupId',
@@ -338,10 +341,21 @@ void main() {
       expect(find.text('Batizandos 2026'), findsNothing);
     });
 
-    testWidgets('liderança vê "Ver turmas / Gerenciar" e todas as turmas', (
+    testWidgets('liderança por Cursos não vê "Ver turmas / Gerenciar"', (
       tester,
     ) async {
       await _pump(tester, _screen(_baptismOverrides(elevated: true)));
+
+      expect(find.text('Ver turmas / Gerenciar'), findsNothing);
+      expect(find.text('Gerenciar'), findsNothing);
+    });
+
+    testWidgets('liderança pela Dashboard vê "Ver turmas / Gerenciar" e '
+        'todas as turmas', (tester) async {
+      await _pump(
+        tester,
+        _screen(_baptismOverrides(elevated: true), fromDashboard: true),
+      );
 
       expect(find.text('Ver turmas / Gerenciar'), findsOneWidget);
       expect(find.text('Turmas'), findsOneWidget);
