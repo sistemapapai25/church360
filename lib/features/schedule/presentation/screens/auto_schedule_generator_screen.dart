@@ -134,6 +134,15 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
     final service = AutoSchedulerService();
     final reports = <EventScheduleReport>[];
     final failures = <String>[];
+    // Gerar só preenche vagas: não apaga escala existente e não mexe em
+    // evento que já passou (datas são hora de parede rotulada como UTC).
+    final n = DateTime.now();
+    final today = DateTime.utc(n.year, n.month, n.day);
+    final upcoming = [
+      for (final e in events)
+        if (!e.startDate.isBefore(today)) e,
+    ];
+    final past = events.length - upcoming.length;
     try {
       // Encontros tipo Aula com aulas de curso deste ministério: o professor
       // vem das aulas (a escala do evento acompanha pelo banco); o gerador
@@ -144,7 +153,7 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
       // aulas da turma do ministério nele antes de escalar o professor.
       String? distributeNote;
       try {
-        final empty = await emptyAgendaEncounters(ref, events);
+        final empty = await emptyAgendaEncounters(ref, upcoming);
         if (empty.isNotEmpty) {
           final turmas = await ministryActiveTurmas(ref, widget.ministryId);
           final turma = turmas.length > 1
@@ -175,7 +184,7 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
         final t = await fillMinistryEventTeachers(
           ref,
           ministryId: widget.ministryId,
-          events: events,
+          events: upcoming,
         );
         teachingIds = t.eventIds;
         if (t.lessons > 0) {
@@ -189,7 +198,7 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
         failures.add('Aulas dos encontros: $e');
       }
 
-      for (final event in events) {
+      for (final event in upcoming) {
         if (teachingIds.contains(event.id)) continue;
         // Fix #15: tratar string vazia / whitespace como ausência de tipo
         // (default = culto_normal) para não cair no ramo errado.
@@ -206,7 +215,6 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
               event: event,
               ministryIds: _selectedMinistryIds.toList(),
               byFunction: _jointByFunction,
-              overwriteExisting: _jointByFunction,
               relaxMinDays: _relaxMinDays,
               relaxMaxConsecutive: _relaxMaxConsecutive,
               relaxMaxPerMonth: _relaxMaxPerMonth,
@@ -228,7 +236,6 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
               event: event,
               ministryIds: [widget.ministryId],
               byFunction: true,
-              overwriteExisting: true,
               relaxMinDays: _relaxMinDays,
               relaxMaxConsecutive: _relaxMaxConsecutive,
               relaxMaxPerMonth: _relaxMaxPerMonth,
@@ -269,7 +276,10 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
       }
 
       if (mounted) {
-        final note = [?distributeNote, ?teachingNote].join('\n');
+        final pastNote = past > 0
+            ? '$past evento(s) já passados ficaram como estavam.'
+            : null;
+        final note = [?distributeNote, ?teachingNote, ?pastNote].join('\n');
         _showGenerationReport(
           reports,
           failures,

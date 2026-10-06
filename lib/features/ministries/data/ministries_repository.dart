@@ -651,55 +651,49 @@ class MinistriesRepository {
         .eq('tenant_id', SupabaseConstants.currentTenantId);
   }
 
+  // Sem try/catch: erro de leitura não pode virar "nenhuma função", senão o
+  // gerador escala/grava com dado faltando.
   Future<List<Map<String, String>>> getFunctionsCatalog() async {
-    try {
-      final response = await _supabase
-          .from('ministry_function')
-          .select('id,name,code,is_active')
-          .eq('tenant_id', SupabaseConstants.currentTenantId)
-          .eq('is_active', true);
-      return (response as List)
-          .map((row) {
-            final id = row['id']?.toString() ?? '';
-            final name = (row['name']?.toString() ?? '').trim();
-            final code = (row['code']?.toString() ?? '').trim();
-            return {'id': id, 'name': name.isNotEmpty ? name : code};
-          })
-          .where(
-            (e) => (e['id'] ?? '').isNotEmpty && (e['name'] ?? '').isNotEmpty,
-          )
-          .toList();
-    } catch (_) {
-      return [];
-    }
+    final response = await _supabase
+        .from('ministry_function')
+        .select('id,name,code,is_active')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('is_active', true);
+    return (response as List)
+        .map((row) {
+          final id = row['id']?.toString() ?? '';
+          final name = (row['name']?.toString() ?? '').trim();
+          final code = (row['code']?.toString() ?? '').trim();
+          return {'id': id, 'name': name.isNotEmpty ? name : code};
+        })
+        .where(
+          (e) => (e['id'] ?? '').isNotEmpty && (e['name'] ?? '').isNotEmpty,
+        )
+        .toList();
   }
 
   Future<Map<String, List<String>>> getMemberFunctionsByMinistry(
     String ministryId,
   ) async {
-    try {
-      final response = await _supabase
-          .from('member_function')
-          .select(
-            'user_id,function_id,ministry_id,ministry_function:function_id(id,name,code)',
-          )
-          .eq('ministry_id', ministryId)
-          .eq('tenant_id', SupabaseConstants.currentTenantId);
-      final out = <String, List<String>>{};
-      for (final row in (response as List)) {
-        final uid =
-            row['user_id']?.toString() ?? row['member_id']?.toString() ?? '';
-        final fn = row['ministry_function'] as Map<String, dynamic>?;
-        final name = (fn?['name']?.toString() ?? fn?['code']?.toString() ?? '')
-            .trim();
-        if (uid.isEmpty || name.isEmpty) continue;
-        out.putIfAbsent(uid, () => []);
-        if (!out[uid]!.contains(name)) out[uid]!.add(name);
-      }
-      return out;
-    } catch (_) {
-      return {};
+    final response = await _supabase
+        .from('member_function')
+        .select(
+          'user_id,function_id,ministry_id,ministry_function:function_id(id,name,code)',
+        )
+        .eq('ministry_id', ministryId)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
+    final out = <String, List<String>>{};
+    for (final row in (response as List)) {
+      final uid =
+          row['user_id']?.toString() ?? row['member_id']?.toString() ?? '';
+      final fn = row['ministry_function'] as Map<String, dynamic>?;
+      final name = (fn?['name']?.toString() ?? fn?['code']?.toString() ?? '')
+          .trim();
+      if (uid.isEmpty || name.isEmpty) continue;
+      out.putIfAbsent(uid, () => []);
+      if (!out[uid]!.contains(name)) out[uid]!.add(name);
     }
+    return out;
   }
 
   Future<Map<String, String>> getUserNamesByIds(List<String> ids) async {
