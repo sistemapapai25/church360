@@ -30,6 +30,18 @@ void main() {
     expect(consecutiveStreak('dudu', 'qua14', DateTime.utc(2026, 10, 14, 20), history), 1);
   });
 
+  test('por categoria: quem ministrou no anterior pode tocar no próximo', () {
+    final h = [
+      _s('qua07', 7, 'pablo').copyWith(functionName: 'Ministrante'),
+      _s('dom11', 11, 'pablo').copyWith(functionName: 'Ministrante'),
+    ];
+    bool voz(s) => s.functionName == 'Ministrante';
+    bool instrumento(s) => !voz(s);
+    final start = DateTime.utc(2026, 10, 14, 20);
+    expect(consecutiveStreak('pablo', 'qua14', start, h, sameKind: voz), 2);
+    expect(consecutiveStreak('pablo', 'qua14', start, h, sameKind: instrumento), 0);
+  });
+
   test('sequência conta eventos seguidos e ignora o próprio evento e os futuros', () {
     final h = [
       ...history,
