@@ -7,6 +7,7 @@ import '../../domain/models/event_audience.dart';
 import '../../domain/models/event_reminder.dart';
 import '../../domain/models/event_series.dart';
 import '../../domain/models/event_series_impact.dart';
+import '../../domain/models/event_update.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 
 /// Provider do repository de eventos
@@ -75,6 +76,15 @@ final eventResponsiblesProvider =
       final repo = ref.watch(eventsRepositoryProvider);
       return repo.getEventResponsibles(eventId);
     });
+
+/// Feed do evento (event_update): avisos e mudanças, recentes primeiro.
+final eventUpdatesProvider = FutureProvider.family<List<EventUpdate>, String>((
+  ref,
+  eventId,
+) async {
+  final repo = ref.watch(eventsRepositoryProvider);
+  return repo.getEventUpdates(eventId);
+});
 
 /// Fase 4 — NOTIF-02. Lembretes configuráveis (D-02/D-03) de um evento.
 final eventRemindersProvider =
