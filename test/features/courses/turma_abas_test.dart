@@ -371,6 +371,7 @@ class _FakeMedia implements LessonMediaService {
     required LessonMediaKind kind,
     required String lessonId,
     required PickedLessonFile file,
+    String folder = 'study-lessons',
   }) async {
     if (failUploads > 0) {
       failUploads--;
@@ -385,6 +386,7 @@ class _FakeMedia implements LessonMediaService {
     required LessonMediaKind kind,
     required String lessonId,
     required String? url,
+    String folder = 'study-lessons',
   }) async {
     removed.add((kind: kind, url: url));
   }
