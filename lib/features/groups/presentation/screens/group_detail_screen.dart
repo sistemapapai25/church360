@@ -25,7 +25,14 @@ import '../../../support_materials/domain/models/support_material_link.dart';
 class GroupDetailScreen extends ConsumerWidget {
   final String groupId;
 
-  const GroupDetailScreen({super.key, required this.groupId});
+  /// Aberta pela Dashboard: só então aparecem as ações de gestão.
+  final bool fromDashboard;
+
+  const GroupDetailScreen({
+    super.key,
+    required this.groupId,
+    this.fromDashboard = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -37,7 +44,7 @@ class GroupDetailScreen extends ConsumerWidget {
       Share.share('Participe do grupo na igreja:\n$url');
     }
 
-    return Scaffold(
+    final page = Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
         backgroundColor: CommunityDesign.headerColor(context),
@@ -112,6 +119,7 @@ class GroupDetailScreen extends ConsumerWidget {
         ),
       ),
     );
+    return ViewOnlyScope(enabled: !fromDashboard, child: page);
   }
 
   void _showDeleteDialog(BuildContext context, WidgetRef ref) {
@@ -866,7 +874,10 @@ class _MeetingCard extends StatelessWidget {
       child: GlassCard(
         padding: EdgeInsets.zero,
         onTap: () {
-          context.push('/groups/${meeting.groupId}/meetings/${meeting.id}');
+          context.push(
+            '/groups/${meeting.groupId}/meetings/${meeting.id}'
+            '${ViewOnlyScope.fromQuery(context)}',
+          );
         },
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -1084,7 +1095,10 @@ class _MaterialCard extends StatelessWidget {
       child: GlassCard(
         padding: EdgeInsets.zero,
         onTap: () {
-          context.push('/support-materials/${material.id}');
+          context.push(
+            '/support-materials/${material.id}'
+            '${ViewOnlyScope.fromQuery(context)}',
+          );
         },
         child: Padding(
           padding: const EdgeInsets.all(16),

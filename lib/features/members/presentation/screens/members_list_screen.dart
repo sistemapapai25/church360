@@ -21,6 +21,7 @@ import '../../../../core/widgets/member_data_filter.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 
 /// Tela de listagem de membros
 class MembersListScreen extends ConsumerStatefulWidget {
@@ -1069,20 +1070,32 @@ class _MemberCardState extends ConsumerState<_MemberCard> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          context.push('/members/${member.id}/edit');
-                        },
-                        icon: const Icon(AppIcons.edit, size: 18),
-                        label: const Text('Editar'),
-                        style: CommunityDesign.pillButtonStyle(
-                          context,
-                          Theme.of(context).colorScheme.outline,
+                    // "Editar" não conferia permissão nenhuma.
+                    if (ref
+                            .watch(
+                              currentUserHasPermissionProvider(
+                                member.status == 'visitor'
+                                    ? 'visitors.edit'
+                                    : 'members.edit',
+                              ),
+                            )
+                            .valueOrNull ??
+                        false) ...[
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            context.push('/members/${member.id}/edit');
+                          },
+                          icon: const Icon(AppIcons.edit, size: 18),
+                          label: const Text('Editar'),
+                          style: CommunityDesign.pillButtonStyle(
+                            context,
+                            Theme.of(context).colorScheme.outline,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ],

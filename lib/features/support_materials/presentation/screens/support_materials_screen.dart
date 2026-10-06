@@ -4,25 +4,33 @@ import 'package:go_router/go_router.dart';
 import '../providers/support_materials_provider.dart';
 import '../../domain/models/support_material.dart';
 import '../../../permissions/providers/permissions_providers.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de materiais de apoio
 class SupportMaterialsScreen extends ConsumerWidget {
-  const SupportMaterialsScreen({super.key});
+  /// Aberta pela Dashboard: só então aparecem as ações de gestão.
+  final bool fromDashboard;
+
+  const SupportMaterialsScreen({super.key, this.fromDashboard = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final materialsAsync = ref.watch(allMaterialsProvider);
 
-    return Scaffold(
+    final page = Scaffold(
       appBar: AppBar(
         title: const Text('Material de Apoio'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              context.push('/support-materials/new');
-            },
-            tooltip: 'Novo Material',
+          PermissionGate(
+            permission: 'support_materials.create',
+            showLoading: false,
+            child: IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () {
+                context.push('/support-materials/new');
+              },
+              tooltip: 'Novo Material',
+            ),
           ),
         ],
       ),
@@ -47,12 +55,16 @@ class SupportMaterialsScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      context.push('/support-materials/new');
-                    },
-                    icon: const Icon(Icons.add),
-                    label: const Text('Adicionar Material'),
+                  PermissionGate(
+                    permission: 'support_materials.create',
+                    showLoading: false,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        context.push('/support-materials/new');
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Adicionar Material'),
+                    ),
                   ),
                 ],
               ),
@@ -88,6 +100,7 @@ class SupportMaterialsScreen extends ConsumerWidget {
         ),
       ),
     );
+    return ViewOnlyScope(enabled: !fromDashboard, child: page);
   }
 }
 
@@ -137,15 +150,26 @@ class _MaterialCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final canDelete = ref
-        .watch(currentUserHasPermissionProvider('support_materials.delete'))
-        .maybeWhen(data: (v) => v, orElse: () => false);
+    // Tela de exibição não mostra gestão; na Dashboard, cada item exige a
+    // sua permissão (Editar e Módulos não conferiam nenhuma).
+    final gestao = !ViewOnlyScope.isActive(context);
+    bool can(String code) =>
+        gestao &&
+        ref
+            .watch(currentUserHasPermissionProvider(code))
+            .maybeWhen(data: (v) => v, orElse: () => false);
+    final canDelete = can('support_materials.delete');
+    final canEdit = can('support_materials.edit');
+    final canModules = can('support_materials.manage_modules');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: () {
-          context.push('/support-materials/${material.id}');
+          context.push(
+            '/support-materials/${material.id}'
+            '${ViewOnlyScope.fromQuery(context)}',
+          );
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -217,8 +241,10 @@ class _MaterialCard extends ConsumerWidget {
                     ),
                   ),
                   // Menu de ações
+                  if (canEdit || canModules || canDelete)
                   PopupMenuButton(
                     itemBuilder: (context) => [
+                      if (canModules)
                       const PopupMenuItem(
                         value: 'modules',
                         child: Row(
@@ -229,6 +255,7 @@ class _MaterialCard extends ConsumerWidget {
                           ],
                         ),
                       ),
+                      if (canEdit)
                       const PopupMenuItem(
                         value: 'edit',
                         child: Row(

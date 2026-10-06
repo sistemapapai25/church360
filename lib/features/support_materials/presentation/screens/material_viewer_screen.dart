@@ -6,14 +6,19 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../domain/models/support_material.dart';
 import '../../domain/models/support_material_module.dart';
 import '../providers/support_materials_provider.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de visualização de material de apoio
 class MaterialViewerScreen extends ConsumerStatefulWidget {
   final String materialId;
 
+  /// Aberta pela Dashboard: só então aparecem as ações de gestão.
+  final bool fromDashboard;
+
   const MaterialViewerScreen({
     super.key,
     required this.materialId,
+    this.fromDashboard = false,
   });
 
   @override
@@ -26,7 +31,7 @@ class _MaterialViewerScreenState extends ConsumerState<MaterialViewerScreen> {
     final materialAsync = ref.watch(materialByIdProvider(widget.materialId));
     final modulesAsync = ref.watch(modulesByMaterialProvider(widget.materialId));
 
-    return Scaffold(
+    final page = Scaffold(
       body: materialAsync.when(
         data: (material) {
           if (material == null) {
@@ -90,6 +95,7 @@ class _MaterialViewerScreenState extends ConsumerState<MaterialViewerScreen> {
         ),
       ),
     );
+    return ViewOnlyScope(enabled: !widget.fromDashboard, child: page);
   }
 
   /// App Bar com capa do material
@@ -144,21 +150,28 @@ class _MaterialViewerScreenState extends ConsumerState<MaterialViewerScreen> {
         ),
       ),
       actions: [
-        // Botão de editar
-        IconButton(
-          icon: const Icon(Icons.edit),
-          onPressed: () {
-            context.push('/support-materials/${material.id}/edit');
-          },
+        // Gestão: só pela Dashboard e com a permissão de cada ação.
+        PermissionGate(
+          permission: 'support_materials.edit',
+          showLoading: false,
+          child: IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () {
+              context.push('/support-materials/${material.id}/edit');
+            },
+          ),
         ),
-        // Botão de gerenciar módulos
-        IconButton(
-          icon: const Icon(Icons.library_books),
-          onPressed: () {
-            context.push(
-              '/support-materials/${material.id}/modules?title=${Uri.encodeComponent(material.title)}',
-            );
-          },
+        PermissionGate(
+          permission: 'support_materials.manage_modules',
+          showLoading: false,
+          child: IconButton(
+            icon: const Icon(Icons.library_books),
+            onPressed: () {
+              context.push(
+                '/support-materials/${material.id}/modules?title=${Uri.encodeComponent(material.title)}',
+              );
+            },
+          ),
         ),
       ],
     );

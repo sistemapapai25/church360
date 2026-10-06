@@ -13,7 +13,10 @@ import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de pedidos de oração
 class PrayerRequestsListScreen extends ConsumerStatefulWidget {
-  const PrayerRequestsListScreen({super.key});
+  /// Aberta pela Dashboard (moderação): o detalhe abre em modo gestão.
+  final bool fromDashboard;
+
+  const PrayerRequestsListScreen({super.key, this.fromDashboard = false});
 
   @override
   ConsumerState<PrayerRequestsListScreen> createState() =>
@@ -160,7 +163,10 @@ class _PrayerRequestsListScreenState
             itemCount: prayerRequests.length,
             itemBuilder: (context, index) {
               final prayerRequest = prayerRequests[index];
-              return _PrayerRequestCard(prayerRequest: prayerRequest);
+              return _PrayerRequestCard(
+                prayerRequest: prayerRequest,
+                fromDashboard: widget.fromDashboard,
+              );
             },
           );
         },
@@ -194,8 +200,12 @@ class _PrayerRequestsListScreenState
 /// Card de pedido de oração
 class _PrayerRequestCard extends ConsumerWidget {
   final PrayerRequest prayerRequest;
+  final bool fromDashboard;
 
-  const _PrayerRequestCard({required this.prayerRequest});
+  const _PrayerRequestCard({
+    required this.prayerRequest,
+    this.fromDashboard = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -208,7 +218,10 @@ class _PrayerRequestCard extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: GlassCard(
         onTap: () {
-          context.push('/prayer-requests/${prayerRequest.id}');
+          context.push(
+            '/prayer-requests/${prayerRequest.id}'
+            '${fromDashboard ? '?from=dashboard' : ''}',
+          );
         },
         padding: const EdgeInsets.all(16),
         child: Column(

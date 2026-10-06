@@ -15,7 +15,15 @@ import '../../domain/models/prayer_request.dart';
 class PrayerRequestDetailScreen extends ConsumerStatefulWidget {
   final String prayerRequestId;
 
-  const PrayerRequestDetailScreen({super.key, required this.prayerRequestId});
+  /// Aberta pela Dashboard: só então quem modera/edita age sobre pedido
+  /// alheio. O autor age sobre o próprio em qualquer entrada.
+  final bool fromDashboard;
+
+  const PrayerRequestDetailScreen({
+    super.key,
+    required this.prayerRequestId,
+    this.fromDashboard = false,
+  });
 
   @override
   ConsumerState<PrayerRequestDetailScreen> createState() =>
@@ -168,11 +176,14 @@ class _PrayerRequestDetailScreenState
               if (prayerRequest == null) return const SizedBox.shrink();
 
               // Autor sempre pode agir sobre o próprio pedido; além disso,
-              // quem tem a permissão de edição/exclusão/moderação também
-              // pode agir sobre pedidos de qualquer pessoa.
+              // pela Dashboard, quem tem a permissão de edição/exclusão/
+              // moderação também pode agir sobre pedidos de qualquer pessoa.
               final isAuthor = prayerRequest.authorId == currentMemberId;
-              final canEdit = isAuthor || canEditPermission || canModerate;
-              final canDelete = isAuthor || canDeletePermission || canModerate;
+              final gestao = widget.fromDashboard;
+              final canEdit =
+                  isAuthor || (gestao && (canEditPermission || canModerate));
+              final canDelete =
+                  isAuthor || (gestao && (canDeletePermission || canModerate));
               if (!canEdit && !canDelete) {
                 return const SizedBox.shrink();
               }

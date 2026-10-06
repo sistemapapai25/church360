@@ -14,7 +14,10 @@ import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de grupos
 class GroupsListScreen extends ConsumerStatefulWidget {
-  const GroupsListScreen({super.key});
+  /// Aberta pela Dashboard: só então aparecem as ações de gestão.
+  final bool fromDashboard;
+
+  const GroupsListScreen({super.key, this.fromDashboard = false});
 
   @override
   ConsumerState<GroupsListScreen> createState() => _GroupsListScreenState();
@@ -29,7 +32,7 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
         ? ref.watch(activeGroupsProvider)
         : ref.watch(allGroupsProvider);
 
-    return Scaffold(
+    final page = Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
         backgroundColor: CommunityDesign.headerColor(context),
@@ -125,6 +128,7 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
         ),
       ),
     );
+    return ViewOnlyScope(enabled: !widget.fromDashboard, child: page);
   }
 }
 
@@ -139,7 +143,9 @@ class _GroupCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: GlassCard(
-        onTap: () => context.push('/groups/${group.id}'),
+        onTap: () => context.push(
+          '/groups/${group.id}${ViewOnlyScope.fromQuery(context)}',
+        ),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
