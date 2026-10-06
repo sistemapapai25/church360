@@ -599,29 +599,19 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
 
   void _openScalePreview(List<Event> events) async {
     final ids = _selectedMinistryIds.isEmpty ? [widget.ministryId] : _selectedMinistryIds.toList();
-    // Encontros com aulas deste ministério ficam fora da prévia: o professor
-    // é o da aula e só "Gerar escala" o preenche.
+    // Encontros com aulas deste ministério entram só para ver: o professor
+    // é o da aula (gravado na escala pelo banco) e só "Gerar escala" preenche.
     final teaching = await ministryEventLessons(
       ref,
       ministryId: widget.ministryId,
       events: events,
     );
-    final skip = {
+    final locked = {
       for (final lessons in teaching.values)
-        for (final l in lessons) l.eventId,
+        for (final l in lessons)
+          if (l.eventId != null) l.eventId!,
     };
     if (!mounted) return;
-    if (skip.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${skip.length} encontro(s) de aula ficaram fora da prévia: o '
-            'professor vem das aulas (use "Gerar escala").',
-          ),
-        ),
-      );
-      events = [for (final e in events) if (!skip.contains(e.id)) e];
-    }
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -630,6 +620,7 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
           events: events,
           jointMinistryIds: ids,
           byFunction: true,
+          lockedEventIds: locked,
           relaxMinDays: _relaxMinDays,
           relaxMaxConsecutive: _relaxMaxConsecutive,
           relaxMaxPerMonth: _relaxMaxPerMonth,
