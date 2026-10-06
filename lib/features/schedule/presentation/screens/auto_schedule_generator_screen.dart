@@ -1021,8 +1021,9 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
       body: FutureBuilder<List<Event>>(
         future: repo.getEventsByDateRange(_start, _end),
         builder: (context, snapshot) {
+          final all = snapshot.data ?? const <Event>[];
           final events = [
-            for (final e in snapshot.data ?? const <Event>[])
+            for (final e in all)
               if (servesEventType(_served, e.eventType)) e,
           ];
           return Column(
@@ -1042,6 +1043,22 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
                         side: BorderSide(color: Colors.grey.shade400),
                       ),
                     ),
+                    // Sem evento, os botões ficam desligados: dizer por quê.
+                    if (snapshot.connectionState == ConnectionState.done &&
+                        events.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          all.isEmpty
+                              ? 'Nenhum evento na Agenda neste período. Mude o período acima.'
+                              : '${all.length} evento(s) no período, mas de tipos que este '
+                                    'ministério não atende. Marque os tipos (ex.: Aula) em '
+                                    '"Regras para gerar escalas".',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 12),
                     FutureBuilder<int>(
                       future: _countActiveRules(widget.ministryId),
