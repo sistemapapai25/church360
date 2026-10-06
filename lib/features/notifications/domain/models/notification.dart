@@ -16,6 +16,9 @@ enum NotificationType {
   // e pelas RPCs de regeneração da fase. É irmão de `eventAnnouncement` e de
   // `eventReminder`, não substituto: nenhum dos dois descreve um cancelamento.
   eventSeriesChanged('event_series_changed', 'Mudança na série', '🔁'),
+  // Aviso ou mudança publicado em "Atualizações" do evento, entregue pela
+  // rotina `process_event_update_notifications` (migration 20261006000900).
+  eventUpdate('event_update', 'Atualização de evento', '📢'),
   meetingReminder('meeting_reminder', 'Lembrete de Reunião', '👥'),
   worshipReminder('worship_reminder', 'Lembrete de Culto', '⛪'),
   groupNewMember('group_new_member', 'Novo Membro', '🎉'),
