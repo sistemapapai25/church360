@@ -540,6 +540,51 @@ class LessonComplementaryMaterials extends ConsumerWidget {
   }
 }
 
+/// Teto de aulas num lançamento em massa.
+const lessonRepeatMax = 60;
+
+const _weekdayShort = {
+  DateTime.sunday: 'Dom',
+  DateTime.monday: 'Seg',
+  DateTime.tuesday: 'Ter',
+  DateTime.wednesday: 'Qua',
+  DateTime.thursday: 'Qui',
+  DateTime.friday: 'Sex',
+  DateTime.saturday: 'Sáb',
+};
+
+/// Datas do "Repetir" da Nova aula: de [start] até [until] (inclusive),
+/// nos [weekdays] (`DateTime.weekday`), a cada [intervalWeeks] semanas
+/// contadas da semana de [start] (semana começa na segunda), como a série
+/// de eventos. Para em [lessonRepeatMax] + 1 (o formulário recusa).
+List<DateTime> lessonRepeatDates({
+  required DateTime start,
+  required DateTime until,
+  required Set<int> weekdays,
+  int intervalWeeks = 1,
+}) {
+  final first = DateTime(start.year, start.month, start.day);
+  final last = DateTime(until.year, until.month, until.day);
+  final monday = DateTime.utc(
+    first.year,
+    first.month,
+    first.day - (first.weekday - 1),
+  );
+  final dates = <DateTime>[];
+  for (
+    var d = first;
+    !d.isAfter(last) && dates.length <= lessonRepeatMax;
+    d = DateTime(d.year, d.month, d.day + 1)
+  ) {
+    final week =
+        DateTime.utc(d.year, d.month, d.day).difference(monday).inDays ~/ 7;
+    if (weekdays.contains(d.weekday) && week % intervalWeeks == 0) {
+      dates.add(d);
+    }
+  }
+  return dates;
+}
+
 /// Aula nova ou edição: título, data, textos da aula e o vídeo e o PDF
 /// principais (colunas da própria aula — modelo híbrido do
 /// ROADMAP-FORMACAO), por link ou por arquivo enviado.
@@ -591,6 +636,30 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
   String? _error;
   PickedLessonFile? _pendingVideo;
   PickedLessonFile? _pendingPdf;
+
+  // Repetir (só aula nova): várias aulas iguais, uma por data.
+  bool _repeat = false;
+  final Set<int> _repeatWeekdays = {};
+  int _repeatInterval = 1;
+  DateTime? _repeatUntil;
+  bool _publishNow = true;
+
+  /// Aulas criadas pelo Repetir antes de uma falha: Salvar não recria.
+  int? _repeatCreated;
+
+  List<DateTime> get _repeatDates {
+    final start = _date;
+    final until = _repeatUntil;
+    if (start == null || until == null || _repeatWeekdays.isEmpty) {
+      return const [];
+    }
+    return lessonRepeatDates(
+      start: start,
+      until: until,
+      weekdays: _repeatWeekdays,
+      intervalWeeks: _repeatInterval,
+    );
+  }
 
   /// Aula nova já criada numa tentativa anterior cujo envio falhou.
   String? _createdLessonId;
@@ -661,7 +730,82 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
       lastDate: DateTime(now.year + 5),
       helpText: 'Data da aula',
     );
-    if (picked != null) setState(() => _date = picked);
+    if (picked != null) {
+      setState(() {
+        _date = picked;
+        if (_repeatWeekdays.isEmpty) _repeatWeekdays.add(picked.weekday);
+      });
+    }
+  }
+
+  Future<void> _pickRepeatUntil() async {
+    final start = _date ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _repeatUntil ?? start.add(const Duration(days: 30)),
+      firstDate: start,
+      lastDate: DateTime(start.year + 1, start.month, start.day),
+      helpText: 'Repetir até',
+    );
+    if (picked != null) setState(() => _repeatUntil = picked);
+  }
+
+  /// Cria uma aula por data do Repetir, numeradas em sequência. Publicada
+  /// com data e horário, o banco põe cada uma no encontro da turma naquele
+  /// dia (20261006000300): Agenda, escala do professor e Inscritos.
+  Future<void> _saveRepeat() async {
+    final dates = _repeatDates;
+    String? error;
+    if (_date == null || _startTime == null || _repeatUntil == null) {
+      error = 'Para repetir, escolha a primeira data, o horário e até quando.';
+    } else if (dates.isEmpty) {
+      error = 'Nenhuma data cai nos dias escolhidos.';
+    } else if (dates.length > lessonRepeatMax) {
+      error = 'No máximo $lessonRepeatMax aulas de uma vez.';
+    }
+    if (error != null) {
+      setState(() => _error = error);
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    final repo = ref.read(studyGroupRepositoryProvider);
+    var created = 0;
+    try {
+      for (final (i, date) in dates.indexed) {
+        await repo.createLesson(
+          studyGroupId: widget.studyGroupId,
+          lessonNumber: widget.nextNumber + i,
+          title: _title.text.trim(),
+          description: blankToNull(_description.text),
+          bibleReferences: blankToNull(_bibleReferences.text),
+          content: blankToNull(_content.text),
+          discussionQuestions: parseLessonQuestions(_questions.text),
+          status: _publishNow ? LessonStatus.published : LessonStatus.draft,
+          scheduledDate: date,
+          videoUrl: normalizeLessonUrl(_videoUrl.text),
+          pdfUrl: normalizeLessonUrl(_pdfUrl.text),
+          subjectId: _subjectId,
+          teacherId: _teacherId,
+          startTime: _startTimeValue,
+          durationMinutes: int.tryParse(_duration.text.trim()),
+        );
+        created++;
+      }
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _repeatCreated = created;
+          _error =
+              'Foram criadas $created de ${dates.length} aulas. As outras '
+              'falharam: $e. Feche e confira a lista antes de lançar de novo.';
+        });
+      }
+    }
   }
 
   Future<void> _pick(LessonMediaKind kind) async {
@@ -693,6 +837,7 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_repeat) return _saveRepeat();
     setState(() {
       _saving = true;
       _error = null;
@@ -811,6 +956,8 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
 
   Widget _mediaPicker(LessonMediaKind kind) {
     final pending = kind == LessonMediaKind.video ? _pendingVideo : _pendingPdf;
+    // Várias aulas: só link (o arquivo vai para a pasta de uma aula só).
+    if (_repeat) return const SizedBox.shrink();
     if (pending == null) {
       return Align(
         alignment: Alignment.centerLeft,
@@ -844,6 +991,106 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
     );
   }
 
+  List<Widget> _repeatSection(BuildContext context) {
+    final meta = CommunityDesign.metaStyle(context);
+    final until = _repeatUntil;
+    final dates = _repeat ? _repeatDates : const <DateTime>[];
+    final fmt = DateFormat('dd/MM');
+    final preview = [
+      for (final (i, d) in dates.indexed)
+        'Aula ${widget.nextNumber + i} (${fmt.format(d)})',
+    ].join(', ');
+    return [
+      const SizedBox(height: 4),
+      SwitchListTile(
+        key: const ValueKey('lesson-repeat'),
+        contentPadding: EdgeInsets.zero,
+        title: const Text('Repetir (lançar várias aulas)'),
+        subtitle: const Text('Uma aula por data, com os mesmos dados.'),
+        value: _repeat,
+        onChanged: _saving
+            ? null
+            : (v) => setState(() {
+                _repeat = v;
+                if (v && _repeatWeekdays.isEmpty) {
+                  _repeatWeekdays.add(_date?.weekday ?? DateTime.tuesday);
+                }
+              }),
+      ),
+      if (_repeat) ...[
+        Text('Dias da semana', style: meta),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final d in _weekdayShort.keys)
+              FilterChip(
+                key: ValueKey('lesson-repeat-day-$d'),
+                label: Text(_weekdayShort[d]!),
+                selected: _repeatWeekdays.contains(d),
+                onSelected: (sel) => setState(
+                  () =>
+                      sel ? _repeatWeekdays.add(d) : _repeatWeekdays.remove(d),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<int>(
+          initialValue: _repeatInterval,
+          decoration: const InputDecoration(labelText: 'Repetir a cada'),
+          items: [
+            for (final n in [1, 2, 3, 4])
+              DropdownMenuItem(
+                value: n,
+                child: Text(n == 1 ? 'semana' : '$n semanas'),
+              ),
+          ],
+          onChanged: (v) => setState(() => _repeatInterval = v ?? 1),
+        ),
+        const SizedBox(height: 12),
+        InkWell(
+          key: const ValueKey('lesson-repeat-until'),
+          onTap: _pickRepeatUntil,
+          borderRadius: BorderRadius.circular(8),
+          child: InputDecorator(
+            decoration: const InputDecoration(labelText: 'Repetir até *'),
+            child: Text(
+              until == null ? '—' : DateFormat('dd/MM/yyyy').format(until),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (dates.isNotEmpty)
+          Text(
+            dates.length > lessonRepeatMax
+                ? 'Passa de $lessonRepeatMax aulas. Encurte o período.'
+                : '${dates.length} ${dates.length == 1 ? 'aula' : 'aulas'}: '
+                      '$preview.',
+            key: const ValueKey('lesson-repeat-preview'),
+            style: meta,
+          ),
+        SwitchListTile(
+          key: const ValueKey('lesson-repeat-publish'),
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Publicar já'),
+          subtitle: const Text(
+            'Cria os encontros na Agenda da turma (escala do professor e '
+            'inscritos). Sem isso, as aulas nascem em rascunho.',
+          ),
+          value: _publishNow,
+          onChanged: _saving ? null : (v) => setState(() => _publishNow = v),
+        ),
+        Text(
+          'Vídeo e PDF: use link (vale para todas). Arquivo do aparelho, '
+          'envie depois em cada aula.',
+          style: meta,
+        ),
+      ],
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final date = _date;
@@ -874,7 +1121,9 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
             onTap: _pickDate,
             borderRadius: BorderRadius.circular(8),
             child: InputDecorator(
-              decoration: const InputDecoration(labelText: 'Data (opcional)'),
+              decoration: InputDecoration(
+                labelText: _repeat ? 'Primeira data *' : 'Data (opcional)',
+              ),
               child: Text(
                 date == null ? '—' : DateFormat('dd/MM/yyyy').format(date),
               ),
@@ -887,7 +1136,7 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
             borderRadius: BorderRadius.circular(8),
             child: InputDecorator(
               decoration: InputDecoration(
-                labelText: 'Horário (opcional)',
+                labelText: _repeat ? 'Horário *' : 'Horário (opcional)',
                 suffixIcon: time == null
                     ? null
                     : IconButton(
@@ -913,6 +1162,7 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
               return n == null || n < 1 || n > 600 ? 'De 1 a 600' : null;
             },
           ),
+          if (!_isEdit) ..._repeatSection(context),
           if (courseId != null) ...[
             const SizedBox(height: 12),
             DropdownButtonFormField<String?>(
@@ -1025,7 +1275,7 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
             'maior que isso, use link.',
             style: CommunityDesign.metaStyle(context),
           ),
-          if (!_isEdit) ...[
+          if (!_isEdit && !_repeat) ...[
             const SizedBox(height: 8),
             Text(
               'A aula nasce como rascunho. Publique quando os alunos '
@@ -1047,12 +1297,14 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
               TextButton(
                 onPressed: _saving
                     ? null
-                    : () => Navigator.of(context).pop(_createdLessonId != null),
+                    : () => Navigator.of(context).pop(
+                        _createdLessonId != null || (_repeatCreated ?? 0) > 0,
+                      ),
                 child: const Text('Cancelar'),
               ),
               const SizedBox(width: 8),
               FilledButton(
-                onPressed: _saving ? null : _save,
+                onPressed: _saving || _repeatCreated != null ? null : _save,
                 child: _saving
                     ? const SizedBox(
                         width: 18,
