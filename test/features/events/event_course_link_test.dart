@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:church360_app/features/courses/domain/models/course.dart';
@@ -79,6 +80,9 @@ Future<void> _pumpDetail(
 }
 
 void main() {
+  // O app inicializa pt_BR no main(); o card do evento formata a data nele.
+  setUpAll(() => initializeDateFormatting('pt_BR'));
+
   group('Event.course_id', () {
     test('linha sem a coluna (build antigo) vira null', () {
       expect(Event.fromJson(_row(withKey: false)).courseId, isNull);
