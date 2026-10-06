@@ -39,7 +39,11 @@ enum TurmaOriginFilter {
 /// turma — excluir ou encerrar turma de Batismo pertence ao módulo de
 /// origem, e nenhum dado pessoal entra na listagem.
 class FormacaoTurmasTab extends ConsumerStatefulWidget {
-  const FormacaoTurmasTab({super.key});
+  /// Aberta pela Dashboard: só então aparece "Nova turma", e a turma abre
+  /// com a gestão.
+  final bool fromDashboard;
+
+  const FormacaoTurmasTab({super.key, this.fromDashboard = false});
 
   @override
   ConsumerState<FormacaoTurmasTab> createState() => _FormacaoTurmasTabState();
@@ -108,7 +112,7 @@ class _FormacaoTurmasTabState extends ConsumerState<FormacaoTurmasTab> {
                 onTap: _pickOrigin,
               ),
             ],
-            primaryAction: canCreate
+            primaryAction: canCreate && widget.fromDashboard
                 ? AppFilterAction(
                     label: 'Nova turma',
                     icon: Icons.add,
@@ -163,6 +167,7 @@ class _FormacaoTurmasTabState extends ConsumerState<FormacaoTurmasTab> {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: FormacaoTurmaCard(
+                        fromDashboard: widget.fromDashboard,
                         turma: turma,
                         courseTitle: courseTitle[turma.courseId],
                         ministryName: ministryName[turma.ministryId],
@@ -184,12 +189,14 @@ class FormacaoTurmaCard extends StatelessWidget {
   final CourseTurma turma;
   final String? courseTitle;
   final String? ministryName;
+  final bool fromDashboard;
 
   const FormacaoTurmaCard({
     super.key,
     required this.turma,
     this.courseTitle,
     this.ministryName,
+    this.fromDashboard = false,
   });
 
   @override
@@ -205,7 +212,9 @@ class FormacaoTurmaCard extends StatelessWidget {
     ].join(' · ');
 
     return GlassCard(
-      onTap: () => context.push(turma.route),
+      onTap: () => context.push(
+        '${turma.route}${fromDashboard ? '?from=dashboard' : ''}',
+      ),
       child: Row(
         children: [
           Container(

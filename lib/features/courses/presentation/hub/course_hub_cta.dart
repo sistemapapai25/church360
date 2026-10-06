@@ -20,10 +20,15 @@ class CourseHubCta extends ConsumerWidget {
   /// Rola até a seção Turmas ("Ver turmas / Gerenciar").
   final VoidCallback onManage;
 
+  /// Aberta pela Dashboard: só então aparecem "Ver turmas / Gerenciar" e
+  /// "Gerenciar". Por Cursos a chamada é só de aluno/inscrição.
+  final bool fromDashboard;
+
   const CourseHubCta({
     super.key,
     required this.courseId,
     required this.onManage,
+    this.fromDashboard = false,
   });
 
   @override
@@ -42,6 +47,7 @@ class CourseHubCta extends ConsumerWidget {
           label: const Text('Acessar minha turma'),
         );
       case CourseCta.manage:
+        if (!fromDashboard) return const SizedBox.shrink();
         primary = FilledButton.icon(
           onPressed: onManage,
           icon: const Icon(Icons.groups_outlined),
@@ -66,7 +72,7 @@ class CourseHubCta extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(height: 48, child: primary),
-          if (hub.showManageSecondary) ...[
+          if (fromDashboard && hub.showManageSecondary) ...[
             const SizedBox(height: 8),
             SizedBox(
               height: 44,

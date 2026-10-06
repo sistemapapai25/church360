@@ -135,17 +135,20 @@ Widget _host({
   required List<Override> overrides,
   String courseId = _courseId,
   TurmaMode mode = TurmaMode.leitura,
+  bool fromDashboard = false,
 }) {
   final router = GoRouter(
     initialLocation: mode == TurmaMode.gestao
         ? '/turmas/$_sgId/gestao'
-        : '/courses/$courseId/turmas/$_sgId',
+        : '/courses/$courseId/turmas/$_sgId'
+              '${fromDashboard ? '?from=dashboard' : ''}',
     routes: [
       GoRoute(
         path: '/courses/:courseId/turmas/:studyGroupId',
         builder: (context, state) => TurmaDetailScreen(
           courseId: state.pathParameters['courseId']!,
           studyGroupId: state.pathParameters['studyGroupId']!,
+          fromDashboard: state.uri.queryParameters['from'] == 'dashboard',
         ),
       ),
       GoRoute(
@@ -585,10 +588,29 @@ void main() {
       expect(somenteLeitura.elevated, isTrue);
     });
 
-    testWidgets('Batismo em Cursos: sem criar aula, com saída para o '
+    testWidgets('Batismo por Cursos: sem criar aula e sem saída de gestão', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          overrides: _accessOverrides(
+            turma: _baptismTurma,
+            inMinistry: true,
+            permissions: {'baptism.view', 'baptism.edit'},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nova aula'), findsNothing);
+      expect(find.text('Gerenciar no Batismo'), findsNothing);
+    });
+
+    testWidgets('Batismo pela Dashboard: sem criar aula, com saída para o '
         'ministério', (tester) async {
       await tester.pumpWidget(
         _host(
+          fromDashboard: true,
           overrides: _accessOverrides(
             turma: _baptismTurma,
             inMinistry: true,
@@ -629,6 +651,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         _host(
+          fromDashboard: true,
           overrides: _accessOverrides(
             turma: _genericTurma,
             participation: _participant(role: ParticipantRole.leader),

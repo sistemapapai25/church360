@@ -48,11 +48,16 @@ class TurmaDetailScreen extends ConsumerStatefulWidget {
   final String studyGroupId;
   final TurmaMode mode;
 
+  /// Aberta pela Dashboard: só então a porta de leitura mostra a saída
+  /// para a gestão ("Gerenciar no Batismo" / "Gerenciar").
+  final bool fromDashboard;
+
   const TurmaDetailScreen({
     super.key,
     this.courseId,
     required this.studyGroupId,
     this.mode = TurmaMode.leitura,
+    this.fromDashboard = false,
   });
 
   @override
@@ -147,7 +152,10 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
     final surfaces = turmaSurfacesFor(origin, access);
     // Saída da vitrine: só na porta de leitura e só para quem edita algo
     // do outro lado. Para o aluno não há para onde ir.
-    final manage = widget.mode == TurmaMode.leitura && role.isLeadership
+    final manage =
+        widget.mode == TurmaMode.leitura &&
+            widget.fromDashboard &&
+            role.isLeadership
         ? surfaces.manage
         : null;
 
