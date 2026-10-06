@@ -417,7 +417,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     child: SizedBox(
                       width: 96,
                       height: 96,
-                      child: const AppLogo(),
+                      child: const AppLogo(variant: AppLogoVariant.colorida),
                     ),
                   ),
                   const SizedBox(height: 24),

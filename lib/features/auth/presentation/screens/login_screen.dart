@@ -429,31 +429,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     return Column(
       children: [
-        Container(
-          width: 88,
-          height: 88,
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withValues(alpha: 0.30),
-                Colors.white.withValues(alpha: 0.08),
-              ],
-            ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-            boxShadow: [
-              BoxShadow(
-                color: _accentCyan.withValues(alpha: 0.20),
-                blurRadius: 32,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
-          child: const AppLogo(fit: BoxFit.cover),
-        ),
+        // Gota branca direto sobre o degradê, como na arte azul da marca.
+        const AppLogo(height: 96, variant: AppLogoVariant.branca),
         const SizedBox(height: 20),
         Text(
           AppBranding.appName,

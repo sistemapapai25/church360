@@ -8,7 +8,7 @@
   <meta name="description" content="Gestão e comunicação para igrejas.">
 
   <!-- PWA Theme -->
-  <meta name="theme-color" content="#0175C2">
+  <meta name="theme-color" content="#2d2d83">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -49,6 +49,29 @@
         window.history.replaceState(null, '', target);
       }
     })();
+  </script>
+  <!--
+    Logo enquanto o Flutter carrega (abrir/refresh): sem isto a página fica em
+    branco. Cores do fundo = scaffold do AppTheme claro/escuro. Some no
+    primeiro quadro do app.
+  -->
+  <style>
+    #boot { position: fixed; inset: 0; display: flex; align-items: center;
+            justify-content: center; background: #F8FAFC; }
+    #boot img { height: 120px; }
+    @media (prefers-color-scheme: dark) { #boot { background: #0B1220; } }
+  </style>
+  <div id="boot" aria-hidden="true">
+    <picture>
+      <source srcset="assets/assets/images/logo_branca.png" media="(prefers-color-scheme: dark)">
+      <img src="assets/assets/images/logo_colorida.png" alt="">
+    </picture>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var boot = document.getElementById('boot');
+      if (boot) boot.remove();
+    });
   </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
