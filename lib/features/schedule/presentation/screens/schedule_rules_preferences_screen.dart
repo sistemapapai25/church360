@@ -10,6 +10,21 @@ import '../../../permissions/providers/permissions_providers.dart';
 import '../../../events/presentation/providers/events_provider.dart';
 import '../../../events/domain/models/event.dart';
 
+/// Tipos de evento que o ministério atende (`schedule_rules.event_types`,
+/// em Regras & Preferências), somados de todos os contextos do ministério.
+/// Vazio = todos, o comportamento de antes da lista existir.
+List<String> servedEventTypes(Iterable<Map<String, dynamic>?> metadatas) => {
+  for (final meta in metadatas)
+    for (final t in (meta?['schedule_rules']?['event_types'] as List?) ?? const [])
+      t.toString(),
+}.toList();
+
+/// O ministério atende este evento? Tipo vazio é `culto_normal`, como no
+/// gerador.
+bool servesEventType(List<String> served, String? eventType) =>
+    served.isEmpty ||
+    served.contains((eventType ?? '').isEmpty ? 'culto_normal' : eventType);
+
 class ScheduleRulesPreferencesScreen extends ConsumerStatefulWidget {
   final String ministryId;
 
@@ -870,6 +885,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
         spacing: spacing,
         runSpacing: spacing,
         children: [
+          SizedBox(width: constraints.maxWidth, child: _buildServedTypesCard()),
           SizedBox(width: half, child: _buildProhibitedCard()),
           SizedBox(width: half, child: _buildPreferredCard()),
           SizedBox(width: constraints.maxWidth, child: _buildPrioritiesCard()),
@@ -894,6 +910,7 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
 
   Widget _buildAccordionLayout() {
     return Column(children: [
+      _buildServedTypesCard(),
       _buildProhibitedCard(),
       _buildPreferredCard(),
       _buildPrioritiesCard(),
@@ -1052,8 +1069,48 @@ class _ScheduleRulesPreferencesScreenState extends ConsumerState<ScheduleRulesPr
     );
   }
 
+  Widget _buildServedTypesCard() {
+    final served = servedEventTypes([{'schedule_rules': _rules}]);
+    return _buildCard(
+      color: _purple(),
+      title: 'Tipos de evento que o ministério atende',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            served.isEmpty
+                ? 'Nenhum marcado: o gerador usa todos os eventos.'
+                : 'O gerador só usa eventos destes tipos.',
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final t in _eventTypes)
+                FilterChip(
+                  key: ValueKey('tipo-atendido-$t'),
+                  label: Text(_labelForEvent(t)),
+                  selected: served.contains(t),
+                  onSelected: (on) => _edit(
+                    () => _rules['event_types'] = [
+                      for (final x in _eventTypes)
+                        if (x == t ? on : served.contains(x)) x,
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPrioritiesCard() {
-    final eventTypes = _eventTypes;
+    final served = servedEventTypes([{'schedule_rules': _rules}]);
+    final eventTypes = served.isEmpty
+        ? _eventTypes
+        : _eventTypes.where(served.contains).toList();
     return _buildCard(
       color: _purple(),
       title: 'Prioridade de membros por tipo de evento',
