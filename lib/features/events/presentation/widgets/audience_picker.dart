@@ -7,6 +7,8 @@ import '../../../groups/presentation/providers/groups_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
+import '../../../study_groups/domain/models/study_group.dart';
+import '../../../study_groups/presentation/providers/study_group_provider.dart';
 import '../../domain/models/event_audience.dart';
 
 /// Tipos de alvo que o seletor pode oferecer. Quem abre o picker escolhe o
@@ -14,7 +16,15 @@ import '../../domain/models/event_audience.dart';
 /// Visibilidade e Elegibilidade de Inscrição passam a lista SEM
 /// [AudienceTargetTab.people] — pessoa avulsa não é alvo desses dois
 /// controles (decisão D-03 da Fase 3).
-enum AudienceTargetTab { people, groups, ministries, roles }
+enum AudienceTargetTab {
+  people,
+  groups,
+  ministries,
+  roles,
+
+  /// Turma: alunos ativos e quem dá aula nela (D3).
+  turmas,
+}
 
 /// Abre o bottom sheet de seleção combinável de alvos de audiência.
 /// Retorna `null` se o usuário fechar sem concluir.
@@ -130,6 +140,8 @@ class _AudiencePickerState extends ConsumerState<AudiencePicker>
         return 'Ministérios';
       case AudienceTargetTab.roles:
         return 'Cargos';
+      case AudienceTargetTab.turmas:
+        return 'Turmas';
     }
   }
 
@@ -164,6 +176,15 @@ class _AudiencePickerState extends ConsumerState<AudiencePicker>
         );
       case AudienceTargetTab.roles:
         return _RolesTab(
+          eventId: widget.eventId,
+          role: widget.role,
+          query: _query,
+          selected: _selected,
+          keyFor: _keyFor,
+          onToggle: _toggle,
+        );
+      case AudienceTargetTab.turmas:
+        return _TurmasTab(
           eventId: widget.eventId,
           role: widget.role,
           query: _query,
@@ -622,6 +643,77 @@ class _MinistriesTab extends ConsumerWidget {
       error: (error, stack) => _LoadErrorState(
         message: 'Não foi possível carregar os grupos e ministérios.',
         onRetry: () => ref.invalidate(allMinistriesProvider),
+      ),
+    );
+  }
+}
+
+/// Aba de turmas (`study_groups`, menos as canceladas): o alvo vale para
+/// os alunos ativos e para quem dá aula na turma.
+class _TurmasTab extends ConsumerWidget {
+  final String eventId;
+  final String role;
+  final String query;
+  final Map<String, EventAudience> selected;
+  final String Function(EventAudience) keyFor;
+  final void Function(EventAudience) onToggle;
+
+  const _TurmasTab({
+    required this.eventId,
+    required this.role,
+    required this.query,
+    required this.selected,
+    required this.keyFor,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final turmasAsync = ref.watch(allStudyGroupsProvider);
+
+    return turmasAsync.when(
+      data: (turmas) {
+        final q = query.toLowerCase();
+        final filtered = [
+          for (final t in turmas)
+            if (t.status != StudyGroupStatus.cancelled &&
+                t.name.toLowerCase().contains(q))
+              t,
+        ];
+
+        if (filtered.isEmpty && query.isNotEmpty) {
+          return _SearchEmptyState(query: query);
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: filtered.length,
+          itemBuilder: (context, index) {
+            final turma = filtered[index];
+            final target = EventAudience(
+              eventId: eventId,
+              role: role,
+              studyGroupId: turma.id,
+              displayName: turma.name,
+            );
+            return CheckboxListTile(
+              value: selected.containsKey(keyFor(target)),
+              activeColor: colorScheme.primary,
+              secondary: Icon(
+                AppIcons.course,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              title: Text(turma.name),
+              onChanged: (_) => onToggle(target),
+            );
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => _LoadErrorState(
+        message: 'Não foi possível carregar as turmas.',
+        onRetry: () => ref.invalidate(allStudyGroupsProvider),
       ),
     );
   }

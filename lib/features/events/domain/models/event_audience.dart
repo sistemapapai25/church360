@@ -1,8 +1,9 @@
 /// Alvo de audiência de um evento (responsável, visibilidade ou inscrição).
 ///
 /// Espelha o CHECK do servidor (`event_audience_single_target_chk`):
-/// exatamente um entre [userId]/[groupId]/[ministryId]/[rbacRoleId] é
-/// preenchido — `num_nonnulls(user_id, group_id, ministry_id, rbac_role_id) = 1`.
+/// exatamente um entre [userId]/[groupId]/[ministryId]/[rbacRoleId]/
+/// [studyGroupId] é preenchido — `num_nonnulls(user_id, group_id,
+/// ministry_id, rbac_role_id, study_group_id) = 1`.
 enum EventAudienceTargetKind {
   person,
   group,
@@ -13,6 +14,9 @@ enum EventAudienceTargetKind {
   /// de audiência (`responsible`/`visibility`/`registration`) — é a mesma
   /// armadilha de nome que fez a coluna do servidor se chamar `rbac_role_id`.
   role,
+
+  /// Turma (`study_groups`): alunos ativos e quem dá aula nela (D3).
+  turma,
 }
 
 class EventAudience {
@@ -23,6 +27,7 @@ class EventAudience {
   final String? groupId;
   final String? ministryId;
   final String? rbacRoleId;
+  final String? studyGroupId;
 
   /// Preenchido só por join/lookup de exibição (ex.: nome no chip do
   /// formulário). Nunca persistido — ausente de [toJson].
@@ -36,20 +41,23 @@ class EventAudience {
     this.groupId,
     this.ministryId,
     this.rbacRoleId,
+    this.studyGroupId,
     this.displayName,
   }) : assert(
          (userId != null ? 1 : 0) +
                  (groupId != null ? 1 : 0) +
                  (ministryId != null ? 1 : 0) +
-                 (rbacRoleId != null ? 1 : 0) ==
+                 (rbacRoleId != null ? 1 : 0) +
+                 (studyGroupId != null ? 1 : 0) ==
              1,
-         'EventAudience precisa de exatamente um alvo: userId, groupId, ministryId ou rbacRoleId',
+         'EventAudience precisa de exatamente um alvo: userId, groupId, ministryId, rbacRoleId ou studyGroupId',
        );
 
   EventAudienceTargetKind get targetKind {
     if (userId != null) return EventAudienceTargetKind.person;
     if (groupId != null) return EventAudienceTargetKind.group;
     if (ministryId != null) return EventAudienceTargetKind.ministry;
+    if (studyGroupId != null) return EventAudienceTargetKind.turma;
     return EventAudienceTargetKind.role;
   }
 
@@ -63,6 +71,8 @@ class EventAudience {
         return ministryId!;
       case EventAudienceTargetKind.role:
         return rbacRoleId!;
+      case EventAudienceTargetKind.turma:
+        return studyGroupId!;
     }
   }
 
@@ -75,6 +85,7 @@ class EventAudience {
       groupId: json['group_id'] as String?,
       ministryId: json['ministry_id'] as String?,
       rbacRoleId: json['rbac_role_id'] as String?,
+      studyGroupId: json['study_group_id'] as String?,
     );
   }
 
@@ -86,6 +97,7 @@ class EventAudience {
       'group_id': groupId,
       'ministry_id': ministryId,
       'rbac_role_id': rbacRoleId,
+      'study_group_id': studyGroupId,
     };
   }
 }

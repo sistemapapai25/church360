@@ -30,7 +30,10 @@ import '../utils/series_pattern_label.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
+import '../../../study_groups/presentation/providers/study_group_provider.dart';
 import '../../../courses/presentation/providers/courses_provider.dart';
+import '../../../courses/domain/models/course_turma.dart';
+import '../../../study_groups/domain/models/study_group.dart';
 
 /// Tela de formulário de evento (criar/editar)
 class EventFormScreen extends ConsumerStatefulWidget {
@@ -67,6 +70,10 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   /// quando um dos dois existe, e evento sem curso nunca manda a chave.
   String? _courseId;
   String? _loadedCourseId;
+
+  /// Turma em que a inscrição matricula (D3); só com curso escolhido.
+  String? _enrollStudyGroupId;
+  String? _loadedEnrollStudyGroupId;
 
   List<Map<String, String>> _eventTypeOptions = [];
   List<String> _locationOptions = [];
@@ -597,6 +604,8 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         _imageUrl = event.imageUrl;
         _courseId = event.courseId;
         _loadedCourseId = event.courseId;
+        _enrollStudyGroupId = event.enrollStudyGroupId;
+        _loadedEnrollStudyGroupId = event.enrollStudyGroupId;
         _visibilityScope = event.visibilityScope;
         _registrationScope = event.registrationScope;
 
@@ -706,6 +715,9 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
     final needsRoles = audience.any(
       (r) => r.targetKind == EventAudienceTargetKind.role,
     );
+    final needsTurmas = audience.any(
+      (r) => r.targetKind == EventAudienceTargetKind.turma,
+    );
 
     final peopleById = needsPeople
         ? {
@@ -731,6 +743,12 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
               role.id: role.name,
           }
         : const <String, String>{};
+    final turmasById = needsTurmas
+        ? {
+            for (final turma in await ref.read(allStudyGroupsProvider.future))
+              turma.id: turma.name,
+          }
+        : const <String, String>{};
 
     return audience.map((item) {
       final name = switch (item.targetKind) {
@@ -742,6 +760,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         // legível em vez de sumir ou virar null.
         EventAudienceTargetKind.role =>
           rolesById[item.rbacRoleId] ?? 'Cargo desativado',
+        EventAudienceTargetKind.turma => turmasById[item.studyGroupId],
       };
       return EventAudience(
         id: item.id,
@@ -751,6 +770,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         groupId: item.groupId,
         ministryId: item.ministryId,
         rbacRoleId: item.rbacRoleId,
+        studyGroupId: item.studyGroupId,
         displayName: name ?? item.displayName,
       );
     }).toList();
@@ -918,7 +938,54 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
             child: const Text('Curso vinculado'),
           ),
       ],
-      onChanged: (value) => setState(() => _courseId = value),
+      onChanged: (value) => setState(() {
+        _courseId = value;
+        _enrollStudyGroupId = null;
+      }),
+    );
+  }
+
+  /// Turma do curso em que quem se inscrever vira aluno na hora (D3).
+  Widget _buildEnrollTurmaField() {
+    final courseId = _courseId;
+    if (courseId == null) return const SizedBox.shrink();
+    final turmas = [
+      for (final t
+          in ref.watch(courseStudyGroupsProvider(courseId)).valueOrNull ??
+              const <CourseTurma>[])
+        if (t.status != StudyGroupStatus.cancelled) t,
+    ];
+    final ids = turmas.map((t) => t.id).toSet();
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: DropdownButtonFormField<String?>(
+        key: ValueKey('event-enroll-$courseId-${turmas.length}'),
+        initialValue: _enrollStudyGroupId,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Inscrição matricula na turma (opcional)',
+          helperText: 'Quem se inscrever no evento vira aluno desta turma',
+          prefixIcon: Icon(AppIcons.course),
+          border: OutlineInputBorder(),
+        ),
+        items: [
+          const DropdownMenuItem<String?>(
+            value: null,
+            child: Text('Não matricular'),
+          ),
+          for (final t in turmas)
+            DropdownMenuItem<String?>(
+              value: t.id,
+              child: Text(t.name, overflow: TextOverflow.ellipsis),
+            ),
+          if (_enrollStudyGroupId != null && !ids.contains(_enrollStudyGroupId))
+            DropdownMenuItem<String?>(
+              value: _enrollStudyGroupId,
+              child: const Text('Turma vinculada'),
+            ),
+        ],
+        onChanged: (value) => setState(() => _enrollStudyGroupId = value),
+      ),
     );
   }
 
@@ -1896,6 +1963,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                 EventAudienceTargetKind.ministry =>
                                   AppIcons.church,
                                 EventAudienceTargetKind.role => AppIcons.badge,
+                                EventAudienceTargetKind.turma => AppIcons.course,
                               }, size: 18),
                               label: Text(
                                 responsible.displayName ?? responsible.targetId,
@@ -2025,6 +2093,8 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                     AppIcons.church,
                                   EventAudienceTargetKind.role =>
                                     AppIcons.badge,
+                                  EventAudienceTargetKind.turma =>
+                                    AppIcons.course,
                                 }, size: 18),
                                 label: Text(
                                   target.displayName ?? target.targetId,
@@ -2056,6 +2126,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                               AudienceTargetTab.groups,
                               AudienceTargetTab.ministries,
                               AudienceTargetTab.roles,
+                              AudienceTargetTab.turmas,
                             ],
                           );
                           if (result != null) {
@@ -2179,6 +2250,8 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                       AppIcons.church,
                                     EventAudienceTargetKind.role =>
                                       AppIcons.badge,
+                                    EventAudienceTargetKind.turma =>
+                                      AppIcons.course,
                                   }, size: 18),
                                   label: Text(
                                     target.displayName ?? target.targetId,
@@ -2213,6 +2286,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                                 AudienceTargetTab.groups,
                                 AudienceTargetTab.ministries,
                                 AudienceTargetTab.roles,
+                                AudienceTargetTab.turmas,
                               ],
                             );
                             if (result != null) {
@@ -2384,6 +2458,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                     const SizedBox(height: 16),
 
                     _buildCourseField(),
+                    _buildEnrollTurmaField(),
                     const SizedBox(height: 16),
 
                     // Status
@@ -2639,6 +2714,10 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
         'registration_scope': 'all',
         if (_courseId != null || _loadedCourseId != null)
           'course_id': _courseId,
+        if (_enrollStudyGroupId != null || _loadedEnrollStudyGroupId != null)
+          'enroll_study_group_id': _courseId == null
+              ? null
+              : _enrollStudyGroupId,
       };
 
       final locationText = _locationController.text.trim();

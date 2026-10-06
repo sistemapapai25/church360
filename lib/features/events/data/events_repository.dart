@@ -690,6 +690,7 @@ class EventsRepository {
           'group_id': null,
           'ministry_id': null,
           'rbac_role_id': null,
+          'study_group_id': null,
         };
         switch (t.targetKind) {
           case EventAudienceTargetKind.person:
@@ -703,6 +704,9 @@ class EventsRepository {
             break;
           case EventAudienceTargetKind.role:
             row['rbac_role_id'] = t.rbacRoleId;
+            break;
+          case EventAudienceTargetKind.turma:
+            row['study_group_id'] = t.studyGroupId;
             break;
         }
         return row;

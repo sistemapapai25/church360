@@ -10,6 +10,7 @@ import '../../domain/models/event_audience.dart';
 import '../providers/events_provider.dart';
 import '../widgets/add_registration_dialog.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
+import '../../../study_groups/presentation/providers/study_group_provider.dart';
 import '../../../courses/presentation/providers/courses_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../ministries/domain/models/ministry.dart';
@@ -975,6 +976,14 @@ class _RestrictionBadge extends ConsumerWidget {
               c.id: c.name,
           }
         : const {};
+    final turmas =
+        audiencia.any((a) => a.targetKind == EventAudienceTargetKind.turma)
+        ? {
+            for (final t
+                in ref.watch(allStudyGroupsProvider).valueOrNull ?? [])
+              t.id: t.name,
+          }
+        : const {};
 
     final nomes = <String>[];
     for (final alvo in audiencia) {
@@ -985,6 +994,7 @@ class _RestrictionBadge extends ConsumerWidget {
         // valendo como alvo — rótulo legível em vez de sumir ou virar uuid.
         EventAudienceTargetKind.role =>
           cargos[alvo.rbacRoleId] ?? 'Cargo desativado',
+        EventAudienceTargetKind.turma => turmas[alvo.studyGroupId],
         EventAudienceTargetKind.person => null,
       };
       if (nome is String && nome.trim().isNotEmpty) nomes.add(nome);
