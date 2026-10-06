@@ -28,6 +28,9 @@ class Event {
   /// (build antigo, select parcial) chega como null.
   final String? courseId;
 
+  /// Turma em que a inscrição no evento matricula (D3, trigger no banco).
+  final String? enrollStudyGroupId;
+
   // Campos computados do join
   final int? registrationCount;
 
@@ -52,6 +55,7 @@ class Event {
     this.visibilityScope = 'all',
     this.registrationScope = 'all',
     this.courseId,
+    this.enrollStudyGroupId,
     this.registrationCount,
   });
 
@@ -82,6 +86,7 @@ class Event {
       visibilityScope: json['visibility_scope'] as String? ?? 'all',
       registrationScope: json['registration_scope'] as String? ?? 'all',
       courseId: json['course_id'] as String?,
+      enrollStudyGroupId: json['enroll_study_group_id'] as String?,
       registrationCount: json['registration_count'] as int?,
     );
   }
@@ -111,6 +116,8 @@ class Event {
       // Só quando existe: evento sem curso não manda a chave, então nunca
       // depende da coluna (colunas fantasma de `event` estouram PGRST204).
       if (courseId != null) 'course_id': courseId,
+      if (enrollStudyGroupId != null)
+        'enroll_study_group_id': enrollStudyGroupId,
     };
   }
 

@@ -3160,31 +3160,26 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
     final totalAsync = ref.watch(currentUserTotalReadingsProvider);
     final memberAsync = ref.watch(currentMemberProvider);
     final readingsAsync = ref.watch(currentUserReadingsWithDevotionalProvider);
-    final coursesAsync = ref.watch(currentUserCourseEnrollmentsProvider);
     final groupsAsync = ref.watch(currentUserStudyGroupsProvider);
     final cs = Theme.of(context).colorScheme;
 
     final bool isLoading =
         memberAsync.isLoading ||
         readingsAsync.isLoading ||
-        coursesAsync.isLoading ||
         groupsAsync.isLoading;
     final Object? anyError =
         memberAsync.error ??
         readingsAsync.error ??
-        coursesAsync.error ??
         groupsAsync.error;
 
     final memberId = memberAsync.value?.id;
     final readings = readingsAsync.value ?? const <Map<String, dynamic>>[];
-    final enrollments = coursesAsync.value ?? const <Map<String, dynamic>>[];
     final groups = groupsAsync.value ?? const <StudyGroup>[];
 
     final events = anyError == null && !isLoading
         ? _JourneyEvent.merge(
             memberId: memberId,
             readings: readings,
-            enrollments: enrollments,
             studyGroups: groups,
           )
         : const <_JourneyEvent>[];
@@ -3419,7 +3414,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
   }
 }
 
-enum _JourneyEventKind { devotional, course, studyGroup }
+enum _JourneyEventKind { devotional, studyGroup }
 
 class _JourneyEvent {
   final DateTime when;
@@ -3443,12 +3438,10 @@ class _JourneyEvent {
   static List<_JourneyEvent> merge({
     required String? memberId,
     required List<Map<String, dynamic>> readings,
-    required List<Map<String, dynamic>> enrollments,
     required List<StudyGroup> studyGroups,
   }) {
     final items = <_JourneyEvent>[
       ...readings.map(_JourneyEvent._fromReading),
-      ...enrollments.map(_JourneyEvent._fromEnrollment),
       ...studyGroups.map(
         (g) => _JourneyEvent._fromStudyGroup(g, memberId: memberId),
       ),
@@ -3479,30 +3472,6 @@ class _JourneyEvent {
       route: devotionalId == null ? null : '/devotionals/$devotionalId',
       icon: Icons.menu_book_outlined,
       isPinned: notes.isNotEmpty,
-    );
-  }
-
-  static _JourneyEvent _fromEnrollment(Map<String, dynamic> row) {
-    final enrolledAt = _parseDateTime(row['enrolled_at']) ?? DateTime.now();
-    final course = row['course'];
-    final courseId = row['course_id']?.toString();
-    final courseTitle = course is Map
-        ? (course['title']?.toString().trim() ?? '')
-        : '';
-    final status = row['status']?.toString().trim().toLowerCase();
-    final progress = row['progress'];
-    final endDate = course is Map ? _parseDateTime(course['end_date']) : null;
-    final isCompleted =
-        status == 'completed' || (progress is num && progress >= 100);
-
-    return _JourneyEvent(
-      when: isCompleted ? (endDate ?? enrolledAt) : enrolledAt,
-      kind: _JourneyEventKind.course,
-      title: isCompleted ? 'Concluiu curso' : 'Iniciou curso',
-      subtitle: courseTitle.isNotEmpty ? courseTitle : 'Curso',
-      route: courseId == null ? null : '/courses/$courseId/view',
-      icon: Icons.school_outlined,
-      isPinned: isCompleted,
     );
   }
 

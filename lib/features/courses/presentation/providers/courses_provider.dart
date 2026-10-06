@@ -5,8 +5,6 @@ import '../../data/courses_repository.dart';
 import '../../domain/models/course.dart';
 import '../../domain/models/course_lesson.dart';
 import '../../domain/models/course_turma.dart';
-import '../../../members/presentation/providers/members_provider.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
 
 /// Provider do repository de cursos
 final coursesRepositoryProvider = Provider<CoursesRepository>((ref) {
@@ -59,14 +57,6 @@ final activeCoursesCountProvider = FutureProvider<int>((ref) async {
 final courseEnrollmentsProvider = FutureProvider.family<List<CourseEnrollment>, String>((ref, courseId) async {
   final repo = ref.watch(coursesRepositoryProvider);
   return repo.getCourseEnrollments(courseId);
-});
-
-final currentUserCourseEnrollmentsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  ref.watch(authStateProvider);
-  final repo = ref.watch(coursesRepositoryProvider);
-  final member = await ref.watch(currentMemberProvider.future);
-  if (member == null) return const [];
-  return repo.getUserEnrollmentsWithCourse(member.id);
 });
 
 /// Provider de ações de cursos (criar, atualizar, deletar)

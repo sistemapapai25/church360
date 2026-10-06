@@ -11,33 +11,33 @@ class CoursesRepository {
 
   CoursesRepository(this._supabase);
 
+  /// Cursos com `enrolled_count` = alunos ativos das turmas do curso
+  /// (`course_student_counts`; a `course_enrollment` antiga está trancada
+  /// desde 25/09 e devolvia sempre 0).
+  Future<List<Course>> _withStudentCounts(List<dynamic> rows) async {
+    final counts = <String, int>{
+      for (final r in await _supabase.rpc('course_student_counts') as List)
+        r['course_id'] as String: r['students'] as int,
+    };
+    return [
+      for (final json in rows)
+        Course.fromJson({
+          ...Map<String, dynamic>.from(json as Map),
+          'enrolled_count': counts[json['id']] ?? 0,
+        }),
+    ];
+  }
+
   /// Buscar todos os cursos
   Future<List<Course>> getAllCourses() async {
     try {
       final response = await _supabase
           .from('course')
-          .select('''
-            *,
-            course_enrollment(count)
-          ''')
+          .select()
           .eq('tenant_id', SupabaseConstants.currentTenantId)
           .order('created_at', ascending: false);
 
-      return (response as List).map((json) {
-        final data = Map<String, dynamic>.from(json);
-        
-        // Extrair contagem de inscrições
-        if (data['course_enrollment'] != null) {
-          final enrollments = data['course_enrollment'];
-          if (enrollments is List && enrollments.isNotEmpty) {
-            data['enrolled_count'] = enrollments[0]['count'];
-          } else {
-            data['enrolled_count'] = 0;
-          }
-        }
-        
-        return Course.fromJson(data);
-      }).toList();
+      return _withStudentCounts(response as List);
     } catch (e) {
       rethrow;
     }
@@ -48,28 +48,12 @@ class CoursesRepository {
     try {
       final response = await _supabase
           .from('course')
-          .select('''
-            *,
-            course_enrollment(count)
-          ''')
+          .select()
           .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('status', 'active')
           .order('created_at', ascending: false);
 
-      return (response as List).map((json) {
-        final data = Map<String, dynamic>.from(json);
-        
-        if (data['course_enrollment'] != null) {
-          final enrollments = data['course_enrollment'];
-          if (enrollments is List && enrollments.isNotEmpty) {
-            data['enrolled_count'] = enrollments[0]['count'];
-          } else {
-            data['enrolled_count'] = 0;
-          }
-        }
-        
-        return Course.fromJson(data);
-      }).toList();
+      return _withStudentCounts(response as List);
     } catch (e) {
       rethrow;
     }
@@ -80,28 +64,12 @@ class CoursesRepository {
     try {
       final response = await _supabase
           .from('course')
-          .select('''
-            *,
-            course_enrollment(count)
-          ''')
+          .select()
           .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('status', 'upcoming')
           .order('start_date', ascending: true);
 
-      return (response as List).map((json) {
-        final data = Map<String, dynamic>.from(json);
-        
-        if (data['course_enrollment'] != null) {
-          final enrollments = data['course_enrollment'];
-          if (enrollments is List && enrollments.isNotEmpty) {
-            data['enrolled_count'] = enrollments[0]['count'];
-          } else {
-            data['enrolled_count'] = 0;
-          }
-        }
-        
-        return Course.fromJson(data);
-      }).toList();
+      return _withStudentCounts(response as List);
     } catch (e) {
       rethrow;
     }
@@ -112,28 +80,12 @@ class CoursesRepository {
     try {
       final response = await _supabase
           .from('course')
-          .select('''
-            *,
-            course_enrollment(count)
-          ''')
+          .select()
           .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('category', category)
           .order('created_at', ascending: false);
 
-      return (response as List).map((json) {
-        final data = Map<String, dynamic>.from(json);
-        
-        if (data['course_enrollment'] != null) {
-          final enrollments = data['course_enrollment'];
-          if (enrollments is List && enrollments.isNotEmpty) {
-            data['enrolled_count'] = enrollments[0]['count'];
-          } else {
-            data['enrolled_count'] = 0;
-          }
-        }
-        
-        return Course.fromJson(data);
-      }).toList();
+      return _withStudentCounts(response as List);
     } catch (e) {
       rethrow;
     }
@@ -144,28 +96,14 @@ class CoursesRepository {
     try {
       final response = await _supabase
           .from('course')
-          .select('''
-            *,
-            course_enrollment(count)
-          ''')
+          .select()
           .eq('id', id)
           .eq('tenant_id', SupabaseConstants.currentTenantId)
           .maybeSingle();
 
       if (response == null) return null;
 
-      final data = Map<String, dynamic>.from(response);
-      
-      if (data['course_enrollment'] != null) {
-        final enrollments = data['course_enrollment'];
-        if (enrollments is List && enrollments.isNotEmpty) {
-          data['enrolled_count'] = enrollments[0]['count'];
-        } else {
-          data['enrolled_count'] = 0;
-        }
-      }
-
-      return Course.fromJson(data);
+      return (await _withStudentCounts([response])).single;
     } catch (e) {
       rethrow;
     }
@@ -244,35 +182,6 @@ class CoursesRepository {
 
         return CourseEnrollment.fromJson(data);
       }).toList();
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> getUserEnrollmentsWithCourse(String userId) async {
-    try {
-      final response = await _supabase
-          .from('course_enrollment')
-          .select('''
-            course_id,
-            user_id,
-            enrolled_at,
-            status,
-            progress,
-            course:course_id (
-              id,
-              title,
-              status,
-              start_date,
-              end_date,
-              image_url
-            )
-          ''')
-          .eq('user_id', userId)
-          .eq('tenant_id', SupabaseConstants.currentTenantId)
-          .order('enrolled_at', ascending: false);
-
-      return (response as List).cast<Map<String, dynamic>>();
     } catch (e) {
       rethrow;
     }

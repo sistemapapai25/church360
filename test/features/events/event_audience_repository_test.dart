@@ -17,6 +17,7 @@ const _personId = '22222222-0000-4000-8000-000000000002';
 const _groupId = '33333333-0000-4000-8000-000000000003';
 const _ministryId = '44444444-0000-4000-8000-000000000004';
 const _roleId = '55555555-0000-4000-8000-000000000005';
+const _turmaId = '66666666-0000-4000-8000-000000000006';
 
 class _EventAudienceApiSpy {
   final List<Uri> deletes = [];
@@ -125,7 +126,7 @@ void main() {
       expect(spy.insertedRows.single['rbac_role_id'], _roleId);
     });
 
-    test('toda linha enviada tem as 4 chaves de alvo com exatamente uma não-nula', () async {
+    test('toda linha enviada tem as 5 chaves de alvo com exatamente uma não-nula', () async {
       final spy = _EventAudienceApiSpy();
 
       await _repoWith(spy).setEventAudience(_eventId, 'registration', [
@@ -141,11 +142,23 @@ void main() {
           role: 'registration',
           rbacRoleId: _roleId,
         ),
+        EventAudience(
+          eventId: _eventId,
+          role: 'registration',
+          studyGroupId: _turmaId,
+        ),
       ]);
 
-      expect(spy.insertedRows.length, 4);
+      expect(spy.insertedRows.length, 5);
+      expect(spy.insertedRows.last['study_group_id'], _turmaId);
       for (final row in spy.insertedRows) {
-        for (final key in ['user_id', 'group_id', 'ministry_id', 'rbac_role_id']) {
+        for (final key in [
+          'user_id',
+          'group_id',
+          'ministry_id',
+          'rbac_role_id',
+          'study_group_id',
+        ]) {
           expect(row.containsKey(key), isTrue, reason: '$key ausente na linha');
         }
         final naoNulos = [
@@ -153,6 +166,7 @@ void main() {
           row['group_id'],
           row['ministry_id'],
           row['rbac_role_id'],
+          row['study_group_id'],
         ].where((v) => v != null).length;
         expect(naoNulos, 1, reason: 'cada linha grava exatamente um alvo');
         expect(row['tenant_id'], isNotNull);

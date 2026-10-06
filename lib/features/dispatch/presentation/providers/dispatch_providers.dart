@@ -1357,10 +1357,12 @@ class DispatchSchedulerRepository {
 
   Future<List<({String userId, String? phone})>> _recipientsFromCourseIds(List<String> courseIds) async {
     if (courseIds.isEmpty) return const [];
-    final List<dynamic> rows = await _supabase
-        .from('course_enrollment')
-        .select('user_id')
-        .inFilter('course_id', courseIds);
+    // Alunos ativos das turmas do curso (a course_enrollment antiga está
+    // trancada desde 25/09 e devolvia ninguém).
+    final List<dynamic> rows = await _supabase.rpc(
+      'course_student_ids',
+      params: {'p_course_ids': courseIds},
+    );
     final ids = rows
         .map((row) => (row['user_id'] ?? '').toString())
         .where((s) => s.isNotEmpty)
