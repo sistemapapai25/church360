@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/utils/share_link_utils.dart';
 
 import '../../domain/models/event.dart';
@@ -26,6 +27,9 @@ import '../../../../core/widgets/share_link_dialog.dart';
 import '../../../../core/widgets/pearl_fab.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../../../core/widgets/app_tabs.dart';
+import '../../../../core/widgets/pearl_button.dart';
+import '../../../../core/theme/app_theme.dart';
 
 /// VIS-02/VIS-03: o evento tem algum dos dois controles de audiência
 /// restrito? Os dois são independentes — basta um deles sair de `'all'`
@@ -45,6 +49,8 @@ class EventDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
+  int _tab = 0;
+
   bool _isRegistrationShareEnabled(Event event) {
     return event.requiresRegistration &&
         event.status == 'published' &&
@@ -315,9 +321,21 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           return _buildUnavailableScreen(context);
         }
 
-        return DefaultTabController(
-          length: showScales ? 3 : 2,
-          child: Scaffold(
+        final tabs = [
+          const AppTab(label: 'Informações'),
+          AppTab(
+            label: 'Inscritos',
+            count: event.requiresRegistration
+                ? '${event.registrationCount ?? 0}'
+                : null,
+          ),
+          if (showScales) const AppTab(label: 'Escalas'),
+        ];
+        // A aba Escalas pode sumir depois de escolhida (escopo recarregado):
+        // o índice volta a caber na lista.
+        final selected = _tab.clamp(0, tabs.length - 1);
+
+        return Scaffold(
           backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
           appBar: AppBar(
             automaticallyImplyLeading: false,
@@ -373,7 +391,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        event.name,
+                        'Evento',
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           color: Theme.of(context).colorScheme.onSurface,
@@ -382,7 +400,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        'Detalhes do evento',
+                        event.eventType ?? 'Detalhes do evento',
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -407,25 +426,32 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                     : _shareEventInfoLink(event),
               ),
             ],
-            bottom: TabBar(
-              tabs: [
-                const Tab(text: 'Informações'),
-                Tab(
-                  text: event.requiresRegistration
-                      ? 'Inscritos (${event.registrationCount ?? 0})'
-                      : 'Inscritos',
-                ),
-                if (showScales) const Tab(text: 'Escalas'),
-              ],
-            ),
           ),
-          body: TabBarView(
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _InfoTab(event: event),
-              _RegistrationsTab(event: event),
-              if (showScales) _SchedulesTab(eventId: event.id),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                child: AppTabs(
+                  tabs: tabs,
+                  selectedIndex: selected,
+                  onChanged: (i) => setState(() => _tab = i),
+                ),
+              ),
+              // IndexedStack mantém as abas montadas: trocar de aba não perde
+              // a rolagem de Inscritos/Escalas.
+              Expanded(
+                child: IndexedStack(
+                  index: selected,
+                  sizing: StackFit.expand,
+                  children: [
+                    _InfoTab(event: event),
+                    _RegistrationsTab(event: event),
+                    if (showScales) _SchedulesTab(eventId: event.id),
+                  ],
+                ),
+              ),
             ],
-          ),
           ),
         );
       },
@@ -477,17 +503,8 @@ class _InfoTab extends ConsumerWidget {
 
   const _InfoTab({required this.event});
 
-  /// VIS-04: motivo único da recusa antecipada. Declarado uma vez para que o
-  /// rótulo do botão e o tooltip nunca divirjam na explicação dada.
-  static const String _motivoInelegivel =
-      'Inscrição restrita a grupos, ministérios ou cargos específicos';
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    // Nulo aqui significa "evento sem limite de capacidade", não zero.
-    final capacidadeMaxima = event.maxCapacity;
-    final totalInscritos = event.registrationCount ?? 0;
     final currentMember = ref.watch(currentMemberProvider).valueOrNull;
     EventRegistration? myRegistration;
     if (currentMember != null && event.requiresRegistration) {
@@ -503,216 +520,416 @@ class _InfoTab extends ConsumerWidget {
         }
       }
     }
+    final mostraBarra = event.requiresRegistration && !event.isPast;
+    final temDescricao =
+        event.description != null && event.description!.isNotEmpty;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    // A barra de inscrição mora AQUI, abaixo da rolagem, e não no
+    // bottomNavigationBar do Scaffold: assim ela só existe na aba
+    // Informações e não colide com o PearlFab da aba Inscritos. Por ficar
+    // fora da rolagem, nunca cobre o fim do conteúdo.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (mostraBarra && myRegistration != null) ...[
+                  const _RegisteredBanner(),
+                  const SizedBox(height: 16),
+                ],
+                _EventMainCard(event: event),
+                const SizedBox(height: 24),
+                if (temDescricao) ...[
+                  Text(
+                    'Sobre o evento',
+                    style: CommunityDesign.titleStyle(context),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    event.description!,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 24),
+                ],
+                if (event.eventType == 'aula') _EncounterLessons(event: event),
+                if (event.courseId != null)
+                  _CourseLinkCard(courseId: event.courseId!),
+                _EventResponsibles(event: event),
+              ],
+            ),
+          ),
+        ),
+        if (mostraBarra)
+          EventRegistrationBar(
+            event: event,
+            registration: myRegistration,
+            memberId: currentMember?.id,
+          ),
+      ],
+    );
+  }
+}
+
+/// Faixa "Você está inscrito" no topo da aba Informações.
+class _RegisteredBanner extends StatelessWidget {
+  const _RegisteredBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final cor = AppStatusTone.active.color(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: cor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cor.withValues(alpha: 0.35)),
+      ),
+      child: Row(
         children: [
-          // Imagem do evento
-          if (event.imageUrl != null) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Image.network(
-                event.imageUrl!,
-                width: double.infinity,
-                height: 200,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: double.infinity,
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: const Icon(AppIcons.imageBroken, size: 48),
-                  );
-                },
-              ),
+          Icon(AppIcons.checkCircle, color: cor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Você está inscrito',
+              style: CommunityDesign.titleStyle(context).copyWith(color: cor),
             ),
-            const SizedBox(height: 24),
-          ],
-
-          // Status
-          _StatusChip(event: event),
-          _RestrictionBadge(event: event),
-          const SizedBox(height: 24),
-
-          // Nome
-          Text(
-            event.name,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 16),
-
-          // Descrição
-          if (event.description != null && event.description!.isNotEmpty) ...[
-            Text(
-              event.description!,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 24),
-          ],
-
-          if (event.eventType == 'aula') _EncounterLessons(event: event),
-
-          // Informações
-          _InfoCard(
-            icon: AppIcons.calendarFilled,
-            title: 'Data de Início',
-            value: DateFormat('dd/MM/yyyy').format(event.startDate),
-          ),
-          _InfoCard(
-            icon: AppIcons.accessTime,
-            title: 'Horário de Início',
-            value: DateFormat('HH:mm').format(event.startDate),
-          ),
-          if (event.endDate != null)
-            _InfoCard(
-              icon: AppIcons.eventAvailable,
-              title: 'Data de Término',
-              value: DateFormat('dd/MM/yyyy HH:mm').format(event.endDate!),
-            ),
-          if (event.location != null)
-            _InfoCard(
-              icon: AppIcons.location,
-              title: 'Local',
-              value: event.location!,
-            ),
-          if (event.eventType != null)
-            _InfoCard(
-              icon: AppIcons.category,
-              title: 'Tipo',
-              value: event.eventType!,
-            ),
-          if (event.maxCapacity != null)
-            _InfoCard(
-              icon: AppIcons.groupsFilled,
-              title: 'Capacidade Máxima',
-              value: '${event.maxCapacity} pessoas',
-            ),
-          if (event.courseId != null)
-            _CourseLinkCard(courseId: event.courseId!),
-          _InfoCard(
-            icon: AppIcons.registration,
-            title: 'Requer Inscrição',
-            value: event.requiresRegistration ? 'Sim' : 'Não',
-          ),
-          if (event.requiresRegistration) ...[
-            // IC-3 (REG-04): três estados mutuamente exclusivos derivados de
-            // `maxCapacity`/`registrationCount`. `maxCapacity == null`
-            // significa "sem limite" e NUNCA pode ser tratado como zero — daí
-            // a comparação explícita com nulo em vez de `?? 0`. A UI só
-            // antecipa o teto; quem decide a vaga é a RPC
-            // `register_member_in_event` (Plano 05).
-            _InfoCard(
-              icon: AppIcons.howToReg,
-              title: 'Inscritos',
-              value: capacidadeMaxima == null
-                  ? '$totalInscritos inscritos'
-                  : '$totalInscritos / $capacidadeMaxima',
-              valueColor: capacidadeMaxima == null
-                  ? null
-                  : (event.isFull ? colorScheme.error : colorScheme.primary),
-            ),
-            if (event.isFull)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: CommunityDesign.overlayDecoration(colorScheme)
-                    .copyWith(
-                      color: colorScheme.errorContainer,
-                      border: Border.all(
-                        color: colorScheme.error.withValues(alpha: 0.3),
-                      ),
-                    ),
-                // Acessibilidade: a lotação nunca é transmitida só por cor —
-                // o banner traz ícone E rótulo textual, e o contador em
-                // `error` sempre aparece acompanhado dele.
-                child: Row(
-                  children: [
-                    Icon(
-                      AppIcons.eventBusy,
-                      color: colorScheme.onErrorContainer,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Evento lotado',
-                      style: CommunityDesign.titleStyle(
-                        context,
-                      ).copyWith(color: colorScheme.onErrorContainer),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-
-          // Botão de inscrição / status de inscrito
-          if (event.requiresRegistration && !event.isPast) ...[
-            const SizedBox(height: 32),
-            if (myRegistration != null) ...[
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton.icon(
-                  onPressed: () => context.push('/events/${event.id}/register'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF38A169),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  icon: const Icon(AppIcons.checkCircle),
-                  label: const Text(
-                    'INSCRITO — VER MEU INGRESSO',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[300] ?? Colors.grey),
-                  ),
-                  child: QrImageView(
-                    data:
-                        myRegistration.qrCode ??
-                        'EVENT_TICKET:${event.id}:${currentMember!.id}',
-                    version: QrVersions.auto,
-                    size: 180.0,
-                    backgroundColor: Colors.white,
-                  ),
-                ),
-              ),
-            ] else
-              _buildRegistrationCta(context, ref),
-          ],
         ],
       ),
     );
   }
+}
 
-  /// VIS-04: botão de inscrição consciente de elegibilidade.
-  ///
-  /// T-08-01 — este gate é UX, NÃO é boundary de segurança. A autoridade é a
-  /// RPC `register_member_in_event` (Plano 07), que reavalia a audiência no
-  /// servidor a cada tentativa. Nunca afrouxar a checagem do servidor por
-  /// parecer redundante com este botão.
-  ///
-  /// T-08-05 — o ramo `error` mantém o botão HABILITADO de propósito: uma
-  /// falha de rede na RPC de elegibilidade não pode virar bloqueio de UX
-  /// para usuário legítimo. Se ele realmente não puder, o servidor recusa e
-  /// a tela de inscrição traduz a recusa.
-  Widget _buildRegistrationCta(BuildContext context, WidgetRef ref) {
+/// Card principal: imagem, selos, nome, data, local e vagas.
+class _EventMainCard extends StatelessWidget {
+  final Event event;
+
+  const _EventMainCard({required this.event});
+
+  static String _dataLonga(DateTime d) {
+    final s = DateFormat("EEEE, d 'de' MMMM", 'pt_BR').format(d);
+    return s[0].toUpperCase() + s.substring(1);
+  }
+
+  static String _horario(Event e) {
+    final inicio = DateFormat('HH:mm').format(e.startDate);
+    final fim = e.endDate;
+    if (fim == null) return inicio;
+    if (DateUtils.isSameDay(fim, e.startDate)) {
+      return '$inicio às ${DateFormat('HH:mm').format(fim)}';
+    }
+    return '$inicio · termina em '
+        '${DateFormat("d 'de' MMMM 'às' HH:mm", 'pt_BR').format(fim)}';
+  }
+
+  static Future<void> _abrirMapa(String local) async {
+    final url = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(local)}',
+    );
+    try {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // Sem app de mapas/navegador: não há o que fazer além de não quebrar.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final local = event.location?.trim();
+
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (event.imageUrl != null)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(AppTheme.cardRadius),
+              ),
+              child: Image.network(
+                event.imageUrl!,
+                height: 200,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 200,
+                  color: colorScheme.surfaceContainerHighest,
+                  child: const Icon(AppIcons.imageBroken, size: 48),
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _StatusChip(event: event),
+                    _RestrictionBadge(event: event),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  event.name,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _DetailLine(
+                  icon: AppIcons.calendarFilled,
+                  title: _dataLonga(event.startDate),
+                  subtitle: _horario(event),
+                ),
+                if (local != null && local.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _DetailLine(
+                    icon: AppIcons.location,
+                    title: local,
+                    trailing: TextButton.icon(
+                      onPressed: () => _abrirMapa(local),
+                      icon: const Icon(AppIcons.map, size: 18),
+                      label: const Text('Como chegar'),
+                    ),
+                  ),
+                ],
+                if (event.requiresRegistration) ...[
+                  const SizedBox(height: 16),
+                  _VacancyLine(event: event),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Linha de vagas. IC-3 (REG-04): `maxCapacity == null` significa "sem
+/// limite" e NUNCA pode ser tratado como zero. A UI só antecipa o teto;
+/// quem decide a vaga é a RPC `register_member_in_event`.
+class _VacancyLine extends StatelessWidget {
+  final Event event;
+
+  const _VacancyLine({required this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final total = event.registrationCount ?? 0;
+    final maximo = event.maxCapacity;
+
+    if (maximo == null) {
+      return _DetailLine(
+        icon: AppIcons.groupsFilled,
+        title: '$total inscritos',
+        subtitle: 'Sem limite de vagas',
+      );
+    }
+    // Lotação nunca só por cor: ícone e texto próprios.
+    if (event.isFull) {
+      return _DetailLine(
+        icon: AppIcons.eventBusy,
+        color: colorScheme.error,
+        title: 'Evento lotado',
+        subtitle: '$total de $maximo vagas preenchidas',
+      );
+    }
+    final restantes = (maximo - total).clamp(0, maximo);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _DetailLine(
+          icon: AppIcons.groupsFilled,
+          title: '$total de $maximo vagas',
+          trailing: Text(
+            '$restantes restantes',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(
+            value: maximo == 0 ? 1 : (total / maximo).clamp(0.0, 1.0),
+            minHeight: 6,
+            backgroundColor: colorScheme.surfaceContainerHighest,
+            color: colorScheme.primary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Linha do card principal: ícone em quadrado, título, subtítulo e ação.
+class _DetailLine extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+  final Color? color;
+
+  const _DetailLine({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cor = color ?? theme.colorScheme.primary;
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: cor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, size: 20, color: cor),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: color ?? theme.colorScheme.onSurface,
+                ),
+              ),
+              if (subtitle != null)
+                Text(
+                  subtitle!,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (trailing != null) trailing!,
+      ],
+    );
+  }
+}
+
+/// Responsáveis pelo evento (event_audience, role='responsible'). Só aparece
+/// se houver algum com nome resolvido.
+class _EventResponsibles extends ConsumerWidget {
+  final Event event;
+
+  const _EventResponsibles({required this.event});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final responsaveis = ref
+        .watch(eventResponsiblesProvider(event.id))
+        .valueOrNull;
+    if (responsaveis == null || responsaveis.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final nomes = _nomesDosAlvos(ref, responsaveis, pessoas: true);
+    if (nomes.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Responsáveis', style: CommunityDesign.titleStyle(context)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final nome in nomes)
+              Chip(
+                avatar: const Icon(AppIcons.person, size: 18),
+                label: Text(nome),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Barra fixa de inscrição da aba Informações.
+///
+/// T-08-01 — o gate de elegibilidade é UX, NÃO é boundary de segurança. A
+/// autoridade é a RPC `register_member_in_event`, que reavalia a audiência
+/// no servidor a cada tentativa.
+///
+/// T-08-05 — o ramo `error` mantém o botão HABILITADO de propósito: falha de
+/// rede na RPC de elegibilidade não pode virar bloqueio para usuário
+/// legítimo. Se ele realmente não puder, o servidor recusa.
+@visibleForTesting
+class EventRegistrationBar extends ConsumerWidget {
+  final Event event;
+  final EventRegistration? registration;
+  final String? memberId;
+
+  const EventRegistrationBar({
+    super.key,
+    required this.event,
+    this.registration,
+    this.memberId,
+  });
+
+  /// VIS-04: motivo único da recusa antecipada. Declarado uma vez para que o
+  /// rótulo do botão e o tooltip nunca divirjam na explicação dada.
+  static const String motivoInelegivel =
+      'Inscrição restrita a grupos, ministérios, cargos ou turmas específicos';
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      elevation: 8,
+      color: colorScheme.surface.withValues(alpha: 0.94),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
+        ),
+        child: SafeArea(
+          top: false,
+          minimum: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: registration != null
+              ? _botao(
+                  context,
+                  icon: const Icon(AppIcons.qrCode),
+                  label: 'Ver meu ingresso',
+                  onTap: () => _mostrarIngresso(context),
+                )
+              : _cta(context, ref),
+        ),
+      ),
+    );
+  }
+
+  Widget _cta(BuildContext context, WidgetRef ref) {
     final elegivel = ref
         .watch(amIEligibleToRegisterProvider(event.id))
         .when(
@@ -721,63 +938,156 @@ class _InfoTab extends ConsumerWidget {
           error: (_, __) => true, // T-08-05: falha de rede não bloqueia
         );
 
-    final carregando = elegivel == null;
-    final inelegivel = elegivel == false;
-    final desabilitado = carregando || inelegivel || event.isFull;
-
-    final botao = SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton.icon(
-        onPressed: desabilitado
-            ? null
-            : () => context.push('/events/${event.id}/register'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: event.isFree
-              ? const Color(0xFF38A169)
-              : Theme.of(context).colorScheme.primary,
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: Theme.of(
-            context,
-          ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+    if (elegivel == null) {
+      return _botao(
+        context,
+        icon: const SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
         ),
-        icon: carregando
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-            : Icon(
-                inelegivel
-                    ? AppIcons.lock
-                    : event.isFree
-                    ? AppIcons.gift
-                    : AppIcons.registration,
+        label: 'Verificando sua inscrição...',
+      );
+    }
+    if (!elegivel) {
+      return Tooltip(
+        message: motivoInelegivel,
+        child: _botao(
+          context,
+          icon: const Icon(AppIcons.lock),
+          label: motivoInelegivel,
+        ),
+      );
+    }
+    if (event.isFull) {
+      return _botao(
+        context,
+        icon: const Icon(AppIcons.eventBusy),
+        label: 'Evento lotado',
+      );
+    }
+    return _botao(
+      context,
+      icon: const Icon(AppIcons.registration),
+      label: 'Inscrever-se',
+      onTap: () => context.push('/events/${event.id}/register'),
+    );
+  }
+
+  /// Pílula de ~52 de altura. `onTap` nulo = desabilitado.
+  Widget _botao(
+    BuildContext context, {
+    required Widget icon,
+    required String label,
+    VoidCallback? onTap,
+  }) {
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      child: PearlButton(
+        width: double.infinity,
+        height: 52,
+        color: Theme.of(context).colorScheme.primary,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconTheme(
+                data: const IconThemeData(color: Colors.white, size: 20),
+                child: icon,
               ),
-        label: Text(
-          carregando
-              ? 'Verificando sua inscrição...'
-              : inelegivel
-              ? _motivoInelegivel
-              : event.isFull
-              ? 'Evento lotado'
-              : event.isFree
-              ? 'INSCREVER-SE GRATUITAMENTE'
-              : 'COMPRAR INGRESSO',
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
 
-    if (!inelegivel) return botao;
-    return Tooltip(message: _motivoInelegivel, child: botao);
+  void _mostrarIngresso(BuildContext context) {
+    final theme = Theme.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Seu ingresso',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                event.name,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                DateFormat('dd/MM/yyyy HH:mm').format(event.startDate),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Fundo branco sempre: leitor de QR precisa de contraste, também
+              // no tema escuro.
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: QrImageView(
+                  data:
+                      registration!.qrCode ??
+                      'EVENT_TICKET:${event.id}:${memberId ?? ''}',
+                  version: QrVersions.auto,
+                  size: 200,
+                  backgroundColor: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text('Apresente este código na entrada.'),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(sheetContext).pop(),
+                  child: const Text('Fechar'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -851,61 +1161,6 @@ class _CourseLinkCard extends ConsumerWidget {
   }
 }
 
-/// Card de informação
-class _InfoCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String value;
-
-  /// Cor opcional do valor. Usada pelo contador de capacidade (IC-3): accent
-  /// abaixo do limite, `error` no limite. Nulo mantém a cor padrão do tema.
-  final Color? valueColor;
-
-  const _InfoCard({
-    required this.icon,
-    required this.title,
-    required this.value,
-    this.valueColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: GlassCard(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            Icon(icon, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: valueColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// VIS-02/VIS-03: indicador de que o evento é restrito, e a quem.
 ///
 /// T-08-03 (risco aceito): quem consegue renderizar este badge já passou
@@ -922,112 +1177,130 @@ class _RestrictionBadge extends ConsumerWidget {
     if (!_isEventRestricted(event)) return const SizedBox.shrink();
 
     final colorScheme = Theme.of(context).colorScheme;
-    final alvos = event.visibilityScope != 'all'
-        ? _nomesDosAlvosDeVisibilidade(ref)
-        : const <String>[];
+    final audiencia = event.visibilityScope != 'all'
+        ? ref
+              .watch(
+                eventAudienceProvider((eventId: event.id, role: 'visibility')),
+              )
+              .valueOrNull
+        : null;
+    final alvos = audiencia == null
+        ? const <String>[]
+        : _nomesDosAlvos(ref, audiencia);
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: colorScheme.outlineVariant),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(AppIcons.lock, size: 18, color: colorScheme.onSurfaceVariant),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(AppIcons.lock, size: 18, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Restrito',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                if (alvos.isNotEmpty)
                   Text(
-                    'Restrito',
+                    'Restrito a: ${alvos.join(', ')}',
                     style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.onSurface,
+                      fontSize: 13,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  if (alvos.isNotEmpty)
-                    Text(
-                      'Restrito a: ${alvos.join(', ')}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                ],
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  /// Resolve os nomes dos alvos de VISIBILIDADE. Best-effort por definição:
-  /// audiência ainda carregando, em erro, vazia ou com alvo cujo nome não foi
-  /// resolvido devolve lista vazia (ou omite o item), e o badge mostra apenas
-  /// "Restrito". Uuid cru NUNCA é exibido — não diz nada ao usuário e vaza
-  /// identificador interno.
-  List<String> _nomesDosAlvosDeVisibilidade(WidgetRef ref) {
-    final audiencia = ref
-        .watch(eventAudienceProvider((eventId: event.id, role: 'visibility')))
-        .valueOrNull;
-    if (audiencia == null || audiencia.isEmpty) return const [];
+/// Resolve os nomes dos alvos de uma audiência (visibilidade no selo de
+/// restrito, responsáveis na aba Informações). Best-effort por definição:
+/// audiência ainda carregando, em erro, vazia ou com alvo cujo nome não foi
+/// resolvido devolve lista vazia (ou omite o item), e o badge mostra apenas
+/// "Restrito". Uuid cru NUNCA é exibido — não diz nada ao usuário e vaza
+/// identificador interno.
+///
+/// Pessoas só entram com [pessoas] (responsáveis); no selo de restrito
+/// continuam de fora, como antes.
+List<String> _nomesDosAlvos(
+  WidgetRef ref,
+  List<EventAudience> audiencia, {
+  bool pessoas = false,
+}) {
+  if (audiencia.isEmpty) return const [];
 
-    // Cada catálogo só é consultado se houver alvo daquele tipo.
-    final grupos =
-        audiencia.any((a) => a.targetKind == EventAudienceTargetKind.group)
-        ? {
-            for (final g in ref.watch(allGroupsProvider).valueOrNull ?? [])
-              g.id: g.name,
-          }
-        : const {};
-    final ministerios =
-        audiencia.any((a) => a.targetKind == EventAudienceTargetKind.ministry)
-        ? {
-            for (final m in ref.watch(allMinistriesProvider).valueOrNull ?? [])
-              m.id: m.name,
-          }
-        : const {};
-    final cargos =
-        audiencia.any((a) => a.targetKind == EventAudienceTargetKind.role)
-        ? {
-            for (final c in ref.watch(allRolesProvider).valueOrNull ?? [])
-              c.id: c.name,
-          }
-        : const {};
-    final turmas =
-        audiencia.any((a) => a.targetKind == EventAudienceTargetKind.turma)
-        ? {
-            for (final t
-                in ref.watch(allStudyGroupsProvider).valueOrNull ?? [])
-              t.id: t.name,
-          }
-        : const {};
+  // Cada catálogo só é consultado se houver alvo daquele tipo.
+  final grupos =
+      audiencia.any((a) => a.targetKind == EventAudienceTargetKind.group)
+      ? {
+          for (final g in ref.watch(allGroupsProvider).valueOrNull ?? [])
+            g.id: g.name,
+        }
+      : const {};
+  final ministerios =
+      audiencia.any((a) => a.targetKind == EventAudienceTargetKind.ministry)
+      ? {
+          for (final m in ref.watch(allMinistriesProvider).valueOrNull ?? [])
+            m.id: m.name,
+        }
+      : const {};
+  final cargos =
+      audiencia.any((a) => a.targetKind == EventAudienceTargetKind.role)
+      ? {
+          for (final c in ref.watch(allRolesProvider).valueOrNull ?? [])
+            c.id: c.name,
+        }
+      : const {};
+  final turmas =
+      audiencia.any((a) => a.targetKind == EventAudienceTargetKind.turma)
+      ? {
+          for (final t
+              in ref.watch(allStudyGroupsProvider).valueOrNull ?? [])
+            t.id: t.name,
+        }
+      : const {};
 
-    final nomes = <String>[];
-    for (final alvo in audiencia) {
-      final nome = switch (alvo.targetKind) {
-        EventAudienceTargetKind.group => grupos[alvo.groupId],
-        EventAudienceTargetKind.ministry => ministerios[alvo.ministryId],
-        // D-07: cargo desativado some de `allRolesProvider` mas continua
-        // valendo como alvo — rótulo legível em vez de sumir ou virar uuid.
-        EventAudienceTargetKind.role =>
-          cargos[alvo.rbacRoleId] ?? 'Cargo desativado',
-        EventAudienceTargetKind.turma => turmas[alvo.studyGroupId],
-        EventAudienceTargetKind.person => null,
-      };
-      if (nome is String && nome.trim().isNotEmpty) nomes.add(nome);
-    }
-    return nomes;
+  final pessoasPorId =
+      pessoas &&
+          audiencia.any((a) => a.targetKind == EventAudienceTargetKind.person)
+      ? {
+          for (final p in ref.watch(memberDirectoryProvider).valueOrNull ?? [])
+            p.id: p.displayName,
+        }
+      : const {};
+
+  final nomes = <String>[];
+  for (final alvo in audiencia) {
+    final nome = switch (alvo.targetKind) {
+      EventAudienceTargetKind.group => grupos[alvo.groupId],
+      EventAudienceTargetKind.ministry => ministerios[alvo.ministryId],
+      // D-07: cargo desativado some de `allRolesProvider` mas continua
+      // valendo como alvo — rótulo legível em vez de sumir ou virar uuid.
+      EventAudienceTargetKind.role =>
+        cargos[alvo.rbacRoleId] ?? 'Cargo desativado',
+      EventAudienceTargetKind.turma => turmas[alvo.studyGroupId],
+      EventAudienceTargetKind.person => pessoasPorId[alvo.userId],
+    };
+    if (nome is String && nome.trim().isNotEmpty) nomes.add(nome);
   }
+  return nomes;
 }
 
 /// Chip de status do evento

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:church360_app/core/widgets/glass_card.dart';
@@ -32,6 +33,9 @@ Event _event() {
 }
 
 void main() {
+  // O app inicializa pt_BR no main(); o card do evento formata a data nele.
+  setUpAll(() => initializeDateFormatting('pt_BR'));
+
   testWidgets('detalhe de evento usa cards compartilhados e badge de status', (
     tester,
   ) async {
@@ -56,10 +60,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(GlassCard), findsNWidgets(8));
+    // Fase 1 do redesenho: um card principal no lugar dos _InfoCard, e o
+    // nome só no card (a AppBar diz "Evento").
+    expect(find.byType(GlassCard), findsOneWidget);
     expect(find.byType(StatusBadge), findsOneWidget);
-    expect(find.text('Encontro de integração'), findsNWidgets(2));
+    expect(find.text('Encontro de integração'), findsOneWidget);
     expect(find.text('Salão principal'), findsOneWidget);
+    expect(find.text('8 de 80 vagas'), findsOneWidget);
+
+    // A barra de inscrição só existe na aba Informações.
+    expect(find.byType(EventRegistrationBar), findsOneWidget);
+    await tester.tap(find.text('Inscritos'));
+    await tester.pumpAndSettle();
+    expect(find.byType(EventRegistrationBar), findsNothing);
   });
 
   testWidgets('formulário de evento começa em uma superfície GlassCard', (

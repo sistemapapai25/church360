@@ -51,7 +51,7 @@ class _EventRegistrationScreenState
   /// Copy única da recusa por audiência. Usada nos DOIS pontos — pré-checagem
   /// de UX e `catch` da RPC — porque as duas mensagens não podem divergir.
   static const String _copyNaoElegivel =
-      'Você não pertence aos grupos, ministérios ou cargos autorizados a se inscrever neste evento.';
+      'Você não pertence aos grupos, ministérios, cargos ou turmas autorizados a se inscrever neste evento.';
 
   /// Detecta um `RAISE EXCEPTION` do servidor pelo literal do código. Varre
   /// código, mensagem, detalhes e hint do `PostgrestException` pelo mesmo
