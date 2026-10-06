@@ -9,20 +9,24 @@ import '../../permissions/providers/permissions_providers.dart';
 /// [eventId] (data [start]) [uid] serviu seguidos. "Seguido" é o evento
 /// anterior do ministério, quantos dias tenham passado: antes era "qualquer
 /// escala nos últimos 9 dias", o que com culto quarta+domingo e máximo 1
-/// travava a pessoa por 10 dias.
+/// travava a pessoa por 10 dias. Com [sameKind], só conta a escala da mesma
+/// categoria: quem ministrou (voz) no culto anterior pode tocar no próximo.
 int consecutiveStreak(
   String uid,
   String eventId,
   DateTime start,
-  Iterable<MinistrySchedule> schedules,
-) {
+  Iterable<MinistrySchedule> schedules, {
+  bool Function(MinistrySchedule s)? sameKind,
+}) {
   final dates = <String, DateTime>{};
   final served = <String>{};
   for (final s in schedules) {
     final d = s.eventStartDate;
     if (d == null || s.eventId == eventId || !d.isBefore(start)) continue;
     dates[s.eventId] = d;
-    if (s.memberId == uid) served.add(s.eventId);
+    if (s.memberId == uid && (sameKind == null || sameKind(s))) {
+      served.add(s.eventId);
+    }
   }
   final previous = dates.keys.toList()
     ..sort((a, b) => dates[b]!.compareTo(dates[a]!));
@@ -594,17 +598,24 @@ class AutoSchedulerService {
         bool violatesMinDays(String uid) =>
             relaxMinDays ? false : violatesMinDaysStrict(uid);
 
-        int consecutiveGlobalFor(String uid) =>
-            consecutiveStreak(uid, event.id, event.startDate, existingSchedules);
+        int consecutiveGlobalFor(String uid, String cat) => consecutiveStreak(
+          uid,
+          event.id,
+          event.startDate,
+          existingSchedules,
+          sameKind: (s) =>
+              (funcCategory[norm(s.functionName ?? s.notes ?? '')] ?? 'other') ==
+              cat,
+        );
 
-        bool violatesConsecutiveStrict(String uid) {
+        bool violatesConsecutiveStrict(String uid, String cat) {
           final mc = maxConsecutive ?? 0;
           if (mc <= 0) return false;
-          return consecutiveGlobalFor(uid) >= mc;
+          return consecutiveGlobalFor(uid, cat) >= mc;
         }
 
-        bool violatesConsecutive(String uid) =>
-            relaxMaxConsecutive ? false : violatesConsecutiveStrict(uid);
+        bool violatesConsecutive(String uid, String cat) =>
+            relaxMaxConsecutive ? false : violatesConsecutiveStrict(uid, cat);
 
         bool isExperienced(String uid) {
           final m = membersById[uid];
@@ -770,10 +781,10 @@ class AutoSchedulerService {
           final maxC = maxConsecutive ?? 0;
           if (maxC > 0) {
             final allowed = assignedCandidates
-                .where((uid) => consecutiveGlobalFor(uid) < maxC)
+                .where((uid) => consecutiveGlobalFor(uid, cat) < maxC)
                 .toList();
             final overflow = assignedCandidates
-                .where((uid) => consecutiveGlobalFor(uid) >= maxC)
+                .where((uid) => consecutiveGlobalFor(uid, cat) >= maxC)
                 .toList();
             assignedCandidates = [...allowed, ...overflow];
           }
@@ -931,7 +942,7 @@ class AutoSchedulerService {
               idxA++;
               continue;
             }
-            if (violatesConsecutive(uid)) {
+            if (violatesConsecutive(uid, cat)) {
               idxA++;
               continue;
             }
@@ -953,7 +964,7 @@ class AutoSchedulerService {
             if (relaxMinDays && violatesMinDaysStrict(uid)) {
               slotRelaxedRules.add('min_days_between');
             }
-            if (relaxMaxConsecutive && violatesConsecutiveStrict(uid)) {
+            if (relaxMaxConsecutive && violatesConsecutiveStrict(uid, cat)) {
               slotRelaxedRules.add('max_consecutive');
             }
             if (relaxMaxPerMonth && violatesMonthStrict(uid)) {
@@ -1638,17 +1649,24 @@ class AutoSchedulerService {
         bool violatesMinDays(String uid) =>
             relaxMinDays ? false : violatesMinDaysStrict(uid);
 
-        int consecutiveGlobalFor(String uid) =>
-            consecutiveStreak(uid, event.id, event.startDate, existingSchedules);
+        int consecutiveGlobalFor(String uid, String cat) => consecutiveStreak(
+          uid,
+          event.id,
+          event.startDate,
+          existingSchedules,
+          sameKind: (s) =>
+              (funcCategory[norm(s.functionName ?? s.notes ?? '')] ?? 'other') ==
+              cat,
+        );
 
-        bool violatesConsecutiveStrict(String uid) {
+        bool violatesConsecutiveStrict(String uid, String cat) {
           final mc = maxConsecutive ?? 0;
           if (mc <= 0) return false;
-          return consecutiveGlobalFor(uid) >= mc;
+          return consecutiveGlobalFor(uid, cat) >= mc;
         }
 
-        bool violatesConsecutive(String uid) =>
-            relaxMaxConsecutive ? false : violatesConsecutiveStrict(uid);
+        bool violatesConsecutive(String uid, String cat) =>
+            relaxMaxConsecutive ? false : violatesConsecutiveStrict(uid, cat);
 
         bool isBlocked(String uid) {
           DateTime d = event.startDate;
@@ -1834,10 +1852,10 @@ class AutoSchedulerService {
           final maxC = maxConsecutive ?? 0;
           if (maxC > 0) {
             final allowed = assignedCandidates
-                .where((uid) => consecutiveGlobalFor(uid) < maxC)
+                .where((uid) => consecutiveGlobalFor(uid, cat) < maxC)
                 .toList();
             final overflow = assignedCandidates
-                .where((uid) => consecutiveGlobalFor(uid) >= maxC)
+                .where((uid) => consecutiveGlobalFor(uid, cat) >= maxC)
                 .toList();
             assignedCandidates = [...allowed, ...overflow];
           }
@@ -1977,7 +1995,7 @@ class AutoSchedulerService {
               idxA++;
               continue;
             }
-            if (violatesConsecutive(uid)) {
+            if (violatesConsecutive(uid, cat)) {
               idxA++;
               continue;
             }
@@ -2003,7 +2021,7 @@ class AutoSchedulerService {
             if (relaxMinDays && violatesMinDaysStrict(uid)) {
               relaxedForUid.add('min_days_between');
             }
-            if (relaxMaxConsecutive && violatesConsecutiveStrict(uid)) {
+            if (relaxMaxConsecutive && violatesConsecutiveStrict(uid, cat)) {
               relaxedForUid.add('max_consecutive');
             }
             if (relaxMaxPerMonth && violatesMonthStrict(uid)) {
