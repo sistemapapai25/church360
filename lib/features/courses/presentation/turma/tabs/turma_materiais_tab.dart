@@ -510,10 +510,14 @@ class TurmaLinkMaterialSheet extends ConsumerStatefulWidget {
   final TurmaMaterialRights rights;
   final String emptyMessage;
 
+  /// Aviso fixo acima da busca (o evento mostra que o material é público).
+  final Widget? notice;
+
   const TurmaLinkMaterialSheet({
     super.key,
     required this.linkedIds,
     required this.rights,
+    this.notice,
     this.emptyMessage =
         'Nenhum material disponível. Você pode vincular materiais '
         'que cadastrou no módulo Material de Apoio.',
@@ -536,6 +540,10 @@ class TurmaLinkMaterialSheetState
     return TurmaSheetBody(
       title: 'Vincular material',
       children: [
+        if (widget.notice != null) ...[
+          widget.notice!,
+          const SizedBox(height: 12),
+        ],
         TextField(
           decoration: const InputDecoration(
             labelText: 'Procurar material',
