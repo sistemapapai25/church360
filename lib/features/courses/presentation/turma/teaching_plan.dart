@@ -8,6 +8,7 @@ import '../../../schedule/presentation/providers/schedule_provider.dart';
 import '../../../study_groups/domain/models/study_group.dart';
 import '../../../study_groups/presentation/providers/study_group_provider.dart';
 import '../../domain/models/course_subject.dart';
+import '../../domain/models/course_turma.dart';
 import '../providers/courses_provider.dart';
 import '../widgets/course_subjects_section.dart';
 import 'tabs/turma_aulas_tab.dart';
@@ -125,7 +126,8 @@ final upcomingAulaEventsProvider = FutureProvider.autoDispose<List<Event>>((
       .getEventsByDateRange(today, DateTime(now.year + 1, now.month, now.day));
   return [
     for (final e in events)
-      if (e.eventType == 'aula') e,
+      // O encontro que as aulas de uma turma mantêm não recebe Distribuir.
+      if (e.eventType == 'aula' && e.autoStudyGroupId == null) e,
   ];
 });
 
@@ -291,6 +293,75 @@ fillMinistryEventTeachers(
     filled: filled,
     missing: missing,
   );
+}
+
+/// Encontros tipo Aula criados na Agenda (não os que as aulas mantêm) que
+/// ainda não têm aula de nenhuma turma: o gerador distribui neles.
+Future<List<Event>> emptyAgendaEncounters(
+  WidgetRef ref,
+  List<Event> events,
+) async {
+  final agenda = [
+    for (final e in events)
+      if (e.eventType == 'aula' && e.autoStudyGroupId == null) e,
+  ];
+  if (agenda.isEmpty) return const [];
+  final used = {
+    for (final l
+        in await ref.read(studyGroupRepositoryProvider).getLessonsByEvents([
+          for (final e in agenda) e.id,
+        ]))
+      ?l.eventId,
+  };
+  return [
+    for (final e in agenda)
+      if (!used.contains(e.id)) e,
+  ];
+}
+
+/// Turmas ativas de cursos do ministério (candidatas do gerador).
+Future<List<CourseTurma>> ministryActiveTurmas(
+  WidgetRef ref,
+  String ministryId,
+) async {
+  final turmas = <CourseTurma>[];
+  for (final t in await ref.read(formacaoTurmasProvider.future)) {
+    final courseId = t.courseId;
+    if (t.status != StudyGroupStatus.active || courseId == null) continue;
+    final course = await ref.read(courseByIdProvider(courseId).future);
+    if (course?.ministryId == ministryId) turmas.add(t);
+  }
+  return turmas;
+}
+
+/// O Distribuir "Nos encontros" feito pelo gerador: cria em [encounters]
+/// as próximas aulas de cada matéria da [turma], como rascunho e sem
+/// professor (o gerador preenche logo depois). Devolve quantas criou.
+Future<int> distributeIntoEncounters(
+  WidgetRef ref, {
+  required CourseTurma turma,
+  required List<Event> encounters,
+}) async {
+  final repo = ref.read(studyGroupRepositoryProvider);
+  final rows = planEventLessons(
+    subjects: await ref.read(courseSubjectsProvider(turma.courseId!).future),
+    lessons: await repo.getGroupLessons(turma.id),
+    events: encounters,
+  );
+  for (final r in rows) {
+    await repo.createLesson(
+      studyGroupId: turma.id,
+      lessonNumber: r.lesson.lessonNumber,
+      title: r.lesson.title,
+      scheduledDate: r.date,
+      subjectId: r.lesson.subject.id,
+      startTime: hhmm(r.lesson.start),
+      durationMinutes: r.duration,
+      eventId: r.eventId,
+    );
+  }
+  if (rows.isNotEmpty) invalidateTurmaLessons(ref, turma.id);
+  return rows.length;
 }
 
 String _teacherLabel(WidgetRef ref, Map<String, String> names, String? id) =>

@@ -56,7 +56,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   events,
                   churchSchedules,
                   holidays,
-                  myLessons,
+                  lessonsOutsideEvents(myLessons, events),
                 ),
                 loading: () => const Center(
                   child: Padding(
@@ -432,12 +432,13 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       churchSchedulesOfDateProvider(_selectedDay),
     );
     final holidays = ref.watch(holidaysOfDateProvider(_selectedDay));
-    final myLessons = _myLessonsOfMonth(
+    final dayLessons = _myLessonsOfMonth(
       _selectedDay,
     ).where((l) => isSameDay(l.scheduledDate, _selectedDay)).toList();
 
     return eventsAsync.when(
       data: (events) {
+        final myLessons = lessonsOutsideEvents(dayLessons, events);
         return churchSchedulesAsync.when(
           data: (churchSchedules) {
             final hasEvents =

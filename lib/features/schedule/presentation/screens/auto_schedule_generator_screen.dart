@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/utils/file_download.dart';
 
 import '../providers/schedule_provider.dart';
+import '../../../courses/domain/models/course_turma.dart';
 import '../../../courses/presentation/turma/teaching_plan.dart';
 import '../../../events/domain/models/event.dart';
 import '../../../events/presentation/providers/events_provider.dart';
@@ -106,6 +107,28 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
     });
   }
 
+  /// Mais de uma turma ativa no ministério: quem gera escolhe a dos
+  /// encontros vazios. Fechar sem escolher = não distribui.
+  Future<CourseTurma?> _pickTurma(List<CourseTurma> turmas, int encounters) {
+    return showDialog<CourseTurma>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text('Turma dos $encounters encontro(s) de aula sem aula'),
+        children: [
+          for (final t in turmas)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, t),
+              child: Text(t.name),
+            ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Não distribuir agora'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _generate(List<Event> events) async {
     setState(() => _isGenerating = true);
     final service = AutoSchedulerService();
@@ -117,6 +140,37 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
       // por função não mexe neles.
       var teachingIds = const <String>{};
       String? teachingNote;
+      // Encontro tipo Aula criado na Agenda e ainda sem aula: distribui as
+      // aulas da turma do ministério nele antes de escalar o professor.
+      String? distributeNote;
+      try {
+        final empty = await emptyAgendaEncounters(ref, events);
+        if (empty.isNotEmpty) {
+          final turmas = await ministryActiveTurmas(ref, widget.ministryId);
+          final turma = turmas.length > 1
+              ? await _pickTurma(turmas, empty.length)
+              : turmas.firstOrNull;
+          if (turma != null) {
+            final n = await distributeIntoEncounters(
+              ref,
+              turma: turma,
+              encounters: empty,
+            );
+            if (n > 0) {
+              distributeNote =
+                  '$n aula(s) da turma ${turma.name} distribuídas nos '
+                  'encontros, como rascunho: publique na turma para os '
+                  'alunos verem.';
+            }
+          } else if (turmas.isEmpty) {
+            distributeNote =
+                '${empty.length} encontro(s) de aula sem aula: o ministério '
+                'não tem turma ativa.';
+          }
+        }
+      } catch (e) {
+        failures.add('Distribuir aulas nos encontros: $e');
+      }
       try {
         final t = await fillMinistryEventTeachers(
           ref,
@@ -215,7 +269,13 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
       }
 
       if (mounted) {
-        _showGenerationReport(reports, failures, events, teachingNote);
+        final note = [?distributeNote, ?teachingNote].join('\n');
+        _showGenerationReport(
+          reports,
+          failures,
+          events,
+          note.isEmpty ? null : note,
+        );
       }
     } catch (e) {
       if (mounted) {

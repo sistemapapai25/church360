@@ -31,6 +31,10 @@ class Event {
   /// Turma em que a inscrição no evento matricula (D3, trigger no banco).
   final String? enrollStudyGroupId;
 
+  /// Encontro mantido pelas aulas desta turma (o banco cria, move e apaga
+  /// junto com as aulas publicadas). Só leitura no app.
+  final String? autoStudyGroupId;
+
   // Campos computados do join
   final int? registrationCount;
 
@@ -56,6 +60,7 @@ class Event {
     this.registrationScope = 'all',
     this.courseId,
     this.enrollStudyGroupId,
+    this.autoStudyGroupId,
     this.registrationCount,
   });
 
@@ -87,6 +92,7 @@ class Event {
       registrationScope: json['registration_scope'] as String? ?? 'all',
       courseId: json['course_id'] as String?,
       enrollStudyGroupId: json['enroll_study_group_id'] as String?,
+      autoStudyGroupId: json['auto_study_group_id'] as String?,
       registrationCount: json['registration_count'] as int?,
     );
   }
