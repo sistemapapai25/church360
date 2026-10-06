@@ -26,6 +26,7 @@ import '../widgets/audience_picker.dart';
 import '../widgets/reminder_picker.dart';
 import '../widgets/series_progress_barrier.dart';
 import '../widgets/series_scope_toggle.dart';
+import '../widgets/event_updates.dart';
 import '../utils/series_pattern_label.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
@@ -2299,6 +2300,10 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                       ],
                       const SizedBox(height: 24),
                     ],
+
+                    // Avisos do feed: só na edição (o evento já existe).
+                    if (_isEditMode)
+                      EventNoticesManager(eventId: widget.eventId!),
 
                     // Lembretes (NOTIF-02, D-02/D-03)
                     Text(

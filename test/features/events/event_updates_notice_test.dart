@@ -26,20 +26,17 @@ EventUpdate _notice() => EventUpdate.fromJson({
 });
 
 Future<void> _pump(
-  WidgetTester tester, {
+  WidgetTester tester,
+  Widget child, {
   required List<EventUpdate> updates,
-  required bool podePublicar,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         eventUpdatesProvider('e1').overrideWith((ref) async => updates),
-        canPostEventUpdateProvider(
-          'e1',
-        ).overrideWith((ref) async => podePublicar),
       ],
       child: MaterialApp(
-        home: Scaffold(body: EventUpdatesSummary(event: _event)),
+        home: Scaffold(body: SingleChildScrollView(child: child)),
       ),
     ),
   );
@@ -49,47 +46,60 @@ Future<void> _pump(
 void main() {
   setUpAll(() => initializeDateFormatting('pt_BR'));
 
-  testWidgets('membro sem itens não vê a seção', (tester) async {
-    await _pump(tester, updates: const [], podePublicar: false);
-    expect(find.text('Atualizações'), findsNothing);
+  group('exibição (tela do evento)', () {
+    testWidgets('sem itens, a seção não aparece', (tester) async {
+      await _pump(tester, EventUpdatesSummary(event: _event), updates: []);
+      expect(find.text('Atualizações'), findsNothing);
+    });
+
+    testWidgets('mostra o aviso sem ações de gestão', (tester) async {
+      await _pump(
+        tester,
+        EventUpdatesSummary(event: _event),
+        updates: [_notice()],
+      );
+      expect(find.text('Mudou a sala'), findsOneWidget);
+      expect(find.byIcon(Icons.more_vert), findsNothing);
+      expect(find.text('Novo aviso'), findsNothing);
+    });
   });
 
-  testWidgets('quem pode publicar vê o estado vazio e "+ Aviso"', (
-    tester,
-  ) async {
-    await _pump(tester, updates: const [], podePublicar: true);
-    expect(find.text('Nenhum aviso ainda ·'), findsOneWidget);
-    expect(find.text('Publicar aviso'), findsOneWidget);
-    expect(find.text('Aviso'), findsOneWidget);
+  group('gestão (edição do evento)', () {
+    testWidgets('vazio: "Nenhum aviso ainda" e sheet exige mensagem', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        const EventNoticesManager(eventId: 'e1'),
+        updates: [],
+      );
+      expect(find.text('Nenhum aviso ainda.'), findsOneWidget);
 
-    await tester.tap(find.text('Publicar aviso'));
-    await tester.pumpAndSettle();
-    expect(find.text('Novo aviso'), findsOneWidget);
-    expect(
-      find.text('Avisos não podem ser editados, só excluídos.'),
-      findsOneWidget,
-    );
-    // Mensagem é obrigatória.
-    await tester.tap(find.widgetWithText(FilledButton, 'Publicar aviso'));
-    await tester.pump();
-    expect(find.text('Escreva a mensagem do aviso.'), findsOneWidget);
-  });
+      await tester.tap(find.text('Novo aviso'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Avisos não podem ser editados, só excluídos.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Publicar aviso'));
+      await tester.pump();
+      expect(find.text('Escreva a mensagem do aviso.'), findsOneWidget);
+    });
 
-  testWidgets('membro não vê o menu ⋮ do aviso', (tester) async {
-    await _pump(tester, updates: [_notice()], podePublicar: false);
-    expect(find.text('Mudou a sala'), findsOneWidget);
-    expect(find.byIcon(Icons.more_vert), findsNothing);
-  });
-
-  testWidgets('quem pode exclui pelo ⋮ com confirmação', (tester) async {
-    await _pump(tester, updates: [_notice()], podePublicar: true);
-    await tester.tap(find.byIcon(Icons.more_vert));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Excluir aviso'));
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Quem já viu este aviso não será avisado da exclusão.'),
-      findsOneWidget,
-    );
+    testWidgets('exclui pelo ⋮ com confirmação', (tester) async {
+      await _pump(
+        tester,
+        const EventNoticesManager(eventId: 'e1'),
+        updates: [_notice()],
+      );
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Excluir aviso'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Quem já viu este aviso não será avisado da exclusão.'),
+        findsOneWidget,
+      );
+    });
   });
 }

@@ -1479,7 +1479,10 @@ final appRouter = GoRouter(
       path: '/courses/:id/view',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return CourseViewerScreen(courseId: id);
+        return CourseViewerScreen(
+          courseId: id,
+          fromDashboard: state.uri.queryParameters['from'] == 'dashboard',
+        );
       },
     ),
 
