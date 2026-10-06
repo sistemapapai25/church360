@@ -200,6 +200,10 @@ class StudyLesson {
   /// Duração em minutos (opcional); com [startTime] dá o término.
   final int? durationMinutes;
 
+  /// Encontro (evento tipo Aula) em que a aula acontece; N aulas : 1
+  /// evento. A escala de Professor do evento sai daqui (trigger no banco).
+  final String? eventId;
+
   StudyLesson({
     required this.id,
     required this.studyGroupId,
@@ -221,6 +225,7 @@ class StudyLesson {
     this.teacherId,
     this.startTime,
     this.durationMinutes,
+    this.eventId,
   });
 
   factory StudyLesson.fromJson(Map<String, dynamic> json) {
@@ -254,6 +259,7 @@ class StudyLesson {
       // `time` volta como HH:mm:ss; a tela só usa HH:mm.
       startTime: (json['start_time'] as String?)?.substring(0, 5),
       durationMinutes: json['duration_minutes'] as int?,
+      eventId: json['event_id'] as String?,
     );
   }
 
@@ -279,6 +285,7 @@ class StudyLesson {
       'teacher_id': teacherId,
       'start_time': startTime,
       'duration_minutes': durationMinutes,
+      'event_id': eventId,
     };
   }
 

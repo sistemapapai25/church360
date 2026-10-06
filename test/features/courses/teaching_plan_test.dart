@@ -1,5 +1,6 @@
 import 'package:church360_app/features/courses/domain/models/course_subject.dart';
 import 'package:church360_app/features/courses/presentation/turma/teaching_plan.dart';
+import 'package:church360_app/features/events/domain/models/event.dart';
 import 'package:church360_app/features/study_groups/domain/models/study_group.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -83,6 +84,57 @@ void main() {
         duration: 20,
       );
       expect(planEnd(planned, 20), greaterThan(24 * 60));
+    });
+  });
+
+  group('planEventLessons', () {
+    Event meeting(String id, int day, {int minutes = 90}) => Event(
+      id: id,
+      name: 'Encontro',
+      eventType: 'aula',
+      startDate: DateTime(2026, 10, day, 19),
+      endDate: DateTime(2026, 10, day, 19).add(Duration(minutes: minutes)),
+      createdAt: DateTime(2026),
+    );
+
+    String plan(List<StudyLesson> lessons, List<Event> events) =>
+        planEventLessons(
+              subjects: [subject('A', 2), subject('B', 1), subject('C', 2)],
+              lessons: lessons,
+              events: events,
+            )
+            .map(
+              (r) =>
+                  '${r.date.day} ${hhmm(r.lesson.start)}+${r.duration} '
+                  '${r.lesson.title}',
+            )
+            .join(' | ');
+
+    test(
+      '90 min / 3 matérias = 30 min fixos; matéria terminada deixa vago',
+      () {
+        expect(
+          plan(const [], [meeting('e1', 6), meeting('e2', 13)]),
+          '6 19:00+30 A — 1/2 | 6 19:30+30 B — 1/1 | 6 20:00+30 C — 1/2 | '
+          '13 19:00+30 A — 2/2 | 13 20:00+30 C — 2/2',
+        );
+      },
+    );
+
+    test('encontro que já tem aula da turma e encontro sem término pulam', () {
+      final done = lesson(1, subjectId: 'A');
+      final linked = StudyLesson.fromJson({...done.toJson(), 'event_id': 'e1'});
+      final open = Event(
+        id: 'e2',
+        name: 'Sem fim',
+        eventType: 'aula',
+        startDate: DateTime(2026, 10, 13, 19),
+        createdAt: DateTime(2026),
+      );
+      expect(
+        plan([linked], [meeting('e1', 6), open, meeting('e3', 20)]),
+        '20 19:00+30 A — 2/2 | 20 19:30+30 B — 1/1 | 20 20:00+30 C — 1/2',
+      );
     });
   });
 

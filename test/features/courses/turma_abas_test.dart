@@ -138,6 +138,7 @@ class _FakeStudyRepo implements StudyGroupRepository {
     String? teacherId,
     String? startTime,
     int? durationMinutes,
+    String? eventId,
   }) async {
     created.add((groupId: studyGroupId, number: lessonNumber, title: title));
     createdFields.add({
