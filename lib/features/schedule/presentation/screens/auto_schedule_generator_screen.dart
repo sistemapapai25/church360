@@ -43,10 +43,25 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
   bool _relaxMaxPerMonth = false;
   bool _fairDistribution = false;
 
+  // Tipos de evento que o ministério atende (Regras & Preferências);
+  // vazio = todos.
+  List<String> _served = const [];
+
   @override
   void initState() {
     super.initState();
     _selectedMinistryIds.add(widget.ministryId);
+    _loadServedTypes();
+  }
+
+  Future<void> _loadServedTypes() async {
+    final contexts = await ref
+        .read(roleContextsRepositoryProvider)
+        .getContextsByMinistry(widget.ministryId);
+    if (!mounted) return;
+    setState(
+      () => _served = servedEventTypes(contexts.map((c) => c.metadata)),
+    );
   }
 
   IconData _iconForType(String? type) {
@@ -953,7 +968,10 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
       body: FutureBuilder<List<Event>>(
         future: repo.getEventsByDateRange(_start, _end),
         builder: (context, snapshot) {
-          final events = snapshot.data ?? [];
+          final events = [
+            for (final e in snapshot.data ?? const <Event>[])
+              if (servesEventType(_served, e.eventType)) e,
+          ];
           return Column(
             children: [
               Padding(
