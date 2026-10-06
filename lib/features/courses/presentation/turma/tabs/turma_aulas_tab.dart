@@ -199,6 +199,9 @@ FutureProvider<List<StudyLesson>> turmaVisibleLessonsProvider(
 void invalidateTurmaLessons(WidgetRef ref, String studyGroupId) {
   ref.invalidate(groupLessonsProvider(studyGroupId));
   ref.invalidate(publishedLessonsProvider(studyGroupId));
+  // A tela da aula lê a aula sozinha: sem isto, o professor gravado pela
+  // Escala de ensino/Distribuir não aparecia na aula já aberta antes.
+  ref.invalidate(lessonByIdProvider);
   ref.invalidate(materialsByEntitiesProvider);
 }
 

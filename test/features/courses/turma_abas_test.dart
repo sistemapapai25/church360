@@ -248,7 +248,8 @@ class _FakeStudyRepo implements StudyGroupRepository {
 
   final notes = <StudyLessonNote>[];
   final noteRequests = <LessonNoteVisibility>[];
-  final addedNotes = <({String lessonId, LessonNoteVisibility v, String body})>[];
+  final addedNotes =
+      <({String lessonId, LessonNoteVisibility v, String body})>[];
 
   @override
   Future<List<StudyLessonNote>> getLessonNotes(
@@ -456,7 +457,11 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: TurmaAccess.student),
+          const TurmaAulasTab(
+            onOpenLesson: _noop,
+            studyGroupId: _sgId,
+            access: TurmaAccess.student,
+          ),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
@@ -491,7 +496,11 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: TurmaAccess.student),
+          const TurmaAulasTab(
+            onOpenLesson: _noop,
+            studyGroupId: _sgId,
+            access: TurmaAccess.student,
+          ),
           overrides: [
             studyGroupRepositoryProvider.overrideWithValue(repo),
             ..._courseOverrides,
@@ -509,7 +518,11 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(
+            onOpenLesson: _noop,
+            studyGroupId: _sgId,
+            access: _leader,
+          ),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
@@ -544,7 +557,11 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(
+            onOpenLesson: _noop,
+            studyGroupId: _sgId,
+            access: _leader,
+          ),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
@@ -585,7 +602,11 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(
+            onOpenLesson: _noop,
+            studyGroupId: _sgId,
+            access: _leader,
+          ),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
@@ -610,7 +631,11 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(
+            onOpenLesson: _noop,
+            studyGroupId: _sgId,
+            access: _leader,
+          ),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
@@ -660,7 +685,11 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(
+            onOpenLesson: _noop,
+            studyGroupId: _sgId,
+            access: _leader,
+          ),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
@@ -706,7 +735,11 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(
+            onOpenLesson: _noop,
+            studyGroupId: _sgId,
+            access: _leader,
+          ),
           overrides: [
             studyGroupRepositoryProvider.overrideWithValue(repo),
             ..._courseOverrides,
@@ -739,7 +772,11 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(
+            onOpenLesson: _noop,
+            studyGroupId: _sgId,
+            access: _leader,
+          ),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
@@ -767,7 +804,11 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(
+            onOpenLesson: _noop,
+            studyGroupId: _sgId,
+            access: _leader,
+          ),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
@@ -811,6 +852,19 @@ void main() {
         _host(LessonContentTab(lesson: _lesson(1, LessonStatus.published))),
       );
       expect(find.text('Esta aula ainda não tem conteúdo.'), findsOneWidget);
+    });
+
+    testWidgets('Conteúdo mostra o professor no topo', (tester) async {
+      await _pump(
+        tester,
+        _host(
+          LessonContentTab(
+            lesson: _lesson(1, LessonStatus.published),
+            teacher: 'Professor(a): Clarissa',
+          ),
+        ),
+      );
+      expect(find.text('Professor(a): Clarissa'), findsOneWidget);
     });
 
     test('regras dos campos', () {
@@ -866,7 +920,11 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(
+            onOpenLesson: _noop,
+            studyGroupId: _sgId,
+            access: _leader,
+          ),
           overrides: [
             studyGroupRepositoryProvider.overrideWithValue(repo),
             lessonMediaServiceProvider.overrideWithValue(media),
@@ -900,7 +958,11 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(
+            onOpenLesson: _noop,
+            studyGroupId: _sgId,
+            access: _leader,
+          ),
           overrides: [
             studyGroupRepositoryProvider.overrideWithValue(repo),
             lessonMediaServiceProvider.overrideWithValue(media),
@@ -929,7 +991,11 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(
+            onOpenLesson: _noop,
+            studyGroupId: _sgId,
+            access: _leader,
+          ),
           overrides: [
             studyGroupRepositoryProvider.overrideWithValue(repo),
             lessonMediaServiceProvider.overrideWithValue(media),
@@ -964,7 +1030,11 @@ void main() {
       await _pump(
         tester,
         _host(
-          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: _leader),
+          const TurmaAulasTab(
+            onOpenLesson: _noop,
+            studyGroupId: _sgId,
+            access: _leader,
+          ),
           overrides: [
             studyGroupRepositoryProvider.overrideWithValue(repo),
             lessonMediaServiceProvider.overrideWithValue(media),
@@ -1572,7 +1642,6 @@ void main() {
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
       );
-
 
       // Líder não entra na chamada.
       expect(find.byKey(const ValueKey('roll-lider-present')), findsNothing);
