@@ -491,7 +491,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             _DrawerCategory(
               icon: Icons.calendar_today,
               title: 'AGENDA',
-              permissions: const ['events.view'],
+              permissions: const ['events.view', 'worship.view'],
               children: [
                 PermissionGate(
                   permission: 'events.view',
@@ -499,6 +499,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     icon: Icons.event_note,
                     title: 'Agenda',
                     route: '/events',
+                  ),
+                ),
+                PermissionGate(
+                  permission: 'worship.view',
+                  child: const _DrawerMenuItem(
+                    icon: Icons.church,
+                    title: 'Cultos',
+                    route: '/worship-services',
                   ),
                 ),
               ],
