@@ -321,18 +321,27 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           return _buildUnavailableScreen(context);
         }
 
+        // Inscritos: só em evento com inscrição, e só para a liderança
+        // (mesmo critério de Escalas) ou quem gerencia as inscrições deste
+        // evento. Membro comum fica só com Informações.
+        final showRegistrations =
+            event.requiresRegistration &&
+            (showScales ||
+                (ref
+                        .watch(canManageEventRegistrationsProvider(event.id))
+                        .valueOrNull ??
+                    false));
         final tabs = [
           const AppTab(label: 'Informações'),
-          AppTab(
-            label: 'Inscritos',
-            count: event.requiresRegistration
-                ? '${event.registrationCount ?? 0}'
-                : null,
-          ),
+          if (showRegistrations)
+            AppTab(
+              label: 'Inscritos',
+              count: '${event.registrationCount ?? 0}',
+            ),
           if (showScales) const AppTab(label: 'Escalas'),
         ];
-        // A aba Escalas pode sumir depois de escolhida (escopo recarregado):
-        // o índice volta a caber na lista.
+        // Abas podem sumir depois de escolhidas (escopo recarregado): o
+        // índice volta a caber na lista.
         final selected = _tab.clamp(0, tabs.length - 1);
 
         return Scaffold(
@@ -430,14 +439,16 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-                child: AppTabs(
-                  tabs: tabs,
-                  selectedIndex: selected,
-                  onChanged: (i) => setState(() => _tab = i),
+              // Uma aba só não precisa de barra de abas.
+              if (tabs.length > 1)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                  child: AppTabs(
+                    tabs: tabs,
+                    selectedIndex: selected,
+                    onChanged: (i) => setState(() => _tab = i),
+                  ),
                 ),
-              ),
               // IndexedStack mantém as abas montadas: trocar de aba não perde
               // a rolagem de Inscritos/Escalas.
               Expanded(
@@ -446,7 +457,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                   sizing: StackFit.expand,
                   children: [
                     _InfoTab(event: event),
-                    _RegistrationsTab(event: event),
+                    if (showRegistrations) _RegistrationsTab(event: event),
                     if (showScales) _SchedulesTab(eventId: event.id),
                   ],
                 ),
