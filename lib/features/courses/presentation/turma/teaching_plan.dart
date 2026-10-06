@@ -208,6 +208,91 @@ Future<({Map<String, String> names, List<String> rotation})> _teacherPool(
   );
 }
 
+/// Aulas (não arquivadas) dos encontros tipo Aula em [events] cujo curso é
+/// do ministério [ministryId], por curso.
+Future<Map<String, List<StudyLesson>>> ministryEventLessons(
+  WidgetRef ref, {
+  required String ministryId,
+  required List<Event> events,
+}) async {
+  final repo = ref.read(studyGroupRepositoryProvider);
+  final lessons = [
+    for (final l in await repo.getLessonsByEvents([
+      for (final e in events)
+        if (e.eventType == 'aula') e.id,
+    ]))
+      if (l.status != LessonStatus.archived) l,
+  ];
+  final courseOf = await repo.getGroupCourseIds({
+    for (final l in lessons) l.studyGroupId,
+  });
+  final byCourse = <String, List<StudyLesson>>{};
+  for (final l in lessons) {
+    final courseId = courseOf[l.studyGroupId];
+    if (courseId == null) continue;
+    final course = await ref.read(courseByIdProvider(courseId).future);
+    if (course?.ministryId != ministryId) continue;
+    byCourse.putIfAbsent(courseId, () => []).add(l);
+  }
+  return byCourse;
+}
+
+/// Gerador do ministério (D1, PR C): nos encontros tipo Aula com aulas de
+/// curso deste ministério, a aula sem professor recebe um pela regra da
+/// Escala de ensino (padrão da matéria → rodízio dos professores do
+/// ministério), num rodízio só por curso em todo o período. Quem já está
+/// na aula não muda. A escala do evento acompanha pelo banco (trigger da
+/// 20261006000100). Devolve os encontros tratados aqui — o gerador por
+/// função não deve mexer neles — e quantas aulas ficaram sem professor.
+Future<({Set<String> eventIds, int lessons, int filled, int missing})>
+fillMinistryEventTeachers(
+  WidgetRef ref, {
+  required String ministryId,
+  required List<Event> events,
+}) async {
+  final byCourse = await ministryEventLessons(
+    ref,
+    ministryId: ministryId,
+    events: events,
+  );
+  final repo = ref.read(studyGroupRepositoryProvider);
+  var total = 0, filled = 0, missing = 0;
+  for (final MapEntry(key: courseId, value: lessons) in byCourse.entries) {
+    final subjects = await ref.read(courseSubjectsProvider(courseId).future);
+    final defaults = {for (final s in subjects) s.id: s.defaultTeacherId};
+    final pool = await _teacherPool(ref, courseId);
+    final block = lessonsInScheduleOrder(lessons);
+    final result = assignTeachers(
+      [
+        for (final l in block)
+          (current: l.teacherId, subjectDefault: defaults[l.subjectId]),
+      ],
+      eligible: pool.names.keys.toSet(),
+      rotation: pool.rotation,
+    );
+    total += block.length;
+    for (var i = 0; i < block.length; i++) {
+      final r = result[i];
+      if (r.source == TeacherSource.none) {
+        missing++;
+      } else if (r.source != TeacherSource.kept) {
+        await repo.setLessonTeacher(block[i].id, r.teacherId);
+        invalidateTurmaLessons(ref, block[i].studyGroupId);
+        filled++;
+      }
+    }
+  }
+  return (
+    eventIds: {
+      for (final lessons in byCourse.values)
+        for (final l in lessons) l.eventId!,
+    },
+    lessons: total,
+    filled: filled,
+    missing: missing,
+  );
+}
+
 String _teacherLabel(WidgetRef ref, Map<String, String> names, String? id) =>
     id == null ? 'sem professor' : names[id] ?? memberNameById(ref, id) ?? '…';
 
