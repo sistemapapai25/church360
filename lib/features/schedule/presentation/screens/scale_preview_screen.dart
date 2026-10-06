@@ -10,6 +10,7 @@ import 'dart:math' as math;
 
 import '../../domain/auto_scheduler_service.dart';
 import '../../../events/domain/models/event.dart';
+import '../../../ministries/domain/models/ministry.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 
@@ -47,6 +48,14 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
   // libera depois que a prévia carregou inteira e sem erro.
   bool _loaded = false;
   Object? _loadError;
+  // Igual ao "Gerar escala": evento de dia anterior a hoje fica de fora
+  // (datas são hora de parede rotulada como UTC).
+  late final List<Event> _events;
+  int _pastCount = 0;
+  // Quantas pessoas cada função pede por tipo de evento
+  // (event_function_requirements); _requiredByFunction é o padrão
+  // (function_requirements).
+  final Map<String, Map<String, int>> _requiredByType = {};
   final Map<String, List<Map<String, String>>> _assignmentsByEvent = {};
   final Map<String, String> _memberNames = {}; // userId -> name
   final Map<String, String> _memberPhotoUrls = {};
@@ -70,6 +79,13 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
   @override
   void initState() {
     super.initState();
+    final n = DateTime.now();
+    final today = DateTime.utc(n.year, n.month, n.day);
+    _events = [
+      for (final e in widget.events)
+        if (!e.startDate.isBefore(today)) e,
+    ];
+    _pastCount = widget.events.length - _events.length;
     _buildProposals().then(
       (_) {
         if (mounted) setState(() => _loaded = true);
@@ -188,25 +204,24 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
         });
         final eventReq = meta['event_function_requirements'];
         if (eventReq is Map) {
-          final typeKey = widget.events.isNotEmpty
-              ? (widget.events.first.eventType ?? 'culto_normal')
-              : 'culto_normal';
-          final Map<String, dynamic> reqForType = Map<String, dynamic>.from(
-            eventReq[typeKey] ?? {},
-          );
-          reqForType.forEach((k, v) {
+          eventReq.forEach((typeKey, reqForType) {
+            if (reqForType is! Map) return;
+            final byType = _requiredByType.putIfAbsent(
+              typeKey.toString(),
+              () => {},
+            );
+            reqForType.forEach((k, v) {
+              final n = v is int ? v : int.tryParse(v.toString()) ?? 0;
+              if (n > 0) byType[norm(k.toString())] = n;
+            });
+          });
+        }
+        final req = meta['function_requirements'];
+        if (req is Map) {
+          req.forEach((k, v) {
             final n = v is int ? v : int.tryParse(v.toString()) ?? 0;
             if (n > 0) required[norm(k.toString())] = n;
           });
-        }
-        if (required.isEmpty) {
-          final req = meta['function_requirements'];
-          if (req is Map) {
-            req.forEach((k, v) {
-              final n = v is int ? v : int.tryParse(v.toString()) ?? 0;
-              if (n > 0) required[norm(k.toString())] = n;
-            });
-          }
         }
         final assigned = Map<String, dynamic>.from(
           meta['assigned_functions'] ?? {},
@@ -350,7 +365,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
 
     _requiredByFunction
       ..clear()
-      ..addAll({for (final f in _functions) f: (required[f] ?? 1)});
+      ..addAll(required);
     _funcCategory
       ..clear()
       ..addAll(cat);
@@ -364,29 +379,33 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
           entry.key: entry.value.toSet().toList(),
       });
 
-    for (final e in widget.events) {
-      // Prefill com a escala salva destes ministérios, se houver — a dos
-      // outros ministérios do mesmo evento não entra na prévia.
+    // Cada evento: a escala salva destes ministérios e, nas vagas que
+    // faltam, a proposta do gerador (igual ao "Gerar escala"). A dos outros
+    // ministérios do mesmo evento não entra na prévia. As propostas de um
+    // evento entram como histórico do seguinte, para as regras de
+    // frequência valerem dentro da própria prévia.
+    final pendingHistory = <MinistrySchedule>[];
+    for (final e in _events) {
+      final List<Map<String, String>> assigns = [];
       final existing = (await repo.getEventSchedules(
         e.id,
-      )).where((s) => ids.contains(s.ministryId)).toList();
-      if (existing.isNotEmpty) {
-        final List<Map<String, String>> assigns = [];
-        for (final s in existing.where((it) => (it.memberId).isNotEmpty)) {
-          final canon = norm(s.notes ?? '');
-          if (canon.isNotEmpty) _funcDisplay.putIfAbsent(canon, () => s.notes!);
-          assigns.add({
-            'event_id': s.eventId,
-            'ministry_id': s.ministryId,
-            'user_id': s.memberId,
-            'notes': canon.isNotEmpty ? canon : '',
-          });
-          if (canon.isNotEmpty && !_functions.contains(canon)) {
-            _functions.add(canon);
-          }
+      )).where((s) => ids.contains(s.ministryId));
+      for (final s in existing.where((it) => it.memberId.isNotEmpty)) {
+        final name = s.functionName ?? s.notes ?? '';
+        final canon = norm(name);
+        if (canon.isNotEmpty) _funcDisplay.putIfAbsent(canon, () => name);
+        if (s.memberName.isNotEmpty) {
+          _memberNames.putIfAbsent(s.memberId, () => s.memberName);
         }
-        _assignmentsByEvent[e.id] = assigns;
-        continue;
+        assigns.add({
+          'event_id': s.eventId,
+          'ministry_id': s.ministryId,
+          'user_id': s.memberId,
+          'notes': canon,
+        });
+        if (canon.isNotEmpty && !_functions.contains(canon)) {
+          _functions.add(canon);
+        }
       }
       final props = await service.generateProposalForEvent(
         ref: ref,
@@ -397,41 +416,32 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
         relaxMaxConsecutive: widget.relaxMaxConsecutive,
         relaxMaxPerMonth: widget.relaxMaxPerMonth,
         fairDistribution: widget.fairDistribution,
+        pendingHistory: pendingHistory,
       );
-      final List<Map<String, String>> assigns = [];
-      final Map<String, List<Map<String, String>>> byFunc = {};
       for (final p in props) {
-        final key = p['notes'] ?? 'other';
-        byFunc.putIfAbsent(key, () => []).add(p);
-      }
-      for (final f in _functions) {
-        final need = _requiredByFunction[f] ?? 1;
-        final candidates = List<Map<String, String>>.from(
-          byFunc[f] ?? const [],
+        final uid = p['user_id'] ?? '';
+        if (uid.isEmpty) continue;
+        assigns.add(p);
+        final fid = p['function_id'] ?? '';
+        pendingHistory.add(
+          MinistrySchedule(
+            id: '',
+            eventId: e.id,
+            eventName: e.name,
+            eventStartDate: e.startDate,
+            ministryId: p['ministry_id'] ?? widget.ministryId,
+            ministryName: '',
+            memberId: uid,
+            memberName: '',
+            functionId: fid.isEmpty ? null : fid,
+            functionName: p['notes'],
+            notes: p['notes'],
+            createdAt: DateTime.now(),
+          ),
         );
-        int i = 0;
-        while (i < need) {
-          Map<String, String> entry;
-          if (i < candidates.length) {
-            entry = candidates[i];
-          } else {
-            entry = {
-              'event_id': e.id,
-              'ministry_id': widget.ministryId,
-              'user_id': '',
-              'notes': f,
-            };
-          }
-          assigns.add(entry);
-          i++;
-        }
       }
       _assignmentsByEvent[e.id] = assigns;
     }
-    // Manter funções requeridas na ordem de categoria sem incluir extras
-    _requiredByFunction.addAll({
-      for (final f in _functions) f: (_requiredByFunction[f] ?? 1),
-    });
 
     _recomputeMissing();
     if (mounted) setState(() {});
@@ -459,9 +469,20 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     return result;
   }
 
+  /// Mesma regra do gerador: pedido do tipo do evento; sem ele, o padrão
+  /// do ministério; sem nenhum dos dois, 1 por função.
+  int _needFor(Event e, String f) {
+    final raw = e.eventType?.trim();
+    final type = (raw == null || raw.isEmpty) ? 'culto_normal' : raw;
+    final byType = _requiredByType[type];
+    if (byType != null && byType.isNotEmpty) return byType[f] ?? 0;
+    if (_requiredByFunction.isNotEmpty) return _requiredByFunction[f] ?? 0;
+    return 1;
+  }
+
   void _recomputeMissing() {
     _missingByEvent.clear();
-    for (final e in widget.events) {
+    for (final e in _events) {
       final assigns = _assignmentsByEvent[e.id] ?? const [];
       final Map<String, int> countByFunc = {for (final f in _functions) f: 0};
       for (final a in assigns) {
@@ -473,7 +494,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       }
       final missingFuncs = <String>[];
       for (final f in _functions) {
-        final need = _requiredByFunction[f] ?? 1;
+        final need = _needFor(e, f);
         final have = countByFunc[f] ?? 0;
         if (have < need) missingFuncs.add(f);
       }
@@ -535,7 +556,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       final ids = widget.jointMinistryIds.isEmpty
           ? [widget.ministryId]
           : widget.jointMinistryIds;
-      for (final e in widget.events) {
+      for (final e in _events) {
         final existing = await repo.getEventSchedules(e.id);
         for (final s in existing.where((s) => ids.contains(s.ministryId))) {
           await repo.removeSchedule(s.id);
@@ -562,7 +583,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
           }
         }
       }
-      for (final e in widget.events) {
+      for (final e in _events) {
         ref.invalidate(eventSchedulesProvider(e.id));
       }
       ref.invalidate(ministrySchedulesProvider(widget.ministryId));
@@ -628,6 +649,15 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
                 ],
               ),
             ),
+          if (_pastCount > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Text(
+                '$_pastCount evento(s) de dias anteriores a hoje ficaram fora '
+                'da prévia e não mudam ao salvar.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
           // Lote 6 / B11: banner de relaxamento aplicado.
           if (_collectRelaxedRules().isNotEmpty)
             Container(
@@ -689,7 +719,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
   }
 
   Future<void> _exportPeriodPdf() async {
-    if (widget.events.isEmpty) {
+    if (_events.isEmpty) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Sem eventos no período')));
@@ -698,7 +728,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
     final doc = pw.Document();
     // Coletar todos os usuários do período para cores consistentes
     final Set<String> periodUserIds = {
-      for (final e in widget.events) ...[
+      for (final e in _events) ...[
         for (final a in (_assignmentsByEvent[e.id] ?? const []))
           if ((a['user_id'] ?? '').isNotEmpty) a['user_id']!,
       ],
@@ -878,7 +908,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
               ],
             ),
           );
-          for (final e in widget.events) {
+          for (final e in _events) {
             final assigns = List<Map<String, String>>.from(
               _assignmentsByEvent[e.id] ?? const [],
             );
@@ -1052,7 +1082,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
         (f) => DataColumn(label: Text((_funcDisplay[f] ?? f).toUpperCase())),
       ),
     ];
-    final rows = widget.events.map((e) {
+    final rows = _events.map((e) {
       final assigns = _assignmentsByEvent[e.id] ?? const [];
       List<DataCell> cells = [
         DataCell(Text(DateFormat('dd/MM/yy').format(e.startDate))),
@@ -1060,19 +1090,22 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
           Text(DateFormat('EEE', 'pt_BR').format(e.startDate).toUpperCase()),
         ),
         ..._functions.map((f) {
-          final need = _requiredByFunction[f] ?? 1;
           final indices = <int>[];
           for (int i = 0; i < assigns.length; i++) {
             if ((assigns[i]['notes'] ?? '') == f) indices.add(i);
           }
+          // Sempre ao menos 1 campo, e nunca esconder quem já está escalado.
+          final need = math.max(math.max(_needFor(e, f), indices.length), 1);
           final widgets = <Widget>[];
           for (int j = 0; j < need; j++) {
             final idx = j < indices.length ? indices[j] : -1;
             final current = idx >= 0 ? assigns[idx] : null;
-            final allowedLocal = _allowedForEventFunction(
-              e,
-              f,
-            ).toSet().toList();
+            final currentUid = current?['user_id'] ?? '';
+            final allowedLocal = <String>{
+              ..._allowedForEventFunction(e, f),
+              // quem já está salvo aparece mesmo sem vínculo atual
+              if (currentUid.isNotEmpty) currentUid,
+            }.toList();
             final allowedKey = allowedLocal.isEmpty
                 ? 'empty'
                 : allowedLocal.join('|').hashCode.toString();

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import '../../events/domain/models/event.dart';
 import '../../ministries/presentation/providers/ministries_provider.dart';
+import '../../ministries/domain/models/ministry.dart';
 import '../../permissions/providers/permissions_providers.dart';
 
 /// Lote 6 / B8: tolerância em dias entre dois "serviços consecutivos".
@@ -1190,6 +1191,9 @@ class AutoSchedulerService {
     bool relaxMaxPerMonth = false,
     bool fairDistribution = false,
     bool useLeaderBoostScore = true,
+    // Propostas ainda não salvas de eventos anteriores da mesma prévia:
+    // entram como histórico para as regras de frequência valerem entre eles.
+    List<MinistrySchedule> pendingHistory = const [],
   }) async {
     final ministriesRepo = ref.read(ministriesRepositoryProvider);
     final proposals = <Map<String, String>>[];
@@ -1315,9 +1319,10 @@ class AutoSchedulerService {
         final contexts = await ref
             .read(roleContextsRepositoryProvider)
             .getContextsByMinistry(ministryId);
-        final rawSchedules = await ministriesRepo.getMinistrySchedules(
-          ministryId,
-        );
+        final rawSchedules = [
+          ...await ministriesRepo.getMinistrySchedules(ministryId),
+          ...pendingHistory.where((s) => s.ministryId == ministryId),
+        ];
         // Lote 4 / B6: quando overwrite=true, o real generator clears THIS
         // event antes do fetch — então datesByUser não enxerga as datas
         // antigas deste mesmo evento. Espelho aqui.
@@ -1801,6 +1806,8 @@ class AutoSchedulerService {
           final cat = funcCategory[funcName] ?? 'other';
           final String? fid = fidForFunc(funcName);
           final Map<String, List<DateTime>> datesByUserFunc = {};
+          // Igual ao generateForEvent: vaga já ocupada no evento conta.
+          final filledHere = <String>{};
           for (final s in existingSchedules) {
             final matchById = fid != null && (s.functionId == fid);
             final matchByName =
@@ -1810,7 +1817,13 @@ class AutoSchedulerService {
                   .putIfAbsent(s.memberId, () => [])
                   .add(s.eventStartDate!);
             }
+            final matchByNotes =
+                fid == null && norm(s.functionName ?? s.notes ?? '') == norm(funcName);
+            if (s.eventId == event.id && (matchById || matchByNotes)) {
+              filledHere.add(s.memberId);
+            }
           }
+          if (!overwriteExisting) count = filledHere.length;
           // Lote 6 / B9: removida `consecutiveFor` por-função — só
           // `consecutiveGlobalFor` é usada.
 
