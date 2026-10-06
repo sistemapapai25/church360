@@ -1,8 +1,8 @@
 import 'study_group.dart';
 
-/// Uma aula de que eu sou o professor, como a Agenda a vê
-/// (RPC `my_teaching_lessons`, PR 2c). Traz o nome da turma porque o
-/// professor não lê a turma pela RLS.
+/// Uma aula minha na Agenda: de que eu sou o professor
+/// (RPC `my_teaching_lessons`, PR 2c) ou o aluno (`my_student_lessons`).
+/// Traz o nome da turma porque o professor não lê a turma pela RLS.
 class TeachingLesson {
   final String id;
   final String studyGroupId;
@@ -18,6 +18,14 @@ class TeachingLesson {
   final String? courseTitle;
   final String? subjectTitle;
 
+  /// Professor (abre pela porta do professor) ou aluno (pela da turma).
+  final bool asTeacher;
+
+  /// Só na aula do aluno: a porta da turma e quem dá a aula (apelido,
+  /// ou o nome).
+  final String? courseId;
+  final String? teacherName;
+
   const TeachingLesson({
     required this.id,
     required this.studyGroupId,
@@ -30,9 +38,15 @@ class TeachingLesson {
     required this.turmaName,
     this.courseTitle,
     this.subjectTitle,
+    this.asTeacher = true,
+    this.courseId,
+    this.teacherName,
   });
 
-  factory TeachingLesson.fromJson(Map<String, dynamic> json) {
+  factory TeachingLesson.fromJson(
+    Map<String, dynamic> json, {
+    bool asTeacher = true,
+  }) {
     final date = DateTime.parse(json['scheduled_date'] as String);
     return TeachingLesson(
       id: json['id'] as String,
@@ -46,6 +60,9 @@ class TeachingLesson {
       turmaName: json['turma_name'] as String,
       courseTitle: json['course_title'] as String?,
       subjectTitle: json['subject_title'] as String?,
+      asTeacher: asTeacher,
+      courseId: json['course_id'] as String?,
+      teacherName: json['teacher_name'] as String?,
     );
   }
 
