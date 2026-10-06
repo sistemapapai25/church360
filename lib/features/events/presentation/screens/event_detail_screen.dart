@@ -12,6 +12,8 @@ import '../widgets/add_registration_dialog.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
 import '../../../study_groups/presentation/providers/study_group_provider.dart';
 import '../../../courses/presentation/providers/courses_provider.dart';
+import '../../../courses/presentation/turma/professor_aula.dart';
+import '../../../study_groups/domain/models/teaching_lesson.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../ministries/domain/models/ministry.dart';
 import '../../../members/presentation/providers/members_provider.dart';
@@ -446,6 +448,39 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   }
 }
 
+/// Aulas deste encontro de que eu sou professor ou aluno (as mesmas da
+/// Agenda, que mostra o encontro no lugar delas). Sem nenhuma, nada.
+class _EncounterLessons extends ConsumerWidget {
+  final Event event;
+
+  const _EncounterLessons({required this.event});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final month = DateTime(event.startDate.year, event.startDate.month);
+    final lessons = [
+      for (final l
+          in ref.watch(myTeachingLessonsOfMonthProvider(month)).valueOrNull ??
+              const <TeachingLesson>[])
+        if (l.eventId == event.id) l,
+    ];
+    if (lessons.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Aulas deste encontro', style: CommunityDesign.titleStyle(context)),
+        const SizedBox(height: 12),
+        for (final l in lessons)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: TeachingLessonCard(lesson: l),
+          ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+}
+
 /// Tab de informações do evento
 class _InfoTab extends ConsumerWidget {
   final Event event;
@@ -533,6 +568,8 @@ class _InfoTab extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
           ],
+
+          if (event.eventType == 'aula') _EncounterLessons(event: event),
 
           // Informações
           _InfoCard(

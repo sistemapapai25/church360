@@ -26,6 +26,10 @@ class TeachingLesson {
   final String? courseId;
   final String? teacherName;
 
+  /// Encontro (evento tipo Aula) em que a aula está; a Agenda mostra o
+  /// encontro no lugar dela.
+  final String? eventId;
+
   const TeachingLesson({
     required this.id,
     required this.studyGroupId,
@@ -41,6 +45,7 @@ class TeachingLesson {
     this.asTeacher = true,
     this.courseId,
     this.teacherName,
+    this.eventId,
   });
 
   factory TeachingLesson.fromJson(
@@ -63,6 +68,7 @@ class TeachingLesson {
       asTeacher: asTeacher,
       courseId: json['course_id'] as String?,
       teacherName: json['teacher_name'] as String?,
+      eventId: json['event_id'] as String?,
     );
   }
 

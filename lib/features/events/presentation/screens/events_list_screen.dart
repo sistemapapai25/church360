@@ -552,7 +552,10 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
             );
           }
 
-          final items = mergeByStart(events, myLessons);
+          final items = mergeByStart(
+            events,
+            lessonsOutsideEvents(myLessons, events),
+          );
           return RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(allEventsProvider);

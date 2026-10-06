@@ -1,7 +1,9 @@
 import 'package:church360_app/features/courses/domain/models/course_subject.dart';
+import 'package:church360_app/features/courses/presentation/turma/professor_aula.dart';
 import 'package:church360_app/features/courses/presentation/turma/teaching_plan.dart';
 import 'package:church360_app/features/events/domain/models/event.dart';
 import 'package:church360_app/features/study_groups/domain/models/study_group.dart';
+import 'package:church360_app/features/study_groups/domain/models/teaching_lesson.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 CourseSubject subject(String id, int count, {String? teacher}) => CourseSubject(
@@ -136,6 +138,37 @@ void main() {
         '20 19:00+30 A — 2/2 | 20 19:30+30 B — 1/1 | 20 20:00+30 C — 1/2',
       );
     });
+  });
+
+  test('Agenda: aula cujo encontro está na lista não aparece de novo', () {
+    TeachingLesson mine(String id, String? eventId) => TeachingLesson(
+      id: id,
+      studyGroupId: 'g',
+      lessonNumber: 1,
+      title: id,
+      scheduledDate: DateTime(2026, 10, 13),
+      status: LessonStatus.published,
+      turmaName: 'T',
+      eventId: eventId,
+    );
+    final shown = Event(
+      id: 'e1',
+      name: 'Aula · T',
+      eventType: 'aula',
+      startDate: DateTime(2026, 10, 13, 19),
+      createdAt: DateTime(2026),
+    );
+    expect(
+      lessonsOutsideEvents(
+        [
+          mine('no-encontro', 'e1'),
+          mine('encontro-oculto', 'e9'),
+          mine('sem-encontro', null),
+        ],
+        [shown],
+      ).map((l) => l.id),
+      ['encontro-oculto', 'sem-encontro'],
+    );
   });
 
   group('assignTeachers', () {

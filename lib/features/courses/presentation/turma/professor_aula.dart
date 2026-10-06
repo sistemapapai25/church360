@@ -7,6 +7,7 @@ import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../../events/domain/models/event.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../study_groups/domain/models/study_group.dart';
 import '../../../study_groups/domain/models/teaching_lesson.dart';
@@ -38,6 +39,19 @@ final myUpcomingTeachingLessonsProvider = FutureProvider<List<TeachingLesson>>((
       if (l.isUpcoming(now)) l,
   ];
 });
+
+/// Aulas cujo encontro não está em [events]: o encontro já mostrado
+/// aparece no lugar das aulas dele (1 item por encontro na Agenda).
+List<TeachingLesson> lessonsOutsideEvents(
+  List<TeachingLesson> lessons,
+  List<Event> events,
+) {
+  final shown = {for (final e in events) e.id};
+  return [
+    for (final l in lessons)
+      if (!shown.contains(l.eventId)) l,
+  ];
+}
 
 /// Minhas aulas no mês de [month] (Agenda → Calendário).
 final myTeachingLessonsOfMonthProvider =
