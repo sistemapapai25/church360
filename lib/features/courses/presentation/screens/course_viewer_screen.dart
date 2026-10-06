@@ -17,9 +17,14 @@ import '../../../permissions/providers/permissions_providers.dart';
 class CourseViewerScreen extends ConsumerStatefulWidget {
   final String courseId;
 
+  /// Aberta pela Dashboard (`?from=dashboard`): só então o ⋮ de gestão
+  /// (Editar Curso / Gerenciar Aulas) aparece. Por Cursos é só exibição.
+  final bool fromDashboard;
+
   const CourseViewerScreen({
     super.key,
     required this.courseId,
+    this.fromDashboard = false,
   });
 
   @override
@@ -102,14 +107,17 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
 
                     const SizedBox(height: 24),
 
-                    // Matérias do curso (PR 2a): só a gestão vê.
-                    CourseSubjectsSection(courseId: course.id),
+                    // Matérias do curso (PR 2a): só a gestão vê, e só
+                    // pela Dashboard.
+                    if (widget.fromDashboard)
+                      CourseSubjectsSection(courseId: course.id),
 
                     // Turmas do curso (study_groups.course_id), para
                     // qualquer tipo de curso. Carrega à parte das aulas.
                     CourseTurmasSection(
                       key: _turmasKey,
                       courseId: course.id,
+                      allowCreate: widget.fromDashboard,
                     ),
 
                     const SizedBox(height: 32),
@@ -159,8 +167,10 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
               orElse: () => false,
             );
 
-            final showEdit = canEdit;
-            final showLessons = canManageLessons && course.courseType == CourseType.onlineRecorded;
+            final showEdit = widget.fromDashboard && canEdit;
+            final showLessons = widget.fromDashboard &&
+                canManageLessons &&
+                course.courseType == CourseType.onlineRecorded;
             if (!showEdit && !showLessons) return const SizedBox.shrink();
 
             return PopupMenuButton<String>(

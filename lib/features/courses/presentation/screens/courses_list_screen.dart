@@ -282,11 +282,15 @@ class _CourseCard extends ConsumerWidget {
         radius: CommunityDesign.radius,
         padding: EdgeInsets.zero,
         onTap: () {
-          // Navegar para visualização do curso
-          context.push('/courses/${course.id}/view');
+          // Navegar para visualização do curso; pela Dashboard leva junto
+          // o modo de gestão.
+          context.push(
+            '/courses/${course.id}/view'
+            '${showEditButton ? '?from=dashboard' : ''}',
+          );
         },
         onLongPress: () {
-          if (canEdit) {
+          if (showEditButton && canEdit) {
             context.push('/courses/${course.id}/edit');
           }
         },

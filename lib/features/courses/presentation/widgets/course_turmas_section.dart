@@ -34,7 +34,14 @@ AppStatusTone courseTurmaStatusTone(StudyGroupStatus status) {
 class CourseTurmasSection extends ConsumerWidget {
   final String courseId;
 
-  const CourseTurmasSection({super.key, required this.courseId});
+  /// "Nova turma" só pela Dashboard; por Cursos a seção só exibe.
+  final bool allowCreate;
+
+  const CourseTurmasSection({
+    super.key,
+    required this.courseId,
+    this.allowCreate = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -45,6 +52,7 @@ class CourseTurmasSection extends ConsumerWidget {
     // nasce pelo ministério.
     final course = ref.watch(courseByIdProvider(courseId)).valueOrNull;
     final canCreate =
+        allowCreate &&
         hub != null &&
         hub.management &&
         course != null &&

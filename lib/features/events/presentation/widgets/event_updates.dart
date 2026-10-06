@@ -10,9 +10,9 @@ import '../../domain/models/event_update.dart';
 import '../providers/events_provider.dart';
 
 /// Seção "Atualizações" da aba Informações: até 2 itens, sem cabeçalho de
-/// dia, e "Ver todas as atualizações" para a tela empilhada. Quem pode
-/// publicar vê "+ Aviso" e, sem itens, "Nenhum aviso ainda"; os demais não
-/// veem a seção vazia (nem com erro). Notícia não tem feed.
+/// dia, e "Ver todas as atualizações" para a tela empilhada. Sem conteúdo
+/// (ou sem acesso, ou erro), não aparece. Notícia não tem feed. Só exibe:
+/// publicar/excluir aviso fica na edição do evento ([EventNoticesManager]).
 class EventUpdatesSummary extends ConsumerWidget {
   final Event event;
 
@@ -22,61 +22,16 @@ class EventUpdatesSummary extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (event.eventType == 'news') return const SizedBox.shrink();
     final updates = ref.watch(eventUpdatesProvider(event.id)).valueOrNull;
-    final podePublicar =
-        ref.watch(canPostEventUpdateProvider(event.id)).valueOrNull ?? false;
-    if (updates == null || (updates.isEmpty && !podePublicar)) {
-      return const SizedBox.shrink();
-    }
+    if (updates == null || updates.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Atualizações',
-                style: CommunityDesign.titleStyle(context),
-              ),
-            ),
-            if (podePublicar)
-              TextButton.icon(
-                style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
-                onPressed: () => showNewEventNoticeSheet(context, event.id),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Aviso'),
-              ),
-          ],
-        ),
+        Text('Atualizações', style: CommunityDesign.titleStyle(context)),
         const SizedBox(height: 12),
-        if (updates.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(
-                  'Nenhum aviso ainda ·',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                TextButton(
-                  style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
-                  onPressed: () => showNewEventNoticeSheet(context, event.id),
-                  child: const Text('Publicar aviso'),
-                ),
-              ],
-            ),
-          ),
         for (final u in updates.take(2))
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: EventUpdateCard(
-              update: u,
-              onDelete: podePublicar
-                  ? () => confirmDeleteEventNotice(context, u)
-                  : null,
-            ),
+            child: EventUpdateCard(update: u),
           ),
         if (updates.length > 2)
           Align(
@@ -102,20 +57,8 @@ class EventUpdatesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(eventUpdatesProvider(eventId));
-    final podePublicar =
-        ref.watch(canPostEventUpdateProvider(eventId)).valueOrNull ?? false;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Atualizações'),
-        actions: [
-          if (podePublicar)
-            IconButton(
-              tooltip: 'Novo aviso',
-              icon: const Icon(Icons.add),
-              onPressed: () => showNewEventNoticeSheet(context, eventId),
-            ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Atualizações')),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) =>
@@ -153,12 +96,7 @@ class EventUpdatesScreen extends ConsumerWidget {
             children.add(
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: EventUpdateCard(
-                  update: u,
-                  onDelete: podePublicar
-                      ? () => confirmDeleteEventNotice(context, u)
-                      : null,
-                ),
+                child: EventUpdateCard(update: u),
               ),
             );
           }
@@ -319,6 +257,81 @@ class EventUpdateCard extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Seção "Avisos" da edição do evento: publicar e excluir. A tela de
+/// exibição só mostra o feed; quem chega aqui já passou pelo gate da rota
+/// de edição, e a RLS de event_update continua sendo a autoridade.
+class EventNoticesManager extends ConsumerWidget {
+  final String eventId;
+
+  const EventNoticesManager({super.key, required this.eventId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final async = ref.watch(eventUpdatesProvider(eventId));
+    final avisos = [
+      for (final u in async.valueOrNull ?? const <EventUpdate>[])
+        if (u.isNotice) u,
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Avisos',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurface,
+                ),
+              ),
+            ),
+            TextButton.icon(
+              style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
+              onPressed: () => showNewEventNoticeSheet(context, eventId),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Novo aviso'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Aparecem em Atualizações, na tela do evento. Avisos não podem ser '
+          'editados, só excluídos.',
+          style: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 8),
+        if (async.isLoading && !async.hasValue)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: LinearProgressIndicator(),
+          )
+        else if (async.hasError)
+          Text(
+            'Não foi possível carregar os avisos.',
+            style: TextStyle(color: scheme.error),
+          )
+        else if (avisos.isEmpty)
+          Text(
+            'Nenhum aviso ainda.',
+            style: TextStyle(color: scheme.onSurfaceVariant),
+          ),
+        for (final u in avisos)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: EventUpdateCard(
+              update: u,
+              onDelete: () => confirmDeleteEventNotice(context, u),
+            ),
+          ),
+        const SizedBox(height: 24),
+      ],
     );
   }
 }
