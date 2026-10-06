@@ -39,6 +39,7 @@ Future<void> _pump(
   Widget child, {
   required List<SupportMaterial> materials,
   Event? event,
+  bool canSeeVideo = false,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -48,6 +49,9 @@ Future<void> _pump(
           entityId: 'e1',
         )).overrideWith((ref) async => materials),
         eventByIdProvider('e1').overrideWith((ref) async => event),
+        canSeeReferenceVideoProvider(
+          'e1',
+        ).overrideWith((ref) async => canSeeVideo),
       ],
       child: MaterialApp(
         home: Scaffold(body: SingleChildScrollView(child: child)),
@@ -80,31 +84,21 @@ void main() {
       expect(find.byType(PopupMenuButton<String>), findsNothing);
     });
 
-    testWidgets('PDF do evento aparece; vídeo só em evento online', (
-      tester,
-    ) async {
-      await _pump(
-        tester,
-        EventMaterialsSection(
-          event: _event(pdf: 'https://x/a.pdf', video: 'https://youtu.be/v'),
-        ),
-        materials: [],
-      );
+    testWidgets('PDF para todos; vídeo de referência só p/ professor e '
+        'liderança, presencial também', (tester) async {
+      final event = _event(pdf: 'https://x/a.pdf', video: 'https://youtu.be/v');
+      await _pump(tester, EventMaterialsSection(event: event), materials: []);
       expect(find.text('PDF do evento'), findsOneWidget);
-      expect(find.text('Vídeo do evento'), findsNothing);
+      expect(find.text('Vídeo de referência'), findsNothing);
 
+      await tester.pumpWidget(const SizedBox());
       await _pump(
         tester,
-        EventMaterialsSection(
-          event: _event(
-            modality: 'online',
-            pdf: 'https://x/a.pdf',
-            video: 'https://youtu.be/v',
-          ),
-        ),
+        EventMaterialsSection(event: event),
         materials: [],
+        canSeeVideo: true,
       );
-      expect(find.text('Vídeo do evento'), findsOneWidget);
+      expect(find.text('Vídeo de referência'), findsOneWidget);
     });
 
     testWidgets('notícia não mostra materiais', (tester) async {
@@ -118,7 +112,7 @@ void main() {
   });
 
   group('gestão (edição do evento)', () {
-    testWidgets('modalidade, enviar PDF; vídeo só quando online', (
+    testWidgets('presencial: modalidade, enviar PDF e vídeo de referência', (
       tester,
     ) async {
       await _pump(
@@ -129,19 +123,20 @@ void main() {
       );
       expect(find.text('Presencial'), findsOneWidget);
       expect(find.byKey(const ValueKey('event-upload-pdf')), findsOneWidget);
-      expect(find.byKey(const ValueKey('event-upload-video')), findsNothing);
-      expect(find.text('Vídeo só aparece em evento online.'), findsOneWidget);
+      expect(find.byKey(const ValueKey('event-upload-video')), findsOneWidget);
     });
 
-    testWidgets('online: PDF preenchido e envio de vídeo', (tester) async {
+    testWidgets('PDF preenchido e vídeo de referência preenchido', (
+      tester,
+    ) async {
       await _pump(
         tester,
         const EventMaterialsManager(eventId: 'e1'),
         materials: [],
-        event: _event(modality: 'online', pdf: 'https://x/a.pdf'),
+        event: _event(pdf: 'https://x/a.pdf', video: 'https://youtu.be/v'),
       );
       expect(find.text('PDF do evento'), findsOneWidget);
-      expect(find.byKey(const ValueKey('event-upload-video')), findsOneWidget);
+      expect(find.text('Vídeo de referência'), findsOneWidget);
     });
 
     testWidgets('aviso público, vincular e desvincular', (tester) async {

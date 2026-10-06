@@ -4,12 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../courses/domain/models/course.dart';
-import '../../../courses/presentation/providers/courses_provider.dart';
 import '../../../courses/presentation/turma/lesson_media.dart';
 import '../../../courses/presentation/turma/tabs/turma_aulas_tab.dart';
 import '../../../courses/presentation/turma/tabs/turma_materiais_tab.dart';
+import '../../../courses/presentation/turma/turma_access.dart';
 import '../../../courses/presentation/turma/widgets/turma_sheet.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 import '../../../support_materials/domain/models/support_material.dart';
 import '../../../support_materials/domain/models/support_material_link.dart';
 import '../../../support_materials/presentation/providers/support_materials_provider.dart';
@@ -36,12 +36,35 @@ final eventLessonsProvider = FutureProvider.family<List<StudyLesson>, String>(
       ref.watch(studyGroupRepositoryProvider).getLessonsByEvents([eventId]),
 );
 
+/// Quem vê o vídeo de referência do evento e das aulas do encontro: quem
+/// gerencia o evento (elevado, `events.edit`, responsável), a liderança da
+/// turma ou o professor de uma das aulas. Aluno não vê.
+final canSeeReferenceVideoProvider = FutureProvider.family<bool, String>((
+  ref,
+  eventId,
+) async {
+  if (await ref.watch(currentUserIsElevatedProvider.future)) return true;
+  if (await ref.watch(currentUserHasPermissionProvider('events.edit').future)) {
+    return true;
+  }
+  if (await ref.watch(isEventResponsibleProvider(eventId).future)) return true;
+  final lessons = await ref.watch(eventLessonsProvider(eventId).future);
+  if (lessons.isEmpty) return false;
+  final me = await ref.watch(currentMemberIdProvider.future);
+  if (me != null && lessons.any((l) => l.teacherId == me)) return true;
+  for (final groupId in {for (final l in lessons) l.studyGroupId}) {
+    final access = await ref.watch(turmaAccessProvider(groupId).future);
+    if (access.isLeadership) return true;
+  }
+  return false;
+});
+
 typedef _MediaLink = ({IconData icon, String title, String url});
 
-/// Seção "Materiais" da tela do evento: só leitura. Mostra o PDF do evento
-/// (e o vídeo, se o evento é online), o PDF das aulas do encontro (e o
-/// vídeo, se o curso não é presencial) e o material da biblioteca. Some
-/// quando vazia; notícia não tem.
+/// Seção "Materiais" da tela do evento: só leitura. Mostra o PDF do evento,
+/// o PDF das aulas publicadas do encontro e o material da biblioteca; o
+/// vídeo de referência (do evento e das aulas) só para
+/// [canSeeReferenceVideoProvider]. Some quando vazia; notícia não tem.
 class EventMaterialsSection extends ConsumerWidget {
   final Event event;
 
@@ -59,20 +82,17 @@ class EventMaterialsSection extends ConsumerWidget {
     if (pdf != null) {
       links.add((icon: AppIcons.pdf, title: 'PDF do evento', url: pdf));
     }
-    final video = event.isOnline ? blankToNull(event.videoUrl) : null;
+    final showVideo =
+        ref.watch(canSeeReferenceVideoProvider(event.id)).valueOrNull ?? false;
+    final video = showVideo ? blankToNull(event.videoUrl) : null;
     if (video != null) {
       links.add((
         icon: AppIcons.videoLibrary,
-        title: 'Vídeo do evento',
+        title: 'Vídeo de referência',
         url: video,
       ));
     }
     if (event.eventType == 'aula') {
-      final courseId = event.courseId;
-      final courseType = courseId == null
-          ? CourseType.presencial
-          : ref.watch(courseByIdProvider(courseId)).valueOrNull?.courseType ??
-                CourseType.presencial;
       final lessons = [
         ...?ref.watch(eventLessonsProvider(event.id)).valueOrNull,
       ]..sort((a, b) => a.lessonNumber.compareTo(b.lessonNumber));
@@ -87,13 +107,11 @@ class EventMaterialsSection extends ConsumerWidget {
             url: lessonPdf,
           ));
         }
-        final lessonVideo = courseType == CourseType.presencial
-            ? null
-            : blankToNull(l.videoUrl);
+        final lessonVideo = showVideo ? blankToNull(l.videoUrl) : null;
         if (lessonVideo != null) {
           links.add((
             icon: AppIcons.videoLibrary,
-            title: '$label — vídeo',
+            title: '$label — vídeo de referência',
             url: lessonVideo,
           ));
         }
@@ -132,9 +150,10 @@ class EventMaterialsSection extends ConsumerWidget {
   }
 }
 
-/// Modalidade, PDF e vídeo do próprio evento (colunas de event, igual à
-/// aula). Cada ação grava na hora; PDF ou vídeo novo vira "Novo material"
-/// em Atualizações pelo banco (20261006001000).
+/// Modalidade, PDF e vídeo de referência do próprio evento (colunas de
+/// event, igual à aula). Cada ação grava na hora. PDF novo vira "Novo
+/// material" em Atualizações; vídeo novo avisa só os professores das aulas
+/// do encontro (20261006001100). A modalidade não controla nada por ora.
 class EventMainMediaEditor extends ConsumerStatefulWidget {
   final String eventId;
 
@@ -267,7 +286,7 @@ class _EventMainMediaEditorState extends ConsumerState<EventMainMediaEditor> {
   }
 
   Widget _mediaRow(LessonMediaKind kind, String? current, TextStyle meta) {
-    final label = kind == LessonMediaKind.pdf ? 'PDF' : 'Vídeo';
+    final label = kind == LessonMediaKind.pdf ? 'PDF' : 'Vídeo de referência';
     final icon = kind == LessonMediaKind.pdf
         ? AppIcons.pdf
         : AppIcons.videoLibrary;
@@ -297,7 +316,7 @@ class _EventMainMediaEditorState extends ConsumerState<EventMainMediaEditor> {
       key: ValueKey('event-media-${kind.name}'),
       contentPadding: EdgeInsets.zero,
       leading: Icon(icon),
-      title: Text('$label do evento'),
+      title: Text(kind == LessonMediaKind.pdf ? 'PDF do evento' : label),
       subtitle: Text(
         url,
         maxLines: 1,
@@ -349,14 +368,12 @@ class _EventMainMediaEditorState extends ConsumerState<EventMainMediaEditor> {
         ),
         const SizedBox(height: 8),
         _mediaRow(LessonMediaKind.pdf, event.pdfUrl, meta),
-        if (event.isOnline)
-          _mediaRow(LessonMediaKind.video, event.videoUrl, meta)
-        else
-          Text('Vídeo só aparece em evento online.', style: meta),
+        _mediaRow(LessonMediaKind.video, event.videoUrl, meta),
         const SizedBox(height: 4),
         Text(
-          'PDF ou vídeo novo aparece em Atualizações e avisa quem pode ver '
-          'o evento.',
+          'PDF novo aparece em Atualizações e avisa quem pode ver o evento. '
+          'O vídeo é de referência: só professores e liderança veem, e o '
+          'aviso vai só aos professores das aulas.',
           style: meta,
         ),
         const SizedBox(height: 16),
