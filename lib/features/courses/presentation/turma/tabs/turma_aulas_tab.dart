@@ -772,10 +772,13 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
       _error = null;
     });
     final repo = ref.read(studyGroupRepositoryProvider);
+    final media = ref.read(lessonMediaServiceProvider);
+    final pendingPdf = _pendingPdf;
+    final status = _publishNow ? LessonStatus.published : LessonStatus.draft;
     var created = 0;
     try {
       for (final (i, date) in dates.indexed) {
-        await repo.createLesson(
+        final lesson = await repo.createLesson(
           studyGroupId: widget.studyGroupId,
           lessonNumber: widget.nextNumber + i,
           title: _title.text.trim(),
@@ -783,16 +786,29 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
           bibleReferences: blankToNull(_bibleReferences.text),
           content: blankToNull(_content.text),
           discussionQuestions: parseLessonQuestions(_questions.text),
-          status: _publishNow ? LessonStatus.published : LessonStatus.draft,
+          status: pendingPdf == null ? status : LessonStatus.draft,
           scheduledDate: date,
           videoUrl: normalizeLessonUrl(_videoUrl.text),
-          pdfUrl: normalizeLessonUrl(_pdfUrl.text),
+          pdfUrl: pendingPdf == null ? normalizeLessonUrl(_pdfUrl.text) : null,
           subjectId: _subjectId,
           teacherId: _teacherId,
           startTime: _startTimeValue,
           durationMinutes: int.tryParse(_duration.text.trim()),
         );
         created++;
+        if (pendingPdf != null) {
+          // Uma cópia por aula: cada uma é dona do seu arquivo (trocar o PDF
+          // de uma apaga só o dela). O PDF entra com a aula em rascunho e só
+          // depois ela é publicada, em updates separados: assim nenhum
+          // encontro recebe "Novo material" (trigger AFTER UPDATE OF pdf_url).
+          final url = await media.upload(
+            kind: LessonMediaKind.pdf,
+            lessonId: lesson.id,
+            file: pendingPdf,
+          );
+          await repo.updateLesson(lesson.id, pdfUrl: url);
+          if (_publishNow) await repo.updateLesson(lesson.id, status: status);
+        }
       }
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
@@ -956,8 +972,11 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
 
   Widget _mediaPicker(LessonMediaKind kind) {
     final pending = kind == LessonMediaKind.video ? _pendingVideo : _pendingPdf;
-    // Várias aulas: só link (o arquivo vai para a pasta de uma aula só).
-    if (_repeat) return const SizedBox.shrink();
+    // Várias aulas: vídeo só por link (até 50 MB vezes N aulas); o PDF sobe
+    // uma cópia por aula em _saveRepeat.
+    if (_repeat && kind == LessonMediaKind.video) {
+      return const SizedBox.shrink();
+    }
     if (pending == null) {
       return Align(
         alignment: Alignment.centerLeft,
@@ -1083,8 +1102,8 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
           onChanged: _saving ? null : (v) => setState(() => _publishNow = v),
         ),
         Text(
-          'Vídeo e PDF: use link (vale para todas). Arquivo do aparelho, '
-          'envie depois em cada aula.',
+          'O PDF (link ou arquivo) vai para todas as aulas. Vídeo, só por '
+          'link; arquivo de vídeo, envie depois em cada aula.',
           style: meta,
         ),
       ],
