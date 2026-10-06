@@ -261,6 +261,26 @@ class EventUpdateCard extends StatelessWidget {
   }
 }
 
+/// Avisos de um evento, sozinhos: a porta do responsável (sem
+/// `events.edit`) pela Agenda da Dashboard. Quem edita o evento usa a seção
+/// dentro da edição.
+class EventNoticesScreen extends StatelessWidget {
+  final String eventId;
+
+  const EventNoticesScreen({super.key, required this.eventId});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Avisos do evento')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [EventNoticesManager(eventId: eventId)],
+      ),
+    );
+  }
+}
+
 /// Seção "Avisos" da edição do evento: publicar e excluir. A tela de
 /// exibição só mostra o feed; quem chega aqui já passou pelo gate da rota
 /// de edição, e a RLS de event_update continua sendo a autoridade.

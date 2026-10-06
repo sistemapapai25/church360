@@ -1536,7 +1536,32 @@ void main() {
         tester,
         _host(presence(access, _lesson(1, LessonStatus.published))),
       );
-      expect(find.text('A chamada é feita em Gerenciar.'), findsOne);
+      expect(find.text('Você não é aluno desta turma.'), findsOne);
+      expect(find.text('Salvar'), findsNothing);
+    });
+
+    testWidgets('vitrine: liderança que é aluno vê só a própria marca', (
+      tester,
+    ) async {
+      final repo = _FakeStudyRepo(
+        lessons: [_lesson(1, LessonStatus.published)],
+        mine: [_att('l1', 'auth-me', AttendanceStatus.present)],
+      );
+      const access = TurmaAccess(
+        role: TurmaRole.leadership,
+        elevated: true,
+        readOnly: true,
+        enrolled: true,
+      );
+      await _pump(
+        tester,
+        _host(
+          presence(access, _lesson(1, LessonStatus.published)),
+          overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
+        ),
+      );
+      expect(find.byKey(const ValueKey('minha-presenca-aula')), findsOne);
+      expect(find.text('Salvar'), findsNothing);
     });
 
     testWidgets('aluno vê a própria marca naquela aula', (tester) async {

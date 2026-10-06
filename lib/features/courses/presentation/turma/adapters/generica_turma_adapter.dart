@@ -42,7 +42,7 @@ class GenericaTurmaAdapter implements TurmaSurfaces {
   /// aviso. Na vitrine de Cursos também não há chamada.
   @override
   Widget lessonPresence(StudyLesson lesson) {
-    if (access.isStudent) {
+    if (access.isStudent || (access.readOnly && access.enrolled)) {
       return _MyLessonPresence(
         studyGroupId: origin.studyGroupId,
         lessonId: lesson.id,
@@ -51,7 +51,7 @@ class GenericaTurmaAdapter implements TurmaSurfaces {
     if (access.readOnly) {
       return const TurmaMessage(
         icon: AppIcons.lock,
-        message: 'A chamada é feita em Gerenciar.',
+        message: 'Você não é aluno desta turma.',
       );
     }
     if (!access.leadsGroup && !access.elevated) {

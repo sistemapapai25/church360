@@ -15,6 +15,7 @@ import '../../../../core/widgets/status_badge.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../providers/events_provider.dart';
 import '../utils/series_error.dart';
+import '../widgets/event_updates.dart';
 import '../widgets/series_impact_dialog.dart';
 import '../../domain/models/event.dart';
 import '../../../courses/presentation/turma/professor_aula.dart';
@@ -638,6 +639,8 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                                       ? _shareRegistrationLink(event)
                                       : _shareEventInfoLink(event),
                                 ),
+                                if (canCrud && !canEdit)
+                                  _ResponsibleNoticesButton(eventId: event.id),
                                 if (canCrud && (canEdit || canDelete))
                                   PopupMenuButton<String>(
                                     tooltip: 'Mais opções',
@@ -1161,4 +1164,30 @@ List<Object> mergeByStart(List<Event> events, List<TeachingLesson> lessons) {
   }
   merged.addAll(lessons.skip(l));
   return merged;
+}
+
+/// Avisos para o responsável pelo evento, que não tem `events.edit` e por
+/// isso não entra na edição. Só na Agenda da Dashboard (`enableCrud`); a
+/// RLS de event_update continua sendo a autoridade.
+class _ResponsibleNoticesButton extends ConsumerWidget {
+  final String eventId;
+
+  const _ResponsibleNoticesButton({required this.eventId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final responsible =
+        ref.watch(isEventResponsibleProvider(eventId)).valueOrNull ?? false;
+    if (!responsible) return const SizedBox.shrink();
+    return IconButton(
+      tooltip: 'Avisos do evento',
+      icon: const Icon(Icons.campaign_outlined, size: 18),
+      onPressed: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => EventNoticesScreen(eventId: eventId),
+        ),
+      ),
+    );
+  }
 }
