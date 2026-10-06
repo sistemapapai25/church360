@@ -72,6 +72,9 @@ class TurmaAulasTab extends ConsumerWidget {
         .watch(turmaByIdProvider(studyGroupId))
         .valueOrNull
         ?.courseId;
+    final subjects = courseId == null
+        ? null
+        : ref.watch(courseSubjectsProvider(courseId)).valueOrNull;
 
     return lessonsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -146,6 +149,14 @@ class TurmaAulasTab extends ConsumerWidget {
                   _LessonCard(
                     key: ValueKey(lesson.id),
                     lesson: lesson,
+                    details: [
+                      ?lesson.timeRange,
+                      ?subjects
+                          ?.where((s) => s.id == lesson.subjectId)
+                          .firstOrNull
+                          ?.title,
+                      ?teacherLabelById(ref, lesson.teacherId),
+                    ],
                     showStatus: access.isLeadership,
                     canWrite: canWrite,
                     onOpen: () => onOpenLesson(lesson),
@@ -299,6 +310,9 @@ AppStatusTone lessonStatusTone(LessonStatus status) => switch (status) {
 
 class _LessonCard extends StatelessWidget {
   final StudyLesson lesson;
+
+  /// Horário, matéria e professor, nessa ordem, só o que houver.
+  final List<String> details;
   final bool showStatus;
   final bool canWrite;
   final VoidCallback onOpen;
@@ -308,6 +322,7 @@ class _LessonCard extends StatelessWidget {
   const _LessonCard({
     super.key,
     required this.lesson,
+    required this.details,
     required this.showStatus,
     required this.canWrite,
     required this.onOpen,
@@ -337,7 +352,7 @@ class _LessonCard extends StatelessWidget {
                       context,
                     ).copyWith(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
-                  if (showStatus || date != null) ...[
+                  if (showStatus || date != null || details.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 8,
@@ -352,6 +367,11 @@ class _LessonCard extends StatelessWidget {
                         if (date != null)
                           Text(
                             DateFormat('dd/MM/yyyy').format(date),
+                            style: CommunityDesign.metaStyle(context),
+                          ),
+                        for (final detail in details)
+                          Text(
+                            detail,
                             style: CommunityDesign.metaStyle(context),
                           ),
                       ],
@@ -895,7 +915,14 @@ class _LessonFormSheetState extends ConsumerState<LessonFormSheet> {
             DropdownButtonFormField<String?>(
               key: const ValueKey('lesson-subject'),
               initialValue: _subjectId,
-              decoration: const InputDecoration(labelText: 'Matéria'),
+              decoration: InputDecoration(
+                labelText: 'Matéria',
+                helperText: (subjects?.isEmpty ?? false)
+                    ? 'Nenhuma matéria ainda. Cadastre em Matérias, na tela '
+                          'do curso (toque no nome do curso na turma).'
+                    : null,
+                helperMaxLines: 2,
+              ),
               items: [
                 const DropdownMenuItem(value: null, child: Text('—')),
                 for (final s in subjects ?? const [])

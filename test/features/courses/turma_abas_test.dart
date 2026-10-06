@@ -421,7 +421,7 @@ Widget _host(Widget child, {List<Override> overrides = const []}) {
     overrides: [
       memberDirectoryProvider.overrideWith(
         (ref) async => [
-          MemberDirectoryEntry(id: 'u1', fullName: 'Ana'),
+          MemberDirectoryEntry(id: 'u1', fullName: 'Ana', nickname: 'Aninha'),
           MemberDirectoryEntry(id: 'u2', fullName: 'Bruno'),
         ],
       ),
@@ -466,6 +466,42 @@ void main() {
       expect(find.text('Aula 3 · Tema 3'), findsNothing);
       expect(find.text('Nova aula'), findsNothing);
       expect(find.byType(PopupMenuButton<String>), findsNothing);
+    });
+
+    testWidgets('card mostra horário, matéria e professor pelo apelido', (
+      tester,
+    ) async {
+      final repo = _FakeStudyRepo(
+        lessons: [
+          StudyLesson(
+            id: 'l1',
+            studyGroupId: _sgId,
+            lessonNumber: 1,
+            title: 'Tema 1',
+            status: LessonStatus.published,
+            subjectId: 's1',
+            teacherId: 'u1',
+            startTime: '19:30',
+            durationMinutes: 15,
+            createdAt: _t0,
+            updatedAt: _t0,
+          ),
+        ],
+      );
+      await _pump(
+        tester,
+        _host(
+          const TurmaAulasTab(onOpenLesson: _noop, studyGroupId: _sgId, access: TurmaAccess.student),
+          overrides: [
+            studyGroupRepositoryProvider.overrideWithValue(repo),
+            ..._courseOverrides,
+          ],
+        ),
+      );
+
+      expect(find.text('19:30–19:45'), findsOneWidget);
+      expect(find.text('Doutrina'), findsOneWidget);
+      expect(find.text('Professor(a): Aninha'), findsOneWidget);
     });
 
     testWidgets('liderança vê todas com status', (tester) async {
@@ -1692,7 +1728,7 @@ void main() {
       );
       expect(find.text('19:30–19:45'), findsOneWidget);
       expect(find.text('Doutrina'), findsOneWidget);
-      expect(find.text('Professor: Ana'), findsOneWidget);
+      expect(find.text('Professor(a): Aninha'), findsOneWidget);
     });
 
     test('rota segue a porta da turma', () {

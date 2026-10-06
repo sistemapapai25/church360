@@ -356,8 +356,11 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       });
 
     for (final e in widget.events) {
-      // Prefill com escala salva, se houver
-      final existing = await repo.getEventSchedules(e.id);
+      // Prefill com a escala salva destes ministérios, se houver — a dos
+      // outros ministérios do mesmo evento não entra na prévia.
+      final existing = (await repo.getEventSchedules(
+        e.id,
+      )).where((s) => ids.contains(s.ministryId)).toList();
       if (existing.isNotEmpty) {
         final List<Map<String, String>> assigns = [];
         for (final s in existing.where((it) => (it.memberId).isNotEmpty)) {
@@ -518,9 +521,14 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
         return nameToId[key] ?? normNameToId[norm(key)];
       }
 
+      // Só a escala dos ministérios desta prévia: os outros ministérios do
+      // mesmo evento ficam como estão.
+      final ids = widget.jointMinistryIds.isEmpty
+          ? [widget.ministryId]
+          : widget.jointMinistryIds;
       for (final e in widget.events) {
         final existing = await repo.getEventSchedules(e.id);
-        for (final s in existing) {
+        for (final s in existing.where((s) => ids.contains(s.ministryId))) {
           await repo.removeSchedule(s.id);
         }
       }

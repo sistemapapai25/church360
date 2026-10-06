@@ -86,6 +86,17 @@ String? memberNameById(WidgetRef ref, String? id) {
   return null;
 }
 
+/// "Professor(a): apelido" da aula — o apelido, e o nome quando não houver.
+String? teacherLabelById(WidgetRef ref, String? id) {
+  if (id == null) return null;
+  for (final m in ref.watch(memberDirectoryProvider).valueOrNull ?? const []) {
+    if (m.id != id) continue;
+    final nick = m.nickname?.trim() ?? '';
+    return 'Professor(a): ${nick.isEmpty ? m.displayName : nick}';
+  }
+  return null;
+}
+
 /// Seção "Matérias" da tela do curso: só a gestão vê; quem edita o
 /// conteúdo do curso cria, edita e apaga.
 class CourseSubjectsSection extends ConsumerWidget {
