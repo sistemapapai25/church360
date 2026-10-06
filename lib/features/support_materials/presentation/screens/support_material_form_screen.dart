@@ -17,9 +17,13 @@ import '../widgets/entity_selector_dialog.dart';
 class SupportMaterialFormScreen extends ConsumerStatefulWidget {
   final String? materialId;
 
+  /// Material novo criado pela aula da turma: já nasce vinculado a ela.
+  final String? lessonId;
+
   const SupportMaterialFormScreen({
     super.key,
     this.materialId,
+    this.lessonId,
   });
 
   @override
@@ -54,6 +58,10 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
     super.initState();
     if (widget.materialId != null) {
       _loadMaterial();
+    } else if (widget.lessonId != null) {
+      _selectedEntities[MaterialLinkType.studyLesson] = {
+        widget.lessonId!: 'Esta aula',
+      };
     }
   }
 

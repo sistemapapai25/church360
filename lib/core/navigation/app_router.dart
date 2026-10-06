@@ -1236,9 +1236,11 @@ final appRouter = GoRouter(
     // Novo material
     GoRoute(
       path: '/support-materials/new',
-      builder: (context, state) => const PermissionOnlyRoute(
+      builder: (context, state) => PermissionOnlyRoute(
         permission: 'support_materials.create',
-        child: SupportMaterialFormScreen(),
+        child: SupportMaterialFormScreen(
+          lessonId: state.uri.queryParameters['lesson'],
+        ),
       ),
     ),
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -7,6 +8,7 @@ import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/widgets/glass_card.dart';
 import '../../../../../core/widgets/status_badge.dart';
+import '../../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../study_groups/domain/models/study_group.dart';
 import '../../../../study_groups/presentation/providers/study_group_provider.dart';
 import '../../../../support_materials/domain/models/support_material.dart';
@@ -435,8 +437,8 @@ class LessonComplementaryMaterials extends ConsumerWidget {
         // Quem edita a aula vincula qualquer material que enxerga.
         rights: const TurmaMaterialRights(memberId: null, canEditAny: true),
         emptyMessage:
-            'Nenhum material disponível. Cadastre no módulo Material de '
-            'Apoio para vincular aqui.',
+            'Nenhum material disponível. Use "Novo" para cadastrar um e '
+            'ele já entra nesta aula.',
       ),
     );
     if (picked == null) return;
@@ -454,6 +456,13 @@ class LessonComplementaryMaterials extends ConsumerWidget {
         SnackBar(content: Text('Não foi possível vincular: $error')),
       );
     }
+  }
+
+  /// Cadastra no formulário de Material de Apoio já vinculado à aula.
+  Future<void> _create(BuildContext context, WidgetRef ref) async {
+    await context.push('/support-materials/new?lesson=$lessonId');
+    ref.invalidate(materialsByEntityProvider(_key));
+    ref.invalidate(materialsByEntitiesProvider);
   }
 
   Future<void> _unlink(
@@ -496,6 +505,18 @@ class LessonComplementaryMaterials extends ConsumerWidget {
                 style: meta.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
+            // Material de Apoio exige .create na RLS (o vínculo, autor).
+            if (canWrite)
+              PermissionGate(
+                permission: 'support_materials.create',
+                showLoading: false,
+                child: TextButton.icon(
+                  key: const ValueKey('lesson-new-material'),
+                  onPressed: () => _create(context, ref),
+                  icon: const Icon(AppIcons.upload, size: 18),
+                  label: const Text('Novo'),
+                ),
+              ),
             if (canWrite)
               TextButton.icon(
                 key: const ValueKey('lesson-link-material'),
