@@ -467,6 +467,17 @@ class MinistriesRepository {
         .toList();
   }
 
+  /// Ministérios em que o membro está na liderança (`role = leader`).
+  Future<Set<String>> getLedMinistryIds(String memberId) async {
+    final rows = await _supabase
+        .from('ministry_member')
+        .select('ministry_id')
+        .eq('user_id', memberId)
+        .eq('role', 'leader')
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
+    return {for (final r in rows as List) r['ministry_id'] as String};
+  }
+
   // CHU-384 (29/09/2026): aqui existia `isCoordinatorOfAnyMinistry`, que
   // consultava ministry_member por `role = coordinator`. Nenhuma linha de
   // produção tem esse papel, então a consulta respondia `false` sempre e

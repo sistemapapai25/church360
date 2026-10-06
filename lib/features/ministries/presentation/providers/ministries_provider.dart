@@ -69,6 +69,15 @@ final currentMemberMinistriesProvider = FutureProvider<List<Ministry>>((ref) asy
 // `MinistryRole.coordinator` segue no enum: quem voltar a usá-lo precisa
 // antes provar que existe linha com esse papel.
 
+/// Ministérios cujas escalas a pessoa vê na tela do evento (06/10): só os
+/// que ela lidera; o owner vê todos (`null`). Conjunto vazio = sem a aba.
+final myScheduleMinistryIdsProvider = FutureProvider<Set<String>?>((ref) async {
+  if (await ref.watch(currentUserIsOwnerProvider.future)) return null;
+  final member = await ref.watch(currentMemberProvider.future);
+  if (member == null) return const {};
+  return ref.watch(ministriesRepositoryProvider).getLedMinistryIds(member.id);
+});
+
 /// Provider de escalas de um evento
 final eventSchedulesProvider = FutureProvider.family<List<MinistrySchedule>, String>((ref, eventId) async {
   final repo = ref.watch(ministriesRepositoryProvider);

@@ -44,10 +44,7 @@ class EventDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<EventDetailScreen> createState() => _EventDetailScreenState();
 }
 
-class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
+class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
   bool _isRegistrationShareEnabled(Event event) {
     return event.requiresRegistration &&
         event.status == 'published' &&
@@ -305,20 +302,12 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   }
 
   @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final eventAsync = ref.watch(eventByIdProvider(widget.eventId));
+    // Escalas: só a liderança dos ministérios (e o owner) vê a aba.
+    final scaleScope = ref.watch(myScheduleMinistryIdsProvider);
+    final showScales =
+        scaleScope.hasValue && (scaleScope.value?.isNotEmpty ?? true);
 
     return eventAsync.when(
       data: (event) {
@@ -326,7 +315,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
           return _buildUnavailableScreen(context);
         }
 
-        return Scaffold(
+        return DefaultTabController(
+          length: showScales ? 3 : 2,
+          child: Scaffold(
           backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
           appBar: AppBar(
             automaticallyImplyLeading: false,
@@ -417,7 +408,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
               ),
             ],
             bottom: TabBar(
-              controller: _tabController,
               tabs: [
                 const Tab(text: 'Informações'),
                 Tab(
@@ -425,17 +415,17 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
                       ? 'Inscritos (${event.registrationCount ?? 0})'
                       : 'Inscritos',
                 ),
-                const Tab(text: 'Escalas'),
+                if (showScales) const Tab(text: 'Escalas'),
               ],
             ),
           ),
           body: TabBarView(
-            controller: _tabController,
             children: [
               _InfoTab(event: event),
               _RegistrationsTab(event: event),
-              _SchedulesTab(eventId: event.id),
+              if (showScales) _SchedulesTab(eventId: event.id),
             ],
+          ),
           ),
         );
       },
@@ -1554,7 +1544,9 @@ class _SchedulesTab extends ConsumerWidget {
       data: (schedules) {
         // Agrupar escalas por ministério
         final Map<String, List<MinistrySchedule>> schedulesByMinistry = {};
+        final scope = ref.watch(myScheduleMinistryIdsProvider).valueOrNull;
         for (final schedule in schedules) {
+          if (scope != null && !scope.contains(schedule.ministryId)) continue;
           if (!schedulesByMinistry.containsKey(schedule.ministryId)) {
             schedulesByMinistry[schedule.ministryId] = [];
           }
@@ -1707,6 +1699,7 @@ class _EmptySchedulesContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ministriesAsync = ref.watch(activeMinistriesProvider);
+    final scope = ref.watch(myScheduleMinistryIdsProvider).valueOrNull;
 
     return Column(
       children: [
@@ -1745,6 +1738,7 @@ class _EmptySchedulesContent extends ConsumerWidget {
             return Column(
               children: [
                 for (final m in ministries)
+                  if (scope == null || scope.contains(m.id))
                   buildMinistryCard(
                     ministryId: m.id,
                     ministryName: m.name,
