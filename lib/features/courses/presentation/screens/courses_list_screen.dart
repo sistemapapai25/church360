@@ -395,15 +395,15 @@ class _CourseCard extends ConsumerWidget {
                               color: Colors.purple,
                             ),
 
-                          // Vagas
-                          if (course.maxStudents != null)
-                            _buildChip(
-                              context,
-                              icon: Icons.groups,
-                              label:
-                                  '${course.enrolledCount ?? 0}/${course.maxStudents}',
-                              color: course.isFull ? Colors.red : Colors.green,
-                            ),
+                          // Alunos (e vagas, quando o curso tem limite)
+                          _buildChip(
+                            context,
+                            icon: Icons.groups,
+                            label: course.maxStudents != null
+                                ? '${course.enrolledCount ?? 0}/${course.maxStudents}'
+                                : '${course.enrolledCount ?? 0} aluno(s)',
+                            color: course.isFull ? Colors.red : Colors.green,
+                          ),
                         ],
                       ),
                     ],
