@@ -10,6 +10,7 @@ import '../../domain/models/event.dart';
 import '../../domain/models/event_audience.dart';
 import '../providers/events_provider.dart';
 import '../widgets/add_registration_dialog.dart';
+import '../widgets/event_updates.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
 import '../../../study_groups/presentation/providers/study_group_provider.dart';
 import '../../../courses/presentation/providers/courses_provider.dart';
@@ -554,6 +555,7 @@ class _InfoTab extends ConsumerWidget {
                 ],
                 _EventMainCard(event: event),
                 const SizedBox(height: 24),
+                EventUpdatesSummary(event: event),
                 if (temDescricao) ...[
                   Text(
                     'Sobre o evento',

@@ -5,6 +5,7 @@ import '../domain/models/event_audience.dart';
 import '../domain/models/event_reminder.dart';
 import '../domain/models/event_series.dart';
 import '../domain/models/event_series_impact.dart';
+import '../domain/models/event_update.dart';
 
 /// Repository para gerenciar eventos
 class EventsRepository {
@@ -656,6 +657,19 @@ class EventsRepository {
   /// Fase 1 (formulário e `eventResponsiblesProvider`).
   Future<List<EventAudience>> getEventResponsibles(String eventId) =>
       getEventAudience(eventId, 'responsible');
+
+  /// Feed do evento (avisos e mudanças), mais recente primeiro. A RLS só
+  /// devolve linhas de evento que o usuário enxerga.
+  Future<List<EventUpdate>> getEventUpdates(String eventId) async {
+    final response = await _supabase
+        .from('event_update')
+        .select()
+        .eq('event_id', eventId)
+        .order('created_at', ascending: false);
+    return (response as List)
+        .map((json) => EventUpdate.fromJson(Map<String, dynamic>.from(json)))
+        .toList();
+  }
 
   /// Substitui o conjunto de alvos de audiência de um evento para o papel
   /// recebido. Delete-then-insert declarativo (não upsert): torna a operação

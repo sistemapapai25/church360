@@ -81,6 +81,7 @@ import '../../features/schedule/presentation/screens/scale_history_screen.dart';
 import '../../features/schedule/presentation/screens/schedule_rules_preferences_screen.dart';
 import '../../features/events/presentation/screens/events_list_screen.dart';
 import '../../features/events/presentation/screens/event_detail_screen.dart';
+import '../../features/events/presentation/widgets/event_updates.dart';
 import '../../features/custom_reports/presentation/screens/custom_reports_list_screen.dart';
 import '../../features/custom_reports/presentation/screens/custom_report_builder_screen.dart';
 import '../../features/custom_reports/presentation/screens/custom_report_view_screen.dart';
@@ -1385,6 +1386,11 @@ final appRouter = GoRouter(
           child: EventFormScreen(eventId: id),
         );
       },
+    ),
+    GoRoute(
+      path: '/events/:id/updates',
+      builder: (context, state) =>
+          EventUpdatesScreen(eventId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/events/:id/register',
