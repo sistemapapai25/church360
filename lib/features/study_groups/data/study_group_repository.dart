@@ -330,6 +330,7 @@ class StudyGroupRepository {
     String? teacherId,
     String? startTime,
     int? durationMinutes,
+    String? eventId,
   }) async {
     final userId = await _effectiveUserId();
     if (userId == null) throw Exception('Usuário não autenticado');
@@ -353,6 +354,7 @@ class StudyGroupRepository {
           'teacher_id': teacherId,
           'start_time': startTime,
           'duration_minutes': durationMinutes,
+          'event_id': eventId,
           'created_by': userId,
           'tenant_id': SupabaseConstants.currentTenantId,
         })
@@ -516,6 +518,20 @@ class StudyGroupRepository {
         .update({'teacher_id': teacherId})
         .eq('id', id)
         .eq('tenant_id', SupabaseConstants.currentTenantId);
+  }
+
+  /// Aulas ligadas aos encontros [eventIds] (todas as turmas que a RLS
+  /// deixa ler).
+  Future<List<StudyLesson>> getLessonsByEvents(List<String> eventIds) async {
+    if (eventIds.isEmpty) return const [];
+    final response = await _supabase
+        .from('study_lessons')
+        .select()
+        .inFilter('event_id', eventIds)
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
+    return (response as List)
+        .map((json) => StudyLesson.fromJson(json))
+        .toList();
   }
 
   /// Deletar lição

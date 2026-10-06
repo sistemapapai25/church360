@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../events/domain/models/event.dart';
+import '../../../schedule/presentation/providers/schedule_provider.dart';
 import '../../../study_groups/domain/models/study_group.dart';
 import '../../../study_groups/presentation/providers/study_group_provider.dart';
 import '../../domain/models/course_subject.dart';
@@ -54,6 +56,78 @@ List<PlannedLesson> planLessons({
   }
   return planned;
 }
+
+/// Linha do Distribuir: a aula, o dia, a duração e o encontro (evento
+/// tipo Aula) em que ela fica, se houver.
+typedef PlannedRow = ({
+  PlannedLesson lesson,
+  DateTime date,
+  int duration,
+  String? eventId,
+});
+
+/// Distribuir pelos encontros (D1): o horário de cada encontro é dividido
+/// igualmente entre as matérias, e cada matéria tem sempre o mesmo horário
+/// dentro do encontro. Em cada encontro, a matéria que ainda tem aula
+/// prevista ganha a próxima; a que terminou deixa o horário vago.
+/// Encontro que já tem aula desta turma é pulado (rodar de novo não
+/// duplica); encontro sem término ou com menos de 1 min por matéria também.
+List<PlannedRow> planEventLessons({
+  required List<CourseSubject> subjects,
+  required List<StudyLesson> lessons,
+  required List<Event> events,
+}) {
+  if (subjects.isEmpty) return const [];
+  var number = lessons.fold(
+    0,
+    (max, l) => l.lessonNumber > max ? l.lessonNumber : max,
+  );
+  final done = {
+    for (final s in subjects)
+      s.id: lessons.where((l) => l.subjectId == s.id).length,
+  };
+  final used = {for (final l in lessons) ?l.eventId};
+  final rows = <PlannedRow>[];
+  for (final e in events) {
+    final end = e.endDate;
+    if (used.contains(e.id) || end == null) continue;
+    final slot = end.difference(e.startDate).inMinutes ~/ subjects.length;
+    if (slot < 1) continue;
+    final start = e.startDate.hour * 60 + e.startDate.minute;
+    for (var i = 0; i < subjects.length; i++) {
+      final s = subjects[i];
+      if (done[s.id]! >= s.lessonCount) continue;
+      final n = done[s.id] = done[s.id]! + 1;
+      rows.add((
+        lesson: (
+          subject: s,
+          lessonNumber: ++number,
+          title: '${s.title} — $n/${s.lessonCount}',
+          start: start + i * slot,
+        ),
+        date: DateTime(e.startDate.year, e.startDate.month, e.startDate.day),
+        duration: slot,
+        eventId: e.id,
+      ));
+    }
+  }
+  return rows;
+}
+
+/// Encontros (eventos tipo Aula) de hoje até daqui a um ano.
+final upcomingAulaEventsProvider = FutureProvider.autoDispose<List<Event>>((
+  ref,
+) async {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final events = await ref
+      .read(scheduleRepositoryProvider)
+      .getEventsByDateRange(today, DateTime(now.year + 1, now.month, now.day));
+  return [
+    for (final e in events)
+      if (e.eventType == 'aula') e,
+  ];
+});
 
 /// Fim da última aula do bloco, em minutos desde 00:00.
 int planEnd(List<PlannedLesson> planned, int duration) =>
@@ -185,6 +259,11 @@ class _DistributeLessonsSheetState
   bool _saving = false;
   String? _error;
 
+  /// Nos encontros (eventos tipo Aula) em vez de numa data.
+  bool _byEvent = false;
+  String? _eventId;
+  bool _wholeSeries = true;
+
   /// Criou parte e falhou: a lista de aulas desta folha ficou velha, e
   /// Aplicar de novo duplicaria. Só reabrindo.
   bool _stale = false;
@@ -202,9 +281,8 @@ class _DistributeLessonsSheetState
   }
 
   Future<void> _apply(
-    List<PlannedLesson> planned,
+    List<PlannedRow> rows,
     List<({String? teacherId, TeacherSource source})> teachers,
-    int duration,
   ) async {
     setState(() {
       _saving = true;
@@ -213,17 +291,18 @@ class _DistributeLessonsSheetState
     final repo = ref.read(studyGroupRepositoryProvider);
     var created = 0;
     try {
-      for (var i = 0; i < planned.length; i++) {
-        final p = planned[i];
+      for (var i = 0; i < rows.length; i++) {
+        final r = rows[i];
         await repo.createLesson(
           studyGroupId: widget.studyGroupId,
-          lessonNumber: p.lessonNumber,
-          title: p.title,
-          scheduledDate: _date,
-          subjectId: p.subject.id,
+          lessonNumber: r.lesson.lessonNumber,
+          title: r.lesson.title,
+          scheduledDate: r.date,
+          subjectId: r.lesson.subject.id,
           teacherId: teachers[i].teacherId,
-          startTime: hhmm(p.start),
-          durationMinutes: duration,
+          startTime: hhmm(r.lesson.start),
+          durationMinutes: r.duration,
+          eventId: r.eventId,
         );
         created++;
       }
@@ -236,93 +315,142 @@ class _DistributeLessonsSheetState
         _saving = false;
         _stale = created > 0;
         _error =
-            'Parou em $created de ${planned.length} aulas: $error. '
+            'Parou em $created de ${rows.length} aulas: $error. '
             'Feche e toque em Distribuir de novo para criar o resto.';
       });
     }
+  }
+
+  /// Encontros escolhidos: o encontro e, com "série", os seguintes dela.
+  List<Event> _occurrences(List<Event> all) {
+    final picked = all.where((e) => e.id == _eventId).firstOrNull;
+    if (picked == null) return const [];
+    if (!_wholeSeries || picked.batchId == null) return [picked];
+    return [
+      for (final e in all)
+        if (e.batchId == picked.batchId &&
+            !e.startDate.isBefore(picked.startDate))
+          e,
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
     final subjectsAsync = ref.watch(courseSubjectsProvider(widget.courseId));
     final optionsAsync = ref.watch(teacherOptionsProvider(widget.courseId));
+    final eventsAsync = _byEvent
+        ? ref.watch(upcomingAulaEventsProvider)
+        : const AsyncValue<List<Event>>.data([]);
     final course = ref.watch(courseByIdProvider(widget.courseId)).valueOrNull;
     final date = _date;
     final start = _start;
     final duration = _minutes(_duration, min: 1);
     final interval = _minutes(_interval, min: 0);
+    final events = eventsAsync.valueOrNull;
+    final picked = events?.where((e) => e.id == _eventId).firstOrNull;
 
     Widget preview;
     VoidCallback? onApply;
     final subjects = subjectsAsync.valueOrNull;
     final options = optionsAsync.valueOrNull;
-    if (subjects == null || options == null) {
-      preview = subjectsAsync.hasError || optionsAsync.hasError
+    if (subjects == null || options == null || events == null) {
+      preview =
+          subjectsAsync.hasError ||
+              optionsAsync.hasError ||
+              eventsAsync.hasError
           ? const Text(
-              'Não foi possível carregar as matérias e os professores.',
+              'Não foi possível carregar as matérias, os professores ou os '
+              'encontros.',
             )
           : const Center(child: CircularProgressIndicator());
     } else if (subjects.isEmpty) {
       preview = const Text(
         'O curso não tem matérias. Cadastre-as na tela do curso, em Matérias.',
       );
-    } else if (date == null ||
-        start == null ||
-        duration == null ||
-        interval == null) {
+    } else if (_byEvent && events.isEmpty) {
+      preview = const Text(
+        'Não há encontros do tipo Aula no próximo ano. Crie o evento na '
+        'Agenda com o tipo "Aula" (pode ser recorrente) e volte aqui.',
+      );
+    } else if (_byEvent && picked == null) {
+      preview = Text(
+        'Escolha o encontro para ver a prévia.',
+        style: CommunityDesign.metaStyle(context),
+      );
+    } else if (!_byEvent &&
+        (date == null ||
+            start == null ||
+            duration == null ||
+            interval == null)) {
       preview = Text(
         'Preencha data, início, duração (1 a 600 min) e intervalo (0 a 600 '
         'min) para ver a prévia.',
         style: CommunityDesign.metaStyle(context),
       );
     } else {
-      final planned = planLessons(
-        subjects: subjects,
-        lessons: widget.lessons,
-        start: start.hour * 60 + start.minute,
-        duration: duration,
-        interval: interval,
-      );
+      final List<PlannedRow> rows = _byEvent
+          ? planEventLessons(
+              subjects: subjects,
+              lessons: widget.lessons,
+              events: _occurrences(events),
+            )
+          : [
+              for (final p in planLessons(
+                subjects: subjects,
+                lessons: widget.lessons,
+                start: start!.hour * 60 + start.minute,
+                duration: duration!,
+                interval: interval!,
+              ))
+                (lesson: p, date: date!, duration: duration, eventId: null),
+            ];
       final names = {for (final o in options) o.id: o.name};
       final teachers = assignTeachers(
         [
-          for (final p in planned)
-            (current: null, subjectDefault: p.subject.defaultTeacherId),
+          for (final r in rows)
+            (current: null, subjectDefault: r.lesson.subject.defaultTeacherId),
         ],
         eligible: names.keys.toSet(),
         rotation: course?.ministryId == null ? const [] : names.keys.toList(),
       );
-      if (planned.isEmpty) {
-        preview = const Text(
-          'Nada a criar: a turma já tem as aulas de todas as matérias.',
-        );
-      } else if (planEnd(planned, duration) > 24 * 60) {
+      if (rows.isEmpty) {
         preview = Text(
-          'As ${planned.length} aulas passariam da meia-noite. Comece mais '
+          _byEvent
+              ? 'Nada a criar: as matérias já têm todas as aulas, ou os '
+                    'encontros já têm aula desta turma ou não têm horário de '
+                    'término.'
+              : 'Nada a criar: a turma já tem as aulas de todas as matérias.',
+        );
+      } else if (!_byEvent &&
+          planEnd([for (final r in rows) r.lesson], duration!) > 24 * 60) {
+        preview = Text(
+          'As ${rows.length} aulas passariam da meia-noite. Comece mais '
           'cedo ou diminua a duração ou o intervalo.',
           style: TextStyle(color: Theme.of(context).colorScheme.error),
         );
       } else {
-        if (!_stale) onApply = () => _apply(planned, teachers, duration);
+        if (!_stale) onApply = () => _apply(rows, teachers);
         preview = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '${planned.length} '
-              '${planned.length == 1 ? 'aula será criada' : 'aulas serão criadas'}'
-              ' em ${DateFormat('dd/MM/yyyy').format(date)}, como rascunho:',
+              '${rows.length} '
+              '${rows.length == 1 ? 'aula será criada' : 'aulas serão criadas'}'
+              ', como rascunho:',
               style: CommunityDesign.metaStyle(
                 context,
               ).copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            for (var i = 0; i < planned.length; i++)
+            for (var i = 0; i < rows.length; i++)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Text(
-                  '${hhmm(planned[i].start)}–'
-                  '${hhmm(planned[i].start + duration)} · '
-                  'Aula ${planned[i].lessonNumber} · ${planned[i].title} · '
+                  '${DateFormat('dd/MM').format(rows[i].date)} '
+                  '${hhmm(rows[i].lesson.start)}–'
+                  '${hhmm(rows[i].lesson.start + rows[i].duration)} · '
+                  'Aula ${rows[i].lesson.lessonNumber} · '
+                  '${rows[i].lesson.title} · '
                   '${_teacherLabel(ref, names, teachers[i].teacherId)}',
                 ),
               ),
@@ -336,82 +464,137 @@ class _DistributeLessonsSheetState
       children: [
         Text(
           'Cria, para cada matéria do curso, as aulas que ainda faltam nesta '
-          'turma, uma depois da outra. Nenhuma aula existente é alterada.',
+          'turma. Nenhuma aula existente é alterada.',
           style: CommunityDesign.metaStyle(context),
         ),
         const SizedBox(height: 12),
-        InkWell(
-          key: const ValueKey('distribute-date'),
-          onTap: _saving
+        SegmentedButton<bool>(
+          key: const ValueKey('distribute-mode'),
+          segments: const [
+            ButtonSegment(value: false, label: Text('Numa data')),
+            ButtonSegment(value: true, label: Text('Nos encontros')),
+          ],
+          selected: {_byEvent},
+          onSelectionChanged: _saving
               ? null
-              : () async {
-                  final now = DateTime.now();
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: date ?? now,
-                    firstDate: DateTime(now.year - 5),
-                    lastDate: DateTime(now.year + 5),
-                    helpText: 'Data das aulas',
-                  );
-                  if (picked != null) setState(() => _date = picked);
-                },
-          borderRadius: BorderRadius.circular(8),
-          child: InputDecorator(
-            decoration: const InputDecoration(labelText: 'Data *'),
-            child: Text(
-              date == null ? '—' : DateFormat('dd/MM/yyyy').format(date),
-            ),
-          ),
+              : (v) => setState(() => _byEvent = v.first),
         ),
         const SizedBox(height: 12),
-        InkWell(
-          key: const ValueKey('distribute-start'),
-          onTap: _saving
-              ? null
-              : () async {
-                  final picked = await showTimePicker(
-                    context: context,
-                    initialTime: start ?? const TimeOfDay(hour: 19, minute: 30),
-                    helpText: 'Início da primeira aula',
-                  );
-                  if (picked != null) setState(() => _start = picked);
-                },
-          borderRadius: BorderRadius.circular(8),
-          child: InputDecorator(
-            decoration: const InputDecoration(labelText: 'Início *'),
-            child: Text(
-              start == null ? '—' : hhmm(start.hour * 60 + start.minute),
+        if (_byEvent) ...[
+          Text(
+            'O horário de cada encontro (evento tipo Aula) é dividido '
+            'igualmente entre as matérias; cada encontro recebe a próxima '
+            'aula de cada matéria. O professor entra na escala do evento.',
+            style: CommunityDesign.metaStyle(context),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            key: const ValueKey('distribute-event'),
+            initialValue: picked?.id,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Encontro *'),
+            items: [
+              for (final e in events ?? const <Event>[])
+                DropdownMenuItem(
+                  value: e.id,
+                  child: Text(
+                    '${DateFormat('dd/MM HH:mm').format(e.startDate)}'
+                    '${e.endDate == null ? '' : '–${DateFormat('HH:mm').format(e.endDate!)}'}'
+                    ' · ${e.name}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+            onChanged: _saving ? null : (v) => setState(() => _eventId = v),
+          ),
+          if (picked?.batchId != null)
+            SwitchListTile(
+              key: const ValueKey('distribute-series'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Este e os próximos encontros da série'),
+              value: _wholeSeries,
+              onChanged: _saving
+                  ? null
+                  : (v) => setState(() => _wholeSeries = v),
+            ),
+        ],
+        if (!_byEvent) ...[
+          InkWell(
+            key: const ValueKey('distribute-date'),
+            onTap: _saving
+                ? null
+                : () async {
+                    final now = DateTime.now();
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: date ?? now,
+                      firstDate: DateTime(now.year - 5),
+                      lastDate: DateTime(now.year + 5),
+                      helpText: 'Data das aulas',
+                    );
+                    if (picked != null) setState(() => _date = picked);
+                  },
+            borderRadius: BorderRadius.circular(8),
+            child: InputDecorator(
+              decoration: const InputDecoration(labelText: 'Data *'),
+              child: Text(
+                date == null ? '—' : DateFormat('dd/MM/yyyy').format(date),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                key: const ValueKey('distribute-duration'),
-                controller: _duration,
-                enabled: !_saving,
-                keyboardType: TextInputType.number,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  labelText: 'Duração por aula (min) *',
+          const SizedBox(height: 12),
+          InkWell(
+            key: const ValueKey('distribute-start'),
+            onTap: _saving
+                ? null
+                : () async {
+                    final picked = await showTimePicker(
+                      context: context,
+                      initialTime:
+                          start ?? const TimeOfDay(hour: 19, minute: 30),
+                      helpText: 'Início da primeira aula',
+                    );
+                    if (picked != null) setState(() => _start = picked);
+                  },
+            borderRadius: BorderRadius.circular(8),
+            child: InputDecorator(
+              decoration: const InputDecoration(labelText: 'Início *'),
+              child: Text(
+                start == null ? '—' : hhmm(start.hour * 60 + start.minute),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  key: const ValueKey('distribute-duration'),
+                  controller: _duration,
+                  enabled: !_saving,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Duração por aula (min) *',
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                key: const ValueKey('distribute-interval'),
-                controller: _interval,
-                enabled: !_saving,
-                keyboardType: TextInputType.number,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(labelText: 'Intervalo (min)'),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  key: const ValueKey('distribute-interval'),
+                  controller: _interval,
+                  enabled: !_saving,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Intervalo (min)',
+                  ),
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
         const SizedBox(height: 16),
         preview,
         if (_error != null) ...[
