@@ -8,11 +8,13 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/app_tabs.dart';
 import '../../../../core/widgets/media/inline_video.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 import '../../../study_groups/domain/models/study_group.dart';
 import '../../../study_groups/presentation/providers/study_group_provider.dart';
 import '../providers/courses_provider.dart';
 import '../widgets/course_subjects_section.dart';
 import 'adapters/turma_surfaces.dart';
+import 'professor_aula.dart';
 import 'tabs/aula_observacoes_tab.dart';
 import 'tabs/turma_aulas_tab.dart';
 import 'turma_access.dart';
@@ -154,6 +156,15 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
   bool get _canWrite =>
       widget.access.isLeadership && widget.access.canWriteLessons;
 
+  /// Na leitura (fora da Dashboard) o professor desta aula faz a chamada
+  /// dela, como pela porta do professor: é papel na própria aula.
+  bool get _isMyLessonInReading {
+    final teacherId = widget.lesson.teacherId;
+    return widget.access.readOnly &&
+        teacherId != null &&
+        ref.watch(currentMemberIdProvider).valueOrNull == teacherId;
+  }
+
   Widget _buildTab(AulaTabId tab) {
     final lesson = widget.lesson;
     final teacher = teacherLabelById(ref, lesson.teacherId);
@@ -182,7 +193,11 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
                 ),
               ),
             ),
-          Expanded(child: widget.surfaces.lessonPresence(lesson)),
+          Expanded(
+            child: _isMyLessonInReading
+                ? TeacherLessonRoll(lessonId: lesson.id)
+                : widget.surfaces.lessonPresence(lesson),
+          ),
         ],
       ),
       AulaTabId.observacoes => AulaObservacoesTab(

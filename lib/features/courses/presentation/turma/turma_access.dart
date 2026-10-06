@@ -48,12 +48,18 @@ class TurmaAccess {
   /// continua mostrando o que o papel enxerga; some tudo o que escreve.
   final bool readOnly;
 
+  /// Também é aluno da turma (matrícula do Batismo ou participante ativo).
+  /// Liderança que é aluno fica em liderança (decisão 24); na leitura a
+  /// Presença da aula mostra só a marca dela.
+  final bool enrolled;
+
   const TurmaAccess({
     required this.role,
     this.canWriteLessons = false,
     this.leadsGroup = false,
     this.elevated = false,
     this.readOnly = false,
+    this.enrolled = false,
   });
 
   static const none = TurmaAccess(role: TurmaRole.none);
@@ -66,8 +72,12 @@ class TurmaAccess {
   /// [canWriteLessons] (aula, e com ela o material da aula) e [leadsGroup]
   /// (presença da turma genérica). [elevated] fica de pé porque só abre
   /// leitura — a presença dos outros na turma genérica.
-  TurmaAccess asReadOnly() =>
-      TurmaAccess(role: role, elevated: elevated, readOnly: true);
+  TurmaAccess asReadOnly() => TurmaAccess(
+    role: role,
+    elevated: elevated,
+    readOnly: true,
+    enrolled: enrolled,
+  );
 
   bool get isLeadership => role == TurmaRole.leadership;
   bool get isStudent => role == TurmaRole.student;
@@ -116,6 +126,9 @@ final turmaAccessProvider = FutureProvider.family<TurmaAccess, String>((
         ministryAccessProvider(ministryId).future,
       );
       final view = await can('baptism.view');
+      // study_group_student_allows: matrícula ativa ou concluída.
+      final enrollments = await ref.watch(myBaptismEnrollmentsProvider.future);
+      final enrolled = enrollments.any((e) => e.studyGroupId == studyGroupId);
       final leadership = elevated || canSeeAll || (view && inMinistry);
       if (leadership) {
         final edit = await can('baptism.edit');
@@ -124,11 +137,9 @@ final turmaAccessProvider = FutureProvider.family<TurmaAccess, String>((
           role: TurmaRole.leadership,
           canWriteLessons:
               elevated || canSeeAll || (edit && inMinistry) || manageLessons,
+          enrolled: enrolled,
         );
       }
-      // study_group_student_allows: matrícula ativa ou concluída.
-      final enrollments = await ref.watch(myBaptismEnrollmentsProvider.future);
-      final enrolled = enrollments.any((e) => e.studyGroupId == studyGroupId);
       return enrolled ? asStudent : TurmaAccess.none;
 
     case GenericaTurmaOrigin():
@@ -149,6 +160,7 @@ final turmaAccessProvider = FutureProvider.family<TurmaAccess, String>((
           canWriteLessons: elevated || leader || manageLessons,
           leadsGroup: leader,
           elevated: elevated,
+          enrolled: active && participation.role == ParticipantRole.participant,
         );
       }
       return active ? asStudent : TurmaAccess.none;

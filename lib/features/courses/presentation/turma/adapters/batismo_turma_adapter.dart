@@ -55,7 +55,7 @@ class BatismoTurmaAdapter implements TurmaSurfaces {
   /// chamada. O aluno vê a própria marca naquela aula.
   @override
   Widget lessonPresence(StudyLesson lesson) {
-    if (access.isStudent) {
+    if (access.isStudent || (access.readOnly && access.enrolled)) {
       return BatismoMinhaPresencaNaAula(
         baptismTurmaId: origin.baptismTurmaId,
         lessonId: lesson.id,
@@ -64,7 +64,7 @@ class BatismoTurmaAdapter implements TurmaSurfaces {
     if (access.readOnly) {
       return const TurmaMessage(
         icon: AppIcons.lock,
-        message: 'A chamada é feita em Gerenciar no Batismo.',
+        message: 'Você não é aluno desta turma.',
       );
     }
     return ListView(
