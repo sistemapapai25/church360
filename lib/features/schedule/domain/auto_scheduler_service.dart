@@ -414,10 +414,9 @@ class AutoSchedulerService {
         }
 
         // Completar candidatos por função com vínculos do banco (member_function)
-        Map<String, List<String>> mfMap = {};
-        try {
-          mfMap = await ministriesRepo.getMemberFunctionsByMinistry(ministryId);
-        } catch (_) {}
+        final mfMap = await ministriesRepo.getMemberFunctionsByMinistry(
+          ministryId,
+        );
 
         // Candidatos por função:
         // - `member_function` é fonte de verdade *por usuário* quando existir (evita puxar quem foi desvinculado).
@@ -717,6 +716,9 @@ class AutoSchedulerService {
           final cat = funcCategory[funcName] ?? 'other';
           final Map<String, List<DateTime>> datesByUserFunc = {};
           final String? fid = fidForFunc(funcName);
+          // Gerar só preenche vagas: quem já está nesta função neste evento
+          // conta como vaga ocupada.
+          final filledHere = <String>{};
           for (final s in existingSchedules) {
             final matchById = fid != null && (s.functionId == fid);
             final matchByName =
@@ -726,7 +728,14 @@ class AutoSchedulerService {
                   .putIfAbsent(s.memberId, () => [])
                   .add(s.eventStartDate!);
             }
+            // Sem function_id o gerador grava o nome da função em notes.
+            final matchByNotes =
+                fid == null && norm(s.functionName ?? s.notes ?? '') == norm(funcName);
+            if (s.eventId == event.id && (matchById || matchByNotes)) {
+              filledHere.add(s.memberId);
+            }
           }
+          count = filledHere.length;
           // Lote 6 / B9: removida `consecutiveFor` por-função — só
           // `consecutiveGlobalFor` é usada no fluxo de decisão.
 
@@ -1468,10 +1477,9 @@ class AutoSchedulerService {
         }
 
         // Completar candidatos por função com vínculos do banco (member_function)
-        Map<String, List<String>> mfMap = {};
-        try {
-          mfMap = await ministriesRepo.getMemberFunctionsByMinistry(ministryId);
-        } catch (_) {}
+        final mfMap = await ministriesRepo.getMemberFunctionsByMinistry(
+          ministryId,
+        );
 
         // Candidatos por função:
         // - `member_function` é fonte de verdade *por usuário* quando existir (evita puxar quem foi desvinculado).

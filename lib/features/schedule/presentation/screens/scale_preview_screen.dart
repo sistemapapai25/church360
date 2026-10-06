@@ -43,6 +43,10 @@ class ScalePreviewScreen extends ConsumerStatefulWidget {
 
 class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
   bool _isSaving = false;
+  // Salvar apaga a escala destes ministérios antes de gravar a prévia: só
+  // libera depois que a prévia carregou inteira e sem erro.
+  bool _loaded = false;
+  Object? _loadError;
   final Map<String, List<Map<String, String>>> _assignmentsByEvent = {};
   final Map<String, String> _memberNames = {}; // userId -> name
   final Map<String, String> _memberPhotoUrls = {};
@@ -66,7 +70,14 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
   @override
   void initState() {
     super.initState();
-    _buildProposals();
+    _buildProposals().then(
+      (_) {
+        if (mounted) setState(() => _loaded = true);
+      },
+      onError: (Object e) {
+        if (mounted) setState(() => _loadError = e);
+      },
+    );
   }
 
   Future<void> _buildProposals() async {
@@ -250,23 +261,21 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
         });
       }
       // Completar funções e permitidos com vínculos do banco (member_function)
-      try {
-        final mfMap = await repo.getMemberFunctionsByMinistry(mid);
-        for (final entry in mfMap.entries) {
-          final uid = entry.key;
-          for (final f in entry.value) {
-            final canon = norm(f);
-            funcs.add(canon);
-            _funcDisplay.putIfAbsent(canon, () => f);
-            allowed.putIfAbsent(canon, () => []);
-            if (!allowed[canon]!.contains(uid)) allowed[canon]!.add(uid);
-            _linkedByFunction.putIfAbsent(canon, () => []);
-            if (!_linkedByFunction[canon]!.contains(uid)) {
-              _linkedByFunction[canon]!.add(uid);
-            }
+      final mfMap = await repo.getMemberFunctionsByMinistry(mid);
+      for (final entry in mfMap.entries) {
+        final uid = entry.key;
+        for (final f in entry.value) {
+          final canon = norm(f);
+          funcs.add(canon);
+          _funcDisplay.putIfAbsent(canon, () => f);
+          allowed.putIfAbsent(canon, () => []);
+          if (!allowed[canon]!.contains(uid)) allowed[canon]!.add(uid);
+          _linkedByFunction.putIfAbsent(canon, () => []);
+          if (!_linkedByFunction[canon]!.contains(uid)) {
+            _linkedByFunction[canon]!.add(uid);
           }
         }
-      } catch (_) {}
+      }
     }
     final Set<String> candidateIds = {
       for (final entry in _leadersByFunctionCandidates.entries) ...entry.value,
@@ -558,6 +567,17 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       }
       ref.invalidate(ministrySchedulesProvider(widget.ministryId));
       if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Erro ao salvar a escala: $e. Confira a escala dos eventos '
+              'antes de tentar de novo.',
+            ),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -575,7 +595,7 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
             label: const Text('Exportar PDF (período)'),
           ),
           FilledButton.icon(
-            onPressed: _isSaving ? null : _saveAll,
+            onPressed: !_loaded || _isSaving ? null : _saveAll,
             icon: _isSaving
                 ? const SizedBox(
                     width: 16,
@@ -631,23 +651,38 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
                 ],
               ),
             ),
-          Expanded(
-            child: InteractiveViewer(
-              constrained: false,
-              minScale: 1,
-              maxScale: 1,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
+          if (_loadError != null)
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    'Não foi possível carregar a prévia: $_loadError',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            )
+          else if (!_loaded)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
+          else
+            Expanded(
+              child: InteractiveViewer(
+                constrained: false,
+                minScale: 1,
+                maxScale: 1,
                 child: SingleChildScrollView(
-                  scrollDirection: Axis.vertical,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: _buildGrid(context),
+                  scrollDirection: Axis.horizontal,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.vertical,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: _buildGrid(context),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
