@@ -235,7 +235,7 @@ class _DiaconatoChecklistContentState
         title: const Text('Checklist de presença'),
         leading: IconButton(
           icon: const Icon(AppIcons.back),
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
       ),
       body: FutureBuilder<_ChecklistData>(

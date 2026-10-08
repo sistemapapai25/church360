@@ -100,7 +100,7 @@ class _ChurchSelectorScreenState extends ConsumerState<ChurchSelectorScreen> {
                     IconButton(
                       icon: const Icon(Icons.arrow_back),
                       tooltip: 'Voltar',
-                      onPressed: () => context.pop(),
+                      onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
                     ),
                   Expanded(
                     child: Column(

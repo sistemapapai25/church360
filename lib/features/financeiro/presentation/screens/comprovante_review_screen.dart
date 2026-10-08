@@ -65,7 +65,7 @@ class _ComprovanteReviewScreenState
 
   void _handleBack() {
     if (context.canPop()) {
-      context.pop();
+      (context.canPop() ? context.pop() : context.go('/home'));
     } else {
       context.go('/financial/lancamentos');
     }
@@ -1083,7 +1083,7 @@ class _ComprovanteReviewScreenState
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: _isSaving ? null : () => context.pop(),
+                onPressed: _isSaving ? null : () => (context.canPop() ? context.pop() : context.go('/home')),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: const StadiumBorder(),
@@ -1197,7 +1197,7 @@ class _ComprovanteReviewScreenState
             backgroundColor: Color(0xFF4CAF50),
           ),
         );
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e) {
       if (mounted) {

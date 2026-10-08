@@ -164,7 +164,7 @@ class GroupDetailScreen extends ConsumerWidget {
           ),
         );
 
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e) {
       if (context.mounted) {

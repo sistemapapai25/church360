@@ -61,7 +61,7 @@ class _LancamentosListScreenState extends ConsumerState<LancamentosListScreen> {
 
   void _handleBack() {
     if (context.canPop()) {
-      context.pop();
+      (context.canPop() ? context.pop() : context.go('/home'));
     } else {
       context.go('/financial');
     }

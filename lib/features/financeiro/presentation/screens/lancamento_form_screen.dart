@@ -117,7 +117,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
 
   void _handleBack() {
     if (context.canPop()) {
-      context.pop();
+      (context.canPop() ? context.pop() : context.go('/home'));
     } else {
       context.go('/financial/lancamentos');
     }
@@ -824,7 +824,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
           ref.invalidate(dashboardDataProvider);
           ref.invalidate(dashboardDataByPeriodProvider);
           ref.invalidate(filteredLancamentosProvider);
-          context.pop();
+          (context.canPop() ? context.pop() : context.go('/home'));
         }
       } catch (e) {
         if (mounted) {

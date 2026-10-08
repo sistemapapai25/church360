@@ -229,7 +229,7 @@ class ProfileScreen extends ConsumerWidget {
               OutlinedButton.icon(
                 onPressed: () {
                   if (context.canPop()) {
-                    context.pop();
+                    (context.canPop() ? context.pop() : context.go('/home'));
                   } else {
                     context.go('/');
                   }

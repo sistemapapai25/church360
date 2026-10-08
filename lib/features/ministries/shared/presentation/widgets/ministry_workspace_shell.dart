@@ -302,7 +302,7 @@ class _MinistryWorkspaceShellState
         leading: IconButton(
           icon: const Icon(AppIcons.back),
           tooltip: 'Voltar',
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
         title: Row(
           children: [

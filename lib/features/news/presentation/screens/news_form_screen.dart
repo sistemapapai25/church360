@@ -209,7 +209,7 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e) {
       if (mounted) {

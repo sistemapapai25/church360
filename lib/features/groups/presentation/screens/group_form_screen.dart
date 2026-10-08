@@ -201,7 +201,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
           ),
         );
 
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e) {
       if (mounted) {
@@ -233,7 +233,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
         backgroundColor: CommunityDesign.headerColor(context),
         leading: IconButton(
           icon: const Icon(AppIcons.back),
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
         title: Text(
           widget.groupId == null ? 'Novo Grupo' : 'Editar Grupo',

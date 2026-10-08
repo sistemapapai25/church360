@@ -43,7 +43,7 @@ class _ExtratoScreenState extends ConsumerState<ExtratoScreen> {
             icon: const Icon(AppIcons.back),
             onPressed: () {
               if (context.canPop()) {
-                context.pop();
+                (context.canPop() ? context.pop() : context.go('/home'));
               } else {
                 context.go('/financial');
               }

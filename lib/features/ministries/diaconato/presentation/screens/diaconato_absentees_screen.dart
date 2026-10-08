@@ -196,7 +196,7 @@ class _AbsenteesContentState extends ConsumerState<_AbsenteesContent> {
         title: const Text('Ausentes'),
         leading: IconButton(
           icon: const Icon(AppIcons.back),
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
       ),
       body: FutureBuilder<_AbsenteesData>(

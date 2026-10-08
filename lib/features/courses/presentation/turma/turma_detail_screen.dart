@@ -168,7 +168,7 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
         leading: IconButton(
           icon: const Icon(AppIcons.back),
           tooltip: 'Voltar',
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
         title: Text(
           turma.name,
@@ -326,7 +326,7 @@ class TurmaMessageScaffold extends StatelessWidget {
         leading: IconButton(
           icon: const Icon(AppIcons.back),
           tooltip: 'Voltar',
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
         title: Text(title),
       ),

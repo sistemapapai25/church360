@@ -38,7 +38,7 @@ class BranchesListScreen extends ConsumerWidget {
                 IconButton(
                   icon: const Icon(Icons.arrow_back),
                   tooltip: 'Voltar',
-                  onPressed: () => context.pop(),
+                  onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
                 ),
                 const SizedBox(width: 4),
                 Container(

@@ -74,7 +74,7 @@ class _FinanceiroDashboardScreenState extends ConsumerState<FinanceiroDashboardS
 
   void _handleBack() {
     if (context.canPop()) {
-      context.pop();
+      (context.canPop() ? context.pop() : context.go('/home'));
     } else {
       context.go('/home');
     }

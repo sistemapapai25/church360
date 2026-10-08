@@ -244,7 +244,7 @@ class _AssignRoleScreenState extends ConsumerState<AssignRoleScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _isLoading ? null : () => context.pop(),
+                    onPressed: _isLoading ? null : () => (context.canPop() ? context.pop() : context.go('/home')),
                     child: const Text('Cancelar'),
                   ),
                 ),
@@ -450,7 +450,7 @@ class _AssignRoleScreenState extends ConsumerState<AssignRoleScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Cargo atribuído com sucesso!')),
         );
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e) {
       if (mounted) {

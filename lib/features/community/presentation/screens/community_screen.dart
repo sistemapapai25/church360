@@ -47,7 +47,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
 
   void _handleBack() {
     if (context.canPop()) {
-      context.pop();
+      (context.canPop() ? context.pop() : context.go('/home'));
     } else {
       context.go('/home');
     }

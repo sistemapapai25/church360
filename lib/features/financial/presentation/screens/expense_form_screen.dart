@@ -142,7 +142,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e) {
       if (mounted) {
@@ -383,7 +383,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e) {
       if (mounted) {
