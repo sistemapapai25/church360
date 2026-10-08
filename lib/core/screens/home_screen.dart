@@ -1301,20 +1301,7 @@ class _HomeSocialShortcuts extends StatelessWidget {
           label: 'Instagram',
           icon: FontAwesomeIcons.instagram,
           color: const Color(0xFFD6249F),
-          // Gradiente oficial do ícone: amarelo no canto inferior esquerdo
-          // abrindo para laranja, rosa e roxo.
-          gradient: const RadialGradient(
-            center: Alignment(-0.6, 1.1),
-            radius: 1.5,
-            colors: [
-              Color(0xFFFDF497),
-              Color(0xFFFDF497),
-              Color(0xFFFD5949),
-              Color(0xFFD6249F),
-              Color(0xFF285AEB),
-            ],
-            stops: [0, 0.05, 0.45, 0.6, 0.9],
-          ),
+          gradient: CommunityDesign.instagramGradient,
           url: url,
         );
       } else if (rawKey.contains('facebook')) {
