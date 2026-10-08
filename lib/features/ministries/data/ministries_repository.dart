@@ -543,7 +543,9 @@ class MinistriesRepository {
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .order('created_at', ascending: false);
 
-    return (response as List).map((json) {
+    // Ordem pela data do EVENTO (mais recente primeiro), não por quando a
+    // linha foi gravada: o PostgREST não ordena o pai por coluna do embed.
+    final schedules = (response as List).map((json) {
       final event = json['event'];
       final ministry = json['ministry'];
       final member = json['user_account'];
@@ -569,6 +571,12 @@ class MinistriesRepository {
             : null,
       });
     }).toList();
+    schedules.sort((a, b) {
+      final da = a.eventStartDate, db = b.eventStartDate;
+      if (da == null || db == null) return da == null ? (db == null ? 0 : 1) : -1;
+      return db.compareTo(da);
+    });
+    return schedules;
   }
 
   /// Adicionar escala

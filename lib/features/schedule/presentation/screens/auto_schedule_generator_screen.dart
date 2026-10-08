@@ -543,60 +543,6 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
     );
   }
 
-  void _openSendPreview(List<Event> events) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Enviar Escala'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: events.length,
-              itemBuilder: (context, index) {
-                final e = events[index];
-                final dow = DateFormat('EEEE', 'pt_BR').format(e.startDate);
-                final day = DateFormat('dd/MM', 'pt_BR').format(e.startDate);
-                final hour = DateFormat('HH:mm', 'pt_BR').format(e.startDate);
-                final type = e.eventType ?? 'culto_normal';
-                String msg;
-                switch (type) {
-                  case 'reuniao_ministerio':
-                  case 'reuniao_externa':
-                    msg = 'Reunião${e.isMandatory ? ' obrigatória' : ''} dia $day - $hour${e.location != null ? ' em ${e.location}' : ''}. Sua presença é essencial!';
-                    break;
-                  case 'evento_conjunto':
-                    msg = 'Evento conjunto $day - $hour${e.location != null ? ' • ${e.location}' : ''}. Presenças/escala conforme funções definidas.';
-                    break;
-                  case 'lideranca_geral':
-                    msg = 'Reunião de Liderança Geral $day - $hour. Presença de líderes e coordenadores.';
-                    break;
-                  case 'vigilia':
-                    msg = 'Vigília $day - $hour • $dow. Escala por função (Louvor/Serviço).';
-                    break;
-                  case 'ensaio':
-                    msg = 'Ensaio $day - $hour. Escala por função (instrumentos/voz).';
-                    break;
-                  default:
-                    msg = 'Culto $day - $dow $hour. Escala por função (ex: Violão, Teclado, Back).';
-                }
-                return ListTile(
-                  leading: Icon(_iconForType(e.eventType)),
-                  title: Text(e.name),
-                  subtitle: Text(msg),
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
-          ],
-        );
-      },
-    );
-  }
-
   void _openScalePreview(List<Event> events) async {
     final ids = _selectedMinistryIds.isEmpty ? [widget.ministryId] : _selectedMinistryIds.toList();
     // Encontros com aulas deste ministério entram só para ver: o professor
@@ -1228,12 +1174,6 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
                       icon: const Icon(Icons.visibility),
                       label: const Text('Pré-visualizar/editar'),
                     ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: events.isEmpty ? null : () => _openSendPreview(events),
-                      icon: const Icon(Icons.send),
-                      label: const Text('Enviar escala'),
-                    ),
                   ],
                 ),
               ),
@@ -1518,12 +1458,6 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
                             },
                             icon: const Icon(Icons.picture_as_pdf),
                             label: const Text('Exportar PDF'),
-                          ),
-                          const SizedBox(width: 8),
-                          OutlinedButton.icon(
-                            onPressed: () => _openSendPreview([e]),
-                            icon: const Icon(Icons.send),
-                            label: const Text('Enviar'),
                           ),
                           const SizedBox(width: 8),
                           TextButton.icon(
