@@ -185,27 +185,6 @@ class _UpcomingEventsReportScreenState
                                   ),
                                 ],
                               ),
-                              Container(
-                                height: 50,
-                                width: 1,
-                                color: Colors.grey[300],
-                              ),
-                              Column(
-                                children: [
-                                  Text(
-                                    '${events.where((e) => e.isFree).length}',
-                                    style: TextStyle(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.orange[700],
-                                    ),
-                                  ),
-                                  Text(
-                                    'Gratuitos',
-                                    style: TextStyle(color: Colors.grey[700]),
-                                  ),
-                                ],
-                              ),
                             ],
                           ),
                         ),
@@ -259,7 +238,6 @@ class _UpcomingEventsReportScreenState
       statusText = 'Esta semana';
     }
 
-    final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
     final dateFormatter = DateFormat('dd/MM/yyyy HH:mm', 'pt_BR');
 
     return Padding(
@@ -360,15 +338,9 @@ class _UpcomingEventsReportScreenState
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  // Badge de preço
-                  _buildBadge(
-                    icon: AppIcons.attachMoney,
-                    label: event.isFree
-                        ? 'Gratuito'
-                        : formatter.format(event.price),
-                    color: event.isFree ? Colors.green : Colors.orange,
-                  ),
-
+                  // Sem selo de preço: event.price/isFree não existem no banco
+                  // (o preço mora em event_payment_config) e tudo saía
+                  // "Gratuito".
                   // Badge de inscrição
                   if (event.requiresRegistration)
                     _buildBadge(

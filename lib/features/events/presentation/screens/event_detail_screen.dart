@@ -936,7 +936,7 @@ class EventRegistrationBar extends ConsumerWidget {
                   context,
                   icon: const Icon(AppIcons.qrCode),
                   label: 'Ver meu ingresso',
-                  onTap: () => _mostrarIngresso(context),
+                  onTap: () => _mostrarIngresso(context, ref),
                 )
               : _cta(context, ref),
         ),
@@ -1034,7 +1034,7 @@ class EventRegistrationBar extends ConsumerWidget {
     );
   }
 
-  void _mostrarIngresso(BuildContext context) {
+  void _mostrarIngresso(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     showModalBottomSheet<void>(
       context: context,
@@ -1098,11 +1098,68 @@ class EventRegistrationBar extends ConsumerWidget {
                   child: const Text('Fechar'),
                 ),
               ),
+              if (memberId != null) ...[
+                const SizedBox(height: 8),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: theme.colorScheme.error,
+                  ),
+                  onPressed: () =>
+                      _cancelarInscricao(context, sheetContext, ref),
+                  child: const Text('Cancelar inscrição'),
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  /// A RLS de DELETE em event_registration já deixa o dono apagar a própria
+  /// inscrição (20260826000300); faltava o botão. A matrícula na turma, se o
+  /// evento matriculou, continua: sair da turma é outra ação.
+  Future<void> _cancelarInscricao(
+    BuildContext context,
+    BuildContext sheetContext,
+    WidgetRef ref,
+  ) async {
+    final confirmado = await showDialog<bool>(
+      context: sheetContext,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cancelar inscrição?'),
+        content: Text('Você deixa de estar inscrito em "${event.name}".'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Voltar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Cancelar inscrição'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true || !sheetContext.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(eventsRepositoryProvider)
+          .cancelRegistration(event.id, memberId!);
+      ref.invalidate(eventRegistrationsProvider(event.id));
+      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Inscrição cancelada.')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Não foi possível cancelar a inscrição: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }
 

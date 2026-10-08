@@ -13,6 +13,8 @@ import '../../../../core/widgets/pearl_fab.dart';
 import '../../../../core/widgets/status_badge.dart';
 
 import '../../../permissions/providers/permissions_providers.dart';
+import '../../../access_levels/domain/models/access_level.dart';
+import '../../../access_levels/presentation/providers/access_level_provider.dart';
 import '../providers/events_provider.dart';
 import '../utils/series_error.dart';
 import '../widgets/event_updates.dart';
@@ -349,12 +351,21 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
               const <TeachingLesson>[]
         : const <TeachingLesson>[];
 
-    final canCreate = ref
-        .watch(currentUserHasPermissionProvider('events.create'))
+    // Criar/editar: permissão OU nível líder, igual à rota e à policy de
+    // event (is_elevated_current_user). Excluir segue só por permissão.
+    final isLeaderLevel = ref
+        .watch(hasPermissionProvider(AccessLevelType.leader))
         .maybeWhen(data: (v) => v, orElse: () => false);
-    final canEdit = ref
-        .watch(currentUserHasPermissionProvider('events.edit'))
-        .maybeWhen(data: (v) => v, orElse: () => false);
+    final canCreate =
+        isLeaderLevel ||
+        ref
+            .watch(currentUserHasPermissionProvider('events.create'))
+            .maybeWhen(data: (v) => v, orElse: () => false);
+    final canEdit =
+        isLeaderLevel ||
+        ref
+            .watch(currentUserHasPermissionProvider('events.edit'))
+            .maybeWhen(data: (v) => v, orElse: () => false);
     final canDelete = ref
         .watch(currentUserHasPermissionProvider('events.delete'))
         .maybeWhen(data: (v) => v, orElse: () => false);
