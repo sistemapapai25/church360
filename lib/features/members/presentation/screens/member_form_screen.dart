@@ -636,7 +636,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     Future.delayed(const Duration(milliseconds: 250), () {
       if (!mounted) return;
       final formContext = _formKey.currentContext;
-      if (formContext == null) return;
+      if (formContext == null || !formContext.mounted) return;
       final alvo = primeiroCampoComErro(formContext);
       if (alvo == null) return;
       Scrollable.ensureVisible(
