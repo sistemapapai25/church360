@@ -29,6 +29,9 @@ class ScheduleRepository {
           .from('event')
           .select()
           .eq('tenant_id', SupabaseConstants.currentTenantId)
+          // Notícia é event_type 'news' e não é evento de agenda; neq sozinho
+          // tiraria também os eventos sem event_type.
+          .or('event_type.is.null,event_type.neq.news')
           .gte('start_date', startStr)
           .lte('start_date', endStr)
           .order('start_date', ascending: true);
