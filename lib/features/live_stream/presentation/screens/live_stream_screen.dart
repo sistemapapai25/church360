@@ -41,7 +41,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
 
   void _handleConfig(AsyncValue<LiveStreamConfig?> next) {
     final config = next.valueOrNull;
-    final url = (config?.streamUrl ?? '').trim();
+    // Culto desligado não expõe o link antigo (nem no "Abrir no navegador").
+    final url =
+        config?.isActive == true ? (config?.streamUrl ?? '').trim() : '';
     _currentUrl = url.isEmpty ? null : url;
     final nextVideoId = _extractVideoId(_currentUrl);
     if (nextVideoId == _videoId) return;
@@ -112,7 +114,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
           IconButton(
             tooltip: 'Abrir no navegador',
             icon: const Icon(Icons.open_in_new),
-            onPressed: _openInApp,
+            onPressed: _currentUrl == null ? null : _openInApp,
           ),
         ],
       ),
@@ -173,7 +175,7 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
                   ),
                   const Spacer(),
                   FilledButton.icon(
-                    onPressed: _openInApp,
+                    onPressed: _currentUrl == null ? null : _openInApp,
                     icon: const Icon(Icons.open_in_new),
                     label: const Text('Abrir'),
                   ),

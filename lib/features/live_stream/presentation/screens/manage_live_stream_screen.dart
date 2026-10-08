@@ -161,7 +161,7 @@ class _ManageLiveStreamScreenState extends ConsumerState<ManageLiveStreamScreen>
         data: (config) {
           if (!_loaded) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              _loadConfig(config);
+              if (mounted) setState(() => _loadConfig(config));
             });
           }
 
