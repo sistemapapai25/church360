@@ -187,51 +187,53 @@ class ManageNewsScreen extends ConsumerWidget {
                     trailing: Wrap(
                       spacing: 4,
                       children: [
-                        IconButton(
-                          icon: Icon(
-                            item.status == 'published'
-                                ? AppIcons.visibility
-                                : AppIcons.visibilityOff,
-                            size: 20,
-                          ),
-                          tooltip: item.status == 'published'
-                              ? 'Despublicar'
-                              : 'Publicar',
-                          onPressed: () async {
-                            final repo = ref.read(eventsRepositoryProvider);
-                            try {
-                              await repo.updateEvent(item.id, {
-                                'status': item.status == 'published'
-                                    ? 'draft'
-                                    : 'published',
-                              });
-                              ref.invalidate(allEventsProvider);
-                              ref.invalidate(activeEventsProvider);
-                              ref.invalidate(upcomingEventsProvider);
-                              ref.invalidate(recentNewsProvider);
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      item.status == 'published'
-                                          ? 'Notícia despublicada!'
-                                          : 'Notícia publicada!',
+                        // Publicar muda o status: mesma régua do Editar.
+                        if (canEdit)
+                          IconButton(
+                            icon: Icon(
+                              item.status == 'published'
+                                  ? AppIcons.visibility
+                                  : AppIcons.visibilityOff,
+                              size: 20,
+                            ),
+                            tooltip: item.status == 'published'
+                                ? 'Despublicar'
+                                : 'Publicar',
+                            onPressed: () async {
+                              final repo = ref.read(eventsRepositoryProvider);
+                              try {
+                                await repo.updateEvent(item.id, {
+                                  'status': item.status == 'published'
+                                      ? 'draft'
+                                      : 'published',
+                                });
+                                ref.invalidate(allEventsProvider);
+                                ref.invalidate(activeEventsProvider);
+                                ref.invalidate(upcomingEventsProvider);
+                                ref.invalidate(recentNewsProvider);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        item.status == 'published'
+                                            ? 'Notícia despublicada!'
+                                            : 'Notícia publicada!',
+                                      ),
                                     ),
-                                  ),
-                                );
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Erro ao atualizar: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
                               }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Erro ao atualizar: $e'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                        ),
+                            },
+                          ),
                         if (canEdit)
                           IconButton(
                             icon: const Icon(AppIcons.edit, size: 20),

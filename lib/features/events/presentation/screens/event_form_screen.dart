@@ -13,7 +13,8 @@ import '../../../../core/widgets/glass_card.dart';
 import '../providers/events_provider.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
 import '../../../permissions/providers/permissions_providers.dart';
-import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../access_levels/domain/models/access_level.dart';
+import '../../../access_levels/presentation/providers/access_level_provider.dart';
 import '../../domain/models/event_audience.dart';
 import '../../domain/models/event_reminder.dart';
 import '../../domain/models/event_series.dart';
@@ -2505,25 +2506,21 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
                     const SizedBox(height: 32),
 
                     // Botão salvar
-                    DisabledByPermission(
-                      permission: _isEditMode ? 'events.edit' : 'events.create',
-                      disabledTooltip: _isEditMode
-                          ? 'Você não tem permissão para editar eventos'
-                          : 'Você não tem permissão para criar eventos',
-                      child: FilledButton.icon(
-                        // S6/IC-6: enquanto a criação da série está em voo, o
-                        // botão fica desabilitado — anti duplo toque. Isto é
-                        // UX; não há transação por trás (Achado #3).
-                        onPressed: _seriesProgressTotal != null
-                            ? null
-                            : _saveEvent,
-                        icon: const Icon(AppIcons.save),
-                        label: Text(
-                          _isEditMode ? 'Salvar Alterações' : 'Criar Evento',
-                        ),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.all(16),
-                        ),
+                    // Quem chega aqui passou pela rota (permissão OU nível
+                    // líder, igual à policy de event); o _saveEvent confere.
+                    FilledButton.icon(
+                      // S6/IC-6: enquanto a criação da série está em voo, o
+                      // botão fica desabilitado — anti duplo toque. Isto é
+                      // UX; não há transação por trás (Achado #3).
+                      onPressed: _seriesProgressTotal != null
+                          ? null
+                          : _saveEvent,
+                      icon: const Icon(AppIcons.save),
+                      label: Text(
+                        _isEditMode ? 'Salvar Alterações' : 'Criar Evento',
+                      ),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.all(16),
                       ),
                     ),
                   ],
@@ -2586,10 +2583,15 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
       return;
     }
 
+    // Mesma régua da rota e da policy de event (supabase#112): permissão OU
+    // nível líder (is_elevated_current_user). Só a permissão barrava o líder
+    // que a rota deixou entrar.
     final requiredPermission = _isEditMode ? 'events.edit' : 'events.create';
-    final hasPermission = await ref.read(
-      currentUserHasPermissionProvider(requiredPermission).future,
-    );
+    final hasPermission =
+        await ref.read(
+          currentUserHasPermissionProvider(requiredPermission).future,
+        ) ||
+        await ref.read(hasPermissionProvider(AccessLevelType.leader).future);
     if (!hasPermission) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
