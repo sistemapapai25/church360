@@ -449,6 +449,7 @@ final appRouter = GoRouter(
         return MemberFormScreen(
           initialMemberType: type,
           initialStatus: status,
+          kidsByStaff: state.uri.queryParameters['staff'] == '1',
         );
       },
     ),

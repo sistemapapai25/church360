@@ -55,7 +55,7 @@ class _KidsAdminDashboardScreenState extends ConsumerState<KidsAdminDashboardScr
             icon: const Icon(Icons.person_add),
             onPressed: () {
               // Navegar para criação de membro pré-setado como criança
-              context.push(Uri(path: '/members/new', queryParameters: {'type': 'crianca'}).toString());
+              context.push(Uri(path: '/members/new', queryParameters: {'type': 'crianca', 'staff': '1'}).toString());
             },
             tooltip: 'Cadastrar Criança',
           ),

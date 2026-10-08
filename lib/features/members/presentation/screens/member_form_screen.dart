@@ -28,12 +28,16 @@ class MemberFormScreen extends ConsumerStatefulWidget {
   final String? initialStatus; // Status inicial ao criar (ex: 'visitor')
   final String?
   initialMemberType; // Tipo de membro inicial (ex: 'member', 'visitor')
+  /// Criança cadastrada pela equipe Kids: escolhe o responsável em vez de
+  /// ligar a criança a quem está cadastrando.
+  final bool kidsByStaff;
 
   const MemberFormScreen({
     super.key,
     this.memberId,
     this.initialStatus,
     this.initialMemberType,
+    this.kidsByStaff = false,
   });
 
   @override
@@ -137,7 +141,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   // (ver _saveMember), então só exigimos a seleção manual do responsável
   // quando o cadastro é feito pela tela administrativa de membros.
   bool get _requiresGuardianLink {
-    if (_isKidsFlowType) return false;
+    if (_isKidsFlowType) return widget.kidsByStaff && widget.memberId == null;
     final age = _computedAgeYears;
     return age != null && age <= _minorGuardianAgeThresholdYears;
   }
@@ -771,7 +775,10 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         final currentMember = await ref.read(currentMemberProvider.future);
 
         if (_isKidsFlowType) {
-          final householdId = currentMember?.householdId ?? currentMember?.id;
+          final household = widget.kidsByStaff
+              ? _selectedGuardianMember
+              : currentMember;
+          final householdId = household?.householdId ?? household?.id;
           if (householdId != null && householdId.trim().isNotEmpty) {
             memberData['household_id'] = householdId.trim();
           }
@@ -918,7 +925,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       if (savedMemberId != null) {
         try {
           final familyRepo = ref.read(familyRelationshipsRepositoryProvider);
-          if (_isKidsFlowType && widget.memberId == null) {
+          if (_isKidsFlowType &&
+              widget.memberId == null &&
+              !widget.kidsByStaff) {
             final creator = await ref.read(currentMemberProvider.future);
             if (creator != null) {
               final creatorIsFemale =

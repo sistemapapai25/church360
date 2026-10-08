@@ -164,6 +164,8 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
     final memberAsync = ref.watch(memberByIdProvider(widget.userId));
     final permissionsAsync = ref.watch(permissionsProvider);
     final effectiveAsync = ref.watch(userEffectivePermissionsProvider(widget.userId));
+    final isOwner =
+        ref.watch(userIsOwnerProvider(widget.userId)).valueOrNull ?? false;
 
     // Categorias vindas dos dados: a lista hardcoded tinha 13 itens e o tenant
     // tem 28, então 15 categorias não eram filtráveis (CHU-318).
@@ -271,7 +273,18 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
           if (_isSaving) const LinearProgressIndicator(),
 
           Expanded(
-            child: effectiveAsync.when(
+            child: isOwner
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text(
+                        'Este usuário é Owner: tem acesso total ao sistema, '
+                        'sem depender de cargo ou permissão avulsa.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  )
+                : effectiveAsync.when(
               data: (effective) {
                 // Mapear permissões por código para facilitar acesso
                 final effectiveMap = <String, List<UserEffectivePermission>>{};

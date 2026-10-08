@@ -313,6 +313,12 @@ final currentUserIsOwnerProvider = FutureProvider<bool>((ref) async {
   return repository.isOwnerByMemberId(member.id);
 });
 
+/// Provider: o membro (user_account.id) é `owner`? O owner passa por cima do
+/// RBAC, então a tela de permissões dele não pode mostrar tudo desligado.
+final userIsOwnerProvider = FutureProvider.family<bool, String>((ref, memberId) {
+  return ref.watch(permissionsRepositoryProvider).isOwnerByMemberId(memberId);
+});
+
 // =====================================================
 // PROVIDERS DE AUDITORIA
 // =====================================================
