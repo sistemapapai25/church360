@@ -371,7 +371,7 @@ class _AuditLogScreenState extends ConsumerState<AuditLogScreen> {
       const _AuditActionOption(null, 'Todas'),
       const _AuditActionOption('assign_role', 'Atribuir Cargo'),
       const _AuditActionOption('remove_role', 'Remover Cargo'),
-      const _AuditActionOption('update_permissions', 'Atualizar Permissäes'),
+      const _AuditActionOption('update_permissions', 'Atualizar Permissões'),
       const _AuditActionOption('create_role', 'Criar Cargo'),
       const _AuditActionOption('update_role', 'Atualizar Cargo'),
     ];
@@ -391,7 +391,7 @@ class _AuditLogScreenState extends ConsumerState<AuditLogScreen> {
 
               DropdownMenu<_AuditActionOption>(
                 initialSelection: selectedAction,
-                label: const Text('A‡Æo'),
+                label: const Text('Ação'),
                 dropdownMenuEntries: actionOptions
                   .map((option) => DropdownMenuEntry<_AuditActionOption>(
                     value: option,

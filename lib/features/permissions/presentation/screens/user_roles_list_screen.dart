@@ -20,7 +20,6 @@ class UserRolesListScreen extends ConsumerStatefulWidget {
 
 class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
   String _searchQuery = '';
-  bool _showExpired = false;
   final _searchController = TextEditingController();
 
   @override
@@ -39,17 +38,6 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
           'Usuários e Cargos',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(_showExpired ? Icons.visibility : Icons.visibility_off),
-            tooltip: _showExpired ? 'Ocultar expirados' : 'Mostrar expirados',
-            onPressed: () {
-              setState(() {
-                _showExpired = !_showExpired;
-              });
-            },
-          ),
-        ],
       ),
       body: Column(
         children: [
