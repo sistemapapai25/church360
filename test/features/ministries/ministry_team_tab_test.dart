@@ -1,7 +1,10 @@
 import 'package:church360_app/core/theme/app_theme.dart';
+import 'package:church360_app/features/ministries/data/ministries_repository.dart';
 import 'package:church360_app/features/ministries/domain/models/ministry.dart';
 import 'package:church360_app/features/ministries/presentation/providers/ministries_provider.dart';
 import 'package:church360_app/features/ministries/shared/presentation/widgets/ministry_team_tab.dart';
+import 'package:church360_app/features/permissions/data/role_contexts_repository.dart';
+import 'package:church360_app/features/permissions/domain/models/role_context.dart';
 import 'package:church360_app/features/permissions/providers/permissions_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,9 +26,35 @@ MinistryMember _member(String name, MinistryRole role, {String? cargoName}) {
   );
 }
 
+// Batismo em 08/10: cargos ligados, mas só "Professor(a)" como função.
+class _FakeContexts extends Fake implements RoleContextsRepository {
+  @override
+  Future<List<RoleContext>> getContextsByMinistry(String ministryId) async => [
+    const RoleContext(
+      id: 'c1',
+      roleId: 'r1',
+      contextName: 'Líder – Batismo',
+      metadata: {
+        'ministry_id': _ministryId,
+        'functions': ['Professor(a)'],
+      },
+    ),
+  ];
+}
+
+class _FakeMinistries extends Fake implements MinistriesRepository {
+  @override
+  Future<Map<String, List<String>>> getMemberFunctionsByMinistry(
+    String ministryId,
+  ) async => {};
+}
+
 Widget _host(List<MinistryMember> members, {bool canManage = false}) {
   return ProviderScope(
     overrides: [
+      roleContextsRepositoryProvider.overrideWithValue(_FakeContexts()),
+      ministriesRepositoryProvider.overrideWithValue(_FakeMinistries()),
+      allRolesProvider.overrideWith((ref) async => const []),
       ministryMembersProvider(_ministryId).overrideWith((ref) async => members),
       currentUserHasPermissionProvider(
         'ministries.manage_members',
@@ -168,5 +197,39 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ninguém na equipe bate com essa busca.'), findsOneWidget);
+  });
+
+  testWidgets('Alterar função cria função nova e marca, mesmo sem cargo', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      _host([_member('Ana', MinistryRole.member)], canManage: true),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Alterar função'));
+    await tester.pumpAndSettle();
+
+    // A lista é do ministério: aparece sem cargo escolhido.
+    expect(
+      find.widgetWithText(CheckboxListTile, 'Professor(a)'),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Nova função'),
+      'Recepção',
+    );
+    await tester.tap(find.byTooltip('Adicionar função'));
+    await tester.pumpAndSettle();
+
+    final nova = tester.widget<CheckboxListTile>(
+      find.widgetWithText(CheckboxListTile, 'Recepção'),
+    );
+    expect(nova.value, isTrue);
   });
 }
