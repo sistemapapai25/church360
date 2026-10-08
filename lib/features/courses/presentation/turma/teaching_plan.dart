@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -67,18 +69,19 @@ typedef PlannedRow = ({
   String? eventId,
 });
 
-/// Distribuir pelos encontros (D1): o horário de cada encontro é dividido
-/// igualmente entre as matérias, e cada matéria tem sempre o mesmo horário
-/// dentro do encontro. Em cada encontro, a matéria que ainda tem aula
-/// prevista ganha a próxima; a que terminou deixa o horário vago.
-/// Encontro que já tem aula desta turma é pulado (rodar de novo não
-/// duplica); encontro sem término ou com menos de 1 min por matéria também.
+/// Distribuir pelos encontros (D1), como os 23 tópicos do Batismo: as aulas
+/// que faltam entram em sequência (uma rodada de cada matéria, depois a
+/// próxima) e são espalhadas por igual entre os encontros, os primeiros
+/// levando a sobra (23 em 10 → 3,3,3,2,...). Um encontro nunca leva mais
+/// aulas do que matérias ainda pendentes, e o horário dele é dividido entre
+/// as aulas que recebeu. Encontro que já tem aula desta turma é pulado
+/// (rodar de novo não duplica); encontro sem término ou com menos de 1 min
+/// por aula também.
 List<PlannedRow> planEventLessons({
   required List<CourseSubject> subjects,
   required List<StudyLesson> lessons,
   required List<Event> events,
 }) {
-  if (subjects.isEmpty) return const [];
   var number = lessons.fold(
     0,
     (max, l) => l.lessonNumber > max ? l.lessonNumber : max,
@@ -87,30 +90,46 @@ List<PlannedRow> planEventLessons({
     for (final s in subjects)
       s.id: lessons.where((l) => l.subjectId == s.id).length,
   };
+  final queue = <CourseSubject>[];
+  for (var round = 0; ; round++) {
+    final next = [
+      for (final s in subjects)
+        if (done[s.id]! + round < s.lessonCount) s,
+    ];
+    if (next.isEmpty) break;
+    queue.addAll(next);
+  }
   final used = {for (final l in lessons) ?l.eventId};
+  final free = [
+    for (final e in events)
+      if (!used.contains(e.id) && e.endDate != null) e,
+  ];
   final rows = <PlannedRow>[];
-  for (final e in events) {
-    final end = e.endDate;
-    if (used.contains(e.id) || end == null) continue;
-    final slot = end.difference(e.startDate).inMinutes ~/ subjects.length;
+  var u = 0;
+  for (var i = 0; i < free.length && u < queue.length; i++) {
+    final left = queue.length - u, slots = free.length - i;
+    final pending = {for (final s in queue.skip(u)) s.id}.length;
+    final take = min(pending, (left + slots - 1) ~/ slots);
+    final e = free[i];
+    final slot = e.endDate!.difference(e.startDate).inMinutes ~/ take;
     if (slot < 1) continue;
     final start = e.startDate.hour * 60 + e.startDate.minute;
-    for (var i = 0; i < subjects.length; i++) {
-      final s = subjects[i];
-      if (done[s.id]! >= s.lessonCount) continue;
+    for (var j = 0; j < take; j++) {
+      final s = queue[u + j];
       final n = done[s.id] = done[s.id]! + 1;
       rows.add((
         lesson: (
           subject: s,
           lessonNumber: ++number,
           title: '${s.title} — $n/${s.lessonCount}',
-          start: start + i * slot,
+          start: start + j * slot,
         ),
         date: DateTime(e.startDate.year, e.startDate.month, e.startDate.day),
         duration: slot,
         eventId: e.id,
       ));
     }
+    u += take;
   }
   return rows;
 }
@@ -335,7 +354,7 @@ Future<List<CourseTurma>> ministryActiveTurmas(
 }
 
 /// O Distribuir "Nos encontros" feito pelo gerador: cria em [encounters]
-/// as próximas aulas de cada matéria da [turma], como rascunho e sem
+/// as aulas que faltam da [turma], em sequência, como rascunho e sem
 /// professor (o gerador preenche logo depois). Devolve quantas criou.
 Future<int> distributeIntoEncounters(
   WidgetRef ref, {
@@ -638,9 +657,10 @@ class _DistributeLessonsSheetState
         const SizedBox(height: 12),
         if (_byEvent) ...[
           Text(
-            'O horário de cada encontro (evento tipo Aula) é dividido '
-            'igualmente entre as matérias; cada encontro recebe a próxima '
-            'aula de cada matéria. O professor entra na escala do evento.',
+            'As aulas que faltam são espalhadas em sequência pelos encontros '
+            '(eventos tipo Aula), por igual: 23 matérias em 10 encontros '
+            'dão 2 ou 3 por encontro, e o horário dele é dividido entre '
+            'elas. O professor entra na escala do evento.',
             style: CommunityDesign.metaStyle(context),
           ),
           const SizedBox(height: 12),
@@ -809,6 +829,9 @@ class _TeachingScheduleSheetState extends ConsumerState<TeachingScheduleSheet> {
   bool _saving = false;
   String? _error;
 
+  /// Refaz o professor das aulas de hoje em diante (e sem data).
+  bool _redistribute = false;
+
   Future<void> _apply(List<(StudyLesson, String)> changes) async {
     setState(() {
       _saving = true;
@@ -842,6 +865,10 @@ class _TeachingScheduleSheetState extends ConsumerState<TeachingScheduleSheet> {
     final block = lessonsInScheduleOrder(
       widget.lessons.where((l) => l.status != LessonStatus.archived),
     );
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    bool reopen(StudyLesson l) =>
+        _redistribute && !(l.scheduledDate?.isBefore(today) ?? false);
 
     return FutureBuilder(
       future: _pool,
@@ -859,7 +886,10 @@ class _TeachingScheduleSheetState extends ConsumerState<TeachingScheduleSheet> {
           final result = assignTeachers(
             [
               for (final l in block)
-                (current: l.teacherId, subjectDefault: defaults[l.subjectId]),
+                (
+                  current: reopen(l) ? null : l.teacherId,
+                  subjectDefault: defaults[l.subjectId],
+                ),
             ],
             eligible: pool.names.keys.toSet(),
             rotation: pool.rotation,
@@ -868,8 +898,9 @@ class _TeachingScheduleSheetState extends ConsumerState<TeachingScheduleSheet> {
               result.where((r) => r.source == s).length;
           final changes = [
             for (var i = 0; i < block.length; i++)
-              if (result[i].source == TeacherSource.subjectDefault ||
-                  result[i].source == TeacherSource.rotation)
+              if ((result[i].source == TeacherSource.subjectDefault ||
+                      result[i].source == TeacherSource.rotation) &&
+                  result[i].teacherId != block[i].teacherId)
                 (block[i], result[i].teacherId!),
           ];
           if (changes.isNotEmpty) onApply = () => _apply(changes);
@@ -934,7 +965,20 @@ class _TeachingScheduleSheetState extends ConsumerState<TeachingScheduleSheet> {
               'professores do ministério. Quem já está na aula não muda.',
               style: CommunityDesign.metaStyle(context),
             ),
-            const SizedBox(height: 16),
+            SwitchListTile(
+              key: const ValueKey('teaching-redistribute'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Redistribuir as aulas futuras'),
+              subtitle: const Text(
+                'Refaz o rodízio das aulas de hoje em diante, inclusive as '
+                'que já têm professor. Aulas passadas não mudam.',
+              ),
+              value: _redistribute,
+              onChanged: _saving
+                  ? null
+                  : (v) => setState(() => _redistribute = v),
+            ),
+            const SizedBox(height: 8),
             preview,
             if (_error != null) ...[
               const SizedBox(height: 12),
