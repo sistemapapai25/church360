@@ -638,6 +638,24 @@ class MinistriesRepository {
     return (response as List).length;
   }
 
+  /// Substitui a escala de (eventos x ministérios) numa transação, por
+  /// diferença (RPC replace_ministry_schedule, supabase#120). Linhas:
+  /// {event_id, ministry_id, user_id, function_id?, notes?}.
+  Future<void> replaceMinistrySchedule({
+    required List<String> eventIds,
+    required List<String> ministryIds,
+    required List<Map<String, dynamic>> rows,
+  }) async {
+    await _supabase.rpc(
+      'replace_ministry_schedule',
+      params: {
+        'p_event_ids': eventIds,
+        'p_ministry_ids': ministryIds,
+        'p_rows': rows,
+      },
+    );
+  }
+
   /// Remover escala
   Future<void> removeSchedule(String id) async {
     await _supabase

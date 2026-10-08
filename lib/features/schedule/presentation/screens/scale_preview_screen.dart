@@ -564,14 +564,13 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       final ids = widget.jointMinistryIds.isEmpty
           ? [widget.ministryId]
           : widget.jointMinistryIds;
-      for (final e in _events) {
-        if (widget.lockedEventIds.contains(e.id)) continue;
-        final existing = await repo.getEventSchedules(e.id);
-        for (final s in existing.where((s) => ids.contains(s.ministryId))) {
-          await repo.removeSchedule(s.id);
-        }
-      }
-      final Set<String> seen = {};
+      // Uma transação só, por diferença (supabase#120): apaga quem saiu,
+      // insere quem entrou; erro no meio não deixa a escala pela metade.
+      final eventIds = [
+        for (final e in _events)
+          if (!widget.lockedEventIds.contains(e.id)) e.id,
+      ];
+      final rows = <Map<String, dynamic>>[];
       for (final entry in _assignmentsByEvent.entries) {
         if (widget.lockedEventIds.contains(entry.key)) continue;
         for (final a in entry.value.where(
@@ -579,19 +578,21 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
         )) {
           final notes = (a['notes'] ?? '').toString();
           final fid = notes.isNotEmpty ? fidForFunc(notes) : null;
-          final k =
-              '${a['event_id']}|${a['ministry_id']}|${a['user_id']}|${fid ?? ''}';
-          if (seen.add(k)) {
-            final data = {
-              'event_id': a['event_id'],
-              'ministry_id': a['ministry_id'],
-              'user_id': a['user_id'],
-              if (fid != null && fid.isNotEmpty) 'function_id': fid,
-              if (notes.isNotEmpty) 'notes': notes,
-            };
-            await repo.addSchedule(data);
-          }
+          rows.add({
+            'event_id': a['event_id'],
+            'ministry_id': a['ministry_id'],
+            'user_id': a['user_id'],
+            if (fid != null && fid.isNotEmpty) 'function_id': fid,
+            if (notes.isNotEmpty) 'notes': notes,
+          });
         }
+      }
+      if (eventIds.isNotEmpty) {
+        await repo.replaceMinistrySchedule(
+          eventIds: eventIds,
+          ministryIds: ids,
+          rows: rows,
+        );
       }
       for (final e in _events) {
         ref.invalidate(eventSchedulesProvider(e.id));
