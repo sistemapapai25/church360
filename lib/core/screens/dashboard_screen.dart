@@ -523,6 +523,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 'prayer_requests.moderate',
                 'devotionals.edit',
                 'live_stream.manage',
+                'support.attend',
                 'financial.manage',
                 'financial.view',
               ],
@@ -561,6 +562,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     icon: Icons.live_tv,
                     title: 'Culto ao vivo',
                     route: '/live-stream/manage',
+                  ),
+                ),
+                // Atendimentos (chat de suporte passado para uma pessoa)
+                PermissionGate(
+                  permission: 'support.attend',
+                  child: const _DrawerMenuItem(
+                    icon: Icons.support_agent,
+                    title: 'Atendimentos',
+                    route: '/support/attend',
                   ),
                 ),
                 // Contribuição

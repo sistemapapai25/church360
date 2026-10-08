@@ -98,6 +98,13 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   Map<String, dynamic> _remoteChatPreferences = const {};
   bool _remoteChatPreferencesLoaded = false;
 
+  // Conversa com atendente da igreja (support_session): enquanto não for 'bot', o Moisés fica
+  // quieto e as falas do atendente chegam por polling.
+  String? _supportSessionId;
+  String _supportStatus = 'bot';
+  Timer? _humanPoll;
+  static const _humanSeenKey = 'support_human_seen_at';
+
   static const int _maxLocalMessagesPerAgent = 50;
 
   void _handleTextChanged() {
@@ -203,6 +210,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     _audioPlayer.dispose();
     _audioRecorder.dispose();
     _tts.stop();
+    _humanPoll?.cancel();
     super.dispose();
   }
 
@@ -257,6 +265,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     await _loadRemoteChatPreferencesSafely();
     await _loadThreadSafely();
     await _loadLocalHistorySafely();
+    await _syncSupportSession();
 
     if (!mounted) return;
     if (_messages.isEmpty) {
@@ -708,6 +717,81 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         ),
       ),
     );
+  }
+
+  void _applySupportStatus(String? sessionId, String status) {
+    final wasHuman = _supportStatus != 'bot';
+    _supportSessionId = status == 'encerrada' ? null : sessionId;
+    _supportStatus = status == 'encerrada' ? 'bot' : status;
+    if (wasHuman && _supportStatus == 'bot' && mounted) {
+      setState(() {
+        _messages.add({
+          'role': 'system',
+          'content': status == 'encerrada'
+              ? 'Atendimento encerrado.'
+              : '${_agent.name} voltou a atender.',
+          'time': DateTime.now(),
+          'isError': false,
+        });
+      });
+      _scrollToBottom();
+    }
+    if (_supportStatus == 'bot') {
+      _humanPoll?.cancel();
+      _humanPoll = null;
+    } else {
+      _humanPoll ??= Timer.periodic(const Duration(seconds: 5), (_) => _syncSupportSession());
+    }
+  }
+
+  Future<void> _syncSupportSession() async {
+    try {
+      final client = Supabase.instance.client;
+      final uid = client.auth.currentUser?.id;
+      if (uid == null) return;
+      final session = _supportSessionId != null
+          ? await client
+              .from('support_session')
+              .select('id,status')
+              .eq('id', _supportSessionId!)
+              .maybeSingle()
+          : await client
+              .from('support_session')
+              .select('id,status')
+              .eq('user_id', uid)
+              .neq('status', 'encerrada')
+              .order('last_message_at', ascending: false)
+              .limit(1)
+              .maybeSingle();
+      if (session == null) return;
+      final id = session['id'].toString();
+
+      final prefs = await SharedPreferences.getInstance();
+      final seen = prefs.getString(_humanSeenKey);
+      var query = client
+          .from('support_message')
+          .select('content,created_at')
+          .eq('session_id', id)
+          .eq('role', 'humano');
+      if (seen != null) query = query.gt('created_at', seen);
+      final rows = await query.order('created_at');
+      if (!mounted) return;
+      if (rows.isNotEmpty) {
+        setState(() {
+          for (final r in rows) {
+            _messages.add({
+              'role': 'assistant',
+              'content': 'Atendente da igreja:\n${r['content']}',
+              'time': DateTime.tryParse(r['created_at'].toString())?.toLocal() ?? DateTime.now(),
+            });
+          }
+        });
+        await prefs.setString(_humanSeenKey, rows.last['created_at'].toString());
+        await _saveLocalHistorySafely();
+        _scrollToBottom();
+      }
+      _applySupportStatus(id, session['status'].toString());
+    } catch (_) {}
   }
 
   Future<void> _loadThreadSafely() async {
@@ -1466,6 +1550,13 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       if (newThreadId != null && newThreadId.isNotEmpty && newThreadId != _threadId) {
         await _saveThread(newThreadId);
       }
+
+      final sessionStatus = data['sessionStatus']?.toString();
+      if (sessionStatus != null) {
+        _applySupportStatus(data['sessionId']?.toString(), sessionStatus);
+      }
+      // Com atendente, a function não responde: a fala do atendente chega pelo polling.
+      if (replyRaw.trim().isEmpty && _supportStatus != 'bot') return;
 
       final contactParsed = _parseContactUpdateProposal(replyRaw);
       final parsed = _parseTransferSuggest((contactParsed['text'] ?? '').toString());
