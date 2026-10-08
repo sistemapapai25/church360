@@ -35,7 +35,15 @@ class FinanceiroExports {
       periodLabel = 'Até ${dateFmt.format(endDate)}';
     }
 
-    final total = lancamentos.fold<double>(0.0, (sum, l) => sum + l.valor);
+    // Receita e despesa somadas viravam um "Total" sem sentido; cancelado
+    // não é dinheiro que entrou nem saiu.
+    final validos = lancamentos.where((l) => l.status != StatusLancamento.cancelado);
+    final receitas = validos
+        .where((l) => !l.isDespesa)
+        .fold<double>(0.0, (sum, l) => sum + l.valor);
+    final despesas = validos
+        .where((l) => l.isDespesa)
+        .fold<double>(0.0, (sum, l) => sum + l.valor);
     final totalPago = lancamentos
         .where((l) => l.status == StatusLancamento.pago)
         .fold<double>(0.0, (sum, l) => sum + (l.valorPago ?? l.valor));
@@ -53,7 +61,9 @@ class FinanceiroExports {
             if (periodLabel != null) pw.Text('Período: $periodLabel'),
             pw.SizedBox(height: 8),
             pw.Text('Itens: ${lancamentos.length}'),
-            pw.Text('Total: ${money.format(total)}'),
+            pw.Text('Receitas: ${money.format(receitas)}'),
+            pw.Text('Despesas: ${money.format(despesas)}'),
+            pw.Text('Saldo: ${money.format(receitas - despesas)}'),
             pw.Text('Total pago: ${money.format(totalPago)}'),
             pw.SizedBox(height: 16),
             _buildLancamentosTable(lancamentos, dateFmt, money),

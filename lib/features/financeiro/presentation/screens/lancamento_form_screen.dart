@@ -46,6 +46,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
   DateTime _vencimento = DateTime.now();
   FormaPagamento _formaPagamento = FormaPagamento.pix;
   bool _isLoading = false;
+  Lancamento? _lancamento;
   FinancialAttachment? _attachment;
   bool _isRecurring = false;
   String _recurrenceFrequency = 'MONTHLY';
@@ -79,6 +80,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
       final lancamento = await ref.read(lancamentoByIdProvider(widget.lancamentoId!).future);
       if (lancamento != null && mounted) {
         setState(() {
+          _lancamento = lancamento;
           _descricaoController.text = lancamento.descricao ?? '';
           _valorController.text = lancamento.valor.toStringAsFixed(2);
           _observacoesController.text = lancamento.observacoes ?? '';
@@ -123,6 +125,68 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
     }
   }
 
+  Future<void> _runAction(String action) async {
+    final lancamento = _lancamento!;
+    if (action != 'pagar') {
+      final excluir = action == 'excluir';
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(excluir ? 'Excluir lançamento' : 'Cancelar lançamento'),
+          content: Text(excluir
+              ? 'O lançamento some das listas e dos relatórios.'
+              : 'O lançamento fica como Cancelado e sai dos totais.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Voltar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(excluir ? 'Excluir' : 'Cancelar lançamento'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final repo = ref.read(lancamentosRepositoryProvider);
+      switch (action) {
+        case 'pagar':
+          await repo.pagarLancamento(
+            id: lancamento.id,
+            dataPagamento: DateTime.now(),
+            valorPago: lancamento.valor,
+          );
+        case 'cancelar':
+          await repo.cancelarLancamento(lancamento.id);
+        case 'excluir':
+          await repo.deleteLancamento(lancamento.id);
+      }
+      ref.invalidate(allLancamentosProvider);
+      ref.invalidate(dashboardDataProvider);
+      ref.invalidate(dashboardDataByPeriodProvider);
+      ref.invalidate(filteredLancamentosProvider);
+      ref.invalidate(lancamentoByIdProvider(lancamento.id));
+      if (mounted) _handleBack();
+    } catch (e) {
+      if (mounted) {
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'finance.transaction_form.$action',
+          fallbackMessage:
+              'Nao foi possivel concluir a acao. Tente novamente.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Theme(
@@ -135,6 +199,38 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
             icon: const Icon(AppIcons.back),
             onPressed: _handleBack,
           ),
+          actions: [
+            if (_lancamento != null)
+              PopupMenuButton<String>(
+                tooltip: 'Ações',
+                onSelected: _runAction,
+                itemBuilder: (context) => [
+                  if (_lancamento!.status == StatusLancamento.emAberto)
+                    const PopupMenuItem(
+                      value: 'pagar',
+                      child: ListTile(
+                        leading: Icon(AppIcons.checkCircle),
+                        title: Text('Marcar como pago'),
+                      ),
+                    ),
+                  if (_lancamento!.status != StatusLancamento.cancelado)
+                    const PopupMenuItem(
+                      value: 'cancelar',
+                      child: ListTile(
+                        leading: Icon(AppIcons.cancel),
+                        title: Text('Cancelar lançamento'),
+                      ),
+                    ),
+                  const PopupMenuItem(
+                    value: 'excluir',
+                    child: ListTile(
+                      leading: Icon(AppIcons.delete),
+                      title: Text('Excluir'),
+                    ),
+                  ),
+                ],
+              ),
+          ],
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -793,7 +889,8 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
         'vencimento': _vencimento.toIso8601String(),
         'forma_pagamento': _formaPagamento.value,
         'observacoes': _observacoesController.text.isEmpty ? null : _observacoesController.text,
-        'status': StatusLancamento.emAberto.value,
+        // Editar não mexe no status: um pago voltaria para "Em Aberto".
+        if (!_isEditMode) 'status': StatusLancamento.emAberto.value,
         'is_recurring': _isRecurring,
         'recurrence_frequency': _isRecurring ? _recurrenceFrequency : null,
         'recurrence_interval': _isRecurring ? _recurrenceInterval : 1,

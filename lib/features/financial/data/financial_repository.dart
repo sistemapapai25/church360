@@ -300,6 +300,8 @@ class FinancialRepository {
         .select(_lancamentosSelect)
         .eq('tipo', 'RECEITA')
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('status', 'PAGO')
+        .isFilter('deleted_at', null)
         .or(kLancamentosIgrejaScope)
         .order('vencimento', ascending: false);
 
@@ -319,6 +321,8 @@ class FinancialRepository {
         .eq('tipo', 'RECEITA')
         .eq('beneficiario_id', beneficiaryId)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('status', 'PAGO')
+        .isFilter('deleted_at', null)
         .or(kLancamentosIgrejaScope)
         .order('vencimento', ascending: false);
 
@@ -340,6 +344,8 @@ class FinancialRepository {
         .eq('tipo', 'RECEITA')
         .eq('categoria_id', categoryId)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('status', 'PAGO')
+        .isFilter('deleted_at', null)
         .or(kLancamentosIgrejaScope)
         .order('vencimento', ascending: false);
 
@@ -360,6 +366,8 @@ class FinancialRepository {
         .gte('vencimento', startDate.toIso8601String().split('T')[0])
         .lte('vencimento', endDate.toIso8601String().split('T')[0])
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('status', 'PAGO')
+        .isFilter('deleted_at', null)
         .or(kLancamentosIgrejaScope)
         .order('vencimento', ascending: false);
 
@@ -481,6 +489,8 @@ class FinancialRepository {
         .select('valor, valor_pago')
         .eq('tipo', 'RECEITA')
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('status', 'PAGO')
+        .isFilter('deleted_at', null)
         .or(kLancamentosIgrejaScope);
 
     double total = 0;
@@ -503,6 +513,8 @@ class FinancialRepository {
         .eq('tipo', 'RECEITA')
         .eq('categoria_id', categoryId)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('status', 'PAGO')
+        .isFilter('deleted_at', null)
         .or(kLancamentosIgrejaScope);
 
     double total = 0;
@@ -524,6 +536,8 @@ class FinancialRepository {
         .gte('vencimento', startDate.toIso8601String().split('T')[0])
         .lte('vencimento', endDate.toIso8601String().split('T')[0])
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('status', 'PAGO')
+        .isFilter('deleted_at', null)
         .or(kLancamentosIgrejaScope);
 
     double total = 0;
@@ -626,6 +640,8 @@ class FinancialRepository {
         .select(_lancamentosSelect)
         .eq('tipo', 'DESPESA')
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('status', 'PAGO')
+        .isFilter('deleted_at', null)
         .or(kLancamentosIgrejaScope)
         .order('vencimento', ascending: false);
 
@@ -644,6 +660,8 @@ class FinancialRepository {
         .eq('tipo', 'DESPESA')
         .eq('categoria_id', categoryId)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('status', 'PAGO')
+        .isFilter('deleted_at', null)
         .or(kLancamentosIgrejaScope)
         .order('vencimento', ascending: false);
 
@@ -664,6 +682,8 @@ class FinancialRepository {
         .gte('vencimento', startDate.toIso8601String().split('T')[0])
         .lte('vencimento', endDate.toIso8601String().split('T')[0])
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('status', 'PAGO')
+        .isFilter('deleted_at', null)
         .or(kLancamentosIgrejaScope)
         .order('vencimento', ascending: false);
 
@@ -770,6 +790,8 @@ class FinancialRepository {
         .select('valor, valor_pago')
         .eq('tipo', 'DESPESA')
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('status', 'PAGO')
+        .isFilter('deleted_at', null)
         .or(kLancamentosIgrejaScope);
 
     double total = 0;
@@ -791,6 +813,8 @@ class FinancialRepository {
         .gte('vencimento', startDate.toIso8601String().split('T')[0])
         .lte('vencimento', endDate.toIso8601String().split('T')[0])
         .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('status', 'PAGO')
+        .isFilter('deleted_at', null)
         .or(kLancamentosIgrejaScope);
 
     double total = 0;

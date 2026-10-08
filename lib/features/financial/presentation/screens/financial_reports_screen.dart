@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
-import '../../../members/presentation/providers/members_provider.dart';
 import '../providers/financial_provider.dart';
 
 /// Enum para períodos de filtro
@@ -47,13 +46,6 @@ class _FinancialReportsScreenState
       appBar: AppBar(
         backgroundColor: CommunityDesign.headerColor(context),
         title: Text('Relatórios Financeiros', style: CommunityDesign.titleStyle(context)),
-        actions: [
-          IconButton(
-            icon: const Icon(AppIcons.download),
-            onPressed: _exportReport,
-            tooltip: 'Exportar Relatório',
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -318,177 +310,154 @@ class _FinancialReportsScreenState
     return Consumer(
       builder: (context, ref, child) {
         final contributionsAsync = ref.watch(allContributionsProvider);
-        final membersAsync = ref.watch(allMembersProvider);
 
         return contributionsAsync.when(
           data: (contributions) {
-            return membersAsync.when(
-              data: (members) {
-                // Filtrar contribuições por período e com memberId não-nulo
-                final filteredContributions = contributions.where((c) {
-                  return c.memberId != null &&
-                      c.date.isAfter(startDate.subtract(const Duration(days: 1))) &&
-                      c.date.isBefore(endDate.add(const Duration(days: 1)));
-                }).toList();
+            // Agrupa pelo nome do contribuinte (beneficiário do lançamento):
+            // o documento do beneficiário nem sempre é o id do membro.
+            final filteredContributions = contributions.where((c) {
+              return (c.memberName ?? '').isNotEmpty &&
+                  c.date.isAfter(startDate.subtract(const Duration(days: 1))) &&
+                  c.date.isBefore(endDate.add(const Duration(days: 1)));
+            }).toList();
 
-                // Agrupar por membro e somar
-                final Map<String, double> contributionsByMember = {};
-                for (final contribution in filteredContributions) {
-                  final memberId = contribution.memberId!; // Safe porque filtramos acima
-                  contributionsByMember[memberId] =
-                      (contributionsByMember[memberId] ?? 0) + contribution.amount;
-                }
+            // Agrupar por membro e somar
+            final Map<String, double> contributionsByMember = {};
+            for (final contribution in filteredContributions) {
+              final name = contribution.memberName!;
+              contributionsByMember[name] =
+                  (contributionsByMember[name] ?? 0) + contribution.amount;
+            }
 
-                // Calcular total
-                final totalContributions = contributionsByMember.values.fold<double>(0, (sum, amount) => sum + amount);
+            // Calcular total
+            final totalContributions = contributionsByMember.values.fold<double>(0, (sum, amount) => sum + amount);
 
-                // Ordenar e pegar top 10
-                final sortedEntries = contributionsByMember.entries.toList()
-                  ..sort((a, b) => b.value.compareTo(a.value));
-                final topContributors = sortedEntries.take(10).toList();
+            // Ordenar e pegar top 10
+            final sortedEntries = contributionsByMember.entries.toList()
+              ..sort((a, b) => b.value.compareTo(a.value));
+            final topContributors = sortedEntries.take(10).toList();
 
-                if (topContributors.isEmpty) {
-                  return Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Top Contribuintes',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Center(
-                            child: Text(
-                              'Nenhuma contribuição no período',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ),
-                        ],
+            if (topContributors.isEmpty) {
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Top Contribuintes',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: Text(
+                          'Nenhuma contribuição no período',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Top Contribuintes',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  );
-                }
+                    const SizedBox(height: 16),
+                    ...topContributors.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final contributorEntry = entry.value;
+                      final memberName = contributorEntry.key;
+                      final amount = contributorEntry.value;
+                      final percentage = (amount / totalContributions) * 100;
 
-                final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
-
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Top Contribuintes',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ...topContributors.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final contributorEntry = entry.value;
-                          final memberId = contributorEntry.key;
-                          final amount = contributorEntry.value;
-                          final percentage = (amount / totalContributions) * 100;
-
-                          // Buscar nome do membro
-                          final member = members.firstWhere(
-                            (m) => m.id == memberId,
-                            orElse: () => members.first, // Fallback
-                          );
-                          final memberName = '${member.firstName} ${member.lastName}';
-
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Row(
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          children: [
+                            // Posição
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: index < 3 ? Colors.amber : Colors.grey[300],
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${index + 1}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: index < 3 ? Colors.white : Colors.black87,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // Nome
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    memberName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  LinearProgressIndicator(
+                                    value: percentage / 100,
+                                    backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      index < 3 ? Colors.amber : Colors.blue,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // Valor e porcentagem
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                // Posição
-                                Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    color: index < 3 ? Colors.amber : Colors.grey[300],
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      '${index + 1}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: index < 3 ? Colors.white : Colors.black87,
-                                      ),
-                                    ),
+                                Text(
+                                  formatter.format(amount),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                                // Nome
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        memberName,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      LinearProgressIndicator(
-                                        value: percentage / 100,
-                                        backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          index < 3 ? Colors.amber : Colors.blue,
-                                        ),
-                                      ),
-                                    ],
+                                Text(
+                                  '${percentage.toStringAsFixed(1)}%',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                // Valor e porcentagem
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      formatter.format(amount),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${percentage.toStringAsFixed(1)}%',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
                                 ),
                               ],
                             ),
-                          );
-                        }),
-                      ],
-                    ),
-                  ),
-                );
-              },
-              loading: () => const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              ),
-              error: (error, _) => Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('Erro ao carregar membros: $error'),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
                 ),
               ),
             );
@@ -741,14 +710,6 @@ class _FinancialReportsScreenState
       _customStartDate = startDate;
       _customEndDate = endDate;
     });
-  }
-
-  void _exportReport() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Exportação em desenvolvimento...'),
-      ),
-    );
   }
 }
 
