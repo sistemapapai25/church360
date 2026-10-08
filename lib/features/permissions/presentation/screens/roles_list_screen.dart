@@ -132,7 +132,15 @@ class _RolesListScreenState extends ConsumerState<RolesListScreen> {
                 }
 
                 // Organizar por hierarquia
-                final rootRoles = filteredRoles.where((r) => r.parentRoleId == null).toList();
+                // Cargo cujo pai não veio na lista (outra igreja, inativo,
+                // escondido pela RLS ou pela busca) vira raiz — antes sumia
+                // junto com toda a cadeia abaixo dele.
+                final visibleIds = filteredRoles.map((r) => r.id).toSet();
+                final rootRoles = filteredRoles
+                    .where((r) =>
+                        r.parentRoleId == null ||
+                        !visibleIds.contains(r.parentRoleId))
+                    .toList();
                 rootRoles.sort((a, b) => a.name.compareTo(b.name));
 
                 return RefreshIndicator(
