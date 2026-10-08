@@ -690,30 +690,22 @@ class ChurchInfoScreen extends ConsumerWidget {
         color = Theme.of(context).colorScheme.primary;
     }
 
-    final gradient = platform.toLowerCase() == 'instagram'
-        ? CommunityDesign.instagramGradient
-        : null;
-
-    final button = ElevatedButton.icon(
-      onPressed: () => _launchSocialUrl(context, platform, url),
-      icon: FaIcon(icon, size: 20),
-      label: Text(platform.toUpperCase()),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: gradient == null ? color : Colors.transparent,
-        shadowColor: gradient == null ? null : Colors.transparent,
-        foregroundColor: Colors.white,
-      ),
-    );
-
-    if (gradient == null) return button;
-
     // Mesmo raio do elevatedButtonTheme (12) para o gradiente casar com o botão.
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: gradient,
+        gradient: CommunityDesign.socialGradient(platform, color),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: button,
+      child: ElevatedButton.icon(
+        onPressed: () => _launchSocialUrl(context, platform, url),
+        icon: FaIcon(icon, size: 20),
+        label: Text(platform.toUpperCase()),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          foregroundColor: Colors.white,
+        ),
+      ),
     );
   }
 

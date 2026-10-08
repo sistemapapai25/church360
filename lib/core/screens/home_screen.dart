@@ -1261,7 +1261,6 @@ class _HomeSocialShortcuts extends StatelessWidget {
       required IconData icon,
       required Color color,
       required String url,
-      Gradient? gradient,
     }) {
       if (!slots.containsKey(key)) {
         slots[key] = _SocialShortcutItem(
@@ -1269,7 +1268,6 @@ class _HomeSocialShortcuts extends StatelessWidget {
           icon: icon,
           color: color,
           url: url,
-          gradient: gradient,
         );
       }
     }
@@ -1301,7 +1299,6 @@ class _HomeSocialShortcuts extends StatelessWidget {
           label: 'Instagram',
           icon: FontAwesomeIcons.instagram,
           color: const Color(0xFFD6249F),
-          gradient: CommunityDesign.instagramGradient,
           url: url,
         );
       } else if (rawKey.contains('facebook')) {
@@ -1329,14 +1326,12 @@ class _SocialShortcutItem {
   final IconData icon;
   final Color color;
   final String url;
-  final Gradient? gradient;
 
   const _SocialShortcutItem({
     required this.label,
     required this.icon,
     required this.color,
     required this.url,
-    this.gradient,
   });
 }
 
@@ -1462,8 +1457,10 @@ class _SocialShortcutButton extends StatelessWidget {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: item.gradient == null ? item.color : null,
-                  gradient: item.gradient,
+                  gradient: CommunityDesign.socialGradient(
+                    item.label,
+                    item.color,
+                  ),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
