@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/design/app_icons.dart';
+import '../../../../core/utils/digit_mask_formatter.dart';
 import 'package:flutter/services.dart';
 
 class QuickBeneficiaryForm extends StatefulWidget {
@@ -31,9 +32,9 @@ class _QuickBeneficiaryFormState extends State<QuickBeneficiaryForm> {
   String _tipoBeneficiario = 'pessoa_fisica';
   bool _ativo = true;
 
-  final _cpfMask = _DigitMaskTextInputFormatter('###.###.###-##');
-  final _cnpjMask = _DigitMaskTextInputFormatter('##.###.###/####-##');
-  final _telefoneMask = _DigitMaskTextInputFormatter('(##) #####-####');
+  final _cpfMask = DigitMaskTextInputFormatter('###.###.###-##');
+  final _cnpjMask = DigitMaskTextInputFormatter('##.###.###/####-##');
+  final _telefoneMask = DigitMaskTextInputFormatter('(##) #####-####');
 
   @override
   void initState() {
@@ -256,45 +257,5 @@ class _QuickBeneficiaryFormState extends State<QuickBeneficiaryForm> {
         ),
       ),
     );
-  }
-}
-
-class _DigitMaskTextInputFormatter extends TextInputFormatter {
-  final String mask;
-
-  _DigitMaskTextInputFormatter(this.mask);
-
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    final masked = _applyMask(digits);
-    return TextEditingValue(
-      text: masked,
-      selection: TextSelection.collapsed(offset: masked.length),
-    );
-  }
-
-  String _applyMask(String digits) {
-    if (digits.isEmpty) return '';
-    final out = StringBuffer();
-    var di = 0;
-    for (var i = 0; i < mask.length; i++) {
-      final m = mask[i];
-      if (m == '#') {
-        if (di >= digits.length) break;
-        out.write(digits[di]);
-        di++;
-        continue;
-      }
-      if (di < digits.length) {
-        out.write(m);
-      } else {
-        break;
-      }
-    }
-    return out.toString();
   }
 }

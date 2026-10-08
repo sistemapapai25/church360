@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -228,6 +229,23 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               title: const Text('Tirar Foto'),
               onTap: () async {
                 Navigator.pop(context);
+                // No navegador do computador o pedido de câmera é ignorado e
+                // abre o seletor de arquivos; no web, defaultTargetPlatform é
+                // o SO do navegador.
+                final cameraIndisponivel = kIsWeb &&
+                    defaultTargetPlatform != TargetPlatform.android &&
+                    defaultTargetPlatform != TargetPlatform.iOS;
+                if (cameraIndisponivel) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Câmera indisponível neste dispositivo. Use "Escolher '
+                        'da Galeria" ou tire a foto pelo celular.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
                 final XFile? image = await picker.pickImage(
                   source: ImageSource.camera,
                   maxWidth: 1024,
@@ -1295,7 +1313,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
 
   Future<void> _openLgpdPolicy() async {
     final url = Uri.parse(
-      'https://www.gov.br/anpd/pt-br/assuntos/protecao-de-dados-pessoais',
+      'https://papai.church360.com.br/privacidade',
     );
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
