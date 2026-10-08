@@ -10,6 +10,21 @@ class CommunityDesign {
   static const double gridTargetItemWidth = 270;
   static const double gridMainAxisExtentCompact = 520;
 
+  /// Gradiente oficial do ícone do Instagram: amarelo no canto inferior
+  /// esquerdo abrindo para laranja, rosa e roxo.
+  static const Gradient instagramGradient = RadialGradient(
+    center: Alignment(-0.6, 1.1),
+    radius: 1.5,
+    colors: [
+      Color(0xFFFDF497),
+      Color(0xFFFDF497),
+      Color(0xFFFD5949),
+      Color(0xFFD6249F),
+      Color(0xFF285AEB),
+    ],
+    stops: [0, 0.05, 0.45, 0.6, 0.9],
+  );
+
   static Color scaffoldBackgroundColor(BuildContext context) {
     final theme = Theme.of(context);
     return theme.scaffoldBackgroundColor;
