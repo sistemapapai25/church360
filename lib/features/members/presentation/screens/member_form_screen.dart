@@ -629,6 +629,25 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     }
   }
 
+  /// O aviso de validação some em segundos e o campo com erro costuma ficar
+  /// fora da tela: a pessoa achava que tinha salvo. Espera as seções
+  /// terminarem de abrir (AnimatedCrossFade de 200ms) e rola até o 1º erro.
+  void _rolarAtePrimeiroErro() {
+    Future.delayed(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
+      final formContext = _formKey.currentContext;
+      if (formContext == null) return;
+      final alvo = primeiroCampoComErro(formContext);
+      if (alvo == null) return;
+      Scrollable.ensureVisible(
+        alvo,
+        alignment: 0.2,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
   Future<void> _saveMember() async {
     if (!_formKey.currentState!.validate()) {
       // As seções começam recolhidas: sem abrir, o erro fica escondido e o
@@ -644,6 +663,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           backgroundColor: Colors.red,
         ),
       );
+      _rolarAtePrimeiroErro();
       return;
     }
 
@@ -2531,4 +2551,24 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       ),
     );
   }
+}
+
+/// Primeiro campo (na ordem da árvore) dentro de [formContext] que está
+/// mostrando erro de validação.
+@visibleForTesting
+Element? primeiroCampoComErro(BuildContext formContext) {
+  Element? primeiro;
+  void visitar(Element e) {
+    if (primeiro != null) return;
+    if (e is StatefulElement &&
+        e.state is FormFieldState &&
+        (e.state as FormFieldState).hasError) {
+      primeiro = e;
+      return;
+    }
+    e.visitChildren(visitar);
+  }
+
+  formContext.visitChildElements(visitar);
+  return primeiro;
 }
