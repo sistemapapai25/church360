@@ -1,5 +1,5 @@
 import '../../../batismo/presentation/screens/tabs/batismo_checklist_tab.dart';
-import '../../../batismo/presentation/screens/tabs/batismo_turmas_tab.dart';
+import '../../../../courses/presentation/widgets/formacao_turmas_tab.dart';
 import '../../../louvor/presentation/louvores_tab.dart';
 import '../../domain/ministry_type_catalog.dart';
 import 'ministry_finance_tab.dart';
@@ -35,9 +35,11 @@ Map<String, MinistryTabSlot> ministryStandardSlots(
     defaultLabel: 'Louvores',
     builder: (_) => LouvoresTab(ministryId: ministryId),
   ),
+  // Turma comum do ministério (o Batismo troca pela dele). A de Batismo
+  // aqui criava turma no curso "Batismo" de qualquer ministério.
   MinistryTabKeys.alunos: MinistryTabSlot(
     defaultLabel: 'Turmas',
-    builder: (_) => BatismoTurmasTab(ministryId: ministryId),
+    builder: (_) => FormacaoTurmasTab(ministryId: ministryId),
   ),
   MinistryTabKeys.checklist: MinistryTabSlot(
     defaultLabel: 'Checklist',
