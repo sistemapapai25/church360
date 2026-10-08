@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Termo de Compromisso — PAPAI</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#eef0e9;
+    --surface:#ffffff;
+    --surface-2:#f7f8f3;
+    --ink:#1f2b28;
+    --ink-muted:#5b6b64;
+    --line:#d9ddd0;
+    --accent:#b8862c;
+    --accent-ink:#7a5a1a;
+    --accent-bg:#f2e6c8;
+    --shadow: 0 1px 2px rgba(31,43,40,0.06), 0 8px 24px -12px rgba(31,43,40,0.14);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#141d1a;
+      --surface:#1a2521;
+      --surface-2:#1e2a25;
+      --ink:#eef1ec;
+      --ink-muted:#a7b6ae;
+      --line:#2b3a34;
+      --accent:#e0b563;
+      --accent-ink:#f2d99a;
+      --accent-bg:#382c17;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#141d1a;
+    --surface:#1a2521;
+    --surface-2:#1e2a25;
+    --ink:#eef1ec;
+    --ink-muted:#a7b6ae;
+    --line:#2b3a34;
+    --accent:#e0b563;
+    --accent-ink:#f2d99a;
+    --accent-bg:#382c17;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Work Sans',system-ui,sans-serif;
+    line-height:1.6;
+  }
+  .wrap{
+    max-width:920px;
+    margin:0 auto;
+    padding:56px 24px 96px;
+    display:grid;
+    grid-template-columns:200px minmax(0,1fr);
+    gap:48px;
+    align-items:start;
+  }
+  @media (max-width:760px){
+    .wrap{grid-template-columns:1fr; padding:32px 18px 64px;}
+    nav.toc{display:none;}
+  }
+
+  header.masthead{
+    grid-column:1 / -1;
+    border-bottom:1px solid var(--line);
+    padding-bottom:28px;
+    margin-bottom:8px;
+  }
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--accent-ink);
+    background:var(--accent-bg);
+    display:inline-block;
+    padding:4px 10px;
+    border-radius:3px;
+    margin-bottom:16px;
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-optical-sizing:auto;
+    font-weight:600;
+    font-size:clamp(32px,5vw,44px);
+    margin:0 0 10px;
+    text-wrap:balance;
+    letter-spacing:-0.01em;
+  }
+  .masthead p{
+    color:var(--ink-muted);
+    margin:0;
+    font-size:15px;
+  }
+  .masthead .meta{
+    display:flex;
+    gap:24px;
+    flex-wrap:wrap;
+    margin-top:18px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--ink-muted);
+  }
+  .masthead .meta strong{color:var(--ink); font-weight:600;}
+
+  nav.toc{
+    position:sticky;
+    top:32px;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  nav.toc a{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--ink-muted);
+    text-decoration:none;
+    padding:7px 0;
+    border-left:2px solid transparent;
+    padding-left:12px;
+    transition:color .15s, border-color .15s;
+  }
+  nav.toc a:hover{color:var(--ink); border-color:var(--line);}
+  nav.toc .toc-title{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.12em;
+    color:var(--ink-muted);
+    margin-bottom:8px;
+  }
+
+  main{min-width:0;}
+  section{
+    margin-bottom:40px;
+    scroll-margin-top:24px;
+  }
+  section h2{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:22px;
+    margin:0 0 4px;
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+  }
+  section h2 .num{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    color:var(--accent-ink);
+    font-weight:600;
+  }
+  section p{
+    max-width:65ch;
+    margin:12px 0;
+    color:var(--ink);
+  }
+  section p.muted{color:var(--ink-muted); font-size:14px;}
+  section ul{
+    max-width:65ch;
+    padding-left:20px;
+    margin:12px 0;
+  }
+  section li{margin:6px 0;}
+  section li strong{color:var(--ink);}
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:20px 22px;
+    box-shadow:var(--shadow);
+    margin:16px 0;
+  }
+  .card h3{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--accent-ink);
+    margin:0 0 10px;
+  }
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    margin:16px 0;
+    font-size:14px;
+  }
+  table caption{text-align:left; margin-bottom:8px; color:var(--ink-muted); font-size:13px;}
+  th,td{
+    text-align:left;
+    padding:9px 12px;
+    border-bottom:1px solid var(--line);
+    vertical-align:top;
+  }
+  th{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--ink-muted);
+    font-weight:600;
+  }
+  .tblwrap{overflow-x:auto;}
+
+  a.inline{color:var(--accent-ink); text-decoration-color:var(--accent);}
+
+  footer{
+    grid-column:1/-1;
+    border-top:1px solid var(--line);
+    margin-top:24px;
+    padding-top:24px;
+    color:var(--ink-muted);
+    font-size:13px;
+  }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <span class="eyebrow">Documento legal</span>
+    <h1>Termo de Uso, Responsabilidade, Confidencialidade e Compromisso — PAPAI</h1>
+    <p>Regras de uso do aplicativo PAPAI e compromissos de quem acessa dados da comunidade.</p>
+    <div class="meta">
+      <span>Versão: <strong>1.0</strong></span>
+      <span>Vigência: <strong>08 de outubro de 2026</strong></span>
+      <span>Contato: <strong>rgachurch360@gmail.com</strong></span>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <div class="toc-title">Nesta página</div>
+    <a href="#objeto">1. Objeto</a>
+    <a href="#finalidade">2. Finalidade do app</a>
+    <a href="#conta">3. Conta pessoal</a>
+    <a href="#permissoes">4. Cargos e permissões</a>
+    <a href="#confidencialidade">5. Confidencialidade</a>
+    <a href="#dados">6. Dados pessoais e sensíveis</a>
+    <a href="#criancas">7. Crianças e adolescentes</a>
+    <a href="#antecedentes">8. Antecedentes criminais</a>
+    <a href="#imagem">9. Imagem e voz</a>
+    <a href="#pastoral">10. Informações pastorais</a>
+    <a href="#financeiro">11. Informações financeiras</a>
+    <a href="#comunicacoes">12. Comunicações</a>
+    <a href="#ia">13. Assistente virtual e IA</a>
+    <a href="#conteudo">14. Conteúdo do usuário</a>
+    <a href="#terceiros">15. Serviços de terceiros</a>
+    <a href="#seguranca">16. Segurança e auditoria</a>
+    <a href="#proibidos">17. Usos proibidos</a>
+    <a href="#disponibilidade">18. Disponibilidade</a>
+    <a href="#responsabilidade">19. Responsabilidade</a>
+    <a href="#encerramento">20. Suspensão e encerramento</a>
+    <a href="#retencao">21. Retenção e seus direitos</a>
+    <a href="#incidentes">22. Incidentes</a>
+    <a href="#alteracoes">23. Alterações e aceite</a>
+    <a href="#descumprimento">24. Descumprimento</a>
+    <a href="#gerais">25. Disposições gerais</a>
+    <a href="#declaracao">26. Declaração final</a>
+  </nav>
+
+  <main>
+    <section id="objeto">
+      <h2><span class="num">01</span>Identificação e objeto</h2>
+      <p>Este Termo regula o acesso e o uso do aplicativo <strong>PAPAI</strong> (plataforma Church360), na versão web e no aplicativo para celular, com todas as funcionalidades disponíveis hoje ou que venham a ser incluídas.</p>
+      <p><strong>Instituição Responsável</strong> é a igreja que administra o PAPAI e os dados nele mantidos.</p>
+      <p>Ao criar conta, receber acesso, entrar ou usar qualquer funcionalidade do PAPAI, você declara que leu, entendeu e concorda com este Termo e com a <a class="inline" href="/privacidade">Política de Privacidade</a>.</p>
+    </section>
+
+    <section id="finalidade">
+      <h2><span class="num">02</span>Finalidade do app</h2>
+      <p>O PAPAI apoia a organização das atividades da igreja, incluindo: cadastro de membros, congregados e visitantes; vínculos familiares; ministérios e departamentos; cargos e permissões; ministério infantil e check-in; eventos e inscrições; escalas; frequência; cursos, turmas e aulas; louvor; comunicação e notificações; registros financeiros e contribuições; estoque; acompanhamento pastoral; documentos; relatórios; e assistente virtual de suporte.</p>
+      <p>Cada módulo aparece conforme a configuração e as permissões definidas pela Instituição Responsável.</p>
+      <p>O PAPAI é uma ferramenta de apoio. Ele <strong>não substitui decisões pastorais, administrativas, contábeis, jurídicas ou médicas</strong> que cabem a uma pessoa responsável ou habilitada.</p>
+    </section>
+
+    <section id="conta">
+      <h2><span class="num">03</span>Conta pessoal e responsabilidade do usuário</h2>
+      <p>A conta é pessoal e intransferível. Você se compromete a:</p>
+      <ul>
+        <li>informar dados verdadeiros, corretos e atualizados;</li>
+        <li>manter sua senha em sigilo e não compartilhar senha, código de acesso, sessão ou aparelho conectado com outras pessoas;</li>
+        <li>avisar imediatamente em caso de suspeita de acesso indevido, perda do aparelho ou vazamento de senha;</li>
+        <li>usar somente as funcionalidades e informações necessárias às suas atribuições;</li>
+        <li>sair da conta em aparelhos compartilhados ou públicos;</li>
+        <li>não tentar obter acessos além dos que lhe foram concedidos.</li>
+      </ul>
+      <p>Ações feitas em uma sessão conectada podem ser registradas para segurança, auditoria e apuração de incidentes.</p>
+    </section>
+
+    <section id="permissoes">
+      <h2><span class="num">04</span>Cargos e permissões</h2>
+      <p>O que cada pessoa vê e faz no PAPAI depende do seu cargo, ministério, departamento e das permissões concedidas pela Instituição Responsável, que podem ser alteradas, ampliadas, reduzidas ou revogadas a qualquer momento.</p>
+      <p>Conseguir visualizar uma informação <strong>não significa autorização para usá-la fora da finalidade da igreja</strong>. Você se compromete a não: acessar dados por curiosidade; consultar pessoas sem relação com sua função; copiar bases de dados; divulgar cadastros ou relatórios; repassar informações internas a terceiros; ou usar dados do PAPAI para interesses particulares, comerciais ou políticos.</p>
+    </section>
+
+    <section id="confidencialidade">
+      <h2><span class="num">05</span>Confidencialidade</h2>
+      <p>Você poderá ter acesso a informações confidenciais da igreja e de outras pessoas, como: dados pessoais e de contato; vínculos familiares; informações ministeriais; presença e inscrições; escalas; informações financeiras, dízimos e ofertas; dados de crianças e adolescentes; documentos; observações internas e registros pastorais; relatórios; e demais conteúdos não públicos.</p>
+      <p>Você se obriga a manter esse sigilo <strong>inclusive depois</strong> de deixar uma função, ministério, liderança ou de perder o acesso ao PAPAI.</p>
+      <p>É proibido fotografar ou capturar telas, exportar, copiar, encaminhar ou divulgar informações confidenciais sem finalidade legítima e autorização.</p>
+    </section>
+
+    <section id="dados">
+      <h2><span class="num">06</span>Dados pessoais e dados sensíveis</h2>
+      <p>O PAPAI trata os dados pessoais necessários às atividades da igreja. Pela natureza de uma organização religiosa, algumas informações são <strong>dados pessoais sensíveis</strong> pela LGPD (Lei 13.709/2018), como convicção religiosa, vínculo com a igreja e informações de saúde (por exemplo, alergias informadas no ministério infantil).</p>
+      <p>Quem tiver acesso a dados pessoais por causa da sua função se compromete a usá-los somente para a finalidade autorizada, na quantidade e pelo tempo necessários, sem guardar cópias particulares e sem repassá-los a pessoas não autorizadas.</p>
+    </section>
+
+    <section id="criancas">
+      <h2><span class="num">07</span>Crianças e adolescentes</h2>
+      <p>Dados de crianças e adolescentes recebem proteção reforçada e são tratados sempre no seu melhor interesse. Crianças não criam conta própria; seus dados são mantidos pelos pais ou responsáveis e pela equipe autorizada.</p>
+      <p>Quem acessa esses dados se compromete a usá-los apenas para cuidado, segurança, identificação, comunicação com os responsáveis e atividades da igreja, nunca para exposição indevida, discriminação ou divulgação não autorizada. Quando a lei exigir autorização específica dos responsáveis, ela será pedida à parte.</p>
+    </section>
+
+    <section id="antecedentes">
+      <h2><span class="num">08</span>Verificação de antecedentes criminais</h2>
+      <p>Para proteger crianças e adolescentes, em observância à legislação de proteção da infância e da juventude, a Instituição Responsável poderá exigir certidões de antecedentes criminais de quem exerce ou se candidata a função com contato com crianças ou adolescentes, como ministério infantil, ensino, acompanhamento e acolhimento.</p>
+      <p>Ao aceitar este Termo, o usuário que exercer ou pretender exercer essas funções <strong>autoriza</strong> a Instituição Responsável a solicitar, receber, consultar e arquivar suas certidões de antecedentes criminais, pelo próprio PAPAI (quando o recurso estiver disponível) ou por entrega direta à liderança, nas seguintes condições:</p>
+      <ul>
+        <li>as certidões servem <strong>exclusivamente</strong> para avaliar a aptidão para funções com crianças e adolescentes;</li>
+        <li>podem ser exigidas antes do início da função e renovadas periodicamente, nos prazos fixados pela lei ou pela Instituição Responsável;</li>
+        <li>o acesso fica restrito às pessoas designadas pela liderança, com sigilo;</li>
+        <li>as certidões são guardadas enquanto durar a função e pelo prazo exigido por lei, e depois eliminadas;</li>
+        <li>a recusa em apresentar as certidões impede a atuação nessas funções, mas não afeta o uso das demais funcionalidades do PAPAI.</li>
+      </ul>
+    </section>
+
+    <section id="imagem">
+      <h2><span class="num">09</span>Imagem, voz e conteúdos de pessoas</h2>
+      <p>O aceite deste Termo <strong>não é autorização para uso público ou publicitário</strong> da imagem ou da voz do usuário ou de menores sob sua responsabilidade. Quando a finalidade exigir, a Instituição Responsável pedirá autorização específica.</p>
+      <p>Fotos, áudios e documentos enviados ao PAPAI devem ter finalidade legítima e respeitar os direitos das pessoas que aparecem neles.</p>
+    </section>
+
+    <section id="pastoral">
+      <h2><span class="num">10</span>Informações pastorais e de aconselhamento</h2>
+      <p>Informações de acompanhamento pastoral, aconselhamento, pedidos de oração e situações familiares ou pessoais exigem nível elevado de confidencialidade. Registre somente o necessário: o PAPAI não deve ser usado para guardar relatos íntimos sem necessidade para a finalidade da igreja.</p>
+      <p>Quem acessa essas informações se compromete a preservar o sigilo e a dignidade das pessoas envolvidas.</p>
+    </section>
+
+    <section id="financeiro">
+      <h2><span class="num">11</span>Informações financeiras</h2>
+      <p>Os módulos financeiros servem à organização e ao controle interno. Os valores de dízimos e ofertas são registros informativos: o PAPAI não processa pagamentos e seus registros não substituem comprovantes fiscais, contábeis ou bancários.</p>
+      <p>Quem tem acesso financeiro não pode alterar, omitir, excluir, simular ou manipular informações para criar uma representação falsa da realidade. Qualquer divergência deve ser comunicada à administração.</p>
+    </section>
+
+    <section id="comunicacoes">
+      <h2><span class="num">12</span>Comunicações e notificações</h2>
+      <p>O PAPAI pode enviar comunicações por notificação no app, push, e-mail ou WhatsApp sobre escalas, eventos, aulas, inscrições, avisos da igreja e segurança da conta. Você pode ajustar as notificações nas preferências do app.</p>
+      <p>Falhas de operadoras, provedores, configurações do aparelho ou falta de conexão podem atrasar ou impedir a entrega de notificações.</p>
+    </section>
+
+    <section id="ia">
+      <h2><span class="num">13</span>Assistente virtual e inteligência artificial</h2>
+      <p>O PAPAI oferece um assistente virtual de suporte, baseado em inteligência artificial, que ajuda a encontrar funcionalidades e tirar dúvidas, e que pode encaminhar a conversa para um atendente humano da igreja.</p>
+      <ul>
+        <li>As respostas podem ser incompletas ou incorretas: confira informações importantes no próprio app ou com a liderança.</li>
+        <li>As mensagens enviadas ao assistente são processadas por um provedor externo de inteligência artificial e ficam registradas para continuidade do atendimento. Evite enviar dados sensíveis desnecessários.</li>
+        <li>Quando o assistente propuser uma ação que altere dados, poderá ser exigida sua confirmação, registrada em histórico de auditoria.</li>
+        <li>O assistente não substitui decisões pastorais, jurídicas, médicas, contábeis ou administrativas.</li>
+      </ul>
+    </section>
+
+    <section id="conteudo">
+      <h2><span class="num">14</span>Conteúdo inserido pelo usuário</h2>
+      <p>Você é responsável pelo que registra, publica ou anexa no PAPAI. É proibido inserir conteúdo ilegal, ofensivo, discriminatório, fraudulento, difamatório, que viole direitos de terceiros, que exponha dados pessoais indevidamente, que contenha código malicioso ou que fuja da finalidade do app.</p>
+      <p>Ao registrar dados de outra pessoa, você declara ter finalidade legítima e autorização da sua função para isso.</p>
+      <p>A tecnologia, o código, a identidade visual e a documentação do PAPAI pertencem aos seus titulares; o acesso ao app não transfere nenhum desses direitos.</p>
+    </section>
+
+    <section id="terceiros">
+      <h2><span class="num">15</span>Serviços de terceiros</h2>
+      <p>O PAPAI usa prestadores externos de infraestrutura, banco de dados, autenticação, armazenamento, notificações, mensagens e inteligência artificial, listados na <a class="inline" href="/privacidade">Política de Privacidade</a>. A indisponibilidade desses serviços pode afetar temporariamente algumas funcionalidades. Transferências internacionais de dados, quando existirem, seguem os mecanismos previstos em lei.</p>
+    </section>
+
+    <section id="seguranca">
+      <h2><span class="num">16</span>Segurança e auditoria</h2>
+      <p>O PAPAI adota controle de acesso por cargo e permissão, conexão criptografada, registros de alteração e outras medidas de proteção. Para fins de segurança e auditoria podem ser registrados, conforme o caso, identificação do usuário, data, horário, funcionalidade acessada, ação executada, aparelho e endereço IP.</p>
+      <p>Esses registros não são usados para finalidades diferentes das que justificaram sua coleta.</p>
+    </section>
+
+    <section id="proibidos">
+      <h2><span class="num">17</span>Usos proibidos</h2>
+      <p>É proibido: burlar permissões ou mecanismos de segurança; acessar dados de outra igreja; compartilhar credenciais; extrair dados em massa ou por robôs sem autorização; interferir no funcionamento do app; introduzir código malicioso; explorar ou tentar descobrir vulnerabilidades, senhas ou segredos; se passar por outra pessoa; adulterar registros; usar o PAPAI para perseguição, discriminação ou constrangimento; ou usar informações do app para fins ilícitos.</p>
+      <p>Esses comportamentos podem levar ao bloqueio imediato da conta e às medidas cabíveis.</p>
+    </section>
+
+    <section id="disponibilidade">
+      <h2><span class="num">18</span>Disponibilidade</h2>
+      <p>Fazemos esforços razoáveis para manter o PAPAI disponível e seguro, mas não é possível garantir funcionamento sem interrupções ou falhas, especialmente em manutenções, atualizações, falhas de internet ou de fornecedores, problemas no aparelho ou ataques.</p>
+    </section>
+
+    <section id="responsabilidade">
+      <h2><span class="num">19</span>Responsabilidade por decisões e informações</h2>
+      <p>Confira informações relevantes antes de tomar decisões com consequências financeiras, pastorais, administrativas ou jurídicas.</p>
+      <p>A Instituição Responsável não responde por prejuízos causados por uso indevido do app, informações incorretas fornecidas pelo usuário, compartilhamento de senha, uso não autorizado de dados ou descumprimento deste Termo, ressalvadas as responsabilidades que a lei não permite afastar.</p>
+    </section>
+
+    <section id="encerramento">
+      <h2><span class="num">20</span>Suspensão e encerramento do acesso</h2>
+      <p>O acesso pode ser suspenso ou encerrado por: fim do vínculo com a igreja; mudança de função; pedido da liderança; risco de segurança; uso irregular da conta; violação deste Termo; ou ordem legal ou judicial. Em situações de risco relevante, a suspensão pode ser imediata e sem aviso prévio.</p>
+    </section>
+
+    <section id="retencao">
+      <h2><span class="num">21</span>Retenção, exclusão e direitos do titular</h2>
+      <p>Excluir a conta não apaga necessariamente todos os registros na hora: alguns podem ser mantidos por obrigação legal, registros administrativos e financeiros, segurança, auditoria ou exercício de direitos, conforme a <a class="inline" href="/privacidade">Política de Privacidade</a>.</p>
+      <p>Você pode exercer os direitos previstos na LGPD (acesso, correção, exclusão, anonimização, portabilidade e revogação de consentimento) pela área de Privacidade do seu perfil no app ou pelo e-mail <a class="inline" href="mailto:rgachurch360@gmail.com">rgachurch360@gmail.com</a>.</p>
+    </section>
+
+    <section id="incidentes">
+      <h2><span class="num">22</span>Incidentes de segurança</h2>
+      <p>Comunique imediatamente à liderança ou pelo e-mail de contato qualquer situação que possa comprometer dados ou o app: acesso indevido, perda ou roubo de aparelho conectado, envio de dados à pessoa errada, exposição de senha, suspeita de invasão ou vulnerabilidade encontrada. Não tente explorar vulnerabilidades.</p>
+    </section>
+
+    <section id="alteracoes">
+      <h2><span class="num">23</span>Alterações e aceite eletrônico</h2>
+      <p>Este Termo pode ser atualizado por mudanças legais, operacionais ou de funcionalidades. A versão e a data de vigência ficam sempre indicadas no topo desta página, e alterações relevantes podem exigir novo aceite.</p>
+      <p>O aceite eletrônico registra sua concordância. Para comprovação, o PAPAI pode guardar a identificação do usuário, a igreja vinculada, a versão do Termo, a data e o horário do aceite e informações técnicas da sessão.</p>
+    </section>
+
+    <section id="descumprimento">
+      <h2><span class="num">24</span>Descumprimento</h2>
+      <p>Conforme a gravidade, o descumprimento pode resultar em: advertência; redução de permissões; suspensão, bloqueio ou encerramento do acesso; comunicação à liderança; e providências administrativas ou legais cabíveis.</p>
+    </section>
+
+    <section id="gerais">
+      <h2><span class="num">25</span>Legislação e disposições gerais</h2>
+      <p>Este Termo segue a legislação brasileira. Se uma cláusula for considerada inválida, as demais continuam valendo. Tolerar um descumprimento não significa renunciar ao direito de exigir o cumprimento depois. Este Termo deve ser lido junto com a <a class="inline" href="/privacidade">Política de Privacidade</a> e as autorizações específicas aplicáveis.</p>
+    </section>
+
+    <section id="declaracao">
+      <h2><span class="num">26</span>Declaração final</h2>
+      <div class="card">
+        <p style="margin:0;">Ao aceitar este Termo, declaro que o li e compreendi; que usarei o PAPAI somente para finalidades autorizadas; que sou responsável pela minha conta e pelas informações a que tiver acesso; que preservarei a confidencialidade dos dados; que, se exercer função com crianças ou adolescentes, autorizo a verificação de antecedentes criminais descrita no item 8; e que cumprirei as regras de segurança, privacidade e uso deste documento.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    PAPAI — aplicativo de gestão da comunidade. Este é o Termo de Uso e Compromisso oficial do app. Veja também a <a class="inline" href="/privacidade">Política de Privacidade</a>.
+  </footer>
+</div>
+</body>
+</html>
