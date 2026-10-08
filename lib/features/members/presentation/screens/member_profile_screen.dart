@@ -713,8 +713,10 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     final canUpdate = currentMember?.id == member.id;
 
     // UX: se o consentimento já veio concedido no cadastro, não pedir para "Conceder" aqui.
-    // Para o próprio usuário, quando já houver consentimento, manter apenas "Ver" (política).
-    final actionLabel = canUpdate ? (hasConsent ? 'Ver' : 'Conceder') : 'Ver';
+    // Para o próprio usuário, com consentimento dado, a ação é "Revogar" (direito LGPD); a política fica na linha abaixo.
+    final actionLabel = canUpdate
+        ? (hasConsent ? 'Revogar' : 'Conceder')
+        : 'Ver';
 
     return _buildInfoRowWithAction(
       Icons.verified_user_outlined,
@@ -722,8 +724,8 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       statusText,
       actionLabel,
       () async {
-        if (!canUpdate || hasConsent) {
-          await _openLgpdPolicy(memberId: member.id);
+        if (!canUpdate) {
+          await _openLgpdPolicy();
           return;
         }
         await _toggleLgpdConsent(context, ref, member, hasConsent: hasConsent);
@@ -741,7 +743,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       'Visualizar documento',
       'Abrir',
       () async {
-        await _openLgpdPolicy(memberId: member.id);
+        await _openLgpdPolicy();
       },
       valueIcon: Icons.description_outlined,
       valueColor: Colors.blue,
@@ -756,7 +758,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       'Visualizar documento',
       'Abrir',
       () async {
-        await _openCommitmentTerms(memberId: member.id);
+        await _openCommitmentTerms();
       },
       valueIcon: Icons.open_in_new,
       valueColor: Colors.deepPurple,
@@ -778,7 +780,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       canRequest ? 'Solicitar' : 'Ver Política',
       () async {
         if (!canRequest) {
-          await _openLgpdPolicy(memberId: member.id);
+          await _openLgpdPolicy();
           return;
         }
         await _openLgpdRightsRequestDialog(context, ref);
@@ -1293,17 +1295,17 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     return result;
   }
 
-  Future<void> _openLgpdPolicy({required String memberId}) async {
+  Future<void> _openLgpdPolicy() async {
     final url = Uri.parse(
       'https://www.gov.br/anpd/pt-br/assuntos/protecao-de-dados-pessoais',
-    ).replace(queryParameters: {'member_id': memberId});
+    );
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
-  Future<void> _openCommitmentTerms({required String memberId}) async {
+  Future<void> _openCommitmentTerms() async {
     final url = Uri.parse(
       'https://church360.app/legal/termos-de-compromisso',
-    ).replace(queryParameters: {'member_id': memberId});
+    );
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
@@ -1429,22 +1431,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                     foregroundColor: colorScheme.primary,
                   ),
                 ),
-                const SizedBox(width: 4),
-                PermissionGate(
-                  permission: member.status == 'visitor'
-                      ? 'visitors.delete'
-                      : 'members.delete',
-                  showLoading: false,
-                  child: IconButton(
-                    icon: const Icon(AppIcons.delete),
-                    onPressed: () => _showDeleteDialog(context, ref),
-                    tooltip: 'Deletar Membro',
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.red.withValues(alpha: 0.12),
-                      foregroundColor: Colors.red,
-                    ),
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -1466,7 +1452,9 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Membro da igreja',
+                        member.status == 'visitor'
+                            ? 'Visitante'
+                            : 'Membro da igreja',
                         style: CommunityDesign.metaStyle(context).copyWith(
                           fontSize: 12,
                           color: colorScheme.onSurfaceVariant.withValues(

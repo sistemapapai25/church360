@@ -28,7 +28,7 @@ class ProfileScreen extends ConsumerWidget {
             data: (v) => v,
             orElse: () => currentUser?.email,
           );
-          return _buildProfileNotFound(context, email);
+          return _buildProfileNotFound(context, ref, email);
         }
 
         // Se encontrou, reutiliza a tela padrão de perfil de membro
@@ -82,7 +82,11 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   /// Tela quando o perfil não é encontrado
-  Widget _buildProfileNotFound(BuildContext context, String? userEmail) {
+  Widget _buildProfileNotFound(
+    BuildContext context,
+    WidgetRef ref,
+    String? userEmail,
+  ) {
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
@@ -166,11 +170,11 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              // Botão para criar perfil
+              // Recarregar o perfil roda o ensure_my_account, que cria a ficha
+              // ligada ao login. O formulário de cadastro criava uma ficha
+              // solta (sem auth_user_id) e exigia visitors.create para salvar.
               ElevatedButton.icon(
-                onPressed: () {
-                  context.push('/members/new', extra: {'userEmail': userEmail});
-                },
+                onPressed: () => ref.invalidate(currentMemberProvider),
                 icon: const Icon(Icons.person_add),
                 label: const Text('Criar Meu Perfil'),
                 style: CommunityDesign.pillButtonStyle(

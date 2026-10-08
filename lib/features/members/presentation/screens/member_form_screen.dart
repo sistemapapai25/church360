@@ -17,6 +17,7 @@ import '../providers/members_provider.dart';
 import '../../data/members_repository.dart';
 import '../../data/family_relationships_repository.dart';
 import '../../domain/models/member.dart';
+import '../../domain/models/member_directory_entry.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../kids/presentation/providers/kids_providers.dart';
 import '../../../access_levels/presentation/providers/access_level_provider.dart';
@@ -26,15 +27,12 @@ class MemberFormScreen extends ConsumerStatefulWidget {
   final String? memberId; // null = criar, não-null = editar
   final String? initialStatus; // Status inicial ao criar (ex: 'visitor')
   final String?
-  initialEmail; // Email inicial ao criar (ex: email do usuário logado)
-  final String?
   initialMemberType; // Tipo de membro inicial (ex: 'member', 'visitor')
 
   const MemberFormScreen({
     super.key,
     this.memberId,
     this.initialStatus,
-    this.initialEmail,
     this.initialMemberType,
   });
 
@@ -164,10 +162,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     // Definir status inicial se fornecido
     if (widget.initialStatus != null) {
       _status = widget.initialStatus!;
-    }
-    // Definir email inicial se fornecido
-    if (widget.initialEmail != null) {
-      _emailController.text = widget.initialEmail!;
     }
     // Definir tipo de membro inicial se fornecido
     if (widget.initialMemberType != null) {
@@ -885,10 +879,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         // Se a pessoa está editando o PRÓPRIO cadastro e trocou o email,
         // dispara também a troca do email de login no Supabase Auth.
         // auth.updateUser() só afeta a sessão atualmente logada, então só
-        // pode ser chamado quando widget.memberId é o próprio usuário —
-        // nunca ao editar o cadastro de outro membro.
+        // pode ser chamado quando a ficha é a do próprio usuário — nunca ao
+        // editar o cadastro de outro membro. Compara pelo auth_user_id: o id
+        // da ficha difere de auth.uid() em parte das contas.
         final authUser = Supabase.instance.client.auth.currentUser;
-        final isSelfEdit = authUser != null && authUser.id == widget.memberId;
+        final isSelfEdit =
+            authUser != null && _existingMember?.authUserId == authUser.id;
         final emailChanged =
             effectiveEmail.isNotEmpty &&
             effectiveEmail.toLowerCase() != existingEmail.toLowerCase();
@@ -1377,15 +1373,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                             ).colorScheme.surfaceContainerHighest,
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.email),
-                            // Mostrar hint se o campo está bloqueado
-                            helperText: widget.initialEmail != null
-                                ? 'Email vinculado à sua conta (não editável)'
-                                : null,
                           ),
                           keyboardType: TextInputType.emailAddress,
-                          // Bloquear edição se foi fornecido um email inicial
-                          readOnly: widget.initialEmail != null,
-                          enabled: widget.initialEmail == null,
                           validator: (value) {
                             final trimmed = value?.trim() ?? '';
                             if (trimmed.isEmpty) {
@@ -2184,7 +2173,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     BuildContext context,
     String memberId,
   ) async {
-    Member? selectedMember;
+    MemberDirectoryEntry? selectedMember;
     String selectedType = 'pai';
 
     await showModalBottomSheet<void>(
@@ -2220,7 +2209,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   Consumer(
                     builder: (consumerContext, consumerRef, _) {
                       final membersAsync = consumerRef.watch(
-                        allMembersProvider,
+                        memberDirectoryProvider,
                       );
                       return membersAsync.when(
                         data: (members) {
@@ -2229,11 +2218,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                               .toList();
                           return LayoutBuilder(
                             builder: (context, constraints) {
-                              return Autocomplete<Member>(
+                              return Autocomplete<MemberDirectoryEntry>(
                                 optionsBuilder: (TextEditingValue value) {
                                   final text = value.text.trim();
                                   if (text.length < 3) {
-                                    return const Iterable<Member>.empty();
+                                    return const Iterable<MemberDirectoryEntry>.empty();
                                   }
                                   final q = text.toLowerCase();
                                   return filtered.where(
@@ -2244,12 +2233,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                         (m.nickname?.toLowerCase().contains(
                                               q,
                                             ) ??
-                                            false) ||
-                                        m.email.toLowerCase().contains(q),
+                                            false),
                                   );
                                 },
                                 displayStringForOption: (m) => m.displayName,
-                                onSelected: (Member selection) {
+                                onSelected: (MemberDirectoryEntry selection) {
                                   setInnerState(
                                     () => selectedMember = selection,
                                   );
@@ -2293,9 +2281,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                                       title: Text(
                                                         option.displayName,
                                                       ),
-                                                      subtitle: Text(
-                                                        option.email,
-                                                      ),
                                                       onTap: () =>
                                                           onSelected(option),
                                                     );
@@ -2321,7 +2306,6 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.person),
                       title: Text(selectedMember!.displayName),
-                      subtitle: Text(selectedMember!.email),
                       trailing: IconButton(
                         icon: const Icon(Icons.close),
                         onPressed: () =>

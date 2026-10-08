@@ -10,7 +10,6 @@ import 'initial_app_location.dart';
 import '../../features/members/presentation/screens/members_list_screen.dart';
 import '../../features/members/presentation/screens/member_form_screen.dart';
 import '../../features/members/presentation/screens/member_profile_screen.dart';
-import '../../features/members/domain/models/member.dart';
 import '../../features/members/presentation/screens/profile_screen.dart';
 import '../../features/tags/presentation/screens/tags_list_screen.dart';
 import '../../features/qr_scanner/presentation/screens/qr_scanner_screen.dart';
@@ -445,12 +444,9 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/members/new',
       builder: (context, state) {
-        final extra = state.extra as Map<String, dynamic>?;
-        final userEmail = extra?['userEmail'] as String?;
         final type = state.uri.queryParameters['type'];
         final status = state.uri.queryParameters['status'];
         return MemberFormScreen(
-          initialEmail: userEmail,
           initialMemberType: type,
           initialStatus: status,
         );
@@ -506,17 +502,6 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/profile',
       builder: (context, state) => const ProfileScreen(),
-    ),
-    // Rota de edição de perfil
-    GoRoute(
-      path: '/profile/edit',
-      // `extra` não sobrevive ao reload; sem ele, volta para o perfil.
-      redirect: (_, state) => state.extra is Member ? null : '/profile',
-      builder: (context, state) {
-        final member = state.extra as Member;
-        // Padronizando para usar o MemberFormScreen que é mais completo
-        return MemberFormScreen(memberId: member.id);
-      },
     ),
     // Lista de grupos de comunhão
     GoRoute(
@@ -1002,13 +987,6 @@ final appRouter = GoRouter(
         initialStatus: 'visitor',
         initialMemberType: 'visitante',
       ),
-    ),
-    GoRoute(
-      path: '/visitors/:id/edit',
-      builder: (context, state) {
-        final id = state.pathParameters['id']!;
-        return MemberFormScreen(memberId: id, initialStatus: 'visitor');
-      },
     ),
     GoRoute(
       path: '/qr-scanner',
