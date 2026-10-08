@@ -12,6 +12,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/services/viacep_service.dart';
+import '../../../../core/utils/digit_mask_formatter.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../providers/members_provider.dart';
 import '../../data/members_repository.dart';
@@ -59,6 +60,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _cpfController = TextEditingController();
+  final _cpfMask = DigitMaskTextInputFormatter('###.###.###-##');
   final _professionController = TextEditingController();
   final _addressController = TextEditingController();
   final _addressComplementController = TextEditingController();
@@ -439,7 +441,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           _nicknameController.text = member.nickname ?? '';
           _emailController.text = member.email;
           _phoneController.text = member.phone ?? '';
-          _cpfController.text = member.cpf ?? '';
+          _cpfController.text = _cpfMask.format(member.cpf ?? '');
           _professionController.text = member.profession ?? '';
           _addressController.text = member.address ?? '';
           _addressComplementController.text = member.addressComplement ?? '';
@@ -629,6 +631,19 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
   Future<void> _saveMember() async {
     if (!_formKey.currentState!.validate()) {
+      // As seções começam recolhidas: sem abrir, o erro fica escondido e o
+      // Salvar parece não fazer nada.
+      setState(
+        () => _expandedFormSections.addAll(
+          ['personal', 'family', 'address', 'church', 'notes'],
+        ),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Revise os campos destacados antes de salvar.'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
 
@@ -1497,6 +1512,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                             hintText: '000.000.000-00',
                           ),
                           keyboardType: TextInputType.number,
+                          inputFormatters: [_cpfMask],
+                          validator: (value) {
+                            final digits =
+                                (value ?? '').replaceAll(RegExp(r'\D'), '');
+                            if (digits.isNotEmpty && digits.length != 11) {
+                              return 'CPF deve ter 11 números';
+                            }
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 16),
 
@@ -2481,7 +2505,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           AnimatedCrossFade(
             firstChild: const SizedBox(width: double.infinity),
             secondChild: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              // Topo 8: o rótulo flutuante do 1º campo sobe acima da borda e
+              // era cortado pelo clip do AnimatedCrossFade.
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: children,
