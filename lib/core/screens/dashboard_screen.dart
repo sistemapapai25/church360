@@ -11,6 +11,7 @@ import '../providers/dashboard_widget_provider.dart';
 import '../../features/notifications/presentation/widgets/notification_badge.dart';
 import '../../features/custom_reports/presentation/providers/custom_report_providers.dart';
 import '../../features/permissions/presentation/widgets/permission_gate.dart';
+import '../../features/support_chat/data/support_agents_data.dart';
 import '../../features/branches/presentation/providers/branches_provider.dart';
 import '../../features/permissions/providers/permissions_providers.dart'
     hide supabaseClientProvider;
@@ -595,7 +596,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 'reading_plans.manage',
               ],
               children: [
-                PermissionGate(
+                if (kMultiAgentsEnabled) PermissionGate(
                   // CHU-310 follow-up: novo código, ver
                   // backend-scripts/add_missing_drawer_permissions.sql
                   permission: 'agents.manage_center',

@@ -94,6 +94,9 @@ final resolvedAgentsProvider = FutureProvider<List<ResolvedAgent>>((ref) async {
 
 final visibleAgentsForCurrentUserProvider = FutureProvider<List<ResolvedAgent>>((ref) async {
   final allAgents = await ref.watch(resolvedAgentsProvider.future);
+  if (!kMultiAgentsEnabled) {
+    return allAgents.where((a) => a.key.toLowerCase() == 'default').toList();
+  }
   UserAccessLevel? userAccessLevel;
   try {
     userAccessLevel = await ref.watch(currentUserAccessLevelProvider.future);
