@@ -166,6 +166,7 @@ import '../../features/kids/presentation/screens/kids_registration_screen.dart';
 import '../../features/kids/presentation/screens/kids_admin_dashboard_screen.dart';
 import '../../features/kids/presentation/screens/kids_select_child_screen.dart';
 import '../../features/support_chat/presentation/screens/agents_center_screen.dart';
+import '../../features/support_chat/presentation/screens/support_attend_screen.dart';
 import '../../features/live_stream/presentation/screens/live_stream_screen.dart';
 import '../../features/live_stream/presentation/screens/manage_live_stream_screen.dart';
 
@@ -413,6 +414,17 @@ final appRouter = GoRouter(
         child: PermissionOnlyRoute(
           permission: 'live_stream.manage',
           child: ManageLiveStreamScreen(),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: '/support/attend',
+      builder: (context, state) => DashboardAccessGate(
+        child: PermissionOnlyRoute(
+          permission: 'support.attend',
+          child: SupportAttendScreen(
+            initialSessionId: state.uri.queryParameters['session'],
+          ),
         ),
       ),
     ),
