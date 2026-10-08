@@ -6,6 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/utils/share_link_utils.dart';
 
+import '../../domain/google_calendar_link.dart';
 import '../../domain/models/event.dart';
 import '../../domain/models/event_audience.dart';
 import '../providers/events_provider.dart';
@@ -427,6 +428,14 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
               ],
             ),
             actions: [
+              IconButton(
+                tooltip: 'Adicionar à minha agenda',
+                icon: const Icon(AppIcons.calendar),
+                onPressed: () => launchUrl(
+                  googleCalendarLink(event),
+                  mode: LaunchMode.externalApplication,
+                ),
+              ),
               IconButton(
                 tooltip: _isRegistrationShareEnabled(event)
                     ? 'Compartilhar link de inscrição'
