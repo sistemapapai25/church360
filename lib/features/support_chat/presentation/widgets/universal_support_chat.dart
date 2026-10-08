@@ -90,6 +90,9 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   String? _playingAudioId;
   final FlutterTts _tts = FlutterTts();
   Map<String, dynamic>? _speakingMsg;
+  // Fala toda resposta até a pessoa desligar em Opções > Voz (pedido do usuário).
+  bool _autoSpeak = true;
+  static const _autoSpeakKey = 'support_auto_speak';
 
   Color _chatBackgroundColor = const Color(0xFFF9FAFB);
   String? _chatWallpaperUrl;
@@ -262,6 +265,9 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     } catch (_) {}
     await _loadChatBackgroundSafely();
     await _loadChatWallpaperSafely();
+    try {
+      _autoSpeak = (await SharedPreferences.getInstance()).getBool(_autoSpeakKey) ?? true;
+    } catch (_) {}
     await _loadRemoteChatPreferencesSafely();
     await _loadThreadSafely();
     await _loadLocalHistorySafely();
@@ -650,6 +656,11 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         label: 'Cor',
         onPressed: _cycleChatBackground,
       ),
+      _buildQuickActionButton(
+        icon: _autoSpeak ? Icons.volume_up_outlined : Icons.volume_off_outlined,
+        label: _autoSpeak ? 'Voz ligada' : 'Voz desligada',
+        onPressed: _toggleAutoSpeak,
+      ),
     ];
     if (canAttach) {
       actions.insert(
@@ -787,6 +798,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           }
         });
         await prefs.setString(_humanSeenKey, rows.last['created_at'].toString());
+        if (_autoSpeak) unawaited(_toggleSpeak(_messages.last));
         await _saveLocalHistorySafely();
         _scrollToBottom();
       }
@@ -1055,6 +1067,14 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     if (_speakingMsg == null) return;
     await _tts.stop();
     if (mounted) setState(() => _speakingMsg = null);
+  }
+
+  Future<void> _toggleAutoSpeak() async {
+    setState(() => _autoSpeak = !_autoSpeak);
+    if (!_autoSpeak) await _stopSpeaking();
+    try {
+      await (await SharedPreferences.getInstance()).setBool(_autoSpeakKey, _autoSpeak);
+    } catch (_) {}
   }
 
   Future<void> _toggleSpeak(Map<String, dynamic> msg) async {
@@ -1577,8 +1597,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           _messages.add(replyMsg);
           _pendingTransferCandidates = candidates;
         });
-        // Perguntou por áudio, ouve a resposta (pedido do usuário).
-        if (audioItems.isNotEmpty) unawaited(_toggleSpeak(replyMsg));
+        if (_autoSpeak) unawaited(_toggleSpeak(replyMsg));
         await _saveLocalHistorySafely();
         _scrollToBottom();
       }
