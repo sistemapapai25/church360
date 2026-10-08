@@ -57,7 +57,6 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
   bool _loadingAgents = false;
   final Map<String, String> _agentConfigs = {}; // Stores IDs
   final _agentIdControllers = <String, TextEditingController>{};
-  final _agentKeyControllers = <String, TextEditingController>{};
   final _agentDisplayNameControllers = <String, TextEditingController>{};
   final _agentSubtitleControllers = <String, TextEditingController>{};
   final _agentThemeColorControllers = <String, TextEditingController>{};
@@ -120,7 +119,7 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
       final tenantId = SupabaseConstants.currentTenantId.trim();
       final response = await supabase
           .from('agent_config')
-          .select('tenant_id, key, assistant_id, openai_api_key, display_name, subtitle, avatar_url, theme_color, show_on_home, show_on_dashboard, show_floating_button, floating_route, allowed_access_levels')
+          .select('tenant_id, key, assistant_id, display_name, subtitle, avatar_url, theme_color, show_on_home, show_on_dashboard, show_floating_button, floating_route, allowed_access_levels')
           .or('tenant_id.eq.$tenantId,tenant_id.is.null')
           .order('key');
       
@@ -146,9 +145,6 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
       for (final c in _agentIdControllers.values) {
         c.dispose();
       }
-      for (final c in _agentKeyControllers.values) {
-        c.dispose();
-      }
       for (final c in _agentDisplayNameControllers.values) {
         c.dispose();
       }
@@ -162,7 +158,6 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
         c.dispose();
       }
       _agentIdControllers.clear();
-      _agentKeyControllers.clear();
       _agentDisplayNameControllers.clear();
       _agentSubtitleControllers.clear();
       _agentThemeColorControllers.clear();
@@ -177,7 +172,6 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
       for (var item in data) {
         final key = item['key'].toString();
         final id = (item['assistant_id'] ?? '').toString();
-        final apiKey = (item['openai_api_key'] ?? '').toString();
         final displayName = (item['display_name'] ?? '').toString();
         final subtitle = (item['subtitle'] ?? '').toString();
         final avatarUrl = (item['avatar_url'] ?? '').toString();
@@ -200,7 +194,6 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
         
         _agentConfigs[key] = id;
         _agentIdControllers[key] = TextEditingController(text: id);
-        _agentKeyControllers[key] = TextEditingController(text: apiKey);
         _agentDisplayNameControllers[key] = TextEditingController(text: displayName);
         _agentSubtitleControllers[key] = TextEditingController(text: subtitle);
         _agentThemeColorControllers[key] = TextEditingController(text: themeColor);
@@ -217,7 +210,6 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
       for (final key in kSupportAgents.keys) {
         if (!_agentIdControllers.containsKey(key)) {
           _agentIdControllers[key] = TextEditingController();
-          _agentKeyControllers[key] = TextEditingController();
           _agentDisplayNameControllers[key] = TextEditingController(text: kSupportAgents[key]?.name ?? '');
           _agentSubtitleControllers[key] = TextEditingController();
           _agentThemeColorControllers[key] = TextEditingController(text: kSupportAgents[key]?.defaultThemeColorHex ?? '');
@@ -235,7 +227,6 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
       for (final key in kSupportAgents.keys) {
         if (!_agentIdControllers.containsKey(key)) {
           _agentIdControllers[key] = TextEditingController();
-          _agentKeyControllers[key] = TextEditingController();
           _agentDisplayNameControllers[key] = TextEditingController(text: kSupportAgents[key]?.name ?? '');
           _agentSubtitleControllers[key] = TextEditingController();
           _agentThemeColorControllers[key] = TextEditingController(text: kSupportAgents[key]?.defaultThemeColorHex ?? '');
@@ -261,7 +252,6 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
         assistantId = assistantId.substring(2);
         _agentIdControllers[key]?.text = assistantId;
       }
-      final apiKey = _agentKeyControllers[key]?.text.trim() ?? '';
       final displayName = _agentDisplayNameControllers[key]?.text.trim() ?? '';
       final subtitle = _agentSubtitleControllers[key]?.text.trim() ?? '';
       final avatarUrl = (_agentAvatarUrls[key] ?? '').trim();
@@ -283,7 +273,6 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
         'floating_route': floatingRoute.isEmpty ? null : floatingRoute,
         'allowed_access_levels': allowed,
       };
-      data['openai_api_key'] = apiKey;
 
       await supabase.from('agent_config').upsert(data, onConflict: 'tenant_id,key');
       ref.invalidate(agentRuntimeConfigsProvider);
@@ -348,9 +337,6 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
   @override
   void dispose() {
     for (final c in _agentIdControllers.values) {
-      c.dispose();
-    }
-    for (final c in _agentKeyControllers.values) {
       c.dispose();
     }
     for (final c in _agentDisplayNameControllers.values) {
@@ -574,17 +560,6 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
                                               ),
                                             ],
                                           ),
-                                          const SizedBox(height: 8),
-                                          TextField(
-                                            controller: _agentKeyControllers[entry.key],
-                                            decoration: const InputDecoration(
-                                              labelText: 'OpenAI API Key (Opcional se usar ENV global)',
-                                              border: OutlineInputBorder(),
-                                              hintText: 'sk-...',
-                                              isDense: true,
-                                            ),
-                                            obscureText: true,
-                                          ),
                                           const Divider(),
                                         ],
                                       ),
@@ -614,7 +589,6 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
                                                     if (k.isNotEmpty && !_agentIdControllers.containsKey(k)) {
                                                       setState(() {
                                                         _agentIdControllers[k] = TextEditingController();
-                                                        _agentKeyControllers[k] = TextEditingController();
                                                         _agentDisplayNameControllers[k] = TextEditingController(text: k);
                                                         _agentSubtitleControllers[k] = TextEditingController();
                                                         _agentThemeColorControllers[k] = TextEditingController();
