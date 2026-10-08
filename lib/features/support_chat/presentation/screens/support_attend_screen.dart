@@ -250,11 +250,13 @@ class _SupportAttendScreenState extends State<SupportAttendScreen> {
           ),
         const Divider(),
         Expanded(
+          // reverse: a lista fica presa no fim e a fala nova aparece sem rolar.
           child: ListView.builder(
+            reverse: true,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             itemCount: _messages.length,
             itemBuilder: (context, i) {
-              final m = _messages[i];
+              final m = _messages[_messages.length - 1 - i];
               final role = m['role'];
               final fromMember = role == 'user';
               final who = fromMember
