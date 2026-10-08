@@ -818,6 +818,24 @@ class MinistriesRepository {
       for (final e in catalog)
         norm((e['name'] ?? '').toString()): (e['id'] ?? '').toString().trim(),
     };
+    // Função criada no ministério ("Nova função") que ainda não está no
+    // catálogo entra nele. Antes era pulada calada: aparecia na Equipe, mas
+    // o gerador nunca escalava ninguém nela. Vem antes do delete para uma
+    // falha aqui não apagar os vínculos que já existem.
+    for (final funcName in byFunc.keys) {
+      final nameKey = funcName.trim();
+      if (nameKey.isEmpty || normNameToId.containsKey(norm(nameKey))) continue;
+      final created = await _supabase
+          .from('ministry_function')
+          .insert({
+            'name': nameKey,
+            'is_active': true,
+            'tenant_id': SupabaseConstants.currentTenantId,
+          })
+          .select('id')
+          .single();
+      normNameToId[norm(nameKey)] = created['id'].toString();
+    }
     await _supabase
         .from('member_function')
         .delete()

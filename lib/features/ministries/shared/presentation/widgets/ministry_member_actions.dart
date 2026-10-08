@@ -41,7 +41,7 @@ Future<void> showMinistryEditRoleDialog({
   final Set<String> selectedFunctions = {};
   List<String> availableFunctions = [];
   Map<String, String> functionCategory = {};
-  // carrega restrições apenas para validação ao salvar
+  bool functionsRequested = false;
 
   final confirmed = await showDialog<bool>(
     context: context,
@@ -101,69 +101,25 @@ Future<void> showMinistryEditRoleDialog({
                       // da lista dava um cargo RBAC que ninguém escolheu.
                       selectedRoleId = preferredId;
                     }
-                    if (selectedRoleId != null && availableFunctions.isEmpty) {
-                      Future.microtask(() async {
-                        final contexts = await ref
-                            .read(roleContextsRepositoryProvider)
-                            .getContextsByMinistry(ministryId);
-                        final Set<String> funcs = {};
-                        final Map<String, String> catMap = {};
-                        final Map<String, List<String>> assignedByUser = {};
-                        for (final c in contexts) {
-                          final meta = c.metadata ?? {};
-                          for (final f in List<dynamic>.from(
-                            meta['functions'] ?? const [],
-                          )) {
-                            funcs.add(f.toString());
-                          }
-                          final m = Map<String, dynamic>.from(
-                            meta['function_category_by_function'] ?? {},
-                          );
-                          m.forEach((k, v) {
-                            catMap[k] = v.toString();
-                          });
-                          final assigned = Map<String, dynamic>.from(
-                            meta['assigned_functions'] ?? {},
-                          );
-                          assigned.forEach((uid, list) {
-                            final arr = List<dynamic>.from(list ?? const []);
-                            assignedByUser.putIfAbsent(
-                              uid.toString(),
-                              () => [],
-                            );
-                            for (final f in arr) {
-                              if (!assignedByUser[uid.toString()]!.contains(
-                                f.toString(),
-                              )) {
-                                assignedByUser[uid.toString()]!.add(
-                                  f.toString(),
-                                );
-                              }
+                    // A lista é do ministério, não do cargo: carrega uma vez,
+                    // mesmo sem cargo escolhido.
+                    if (!functionsRequested) {
+                      functionsRequested = true;
+                      _loadMinistryFunctions(
+                        ref,
+                        ministryId,
+                        member.memberId,
+                      ).then((r) {
+                        if (!context.mounted) return;
+                        setState(() {
+                          for (final f in r.functions) {
+                            if (!availableFunctions.contains(f)) {
+                              availableFunctions.add(f);
                             }
-                          });
-                        }
-                        try {
-                          final mf = await ref
-                              .read(ministriesRepositoryProvider)
-                              .getMemberFunctionsByMinistry(ministryId);
-                          final union = <String>{
-                            ...assignedByUser[member.memberId] ?? const [],
-                            ...mf[member.memberId] ?? const [],
-                          };
-                          setState(() {
-                            availableFunctions = funcs.toList();
-                            functionCategory = catMap;
-                            selectedFunctions.addAll(union);
-                          });
-                        } catch (_) {
-                          setState(() {
-                            availableFunctions = funcs.toList();
-                            functionCategory = catMap;
-                            selectedFunctions.addAll(
-                              assignedByUser[member.memberId] ?? const [],
-                            );
-                          });
-                        }
+                          }
+                          functionCategory = r.categories;
+                          selectedFunctions.addAll(r.mine);
+                        });
                       });
                     }
                     return SingleChildScrollView(
@@ -184,81 +140,8 @@ Future<void> showMinistryEditRoleDialog({
                                   ),
                                 )
                                 .toList(),
-                            onChanged: (value) async {
-                              setState(() {
-                                selectedRoleId = value;
-                                availableFunctions = [];
-                                selectedFunctions.clear();
-                                functionCategory.clear();
-                              });
-                              if (value != null) {
-                                final contexts = await ref
-                                    .read(roleContextsRepositoryProvider)
-                                    .getContextsByMinistry(ministryId);
-                                final Set<String> funcs = {};
-                                final Map<String, String> catMap = {};
-                                final Map<String, List<String>> assignedByUser =
-                                    {};
-                                for (final c in contexts) {
-                                  final meta = c.metadata ?? {};
-                                  for (final f in List<dynamic>.from(
-                                    meta['functions'] ?? const [],
-                                  )) {
-                                    funcs.add(f.toString());
-                                  }
-                                  final m = Map<String, dynamic>.from(
-                                    meta['function_category_by_function'] ?? {},
-                                  );
-                                  m.forEach((k, v) {
-                                    catMap[k] = v.toString();
-                                  });
-                                  final assigned = Map<String, dynamic>.from(
-                                    meta['assigned_functions'] ?? {},
-                                  );
-                                  assigned.forEach((uid, list) {
-                                    final arr = List<dynamic>.from(
-                                      list ?? const [],
-                                    );
-                                    assignedByUser.putIfAbsent(
-                                      uid.toString(),
-                                      () => [],
-                                    );
-                                    for (final f in arr) {
-                                      if (!assignedByUser[uid.toString()]!
-                                          .contains(f.toString())) {
-                                        assignedByUser[uid.toString()]!.add(
-                                          f.toString(),
-                                        );
-                                      }
-                                    }
-                                  });
-                                }
-                                try {
-                                  final mf = await ref
-                                      .read(ministriesRepositoryProvider)
-                                      .getMemberFunctionsByMinistry(ministryId);
-                                  final union = <String>{
-                                    ...assignedByUser[member.memberId] ??
-                                        const [],
-                                    ...mf[member.memberId] ?? const [],
-                                  };
-                                  setState(() {
-                                    availableFunctions = funcs.toList();
-                                    functionCategory = catMap;
-                                    selectedFunctions.addAll(union);
-                                  });
-                                } catch (_) {
-                                  setState(() {
-                                    availableFunctions = funcs.toList();
-                                    functionCategory = catMap;
-                                    selectedFunctions.addAll(
-                                      assignedByUser[member.memberId] ??
-                                          const [],
-                                    );
-                                  });
-                                }
-                              }
-                            },
+                            onChanged: (value) =>
+                                setState(() => selectedRoleId = value),
                           ),
                           const SizedBox(height: 12),
                           Align(
@@ -272,24 +155,29 @@ Future<void> showMinistryEditRoleDialog({
                           const SizedBox(height: 8),
                           if (availableFunctions.isEmpty)
                             Text(
-                              'Nenhuma função cadastrada para este cargo neste ministério',
+                              'Nenhuma função cadastrada neste ministério. '
+                              'Crie abaixo.',
                               style: Theme.of(context).textTheme.bodySmall,
                             )
                           else
                             Column(
                               children: availableFunctions.map((f) {
                                 final checked = selectedFunctions.contains(f);
-                                final cat = functionCategory[f] ?? 'other';
+                                final cat = functionCategory[f];
                                 return CheckboxListTile(
                                   value: checked,
                                   title: Text(f),
-                                  subtitle: Text(
-                                    cat == 'instrument'
-                                        ? 'Instrumento'
-                                        : cat == 'voice_role'
-                                        ? 'Back'
-                                        : cat,
-                                  ),
+                                  subtitle: cat == null
+                                      ? null
+                                      : Text(
+                                          cat == 'instrument'
+                                              ? 'Instrumento'
+                                              : cat == 'voice_role'
+                                              ? 'Back'
+                                              : cat == 'other'
+                                              ? 'Outra'
+                                              : cat,
+                                        ),
                                   onChanged: (sel) {
                                     setState(() {
                                       if (sel == true) {
@@ -303,7 +191,14 @@ Future<void> showMinistryEditRoleDialog({
                               }).toList(),
                             ),
                           const SizedBox(height: 8),
-                          const SizedBox.shrink(),
+                          _NewFunctionField(
+                            onAdd: (name) => setState(() {
+                              if (!availableFunctions.contains(name)) {
+                                availableFunctions.add(name);
+                              }
+                              selectedFunctions.add(name);
+                            }),
+                          ),
                         ],
                       ),
                     );
@@ -332,7 +227,42 @@ Future<void> showMinistryEditRoleDialog({
     ),
   );
 
-  if (confirmed == true && selectedRoleId != null && context.mounted) {
+  if (confirmed != true || !context.mounted) return;
+
+  // Funções primeiro e com ou sem cargo: são do ministério, não do cargo.
+  try {
+    await _saveMemberFunctions(
+      ref: ref,
+      ministryId: ministryId,
+      memberId: member.memberId,
+      available: availableFunctions,
+      selected: selectedFunctions,
+    );
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao salvar funções: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+    return;
+  }
+  if (selectedRoleId == null) {
+    ref.invalidate(ministryMembersProvider(ministryId));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Funções atualizadas com sucesso!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+    return;
+  }
+
+  if (context.mounted) {
     try {
       final repository = ref.read(ministriesRepositoryProvider);
       final rolesRepo = ref.read(rolesRepositoryProvider);
@@ -394,37 +324,6 @@ Future<void> showMinistryEditRoleDialog({
           contextId: contextId,
           metadata: updatedMeta,
         );
-
-        // Persistir em member_function (fonte para regras/geração de escala).
-        // Esta é a etapa crítica — preserva a seleção de funções do membro
-        // mesmo quando o vínculo com auth.users não puder ser sincronizado.
-        try {
-          final currentMapByUser = await repository
-              .getMemberFunctionsByMinistry(ministryId);
-          final byFunc = <String, List<String>>{};
-          currentMapByUser.forEach((uid, fnList) {
-            for (final f in fnList) {
-              byFunc.putIfAbsent(f, () => []);
-              if (!byFunc[f]!.contains(uid)) byFunc[f]!.add(uid);
-            }
-          });
-          // Aplicar seleção atual deste membro
-          for (final f in availableFunctions) {
-            final list = byFunc.putIfAbsent(f, () => []);
-            final has = list.contains(member.memberId);
-            final sel = selectedFunctions.contains(f);
-            if (sel && !has) {
-              list.add(member.memberId);
-            } else if (!sel && has) {
-              list.remove(member.memberId);
-            }
-          }
-          await repository.setMemberFunctionsByMinistry(ministryId, byFunc);
-        } catch (e) {
-          persistedOk = false;
-          debugPrint('Falha ao persistir member_function: $e');
-          rethrow;
-        }
 
         // Sincronizar com user_roles (sistema de permissões).
         // user_roles.user_id referencia auth.users(id), então só funciona
@@ -614,6 +513,154 @@ Future<String?> _resolveAuthUserId(String userAccountId) async {
   }
 }
 
+/// Funções do ministério: a união da lista de todos os cargos (role_context)
+/// e do que já está em member_function. Não depende do cargo escolhido —
+/// a lista é do ministério. [memberId] traz o que a pessoa já tem.
+Future<
+  ({List<String> functions, Map<String, String> categories, Set<String> mine})
+>
+_loadMinistryFunctions(
+  WidgetRef ref,
+  String ministryId,
+  String? memberId,
+) async {
+  final contexts = await ref
+      .read(roleContextsRepositoryProvider)
+      .getContextsByMinistry(ministryId);
+  final funcs = <String>{};
+  final categories = <String, String>{};
+  final mine = <String>{};
+  for (final c in contexts) {
+    final meta = c.metadata ?? {};
+    for (final f in List<dynamic>.from(meta['functions'] ?? const [])) {
+      funcs.add(f.toString());
+    }
+    Map<String, dynamic>.from(
+      meta['function_category_by_function'] ?? {},
+    ).forEach((k, v) => categories[k] = v.toString());
+    final assigned = Map<String, dynamic>.from(
+      meta['assigned_functions'] ?? {},
+    );
+    for (final f in List<dynamic>.from(assigned[memberId] ?? const [])) {
+      mine.add(f.toString());
+    }
+  }
+  try {
+    final byUser = await ref
+        .read(ministriesRepositoryProvider)
+        .getMemberFunctionsByMinistry(ministryId);
+    for (final list in byUser.values) {
+      funcs.addAll(list);
+    }
+    mine.addAll(byUser[memberId] ?? const []);
+  } catch (_) {}
+  return (functions: funcs.toList(), categories: categories, mine: mine);
+}
+
+/// Grava as funções da pessoa no ministério:
+/// - nome novo entra na lista de todos os cargos do ministério;
+/// - assigned_functions fica igual em todos os cargos que já tinham a pessoa
+///   (a leitura junta todos, então um cargo velho fazia a função desmarcada
+///   voltar);
+/// - member_function, que o gerador de escala usa, é regravada.
+Future<void> _saveMemberFunctions({
+  required WidgetRef ref,
+  required String ministryId,
+  required String memberId,
+  required List<String> available,
+  required Set<String> selected,
+}) async {
+  final contextsRepo = ref.read(roleContextsRepositoryProvider);
+  for (final c in await contextsRepo.getContextsByMinistry(ministryId)) {
+    final meta = Map<String, dynamic>.from(c.metadata ?? {});
+    final funcs = List<dynamic>.from(
+      meta['functions'] ?? const [],
+    ).map((e) => e.toString()).toList();
+    final added = available.where((f) => !funcs.contains(f)).toList();
+    final assigned = Map<String, dynamic>.from(
+      meta['assigned_functions'] ?? {},
+    );
+    final hasMember = assigned.containsKey(memberId);
+    if (added.isEmpty && !hasMember) continue;
+    meta['functions'] = [...funcs, ...added];
+    if (hasMember) {
+      assigned[memberId] = selected.toList();
+      meta['assigned_functions'] = assigned;
+    }
+    await contextsRepo.updateContext(contextId: c.id, metadata: meta);
+  }
+
+  final repository = ref.read(ministriesRepositoryProvider);
+  final byFunc = <String, List<String>>{};
+  (await repository.getMemberFunctionsByMinistry(ministryId)).forEach((
+    uid,
+    fnList,
+  ) {
+    for (final f in fnList) {
+      final list = byFunc.putIfAbsent(f, () => []);
+      if (!list.contains(uid)) list.add(uid);
+    }
+  });
+  for (final f in available) {
+    final list = byFunc.putIfAbsent(f, () => []);
+    list.remove(memberId);
+    if (selected.contains(f)) list.add(memberId);
+  }
+  await repository.setMemberFunctionsByMinistry(ministryId, byFunc);
+}
+
+/// Campo "Nova função" + botão: devolve o nome digitado para quem chamou
+/// incluir na lista (já marcado).
+class _NewFunctionField extends StatefulWidget {
+  final ValueChanged<String> onAdd;
+
+  const _NewFunctionField({required this.onAdd});
+
+  @override
+  State<_NewFunctionField> createState() => _NewFunctionFieldState();
+}
+
+class _NewFunctionFieldState extends State<_NewFunctionField> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _add() {
+    final name = _controller.text.trim();
+    if (name.isEmpty) return;
+    widget.onAdd(name);
+    _controller.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _controller,
+            decoration: const InputDecoration(
+              labelText: 'Nova função',
+              border: OutlineInputBorder(),
+            ),
+            onSubmitted: (_) => _add(),
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton.filled(
+          tooltip: 'Adicionar função',
+          onPressed: _add,
+          icon: const Icon(Icons.add),
+        ),
+      ],
+    );
+  }
+}
+
 /// Abre o diálogo de inclusão de membro no ministério.
 Future<void> showAddMinistryMemberDialog({
   required BuildContext context,
@@ -640,10 +687,9 @@ class _MinistryAddMemberDialogState
     extends ConsumerState<MinistryAddMemberDialog> {
   String? _selectedMemberId;
   String? _selectedRoleId;
-  List<String> _availableFunctions = [];
+  final List<String> _availableFunctions = [];
   final Set<String> _selectedFunctions = {};
   final Map<String, String> _functionCategory = {};
-  final _newFunctionController = TextEditingController();
   final _notesController = TextEditingController();
   final _memberSearchController = TextEditingController();
   bool _isLoading = false;
@@ -651,8 +697,21 @@ class _MinistryAddMemberDialogState
   // Fluxo simplificado: sempre atribui cargo de ministério automaticamente
 
   @override
+  void initState() {
+    super.initState();
+    _loadMinistryFunctions(ref, widget.ministryId, null).then((r) {
+      if (!mounted) return;
+      setState(() {
+        for (final f in r.functions) {
+          if (!_availableFunctions.contains(f)) _availableFunctions.add(f);
+        }
+        _functionCategory.addAll(r.categories);
+      });
+    });
+  }
+
+  @override
   void dispose() {
-    _newFunctionController.dispose();
     _notesController.dispose();
     _memberSearchController.dispose();
     super.dispose();
@@ -808,7 +867,6 @@ class _MinistryAddMemberDialogState
                           setState(() {
                             _selectedRoleId = value;
                           });
-                          _loadFunctionsForSelectedRole();
                         },
                       );
                     },
@@ -817,7 +875,8 @@ class _MinistryAddMemberDialogState
                   ),
                   const SizedBox(height: 16),
 
-                  if (_selectedRoleId != null) ...[
+                  // Funções são do ministério, não do cargo: aparecem sempre.
+                  ...[
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
@@ -830,24 +889,29 @@ class _MinistryAddMemberDialogState
                     const SizedBox(height: 8),
                     if (_availableFunctions.isEmpty)
                       Text(
-                        'Nenhuma função cadastrada para este cargo neste ministério',
+                        'Nenhuma função cadastrada neste ministério. '
+                        'Crie abaixo.',
                         style: Theme.of(context).textTheme.bodySmall,
                       )
                     else
                       Column(
                         children: _availableFunctions.map((f) {
                           final checked = _selectedFunctions.contains(f);
-                          final cat = _functionCategory[f] ?? 'other';
+                          final cat = _functionCategory[f];
                           return CheckboxListTile(
                             value: checked,
                             title: Text(f),
-                            subtitle: Text(
-                              cat == 'instrument'
-                                  ? 'Instrumento'
-                                  : cat == 'voice_role'
-                                  ? 'Voz'
-                                  : 'Outra',
-                            ),
+                            subtitle: cat == null
+                                ? null
+                                : Text(
+                                    cat == 'instrument'
+                                        ? 'Instrumento'
+                                        : cat == 'voice_role'
+                                        ? 'Voz'
+                                        : cat == 'other'
+                                        ? 'Outra'
+                                        : cat,
+                                  ),
                             onChanged: (sel) {
                               setState(() {
                                 if (sel == true) {
@@ -861,81 +925,13 @@ class _MinistryAddMemberDialogState
                         }).toList(),
                       ),
                     const SizedBox(height: 8),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final narrow = constraints.maxWidth < 420;
-                        if (narrow) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              TextField(
-                                controller: _newFunctionController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Nova função',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: FilledButton.icon(
-                                  onPressed: () {
-                                    final name = _newFunctionController.text
-                                        .trim();
-                                    if (name.isEmpty) return;
-                                    setState(() {
-                                      if (!_availableFunctions.contains(name)) {
-                                        _availableFunctions.add(name);
-                                        _functionCategory.putIfAbsent(
-                                          name,
-                                          () => 'other',
-                                        );
-                                      }
-                                      _selectedFunctions.add(name);
-                                      _newFunctionController.clear();
-                                    });
-                                  },
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('Adicionar'),
-                                ),
-                              ),
-                            ],
-                          );
+                    _NewFunctionField(
+                      onAdd: (name) => setState(() {
+                        if (!_availableFunctions.contains(name)) {
+                          _availableFunctions.add(name);
                         }
-                        return Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _newFunctionController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Nova função',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            FilledButton.icon(
-                              onPressed: () {
-                                final name = _newFunctionController.text.trim();
-                                if (name.isEmpty) return;
-                                setState(() {
-                                  if (!_availableFunctions.contains(name)) {
-                                    _availableFunctions.add(name);
-                                    _functionCategory.putIfAbsent(
-                                      name,
-                                      () => 'other',
-                                    );
-                                  }
-                                  _selectedFunctions.add(name);
-                                  _newFunctionController.clear();
-                                });
-                              },
-                              icon: const Icon(Icons.add),
-                              label: const Text('Adicionar'),
-                            ),
-                          ],
-                        );
-                      },
+                        _selectedFunctions.add(name);
+                      }),
                     ),
                     const SizedBox(height: 8),
                   ],
@@ -1094,19 +1090,6 @@ class _MinistryAddMemberDialogState
             contextId = created.id;
           } else {
             contextId = filtered.first.id;
-            final meta = Map<String, dynamic>.from(
-              filtered.first.metadata ?? {},
-            );
-            final List<dynamic> funcs = List<dynamic>.from(
-              meta['functions'] ?? [],
-            );
-            for (final f in _availableFunctions) {
-              if (!funcs.contains(f)) funcs.add(f);
-            }
-            meta['functions'] = funcs;
-            await ref
-                .read(roleContextsRepositoryProvider)
-                .updateContext(contextId: contextId, metadata: meta);
           }
 
           // Persistir funções atribuídas no metadata do contexto
@@ -1124,35 +1107,6 @@ class _MinistryAddMemberDialogState
           await ref
               .read(roleContextsRepositoryProvider)
               .updateContext(contextId: contextId, metadata: updatedMeta);
-
-          // Persistir member_function (fonte para regras/geração de escala)
-          try {
-            final repo = ref.read(ministriesRepositoryProvider);
-            final currentMapByUser = await repo.getMemberFunctionsByMinistry(
-              widget.ministryId,
-            );
-            final byFunc = <String, List<String>>{};
-            currentMapByUser.forEach((uid, fnList) {
-              for (final f in fnList) {
-                byFunc.putIfAbsent(f, () => []);
-                if (!byFunc[f]!.contains(uid)) byFunc[f]!.add(uid);
-              }
-            });
-            for (final f in _availableFunctions) {
-              final list = byFunc.putIfAbsent(f, () => []);
-              final has = list.contains(_selectedMemberId);
-              final sel = _selectedFunctions.contains(f);
-              if (sel && !has) {
-                list.add(_selectedMemberId!);
-              } else if (!sel && has) {
-                list.remove(_selectedMemberId);
-              }
-            }
-            await repo.setMemberFunctionsByMinistry(widget.ministryId, byFunc);
-          } catch (e) {
-            debugPrint('Falha ao persistir member_function: $e');
-            avisoCargo = 'as funções não foram salvas';
-          }
 
           // Sincronizar com user_roles — só funciona para membros com auth_user_id
           try {
@@ -1179,6 +1133,20 @@ class _MinistryAddMemberDialogState
           debugPrint('Falha ao atribuir cargo de ministério: $e');
           avisoCargo = 'o cargo não foi atribuído';
         }
+      }
+
+      // Funções com ou sem cargo: são do ministério, não do cargo.
+      try {
+        await _saveMemberFunctions(
+          ref: ref,
+          ministryId: widget.ministryId,
+          memberId: _selectedMemberId!,
+          available: _availableFunctions,
+          selected: _selectedFunctions,
+        );
+      } catch (e) {
+        debugPrint('Falha ao persistir funções: $e');
+        avisoCargo = 'as funções não foram salvas';
       }
 
       // Atualizar lista após atribuir cargo para refletir imediatamente o "Cargo" no card
@@ -1210,44 +1178,6 @@ class _MinistryAddMemberDialogState
       if (mounted) {
         setState(() => _isLoading = false);
       }
-    }
-  }
-
-  Future<void> _loadFunctionsForSelectedRole() async {
-    if (_selectedRoleId == null) return;
-    try {
-      final contexts = await ref
-          .read(roleContextsRepositoryProvider)
-          .getContextsByMinistry(widget.ministryId);
-      final filtered = contexts
-          .where((c) => c.roleId == _selectedRoleId)
-          .toList();
-      if (filtered.isNotEmpty) {
-        final meta = filtered.first.metadata ?? {};
-        final List<dynamic> funcs = List<dynamic>.from(meta['functions'] ?? []);
-        final catMap = Map<String, dynamic>.from(
-          meta['function_category_by_function'] ?? {},
-        );
-        setState(() {
-          _availableFunctions = funcs.map((e) => e.toString()).toList();
-          _functionCategory
-            ..clear()
-            ..addAll(catMap.map((k, v) => MapEntry(k, v.toString())));
-          _selectedFunctions.clear();
-        });
-      } else {
-        setState(() {
-          _availableFunctions = [];
-          _selectedFunctions.clear();
-          _functionCategory.clear();
-        });
-      }
-    } catch (_) {
-      setState(() {
-        _availableFunctions = [];
-        _selectedFunctions.clear();
-        _functionCategory.clear();
-      });
     }
   }
 
