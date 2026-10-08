@@ -713,10 +713,8 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     final canUpdate = currentMember?.id == member.id;
 
     // UX: se o consentimento já veio concedido no cadastro, não pedir para "Conceder" aqui.
-    // Para o próprio usuário, com consentimento dado, a ação é "Revogar" (direito LGPD); a política fica na linha abaixo.
-    final actionLabel = canUpdate
-        ? (hasConsent ? 'Revogar' : 'Conceder')
-        : 'Ver';
+    // Para o próprio usuário, quando já houver consentimento, manter apenas "Ver" (política).
+    final actionLabel = canUpdate ? (hasConsent ? 'Ver' : 'Conceder') : 'Ver';
 
     return _buildInfoRowWithAction(
       Icons.verified_user_outlined,
@@ -724,7 +722,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       statusText,
       actionLabel,
       () async {
-        if (!canUpdate) {
+        if (!canUpdate || hasConsent) {
           await _openLgpdPolicy();
           return;
         }
