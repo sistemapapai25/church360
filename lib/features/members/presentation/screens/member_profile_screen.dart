@@ -18,6 +18,7 @@ import '../../../../core/onboarding/onboarding_tour_prefs.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/spotlight_tour.dart';
 import '../../../devotionals/presentation/providers/devotional_provider.dart';
+import '../../../kids/presentation/providers/kids_providers.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../notifications/presentation/widgets/notification_badge.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
@@ -307,13 +308,25 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           .from('member-photos')
           .getPublicUrl(fileName);
 
-      await supabase
+      // A RLS barra o UPDATE devolvendo 0 linhas, sem erro: sem o `select`
+      // a tela dizia "Foto atualizada" e a foto antiga continuava lá.
+      final updated = await supabase
           .from('user_account')
           .update({'photo_url': publicUrl})
-          .eq('id', memberId);
+          .eq('id', memberId)
+          .select('id');
+      if (updated.isEmpty) {
+        throw Exception('sem permissão para trocar a foto deste cadastro');
+      }
 
+      // Relê tudo que mostra a foto (perfil, Home, listas de membros) para a
+      // nova aparecer na hora, sem precisar recarregar o app.
       ref.invalidate(currentMemberProvider);
       ref.invalidate(memberByIdProvider(memberId));
+      ref.invalidate(allMembersProvider);
+      ref.invalidate(activeMembersProvider);
+      ref.invalidate(visitorsProvider);
+      ref.invalidate(managedChildrenProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

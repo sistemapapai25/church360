@@ -629,6 +629,25 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     }
   }
 
+  /// O aviso de validação some em segundos e o campo com erro costuma ficar
+  /// fora da tela: a pessoa achava que tinha salvo. Espera as seções
+  /// terminarem de abrir (AnimatedCrossFade de 200ms) e rola até o 1º erro.
+  void _rolarAtePrimeiroErro() {
+    Future.delayed(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
+      final formContext = _formKey.currentContext;
+      if (formContext == null || !formContext.mounted) return;
+      final alvo = primeiroCampoComErro(formContext);
+      if (alvo == null) return;
+      Scrollable.ensureVisible(
+        alvo,
+        alignment: 0.2,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
   Future<void> _saveMember() async {
     if (!_formKey.currentState!.validate()) {
       // As seções começam recolhidas: sem abrir, o erro fica escondido e o
@@ -644,6 +663,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           backgroundColor: Colors.red,
         ),
       );
+      _rolarAtePrimeiroErro();
       return;
     }
 
@@ -975,19 +995,20 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         ref.invalidate(activeMembersProvider);
         ref.invalidate(visitorsProvider);
         ref.invalidate(managedChildrenProvider);
+        // A ficha tem DUAS chaves: `user_account.id` e `auth_user_id`, e
+        // elas só coincidem por acaso. Comparar o uid do login apenas com
+        // `widget.memberId` fazia quem tem os dois valores diferentes
+        // (caso de quem já teve cadastro fundido) editar o próprio perfil
+        // sem que `currentMemberProvider` fosse relido — a pessoa salvava
+        // e continuava vendo o dado velho. Mesmo tropeço do OwnerOnlyRoute.
+        final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+        final editandoASiMesmo =
+            widget.memberId != null &&
+            currentUserId != null &&
+            (currentUserId == widget.memberId ||
+                currentUserId == _existingMember?.authUserId);
         if (widget.memberId != null) {
           ref.invalidate(memberByIdProvider(widget.memberId!));
-          // A ficha tem DUAS chaves: `user_account.id` e `auth_user_id`, e
-          // elas só coincidem por acaso. Comparar o uid do login apenas com
-          // `widget.memberId` fazia quem tem os dois valores diferentes
-          // (caso de quem já teve cadastro fundido) editar o próprio perfil
-          // sem que `currentMemberProvider` fosse relido — a pessoa salvava
-          // e continuava vendo o dado velho. Mesmo tropeço do OwnerOnlyRoute.
-          final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-          final editandoASiMesmo =
-              currentUserId != null &&
-              (currentUserId == widget.memberId ||
-                  currentUserId == _existingMember?.authUserId);
           if (editandoASiMesmo) {
             ref.invalidate(currentMemberProvider);
           }
@@ -1034,7 +1055,14 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           );
         }
 
-        (context.canPop() ? context.pop() : context.go('/home'));
+        // Sem pilha (o PWA recarregado reabre direto na edição), quem
+        // editou o próprio perfil volta para a ficha, não para a Home: ver
+        // os dados novos na tela de perfil é o que mostra que gravou.
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go(editandoASiMesmo ? '/profile' : '/home');
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -2523,4 +2551,24 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       ),
     );
   }
+}
+
+/// Primeiro campo (na ordem da árvore) dentro de [formContext] que está
+/// mostrando erro de validação.
+@visibleForTesting
+Element? primeiroCampoComErro(BuildContext formContext) {
+  Element? primeiro;
+  void visitar(Element e) {
+    if (primeiro != null) return;
+    if (e is StatefulElement &&
+        e.state is FormFieldState &&
+        (e.state as FormFieldState).hasError) {
+      primeiro = e;
+      return;
+    }
+    e.visitChildren(visitar);
+  }
+
+  formContext.visitChildElements(visitar);
+  return primeiro;
 }
