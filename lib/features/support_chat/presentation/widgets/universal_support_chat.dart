@@ -11,10 +11,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/utils/storage_upload_path.dart';
 import '../../data/support_agents_data.dart';
 import '../../domain/models/support_agent.dart';
+import '../../domain/speech_text.dart';
 import '../providers/agents_providers.dart';
 import 'agent_avatar.dart';
 import '../../../members/presentation/providers/members_provider.dart';
@@ -86,6 +88,8 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   late final AudioPlayer _audioPlayer;
   PlayerState _audioPlayerState = PlayerState.stopped;
   String? _playingAudioId;
+  final FlutterTts _tts = FlutterTts();
+  Map<String, dynamic>? _speakingMsg;
 
   Color _chatBackgroundColor = const Color(0xFFF9FAFB);
   String? _chatWallpaperUrl;
@@ -147,6 +151,13 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         _audioPlayerState = PlayerState.stopped;
       });
     });
+    _tts.setLanguage('pt-BR');
+    void clearSpeaking() {
+      if (mounted && _speakingMsg != null) setState(() => _speakingMsg = null);
+    }
+    _tts.setCompletionHandler(clearSpeaking);
+    _tts.setCancelHandler(clearSpeaking);
+    _tts.setErrorHandler((_) => clearSpeaking());
     _hasText = _textController.text.trim().isNotEmpty;
     _textController.addListener(_handleTextChanged);
     _activeAgentKey = widget.agentKey;
@@ -191,6 +202,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     _scrollController.dispose();
     _audioPlayer.dispose();
     _audioRecorder.dispose();
+    _tts.stop();
     super.dispose();
   }
 
@@ -864,6 +876,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       return;
     }
 
+    await _stopSpeaking();
     final hasPermission = await _audioRecorder.hasPermission();
     if (!hasPermission) {
       if (!mounted) return;
@@ -952,6 +965,21 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         SnackBar(content: Text('Erro ao reproduzir áudio: $e')),
       );
     }
+  }
+
+  Future<void> _stopSpeaking() async {
+    if (_speakingMsg == null) return;
+    await _tts.stop();
+    if (mounted) setState(() => _speakingMsg = null);
+  }
+
+  Future<void> _toggleSpeak(Map<String, dynamic> msg) async {
+    final wasThis = identical(_speakingMsg, msg);
+    await _tts.stop();
+    final text = textForSpeech(msg['content']?.toString() ?? '');
+    if (!mounted) return;
+    setState(() => _speakingMsg = (wasThis || text.isEmpty) ? null : msg);
+    if (_speakingMsg != null) await _tts.speak(text);
   }
 
   void _removeAttachment(int index) {
@@ -1446,17 +1474,20 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       final contactProposal = contactParsed['proposal'] as Map<String, dynamic>?;
 
       if (mounted) {
+        final replyMsg = <String, dynamic>{
+          'role': 'assistant',
+          'content': reply.isEmpty ? 'Ok.' : reply,
+          'time': DateTime.now(),
+          'agent': _agent,
+          if (candidates.isNotEmpty) 'transferCandidates': candidates,
+          if (contactProposal != null) 'contactUpdateProposal': contactProposal,
+        };
         setState(() {
-          _messages.add({
-            'role': 'assistant',
-            'content': reply.isEmpty ? 'Ok.' : reply,
-            'time': DateTime.now(),
-            'agent': _agent,
-            if (candidates.isNotEmpty) 'transferCandidates': candidates,
-            if (contactProposal != null) 'contactUpdateProposal': contactProposal,
-          });
+          _messages.add(replyMsg);
           _pendingTransferCandidates = candidates;
         });
+        // Perguntou por áudio, ouve a resposta (pedido do usuário).
+        if (audioItems.isNotEmpty) unawaited(_toggleSpeak(replyMsg));
         await _saveLocalHistorySafely();
         _scrollToBottom();
       }
@@ -2019,9 +2050,25 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  _formatTime(msg['time'] as DateTime),
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _formatTime(msg['time'] as DateTime),
+                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
+                    if (!isUser)
+                      IconButton(
+                        onPressed: () => _toggleSpeak(msg),
+                        icon: Icon(
+                          identical(_speakingMsg, msg) ? Icons.stop_circle_outlined : Icons.volume_up_outlined,
+                          size: 18,
+                          color: const Color(0xFF6B7280),
+                        ),
+                        tooltip: identical(_speakingMsg, msg) ? 'Parar' : 'Ouvir',
+                        visualDensity: VisualDensity.compact,
+                      ),
+                  ],
                 ),
               ],
             ),
