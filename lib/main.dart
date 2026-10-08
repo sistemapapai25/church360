@@ -117,11 +117,22 @@ class _AppBootstrapState extends State<AppBootstrap> {
     // a URL real antes de montar o MaterialApp preserva o callback do
     // Supabase (`/reset-password?code=...`).
     final startupLocation = initialAppLocation();
+    final user = client.auth.currentUser ?? client.auth.currentSession?.user;
     if (startupLocation != '/' && startupLocation != '/splash') {
-      appRouter.go(startupLocation);
+      // F5 / Ctrl+Shift+R abria a tela sozinha na pilha, e a AppBar sem pilha
+      // não mostra o voltar. Logado, empilha a tela sobre a Home para o
+      // voltar existir (e levar à Home). Sem sessão, o redirect do login
+      // cuida do caminho.
+      final path = Uri.tryParse(startupLocation)?.path ?? '';
+      if (user != null &&
+          path != '/home' &&
+          safeRedirect(startupLocation) != null) {
+        _abrirSobreAHome(startupLocation);
+      } else {
+        appRouter.go(startupLocation);
+      }
     }
 
-    final user = client.auth.currentUser ?? client.auth.currentSession?.user;
     if (user != null) {
       unawaited(
         SupabaseConstants.syncTenantFromServer(
@@ -132,6 +143,23 @@ class _AppBootstrapState extends State<AppBootstrap> {
         }),
       );
     }
+  }
+
+  /// O `push` precisa esperar a Home virar a rota atual: antes do
+  /// `MaterialApp.router` montar, o `go` ainda não foi processado, e um
+  /// `push` imediato empilharia sobre a rota velha.
+  void _abrirSobreAHome(String location) {
+    final delegate = appRouter.routerDelegate;
+    appRouter.go('/home');
+    void empilhar() {
+      final config = delegate.currentConfiguration;
+      if (config.isEmpty) return;
+      delegate.removeListener(empilhar);
+      // Se o redirect mandou para outro lugar (termo, login), não empilha.
+      if (config.uri.path == '/home') appRouter.push(location);
+    }
+
+    delegate.addListener(empilhar);
   }
 
   void _retry() {
