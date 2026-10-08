@@ -12,7 +12,7 @@ class CommunityDesign {
 
   /// Gradiente oficial do ícone do Instagram: amarelo no canto inferior
   /// esquerdo abrindo para laranja, rosa e roxo.
-  static const Gradient instagramGradient = RadialGradient(
+  static const Gradient _instagramGradient = RadialGradient(
     center: Alignment(-0.6, 1.1),
     radius: 1.5,
     colors: [
@@ -24,6 +24,35 @@ class CommunityDesign {
     ],
     stops: [0, 0.05, 0.45, 0.6, 0.9],
   );
+
+  /// Gradiente do fundo de um ícone de rede social. Instagram, WhatsApp e
+  /// Facebook usam o gradiente oficial do logo; qualquer outra rede (YouTube,
+  /// X, as que surgirem) ganha um degradê da própria [color], mais clara no
+  /// topo, para todos os ícones terem o mesmo acabamento.
+  static Gradient socialGradient(String platform, Color color) {
+    switch (platform.toLowerCase()) {
+      case 'instagram':
+        return _instagramGradient;
+      case 'whatsapp':
+        return const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF60D669), Color(0xFF1FAF38)],
+        );
+      case 'facebook':
+        return const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF18ACFE), Color(0xFF0163E0)],
+        );
+      default:
+        return LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color.lerp(color, Colors.white, 0.3)!, color],
+        );
+    }
+  }
 
   static Color scaffoldBackgroundColor(BuildContext context) {
     final theme = Theme.of(context);
