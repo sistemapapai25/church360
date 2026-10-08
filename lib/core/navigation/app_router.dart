@@ -1610,7 +1610,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/news/admin',
       builder: (context, state) => const PermissionOnlyRoute(
-        permission: 'news.view',
+        permission: 'news.edit',
         child: ManageNewsScreen(),
       ),
     ),
@@ -1936,10 +1936,13 @@ final appRouter = GoRouter(
     // O inventário das rotas que PERMANECEM sem gate (risco MÉDIO do Achado
     // #10) está em `.planning/phases/02-link-deep-linking/02-05-SUMMARY.md`,
     // com decisão explícita de adiar.
+    //
+    // 08/10/2026: o code passou a ser `settings.manage_permissions`, o mesmo do
+    // Menu de Gestão e de can_manage_rbac (20261008000200); o nível fica de fallback.
     GoRoute(
       path: '/permissions',
       builder: (context, state) => const PermissionOrLevelRoute(
-        permission: 'permissions.manage',
+        permission: 'settings.manage_permissions',
         requiredLevel: AccessLevelType.admin,
         child: PermissionsScreen(),
       ),
@@ -1947,7 +1950,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/permissions/roles',
       builder: (context, state) => const PermissionOrLevelRoute(
-        permission: 'permissions.manage',
+        permission: 'settings.manage_permissions',
         requiredLevel: AccessLevelType.admin,
         child: RolesListScreen(),
       ),
@@ -1955,7 +1958,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/permissions/roles/create',
       builder: (context, state) => const PermissionOrLevelRoute(
-        permission: 'permissions.manage',
+        permission: 'settings.manage_permissions',
         requiredLevel: AccessLevelType.admin,
         child: RoleFormScreen(),
       ),
@@ -1963,7 +1966,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/permissions/roles/edit/:roleId',
       builder: (context, state) => PermissionOrLevelRoute(
-        permission: 'permissions.manage',
+        permission: 'settings.manage_permissions',
         requiredLevel: AccessLevelType.admin,
         child: RoleFormScreen(roleId: state.pathParameters['roleId']),
       ),
@@ -1971,7 +1974,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/permissions/roles/:roleId/permissions',
       builder: (context, state) => PermissionOrLevelRoute(
-        permission: 'permissions.manage',
+        permission: 'settings.manage_permissions',
         requiredLevel: AccessLevelType.admin,
         child: RolePermissionsScreen(
           roleId: state.pathParameters['roleId']!,
@@ -1982,7 +1985,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/permissions/contexts',
       builder: (context, state) => const PermissionOrLevelRoute(
-        permission: 'permissions.manage',
+        permission: 'settings.manage_permissions',
         requiredLevel: AccessLevelType.admin,
         child: ContextsListScreen(),
       ),
@@ -1992,7 +1995,7 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final contextId = state.uri.queryParameters['id'];
         return PermissionOrLevelRoute(
-          permission: 'permissions.manage',
+          permission: 'settings.manage_permissions',
           requiredLevel: AccessLevelType.admin,
           child: ContextFormScreen(contextId: contextId),
         );
@@ -2001,7 +2004,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/permissions/user-roles',
       builder: (context, state) => const PermissionOrLevelRoute(
-        permission: 'permissions.manage',
+        permission: 'settings.manage_permissions',
         requiredLevel: AccessLevelType.admin,
         child: UserRolesListScreen(),
       ),
@@ -2009,7 +2012,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/permissions/users/:userId/permissions',
       builder: (context, state) => PermissionOrLevelRoute(
-        permission: 'permissions.manage',
+        permission: 'settings.manage_permissions',
         requiredLevel: AccessLevelType.admin,
         child: UserPermissionsScreen(userId: state.pathParameters['userId']!),
       ),
@@ -2017,7 +2020,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/permissions/assign-role',
       builder: (context, state) => const PermissionOrLevelRoute(
-        permission: 'permissions.manage',
+        permission: 'settings.manage_permissions',
         requiredLevel: AccessLevelType.admin,
         child: AssignRoleScreen(),
       ),
@@ -2025,7 +2028,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/permissions/audit-log',
       builder: (context, state) => const PermissionOrLevelRoute(
-        permission: 'permissions.manage',
+        permission: 'settings.manage_permissions',
         requiredLevel: AccessLevelType.admin,
         child: AuditLogScreen(),
       ),
@@ -2033,7 +2036,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/permissions/catalog',
       builder: (context, state) => const PermissionOrLevelRoute(
-        permission: 'permissions.manage',
+        permission: 'settings.manage_permissions',
         requiredLevel: AccessLevelType.admin,
         child: PermissionsCatalogScreen(),
       ),
@@ -2096,11 +2099,11 @@ final appRouter = GoRouter(
     // ROTAS: MÓDULO KIDS
     // =====================================================
     GoRoute(
+      // Área dos Pais: aberta a todo logado; a RLS do Kids (20261008000600)
+      // só mostra os filhos/responsáveis da pessoa, e as ações de equipe
+      // na tela conferem kids.manage.
       path: '/kids-registration',
-      builder: (context, state) => const PermissionOnlyRoute(
-        permission: 'kids.manage',
-        child: KidsSelectChildScreen(),
-      ),
+      builder: (context, state) => const KidsSelectChildScreen(),
     ),
     GoRoute(
       path: '/kids',
@@ -2114,10 +2117,7 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final childId = state.pathParameters['childId']!;
         final childName = state.uri.queryParameters['name'] ?? 'Criança';
-        return PermissionOnlyRoute(
-          permission: 'kids.manage',
-          child: KidsRegistrationScreen(childId: childId, childName: childName),
-        );
+        return KidsRegistrationScreen(childId: childId, childName: childName);
       },
     ),
 

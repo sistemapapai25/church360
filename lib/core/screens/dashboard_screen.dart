@@ -521,11 +521,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 'community.moderate',
                 'testimonies.moderate',
                 'prayer_requests.moderate',
-                'devotionals.edit',
+                'devotionals.create',
                 'live_stream.manage',
                 'support.attend',
+                'financial.edit',
                 'financial.manage',
-                'financial.view',
               ],
               children: [
                 // Comunidade (moderação de posts e classificados)
@@ -548,7 +548,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
                 // Devocionais
                 PermissionGate(
-                  permission: 'devotionals.edit',
+                  permission: 'devotionals.create',
                   child: const _DrawerMenuItem(
                     icon: Icons.book,
                     title: 'Devocionais',
@@ -575,7 +575,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
                 // Contribuição
                 PermissionGate(
-                  permission: 'financial.manage',
+                  permission: 'financial.edit',
                   child: const _DrawerMenuItem(
                     icon: Icons.volunteer_activism,
                     title: 'Contribuição',
@@ -584,7 +584,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
                 // Financeiro
                 PermissionGate(
-                  permission: 'financial.view',
+                  permission: 'financial.manage',
                   child: const _DrawerMenuItem(
                     icon: Icons.account_balance,
                     title: 'Financeiro',
