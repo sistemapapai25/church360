@@ -1158,6 +1158,13 @@ class _ComprovanteReviewScreenState
       return;
     }
 
+    if (_categoriaId == null || _categoriaId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecione ou cadastre uma categoria')),
+      );
+      return;
+    }
+
     setState(() {
       _isSaving = true;
     });
@@ -1180,20 +1187,31 @@ class _ComprovanteReviewScreenState
         if (_contaId != null) 'conta_id': _contaId,
         if (_formaPagamento != null) 'forma_pagamento': _formaPagamento,
         if (observacoes.isNotEmpty) 'observacoes': observacoes,
-        'status': StatusLancamento.emAberto.value,
       };
 
-      final lancamento = await repository.createLancamento(lancamentoData);
-
-      await attachmentsRepo.linkToLancamento(
-        attachmentId: attachment.id,
-        lancamentoId: lancamento.id,
-      );
+      // Comprovante já ligado: salvar de novo atualiza o mesmo lançamento,
+      // senão cada "Confirmar e Salvar" criava um lançamento duplicado.
+      final linkedId = attachment.linkedLancamentoId;
+      if (linkedId != null) {
+        await repository.updateLancamento(linkedId, lancamentoData);
+      } else {
+        lancamentoData['status'] = StatusLancamento.emAberto.value;
+        final lancamento = await repository.createLancamento(lancamentoData);
+        await attachmentsRepo.linkToLancamento(
+          attachmentId: attachment.id,
+          lancamentoId: lancamento.id,
+        );
+      }
+      ref.invalidate(attachmentByIdProvider(attachment.id));
+      ref.invalidate(allLancamentosProvider);
+      ref.invalidate(filteredLancamentosProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Lançamento criado com sucesso!'),
+          SnackBar(
+            content: Text(attachment.linkedLancamentoId != null
+                ? 'Lançamento atualizado com sucesso!'
+                : 'Lançamento criado com sucesso!'),
             backgroundColor: Color(0xFF4CAF50),
           ),
         );
