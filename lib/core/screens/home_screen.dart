@@ -55,6 +55,7 @@ import '../../features/ministries/domain/models/ministry.dart';
 import '../../features/ministries/presentation/providers/ministries_provider.dart';
 import '../widgets/spotlight_tour.dart';
 import '../onboarding/onboarding_tour_prefs.dart';
+import '../../features/legal/terms_acceptance.dart';
 
 /// Tela principal do app com navegação por abas fixas
 class HomeScreen extends ConsumerStatefulWidget {
@@ -99,7 +100,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _tourJaConsultado = true;
     final jaViu = await OnboardingTourPrefs.jaConcluiu();
     if (!mounted) return;
-    if (jaViu) return _oferecerPush();
+    if (jaViu) {
+      // Fora do tour, como o push: o aceite vem antes do convite de push
+      // para os dois não se sobreporem.
+      await askTermsAcceptanceIfPending(context, ref);
+      if (!mounted) return;
+      return _oferecerPush();
+    }
     setState(() => _tourVisivel = true);
   }
 
