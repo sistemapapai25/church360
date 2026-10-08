@@ -24,9 +24,26 @@ class NotificationPreferencesScreen extends ConsumerWidget {
 
           return ListView(
             children: [
-              // Só as chaves que têm quem gere aviso. Devocional, oração,
-              // reunião, culto, grupo, meta financeira e aniversário nunca
-              // tiveram gerador (backend-scripts/176a) e saíram da tela.
+              // Só as chaves que têm quem gere aviso. Devocional, oração
+              // respondida, reunião, culto, grupo, meta financeira e
+              // aniversário nunca tiveram gerador (backend-scripts/176a) e
+              // saíram da tela. "Alguém orou" tem o gatilho
+              // trigger_notify_prayer_request_prayed.
+              _SectionHeader(
+                icon: Icons.favorite,
+                title: 'Pedidos de Oração',
+                color: Colors.red,
+              ),
+              _PreferenceTile(
+                title: 'Alguém orou por você',
+                subtitle: 'Notificar quando alguém orar pelo seu pedido',
+                value: preferences.prayerRequestPrayed,
+                onChanged: (value) async {
+                  await actions.updatePreferences(prayerRequestPrayed: value);
+                },
+              ),
+              const Divider(),
+
               _SectionHeader(
                 icon: Icons.event,
                 title: 'Eventos',
