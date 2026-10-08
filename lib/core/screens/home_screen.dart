@@ -53,7 +53,6 @@ import '../utils/app_exit.dart';
 import '../../features/ministries/shared/presentation/providers/ministry_type_catalog_providers.dart';
 import '../../features/ministries/domain/models/ministry.dart';
 import '../../features/ministries/presentation/providers/ministries_provider.dart';
-import '../../features/permissions/providers/permissions_providers.dart';
 import '../widgets/spotlight_tour.dart';
 import '../onboarding/onboarding_tour_prefs.dart';
 
@@ -2155,9 +2154,9 @@ class _MoreTab extends ConsumerWidget {
 ///   `auth.uid()` aqui devolveria lista vazia em silêncio.
 /// - Sem vínculo, carregando ou com erro, a seção inteira não existe. A aba
 ///   Mais não pode ganhar espaço morto nem mensagem de erro por causa disto.
-/// - A rota de detalhe `/ministries/:id` é protegida por `ministries.view`
-///   (`app_router.dart`). Quem não tem a permissão vê o ministério como
-///   informação, sem toque — em vez de bater numa tela de "sem permissão".
+/// - O card sempre abre: a rota do ministério não exige `ministries.view`
+///   (quem decide é o escopo do ministério, vínculo OU visão global). Exigir
+///   a permissão aqui deixava o membro vinculado sem acesso ao departamento.
 class _MyMinistriesSection extends ConsumerWidget {
   const _MyMinistriesSection();
 
@@ -2171,16 +2170,6 @@ class _MyMinistriesSection extends ConsumerWidget {
 
     final ministerios = ministeriosAsync.asData?.value ?? const <Ministry>[];
     if (ministerios.isEmpty) return const SizedBox.shrink();
-
-    // Só o `data` libera a navegação: enquanto a permissão não resolveu, o
-    // card aparece como informação. Errar para o lado de não navegar é
-    // preferível a mandar a pessoa para uma tela de permissão negada.
-    final podeAbrir =
-        ref
-            .watch(currentUserHasPermissionProvider('ministries.view'))
-            .asData
-            ?.value ??
-        false;
 
     final cs = Theme.of(context).colorScheme;
 
@@ -2199,7 +2188,6 @@ class _MyMinistriesSection extends ConsumerWidget {
         for (final ministerio in ministerios) ...[
           _MinistryShortcutCard(
             ministry: ministerio,
-            canOpen: podeAbrir,
             destination: catalogoTipos.routeFor(
               ministryId: ministerio.id,
               code: ministerio.ministryTypeCode,
@@ -2213,17 +2201,15 @@ class _MyMinistriesSection extends ConsumerWidget {
 }
 
 /// Card de um ministério na seção "MEUS MINISTÉRIOS". Espelha a aparência do
-/// `_buildMenuCard` da aba Mais, sem reaproveitá-lo, porque aqui o destino é
-/// condicional e a seta some quando não há para onde ir.
+/// `_buildMenuCard` da aba Mais, sem reaproveitá-lo, porque o destino sai do
+/// catálogo de tipos.
 class _MinistryShortcutCard extends StatelessWidget {
   const _MinistryShortcutCard({
     required this.ministry,
-    required this.canOpen,
     required this.destination,
   });
 
   final Ministry ministry;
-  final bool canOpen;
 
   /// Já resolvido pelo catálogo lá em cima — este card não tem `ref`.
   final String destination;
@@ -2259,12 +2245,11 @@ class _MinistryShortcutCard extends StatelessWidget {
               ),
             ),
           ),
-          if (canOpen)
-            Icon(
-              Icons.arrow_forward_ios,
-              size: 14,
-              color: cs.onSurface.withValues(alpha: 0.3),
-            ),
+          Icon(
+            Icons.arrow_forward_ios,
+            size: 14,
+            color: cs.onSurface.withValues(alpha: 0.3),
+          ),
         ],
       ),
     );
@@ -2273,16 +2258,14 @@ class _MinistryShortcutCard extends StatelessWidget {
       decoration: CommunityDesign.overlayDecoration(
         cs,
       ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
-      child: canOpen
-          ? Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(_homeCardRadius),
-                onTap: () => context.push(destination),
-                child: conteudo,
-              ),
-            )
-          : conteudo,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(_homeCardRadius),
+          onTap: () => context.push(destination),
+          child: conteudo,
+        ),
+      ),
     );
   }
 }

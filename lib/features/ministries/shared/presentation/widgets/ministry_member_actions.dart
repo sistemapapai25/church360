@@ -97,9 +97,9 @@ Future<void> showMinistryEditRoleDialog({
                           }
                         }
                       }
-                      selectedRoleId =
-                          preferredId ??
-                          (items.isNotEmpty ? items.first.id : null);
+                      // Sem correspondência, nada marcado: cair no 1º cargo
+                      // da lista dava um cargo RBAC que ninguém escolheu.
+                      selectedRoleId = preferredId;
                     }
                     if (selectedRoleId != null && availableFunctions.isEmpty) {
                       Future.microtask(() async {
@@ -783,21 +783,27 @@ class _MinistryAddMemberDialogState
                           ),
                         );
                       }
-                      _selectedRoleId ??= roles.first.id;
+                      // Sem pré-seleção: o cargo é RBAC da igreja inteira e
+                      // vai para user_roles. Vir com o 1º cargo marcado dava
+                      // esse cargo a todo membro incluído sem ninguém escolher.
                       return DropdownButtonFormField<String>(
                         initialValue: _selectedRoleId,
                         decoration: const InputDecoration(
                           labelText: 'Função (Cargo)',
                           border: OutlineInputBorder(),
                         ),
-                        items: roles
-                            .map(
-                              (r) => DropdownMenuItem(
-                                value: r.id,
-                                child: Text(r.name),
-                              ),
-                            )
-                            .toList(),
+                        items: [
+                          const DropdownMenuItem<String>(
+                            value: null,
+                            child: Text('Sem cargo'),
+                          ),
+                          ...roles.map(
+                            (r) => DropdownMenuItem(
+                              value: r.id,
+                              child: Text(r.name),
+                            ),
+                          ),
+                        ],
                         onChanged: (value) {
                           setState(() {
                             _selectedRoleId = value;
@@ -1028,6 +1034,7 @@ class _MinistryAddMemberDialogState
       }
 
       final repository = ref.read(ministriesRepositoryProvider);
+      String? avisoCargo;
       String roleValue = 'member';
       if (_selectedRoleId != null) {
         try {
@@ -1144,6 +1151,7 @@ class _MinistryAddMemberDialogState
             await repo.setMemberFunctionsByMinistry(widget.ministryId, byFunc);
           } catch (e) {
             debugPrint('Falha ao persistir member_function: $e');
+            avisoCargo = 'as funções não foram salvas';
           }
 
           // Sincronizar com user_roles — só funciona para membros com auth_user_id
@@ -1165,9 +1173,11 @@ class _MinistryAddMemberDialogState
             }
           } catch (e) {
             debugPrint('Aviso: não foi possível sincronizar user_roles: $e');
+            avisoCargo = 'o cargo não foi atribuído';
           }
         } catch (e) {
           debugPrint('Falha ao atribuir cargo de ministério: $e');
+          avisoCargo = 'o cargo não foi atribuído';
         }
       }
 
@@ -1176,9 +1186,13 @@ class _MinistryAddMemberDialogState
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Membro adicionado com sucesso!'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: Text(
+              avisoCargo == null
+                  ? 'Membro adicionado com sucesso!'
+                  : 'Membro adicionado, mas $avisoCargo. Tente pela edição do membro.',
+            ),
+            backgroundColor: avisoCargo == null ? Colors.green : Colors.orange,
           ),
         );
         Navigator.pop(context);

@@ -494,6 +494,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
 
     setState(() => _isLoading = true);
 
+    var funcoesSalvas = true;
     try {
       final repository = ref.read(ministriesRepositoryProvider);
       final data = {
@@ -505,7 +506,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
       if (widget.ministryId != null) {
         // Editar
         await repository.updateMinistry(widget.ministryId!, data);
-        await _saveFunctionRequirements();
+        funcoesSalvas = await _saveFunctionRequirements();
       } else {
         // Criar — pela RPC, para o ministério e o vínculo do líder nascerem
         // juntos. Sem o vínculo, um ministério novo some da lista de quem não
@@ -534,11 +535,15 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              widget.ministryId != null
+              !funcoesSalvas
+                  ? 'Ministério atualizado, mas Funções e Quantidades não foi '
+                        'salvo: o ministério ainda não tem cargo. Inclua um '
+                        'membro com cargo e salve de novo.'
+                  : widget.ministryId != null
                   ? 'Ministério atualizado com sucesso!'
                   : 'Ministério criado com sucesso!',
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: funcoesSalvas ? Colors.green : Colors.orange,
           ),
         );
         (context.canPop() ? context.pop() : context.go('/home'));
@@ -668,25 +673,26 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
     }
   }
 
-  Future<void> _saveFunctionRequirements() async {
-    try {
-      final contexts = await ref
+  /// As funções moram no metadata dos cargos (role_context) do ministério.
+  /// Sem cargo não há onde gravar: devolve false para a tela avisar, em vez
+  /// de mostrar sucesso. Falha de gravação sobe para o catch do salvar.
+  Future<bool> _saveFunctionRequirements() async {
+    final contexts = await ref
+        .read(roleContextsRepositoryProvider)
+        .getContextsByMinistry(widget.ministryId!);
+    if (contexts.isEmpty) return _functionRequirements.isEmpty;
+    for (final c in contexts) {
+      final meta = Map<String, dynamic>.from(c.metadata ?? {});
+      final funcs = Set<String>.from(
+        (meta['functions'] as List?)?.map((e) => e.toString()) ?? const [],
+      );
+      funcs.addAll(_functionRequirements.keys);
+      meta['functions'] = funcs.toList();
+      meta['function_requirements'] = _functionRequirements;
+      await ref
           .read(roleContextsRepositoryProvider)
-          .getContextsByMinistry(widget.ministryId!);
-      for (final c in contexts) {
-        final meta = Map<String, dynamic>.from(c.metadata ?? {});
-        final funcs = Set<String>.from(
-          (meta['functions'] as List?)?.map((e) => e.toString()) ?? const [],
-        );
-        funcs.addAll(_functionRequirements.keys);
-        meta['functions'] = funcs.toList();
-        meta['function_requirements'] = _functionRequirements;
-        await ref
-            .read(roleContextsRepositoryProvider)
-            .updateContext(contextId: c.id, metadata: meta);
-      }
-    } catch (e) {
-      debugPrint('Falha ao salvar requisitos de função: $e');
+          .updateContext(contextId: c.id, metadata: meta);
     }
+    return true;
   }
 }
