@@ -1261,6 +1261,7 @@ class _HomeSocialShortcuts extends StatelessWidget {
       required IconData icon,
       required Color color,
       required String url,
+      Gradient? gradient,
     }) {
       if (!slots.containsKey(key)) {
         slots[key] = _SocialShortcutItem(
@@ -1268,6 +1269,7 @@ class _HomeSocialShortcuts extends StatelessWidget {
           icon: icon,
           color: color,
           url: url,
+          gradient: gradient,
         );
       }
     }
@@ -1298,7 +1300,21 @@ class _HomeSocialShortcuts extends StatelessWidget {
           key: 'instagram',
           label: 'Instagram',
           icon: FontAwesomeIcons.instagram,
-          color: const Color(0xFFE4405F),
+          color: const Color(0xFFD6249F),
+          // Gradiente oficial do ícone: amarelo no canto inferior esquerdo
+          // abrindo para laranja, rosa e roxo.
+          gradient: const RadialGradient(
+            center: Alignment(-0.6, 1.1),
+            radius: 1.5,
+            colors: [
+              Color(0xFFFDF497),
+              Color(0xFFFDF497),
+              Color(0xFFFD5949),
+              Color(0xFFD6249F),
+              Color(0xFF285AEB),
+            ],
+            stops: [0, 0.05, 0.45, 0.6, 0.9],
+          ),
           url: url,
         );
       } else if (rawKey.contains('facebook')) {
@@ -1326,12 +1342,14 @@ class _SocialShortcutItem {
   final IconData icon;
   final Color color;
   final String url;
+  final Gradient? gradient;
 
   const _SocialShortcutItem({
     required this.label,
     required this.icon,
     required this.color,
     required this.url,
+    this.gradient,
   });
 }
 
@@ -1457,7 +1475,8 @@ class _SocialShortcutButton extends StatelessWidget {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: item.color,
+                  color: item.gradient == null ? item.color : null,
+                  gradient: item.gradient,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
