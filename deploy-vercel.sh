@@ -20,6 +20,8 @@ cat > "$web_dir/vercel.json" << 'EOF'
   "rewrites": [
     { "source": "/privacidade", "destination": "/privacy.html" },
     { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/termos", "destination": "/terms.html" },
+    { "source": "/terms", "destination": "/terms.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

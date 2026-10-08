@@ -1302,7 +1302,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
 
   Future<void> _openCommitmentTerms() async {
     final url = Uri.parse(
-      'https://church360.app/legal/termos-de-compromisso',
+      'https://papai.church360.com.br/termos',
     );
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
