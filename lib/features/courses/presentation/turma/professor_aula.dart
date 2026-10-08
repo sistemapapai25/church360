@@ -211,6 +211,9 @@ class _ProfessorSurfaces implements TurmaSurfaces {
 
   @override
   TurmaManageTarget? get manage => null;
+
+  @override
+  bool get acceptsJoin => false;
 }
 
 /// A chamada do professor. Cada toque grava na hora; não há desmarcar,

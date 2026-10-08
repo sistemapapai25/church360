@@ -35,10 +35,16 @@ class TurmaAccess {
   /// Criar, editar, publicar e arquivar aula (`study_lessons` INSERT/UPDATE).
   final bool canWriteLessons;
 
-  /// Líder ou co-líder ativo do grupo (só turma genérica). É a única porta
-  /// de escrita em `study_attendance` (`study_lesson_led_by_me`): nem
-  /// elevado nem `courses.*` marcam presença de turma genérica.
+  /// Líder ou co-líder ativo do grupo (só turma genérica).
   final bool leadsGroup;
+
+  /// Grava a chamada da turma genérica (`study_lesson_roll_allowed`):
+  /// líder, elevado ou `courses.manage_lessons`.
+  final bool canTakeRoll;
+
+  /// Troca o líder e inclui participante na turma genérica
+  /// (`turma_can_manage`): líder, elevado ou `courses.edit`.
+  final bool canManageMembers;
 
   /// `is_elevated_current_user()`. Na turma genérica lê a presença de
   /// todos (`study_attendance_select`), mas não escreve.
@@ -57,6 +63,8 @@ class TurmaAccess {
     required this.role,
     this.canWriteLessons = false,
     this.leadsGroup = false,
+    this.canTakeRoll = false,
+    this.canManageMembers = false,
     this.elevated = false,
     this.readOnly = false,
     this.enrolled = false,
@@ -69,8 +77,8 @@ class TurmaAccess {
   /// O mesmo papel, sem nenhuma escrita.
   ///
   /// Derruba as duas portas de gravação da tela de uma vez:
-  /// [canWriteLessons] (aula, e com ela o material da aula) e [leadsGroup]
-  /// (presença da turma genérica). [elevated] fica de pé porque só abre
+  /// [canWriteLessons] (aula, e com ela o material da aula) e
+  /// [canTakeRoll] (presença da turma genérica). [elevated] fica de pé porque só abre
   /// leitura — a presença dos outros na turma genérica.
   TurmaAccess asReadOnly() => TurmaAccess(
     role: role,
@@ -153,12 +161,15 @@ final turmaAccessProvider = FutureProvider.family<TurmaAccess, String>((
           (participation.role == ParticipantRole.leader ||
               participation.role == ParticipantRole.coLeader);
       final courseView = await can('courses.view');
-      if (elevated || leader || courseView) {
-        final manageLessons = await can('courses.manage_lessons');
+      final manageLessons = await can('courses.manage_lessons');
+      final edit = await can('courses.edit');
+      if (elevated || leader || courseView || manageLessons || edit) {
         return TurmaAccess(
           role: TurmaRole.leadership,
           canWriteLessons: elevated || leader || manageLessons,
           leadsGroup: leader,
+          canTakeRoll: elevated || leader || manageLessons,
+          canManageMembers: elevated || leader || edit,
           elevated: elevated,
           enrolled: active && participation.role == ParticipantRole.participant,
         );

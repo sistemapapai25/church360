@@ -19,6 +19,9 @@ class CourseTurma {
   /// `study_groups.course_id` (a coluna ainda é nullable até a Etapa 8).
   final String? courseId;
 
+  /// Turma aberta: qualquer membro pode "Participar" (só turma genérica).
+  final bool isPublic;
+
   const CourseTurma({
     required this.id,
     required this.name,
@@ -28,6 +31,7 @@ class CourseTurma {
     this.ministryId,
     this.baptismTurmaId,
     this.courseId,
+    this.isPublic = false,
   });
 
   factory CourseTurma.fromJson(Map<String, dynamic> json) {
@@ -42,6 +46,7 @@ class CourseTurma {
       ministryId: json['ministry_id'] as String?,
       baptismTurmaId: json['baptism_turma_id'] as String?,
       courseId: json['course_id'] as String?,
+      isPublic: json['is_public'] as bool? ?? false,
     );
   }
 

@@ -43,6 +43,9 @@ class BatismoTurmaAdapter implements TurmaSurfaces {
   /// A turma do Batismo se gerencia no workspace do ministério: é lá que
   /// nascem turma e aluno, e é de lá que sai a porta de gestão desta tela.
   @override
+  bool get acceptsJoin => false;
+
+  @override
   TurmaManageTarget? get manage => (
     label: 'Gerenciar no Batismo',
     route: '/ministries/${origin.ministryId}/batismo',

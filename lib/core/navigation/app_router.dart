@@ -1155,13 +1155,15 @@ final appRouter = GoRouter(
       redirect: (context, state) => studyGroupsListRedirect(state.uri),
     ),
 
-    // Nova turma. `?courseId=` já escolhe o curso (vindo da tela do curso).
+    // Nova turma. `?courseId=` já escolhe o curso (vindo da tela do curso);
+    // `?ministryId=` liga a turma ao ministério (aba Turmas dele).
     GoRoute(
       path: '/study-groups/new',
       builder: (context, state) => PermissionOnlyRoute(
         permission: 'study_groups.create',
         child: StudyGroupFormScreen(
           initialCourseId: state.uri.queryParameters['courseId'],
+          ministryId: state.uri.queryParameters['ministryId'],
         ),
       ),
     ),

@@ -27,7 +27,15 @@ class StudyGroupFormScreen extends ConsumerStatefulWidget {
   /// Curso já escolhido quando se abre "Nova turma" de dentro do curso.
   final String? initialCourseId;
 
-  const StudyGroupFormScreen({super.key, this.groupId, this.initialCourseId});
+  /// Ministério dono da turma, quando aberta pela aba Turmas dele.
+  final String? ministryId;
+
+  const StudyGroupFormScreen({
+    super.key,
+    this.groupId,
+    this.initialCourseId,
+    this.ministryId,
+  });
 
   @override
   ConsumerState<StudyGroupFormScreen> createState() =>
@@ -133,6 +141,7 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
         final courseId = _courseId!;
         final group = await actions.createGroup(
           courseId: courseId,
+          ministryId: widget.ministryId,
           name: _nameController.text.trim(),
           description: _descriptionController.text.trim().isEmpty
               ? null

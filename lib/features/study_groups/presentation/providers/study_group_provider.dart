@@ -171,6 +171,7 @@ class StudyGroupActions {
   /// tela ir direto à rota canônica `/courses/:courseId/turmas/:id`.
   Future<StudyGroup> createGroup({
     required String courseId,
+    String? ministryId,
     required String name,
     String? description,
     String? studyTopic,
@@ -185,6 +186,7 @@ class StudyGroupActions {
   }) async {
     final group = await _repository.createStudyGroup(
       courseId: courseId,
+      ministryId: ministryId,
       name: name,
       description: description,
       studyTopic: studyTopic,
@@ -317,16 +319,6 @@ class StudyGroupActions {
   }
 
   // ===== PARTICIPANTS =====
-
-  Future<void> joinGroup(String groupId, String userId) async {
-    await _repository.addParticipant(
-      groupId: groupId,
-      userId: userId,
-      role: ParticipantRole.participant,
-    );
-    ref.invalidate(groupParticipantsProvider(groupId));
-    ref.invalidate(userParticipationProvider((groupId: groupId, userId: userId)));
-  }
 
   Future<void> addParticipant({
     required String groupId,

@@ -434,6 +434,9 @@ Widget _host(Widget child, {List<Override> overrides = const []}) {
           MemberDirectoryEntry(id: 'u2', fullName: 'Bruno'),
         ],
       ),
+      genericaParticipantNamesProvider.overrideWith(
+        (ref, studyGroupId) async => {'u1': 'Ana', 'u2': 'Bruno'},
+      ),
       ...overrides,
     ],
     child: MaterialApp(
@@ -1685,7 +1688,11 @@ void main() {
         tester,
         _host(
           presence(
-            const TurmaAccess(role: TurmaRole.leadership, leadsGroup: true),
+            const TurmaAccess(
+              role: TurmaRole.leadership,
+              leadsGroup: true,
+              canTakeRoll: true,
+            ),
             _lesson(1, LessonStatus.published),
           ),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
@@ -1710,7 +1717,9 @@ void main() {
       expect(repo.updatedAttendance.single.s, AttendanceStatus.justified);
     });
 
-    testWidgets('elevado lê a chamada mas não marca', (tester) async {
+    // Lote 5c: elevado e courses.manage_lessons também fazem a chamada
+    // (study_lesson_roll_allowed).
+    testWidgets('elevado faz a chamada', (tester) async {
       final repo = _FakeStudyRepo(
         lessons: [_lesson(1, LessonStatus.published)],
         participants: [_participant('u1')],
@@ -1719,7 +1728,11 @@ void main() {
         tester,
         _host(
           presence(
-            const TurmaAccess(role: TurmaRole.leadership, elevated: true),
+            const TurmaAccess(
+              role: TurmaRole.leadership,
+              elevated: true,
+              canTakeRoll: true,
+            ),
             _lesson(1, LessonStatus.published),
           ),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
@@ -1727,8 +1740,8 @@ void main() {
       );
 
       expect(find.text('Ana'), findsOneWidget);
-      expect(find.byKey(const ValueKey('roll-u1-present')), findsNothing);
-      expect(find.text('Salvar'), findsNothing);
+      expect(find.byKey(const ValueKey('roll-u1-present')), findsOneWidget);
+      expect(find.text('Salvar'), findsOneWidget);
     });
 
     testWidgets('Alunos mostra a contagem de cada participante', (
@@ -1753,7 +1766,11 @@ void main() {
         _host(
           const GenericaParticipantes(
             studyGroupId: _sgId,
-            access: TurmaAccess(role: TurmaRole.leadership, leadsGroup: true),
+            access: TurmaAccess(
+              role: TurmaRole.leadership,
+              leadsGroup: true,
+              canTakeRoll: true,
+            ),
           ),
           overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
         ),
@@ -1781,6 +1798,32 @@ void main() {
 
       expect(find.text('Ana'), findsOneWidget);
       expect(find.textContaining('presentes'), findsNothing);
+    });
+
+    testWidgets('só a gestão da turma vê incluir participante e trocar líder', (
+      tester,
+    ) async {
+      final repo = _FakeStudyRepo(participants: [_participant('u1')]);
+      Widget tab(TurmaAccess access) => _host(
+        GenericaParticipantes(studyGroupId: _sgId, access: access),
+        overrides: [studyGroupRepositoryProvider.overrideWithValue(repo)],
+      );
+
+      await _pump(tester, tab(_leader));
+      expect(find.text('Trocar líder'), findsNothing);
+      expect(find.text('Adicionar participante'), findsNothing);
+
+      await _pump(
+        tester,
+        tab(
+          const TurmaAccess(
+            role: TurmaRole.leadership,
+            canManageMembers: true,
+          ),
+        ),
+      );
+      expect(find.text('Trocar líder'), findsOneWidget);
+      expect(find.text('Adicionar participante'), findsOneWidget);
     });
   });
 
