@@ -1252,7 +1252,7 @@ class _ReaderState extends ConsumerState<_Reader>
     try {
       await ref.read(praiseRepositoryProvider).archive(song.id);
       invalidatePraise(ref, song.id);
-      if (mounted) context.pop();
+      if (mounted) (context.canPop() ? context.pop() : context.go('/home'));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -1277,7 +1277,7 @@ class _ReaderState extends ConsumerState<_Reader>
               backgroundColor: CommunityDesign.headerColor(context),
               leading: IconButton(
                 icon: const Icon(AppIcons.back),
-                onPressed: () => context.pop(),
+                onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
               ),
               title: widget.reading == null
                   ? Text(songAsync.valueOrNull?.title ?? 'Louvor')

@@ -46,7 +46,7 @@ class _BranchFormScreenState extends ConsumerState<BranchFormScreen> {
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
         actions: [
           if (_isLoading)
@@ -204,7 +204,7 @@ class _BranchFormScreenState extends ConsumerState<BranchFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Filial criada com sucesso!')),
         );
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e) {
       if (mounted) {

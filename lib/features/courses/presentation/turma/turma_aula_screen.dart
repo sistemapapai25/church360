@@ -243,7 +243,7 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
         leading: IconButton(
           icon: const Icon(AppIcons.back),
           tooltip: 'Voltar',
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
         title: Text(
           'Aula ${lesson.lessonNumber} · ${lesson.title}',

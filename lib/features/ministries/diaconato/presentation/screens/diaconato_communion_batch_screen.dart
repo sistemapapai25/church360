@@ -321,7 +321,7 @@ class _CommunionBatchContentState
         title: const Text('Lote de ceia'),
         leading: IconButton(
           icon: const Icon(AppIcons.back),
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
         actions: [
           IconButton(

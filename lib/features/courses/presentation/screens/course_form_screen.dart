@@ -141,7 +141,7 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          context.pop();
+          (context.canPop() ? context.pop() : context.go('/home'));
         }
       } else {
         final newCourse = await actions.createCourse(data);
@@ -157,7 +157,7 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
           if (_courseType == CourseType.onlineRecorded) {
             context.push('/courses/${newCourse.id}/lessons');
           } else {
-            context.pop();
+            (context.canPop() ? context.pop() : context.go('/home'));
           }
         }
       }
@@ -647,7 +647,7 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          context.pop();
+          (context.canPop() ? context.pop() : context.go('/home'));
         }
       } catch (e) {
         if (mounted) {

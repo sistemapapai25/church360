@@ -120,7 +120,7 @@ class _PrayerRequestDetailScreenState
       await actions.deletePrayerRequest(widget.prayerRequestId);
 
       if (mounted) {
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Pedido deletado com sucesso!'),

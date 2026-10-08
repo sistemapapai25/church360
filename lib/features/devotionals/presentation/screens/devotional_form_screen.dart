@@ -153,7 +153,7 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
       }
 
       if (mounted) {
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(

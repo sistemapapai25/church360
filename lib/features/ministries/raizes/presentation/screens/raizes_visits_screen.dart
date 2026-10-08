@@ -63,7 +63,7 @@ class _VisitsContentState extends ConsumerState<_VisitsContent> {
         ),
         leading: IconButton(
           icon: const Icon(AppIcons.back),
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
         actions: [
           IconButton(

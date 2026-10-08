@@ -325,7 +325,7 @@ class _ContextFormScreenState extends ConsumerState<ContextFormScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: _isLoading ? null : () => context.pop(),
+                        onPressed: _isLoading ? null : () => (context.canPop() ? context.pop() : context.go('/home')),
                         child: const Text('Cancelar'),
                       ),
                     ),
@@ -435,7 +435,7 @@ class _ContextFormScreenState extends ConsumerState<ContextFormScreen> {
         );
 
         ref.invalidate(roleContextsProvider);
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e) {
       if (mounted) {

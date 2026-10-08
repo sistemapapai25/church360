@@ -123,7 +123,7 @@ class BibleChaptersScreen extends ConsumerWidget {
                   const Text('Livro não encontrado'),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () => context.pop(),
+                    onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
                     child: const Text('Voltar'),
                   ),
                 ],

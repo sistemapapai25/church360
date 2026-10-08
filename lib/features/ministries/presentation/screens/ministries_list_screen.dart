@@ -70,7 +70,7 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                     IconButton(
                       icon: const Icon(AppIcons.back),
                       tooltip: 'Voltar',
-                      onPressed: () => context.pop(),
+                      onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
                     ),
                     const SizedBox(width: 4),
                     Container(

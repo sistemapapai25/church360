@@ -43,7 +43,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (_) {
       if (mounted) {

@@ -201,7 +201,7 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
         if (createdRoute != null) {
           context.pushReplacement(createdRoute);
         } else {
-          context.pop();
+          (context.canPop() ? context.pop() : context.go('/home'));
         }
       }
     } catch (e) {

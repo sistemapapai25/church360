@@ -103,7 +103,7 @@ class _ManageContributionScreenState extends ConsumerState<ManageContributionScr
             backgroundColor: Colors.green,
           ),
         );
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e) {
       if (mounted) {

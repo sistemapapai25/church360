@@ -128,7 +128,7 @@ class _CourseLessonFormScreenState extends ConsumerState<CourseLessonFormScreen>
       }
 
       if (mounted) {
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(_isEditMode ? 'Aula atualizada com sucesso!' : 'Aula criada com sucesso!'),

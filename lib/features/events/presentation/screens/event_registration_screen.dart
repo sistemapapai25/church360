@@ -908,7 +908,7 @@ class _EventRegistrationScreenState
         title: Text('Seu Ingresso', style: CommunityDesign.titleStyle(context)),
         leading: IconButton(
           icon: const Icon(AppIcons.close),
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
       ),
       body: SingleChildScrollView(
@@ -1040,7 +1040,7 @@ class _EventRegistrationScreenState
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: () => context.pop(),
+                onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   foregroundColor: Colors.white,

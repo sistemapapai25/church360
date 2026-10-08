@@ -988,7 +988,7 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
             backgroundColor: Colors.green,
           ),
         );
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e, stackTrace) {
       debugPrint('❌ ERRO ao salvar: $e');

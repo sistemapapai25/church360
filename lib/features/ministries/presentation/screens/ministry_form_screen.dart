@@ -93,7 +93,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
         ),
         leading: IconButton(
           icon: const Icon(AppIcons.back),
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
         actions: [
           if (!canEdit)
@@ -541,7 +541,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e) {
       if (mounted) {

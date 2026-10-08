@@ -124,7 +124,7 @@ class _BlockedScreen extends StatelessWidget {
         title: Text(submoduleLabel),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
       ),
       body: Center(

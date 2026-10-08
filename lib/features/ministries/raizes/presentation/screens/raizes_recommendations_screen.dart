@@ -162,7 +162,7 @@ class _RecommendationsContentState
         title: const Text('Indicações de Padrinhos'),
         leading: IconButton(
           icon: const Icon(AppIcons.back),
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
       ),
       floatingActionButton: PearlFab(

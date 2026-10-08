@@ -71,7 +71,7 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
         backgroundColor: CommunityDesign.headerColor(context),
         leading: IconButton(
           icon: const Icon(AppIcons.back),
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
         title: Text(
           isEditing ? 'Editar Reunião' : 'Nova Reunião',
@@ -273,7 +273,7 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
       }
 
       if (mounted) {
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e) {
       if (mounted) {

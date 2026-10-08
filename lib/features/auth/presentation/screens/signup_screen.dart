@@ -183,7 +183,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
             duration: const Duration(seconds: 5),
           ),
         );
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
         return;
       }
       
@@ -263,7 +263,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         duration: const Duration(seconds: 4),
                       ),
                     );
-                    if (mounted) context.pop();
+                    if (mounted) (context.canPop() ? context.pop() : context.go('/home'));
                   } catch (err) {
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -285,7 +285,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
               duration: const Duration(seconds: 3),
               action: SnackBarAction(
                 label: 'Fazer Login',
-                onPressed: () => context.pop(),
+                onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
               ),
             ),
           );
@@ -840,7 +840,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         ),
                       ),
                       TextButton(
-                        onPressed: () => context.pop(),
+                        onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
                         style: TextButton.styleFrom(
                           foregroundColor: const Color(0xFF0B5FA5),
                           textStyle: const TextStyle(fontWeight: FontWeight.w600),

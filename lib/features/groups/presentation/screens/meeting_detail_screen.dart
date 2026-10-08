@@ -148,7 +148,7 @@ class MeetingDetailScreen extends ConsumerWidget {
             backgroundColor: Colors.green,
           ),
         );
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e) {
       if (context.mounted) {

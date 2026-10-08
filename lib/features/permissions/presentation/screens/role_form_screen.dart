@@ -326,7 +326,7 @@ class _RoleFormScreenState extends ConsumerState<RoleFormScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _isLoading ? null : () => context.pop(),
+                    onPressed: _isLoading ? null : () => (context.canPop() ? context.pop() : context.go('/home')),
                     child: const Text('Cancelar'),
                   ),
                 ),
@@ -413,7 +413,7 @@ class _RoleFormScreenState extends ConsumerState<RoleFormScreen> {
       ref.invalidate(allRolesProvider);
 
       if (mounted) {
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e) {
       if (mounted) {

@@ -205,7 +205,7 @@ class _EditorState extends ConsumerState<_Editor> {
           '/ministries/${widget.ministryId}/louvores/musicas/$songId',
         );
       } else {
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e) {
       if (mounted) {
@@ -410,7 +410,7 @@ class _EditorState extends ConsumerState<_Editor> {
         backgroundColor: CommunityDesign.headerColor(context),
         leading: IconButton(
           icon: const Icon(AppIcons.close),
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
         title: Text(editing ? 'Editar música' : 'Nova música'),
         actions: [

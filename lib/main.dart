@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -38,6 +39,11 @@ void main() {
       // e pre-requisito de App Links/Universal Links, que nao verificam
       // fragmento. Sai na MESMA release do shim de '#/' do web/index.html.
       usePathUrlStrategy();
+
+      // Sem isto o `context.push` não muda a URL do navegador: ao recarregar
+      // (F5 / Ctrl+Shift+R) o usuário voltava para a última rota de `go`,
+      // quase sempre a home, em vez da tela em que estava.
+      GoRouter.optionURLReflectsImperativeAPIs = true;
 
       FlutterError.onError = (details) {
         FlutterError.presentError(details);

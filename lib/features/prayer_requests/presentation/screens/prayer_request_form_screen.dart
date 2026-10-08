@@ -106,7 +106,7 @@ class _PrayerRequestFormScreenState
       }
 
       if (mounted) {
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(

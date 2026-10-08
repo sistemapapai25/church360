@@ -32,7 +32,7 @@ class _ReadingPlanModuleScreenState
 
   void _handleBack() {
     if (Navigator.of(context).canPop()) {
-      context.pop();
+      (context.canPop() ? context.pop() : context.go('/home'));
       return;
     }
 

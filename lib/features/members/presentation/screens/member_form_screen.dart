@@ -1014,7 +1014,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           );
         }
 
-        context.pop();
+        (context.canPop() ? context.pop() : context.go('/home'));
       }
     } catch (e) {
       if (mounted) {
@@ -1242,7 +1242,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         ),
         leading: IconButton(
           icon: const Icon(AppIcons.back),
-          onPressed: () => context.pop(),
+          onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
         actions: [
           if (_isLoading)

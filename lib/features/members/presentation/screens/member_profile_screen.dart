@@ -470,7 +470,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         // Se estiver na tela de lista, volta. Se estiver na tela de perfil (meu perfil), talvez logout?
         // Assumindo que essa tela é acessada via lista de membros.
         if (context.canPop()) {
-          context.pop();
+          (context.canPop() ? context.pop() : context.go('/home'));
         } else {
           context.go('/members');
         }
@@ -1394,7 +1394,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               children: [
                 IconButton(
                   icon: const Icon(AppIcons.back),
-                  onPressed: () => context.pop(),
+                  onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
                   style: IconButton.styleFrom(
                     backgroundColor: colorScheme.surfaceContainerHighest
                         .withValues(alpha: 0.7),
@@ -2538,7 +2538,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               children: [
                 IconButton(
                   icon: const Icon(AppIcons.back),
-                  onPressed: () => context.pop(),
+                  onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
                   style: IconButton.styleFrom(
                     backgroundColor: colorScheme.surfaceContainerHighest
                         .withValues(alpha: 0.7),

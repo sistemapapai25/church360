@@ -498,6 +498,8 @@ final appRouter = GoRouter(
     // Rota de edição de perfil
     GoRoute(
       path: '/profile/edit',
+      // `extra` não sobrevive ao reload; sem ele, volta para o perfil.
+      redirect: (_, state) => state.extra is Member ? null : '/profile',
       builder: (context, state) {
         final member = state.extra as Member;
         // Padronizando para usar o MemberFormScreen que é mais completo

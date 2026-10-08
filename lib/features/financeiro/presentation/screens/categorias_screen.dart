@@ -30,7 +30,7 @@ class CategoriasScreen extends ConsumerWidget {
             icon: const Icon(AppIcons.back),
             onPressed: () {
               if (context.canPop()) {
-                context.pop();
+                (context.canPop() ? context.pop() : context.go('/home'));
               } else {
                 context.go('/financial');
               }
