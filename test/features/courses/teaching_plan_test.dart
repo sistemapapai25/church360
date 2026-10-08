@@ -112,16 +112,42 @@ void main() {
             )
             .join(' | ');
 
-    test(
-      '90 min / 3 matérias = 30 min fixos; matéria terminada deixa vago',
-      () {
-        expect(
-          plan(const [], [meeting('e1', 6), meeting('e2', 13)]),
-          '6 19:00+30 A — 1/2 | 6 19:30+30 B — 1/1 | 6 20:00+30 C — 1/2 | '
-          '13 19:00+30 A — 2/2 | 13 20:00+30 C — 2/2',
-        );
-      },
-    );
+    test('rodada por matéria; o horário divide entre as aulas do encontro', () {
+      expect(
+        plan(const [], [meeting('e1', 6), meeting('e2', 13)]),
+        '6 19:00+30 A — 1/2 | 6 19:30+30 B — 1/1 | 6 20:00+30 C — 1/2 | '
+        '13 19:00+45 A — 2/2 | 13 19:45+45 C — 2/2',
+      );
+    });
+
+    test('23 tópicos em 10 encontros: 3,3,3 e depois 2, em sequência', () {
+      final rows = planEventLessons(
+        subjects: [for (var i = 1; i <= 23; i++) subject('T$i', 1)],
+        lessons: const [],
+        events: [for (var d = 1; d <= 10; d++) meeting('e$d', d)],
+      );
+      final perDay = <int, int>{};
+      for (final r in rows) {
+        perDay[r.date.day] = (perDay[r.date.day] ?? 0) + 1;
+      }
+      expect(perDay.values, [3, 3, 3, 2, 2, 2, 2, 2, 2, 2]);
+      expect(rows.map((r) => r.lesson.subject.id).take(4), [
+        'T1',
+        'T2',
+        'T3',
+        'T4',
+      ]);
+      expect(rows.first.duration, 30);
+    });
+
+    test('encontro nunca leva duas aulas da mesma matéria', () {
+      final rows = planEventLessons(
+        subjects: [subject('A', 4)],
+        lessons: const [],
+        events: [meeting('e1', 6)],
+      );
+      expect(rows.map((r) => r.lesson.title), ['A — 1/4']);
+    });
 
     test('encontro que já tem aula da turma e encontro sem término pulam', () {
       final done = lesson(1, subjectId: 'A');
