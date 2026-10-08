@@ -1,5 +1,10 @@
 import '../domain/models/support_agent.dart';
 
+/// Agentes por assunto (Kids, Financeiro, Mídia, Pastoral). Desligado: só o Moisés
+/// ("default") aparece, sem transferência, Central de Agentes nem edição de agentes.
+/// Os agentes continuam configurados; para voltar, troque para true.
+const bool kMultiAgentsEnabled = false;
+
 const Map<String, SupportAgent> kSupportAgents = {
   "default": SupportAgent(
     key: "default",

@@ -430,7 +430,7 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
       {'label': 'Home (Contribua)', 'path': '/home?tab=contribution'},
       {'label': 'Home (Mais)', 'path': '/home?tab=more'},
       {'label': 'Dashboard (Gestão)', 'path': '/dashboard'},
-      {'label': 'Central de Agentes (Gestão)', 'path': '/agents-center'},
+      if (kMultiAgentsEnabled) {'label': 'Central de Agentes (Gestão)', 'path': '/agents-center'},
     ];
 
     final paths = _collectRoutePaths(appRouter.configuration.routes);
@@ -615,7 +615,7 @@ class _DeveloperSettingsScreenState extends ConsumerState<DeveloperSettingsScree
                               ],
                             ),
                             const SizedBox(height: 8),
-                            ExpansionTile(
+                            if (kMultiAgentsEnabled) ExpansionTile(
                               title: const Text('Edição de Agentes'),
                               subtitle: const Text('Nome, avatar, visibilidade e níveis'),
                               children: [
