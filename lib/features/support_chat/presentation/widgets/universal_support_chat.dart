@@ -1079,7 +1079,12 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
 
   Future<void> _toggleSpeak(Map<String, dynamic> msg) async {
     final wasThis = identical(_speakingMsg, msg);
+    final wasSpeaking = _speakingMsg != null;
     await _tts.stop();
+    // No navegador o flutter_tts só volta a "parado" quando chega o evento do
+    // cancel; um speak() antes disso é descartado calado (o Moisés ficava mudo
+    // quando a resposta chegava com a anterior ainda sendo lida).
+    if (wasSpeaking) await Future<void>.delayed(const Duration(milliseconds: 300));
     final text = textForSpeech(msg['content']?.toString() ?? '');
     if (!mounted) return;
     setState(() => _speakingMsg = (wasThis || text.isEmpty) ? null : msg);
@@ -1463,6 +1468,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   }
 
   Future<void> _handleSend() async {
+    await _stopSpeaking();
     if (mounted && _showQuickActions) {
       setState(() {
         _showQuickActions = false;
