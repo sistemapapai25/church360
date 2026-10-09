@@ -709,22 +709,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     route: '/dispatch-config',
                   ),
                 ),
-                Consumer(
-                  builder: (context, ref, _) {
-                    final isOwnerAsync = ref.watch(currentUserIsOwnerProvider);
-                    return isOwnerAsync.when(
-                      data: (isOwner) {
-                        if (!isOwner) return const SizedBox.shrink();
-                        return const _DrawerMenuItem(
-                          icon: Icons.people_alt_outlined,
-                          title: 'Vincular Cadastros',
-                          route: '/duplicate-accounts',
-                        );
-                      },
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    );
-                  },
+                PermissionGate(
+                  permission: 'members.merge_duplicates',
+                  child: const _DrawerMenuItem(
+                    icon: Icons.people_alt_outlined,
+                    title: 'Vincular Cadastros',
+                    route: '/duplicate-accounts',
+                  ),
                 ),
                 Consumer(
                   builder: (context, ref, _) {
