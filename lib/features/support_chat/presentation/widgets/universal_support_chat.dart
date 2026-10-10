@@ -19,6 +19,7 @@ import '../../domain/models/support_agent.dart';
 import '../../domain/speech_text.dart';
 import '../providers/agents_providers.dart';
 import 'agent_avatar.dart';
+import 'audio_message_bubble.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 
 /// Componente para o Chat de Suporte Universal
@@ -88,6 +89,12 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   late final AudioPlayer _audioPlayer;
   PlayerState _audioPlayerState = PlayerState.stopped;
   String? _playingAudioId;
+  Duration _audioPosition = Duration.zero;
+  // Ondas reais: volume do microfone a cada 100 ms enquanto grava; vira barras na bolha.
+  StreamSubscription<Amplitude>? _amplitudeSub;
+  final List<double> _recLevels = [];
+  DateTime? _recStartedAt;
+  final Map<String, Map<String, dynamic>> _audioMeta = {};
   final FlutterTts _tts = FlutterTts();
   Map<String, dynamic>? _speakingMsg;
   // Fala toda resposta até a pessoa desligar em Opções > Voz (pedido do usuário).
@@ -159,7 +166,11 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       setState(() {
         _playingAudioId = null;
         _audioPlayerState = PlayerState.stopped;
+        _audioPosition = Duration.zero;
       });
+    });
+    _audioPlayer.onPositionChanged.listen((pos) {
+      if (mounted) setState(() => _audioPosition = pos);
     });
     _tts.setLanguage('pt-BR');
     void clearSpeaking() {
@@ -210,6 +221,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     _textController.removeListener(_handleTextChanged);
     _textController.dispose();
     _scrollController.dispose();
+    _amplitudeSub?.cancel();
     _audioPlayer.dispose();
     _audioRecorder.dispose();
     _tts.stop();
@@ -857,6 +869,9 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           'role': role,
           'content': text,
           'time': time,
+          if (item['audio'] is List)
+            'audioItems': (item['audio'] as List).whereType<Map>().map((a) => Map<String, dynamic>.from(a)).toList(),
+          if (item['transcript'] != null) 'transcript': item['transcript'].toString(),
         });
       }
 
@@ -885,10 +900,17 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         final content = msg['content']?.toString() ?? '';
         final time = msg['time'] is DateTime ? msg['time'] as DateTime : DateTime.now();
 
+        // Áudio não é guardado (só no envio): ficam a onda, a duração e a transcrição.
+        final audio = (msg['audioItems'] as List?)?.whereType<Map>().map((a) => {
+              'durationMs': a['durationMs'],
+              'levels': a['levels'],
+            }).toList();
         serializable.add({
           'sender': role == 'user' ? 'user' : 'agent',
           'text': content,
           'timestamp': time.millisecondsSinceEpoch,
+          if (audio != null && audio.isNotEmpty) 'audio': audio,
+          if (msg['transcript'] != null) 'transcript': msg['transcript'],
         });
       }
 
@@ -932,6 +954,9 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
 
     if (_isRecording) {
       String? path;
+      await _amplitudeSub?.cancel();
+      _amplitudeSub = null;
+      final durationMs = _recStartedAt == null ? 0 : DateTime.now().difference(_recStartedAt!).inMilliseconds;
       try {
         path = await _audioRecorder.stop();
       } catch (_) {}
@@ -958,6 +983,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           bytes: bytes,
           path: path,
         );
+        _audioMeta[name] = {'durationMs': durationMs, 'levels': waveformBars(_recLevels)};
         if (!mounted) return;
         setState(() {
           _attachments.add(file);
@@ -996,6 +1022,11 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           path: path,
         );
       }
+      _recLevels.clear();
+      _recStartedAt = DateTime.now();
+      _amplitudeSub = _audioRecorder
+          .onAmplitudeChanged(const Duration(milliseconds: 100))
+          .listen((a) => _recLevels.add(a.current), onError: (_) {});
       if (!mounted) return;
       setState(() {
         _isRecording = true;
@@ -1543,6 +1574,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         'name': f.name,
         if (f.path != null) 'path': f.path,
         if (f.bytes != null) 'bytes': f.bytes,
+        ...?_audioMeta.remove(f.name),
       });
     }
     if (audioItems.isNotEmpty) {
@@ -1579,6 +1611,11 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       );
       final replyRaw = (data['reply'] ?? '').toString();
       final newThreadId = data['threadId']?.toString();
+      final transcripts = (data['transcripts'] as List?)?.map((t) => t.toString().trim()).where((t) => t.isNotEmpty).toList();
+      if (transcripts != null && transcripts.isNotEmpty && mounted) {
+        setState(() => userMsg['transcript'] = transcripts.join('\n\n'));
+        await _saveLocalHistorySafely();
+      }
 
       if (newThreadId != null && newThreadId.isNotEmpty && newThreadId != _threadId) {
         await _saveThread(newThreadId);
@@ -1945,6 +1982,8 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     final contactProposal = (!isUser && msg['contactUpdateProposal'] is Map)
         ? Map<String, dynamic>.from(msg['contactUpdateProposal'] as Map)
         : null;
+    // Só áudio: a bolha do áudio já é o card, sem balão em volta nem o texto "[Áudio]".
+    final audioOnly = audioItems.isNotEmpty && msg['content'] == '[Áudio]';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -1969,8 +2008,8 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                     ),
                   ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
+                  padding: audioOnly ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: audioOnly ? null : BoxDecoration(
                     color: isUser ? _accentColor : Colors.white,
                     borderRadius: BorderRadius.circular(12).copyWith(
                       topLeft: isUser ? const Radius.circular(12) : Radius.zero,
@@ -1988,50 +2027,12 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (audioItems.isNotEmpty)
+                      for (final entry in audioItems.asMap().entries)
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: audioItems.asMap().entries.map((entry) {
-                              final idx = entry.key;
-                              final item = entry.value;
-                              final id = _audioItemId(item, idx);
-                              final path = item['path']?.toString();
-                              final bytes = _bytesFromDynamic(item['bytes']);
-                              final isPlaying = _playingAudioId == id && _audioPlayerState == PlayerState.playing;
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 6),
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: isUser ? _accentColor.withValues(alpha: 0.15) : const Color(0xFFF3F4F6),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: Icon(isPlaying ? Icons.stop : Icons.play_arrow),
-                                      onPressed: _isLoading
-                                          ? null
-                                          : () => _togglePlayAudioItem(id: id, path: path, bytes: bytes),
-                                      visualDensity: VisualDensity.compact,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Mensagem de áudio',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isUser ? _accentColor : const Color(0xFF111827),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
+                          padding: EdgeInsets.only(bottom: audioOnly && entry.key == audioItems.length - 1 ? 0 : 8),
+                          child: _buildAudioBubble(msg, entry.value, entry.key, isUser),
                         ),
-                      if (attachments != null && attachments.isNotEmpty)
+                      if (!audioOnly && attachments != null && attachments.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4),
                           child: Column(
@@ -2046,13 +2047,14 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                             )).toList(),
                           ),
                         ),
-                      Text(
-                        msg['content'] as String,
-                        style: TextStyle(
-                          color: isUser ? Colors.white : const Color(0xFF1F2937),
-                          fontSize: 14,
+                      if (!audioOnly)
+                        Text(
+                          msg['content'] as String,
+                          style: TextStyle(
+                            color: isUser ? Colors.white : const Color(0xFF1F2937),
+                            fontSize: 14,
+                          ),
                         ),
-                      ),
                       if (!isUser && transferCandidates.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         Wrap(
@@ -2201,6 +2203,42 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       ),
     );
   }
+
+  Widget _buildAudioBubble(Map<String, dynamic> msg, Map<String, dynamic> item, int index, bool isUser) {
+    final id = _audioItemId(item, index);
+    final path = item['path']?.toString();
+    final bytes = _bytesFromDynamic(item['bytes']);
+    final canPlay = bytes != null || (path != null && path.isNotEmpty);
+    final isPlaying = _playingAudioId == id && _audioPlayerState == PlayerState.playing;
+    final durationMs = (item['durationMs'] as num?)?.toInt() ?? 0;
+    final levels = (item['levels'] as List?)?.map((v) => (v as num).toDouble()).toList();
+    final photo = isUser ? ref.watch(currentMemberProvider).valueOrNull : null;
+    final photoUrl = photo?.photoUrl ?? photo?.avatarUrl;
+    final initial = photo?.initials ?? 'V';
+    return AudioMessageBubble(
+      isUser: isUser,
+      accent: _accentColor,
+      bars: levels ?? waveformBars(const []),
+      durationMs: durationMs,
+      progress: isPlaying && durationMs > 0 ? _audioPosition.inMilliseconds / durationMs : 0,
+      isPlaying: isPlaying,
+      avatar: isUser
+          ? (photoUrl != null && photoUrl.isNotEmpty
+              ? Image.network(photoUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _initialAvatar(initial))
+              : _initialAvatar(initial))
+          : AgentAvatar(agent: _agent, size: 32),
+      onToggle: !canPlay || _isLoading ? null : () => _togglePlayAudioItem(id: id, path: path, bytes: bytes),
+      transcript: msg['transcript']?.toString(),
+      showTranscript: msg['showTranscript'] == true,
+      onToggleTranscript: () => setState(() => msg['showTranscript'] = msg['showTranscript'] != true),
+    );
+  }
+
+  Widget _initialAvatar(String initial) => Container(
+        color: Colors.white24,
+        alignment: Alignment.center,
+        child: Text(initial, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+      );
 
   Widget _buildAgentAvatar(ResolvedAgent agent) {
     return Container(
