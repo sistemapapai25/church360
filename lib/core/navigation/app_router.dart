@@ -2073,7 +2073,10 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/upcoming-expenses-report',
-      builder: (context, state) => const UpcomingExpensesReportScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'financial.view_reports',
+        child: UpcomingExpensesReportScreen(),
+      ),
     ),
 
     // =====================================================
@@ -2081,7 +2084,10 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/upcoming-events-report',
-      builder: (context, state) => const UpcomingEventsReportScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'events.view',
+        child: UpcomingEventsReportScreen(),
+      ),
     ),
 
     // =====================================================
@@ -2089,7 +2095,10 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/member-growth-report',
-      builder: (context, state) => const MemberGrowthReportScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'members.view',
+        child: MemberGrowthReportScreen(),
+      ),
     ),
 
     // =====================================================
@@ -2097,7 +2106,10 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/events-analysis-report',
-      builder: (context, state) => const EventsAnalysisReportScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'events.view_statistics',
+        child: EventsAnalysisReportScreen(),
+      ),
     ),
 
     // =====================================================
@@ -2105,7 +2117,10 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/active-groups-report',
-      builder: (context, state) => const ActiveGroupsReportScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'groups.view',
+        child: ActiveGroupsReportScreen(),
+      ),
     ),
 
     // =====================================================

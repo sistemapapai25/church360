@@ -48,11 +48,12 @@ final _tenantWidgets = [
 ProviderContainer _buildContainer({
   required Set<String> grantedPermissions,
   Map<String, bool> personalPreferences = const {},
+  List<DashboardWidget>? widgets,
 }) {
   final container = ProviderContainer(
     overrides: [
       tenantEnabledDashboardWidgetsProvider.overrideWith(
-        (ref) => _tenantWidgets,
+        (ref) => widgets ?? _tenantWidgets,
       ),
       currentUserHasPermissionProvider.overrideWith(
         (ref, permissionCode) async => grantedPermissions.contains(permissionCode),
@@ -160,6 +161,37 @@ void main() {
       expect(
         keys,
         {'birthdays_month', 'recent_members', 'upcoming_events', 'financial_summary'},
+      );
+    });
+  });
+
+  group('cards fora do mapa (lote 10, A11)', () {
+    final widgets = [
+      _widget('birthdays_month'),
+      _widget('custom_report_abc'),
+      _widget('dispatch_auto_scheduler'),
+      _widget('card_que_ninguem_mapeou'),
+    ];
+
+    test('membro comum não vê relatório customizado, agendador nem card desconhecido',
+        () async {
+      final container = _buildContainer(grantedPermissions: {}, widgets: widgets);
+      addTearDown(container.dispose);
+
+      expect(await _permittedKeys(container), {'birthdays_month'});
+    });
+
+    test('reports.view libera o relatório customizado; dispatch.configure o agendador',
+        () async {
+      final container = _buildContainer(
+        grantedPermissions: {'reports.view', 'dispatch.configure'},
+        widgets: widgets,
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        await _permittedKeys(container),
+        {'birthdays_month', 'custom_report_abc', 'dispatch_auto_scheduler'},
       );
     });
   });

@@ -64,7 +64,16 @@ final permittedDashboardWidgetsProvider = FutureProvider<List<DashboardWidget>>(
 
   final permitted = <DashboardWidget>[];
   for (final widget in tenantWidgets) {
-    final requiredPermission = dashboardWidgetPermissionMap[widget.widgetKey];
+    // Card fora do mapa não aparece (antes aparecia para todos). Relatório
+    // customizado no card segue a permissão da lista de relatórios.
+    final key = widget.widgetKey;
+    final requiredPermission = key.startsWith('custom_report_')
+        ? 'reports.view'
+        : dashboardWidgetPermissionMap[key];
+    if (requiredPermission == null &&
+        !dashboardWidgetPermissionMap.containsKey(key)) {
+      continue;
+    }
     if (requiredPermission != null) {
       final hasPermission = await ref.watch(
         currentUserHasPermissionProvider(requiredPermission).future,

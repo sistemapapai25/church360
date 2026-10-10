@@ -19,6 +19,7 @@ const Map<String, String?> dashboardWidgetPermissionMap = {
   'financial_summary': 'financial.view_reports',
   'contributions_by_type': 'financial.view_reports',
   'financial_goals': 'financial.view_reports',
+  'dispatch_auto_scheduler': 'dispatch.configure',
 };
 
 // CHU-384 (29/09/2026): aqui existia `dashboardWidgetsRequiringCoordinator`,
