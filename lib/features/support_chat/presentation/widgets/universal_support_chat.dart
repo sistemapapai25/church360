@@ -1056,6 +1056,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
 
   Future<void> _togglePlayAudioItem({
     required String id,
+    String? name,
     String? path,
     Uint8List? bytes,
   }) async {
@@ -1071,7 +1072,12 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       }
 
       await _audioPlayer.stop();
-      if (bytes != null) {
+      if (bytes != null && kIsWeb) {
+        // audioplayers_web 4.x não implementa BytesSource (UnimplementedError): vira data URI.
+        const mimes = {'wav': 'audio/wav', 'm4a': 'audio/mp4', 'mp3': 'audio/mpeg', 'ogg': 'audio/ogg', 'aac': 'audio/aac'};
+        final mime = mimes[(name ?? '').toLowerCase().split('.').last] ?? 'audio/wav';
+        await _audioPlayer.play(UrlSource(Uri.dataFromBytes(bytes, mimeType: mime).toString()));
+      } else if (bytes != null) {
         await _audioPlayer.play(BytesSource(bytes));
       } else {
         final p = path?.trim() ?? '';
@@ -2227,7 +2233,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
               ? Image.network(photoUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _initialAvatar(initial))
               : _initialAvatar(initial))
           : AgentAvatar(agent: _agent, size: 32),
-      onToggle: !canPlay || _isLoading ? null : () => _togglePlayAudioItem(id: id, path: path, bytes: bytes),
+      onToggle: !canPlay || _isLoading ? null : () => _togglePlayAudioItem(id: id, name: item['name']?.toString(), path: path, bytes: bytes),
       transcript: msg['transcript']?.toString(),
       showTranscript: msg['showTranscript'] == true,
       onToggleTranscript: () => setState(() => msg['showTranscript'] = msg['showTranscript'] != true),
