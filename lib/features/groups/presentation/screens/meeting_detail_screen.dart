@@ -910,7 +910,7 @@ class _VisitorsList extends ConsumerWidget {
           e,
           feature: 'meetings.add_visitor',
           fallbackMessage:
-              'Visitante cadastrado, mas nao foi possivel liga-lo a reuniao.',
+              'Visitante cadastrado, mas não foi possível ligá-lo à reunião.',
         );
       }
     }
