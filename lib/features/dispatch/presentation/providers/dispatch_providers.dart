@@ -552,8 +552,10 @@ class VariableRegistry {
       } catch (_) {
         return null;
       }
-      final publicUrl = _supabase.storage.from('schedule-pdf').getPublicUrl(fileName);
-      return publicUrl;
+      // Bucket privado (lista nomes): link assinado de 7 dias para a UAZAPI baixar.
+      return await _supabase.storage
+          .from('schedule-pdf')
+          .createSignedUrl(fileName, 7 * 24 * 3600);
     } catch (_) {
       return null;
     }
@@ -1234,8 +1236,10 @@ class DispatchSchedulerRepository {
       } catch (_) {
         return null;
       }
-      final publicUrl = _supabase.storage.from('schedule-pdf').getPublicUrl(fileName);
-      return publicUrl;
+      // Bucket privado (lista nomes): link assinado de 7 dias para a UAZAPI baixar.
+      return await _supabase.storage
+          .from('schedule-pdf')
+          .createSignedUrl(fileName, 7 * 24 * 3600);
     } catch (_) {
       return null;
     }
