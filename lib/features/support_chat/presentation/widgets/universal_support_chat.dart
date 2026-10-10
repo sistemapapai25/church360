@@ -97,6 +97,8 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   final Map<String, Map<String, dynamic>> _audioMeta = {};
   final FlutterTts _tts = FlutterTts();
   Map<String, dynamic>? _speakingMsg;
+  // 0 a 1: quanto da fala atual já foi lida (avança a onda da bolha do agente).
+  double _speakProgress = 0;
   // Fala toda resposta até a pessoa desligar em Opções > Voz (pedido do usuário).
   bool _autoSpeak = true;
   static const _autoSpeakKey = 'support_auto_speak';
@@ -176,6 +178,9 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     void clearSpeaking() {
       if (mounted && _speakingMsg != null) setState(() => _speakingMsg = null);
     }
+    _tts.setProgressHandler((text, start, end, word) {
+      if (mounted && _speakingMsg != null && text.isNotEmpty) setState(() => _speakProgress = end / text.length);
+    });
     _tts.setCompletionHandler(clearSpeaking);
     _tts.setCancelHandler(clearSpeaking);
     _tts.setErrorHandler((_) => clearSpeaking());
@@ -793,18 +798,29 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       final seen = prefs.getString(_humanSeenKey);
       var query = client
           .from('support_message')
-          .select('content,created_at')
+          .select('content,created_at,author_id')
           .eq('session_id', id)
           .eq('role', 'humano');
       if (seen != null) query = query.gt('created_at', seen);
       final rows = await query.order('created_at');
       if (!mounted) return;
       if (rows.isNotEmpty) {
+        // Foto e primeiro nome de quem respondeu (o membro não lê o cadastro do atendente).
+        final authors = <String, Map<String, dynamic>>{};
+        try {
+          for (final a in await client.rpc('support_human_authors', params: {'p_session_id': id}) as List) {
+            authors[a['author_id'].toString()] = Map<String, dynamic>.from(a as Map);
+          }
+        } catch (_) {}
+        if (!mounted) return;
         setState(() {
           for (final r in rows) {
+            final author = authors[r['author_id']?.toString()];
             _messages.add({
               'role': 'assistant',
-              'content': 'Atendente da igreja:\n${r['content']}',
+              if ((author?['first_name']?.toString() ?? '').isNotEmpty) 'humanName': author!['first_name'].toString(),
+              if (author?['photo_url'] != null) 'humanPhoto': author!['photo_url'].toString(),
+              'content': '$_humanPrefix${r['content']}',
               'time': DateTime.tryParse(r['created_at'].toString())?.toLocal() ?? DateTime.now(),
             });
           }
@@ -872,6 +888,8 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           if (item['audio'] is List)
             'audioItems': (item['audio'] as List).whereType<Map>().map((a) => Map<String, dynamic>.from(a)).toList(),
           if (item['transcript'] != null) 'transcript': item['transcript'].toString(),
+          if (item['humanName'] != null) 'humanName': item['humanName'].toString(),
+          if (item['humanPhoto'] != null) 'humanPhoto': item['humanPhoto'].toString(),
         });
       }
 
@@ -912,6 +930,8 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           'timestamp': time.millisecondsSinceEpoch,
           if (audio != null && audio.isNotEmpty) 'audio': audio,
           if (msg['transcript'] != null) 'transcript': msg['transcript'],
+          if (msg['humanName'] != null) 'humanName': msg['humanName'],
+          if (msg['humanPhoto'] != null) 'humanPhoto': msg['humanPhoto'],
         });
       }
 
@@ -1128,9 +1148,13 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     // cancel; um speak() antes disso é descartado calado (o Moisés ficava mudo
     // quando a resposta chegava com a anterior ainda sendo lida).
     if (wasSpeaking) await Future<void>.delayed(const Duration(milliseconds: 300));
-    final text = textForSpeech(msg['content']?.toString() ?? '');
+    final raw = msg['content']?.toString() ?? '';
+    final text = textForSpeech(raw.startsWith(_humanPrefix) ? raw.substring(_humanPrefix.length) : raw);
     if (!mounted) return;
-    setState(() => _speakingMsg = (wasThis || text.isEmpty) ? null : msg);
+    setState(() {
+      _speakingMsg = (wasThis || text.isEmpty) ? null : msg;
+      _speakProgress = 0;
+    });
     if (_speakingMsg != null) await _tts.speak(text);
   }
 
@@ -1924,9 +1948,13 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         ListView.builder(
           controller: _scrollController,
           padding: const EdgeInsets.all(16),
-          itemCount: _messages.length,
+          itemCount: _messages.length + (_agentRecording ? 1 : 0),
           reverse: true,
           itemBuilder: (context, index) {
+            if (_agentRecording) {
+              if (index == 0) return _buildAgentRecording();
+              index--;
+            }
             final msg = _messages[_messages.length - 1 - index];
             final isUser = msg['role'] == 'user';
             final isSystem = msg['role'] == 'system';
@@ -1994,14 +2022,18 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
             .toList()
         : const <Map<String, dynamic>>[];
     final bubbleAgent = (!isUser && msg['agent'] is ResolvedAgent) ? msg['agent'] as ResolvedAgent : _agent;
+    final human = !isUser && (msg['content']?.toString().startsWith(_humanPrefix) ?? false);
     final transferCandidates = (!isUser && msg['transferCandidates'] is List)
         ? (msg['transferCandidates'] as List).cast<Map<String, dynamic>>()
         : const <Map<String, dynamic>>[];
     final contactProposal = (!isUser && msg['contactUpdateProposal'] is Map)
         ? Map<String, dynamic>.from(msg['contactUpdateProposal'] as Map)
         : null;
+    // A resposta do agente é a "fala" dele: bolha de áudio (lida pela voz do aparelho)
+    // com o texto atrás de "Transcrição" (pedido do usuário, 10/10).
+    final agentVoice = !isUser && audioItems.isEmpty && (msg['content']?.toString().trim().isNotEmpty ?? false);
     // Só áudio: a bolha do áudio já é o card, sem balão em volta nem o texto "[Áudio]".
-    final audioOnly = audioItems.isNotEmpty && msg['content'] == '[Áudio]';
+    final audioOnly = agentVoice || (audioItems.isNotEmpty && msg['content'] == '[Áudio]');
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -2010,7 +2042,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!isUser) ...[
-            _buildAgentAvatar(bubbleAgent),
+            human ? _humanAvatar(msg, 36) : _buildAgentAvatar(bubbleAgent),
             const SizedBox(width: 8),
           ],
           Flexible(
@@ -2021,7 +2053,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                   Padding(
                     padding: const EdgeInsets.only(left: 4, bottom: 2),
                     child: Text(
-                      bubbleAgent.name,
+                      human ? (msg['humanName']?.toString() ?? 'Atendente da igreja') : bubbleAgent.name,
                       style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54),
                     ),
                   ),
@@ -2045,6 +2077,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (agentVoice) _buildAgentVoiceBubble(msg, bubbleAgent, human: human),
                       for (final entry in audioItems.asMap().entries)
                         Padding(
                           padding: EdgeInsets.only(bottom: audioOnly && entry.key == audioItems.length - 1 ? 0 : 8),
@@ -2200,7 +2233,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                       _formatTime(msg['time'] as DateTime),
                       style: const TextStyle(fontSize: 10, color: Colors.grey),
                     ),
-                    if (!isUser)
+                    if (!isUser && !agentVoice)
                       IconButton(
                         onPressed: () => _toggleSpeak(msg),
                         icon: Icon(
@@ -2219,6 +2252,67 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           if (isUser) const SizedBox(width: 40), // Espaço para manter alinhamento visual
         ],
       ),
+    );
+  }
+
+  /// Enquanto a resposta não chega: "Moisés está gravando áudio…", como no WhatsApp.
+  bool get _agentRecording => _isLoading && _supportStatus == 'bot' && _messages.isNotEmpty && _messages.last['role'] == 'user';
+
+  Widget _buildAgentRecording() => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          children: [
+            _buildAgentAvatar(_agent),
+            const SizedBox(width: 8),
+            Icon(Icons.mic, size: 16, color: _accentColor),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                '${_agent.name} está gravando áudio…',
+                style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: _accentColor),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  /// Fala do atendente: o histórico guarda com este começo (vale também para conversas antigas).
+  static const _humanPrefix = 'Atendente da igreja:\n';
+
+  Widget _humanAvatar(Map<String, dynamic> msg, double size) {
+    final name = msg['humanName']?.toString() ?? 'Atendente';
+    final photo = msg['humanPhoto']?.toString();
+    final initial = Container(
+      color: _accentColor,
+      alignment: Alignment.center,
+      child: Text(name.characters.first.toUpperCase(),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: size * 0.4)),
+    );
+    return SizedBox(
+      width: size,
+      height: size,
+      child: ClipOval(
+        child: photo == null ? initial : Image.network(photo, fit: BoxFit.cover, errorBuilder: (_, __, ___) => initial),
+      ),
+    );
+  }
+
+  Widget _buildAgentVoiceBubble(Map<String, dynamic> msg, ResolvedAgent agent, {bool human = false}) {
+    final content = msg['content'].toString();
+    final text = human ? content.substring(_humanPrefix.length) : content;
+    final isPlaying = identical(_speakingMsg, msg);
+    return AudioMessageBubble(
+      isUser: false,
+      accent: _accentColor,
+      bars: speechBars(text),
+      durationMs: speechDurationMs(text),
+      progress: isPlaying ? _speakProgress : 0,
+      isPlaying: isPlaying,
+      avatar: human ? _humanAvatar(msg, 32) : AgentAvatar(agent: agent, size: 32),
+      onToggle: () => _toggleSpeak(msg),
+      transcript: text,
+      showTranscript: msg['showTranscript'] == true,
+      onToggleTranscript: () => setState(() => msg['showTranscript'] = msg['showTranscript'] != true),
     );
   }
 

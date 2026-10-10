@@ -15,6 +15,18 @@ List<double> waveformBars(List<double> dbfs, {int count = 32}) {
   });
 }
 
+/// Fala do agente (lida em voz pelo aparelho): a onda sai do tamanho das palavras,
+/// sempre igual para o mesmo texto.
+List<double> speechBars(String text, {int count = 32}) {
+  final words = text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  if (words.isEmpty) return List.filled(count, 0.4);
+  return List.generate(count, (i) => 0.25 + math.min(words[i * words.length ~/ count].length, 10) / 10 * 0.75);
+}
+
+/// Duração estimada da fala: uns 150 palavras por minuto.
+int speechDurationMs(String text) =>
+    math.max(1000, text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length * 400);
+
 String formatAudioDuration(int ms) {
   final s = (ms / 1000).round();
   return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';

@@ -21,6 +21,17 @@ void main() {
     expect(formatAudioDuration(0), '0:00');
   });
 
+  test('fala do agente: palavra longa vira barra alta, texto curto não quebra', () {
+    expect(speechBars('a paralelepípedo', count: 2), [closeTo(0.325, 0.001), closeTo(1, 0.001)]);
+    expect(speechBars('oi', count: 32), hasLength(32));
+    expect(speechBars('   ', count: 2), [0.4, 0.4]);
+  });
+
+  test('fala do agente: duração estimada pelas palavras, mínimo 1 s', () {
+    expect(speechDurationMs('uma duas três quatro cinco'), 2000);
+    expect(speechDurationMs('oi'), 1000);
+  });
+
   testWidgets('Transcrição abre e fecha o texto', (tester) async {
     var open = false;
     await tester.pumpWidget(MaterialApp(
