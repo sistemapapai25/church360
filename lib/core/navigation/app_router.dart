@@ -575,9 +575,10 @@ final appRouter = GoRouter(
     // Novo visitante de reunião
     GoRoute(
       path: '/groups/:groupId/meetings/:meetingId/visitors/new',
-      builder: (context, state) {
-        return MemberFormScreen(initialStatus: 'visitor');
-      },
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'visitors.create',
+        child: MemberFormScreen(initialStatus: 'visitor'),
+      ),
     ),
     // Rotas de ministérios
     GoRoute(

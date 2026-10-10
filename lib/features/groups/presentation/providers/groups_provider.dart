@@ -63,36 +63,3 @@ final visitorsProvider = FutureProvider.family<List<GroupVisitor>, String>((ref,
   return repo.getVisitorsByMeeting(meetingId);
 });
 
-// =====================================================
-// SALVAÇÕES (agora parte de visitantes)
-// =====================================================
-
-/// Provider de salvações de uma reunião (filtra visitantes que são salvações)
-final salvationsProvider = FutureProvider.family<List<GroupVisitor>, String>((ref, meetingId) async {
-  final repo = ref.watch(groupsRepositoryProvider);
-  return repo.getSalvationsByMeeting(meetingId);
-});
-
-/// Provider de todas as salvações (para relatórios)
-final allSalvationsProvider = FutureProvider<List<GroupVisitor>>((ref) async {
-  final repo = ref.watch(groupsRepositoryProvider);
-  return repo.getAllSalvations();
-});
-
-/// Provider de contagem total de salvações
-final totalSalvationsCountProvider = FutureProvider<int>((ref) async {
-  final repo = ref.watch(groupsRepositoryProvider);
-  return repo.countSalvations();
-});
-
-/// Provider de contagem de salvações por período
-final salvationsCountProvider = FutureProvider.family<int, ({DateTime startDate, DateTime endDate})>(
-  (ref, params) async {
-    final repo = ref.watch(groupsRepositoryProvider);
-    return repo.countSalvationsByPeriod(
-      startDate: params.startDate,
-      endDate: params.endDate,
-    );
-  },
-);
-

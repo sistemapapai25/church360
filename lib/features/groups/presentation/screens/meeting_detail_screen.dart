@@ -813,21 +813,20 @@ class _VisitorsList extends ConsumerWidget {
                       ),
                 ),
                 const Spacer(),
-                FilledButton.icon(
-                  onPressed: () async {
-                    // Navegar para tela de cadastro de visitante
-                    // Passando meetingId e groupId como query parameters
-                    final result = await context.push(
-                      '/groups/$groupId/meetings/$meetingId/visitors/new',
-                    );
-
-                    // Se retornou sucesso, atualizar lista
-                    if (result == true && context.mounted) {
-                      ref.invalidate(groups_providers.visitorsProvider(meetingId));
-                    }
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Adicionar'),
+                // Cadastra (visitors.create) e marca presença na reunião
+                // (group_attendance exige groups.manage_meetings no banco).
+                PermissionGate(
+                  permission: 'groups.manage_meetings',
+                  showLoading: false,
+                  child: PermissionGate(
+                    permission: 'visitors.create',
+                    showLoading: false,
+                    child: FilledButton.icon(
+                      onPressed: () => _addVisitor(context, ref),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Adicionar'),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -886,5 +885,38 @@ class _VisitorsList extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => Center(child: Text('Erro: $error')),
     );
+  }
+
+  /// Abre o cadastro de visitante; o form devolve o id criado e a
+  /// presença do visitante é gravada nesta reunião.
+  Future<void> _addVisitor(BuildContext context, WidgetRef ref) async {
+    final visitorId = await context.push<String>(
+      '/groups/$groupId/meetings/$meetingId/visitors/new',
+    );
+    if (visitorId == null || !context.mounted) return;
+
+    try {
+      final repository = ref.read(groupMeetingsRepositoryProvider);
+      await repository.recordAttendance({
+        'meeting_id': meetingId,
+        'user_id': visitorId,
+        'was_present': true,
+      });
+      await repository.updateMeetingAttendanceCount(meetingId);
+    } catch (e) {
+      if (context.mounted) {
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'meetings.add_visitor',
+          fallbackMessage:
+              'Visitante cadastrado, mas nao foi possivel liga-lo a reuniao.',
+        );
+      }
+    }
+    ref.invalidate(groups_providers.visitorsProvider(meetingId));
+    ref.invalidate(meetingAttendancesProvider(meetingId));
+    ref.invalidate(meetingByIdProvider(meetingId));
+    ref.invalidate(meetingsListProvider(groupId));
   }
 }
