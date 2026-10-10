@@ -183,6 +183,50 @@ class TagsRepository {
     }
   }
 
+  /// Tags de todas as pessoas do tenant, agrupadas por `user_account.id`.
+  /// Uma consulta só, para listas (equipe do ministério) não fazerem N+1.
+  Future<Map<String, List<Tag>>> getTagsByMember() =>
+      _tagsBy('member_tag', 'user_id');
+
+  /// Tags de todos os ministérios do tenant, agrupadas por `ministry.id`.
+  Future<Map<String, List<Tag>>> getTagsByMinistry() =>
+      _tagsBy('ministry_tag', 'ministry_id');
+
+  Future<Map<String, List<Tag>>> _tagsBy(String table, String key) async {
+    final response = await _supabase
+        .from(table)
+        .select('$key, tag:tag_id (id, name, color, category, created_at)')
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
+
+    final result = <String, List<Tag>>{};
+    for (final row in response as List) {
+      final tag = row['tag'];
+      if (tag == null) continue;
+      (result[row[key] as String] ??= []).add(Tag.fromJson(tag));
+    }
+    for (final tags in result.values) {
+      tags.sort((a, b) => a.name.compareTo(b.name));
+    }
+    return result;
+  }
+
+  /// Adicionar tag a um ministério
+  Future<void> addTagToMinistry(String ministryId, String tagId) async {
+    await _supabase.from('ministry_tag').insert({
+      'ministry_id': ministryId,
+      'tag_id': tagId,
+    });
+  }
+
+  /// Remover tag de um ministério
+  Future<void> removeTagFromMinistry(String ministryId, String tagId) async {
+    await _supabase
+        .from('ministry_tag')
+        .delete()
+        .eq('ministry_id', ministryId)
+        .eq('tag_id', tagId);
+  }
+
   /// Contar total de tags
   Future<int> getTotalTagsCount() async {
     try {

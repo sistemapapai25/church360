@@ -7,6 +7,9 @@ import '../../../../core/widgets/app_filter_bar.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../permissions/providers/permissions_providers.dart';
+import '../../../tags/presentation/providers/tags_provider.dart';
+import '../../../tags/presentation/widgets/member_tags_panel.dart';
+import '../../../tags/presentation/widgets/tag_filter_chips.dart';
 
 import '../providers/ministries_provider.dart';
 import '../utils/ministry_visuals.dart';
@@ -24,6 +27,7 @@ class MinistriesListScreen extends ConsumerStatefulWidget {
 
 class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
   String _searchQuery = '';
+  String? _selectedTagId;
   final _searchController = TextEditingController();
 
   @override
@@ -44,6 +48,8 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
     );
 
     final ministriesAsync = ref.watch(visibleMinistriesProvider);
+    final tagsByMinistry =
+        ref.watch(tagsByMinistryProvider).valueOrNull ?? const {};
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -138,6 +144,11 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
             child: ministriesAsync.when(
               data: (ministries) {
                 final filtered = ministries.where((m) {
+                  if (_selectedTagId != null &&
+                      !(tagsByMinistry[m.id] ?? const [])
+                          .any((t) => t.id == _selectedTagId)) {
+                    return false;
+                  }
                   if (_searchQuery.isEmpty) return true;
                   final q = _searchQuery.toLowerCase();
                   final name = m.name.toLowerCase();
@@ -202,7 +213,15 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: TagFilterChips(
+                        selectedTagId: _selectedTagId,
+                        onChanged: (id) => setState(() => _selectedTagId = id),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Expanded(
                       child: ListView.separated(
                         padding: const EdgeInsets.symmetric(
@@ -281,6 +300,7 @@ class _MinistryCard extends ConsumerWidget {
     final color = ministryColor(ministry.color);
     final membersAsync = ref.watch(ministryMembersProvider(ministry.id));
     final icon = ministryIconData(ministry.icon);
+    final tags = ref.watch(tagsByMinistryProvider).valueOrNull?[ministry.id];
 
     return GlassCard(
       padding: const EdgeInsets.all(16),
@@ -351,6 +371,15 @@ class _MinistryCard extends ConsumerWidget {
               const Icon(AppIcons.forward, color: Colors.grey),
             ],
           ),
+
+          if (tags != null && tags.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [for (final tag in tags) TagChip(tag: tag)],
+            ),
+          ],
 
           // Contagem de membros
           const SizedBox(height: 12),
