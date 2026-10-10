@@ -223,6 +223,7 @@ class _WorshipAttendanceScreenState
                           onToggle: () {
                             ref.invalidate(worshipAttendanceProvider(widget.worshipServiceId));
                             ref.invalidate(worshipServiceByIdProvider(widget.worshipServiceId));
+                            ref.invalidate(allWorshipServicesProvider);
                           },
                         );
                       },

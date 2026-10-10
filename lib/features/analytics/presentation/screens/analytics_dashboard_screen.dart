@@ -242,7 +242,7 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
                   icon: Icons.church,
                   color: Colors.purple,
                   onTap: () {
-                    context.push('/reports/attendance');
+                    context.push('/worship-statistics');
                   },
                 ),
                 const SizedBox(height: 12),

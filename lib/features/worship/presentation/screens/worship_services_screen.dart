@@ -136,7 +136,17 @@ class _WorshipServiceCard extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Excluir Culto'),
-        content: const Text('Tem certeza que deseja excluir este culto? Esta ação não pode ser desfeita.'),
+        content: Text(
+          'Tem certeza que deseja excluir este culto? Junto com ele serão '
+          'apagados:\n'
+          '• o check-in de presença (${service.totalAttendance} '
+          'presente${service.totalAttendance != 1 ? 's' : ''});\n'
+          '• a contagem de presença feita pelo Diaconato e a lista de quem '
+          'faltou;\n'
+          '• os lotes de entrega da ceia gerados a partir dessa contagem.\n\n'
+          'As contribuições ligadas ao culto continuam registradas, só perdem '
+          'o vínculo com ele. Esta ação não pode ser desfeita.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
