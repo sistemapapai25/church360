@@ -107,10 +107,13 @@ class _CommunionBatchContentState
     final eligible = results[2] as List<DiaconatoEligiblePerson>;
 
     // 3) Sincroniza items com a triagem (idempotente, preserva progresso).
-    final items = await repo.rebuildBatchItemsFromTriage(
-      batchId: batch.id,
-      attendanceCountId: count.id,
-    );
+    // Lote fechado é registro encerrado: só lê, não ressincroniza.
+    final items = batch.status == CommunionBatchStatus.closed
+        ? await repo.getBatchItems(batch.id)
+        : await repo.rebuildBatchItemsFromTriage(
+            batchId: batch.id,
+            attendanceCountId: count.id,
+          );
 
     _batch = batch;
     _service = service;
@@ -326,7 +329,10 @@ class _CommunionBatchContentState
         actions: [
           IconButton(
             tooltip: 'Sincronizar com triagem',
-            onPressed: _syncing ? null : _sync,
+            onPressed:
+                _syncing || _batch?.status == CommunionBatchStatus.closed
+                    ? null
+                    : _sync,
             icon: _syncing
                 ? const SizedBox(
                     width: 18,
@@ -728,6 +734,7 @@ class _ItemTile extends ConsumerWidget {
                 const SizedBox(width: 8),
                 _StatusMenu(
                   current: item.status,
+                  hasAssignee: item.assignedTo != null,
                   enabled: !batchClosed,
                   onChanged: onStatus,
                 ),
@@ -1011,11 +1018,17 @@ class _PickedMember {
 
 class _StatusMenu extends StatelessWidget {
   final CommunionDeliveryStatus current;
+
+  /// "Atribuído" sem responsável viola o CHECK
+  /// `communion_delivery_item_assigned_requires_user`; quem atribui é o
+  /// seletor de responsável, não este menu.
+  final bool hasAssignee;
   final bool enabled;
   final ValueChanged<CommunionDeliveryStatus> onChanged;
 
   const _StatusMenu({
     required this.current,
+    required this.hasAssignee,
     required this.enabled,
     required this.onChanged,
   });
@@ -1031,6 +1044,7 @@ class _StatusMenu extends StatelessWidget {
         return CommunionDeliveryStatus.values.map((s) {
           return PopupMenuItem<CommunionDeliveryStatus>(
             value: s,
+            enabled: s != CommunionDeliveryStatus.assigned || hasAssignee,
             child: Row(
               children: [
                 Icon(s == current ? AppIcons.check : AppIcons.circle, size: 16),

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/ministries_repository.dart';
 import '../../domain/models/ministry.dart';
+import '../../shared/domain/ministry_type_catalog.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 
@@ -124,6 +125,18 @@ final visibleMinistriesProvider = FutureProvider<List<Ministry>>((ref) async {
     return ref.watch(allMinistriesProvider.future);
   }
   return ref.watch(currentMemberMinistriesProvider.future);
+});
+
+/// Raízes ativo que o usuário atual pode abrir (visão global OU vínculo), ou
+/// nulo. É o destino do "Ir para Raízes" do Diaconato.
+final visibleRaizesMinistryIdProvider = FutureProvider<String?>((ref) async {
+  final ministries = await ref.watch(visibleMinistriesProvider.future);
+  for (final m in ministries) {
+    if (m.isActive && m.ministryTypeCode == MinistryTypeCodes.raizes) {
+      return m.id;
+    }
+  }
+  return null;
 });
 
 /// Indica se o usuário atual pode **entrar** em um ministério específico —

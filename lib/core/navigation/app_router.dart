@@ -975,19 +975,30 @@ final appRouter = GoRouter(
         child: WorshipStatisticsScreen(),
       ),
     ),
+    // Entravam sem guard nenhum (o Raízes empurra /visitors para qualquer um
+    // do ministério). Mesma régua do item "Visitantes" da Dashboard.
     GoRoute(
       path: '/visitors',
-      builder: (context, state) => const VisitorsListScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'visitors.view',
+        child: VisitorsListScreen(),
+      ),
     ),
     GoRoute(
       path: '/visitors/statistics',
-      builder: (context, state) => const VisitorsStatisticsScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'visitors.view',
+        child: VisitorsStatisticsScreen(),
+      ),
     ),
     GoRoute(
       path: '/visitors/new',
-      builder: (context, state) => const MemberFormScreen(
-        initialStatus: 'visitor',
-        initialMemberType: 'visitante',
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'visitors.create',
+        child: MemberFormScreen(
+          initialStatus: 'visitor',
+          initialMemberType: 'visitante',
+        ),
       ),
     ),
     GoRoute(

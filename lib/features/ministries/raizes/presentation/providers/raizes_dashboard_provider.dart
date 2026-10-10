@@ -9,15 +9,13 @@ final raizesRepositoryProvider = Provider<RaizesRepository>((ref) {
   return RaizesRepository(Supabase.instance.client);
 });
 
-/// Provider de KPIs do dashboard Raízes. Family por `ministryId` para permitir
-/// múltiplos ministérios do tipo `raizes` no mesmo tenant — hoje os números
-/// vêm de `user_account` (não dependem do ministry), mas a chave do family
-/// já mantém o cache invalidado por escopo e prepara o terreno para o Lote
-/// 4C, quando filtragens específicas do ministério entram.
+/// Provider de KPIs do dashboard Raízes. Family por `ministryId`: os números
+/// de visitantes vêm de `user_account` (igreja inteira), os de visitas são
+/// só do ministério.
 final raizesDashboardStatsProvider =
     FutureProvider.family<RaizesDashboardStats, String>(
   (ref, ministryId) async {
     final repo = ref.watch(raizesRepositoryProvider);
-    return repo.getDashboardStats();
+    return repo.getDashboardStats(ministryId);
   },
 );

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/widgets/glass_card.dart';
+import '../../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../shared/domain/ministry_type_catalog.dart';
 import '../../../shared/presentation/providers/ministry_type_catalog_providers.dart';
@@ -161,23 +162,37 @@ class _RaizesPainelTabState extends ConsumerState<RaizesPainelTab> {
             onTap: () => context.push('/ministries/$ministryId/raizes/visits'),
             color: Colors.deepPurple,
           ),
-          const SizedBox(height: 12),
-          _PrimaryActionCard(
-            icon: AppIcons.personSearch,
-            title: 'Ver visitantes',
-            description:
-                'Abrir a lista completa de visitantes com os filtros do Raízes (primeira visita, salvação, follow-up, faixa etária).',
-            onTap: () => context.push('/visitors'),
-            color: colorScheme.primary,
+          // A lista e o cadastro de visitantes são da igreja, não do
+          // ministério: cobram `visitors.*` (a rota e o banco também).
+          PermissionGate(
+            permission: 'visitors.view',
+            showLoading: false,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: _PrimaryActionCard(
+                icon: AppIcons.personSearch,
+                title: 'Ver visitantes',
+                description:
+                    'Abrir a lista completa de visitantes com os filtros do Raízes (primeira visita, salvação, follow-up, faixa etária).',
+                onTap: () => context.push('/visitors'),
+                color: colorScheme.primary,
+              ),
+            ),
           ),
-          const SizedBox(height: 12),
-          _PrimaryActionCard(
-            icon: AppIcons.personAdd,
-            title: 'Cadastrar novo visitante',
-            description: 'Abre o formulário pré-configurado para visitantes.',
-            onTap: () =>
-                context.push('/members/new?status=visitor&type=visitante'),
-            color: colorScheme.tertiary,
+          PermissionGate(
+            permission: 'visitors.create',
+            showLoading: false,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: _PrimaryActionCard(
+                icon: AppIcons.personAdd,
+                title: 'Cadastrar novo visitante',
+                description: 'Abre o formulário pré-configurado para visitantes.',
+                onTap: () =>
+                    context.push('/members/new?status=visitor&type=visitante'),
+                color: colorScheme.tertiary,
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           _PrimaryActionCard(
