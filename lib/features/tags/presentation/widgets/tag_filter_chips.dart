@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../domain/models/tag.dart';
 import '../providers/tags_provider.dart';
 
 /// Filtro de tags em chips, para o painel de filtros da lista de membros.
@@ -16,16 +17,22 @@ class TagFilterChips extends ConsumerWidget {
   final String? selectedTagId;
   final ValueChanged<String?> onChanged;
 
+  /// true = tags de ministério; false = tags de pessoa.
+  final bool ministry;
+
   const TagFilterChips({
     super.key,
     required this.selectedTagId,
     required this.onChanged,
+    this.ministry = false,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tagsAsync = ref.watch(allTagsProvider);
-    final tags = tagsAsync.valueOrNull ?? const [];
+    final tags = (tagsAsync.valueOrNull ?? const <Tag>[])
+        .where((t) => t.isMinistry == ministry)
+        .toList();
 
     if (tags.isEmpty) {
       return const SizedBox.shrink();
@@ -51,10 +58,13 @@ class TagFilterChips extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
+        // Uma linha só, rolando para o lado: com muitas tags o Wrap ocupava
+        // a tela inteira no celular.
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            spacing: 8,
+            children: [
             ChoiceChip(
               label: const Text('Todas'),
               selected: selectedTagId == null,
@@ -71,7 +81,8 @@ class TagFilterChips extends ConsumerWidget {
                 onSelected: (_) => onChanged(isSelected ? null : tag.id),
               );
             }),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 16),
       ],

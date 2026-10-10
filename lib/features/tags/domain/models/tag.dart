@@ -9,6 +9,9 @@ class Tag {
   final DateTime createdAt;
   final int? memberCount; // Computed from join
 
+  /// `member` (tag de pessoa) ou `ministry` (tag de ministério).
+  final String appliesTo;
+
   Tag({
     required this.id,
     required this.name,
@@ -16,7 +19,10 @@ class Tag {
     this.category,
     required this.createdAt,
     this.memberCount,
+    this.appliesTo = 'member',
   });
+
+  bool get isMinistry => appliesTo == 'ministry';
 
   /// Criar a partir de JSON
   factory Tag.fromJson(Map<String, dynamic> json) {
@@ -27,6 +33,7 @@ class Tag {
       category: json['category'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       memberCount: json['member_count'] as int?,
+      appliesTo: json['applies_to'] as String? ?? 'member',
     );
   }
 
@@ -74,6 +81,7 @@ class Tag {
       category: category ?? this.category,
       createdAt: createdAt ?? this.createdAt,
       memberCount: memberCount ?? this.memberCount,
+      appliesTo: appliesTo,
     );
   }
 }

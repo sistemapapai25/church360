@@ -183,26 +183,21 @@ class TagsRepository {
     }
   }
 
-  /// Tags de todas as pessoas do tenant, agrupadas por `user_account.id`.
-  /// Uma consulta só, para listas (equipe do ministério) não fazerem N+1.
-  Future<Map<String, List<Tag>>> getTagsByMember() =>
-      _tagsBy('member_tag', 'user_id');
-
   /// Tags de todos os ministérios do tenant, agrupadas por `ministry.id`.
-  Future<Map<String, List<Tag>>> getTagsByMinistry() =>
-      _tagsBy('ministry_tag', 'ministry_id');
-
-  Future<Map<String, List<Tag>>> _tagsBy(String table, String key) async {
+  /// Uma consulta só, para a lista de ministérios não fazer N+1.
+  Future<Map<String, List<Tag>>> getTagsByMinistry() async {
     final response = await _supabase
-        .from(table)
-        .select('$key, tag:tag_id (id, name, color, category, created_at)')
+        .from('ministry_tag')
+        .select(
+          'ministry_id, tag:tag_id (id, name, color, category, created_at, applies_to)',
+        )
         .eq('tenant_id', SupabaseConstants.currentTenantId);
 
     final result = <String, List<Tag>>{};
     for (final row in response as List) {
       final tag = row['tag'];
       if (tag == null) continue;
-      (result[row[key] as String] ??= []).add(Tag.fromJson(tag));
+      (result[row['ministry_id'] as String] ??= []).add(Tag.fromJson(tag));
     }
     for (final tags in result.values) {
       tags.sort((a, b) => a.name.compareTo(b.name));

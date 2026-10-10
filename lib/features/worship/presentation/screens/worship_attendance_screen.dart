@@ -38,7 +38,15 @@ class _WorshipAttendanceScreenState
   Widget build(BuildContext context) {
     final serviceAsync = ref.watch(worshipServiceByIdProvider(widget.worshipServiceId));
     final attendanceAsync = ref.watch(worshipAttendanceProvider(widget.worshipServiceId));
-    final membersAsync = ref.watch(activeMembersProvider);
+    // Regra do check-in (Cultos A6): membros ativos + visitantes. Inativo fica
+    // de fora porque não frequenta mais.
+    final activeAsync = ref.watch(activeMembersProvider);
+    final visitorsAsync = ref.watch(visitorsProvider);
+    final AsyncValue<List<Member>> membersAsync = activeAsync.when(
+      data: (active) => visitorsAsync.whenData((visitors) => [...active, ...visitors]),
+      loading: () => const AsyncValue.loading(),
+      error: AsyncValue.error,
+    );
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -138,7 +146,7 @@ class _WorshipAttendanceScreenState
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Buscar membro...',
+                hintText: 'Buscar membro ou visitante...',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
@@ -202,7 +210,7 @@ class _WorshipAttendanceScreenState
                       return Center(
                         child: Text(
                           _searchQuery.isEmpty
-                              ? 'Nenhum membro encontrado'
+                              ? 'Nenhum membro ou visitante encontrado'
                               : 'Nenhum resultado para "$_searchQuery"',
                           style: TextStyle(color: Colors.grey[600]),
                         ),
@@ -351,10 +359,16 @@ class _MemberCheckInTileState extends ConsumerState<_MemberCheckInTile> {
             fontWeight: widget.isPresent ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
-        subtitle: widget.isPresent
-            ? const Text(
-                'Presente',
-                style: TextStyle(color: Colors.green, fontSize: 12),
+        subtitle: widget.isPresent || widget.member.isVisitor
+            ? Text(
+                [
+                  if (widget.member.isVisitor) 'Visitante',
+                  if (widget.isPresent) 'Presente',
+                ].join(' · '),
+                style: TextStyle(
+                  color: widget.isPresent ? Colors.green : Colors.orange[800],
+                  fontSize: 12,
+                ),
               )
             : null,
         trailing: _isLoading

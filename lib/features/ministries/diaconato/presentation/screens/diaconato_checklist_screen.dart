@@ -312,7 +312,7 @@ class _DiaconatoChecklistContentState
               if (visitors.isEmpty)
                 _EmptyHint(
                   text:
-                      'Nenhum visitante/novo convertido cadastrado em user_account.',
+                      'Nenhum visitante ou novo convertido cadastrado.',
                 )
               else
                 ...visitors.map(
@@ -656,7 +656,7 @@ class _UnregisteredCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Pessoas presentes que ainda não estão em user_account.',
+            'Pessoas presentes que ainda não têm cadastro na igreja.',
             style: CommunityDesign.metaStyle(context),
           ),
           const SizedBox(height: 12),

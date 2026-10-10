@@ -193,10 +193,7 @@ Future<void> showMemberTagsSheet(BuildContext context, String memberId) {
       save: (repo, tagId, assign) => assign
           ? repo.addTagToMember(memberId, tagId)
           : repo.removeTagFromMember(memberId, tagId),
-      invalidate: (ref) {
-        ref.invalidate(memberTagsProvider(memberId));
-        ref.invalidate(tagsByMemberProvider);
-      },
+      invalidate: (ref) => ref.invalidate(memberTagsProvider(memberId)),
     ),
   );
 }
@@ -208,7 +205,10 @@ Future<void> showMinistryTagsSheet(BuildContext context, String ministryId) {
     context,
     _TagPickerSheet(
       title: 'Tags do ministério',
-      hint: 'Marque as tags que classificam este ministério.',
+      hint:
+          'Marque as tags que classificam este ministério. Tag criada aqui '
+          'fica disponível para os outros ministérios.',
+      ministry: true,
       watchAssigned: (ref) => ref
           .watch(tagsByMinistryProvider)
           .whenData((byId) => {...?byId[ministryId]?.map((t) => t.id)}),
@@ -237,12 +237,16 @@ class _TagPickerSheet extends ConsumerStatefulWidget {
   save;
   final void Function(WidgetRef ref) invalidate;
 
+  /// true = lista só tags de ministério e permite criar uma ali mesmo.
+  final bool ministry;
+
   const _TagPickerSheet({
     required this.title,
     required this.hint,
     required this.watchAssigned,
     required this.save,
     required this.invalidate,
+    this.ministry = false,
   });
 
   @override
@@ -252,6 +256,14 @@ class _TagPickerSheet extends ConsumerStatefulWidget {
 class _TagPickerSheetState extends ConsumerState<_TagPickerSheet> {
   /// Tags em gravação, por id — evita toque duplo na mesma linha.
   final Set<String> _saving = <String>{};
+  final _newTagName = TextEditingController();
+  bool _creating = false;
+
+  @override
+  void dispose() {
+    _newTagName.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -283,15 +295,53 @@ class _TagPickerSheetState extends ConsumerState<_TagPickerSheet> {
                 style: CommunityDesign.metaStyle(context),
               ),
             ),
+            if (widget.ministry)
+              PermissionGate(
+                permission: 'tags.create',
+                showLoading: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  child: TextField(
+                    controller: _newTagName,
+                    enabled: !_creating,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _createTag(),
+                    decoration: InputDecoration(
+                      labelText: 'Nova tag',
+                      hintText: 'Ex.: Louvor, Infantil, Social',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: _creating
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.add),
+                              tooltip: 'Criar e marcar',
+                              onPressed: _createTag,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
             Flexible(
               child: allTagsAsync.when(
-                data: (allTags) {
+                data: (all) {
+                  final allTags = all
+                      .where((t) => t.isMinistry == widget.ministry)
+                      .toList();
                   if (allTags.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                       child: Text(
-                        'Nenhuma tag cadastrada ainda. Crie as tags da igreja '
-                        'no menu Tags.',
+                        widget.ministry
+                            ? 'Nenhuma tag de ministério ainda.'
+                            : 'Nenhuma tag cadastrada ainda. Crie as tags da '
+                                  'igreja no menu Tags.',
                         style: CommunityDesign.metaStyle(context),
                       ),
                     );
@@ -438,6 +488,48 @@ class _TagPickerSheetState extends ConsumerState<_TagPickerSheet> {
       if (mounted) {
         setState(() => _saving.remove(tag.id));
       }
+    }
+  }
+
+  /// Cria a tag de ministério no catálogo (vale para todos os ministérios)
+  /// e já marca neste. Criar exige `tags.create` (RLS de `tag`).
+  Future<void> _createTag() async {
+    final name = _newTagName.text.trim();
+    if (name.isEmpty || _creating) return;
+    setState(() => _creating = true);
+
+    final repository = ref.read(tagsRepositoryProvider);
+    try {
+      final tag = await repository.createTag({
+        'name': name,
+        'applies_to': 'ministry',
+        'color': '#3F51B5',
+      });
+      await widget.save(repository, tag.id, true);
+      widget.invalidate(ref);
+      ref.invalidate(allTagsProvider);
+      _newTagName.clear();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Tag "$name" criada e atribuída.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        final message = error is PostgrestException && error.code == '23505'
+            ? 'Já existe uma tag chamada "$name" (pode ser uma tag de pessoa).'
+            : error is PostgrestException && error.code == '42501'
+            ? 'Você não tem permissão para criar tags.'
+            : 'Erro ao criar tag: $error';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _creating = false);
     }
   }
 

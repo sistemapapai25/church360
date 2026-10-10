@@ -16,6 +16,7 @@ import '../../features/qr_scanner/presentation/screens/qr_scanner_screen.dart';
 import '../../features/groups/presentation/screens/groups_list_screen.dart';
 import '../../features/groups/presentation/screens/group_detail_screen.dart';
 import '../../features/groups/presentation/screens/group_form_screen.dart';
+import '../../features/groups/presentation/widgets/group_permission_gate.dart';
 import '../../features/groups/presentation/screens/meeting_form_screen.dart';
 import '../../features/groups/presentation/screens/meeting_detail_screen.dart';
 import '../../features/ministries/presentation/screens/ministries_list_screen.dart';
@@ -313,8 +314,14 @@ final appRouter = GoRouter(
     final isPublicBaptismRegister =
         state.matchedLocation.startsWith('/batismo/') &&
         state.matchedLocation.endsWith('/inscricao');
+    // Só a tela do grupo é pública (o anon lê por `get_public_group`). A
+    // reunião (`/groups/:id/meetings/...`) NÃO é (lote 9, Grupos 10): a RLS
+    // de `group_meeting` barra o anon e a tela abria vazia. Link de reunião
+    // sem sessão cai no login (ou no cadastro, que repassa o `?redirect=`) e
+    // volta para o link depois de entrar.
     final isPublicGroupDetail =
         state.matchedLocation.startsWith('/groups/') &&
+        !state.matchedLocation.contains('/meetings') &&
         !state.matchedLocation.endsWith('/edit') &&
         !state.matchedLocation.endsWith('/new');
     final isPublicStudyGroupDetail =
@@ -446,10 +453,17 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final type = state.uri.queryParameters['type'];
         final status = state.uri.queryParameters['status'];
-        return MemberFormScreen(
+        final form = MemberFormScreen(
           initialMemberType: type,
           initialStatus: status,
           kidsByStaff: state.uri.queryParameters['staff'] == '1',
+        );
+        // Mesma regra do botão Salvar do form: o cadastro de filho no Kids
+        // fica aberto ao responsável logado; o resto exige a permissão.
+        if (type?.trim().toLowerCase() == 'crianca') return form;
+        return PermissionOnlyRoute(
+          permission: status == 'visitor' ? 'visitors.create' : 'members.create',
+          child: form,
         );
       },
     ),
@@ -522,7 +536,8 @@ final appRouter = GoRouter(
       path: '/groups/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return PermissionOnlyRoute(
+        return GroupPermissionRoute(
+          groupId: id,
           permission: 'groups.edit',
           child: GroupFormScreen(groupId: id),
         );
@@ -543,7 +558,8 @@ final appRouter = GoRouter(
       path: '/groups/:groupId/meetings/new',
       builder: (context, state) {
         final groupId = state.pathParameters['groupId']!;
-        return PermissionOnlyRoute(
+        return GroupPermissionRoute(
+          groupId: groupId,
           permission: 'groups.manage_meetings',
           child: MeetingFormScreen(groupId: groupId),
         );
@@ -554,7 +570,8 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final groupId = state.pathParameters['groupId']!;
         final meetingId = state.pathParameters['meetingId']!;
-        return PermissionOnlyRoute(
+        return GroupPermissionRoute(
+          groupId: groupId,
           permission: 'groups.manage_meetings',
           child: MeetingFormScreen(groupId: groupId, meetingId: meetingId),
         );
@@ -975,19 +992,30 @@ final appRouter = GoRouter(
         child: WorshipStatisticsScreen(),
       ),
     ),
+    // Entravam sem guard nenhum (o Raízes empurra /visitors para qualquer um
+    // do ministério). Mesma régua do item "Visitantes" da Dashboard.
     GoRoute(
       path: '/visitors',
-      builder: (context, state) => const VisitorsListScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'visitors.view',
+        child: VisitorsListScreen(),
+      ),
     ),
     GoRoute(
       path: '/visitors/statistics',
-      builder: (context, state) => const VisitorsStatisticsScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'visitors.view',
+        child: VisitorsStatisticsScreen(),
+      ),
     ),
     GoRoute(
       path: '/visitors/new',
-      builder: (context, state) => const MemberFormScreen(
-        initialStatus: 'visitor',
-        initialMemberType: 'visitante',
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'visitors.create',
+        child: MemberFormScreen(
+          initialStatus: 'visitor',
+          initialMemberType: 'visitante',
+        ),
       ),
     ),
     GoRoute(

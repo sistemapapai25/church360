@@ -550,7 +550,7 @@ class DiaconatoAttendanceRepository {
     );
 
     final phase1 = await Future.wait([
-      _fetchLastCount(tenantId, ministryId),
+      _fetchLastCount(tenantId, ministryId, _isoDate(today)),
       _countEligible(tenantId),
       _fetchOpenBatchIds(tenantId, ministryId),
       _sumUnregisteredVisitorsSince(tenantId, ministryId, thirtyDaysAgoIso),
@@ -591,15 +591,21 @@ class DiaconatoAttendanceRepository {
     );
   }
 
+  /// Último culto **de fato contado**: abrir o checklist/ausentes/lote já cria
+  /// a contagem zerada (`getOrCreateAttendanceCount`), e dá para abrir culto
+  /// futuro — sem os dois filtros, o herói mostrava esses.
   Future<WorshipAttendanceCount?> _fetchLastCount(
     String tenantId,
     String ministryId,
+    String todayIso,
   ) async {
     final response = await _supabase
         .from('worship_attendance_count')
         .select()
         .eq('tenant_id', tenantId)
         .eq('ministry_id', ministryId)
+        .lte('service_date', todayIso)
+        .gt('total_people', 0)
         .order('service_date', ascending: false)
         .limit(1)
         .maybeSingle();
