@@ -52,7 +52,7 @@ class MeetingDetailScreen extends ConsumerWidget {
           ),
           // Botão de editar
           PermissionGate(
-            permission: 'groups.edit',
+            permission: 'groups.manage_meetings',
             showLoading: false,
             fallback: const SizedBox.shrink(),
             child: IconButton(
