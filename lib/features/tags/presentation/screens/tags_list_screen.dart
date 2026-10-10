@@ -91,7 +91,11 @@ class TagsListScreen extends ConsumerWidget {
                             children: [
                               if (tag.category != null)
                                 Text('Categoria: ${tag.category}'),
-                              Text('${tag.memberCount ?? 0} membros'),
+                              Text(
+                                tag.isMinistry
+                                    ? 'Tag de ministério'
+                                    : '${tag.memberCount ?? 0} membros',
+                              ),
                             ],
                           ),
                           trailing: Row(

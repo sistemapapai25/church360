@@ -219,6 +219,7 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                       child: TagFilterChips(
                         selectedTagId: _selectedTagId,
                         onChanged: (id) => setState(() => _selectedTagId = id),
+                        ministry: true,
                       ),
                     ),
                     const SizedBox(height: 8),
