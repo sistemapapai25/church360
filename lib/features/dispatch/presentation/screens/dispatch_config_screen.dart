@@ -1379,6 +1379,7 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
               builder: (context) => EntitySelectorDialog(
                 linkType: linkType,
                 initialSelectedIds: _selectedEntities.keys.toList(),
+                initialNames: _selectedEntities,
               ),
             );
             if (res != null) {
