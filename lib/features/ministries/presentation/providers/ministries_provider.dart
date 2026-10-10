@@ -47,6 +47,20 @@ final ministryMembersProvider = FutureProvider.family<List<MinistryMember>, Stri
   return repo.getMinistryMembers(ministryId);
 });
 
+/// IDs (`user_account.id`) dos membros do ministério que abrem uma tela com
+/// `MinistrySubmoduleGuard(requiredPermission: permission)`: visão global OU
+/// vínculo + a permissão. Filtra seletores de responsável, para o aviso não
+/// levar a pessoa a uma tela bloqueada (RPC `ministry_member_ids_with_permission`,
+/// migration 20261008001700).
+final ministryMemberIdsWithPermissionProvider = FutureProvider.autoDispose
+    .family<Set<String>, ({String ministryId, String permission})>((ref, args) async {
+  final rows = await Supabase.instance.client.rpc(
+    'ministry_member_ids_with_permission',
+    params: {'p_ministry_id': args.ministryId, 'p_code': args.permission},
+  );
+  return {for (final id in rows as List) id as String};
+});
+
 /// Provider de ministérios de um membro
 final memberMinistriesProvider = FutureProvider.family<List<Ministry>, String>((ref, memberId) async {
   final repo = ref.watch(ministriesRepositoryProvider);

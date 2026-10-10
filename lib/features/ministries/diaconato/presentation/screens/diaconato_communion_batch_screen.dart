@@ -12,6 +12,7 @@ import '../../../../worship/domain/models/worship_service.dart';
 import '../../../../worship/presentation/providers/worship_provider.dart';
 import '../../../domain/models/ministry.dart';
 import '../../../presentation/providers/ministries_provider.dart';
+import '../../../shared/presentation/widgets/assignee_without_permission_tile.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../../domain/models/communion_delivery.dart';
 import '../../domain/models/worship_attendance.dart';
@@ -963,34 +964,81 @@ class _AssigneePicker extends ConsumerWidget {
                           padding: EdgeInsets.all(24),
                           child: Text('Nenhum membro neste ministério ainda.'),
                         )
-                      : ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: members.length + 1,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (ctx, i) {
-                            if (i == 0) {
-                              return ListTile(
-                                leading: const Icon(AppIcons.clear),
-                                title: const Text('Desatribuir'),
-                                onTap: () => Navigator.of(
-                                  ctx,
-                                ).pop(const _PickedMember(value: null)),
+                      // Só escolhe quem abre a tela do aviso (Diaconato 6);
+                      // os outros aparecem travados, com o atalho de dar a
+                      // permissão. Consumer: a lista recarrega na volta.
+                      : Consumer(
+                          builder: (ctx, ref, _) {
+                            final allowedAsync = ref.watch(
+                              ministryMemberIdsWithPermissionProvider((
+                                ministryId: ministryId,
+                                permission: _assigneePermission,
+                              )),
+                            );
+                            if (allowedAsync.isLoading) {
+                              return const Padding(
+                                padding: EdgeInsets.all(24),
+                                child: Center(
+                                  child: CircularProgressIndicator(),
+                                ),
                               );
                             }
-                            final m = members[i - 1];
-                            return ListTile(
-                              leading: const Icon(AppIcons.personFilled),
-                              title: Text(
-                                m.memberName.isEmpty
-                                    ? 'Membro do ministério'
-                                    : m.memberName,
+                            if (allowedAsync.hasError) {
+                              return Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Text(
+                                  'Não foi possível conferir quem pode receber '
+                                  'a tarefa: ${allowedAsync.error}',
+                                ),
+                              );
+                            }
+                            final allowed = allowedAsync.value ?? const {};
+                            final sorted = [
+                              ...members.where(
+                                (m) => allowed.contains(m.memberId),
                               ),
-                              subtitle: m.role == MinistryRole.member
-                                  ? null
-                                  : Text(m.role.label),
-                              onTap: () => Navigator.of(
-                                ctx,
-                              ).pop(_PickedMember(value: m)),
+                              ...members.where(
+                                (m) => !allowed.contains(m.memberId),
+                              ),
+                            ];
+                            return ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: sorted.length + 1,
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
+                              itemBuilder: (ctx, i) {
+                                if (i == 0) {
+                                  return ListTile(
+                                    leading: const Icon(AppIcons.clear),
+                                    title: const Text('Desatribuir'),
+                                    onTap: () => Navigator.of(
+                                      ctx,
+                                    ).pop(const _PickedMember(value: null)),
+                                  );
+                                }
+                                final m = sorted[i - 1];
+                                final name = m.memberName.isEmpty
+                                    ? 'Membro do ministério'
+                                    : m.memberName;
+                                if (!allowed.contains(m.memberId)) {
+                                  return AssigneeWithoutPermissionTile(
+                                    ministryId: ministryId,
+                                    permission: _assigneePermission,
+                                    memberId: m.memberId,
+                                    name: name,
+                                  );
+                                }
+                                return ListTile(
+                                  leading: const Icon(AppIcons.personFilled),
+                                  title: Text(name),
+                                  subtitle: m.role == MinistryRole.member
+                                      ? null
+                                      : Text(m.role.label),
+                                  onTap: () => Navigator.of(
+                                    ctx,
+                                  ).pop(_PickedMember(value: m)),
+                                );
+                              },
                             );
                           },
                         ),
@@ -1003,6 +1051,9 @@ class _AssigneePicker extends ConsumerWidget {
     );
   }
 }
+
+/// Permissão da tela que o aviso de ceia abre (o guard desta tela).
+const _assigneePermission = 'diaconato.manage_communion';
 
 class _PickedMember {
   final MinistryMember? value;
