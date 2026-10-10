@@ -155,6 +155,7 @@ class _MaterialViewerScreenState extends ConsumerState<MaterialViewerScreen> {
           permission: 'support_materials.edit',
           showLoading: false,
           child: IconButton(
+            tooltip: 'Editar material',
             icon: const Icon(Icons.edit),
             onPressed: () {
               context.push('/support-materials/${material.id}/edit');
@@ -165,6 +166,7 @@ class _MaterialViewerScreenState extends ConsumerState<MaterialViewerScreen> {
           permission: 'support_materials.manage_modules',
           showLoading: false,
           child: IconButton(
+            tooltip: 'Gerenciar módulos',
             icon: const Icon(Icons.library_books),
             onPressed: () {
               context.push(

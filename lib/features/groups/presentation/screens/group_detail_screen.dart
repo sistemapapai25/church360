@@ -20,6 +20,8 @@ import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../support_materials/presentation/providers/support_materials_provider.dart';
 import '../../../support_materials/domain/models/support_material.dart';
 import '../../../support_materials/domain/models/support_material_link.dart';
+import '../../../courses/presentation/turma/tabs/turma_materiais_tab.dart';
+import '../../../courses/presentation/turma/widgets/turma_sheet.dart';
 
 /// Tela de detalhes do grupo
 class GroupDetailScreen extends ConsumerWidget {
@@ -1098,12 +1100,12 @@ class _MaterialCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: GlassCard(
         padding: EdgeInsets.zero,
-        onTap: () {
-          context.push(
-            '/support-materials/${material.id}'
-            '${ViewOnlyScope.fromQuery(context)}',
-          );
-        },
+        // A tela `/support-materials/:id` exige `support_materials.view`, que
+        // o membro do grupo não tem; a leitura abre aqui, como na turma.
+        onTap: () => showTurmaSheet<void>(
+          context: context,
+          builder: (_) => TurmaMaterialReadSheet(material: material),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
