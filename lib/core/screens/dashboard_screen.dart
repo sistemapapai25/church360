@@ -28,6 +28,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
+  void initState() {
+    super.initState();
+    // O menu de Gestão já chega aberto; tocar fora (no scrim) fecha, como
+    // em qualquer endDrawer modal. Só na entrada: voltar de uma tela
+    // empilhada reaproveita este State e não reabre.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scaffoldKey.currentState?.openEndDrawer();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: true,
