@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../members/presentation/providers/members_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
@@ -68,11 +67,11 @@ class _PrayerRequestDetailScreenState
   }
 
   Future<void> _deletePrayerRequest() async {
-    final currentMemberId = ref.read(currentMemberProvider).value?.id;
+    final currentUserId = ref.read(currentUserIdProvider);
     final prayerRequest = ref
         .read(prayerRequestByIdProvider(widget.prayerRequestId))
         .value;
-    final isAuthor = prayerRequest?.authorId == currentMemberId;
+    final isAuthor = prayerRequest?.authorId == currentUserId;
     final canDelete = await ref.read(
       currentUserHasPermissionProvider('prayer_requests.delete').future,
     );
@@ -151,7 +150,7 @@ class _PrayerRequestDetailScreenState
     final hasUserPrayedAsync = ref.watch(
       hasUserPrayedProvider(widget.prayerRequestId),
     );
-    final currentMemberId = ref.watch(currentMemberProvider).value?.id;
+    final currentUserId = ref.watch(currentUserIdProvider);
     final canEditPermission = ref
         .watch(currentUserHasPermissionProvider('prayer_requests.edit'))
         .maybeWhen(data: (v) => v, orElse: () => false);
@@ -178,7 +177,7 @@ class _PrayerRequestDetailScreenState
               // Autor sempre pode agir sobre o próprio pedido; além disso,
               // pela Dashboard, quem tem a permissão de edição/exclusão/
               // moderação também pode agir sobre pedidos de qualquer pessoa.
-              final isAuthor = prayerRequest.authorId == currentMemberId;
+              final isAuthor = prayerRequest.authorId == currentUserId;
               final gestao = widget.fromDashboard;
               final canEdit =
                   isAuthor || (gestao && (canEditPermission || canModerate));

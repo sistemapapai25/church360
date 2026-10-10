@@ -6,7 +6,6 @@ import 'package:church360_app/core/design/app_icons.dart';
 import 'package:church360_app/core/theme/app_theme.dart';
 import 'package:church360_app/core/widgets/glass_card.dart';
 import 'package:church360_app/core/widgets/status_badge.dart';
-import 'package:church360_app/features/members/presentation/providers/members_provider.dart';
 import 'package:church360_app/features/permissions/providers/permissions_providers.dart';
 import 'package:church360_app/features/prayer_requests/domain/models/prayer_request.dart';
 import 'package:church360_app/features/prayer_requests/presentation/providers/prayer_request_provider.dart';
@@ -205,7 +204,7 @@ void main() {
             ),
           ),
           hasUserPrayedProvider('prayer-1').overrideWith((ref) async => false),
-          currentMemberProvider.overrideWith((ref) async => null),
+          currentUserIdProvider.overrideWithValue(null),
           currentUserHasPermissionProvider(
             'prayer_requests.edit',
           ).overrideWith((ref) async => false),
