@@ -97,6 +97,8 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   final Map<String, Map<String, dynamic>> _audioMeta = {};
   final FlutterTts _tts = FlutterTts();
   Map<String, dynamic>? _speakingMsg;
+  // 0 a 1: quanto da fala atual já foi lida (avança a onda da bolha do agente).
+  double _speakProgress = 0;
   // Fala toda resposta até a pessoa desligar em Opções > Voz (pedido do usuário).
   bool _autoSpeak = true;
   static const _autoSpeakKey = 'support_auto_speak';
@@ -176,6 +178,9 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     void clearSpeaking() {
       if (mounted && _speakingMsg != null) setState(() => _speakingMsg = null);
     }
+    _tts.setProgressHandler((text, start, end, word) {
+      if (mounted && _speakingMsg != null && text.isNotEmpty) setState(() => _speakProgress = end / text.length);
+    });
     _tts.setCompletionHandler(clearSpeaking);
     _tts.setCancelHandler(clearSpeaking);
     _tts.setErrorHandler((_) => clearSpeaking());
@@ -1130,7 +1135,10 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     if (wasSpeaking) await Future<void>.delayed(const Duration(milliseconds: 300));
     final text = textForSpeech(msg['content']?.toString() ?? '');
     if (!mounted) return;
-    setState(() => _speakingMsg = (wasThis || text.isEmpty) ? null : msg);
+    setState(() {
+      _speakingMsg = (wasThis || text.isEmpty) ? null : msg;
+      _speakProgress = 0;
+    });
     if (_speakingMsg != null) await _tts.speak(text);
   }
 
@@ -1924,9 +1932,13 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         ListView.builder(
           controller: _scrollController,
           padding: const EdgeInsets.all(16),
-          itemCount: _messages.length,
+          itemCount: _messages.length + (_agentRecording ? 1 : 0),
           reverse: true,
           itemBuilder: (context, index) {
+            if (_agentRecording) {
+              if (index == 0) return _buildAgentRecording();
+              index--;
+            }
             final msg = _messages[_messages.length - 1 - index];
             final isUser = msg['role'] == 'user';
             final isSystem = msg['role'] == 'system';
@@ -2000,8 +2012,11 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     final contactProposal = (!isUser && msg['contactUpdateProposal'] is Map)
         ? Map<String, dynamic>.from(msg['contactUpdateProposal'] as Map)
         : null;
+    // A resposta do agente é a "fala" dele: bolha de áudio (lida pela voz do aparelho)
+    // com o texto atrás de "Transcrição" (pedido do usuário, 10/10).
+    final agentVoice = !isUser && audioItems.isEmpty && (msg['content']?.toString().trim().isNotEmpty ?? false);
     // Só áudio: a bolha do áudio já é o card, sem balão em volta nem o texto "[Áudio]".
-    final audioOnly = audioItems.isNotEmpty && msg['content'] == '[Áudio]';
+    final audioOnly = agentVoice || (audioItems.isNotEmpty && msg['content'] == '[Áudio]');
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -2045,6 +2060,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (agentVoice) _buildAgentVoiceBubble(msg, bubbleAgent),
                       for (final entry in audioItems.asMap().entries)
                         Padding(
                           padding: EdgeInsets.only(bottom: audioOnly && entry.key == audioItems.length - 1 ? 0 : 8),
@@ -2200,7 +2216,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                       _formatTime(msg['time'] as DateTime),
                       style: const TextStyle(fontSize: 10, color: Colors.grey),
                     ),
-                    if (!isUser)
+                    if (!isUser && !agentVoice)
                       IconButton(
                         onPressed: () => _toggleSpeak(msg),
                         icon: Icon(
@@ -2219,6 +2235,45 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           if (isUser) const SizedBox(width: 40), // Espaço para manter alinhamento visual
         ],
       ),
+    );
+  }
+
+  /// Enquanto a resposta não chega: "Moisés está gravando áudio…", como no WhatsApp.
+  bool get _agentRecording => _isLoading && _supportStatus == 'bot' && _messages.isNotEmpty && _messages.last['role'] == 'user';
+
+  Widget _buildAgentRecording() => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          children: [
+            _buildAgentAvatar(_agent),
+            const SizedBox(width: 8),
+            Icon(Icons.mic, size: 16, color: _accentColor),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                '${_agent.name} está gravando áudio…',
+                style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: _accentColor),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _buildAgentVoiceBubble(Map<String, dynamic> msg, ResolvedAgent agent) {
+    final text = msg['content'].toString();
+    final isPlaying = identical(_speakingMsg, msg);
+    return AudioMessageBubble(
+      isUser: false,
+      accent: _accentColor,
+      bars: speechBars(text),
+      durationMs: speechDurationMs(text),
+      progress: isPlaying ? _speakProgress : 0,
+      isPlaying: isPlaying,
+      avatar: AgentAvatar(agent: agent, size: 32),
+      onToggle: () => _toggleSpeak(msg),
+      transcript: text,
+      showTranscript: msg['showTranscript'] == true,
+      onToggleTranscript: () => setState(() => msg['showTranscript'] = msg['showTranscript'] != true),
     );
   }
 
