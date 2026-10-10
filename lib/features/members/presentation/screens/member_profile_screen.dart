@@ -16,6 +16,7 @@ import '../../../../core/utils/storage_upload_path.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/onboarding/onboarding_tour_prefs.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/media/webcam_foto.dart';
 import '../../../../core/widgets/spotlight_tour.dart';
 import '../../../devotionals/presentation/providers/devotional_provider.dart';
 import '../../../kids/presentation/providers/kids_providers.dart';
@@ -231,21 +232,30 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               title: const Text('Tirar Foto'),
               onTap: () async {
                 Navigator.pop(context);
-                // No navegador do computador o pedido de câmera é ignorado e
-                // abre o seletor de arquivos; no web, defaultTargetPlatform é
-                // o SO do navegador.
-                final cameraIndisponivel = kIsWeb &&
+                // No navegador do computador o pedido de câmera do
+                // image_picker é ignorado e abre o seletor de arquivos: lá a
+                // foto sai da webcam. No web, defaultTargetPlatform é o SO do
+                // navegador.
+                final navegadorDeComputador = kIsWeb &&
                     defaultTargetPlatform != TargetPlatform.android &&
                     defaultTargetPlatform != TargetPlatform.iOS;
-                if (cameraIndisponivel) {
-                  ScaffoldMessenger.of(this.context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Câmera indisponível neste dispositivo. Use "Escolher '
-                        'da Galeria" ou tire a foto pelo celular.',
+                if (navegadorDeComputador) {
+                  try {
+                    final image = await tirarFotoWebcam(this.context);
+                    if (image != null && mounted) {
+                      await _uploadPhoto(image, memberId);
+                    }
+                  } catch (_) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(this.context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Não foi possível abrir a câmera. Libere o acesso à '
+                          'câmera no navegador ou use "Escolher da Galeria".',
+                        ),
                       ),
-                    ),
-                  );
+                    );
+                  }
                   return;
                 }
                 final XFile? image = await picker.pickImage(
