@@ -37,7 +37,7 @@ class QuickNewsRepository {
         .select()
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('is_active', true)
-        .or('expires_at.is.null,expires_at.gt.${DateTime.now().toIso8601String()}')
+        .or('expires_at.is.null,expires_at.gt.${DateTime.now().toUtc().toIso8601String()}')
         .order('priority', ascending: false)
         .order('created_at', ascending: false);
 
@@ -108,7 +108,7 @@ class QuickNewsRepository {
           'link_url': linkUrl,
           'priority': priority,
           'is_active': isActive,
-          'expires_at': expiresAt?.toIso8601String(),
+          'expires_at': expiresAt?.toUtc().toIso8601String(),
           'created_by': userId,
           'tenant_id': SupabaseConstants.currentTenantId,
         })
@@ -132,11 +132,12 @@ class QuickNewsRepository {
     final updateData = <String, dynamic>{};
     if (title != null) updateData['title'] = title;
     if (description != null) updateData['description'] = description;
-    if (imageUrl != null) updateData['image_url'] = imageUrl;
-    if (linkUrl != null) updateData['link_url'] = linkUrl;
+    // Imagem, link e expiração sempre gravados: null limpa o campo.
+    updateData['image_url'] = imageUrl;
+    updateData['link_url'] = linkUrl;
     if (priority != null) updateData['priority'] = priority;
     if (isActive != null) updateData['is_active'] = isActive;
-    if (expiresAt != null) updateData['expires_at'] = expiresAt.toIso8601String();
+    updateData['expires_at'] = expiresAt?.toUtc().toIso8601String();
 
     final response = await _supabase
         .from('quick_news')

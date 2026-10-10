@@ -140,11 +140,16 @@ class TestimonyRepository {
 
   /// Deletar testemunho
   Future<void> deleteTestimony(String id) async {
-    await _supabase
+    final deleted = await _supabase
         .from('testimonies')
         .delete()
         .eq('id', id)
-        .eq('tenant_id', SupabaseConstants.currentTenantId);
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .select('id');
+    // RLS recusa DELETE em silêncio (0 linhas): só o autor apaga.
+    if ((deleted as List).isEmpty) {
+      throw Exception('Só o autor pode apagar este testemunho.');
+    }
   }
 
   /// Contar testemunhos do usuário

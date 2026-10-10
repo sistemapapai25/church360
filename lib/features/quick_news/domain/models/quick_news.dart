@@ -48,7 +48,7 @@ class QuickNews {
       priority: json['priority'] as int? ?? 0,
       isActive: json['is_active'] as bool? ?? true,
       expiresAt: json['expires_at'] != null
-          ? DateTime.parse(json['expires_at'] as String)
+          ? DateTime.parse(json['expires_at'] as String).toLocal()
           : null,
       createdBy: json['created_by'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
