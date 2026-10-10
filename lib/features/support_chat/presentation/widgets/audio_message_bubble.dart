@@ -119,7 +119,8 @@ class AudioMessageBubble extends StatelessWidget {
                           child: Center(
                             child: Container(
                               width: 3,
-                              height: 26 * bars[i],
+                              // Antes de tocar, só pontinhos; a onda real aparece conforme o áudio passa.
+                              height: i < played ? 26 * bars[i] : 3,
                               decoration: BoxDecoration(
                                 color: fg.withValues(alpha: i < played ? 1 : 0.45),
                                 borderRadius: BorderRadius.circular(2),
