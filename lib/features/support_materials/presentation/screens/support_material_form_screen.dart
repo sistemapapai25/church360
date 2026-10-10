@@ -84,6 +84,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
       builder: (context) => EntitySelectorDialog(
         linkType: linkType,
         initialSelectedIds: _selectedEntities[linkType]?.keys.toList() ?? [],
+        initialNames: _selectedEntities[linkType] ?? const {},
       ),
     );
 
@@ -121,8 +122,10 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
     }
   }
 
-  /// Salva as vinculações do material
-  Future<void> _saveLinks(dynamic repository, String materialId) async {
+  /// Salva as vinculações do material. Devolve quantas falharam (ex.: item
+  /// vinculado que foi apagado) sem derrubar as válidas.
+  Future<int> _saveLinks(dynamic repository, String materialId) async {
+    var failed = 0;
     // Deletar vinculações antigas
     await repository.deleteLinksByMaterial(materialId);
 
@@ -132,13 +135,19 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
       final entities = entry.value;
 
       for (final entityId in entities.keys) {
-        await repository.createLink({
-          'material_id': materialId,
-          'link_type': linkType.value,
-          'linked_entity_id': entityId,
-        });
+        try {
+          await repository.createLink({
+            'material_id': materialId,
+            'link_type': linkType.value,
+            'linked_entity_id': entityId,
+          });
+        } catch (e) {
+          failed++;
+          debugPrint('Vínculo não salvo ($linkType $entityId): $e');
+        }
       }
     }
+    return failed;
   }
 
   Future<void> _loadMaterial() async {
@@ -305,7 +314,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
       }
 
       // Salvar vinculações
-      await _saveLinks(repository, materialId);
+      final failedLinks = await _saveLinks(repository, materialId);
 
       // Invalidar providers
       ref.invalidate(allMaterialsProvider);
@@ -315,11 +324,14 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              widget.materialId == null
-                  ? 'Material criado com sucesso!'
-                  : 'Material atualizado com sucesso!',
+              (widget.materialId == null
+                      ? 'Material criado com sucesso!'
+                      : 'Material atualizado com sucesso!') +
+                  (failedLinks > 0
+                      ? ' $failedLinks vínculo(s) não foram salvos (o item pode ter sido apagado).'
+                      : ''),
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: failedLinks > 0 ? Colors.orange : Colors.green,
           ),
         );
         (context.canPop() ? context.pop() : context.go('/home'));
