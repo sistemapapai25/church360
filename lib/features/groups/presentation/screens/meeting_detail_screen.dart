@@ -7,7 +7,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/utils/share_link_utils.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
-import '../../../permissions/providers/permissions_providers.dart';
+import '../widgets/group_permission_gate.dart';
 
 import '../../data/group_meetings_repository.dart';
 import '../providers/meetings_provider.dart';
@@ -51,9 +51,9 @@ class MeetingDetailScreen extends ConsumerWidget {
             onPressed: shareMeetingLink,
           ),
           // Botão de editar
-          PermissionGate(
+          GroupPermissionGate(
+            groupId: groupId,
             permission: 'groups.manage_meetings',
-            showLoading: false,
             fallback: const SizedBox.shrink(),
             child: IconButton(
               icon: const Icon(Icons.edit),
@@ -360,9 +360,9 @@ class _AttendanceList extends ConsumerWidget {
                           ),
                     ),
                     const Spacer(),
-                    PermissionGate(
+                    GroupPermissionGate(
+                      groupId: groupId,
                       permission: 'groups.manage_meetings',
-                      showLoading: false,
                       child: TextButton.icon(
                         onPressed: () => _showAddAttendanceDialog(
                           context,
@@ -456,7 +456,7 @@ class _AttendanceCard extends ConsumerWidget {
     final canManageMeetings =
         !ViewOnlyScope.isActive(context) &&
         ref
-            .watch(currentUserHasPermissionProvider('groups.manage_meetings'))
+            .watch(groups_providers.canManageGroupProvider((groupId: groupId, permission: 'groups.manage_meetings')))
             .maybeWhen(data: (v) => v, orElse: () => false);
 
     return Card(
@@ -518,7 +518,7 @@ class _AttendanceCard extends ConsumerWidget {
 
   Future<void> _toggleAttendance(BuildContext context, WidgetRef ref) async {
     final hasPermission = await ref.read(
-      currentUserHasPermissionProvider('groups.manage_meetings').future,
+      groups_providers.canManageGroupProvider((groupId: groupId, permission: 'groups.manage_meetings')).future,
     );
     if (!hasPermission) {
       if (context.mounted) {
@@ -554,7 +554,7 @@ class _AttendanceCard extends ConsumerWidget {
 
   Future<void> _deleteAttendance(BuildContext context, WidgetRef ref) async {
     final hasPermission = await ref.read(
-      currentUserHasPermissionProvider('groups.manage_meetings').future,
+      groups_providers.canManageGroupProvider((groupId: groupId, permission: 'groups.manage_meetings')).future,
     );
     if (!hasPermission) {
       if (context.mounted) {
@@ -815,9 +815,9 @@ class _VisitorsList extends ConsumerWidget {
                 const Spacer(),
                 // Cadastra (visitors.create) e marca presença na reunião
                 // (group_attendance exige groups.manage_meetings no banco).
-                PermissionGate(
+                GroupPermissionGate(
+                  groupId: groupId,
                   permission: 'groups.manage_meetings',
-                  showLoading: false,
                   child: PermissionGate(
                     permission: 'visitors.create',
                     showLoading: false,

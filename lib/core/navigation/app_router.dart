@@ -16,6 +16,7 @@ import '../../features/qr_scanner/presentation/screens/qr_scanner_screen.dart';
 import '../../features/groups/presentation/screens/groups_list_screen.dart';
 import '../../features/groups/presentation/screens/group_detail_screen.dart';
 import '../../features/groups/presentation/screens/group_form_screen.dart';
+import '../../features/groups/presentation/widgets/group_permission_gate.dart';
 import '../../features/groups/presentation/screens/meeting_form_screen.dart';
 import '../../features/groups/presentation/screens/meeting_detail_screen.dart';
 import '../../features/ministries/presentation/screens/ministries_list_screen.dart';
@@ -522,7 +523,8 @@ final appRouter = GoRouter(
       path: '/groups/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return PermissionOnlyRoute(
+        return GroupPermissionRoute(
+          groupId: id,
           permission: 'groups.edit',
           child: GroupFormScreen(groupId: id),
         );
@@ -543,7 +545,8 @@ final appRouter = GoRouter(
       path: '/groups/:groupId/meetings/new',
       builder: (context, state) {
         final groupId = state.pathParameters['groupId']!;
-        return PermissionOnlyRoute(
+        return GroupPermissionRoute(
+          groupId: groupId,
           permission: 'groups.manage_meetings',
           child: MeetingFormScreen(groupId: groupId),
         );
@@ -554,7 +557,8 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final groupId = state.pathParameters['groupId']!;
         final meetingId = state.pathParameters['meetingId']!;
-        return PermissionOnlyRoute(
+        return GroupPermissionRoute(
+          groupId: groupId,
           permission: 'groups.manage_meetings',
           child: MeetingFormScreen(groupId: groupId, meetingId: meetingId),
         );

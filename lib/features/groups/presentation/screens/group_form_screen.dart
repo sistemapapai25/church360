@@ -11,7 +11,6 @@ import '../providers/groups_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../domain/models/group.dart';
 import '../../../permissions/providers/permissions_providers.dart';
-import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de formulário de grupo (criar/editar)
 class GroupFormScreen extends ConsumerStatefulWidget {
@@ -111,12 +110,14 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
       return;
     }
 
-    final requiredPermission = widget.groupId == null
-        ? 'groups.create'
-        : 'groups.edit';
-    final hasPermission = await ref.read(
-      currentUserHasPermissionProvider(requiredPermission).future,
-    );
+    final hasPermission = widget.groupId == null
+        ? await ref.read(currentUserHasPermissionProvider('groups.create').future)
+        : await ref.read(
+            canManageGroupProvider((
+              groupId: widget.groupId!,
+              permission: 'groups.edit',
+            )).future,
+          );
     if (!hasPermission) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -314,8 +315,21 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                               ),
                             ),
                           ],
-                          onChanged: (value) =>
-                              setState(() => _leaderId = value),
+                          // Líder com só groups.manage_own não passa a
+                          // liderança adiante (a policy recusa; precisa de
+                          // groups.edit).
+                          onChanged:
+                              widget.groupId == null ||
+                                  ref
+                                          .watch(
+                                            currentUserHasPermissionProvider(
+                                              'groups.edit',
+                                            ),
+                                          )
+                                          .valueOrNull ==
+                                      true
+                              ? (value) => setState(() => _leaderId = value)
+                              : null,
                         ),
                         loading: () => const LinearProgressIndicator(),
                         error: (_, __) =>
@@ -425,28 +439,24 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  DisabledByPermission(
-                    permission: widget.groupId == null
-                        ? 'groups.create'
-                        : 'groups.edit',
-                    disabledTooltip: 'Você não tem permissão para esta ação',
-                    child: FilledButton.icon(
-                      onPressed: _isLoading ? null : _saveGroup,
-                      icon: _isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(AppIcons.save),
-                      label: Text(
-                        widget.groupId == null
-                            ? 'Criar Grupo'
-                            : 'Salvar Alterações',
-                      ),
+                  // A rota e o _saveGroup conferem a permissão (editar:
+                  // groups.edit OU líder com groups.manage_own).
+                  FilledButton.icon(
+                    onPressed: _isLoading ? null : _saveGroup,
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(AppIcons.save),
+                    label: Text(
+                      widget.groupId == null
+                          ? 'Criar Grupo'
+                          : 'Salvar Alterações',
                     ),
                   ),
                 ],

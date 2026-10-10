@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../permissions/providers/permissions_providers.dart'
+    show currentUserHasPermissionProvider;
 import '../../data/groups_repository.dart';
 import '../../domain/models/group.dart';
 import '../../domain/models/group_visitor.dart';
@@ -28,6 +30,31 @@ final groupByIdProvider = FutureProvider.family<Group?, String>((ref, id) async 
   final repo = ref.watch(groupsRepositoryProvider);
   return repo.getGroupById(id);
 });
+
+/// Pode gerenciar ESTE grupo: tem a [permission] (groups.edit,
+/// groups.manage_members, groups.manage_meetings) OU é o líder do grupo com
+/// groups.manage_own. O segundo caminho pergunta ao banco a mesma função que
+/// as policies usam (`group_manage_own_allows`, migration 20261008001900).
+final canManageGroupProvider =
+    FutureProvider.family<bool, ({String groupId, String permission})>((
+      ref,
+      args,
+    ) async {
+      if (await ref.watch(
+        currentUserHasPermissionProvider(args.permission).future,
+      )) {
+        return true;
+      }
+      if (!await ref.watch(
+        currentUserHasPermissionProvider('groups.manage_own').future,
+      )) {
+        return false;
+      }
+      final allowed = await ref
+          .watch(supabaseClientProvider)
+          .rpc('group_manage_own_allows', params: {'p_group': args.groupId});
+      return allowed == true;
+    });
 
 /// Provider de contagem total de grupos
 final totalGroupsCountProvider = FutureProvider<int>((ref) async {
