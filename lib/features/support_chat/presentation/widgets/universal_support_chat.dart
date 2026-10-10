@@ -1311,6 +1311,13 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
 
     request.fields['message'] = message;
     request.fields['agentKey'] = _activeAgentKey;
+    // A versão é da conversa, não da igreja (Support360/DESIGN.md D6): a
+    // support-chat grava os dois em support_session. APP_VERSION vem do
+    // --dart-define do deploy (data + commit); build local manda 'dev'.
+    request.fields['appVersion'] =
+        const String.fromEnvironment('APP_VERSION', defaultValue: 'dev');
+    request.fields['platform'] =
+        kIsWeb ? 'web' : defaultTargetPlatform.name.toLowerCase();
     if (_threadId != null) {
       request.fields['threadId'] = _threadId!;
     }
