@@ -10,6 +10,7 @@ import '../../../groups/presentation/providers/groups_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../study_groups/presentation/providers/study_group_provider.dart';
 import '../../../../core/widgets/file_upload_widget.dart';
+import '../../../../core/widgets/image_upload_widget.dart';
 import '../../../../core/widgets/video_upload_widget.dart';
 import '../widgets/entity_selector_dialog.dart';
 
@@ -48,6 +49,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
   bool _isLoading = false;
   String? _fileUrl;
   String? _videoUrl;
+  String? _coverImageUrl;
 
   // Vinculações selecionadas
   final Map<MaterialLinkType, Map<String, String>> _selectedEntities = {};
@@ -170,6 +172,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
         _isPublic = material.isPublic;
         _fileUrl = material.fileUrl;
         _videoUrl = material.videoUrl;
+        _coverImageUrl = material.coverImageUrl;
       });
 
       // Carregar vinculações
@@ -275,7 +278,14 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
 
     try {
       final repository = ref.read(supportMaterialsRepositoryProvider);
-      
+      // Trocar o tipo não pode deixar gravado o arquivo/link que o tipo novo
+      // não mostra (o PDF continuava num material que virou Link). O texto
+      // fica: pode ser transcrição antiga e apagar seria perda de dado.
+      final type = _materialType;
+      final usesFile = type != SupportMaterialType.text &&
+          type != SupportMaterialType.video &&
+          type != SupportMaterialType.link;
+
       final data = {
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim().isEmpty
@@ -291,14 +301,18 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
         'content': _contentController.text.trim().isEmpty
             ? null
             : _contentController.text.trim(),
-        'file_url': _fileUrl,
-        'video_url': _videoUrl ?? (_videoUrlController.text.trim().isEmpty
+        'file_url': usesFile ? _fileUrl : null,
+        'video_url': type == SupportMaterialType.link
             ? null
-            : _videoUrlController.text.trim()),
-        'external_link': _externalLinkController.text.trim().isEmpty
+            : _videoUrl ?? (_videoUrlController.text.trim().isEmpty
+                ? null
+                : _videoUrlController.text.trim()),
+        'external_link': type != SupportMaterialType.link ||
+                _externalLinkController.text.trim().isEmpty
             ? null
             : _externalLinkController.text.trim(),
         'is_public': _isPublic,
+        'cover_image_url': _coverImageUrl,
       };
 
       String materialId;
@@ -436,6 +450,18 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
             ),
             const SizedBox(height: 16),
 
+            // Capa (o visualizador já mostrava; faltava onde subir). A key
+            // recria o widget quando a capa chega do banco na edição.
+            ImageUploadWidget(
+              key: ValueKey(_coverImageUrl),
+              initialImageUrl: _coverImageUrl,
+              onImageUrlChanged: (url) => setState(() => _coverImageUrl = url),
+              storageBucket: 'support-material-covers',
+              tenantScopedPath: true,
+              label: 'Capa do Material (Opcional)',
+            ),
+            const SizedBox(height: 16),
+
             // Tipo de Material
             DropdownMenu<SupportMaterialType>(
               initialSelection: _materialType,
@@ -457,19 +483,9 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
 
             const SizedBox(height: 24),
 
-            // Público/Privado
-            SwitchListTile(
-              title: const Text('Material Público'),
-              subtitle: const Text(
-                'Se marcado, o material estará disponível para todos',
-              ),
-              value: _isPublic,
-              onChanged: (value) {
-                setState(() => _isPublic = value);
-              },
-            ),
-            const SizedBox(height: 24),
-
+            // Sem chave "Material Público": a RLS (20260925000800) só libera
+            // leitura para quem é da igreja, então a chave não fazia nada.
+            // `_isPublic` só preserva o valor gravado.
             // Seção de Vinculações
             _buildLinksSection(),
           ],

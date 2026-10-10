@@ -260,8 +260,12 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
             ),
           );
 
-          // Navegar para tela de registrar presença
-          context.push('/groups/${widget.groupId}/meetings/${meeting.id}');
+          // Troca o formulário pela reunião (voltar não reabre o form e
+          // não duplica). Só chega aqui quem está na gestão.
+          ref.invalidate(meetingsListProvider(widget.groupId));
+          context.pushReplacement(
+            '/groups/${widget.groupId}/meetings/${meeting.id}?from=dashboard',
+          );
           return;
         }
       }
