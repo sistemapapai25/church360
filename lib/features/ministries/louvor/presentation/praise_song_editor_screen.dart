@@ -182,9 +182,17 @@ class _EditorState extends ConsumerState<_Editor> {
             draft.bpm != v.bpm;
         if (!infoChanged && !versionChanged) {
           if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Nada mudou.')));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  _trimOrNull(_note) == null
+                      ? 'Nada mudou.'
+                      // A nota descreve uma versão nova; sozinha não cria uma.
+                      : 'A nota só é gravada junto com uma mudança na cifra, '
+                            'tom, capo ou BPM.',
+                ),
+              ),
+            );
           }
           return;
         }
