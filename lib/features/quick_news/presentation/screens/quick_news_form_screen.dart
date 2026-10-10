@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:io';
+import 'dart:typed_data';
 
 import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/design/app_icons.dart';
@@ -36,7 +36,9 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
   bool _hasExpiration = false;
   DateTime? _expiresAt;
   String? _imageUrl;
-  File? _selectedImage;
+  // Bytes + nome (XFile) em vez de dart:io File: funciona no web.
+  Uint8List? _selectedImage;
+  String? _selectedImageName;
   bool _isLoading = false;
   bool _isUploading = false;
 
@@ -79,8 +81,10 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile != null) {
+      final bytes = await pickedFile.readAsBytes();
       setState(() {
-        _selectedImage = File(pickedFile.path);
+        _selectedImage = bytes;
+        _selectedImageName = pickedFile.name;
       });
     }
   }
@@ -91,8 +95,11 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
     setState(() => _isUploading = true);
 
     try {
-      final bytes = await _selectedImage!.readAsBytes();
-      final fileExt = _selectedImage!.path.split('.').last.toLowerCase();
+      final bytes = _selectedImage!;
+      final fileExt = (_selectedImageName ?? 'image.jpg')
+          .split('.')
+          .last
+          .toLowerCase();
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) throw Exception('Usuário não autenticado');
 
@@ -122,12 +129,8 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
 
       return imageUrl;
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao fazer upload da imagem: $e')),
-        );
-      }
-      return null;
+      // Falha aborta o Salvar: devolver null apagaria a imagem atual.
+      throw Exception('Erro ao fazer upload da imagem: $e');
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -435,7 +438,7 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
                   borderRadius: BorderRadius.circular(8),
                   image: DecorationImage(
                     image: _selectedImage != null
-                        ? FileImage(_selectedImage!)
+                        ? MemoryImage(_selectedImage!)
                         : NetworkImage(_imageUrl!) as ImageProvider,
                     fit: BoxFit.cover,
                   ),

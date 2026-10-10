@@ -423,7 +423,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             _DrawerCategory(
               icon: Icons.groups,
               title: 'PESSOAS',
-              permissions: const ['members.view', 'visitors.view'],
+              permissions: const ['members.view', 'visitors.view', 'tags.view'],
               children: [
                 PermissionGate(
                   permission: 'members.view',
@@ -439,6 +439,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     icon: Icons.person_add,
                     title: 'Visitantes',
                     route: '/visitors',
+                  ),
+                ),
+                PermissionGate(
+                  permission: 'tags.view',
+                  child: const _DrawerMenuItem(
+                    icon: Icons.label_outline,
+                    title: 'Tags',
+                    route: '/tags',
                   ),
                 ),
               ],
@@ -531,6 +539,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               permissions: const [
                 'community.moderate',
                 'testimonies.moderate',
+                'quick_news.create',
                 'prayer_requests.moderate',
                 'devotionals.create',
                 'live_stream.manage',
@@ -555,6 +564,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     icon: Icons.volunteer_activism_outlined,
                     title: 'Pedidos de oração',
                     route: '/prayer-requests?from=dashboard',
+                  ),
+                ),
+                // Testemunhos (moderação)
+                PermissionGate(
+                  permission: 'testimonies.moderate',
+                  child: const _DrawerMenuItem(
+                    icon: Icons.record_voice_over_outlined,
+                    title: 'Testemunhos',
+                    route: '/home/testimonies',
+                  ),
+                ),
+                // Avisos rápidos (Fique por Dentro)
+                PermissionGate(
+                  permission: 'quick_news.create',
+                  child: const _DrawerMenuItem(
+                    icon: Icons.campaign_outlined,
+                    title: 'Avisos',
+                    route: '/home/quick-news',
                   ),
                 ),
                 // Devocionais
@@ -676,6 +703,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 'dispatch.configure',
                 'reports.view_analytics',
                 'reports.view',
+                'members.merge_duplicates',
               ],
               extraVisibilityCheck: currentUserSeesConfigCategoryExtrasProvider,
               children: [
