@@ -2418,19 +2418,7 @@ class _ChurchIdentityHeader extends StatelessWidget {
                         ),
                       ),
                       child: ClipOval(
-                        child: logoUrl != null && logoUrl.isNotEmpty
-                            ? Image.network(
-                                logoUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const AppLogo(
-                                  variant: AppLogoVariant.selo,
-                                  fit: BoxFit.cover,
-                                ),
-                              )
-                            : const AppLogo(
-                                variant: AppLogoVariant.selo,
-                                fit: BoxFit.cover,
-                              ),
+                        child: ChurchLogo(url: logoUrl, name: name),
                       ),
                     ),
                   ),
@@ -2521,10 +2509,7 @@ class _ChurchIdentityHeader extends StatelessWidget {
               shape: BoxShape.circle,
               color: cs.surfaceContainerHighest,
             ),
-            child: const AppLogo(
-              variant: AppLogoVariant.selo,
-              fit: BoxFit.cover,
-            ),
+            child: const ChurchLogo(url: null, name: 'Igreja'),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -3174,9 +3159,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
         readingsAsync.isLoading ||
         groupsAsync.isLoading;
     final Object? anyError =
-        memberAsync.error ??
-        readingsAsync.error ??
-        groupsAsync.error;
+        memberAsync.error ?? readingsAsync.error ?? groupsAsync.error;
 
     final memberId = memberAsync.value?.id;
     final readings = readingsAsync.value ?? const <Map<String, dynamic>>[];

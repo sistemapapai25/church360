@@ -627,10 +627,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                 _logoUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
-                  return const AppLogo(
-                    variant: AppLogoVariant.selo,
-                    fit: BoxFit.cover,
-                  );
+                  return ChurchLogo(url: null, name: _nameController.text);
                 },
               ),
             ),
@@ -647,8 +644,8 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                 width: 3,
               ),
             ),
-            child: const ClipOval(
-              child: AppLogo(variant: AppLogoVariant.selo, fit: BoxFit.cover),
+            child: ClipOval(
+              child: ChurchLogo(url: null, name: _nameController.text),
             ),
           ),
         const SizedBox(height: 16),
