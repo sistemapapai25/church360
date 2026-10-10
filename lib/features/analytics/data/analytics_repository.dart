@@ -296,14 +296,4 @@ class AnalyticsRepository {
         .map((json) => WorshipAttendanceData.fromJson(json))
         .toList();
   }
-
-  // =====================================================
-  // GRUPOS
-  // =====================================================
-
-  /// Obter estatísticas de grupos
-  Future<GroupStatistics> getGroupStatistics() async {
-    final response = await _supabase.rpc('get_group_statistics').single();
-    return GroupStatistics.fromJson(response);
-  }
 }

@@ -82,15 +82,6 @@ final worshipAttendanceReportProvider = FutureProvider.family<List<WorshipAttend
 );
 
 // =====================================================
-// GRUPOS
-// =====================================================
-
-final groupStatisticsProvider = FutureProvider<GroupStatistics>((ref) async {
-  final repository = ref.watch(analyticsRepositoryProvider);
-  return repository.getGroupStatistics();
-});
-
-// =====================================================
 // HELPER CLASSES
 // =====================================================
 

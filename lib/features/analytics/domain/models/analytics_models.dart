@@ -267,37 +267,3 @@ class WorshipAttendanceData {
   }
 }
 
-/// Estatísticas de grupos
-class GroupStatistics {
-  final int totalGroups;
-  final int activeGroups;
-  final int totalMembers;
-  final double? averageMembersPerGroup;
-  final int meetingsThisMonth;
-  final double? averageAttendanceThisMonth;
-
-  GroupStatistics({
-    required this.totalGroups,
-    required this.activeGroups,
-    required this.totalMembers,
-    this.averageMembersPerGroup,
-    required this.meetingsThisMonth,
-    this.averageAttendanceThisMonth,
-  });
-
-  factory GroupStatistics.fromJson(Map<String, dynamic> json) {
-    return GroupStatistics(
-      totalGroups: json['total_groups'] as int,
-      activeGroups: json['active_groups'] as int,
-      totalMembers: json['total_members'] as int,
-      averageMembersPerGroup: json['average_members_per_group'] != null
-          ? (json['average_members_per_group'] as num).toDouble()
-          : null,
-      meetingsThisMonth: json['meetings_this_month'] as int,
-      averageAttendanceThisMonth: json['average_attendance_this_month'] != null
-          ? (json['average_attendance_this_month'] as num).toDouble()
-          : null,
-    );
-  }
-}
-
