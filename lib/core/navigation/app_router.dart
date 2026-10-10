@@ -452,10 +452,17 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final type = state.uri.queryParameters['type'];
         final status = state.uri.queryParameters['status'];
-        return MemberFormScreen(
+        final form = MemberFormScreen(
           initialMemberType: type,
           initialStatus: status,
           kidsByStaff: state.uri.queryParameters['staff'] == '1',
+        );
+        // Mesma regra do botão Salvar do form: o cadastro de filho no Kids
+        // fica aberto ao responsável logado; o resto exige a permissão.
+        if (type?.trim().toLowerCase() == 'crianca') return form;
+        return PermissionOnlyRoute(
+          permission: status == 'visitor' ? 'visitors.create' : 'members.create',
+          child: form,
         );
       },
     ),
