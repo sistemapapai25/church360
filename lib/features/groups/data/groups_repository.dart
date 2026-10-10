@@ -10,6 +10,10 @@ class GroupsRepository {
 
   GroupsRepository(this._supabase);
 
+  /// `tabela(count)` no select do PostgREST vem como `[{count: N}]`.
+  static int _embeddedCount(dynamic embedded) =>
+      (embedded as List).isEmpty ? 0 : (embedded.first['count'] as int? ?? 0);
+
   /// Buscar todos os grupos
   Future<List<Group>> getAllGroups() async {
     try {
@@ -39,7 +43,7 @@ class GroupsRepository {
         }
 
         if (data['group_member'] != null) {
-          data['member_count'] = (data['group_member'] as List).length;
+          data['member_count'] = _embeddedCount(data['group_member']);
         }
 
         return Group.fromJson(data);
@@ -78,7 +82,7 @@ class GroupsRepository {
         }
 
         if (data['group_member'] != null) {
-          data['member_count'] = (data['group_member'] as List).length;
+          data['member_count'] = _embeddedCount(data['group_member']);
         }
 
         return Group.fromJson(data);
@@ -126,7 +130,7 @@ class GroupsRepository {
       }
 
       if (data['group_member'] != null) {
-        data['member_count'] = (data['group_member'] as List).length;
+        data['member_count'] = _embeddedCount(data['group_member']);
       }
 
       return Group.fromJson(data);
@@ -315,7 +319,7 @@ class GroupsRepository {
         final data = Map<String, dynamic>.from(json);
         
         if (data['group_attendance'] != null) {
-          data['attendance_count'] = (data['group_attendance'] as List).length;
+          data['attendance_count'] = _embeddedCount(data['group_attendance']);
         }
         
         return GroupMeeting.fromJson(data);
@@ -359,151 +363,31 @@ class GroupsRepository {
   // VISITANTES
   // =====================================================
 
-  /// Buscar visitantes de uma reunião
+  /// Visitantes de uma reunião: presenças (group_attendance) de quem ainda
+  /// tem status visitor. A tabela `visitor` antiga foi apagada no unify
+  /// (visitante agora é user_account com status 'visitor').
   Future<List<GroupVisitor>> getVisitorsByMeeting(String meetingId) async {
-    try {
-      final response = await _supabase
-          .from('visitor')
-          .select('''
-            *,
-            mentor:user_account!assigned_mentor_id(first_name, last_name)
-          ''')
-          .eq('meeting_id', meetingId)
-          .eq('tenant_id', SupabaseConstants.currentTenantId)
-          .order('created_at', ascending: false);
+    final response = await _supabase
+        .from('group_attendance')
+        .select(
+          'id, meeting_id, created_at, '
+          'user_account:user_id!inner(first_name, last_name, phone, status)',
+        )
+        .eq('meeting_id', meetingId)
+        .eq('user_account.status', 'visitor')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .order('created_at', ascending: false);
 
-      return (response as List)
-          .map((json) => GroupVisitor.fromJson(json))
-          .toList();
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Buscar visitantes que são salvações (para relatórios)
-  Future<List<GroupVisitor>> getSalvationsByMeeting(String meetingId) async {
-    try {
-      final response = await _supabase
-          .from('visitor')
-          .select('''
-            *,
-            mentor:user_account!assigned_mentor_id(first_name, last_name)
-          ''')
-          .eq('meeting_id', meetingId)
-          .eq('is_salvation', true)
-          .eq('tenant_id', SupabaseConstants.currentTenantId)
-          .order('salvation_date', ascending: false);
-
-      return (response as List)
-          .map((json) => GroupVisitor.fromJson(json))
-          .toList();
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Buscar todas as salvações (para relatórios gerais)
-  Future<List<GroupVisitor>> getAllSalvations() async {
-    try {
-      final response = await _supabase
-          .from('visitor')
-          .select('''
-            *,
-            mentor:user_account!assigned_mentor_id(first_name, last_name)
-          ''')
-          .eq('is_salvation', true)
-          .eq('tenant_id', SupabaseConstants.currentTenantId)
-          .order('salvation_date', ascending: false);
-
-      return (response as List)
-          .map((json) => GroupVisitor.fromJson(json))
-          .toList();
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Contar salvações
-  Future<int> countSalvations() async {
-    try {
-      final response = await _supabase
-          .from('visitor')
-          .select()
-          .eq('tenant_id', SupabaseConstants.currentTenantId)
-          .eq('is_salvation', true)
-          .count();
-
-      return response.count;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Criar visitante
-  Future<GroupVisitor> createVisitor(Map<String, dynamic> data) async {
-    try {
-      final payload = Map<String, dynamic>.from(data);
-      payload['tenant_id'] = payload['tenant_id'] ?? SupabaseConstants.currentTenantId;
-      final response = await _supabase
-          .from('visitor')
-          .insert(payload)
-          .select()
-          .single();
-
-      return GroupVisitor.fromJson(response);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Atualizar visitante
-  Future<GroupVisitor> updateVisitor(String id, Map<String, dynamic> data) async {
-    try {
-      final response = await _supabase
-          .from('visitor')
-          .update(data)
-          .eq('id', id)
-          .eq('tenant_id', SupabaseConstants.currentTenantId)
-          .select()
-          .single();
-
-      return GroupVisitor.fromJson(response);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Deletar visitante
-  Future<void> deleteVisitor(String id) async {
-    try {
-      await _supabase
-          .from('visitor')
-          .delete()
-          .eq('id', id)
-          .eq('tenant_id', SupabaseConstants.currentTenantId);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Contar salvações por período (usando group_visitor)
-  Future<int> countSalvationsByPeriod({
-    required DateTime startDate,
-    required DateTime endDate,
-  }) async {
-    try {
-      final response = await _supabase
-          .from('group_visitor')
-          .select()
-          .eq('tenant_id', SupabaseConstants.currentTenantId)
-          .eq('is_salvation', true)
-          .gte('salvation_date', startDate.toIso8601String().split('T')[0])
-          .lte('salvation_date', endDate.toIso8601String().split('T')[0])
-          .count();
-
-      return response.count;
-    } catch (e) {
-      rethrow;
-    }
+    return (response as List).map((json) {
+      final user = json['user_account'] as Map<String, dynamic>;
+      return GroupVisitor.fromJson({
+        'id': json['id'],
+        'meeting_id': json['meeting_id'],
+        'created_at': json['created_at'],
+        'first_name': user['first_name'],
+        'last_name': user['last_name'],
+        'phone': user['phone'],
+      });
+    }).toList();
   }
 }

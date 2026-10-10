@@ -10,7 +10,6 @@ import 'package:church360_app/features/groups/domain/models/group.dart';
 import 'package:church360_app/features/groups/presentation/providers/groups_provider.dart';
 import 'package:church360_app/features/groups/presentation/screens/group_form_screen.dart';
 import 'package:church360_app/features/groups/presentation/screens/meeting_form_screen.dart';
-import 'package:church360_app/features/groups/presentation/screens/visitor_form_dialog.dart';
 import 'package:church360_app/features/permissions/providers/permissions_providers.dart';
 import 'package:church360_app/features/members/presentation/providers/members_provider.dart';
 
@@ -90,38 +89,5 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.byIcon(AppIcons.save), findsOneWidget);
-  });
-
-  testWidgets('diálogo de visitante usa vidro e catálogo semântico', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp(
-          theme: AppTheme.lightTheme,
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: ElevatedButton(
-                onPressed: () => showDialog<void>(
-                  context: context,
-                  builder: (_) =>
-                      const VisitorFormDialog(meetingId: 'meeting-1'),
-                ),
-                child: const Text('Abrir'),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    await tester.tap(find.text('Abrir'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(GlassCard), findsOneWidget);
-    expect(find.text('Cadastrar Visitante'), findsOneWidget);
-    expect(find.byIcon(AppIcons.personAdd), findsOneWidget);
-    expect(find.byIcon(AppIcons.save), findsOneWidget);
-    expect(find.byIcon(AppIcons.close), findsOneWidget);
   });
 }

@@ -1058,8 +1058,10 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         // Sem pilha (o PWA recarregado reabre direto na edição), quem
         // editou o próprio perfil volta para a ficha, não para a Home: ver
         // os dados novos na tela de perfil é o que mostra que gravou.
+        // Na criação devolve o id: quem abriu o form (ex.: visitante da
+        // reunião do grupo) usa para ligar o cadastro novo.
         if (context.canPop()) {
-          context.pop();
+          context.pop(widget.memberId == null ? savedMemberId : null);
         } else {
           context.go(editandoASiMesmo ? '/profile' : '/home');
         }
