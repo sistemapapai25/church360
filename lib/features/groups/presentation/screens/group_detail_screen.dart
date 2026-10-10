@@ -17,6 +17,7 @@ import '../../domain/models/group.dart';
 import '../../domain/models/group_meeting.dart' as meeting_models;
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../widgets/group_permission_gate.dart';
 import '../../../support_materials/presentation/providers/support_materials_provider.dart';
 import '../../../support_materials/domain/models/support_material.dart';
 import '../../../support_materials/domain/models/support_material_link.dart';
@@ -66,9 +67,9 @@ class GroupDetailScreen extends ConsumerWidget {
             onPressed: shareGroupLink,
           ),
           // Botão de editar
-          PermissionGate(
+          GroupPermissionGate(
+            groupId: groupId,
             permission: 'groups.edit',
-            showLoading: false,
             fallback: const SizedBox.shrink(),
             child: IconButton(
               icon: const Icon(AppIcons.edit),
@@ -387,9 +388,9 @@ class _MembersTab extends ConsumerWidget {
                     ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 24),
-                  PermissionGate(
+                  GroupPermissionGate(
+                    groupId: groupId,
                     permission: 'groups.manage_members',
-                    showLoading: false,
                     child: FilledButton.icon(
                       onPressed: () =>
                           _showAddMemberDialog(context, ref, groupId),
@@ -435,9 +436,9 @@ class _MembersTab extends ConsumerWidget {
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         const SizedBox(width: 8),
-                        PermissionGate(
+                        GroupPermissionGate(
+                          groupId: groupId,
                           permission: 'groups.manage_members',
-                          showLoading: false,
                           child: IconButton(
                             icon: const Icon(
                               AppIcons.personRemove,
@@ -472,9 +473,9 @@ class _MembersTab extends ConsumerWidget {
           ),
         ),
       ),
-      floatingActionButton: PermissionGate(
+      floatingActionButton: GroupPermissionGate(
+        groupId: groupId,
         permission: 'groups.manage_members',
-        showLoading: false,
         child: PearlFab(
           onPressed: () => _showAddMemberDialog(context, ref, groupId),
           icon: AppIcons.personAdd,
@@ -796,9 +797,9 @@ class _MeetingsTab extends ConsumerWidget {
                   ).textTheme.titleMedium?.copyWith(color: Colors.grey),
                 ),
                 const SizedBox(height: 24),
-                PermissionGate(
+                GroupPermissionGate(
+                  groupId: groupId,
                   permission: 'groups.manage_meetings',
-                  showLoading: false,
                   child: ElevatedButton.icon(
                     onPressed: () {
                       context.push('/groups/$groupId/meetings/new');
@@ -825,9 +826,9 @@ class _MeetingsTab extends ConsumerWidget {
             Positioned(
               right: 16,
               bottom: 16,
-              child: PermissionGate(
+              child: GroupPermissionGate(
+                groupId: groupId,
                 permission: 'groups.manage_meetings',
-                showLoading: false,
                 child: PearlFab(
                   onPressed: () {
                     context.push('/groups/$groupId/meetings/new');

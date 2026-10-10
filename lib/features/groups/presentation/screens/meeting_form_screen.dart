@@ -10,8 +10,6 @@ import '../../../../core/widgets/glass_card.dart';
 import '../../data/group_meetings_repository.dart';
 import '../providers/meetings_provider.dart';
 import '../providers/groups_provider.dart';
-import '../../../permissions/providers/permissions_providers.dart';
-import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de formulário de reunião
 class MeetingFormScreen extends ConsumerStatefulWidget {
@@ -160,25 +158,23 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Botão de salvar
-                DisabledByPermission(
-                  permission: 'groups.manage_meetings',
-                  disabledTooltip: 'Você não tem permissão para esta ação',
-                  child: FilledButton.icon(
-                    onPressed: _isLoading ? null : _saveMeeting,
-                    icon: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(AppIcons.save),
-                    label: Text(
-                      isEditing ? 'Salvar Alterações' : 'Criar Reunião',
-                    ),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.all(16),
-                    ),
+                // Botão de salvar. A rota (GroupPermissionRoute) e o
+                // _saveMeeting já conferem groups.manage_meetings OU líder
+                // com groups.manage_own.
+                FilledButton.icon(
+                  onPressed: _isLoading ? null : _saveMeeting,
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(AppIcons.save),
+                  label: Text(
+                    isEditing ? 'Salvar Alterações' : 'Criar Reunião',
+                  ),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.all(16),
                   ),
                 ),
               ],
@@ -210,7 +206,7 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final hasPermission = await ref.read(
-      currentUserHasPermissionProvider('groups.manage_meetings').future,
+      canManageGroupProvider((groupId: widget.groupId, permission: 'groups.manage_meetings')).future,
     );
     if (!hasPermission) {
       if (mounted) {
