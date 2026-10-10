@@ -52,7 +52,7 @@ class MeetingDetailScreen extends ConsumerWidget {
           ),
           // Botão de editar
           PermissionGate(
-            permission: 'groups.edit',
+            permission: 'groups.manage_meetings',
             showLoading: false,
             fallback: const SizedBox.shrink(),
             child: IconButton(
@@ -813,21 +813,23 @@ class _VisitorsList extends ConsumerWidget {
                       ),
                 ),
                 const Spacer(),
-                FilledButton.icon(
-                  onPressed: () async {
-                    // Navegar para tela de cadastro de visitante
-                    // Passando meetingId e groupId como query parameters
-                    final result = await context.push(
-                      '/groups/$groupId/meetings/$meetingId/visitors/new',
-                    );
+                PermissionGate(
+                  permission: 'visitors.create',
+                  showLoading: false,
+                  child: FilledButton.icon(
+                    onPressed: () async {
+                      final result = await context.push(
+                        '/groups/$groupId/meetings/$meetingId/visitors/new',
+                      );
 
-                    // Se retornou sucesso, atualizar lista
-                    if (result == true && context.mounted) {
-                      ref.invalidate(groups_providers.visitorsProvider(meetingId));
-                    }
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Adicionar'),
+                      // Se retornou sucesso, atualizar lista
+                      if (result == true && context.mounted) {
+                        ref.invalidate(groups_providers.visitorsProvider(meetingId));
+                      }
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Adicionar'),
+                  ),
                 ),
               ],
             ),

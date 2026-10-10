@@ -433,19 +433,23 @@ class _MembersTab extends ConsumerWidget {
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(
-                            AppIcons.personRemove,
-                            color: Colors.red,
+                        PermissionGate(
+                          permission: 'groups.manage_members',
+                          showLoading: false,
+                          child: IconButton(
+                            icon: const Icon(
+                              AppIcons.personRemove,
+                              color: Colors.red,
+                            ),
+                            onPressed: () => _showRemoveMemberDialog(
+                              context,
+                              ref,
+                              groupId,
+                              member.memberId,
+                              member.memberName ?? 'este membro',
+                            ),
+                            tooltip: 'Remover do grupo',
                           ),
-                          onPressed: () => _showRemoveMemberDialog(
-                            context,
-                            ref,
-                            groupId,
-                            member.memberId,
-                            member.memberName ?? 'este membro',
-                          ),
-                          tooltip: 'Remover do grupo',
                         ),
                       ],
                     ),
