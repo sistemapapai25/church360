@@ -2048,7 +2048,8 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         : null;
     // A resposta do agente é a "fala" dele: bolha de áudio (lida pela voz do aparelho)
     // com o texto atrás de "Transcrição" (pedido do usuário, 10/10).
-    final agentVoice = !isUser && audioItems.isEmpty && (msg['content']?.toString().trim().isNotEmpty ?? false);
+    // Texto do atendente chega como texto (pedido do usuário); só o áudio dele vira bolha.
+    final agentVoice = !isUser && !human && audioItems.isEmpty && (msg['content']?.toString().trim().isNotEmpty ?? false);
     // Só áudio: a bolha do áudio já é o card, sem balão em volta nem o texto "[Áudio]".
     final audioOnly = agentVoice || (audioItems.isNotEmpty && (human || msg['content'] == '[Áudio]'));
 
@@ -2094,7 +2095,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (agentVoice) _buildAgentVoiceBubble(msg, bubbleAgent, human: human),
+                      if (agentVoice) _buildAgentVoiceBubble(msg, bubbleAgent),
                       for (final entry in audioItems.asMap().entries)
                         Padding(
                           padding: EdgeInsets.only(bottom: audioOnly && entry.key == audioItems.length - 1 ? 0 : 8),
@@ -2117,7 +2118,8 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                         ),
                       if (!audioOnly)
                         Text(
-                          msg['content'] as String,
+                          // O nome do atendente já vai em cima da bolha.
+                          human ? (msg['content'] as String).substring(_humanPrefix.length) : msg['content'] as String,
                           style: TextStyle(
                             color: isUser ? Colors.white : const Color(0xFF1F2937),
                             fontSize: 14,
@@ -2314,9 +2316,8 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     );
   }
 
-  Widget _buildAgentVoiceBubble(Map<String, dynamic> msg, ResolvedAgent agent, {bool human = false}) {
-    final content = msg['content'].toString();
-    final text = human ? content.substring(_humanPrefix.length) : content;
+  Widget _buildAgentVoiceBubble(Map<String, dynamic> msg, ResolvedAgent agent) {
+    final text = msg['content'].toString();
     final isPlaying = identical(_speakingMsg, msg);
     return AudioMessageBubble(
       isUser: false,
@@ -2325,7 +2326,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       durationMs: speechDurationMs(text),
       progress: isPlaying ? _speakProgress : 0,
       isPlaying: isPlaying,
-      avatar: human ? _humanAvatar(msg, 32) : AgentAvatar(agent: agent, size: 32),
+      avatar: AgentAvatar(agent: agent, size: 32),
       onToggle: () => _toggleSpeak(msg),
       transcript: text,
       showTranscript: msg['showTranscript'] == true,
