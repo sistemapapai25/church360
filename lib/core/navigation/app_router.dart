@@ -1868,12 +1868,15 @@ final appRouter = GoRouter(
     ),
 
     // Vincular cadastros (fichas duplicadas). As RPCs por tras da tela
-    // exigem role_global = owner; o guard aqui e' para a pessoa ver acesso
-    // negado em vez de uma lista que estoura.
+    // exigem owner ou `members.merge_duplicates` (o owner passa pelo bypass
+    // de check_user_permission); o guard e' para a pessoa ver acesso negado
+    // em vez de uma lista que estoura.
     GoRoute(
       path: '/duplicate-accounts',
-      builder: (context, state) =>
-          const OwnerOnlyRoute(child: DuplicateAccountsScreen()),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'members.merge_duplicates',
+        child: DuplicateAccountsScreen(),
+      ),
     ),
 
     // Configuração de Disparos (WhatsApp/Uazapi)
