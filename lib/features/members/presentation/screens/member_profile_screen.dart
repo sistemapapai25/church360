@@ -27,6 +27,7 @@ import '../../../tags/presentation/widgets/member_tags_panel.dart';
 
 import '../providers/members_provider.dart';
 import '../widgets/send_access_invite.dart';
+import '../../../legal/terms_acceptance.dart';
 import '../../data/members_repository.dart';
 import '../../data/family_relationships_repository.dart';
 import '../../domain/models/member.dart';
@@ -781,16 +782,40 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   }
 
   Widget _buildCommitmentTermsRow(BuildContext context, Member member) {
+    // O aceite é da pessoa logada: na ficha de outra pessoa só abre o texto.
+    final isOwn = ref.watch(currentMemberProvider).valueOrNull?.id == member.id;
+    if (!isOwn) {
+      return _buildInfoRowWithAction(
+        Icons.handshake_outlined,
+        'Termos de Compromisso',
+        'Visualizar documento',
+        'Abrir',
+        () async {
+          await _openCommitmentTerms();
+        },
+        valueIcon: Icons.open_in_new,
+        valueColor: Colors.deepPurple,
+        actionColor: Colors.deepPurple,
+      );
+    }
+    final acceptedAt = ref.watch(currentTermsAcceptanceProvider).valueOrNull;
+    final accepted = acceptedAt != null;
     return _buildInfoRowWithAction(
       Icons.handshake_outlined,
       'Termos de Compromisso',
-      'Visualizar documento',
-      'Abrir',
+      accepted
+          ? 'v$kTermsVersion aceito em ${_formatShortDate(acceptedAt)}'
+          : 'v$kTermsVersion pendente',
+      accepted ? 'Abrir' : 'Aceitar',
       () async {
-        await _openCommitmentTerms();
+        if (accepted) {
+          await _openCommitmentTerms();
+          return;
+        }
+        await showTermsAcceptanceDialog(context, ref);
       },
-      valueIcon: Icons.open_in_new,
-      valueColor: Colors.deepPurple,
+      valueIcon: accepted ? Icons.check_circle : Icons.info_outline,
+      valueColor: accepted ? Colors.green : Colors.orange,
       actionColor: Colors.deepPurple,
     );
   }
