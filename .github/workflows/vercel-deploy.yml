@@ -38,7 +38,7 @@ jobs:
             --dart-define=FIREBASE_MESSAGING_SENDER_ID=$FIREBASE_MESSAGING_SENDER_ID \
             --dart-define=FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID \
             --dart-define=FIREBASE_STORAGE_BUCKET=$FIREBASE_STORAGE_BUCKET \
-            --dart-define=FIREBASE_AUTH_DOMAIN=$FIREBASE_AUTH_DOMAIN
+            --dart-define=FIREBASE_AUTH_DOMAIN=$FIREBASE_AUTH_DOMAIN             --dart-define=APP_VERSION=$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}
 
           # Service worker do push web: precisa estar na raiz do site com a
           # config do Firebase (pública). Ele mostra a notificação com a aba
