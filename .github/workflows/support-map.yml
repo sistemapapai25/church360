@@ -1,0 +1,46 @@
+name: Mapa do suporte
+
+# Toda mudança no app tem que chegar ao mapa do suporte (screen-map.ts) e aos manuais do Moisés
+# (module-knowledge.ts), que ficam no church360-supabase. O PR do app declara um dos dois:
+#   church360-supabase#N         -> PR que atualiza mapa/manual (a checagem de rotas usa esse PR)
+#   mapa-suporte: sem mudança     -> a mudança não altera tela, caminho, rótulo, permissão nem regra
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    paths: ['lib/**']
+
+jobs:
+  mapa:
+    runs-on: ubuntu-latest
+    steps:
+      - name: PR declara o mapa do suporte
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          # Os exemplos do modelo de PR ficam num comentário HTML: não contam.
+          BODY=$(perl -0pe 's/<!--.*?-->//gs' <<<"$BODY")
+          ref=$(grep -oE 'church360-supabase#[0-9]+' <<<"$BODY" | head -1 | cut -d'#' -f2 || true)
+          if [ -z "$ref" ] && ! grep -qiE 'mapa-suporte: *sem mudan' <<<"$BODY"; then
+            echo "::error::Escreva na descrição do PR 'church360-supabase#N' (PR que atualiza screen-map.ts/module-knowledge.ts) ou 'mapa-suporte: sem mudança'."
+            exit 1
+          fi
+          echo "SB_REF=${ref:+refs/pull/$ref/head}" >> "$GITHUB_ENV"
+
+      - name: Token do church360-supabase
+        env:
+          TOKEN: ${{ secrets.SUPPORT_MAP_TOKEN }}
+        run: |
+          [ -n "$TOKEN" ] || { echo "::error::Falta o secret SUPPORT_MAP_TOKEN (token com leitura de Contents no church360-supabase)."; exit 1; }
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: sistemapapai25/church360-supabase
+          ref: ${{ env.SB_REF || 'main' }}
+          token: ${{ secrets.SUPPORT_MAP_TOKEN }}
+          path: sb
+          sparse-checkout: functions/support-chat
+
+      - name: Toda rota do app está no mapa
+        run: bash tool/check_support_map.sh sb/functions/support-chat/screen-map.ts
