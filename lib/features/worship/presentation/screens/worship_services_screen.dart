@@ -26,12 +26,16 @@ class WorshipServicesScreen extends ConsumerWidget {
           style: CommunityDesign.titleStyle(context),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.bar_chart),
-            onPressed: () {
-              context.push('/worship-statistics');
-            },
-            tooltip: 'Estatísticas',
+          PermissionGate(
+            permission: 'worship.view_statistics',
+            showLoading: false,
+            child: IconButton(
+              icon: const Icon(Icons.bar_chart),
+              onPressed: () {
+                context.push('/worship-statistics');
+              },
+              tooltip: 'Estatísticas',
+            ),
           ),
         ],
       ),
@@ -185,13 +189,16 @@ class _WorshipServiceCard extends ConsumerWidget {
     final canDelete = ref
         .watch(currentUserHasPermissionProvider('worship.delete'))
         .maybeWhen(data: (v) => v, orElse: () => false);
+    final canAttend = ref
+        .watch(currentUserHasPermissionProvider('worship.attendance'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
-        onTap: () {
-          context.push('/worship-services/${service.id}/attendance');
-        },
+        onTap: canAttend
+            ? () => context.push('/worship-services/${service.id}/attendance')
+            : null,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -350,7 +357,8 @@ class _WorshipServiceCard extends ConsumerWidget {
                     ),
                   ),
                   const Spacer(),
-                  TextButton.icon(
+                  if (canAttend)
+                    TextButton.icon(
                     onPressed: () {
                       context.push('/worship-services/${service.id}/attendance');
                     },
