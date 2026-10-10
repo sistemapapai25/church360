@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_branding.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/navigation/app_router.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../providers/auth_provider.dart';
 
@@ -39,11 +40,16 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
   Timer? _debounceTimer;
 
+  /// Destino do link que trouxe a pessoa até aqui (`?redirect=`, saneado por
+  /// [safeRedirect]). Depois do cadastro ela volta para ele, não para a home.
+  String? _redirectDestino;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     try {
       final qp = GoRouterState.of(context).uri.queryParameters;
+      _redirectDestino = safeRedirect(qp['redirect']);
       final email = (qp['email'] ?? '').trim();
       if (email.isNotEmpty && _emailController.text.trim().isEmpty) {
         _emailController.text = email;
@@ -209,7 +215,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
             duration: const Duration(seconds: 8),
           ),
         );
-        context.go('/login');
+        final destino = _redirectDestino;
+        context.go(
+          destino == null
+              ? '/login'
+              : '/login?redirect=${Uri.encodeComponent(destino)}',
+        );
         return;
       }
 
@@ -222,8 +233,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
           ),
         );
         
-        // Redireciona para home
-        context.go('/home');
+        // Volta para o link que trouxe a pessoa (se houver) ou para a home.
+        context.go(_redirectDestino ?? '/home');
       }
     } catch (e) {
       if (mounted) {

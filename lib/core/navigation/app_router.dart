@@ -313,8 +313,14 @@ final appRouter = GoRouter(
     final isPublicBaptismRegister =
         state.matchedLocation.startsWith('/batismo/') &&
         state.matchedLocation.endsWith('/inscricao');
+    // Só a tela do grupo é pública (o anon lê por `get_public_group`). A
+    // reunião (`/groups/:id/meetings/...`) NÃO é (lote 9, Grupos 10): a RLS
+    // de `group_meeting` barra o anon e a tela abria vazia. Link de reunião
+    // sem sessão cai no login (ou no cadastro, que repassa o `?redirect=`) e
+    // volta para o link depois de entrar.
     final isPublicGroupDetail =
         state.matchedLocation.startsWith('/groups/') &&
+        !state.matchedLocation.contains('/meetings') &&
         !state.matchedLocation.endsWith('/edit') &&
         !state.matchedLocation.endsWith('/new');
     final isPublicStudyGroupDetail =
