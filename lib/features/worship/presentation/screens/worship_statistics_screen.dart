@@ -52,32 +52,40 @@ class _WorshipStatisticsScreenState
       ),
       body: servicesAsync.when(
         data: (allServices) {
-          // Filter by period
+          // Filtra pelo período, do início (inclusive) até hoje: culto
+          // futuro ainda não tem presença e só puxaria a média para baixo.
           final startDate = _getStartDate();
+          final now = DateTime.now();
           final services = allServices
-              .where((s) => s.serviceDate.isAfter(startDate))
+              .where(
+                (s) =>
+                    !s.serviceDate.isBefore(startDate) &&
+                    !s.serviceDate.isAfter(now),
+              )
               .toList();
 
           if (services.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.bar_chart,
-                    size: 64,
-                    color: Colors.grey[400],
+            // O filtro continua na tela para dar para trocar o período.
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildPeriodFilter(),
+                const SizedBox(height: 48),
+                Icon(
+                  Icons.bar_chart,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Nenhum culto no período selecionado',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.grey[600],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Nenhum culto no período selecionado',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             );
           }
 

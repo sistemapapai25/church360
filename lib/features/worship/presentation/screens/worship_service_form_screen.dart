@@ -161,6 +161,9 @@ class _WorshipServiceFormScreenState
 
       // Invalidate providers to refresh data
       ref.invalidate(allWorshipServicesProvider);
+      if (widget.worshipServiceId != null) {
+        ref.invalidate(worshipServiceByIdProvider(widget.worshipServiceId!));
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
