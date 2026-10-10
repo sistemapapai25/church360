@@ -900,10 +900,11 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         final content = msg['content']?.toString() ?? '';
         final time = msg['time'] is DateTime ? msg['time'] as DateTime : DateTime.now();
 
-        // Áudio não é guardado (só no envio): ficam a onda, a duração e a transcrição.
+        // O arquivo fica no bucket support-audio: aqui só o caminho, a onda, a duração e a transcrição.
         final audio = (msg['audioItems'] as List?)?.whereType<Map>().map((a) => {
               'durationMs': a['durationMs'],
               'levels': a['levels'],
+              if (a['storagePath'] != null) 'storagePath': a['storagePath'],
             }).toList();
         serializable.add({
           'sender': role == 'user' ? 'user' : 'agent',
@@ -1046,7 +1047,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   }
 
   String _audioItemId(Map<String, dynamic> item, int index) {
-    final path = item['path']?.toString().trim();
+    final path = (item['path'] ?? item['storagePath'])?.toString().trim();
     if (path != null && path.isNotEmpty) return path;
     final name = item['name']?.toString().trim().isNotEmpty == true ? item['name']!.toString() : 'audio';
     final bytes = _bytesFromDynamic(item['bytes']);
@@ -1059,6 +1060,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     String? name,
     String? path,
     Uint8List? bytes,
+    String? storagePath,
   }) async {
     try {
       if (_playingAudioId == id && _audioPlayerState == PlayerState.playing) {
@@ -1079,6 +1081,10 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         await _audioPlayer.play(UrlSource(Uri.dataFromBytes(bytes, mimeType: mime).toString()));
       } else if (bytes != null) {
         await _audioPlayer.play(BytesSource(bytes));
+      } else if ((path ?? '').trim().isEmpty && storagePath != null) {
+        // Histórico reaberto: o arquivo está no bucket privado support-audio.
+        final url = await Supabase.instance.client.storage.from('support-audio').createSignedUrl(storagePath, 600);
+        await _audioPlayer.play(UrlSource(url));
       } else {
         final p = path?.trim() ?? '';
         if (p.isEmpty) return;
@@ -1618,8 +1624,14 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       final replyRaw = (data['reply'] ?? '').toString();
       final newThreadId = data['threadId']?.toString();
       final transcripts = (data['transcripts'] as List?)?.map((t) => t.toString().trim()).where((t) => t.isNotEmpty).toList();
-      if (transcripts != null && transcripts.isNotEmpty && mounted) {
-        setState(() => userMsg['transcript'] = transcripts.join('\n\n'));
+      final audioPaths = (data['audioPaths'] as List?)?.map((p) => p.toString()).toList() ?? const <String>[];
+      final sentAudio = (userMsg['audioItems'] as List?)?.whereType<Map>().toList() ?? const <Map>[];
+      for (var i = 0; i < audioPaths.length && i < sentAudio.length; i++) {
+        sentAudio[i]['storagePath'] = audioPaths[i];
+      }
+      final hasTranscript = transcripts != null && transcripts.isNotEmpty;
+      if ((hasTranscript || audioPaths.isNotEmpty) && mounted) {
+        if (hasTranscript) setState(() => userMsg['transcript'] = transcripts.join('\n\n'));
         await _saveLocalHistorySafely();
       }
 
@@ -2214,7 +2226,8 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     final id = _audioItemId(item, index);
     final path = item['path']?.toString();
     final bytes = _bytesFromDynamic(item['bytes']);
-    final canPlay = bytes != null || (path != null && path.isNotEmpty);
+    final storagePath = item['storagePath']?.toString();
+    final canPlay = bytes != null || (path != null && path.isNotEmpty) || storagePath != null;
     final isPlaying = _playingAudioId == id && _audioPlayerState == PlayerState.playing;
     final durationMs = (item['durationMs'] as num?)?.toInt() ?? 0;
     final levels = (item['levels'] as List?)?.map((v) => (v as num).toDouble()).toList();
@@ -2233,7 +2246,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
               ? Image.network(photoUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _initialAvatar(initial))
               : _initialAvatar(initial))
           : AgentAvatar(agent: _agent, size: 32),
-      onToggle: !canPlay || _isLoading ? null : () => _togglePlayAudioItem(id: id, name: item['name']?.toString(), path: path, bytes: bytes),
+      onToggle: !canPlay || _isLoading ? null : () => _togglePlayAudioItem(id: id, name: item['name']?.toString(), path: path, bytes: bytes, storagePath: storagePath),
       transcript: msg['transcript']?.toString(),
       showTranscript: msg['showTranscript'] == true,
       onToggleTranscript: () => setState(() => msg['showTranscript'] = msg['showTranscript'] != true),

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -19,7 +20,9 @@ class SupportAttendScreen extends StatefulWidget {
 class _SupportAttendScreenState extends State<SupportAttendScreen> {
   final _client = Supabase.instance.client;
   final _reply = TextEditingController();
+  final _player = AudioPlayer();
   Timer? _poll;
+  String? _playing;
 
   List<Map<String, dynamic>> _sessions = [];
   Map<String, String> _names = {};
@@ -38,6 +41,9 @@ class _SupportAttendScreenState extends State<SupportAttendScreen> {
   @override
   void initState() {
     super.initState();
+    _player.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _playing = null);
+    });
     _openId = widget.initialSessionId;
     _refresh();
     _poll = Timer.periodic(const Duration(seconds: 5), (_) => _refresh());
@@ -46,6 +52,7 @@ class _SupportAttendScreenState extends State<SupportAttendScreen> {
   @override
   void dispose() {
     _poll?.cancel();
+    _player.dispose();
     _reply.dispose();
     super.dispose();
   }
@@ -82,7 +89,7 @@ class _SupportAttendScreenState extends State<SupportAttendScreen> {
       if (_openId != null) {
         messages = List<Map<String, dynamic>>.from(await _client
             .from('support_message')
-            .select('role,content,created_at')
+            .select('role,content,created_at,audio_paths')
             .eq('session_id', _openId!)
             .order('created_at'));
       }
@@ -127,6 +134,26 @@ class _SupportAttendScreenState extends State<SupportAttendScreen> {
           .insert({'session_id': _openId, 'role': 'humano', 'content': text});
       _reply.clear();
     });
+  }
+
+  /// Áudio do membro no bucket privado support-audio (a policy deixa ler quem lê a mensagem).
+  Future<void> _toggleAudio(String path) async {
+    try {
+      await _player.stop();
+      if (_playing == path) {
+        setState(() => _playing = null);
+        return;
+      }
+      final url = await _client.storage.from('support-audio').createSignedUrl(path, 600);
+      await _player.play(UrlSource(url));
+      if (mounted) setState(() => _playing = path);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _playing = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Não foi possível tocar o áudio: $e')),
+      );
+    }
   }
 
   String _time(dynamic iso) {
@@ -281,6 +308,12 @@ class _SupportAttendScreenState extends State<SupportAttendScreen> {
                     children: [
                       Text('$who · ${_time(m['created_at'])}', style: theme.textTheme.labelSmall),
                       const SizedBox(height: 4),
+                      for (final path in (m['audio_paths'] as List? ?? const []).map((p) => p.toString()))
+                        TextButton.icon(
+                          onPressed: () => _toggleAudio(path),
+                          icon: Icon(_playing == path ? Icons.stop_rounded : Icons.play_arrow_rounded),
+                          label: Text(_playing == path ? 'Parar áudio' : 'Ouvir áudio'),
+                        ),
                       SelectableText(m['content']?.toString() ?? ''),
                     ],
                   ),
