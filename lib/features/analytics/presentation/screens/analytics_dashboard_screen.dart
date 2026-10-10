@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers/analytics_provider.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/errors/app_error_handler.dart';
 
 class AnalyticsDashboardScreen extends ConsumerWidget {
@@ -235,17 +236,23 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
                   },
                 ),
                 const SizedBox(height: 12),
-                _buildReportButton(
-                  context,
-                  title: 'Relatório de Cultos',
-                  subtitle: 'Frequência e participação',
-                  icon: Icons.church,
-                  color: Colors.purple,
-                  onTap: () {
-                    context.push('/worship-statistics');
-                  },
+                PermissionGate(
+                  permission: 'worship.view_statistics',
+                  showLoading: false,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildReportButton(
+                      context,
+                      title: 'Relatório de Cultos',
+                      subtitle: 'Frequência e participação',
+                      icon: Icons.church,
+                      color: Colors.purple,
+                      onTap: () {
+                        context.push('/worship-statistics');
+                      },
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 12),
                 _buildReportButton(
                   context,
                   title: 'Relatório de Grupos',
