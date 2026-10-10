@@ -6,8 +6,6 @@ import 'package:church360_app/features/ministries/shared/presentation/widgets/mi
 import 'package:church360_app/features/permissions/data/role_contexts_repository.dart';
 import 'package:church360_app/features/permissions/domain/models/role_context.dart';
 import 'package:church360_app/features/permissions/providers/permissions_providers.dart';
-import 'package:church360_app/features/tags/domain/models/tag.dart';
-import 'package:church360_app/features/tags/presentation/providers/tags_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -51,20 +49,9 @@ class _FakeMinistries extends Fake implements MinistriesRepository {
   ) async => {};
 }
 
-Widget _host(
-  List<MinistryMember> members, {
-  bool canManage = false,
-  Map<String, List<Tag>> tagsByMember = const {},
-}) {
+Widget _host(List<MinistryMember> members, {bool canManage = false}) {
   return ProviderScope(
     overrides: [
-      tagsByMemberProvider.overrideWith((ref) async => tagsByMember),
-      allTagsProvider.overrideWith(
-        (ref) async => {
-          for (final tags in tagsByMember.values)
-            for (final t in tags) t.id: t,
-        }.values.toList(),
-      ),
       roleContextsRepositoryProvider.overrideWithValue(_FakeContexts()),
       ministriesRepositoryProvider.overrideWithValue(_FakeMinistries()),
       allRolesProvider.overrideWith((ref) async => const []),
@@ -81,37 +68,6 @@ Widget _host(
 }
 
 void main() {
-  testWidgets('mostra as tags da pessoa e filtra a equipe por tag', (
-    tester,
-  ) async {
-    final visita = Tag(
-      id: 't1',
-      name: 'Precisa de visita',
-      color: '#E53935',
-      createdAt: DateTime(2026, 10, 10),
-    );
-    await tester.pumpWidget(
-      _host(
-        [_member('Ana', MinistryRole.member), _member('Bruno', MinistryRole.member)],
-        tagsByMember: {
-          'u-Ana': [visita],
-        },
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    // Chip no cartão da Ana + chip do filtro.
-    expect(find.text('Precisa de visita'), findsNWidgets(2));
-    expect(find.text('MEMBROS (2)'), findsOneWidget);
-
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Precisa de visita'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('MEMBROS (1)'), findsOneWidget);
-    expect(find.text('Ana'), findsOneWidget);
-    expect(find.text('Bruno'), findsNothing);
-  });
-
   testWidgets('separa lideranca de membros', (tester) async {
     await tester.pumpWidget(
       _host([

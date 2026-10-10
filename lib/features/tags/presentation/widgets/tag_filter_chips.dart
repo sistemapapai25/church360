@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../domain/models/tag.dart';
 import '../providers/tags_provider.dart';
 
 /// Filtro de tags em chips, para o painel de filtros da lista de membros.
@@ -16,16 +17,22 @@ class TagFilterChips extends ConsumerWidget {
   final String? selectedTagId;
   final ValueChanged<String?> onChanged;
 
+  /// true = tags de ministério; false = tags de pessoa.
+  final bool ministry;
+
   const TagFilterChips({
     super.key,
     required this.selectedTagId,
     required this.onChanged,
+    this.ministry = false,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tagsAsync = ref.watch(allTagsProvider);
-    final tags = tagsAsync.valueOrNull ?? const [];
+    final tags = (tagsAsync.valueOrNull ?? const <Tag>[])
+        .where((t) => t.isMinistry == ministry)
+        .toList();
 
     if (tags.isEmpty) {
       return const SizedBox.shrink();
