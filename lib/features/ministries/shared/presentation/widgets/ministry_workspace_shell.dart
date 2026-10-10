@@ -8,6 +8,8 @@ import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/app_tabs.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
+import '../../../../support_materials/domain/models/support_material_link.dart';
+import '../../../../support_materials/presentation/widgets/linked_materials.dart';
 import '../../../louvor/presentation/praise_received_view.dart';
 import '../../../louvor/presentation/providers/praise_providers.dart';
 import '../../../domain/models/ministry.dart';
@@ -312,6 +314,11 @@ class _MinistryWorkspaceShellState
           ],
         ),
         actions: [
+          // Material de apoio vinculado ao ministério (some quando não há).
+          LinkedMaterialsAction(
+            linkType: MaterialLinkType.ministry,
+            entityId: widget.ministryId,
+          ),
           if (canEdit)
             IconButton(
               icon: const Icon(AppIcons.notificationsActive),
