@@ -30,7 +30,9 @@ class RaizesRepository {
 
   /// Carrega os KPIs do dashboard em paralelo. Inclui contagens de visitas
   /// (`raizes_visit_schedule`) introduzidas no Lote 4B.
-  Future<RaizesDashboardStats> getDashboardStats() async {
+  /// Visitantes são da igreja inteira (não pertencem a um ministério); as
+  /// visitas, não: cada uma é de um ministério Raízes.
+  Future<RaizesDashboardStats> getDashboardStats(String ministryId) async {
     final tenantId = SupabaseConstants.currentTenantId;
     final today = _isoDateToday();
     final thirtyDaysAgo = _isoDate(DateTime.now().subtract(const Duration(days: 30)));
@@ -41,8 +43,8 @@ class RaizesRepository {
       _countWithoutMentor(tenantId),
       _countNewSalvations(tenantId, thirtyDaysAgo),
       _countNewVisitors(tenantId, thirtyDaysAgo),
-      _countVisitsOn(tenantId, today),
-      _countVisitsOverdue(tenantId, today),
+      _countVisitsOn(tenantId, ministryId, today),
+      _countVisitsOverdue(tenantId, ministryId, today),
     ]);
 
     return RaizesDashboardStats(
@@ -111,22 +113,32 @@ class RaizesRepository {
     return response.count;
   }
 
-  Future<int> _countVisitsOn(String tenantId, String todayIso) async {
+  Future<int> _countVisitsOn(
+    String tenantId,
+    String ministryId,
+    String todayIso,
+  ) async {
     final response = await _supabase
         .from('raizes_visit_schedule')
         .select()
         .eq('tenant_id', tenantId)
+        .eq('ministry_id', ministryId)
         .eq('scheduled_date', todayIso)
         .inFilter('status', const ['pending', 'confirmed'])
         .count(CountOption.exact);
     return response.count;
   }
 
-  Future<int> _countVisitsOverdue(String tenantId, String todayIso) async {
+  Future<int> _countVisitsOverdue(
+    String tenantId,
+    String ministryId,
+    String todayIso,
+  ) async {
     final response = await _supabase
         .from('raizes_visit_schedule')
         .select()
         .eq('tenant_id', tenantId)
+        .eq('ministry_id', ministryId)
         .lt('scheduled_date', todayIso)
         .inFilter('status', const ['pending', 'confirmed'])
         .count(CountOption.exact);

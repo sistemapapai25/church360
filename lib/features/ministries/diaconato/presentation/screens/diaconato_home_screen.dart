@@ -147,7 +147,7 @@ class _DiaconatoPainelTabState extends ConsumerState<DiaconatoPainelTab> {
             icon: AppIcons.communion,
             title: 'Lotes de ceia',
             description:
-                'Lote por culto com responsável, status e (em breve) WhatsApp via dispatch.',
+                'Lote por culto com responsável, status e lembrete por WhatsApp.',
             onTap: () => _openWorshipServicePicker(
               context,
               destinationPath: '/communion-batches',
@@ -221,7 +221,6 @@ class _DashboardBody extends StatelessWidget {
           const SizedBox(height: 16),
           _UnregisteredBanner(
             count: stats.unregisteredVisitorsLast30Days,
-            onCapture: () => context.push('/ministries'),
           ),
         ],
       ],
@@ -520,14 +519,16 @@ class _KpiChip extends StatelessWidget {
   }
 }
 
-class _UnregisteredBanner extends StatelessWidget {
+class _UnregisteredBanner extends ConsumerWidget {
   final int count;
-  final VoidCallback onCapture;
 
-  const _UnregisteredBanner({required this.count, required this.onCapture});
+  const _UnregisteredBanner({required this.count});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Sem Raízes que a pessoa possa abrir, o botão some (antes caía na lista
+    // de ministérios).
+    final raizesId = ref.watch(visibleRaizesMinistryIdProvider).value;
     return GlassCard(
       accentColor: Colors.orange,
       padding: const EdgeInsets.all(14),
@@ -550,12 +551,15 @@ class _UnregisteredBanner extends StatelessWidget {
                   'Cadastre no Raízes para incluir nas próximas triagens.',
                   style: CommunityDesign.metaStyle(context),
                 ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: onCapture,
-                  icon: const Icon(AppIcons.eco, size: 16),
-                  label: const Text('Ir para Raízes'),
-                ),
+                if (raizesId != null) ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        context.push('/ministries/$raizesId/raizes'),
+                    icon: const Icon(AppIcons.eco, size: 16),
+                    label: const Text('Ir para Raízes'),
+                  ),
+                ],
               ],
             ),
           ),
