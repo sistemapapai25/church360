@@ -151,16 +151,17 @@ class _MaterialViewerScreenState extends ConsumerState<MaterialViewerScreen> {
       ),
       actions: [
         // Gestão: só pela Dashboard e com a permissão de cada ação.
-        PermissionGate(
-          permission: 'support_materials.edit',
-          showLoading: false,
-          child: IconButton(
+        // O autor edita o seu; o de outra pessoa exige .edit.
+        if (!ViewOnlyScope.isActive(context) &&
+            (ref.watch(canEditMaterialProvider(material.id)).valueOrNull ??
+                false))
+          IconButton(
+            tooltip: 'Editar material',
             icon: const Icon(Icons.edit),
             onPressed: () {
               context.push('/support-materials/${material.id}/edit');
             },
           ),
-        ),
         PermissionGate(
           permission: 'support_materials.manage_modules',
           showLoading: false,

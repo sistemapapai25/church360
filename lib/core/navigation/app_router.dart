@@ -1245,8 +1245,8 @@ final appRouter = GoRouter(
       path: '/support-materials/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return PermissionOnlyRoute(
-          permission: 'support_materials.edit',
+        return MaterialEditRoute(
+          materialId: id,
           child: SupportMaterialFormScreen(materialId: id),
         );
       },
