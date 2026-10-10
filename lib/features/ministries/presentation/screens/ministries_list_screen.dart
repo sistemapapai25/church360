@@ -375,10 +375,19 @@ class _MinistryCard extends ConsumerWidget {
 
           if (tags != null && tags.isNotEmpty) ...[
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [for (final tag in tags) TagChip(tag: tag)],
+            // Uma linha só, rolando para o lado: no celular o Wrap tomava
+            // o card inteiro.
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final tag in tags)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: TagChip(tag: tag),
+                    ),
+                ],
+              ),
             ),
           ],
 

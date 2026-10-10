@@ -58,10 +58,13 @@ class TagFilterChips extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
+        // Uma linha só, rolando para o lado: com muitas tags o Wrap ocupava
+        // a tela inteira no celular.
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            spacing: 8,
+            children: [
             ChoiceChip(
               label: const Text('Todas'),
               selected: selectedTagId == null,
@@ -78,7 +81,8 @@ class TagFilterChips extends ConsumerWidget {
                 onSelected: (_) => onChanged(isSelected ? null : tag.id),
               );
             }),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 16),
       ],
