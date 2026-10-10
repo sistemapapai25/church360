@@ -7,6 +7,10 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/app_filter_bar.dart';
 import '../../../../../core/widgets/glass_card.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
+import '../../../../tags/domain/models/tag.dart';
+import '../../../../tags/presentation/providers/tags_provider.dart';
+import '../../../../tags/presentation/widgets/member_tags_panel.dart';
+import '../../../../tags/presentation/widgets/tag_filter_chips.dart';
 import '../../../domain/models/ministry.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import 'ministry_member_actions.dart';
@@ -31,6 +35,7 @@ class MinistryTeamTab extends ConsumerStatefulWidget {
 class _MinistryTeamTabState extends ConsumerState<MinistryTeamTab> {
   final _search = TextEditingController();
   String _query = '';
+  String? _tagId;
 
   @override
   void dispose() {
@@ -38,10 +43,17 @@ class _MinistryTeamTabState extends ConsumerState<MinistryTeamTab> {
     super.dispose();
   }
 
-  List<MinistryMember> _apply(List<MinistryMember> members) {
+  List<MinistryMember> _apply(
+    List<MinistryMember> members,
+    Map<String, List<Tag>> tagsByMember,
+  ) {
     final query = _query.trim().toLowerCase();
-    if (query.isEmpty) return members;
     return members.where((m) {
+      if (_tagId != null &&
+          !(tagsByMember[m.memberId] ?? const []).any((t) => t.id == _tagId)) {
+        return false;
+      }
+      if (query.isEmpty) return true;
       if (m.memberName.toLowerCase().contains(query)) return true;
       return m.teamSubtitle.toLowerCase().contains(query);
     }).toList();
@@ -78,6 +90,11 @@ class _MinistryTeamTabState extends ConsumerState<MinistryTeamTab> {
   @override
   Widget build(BuildContext context) {
     final membersAsync = ref.watch(ministryMembersProvider(widget.ministryId));
+    // Sem tags.view a RLS devolve vazio: chips e filtro somem sozinhos.
+    final tagsByMember = ref.watch(tagsByMemberProvider).valueOrNull ?? const {};
+    final canEditTags = ref
+        .watch(currentUserHasPermissionProvider('tags.edit'))
+        .maybeWhen(data: (v) => v, orElse: () => false);
 
     // `maybeWhen` com `orElse: false` em vez de PermissionGate: enquanto a
     // permissão carrega o botão simplesmente não aparece — mesmo
@@ -94,7 +111,7 @@ class _MinistryTeamTabState extends ConsumerState<MinistryTeamTab> {
             ref.invalidate(ministryMembersProvider(widget.ministryId)),
       ),
       data: (members) {
-        final visible = _apply(members);
+        final visible = _apply(members, tagsByMember);
         final leaders =
             visible.where((m) => m.role != MinistryRole.member).toList()
               ..sort((a, b) => a.role.index.compareTo(b.role.index));
@@ -123,6 +140,10 @@ class _MinistryTeamTabState extends ConsumerState<MinistryTeamTab> {
                     : null,
               ),
               const SizedBox(height: 14),
+              TagFilterChips(
+                selectedTagId: _tagId,
+                onChanged: (id) => setState(() => _tagId = id),
+              ),
               if (members.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 32),
@@ -146,8 +167,12 @@ class _MinistryTeamTabState extends ConsumerState<MinistryTeamTab> {
                 for (final m in leaders)
                   _TeamMemberTile(
                     member: m,
+                    tags: tagsByMember[m.memberId] ?? const [],
                     onEditRole: canManage ? () => _editRole(m) : null,
                     onRemove: canManage ? () => _remove(m) : null,
+                    onTags: canEditTags
+                        ? () => showMemberTagsSheet(context, m.memberId)
+                        : null,
                   ),
                 const SizedBox(height: 20),
               ],
@@ -156,8 +181,12 @@ class _MinistryTeamTabState extends ConsumerState<MinistryTeamTab> {
                 for (final m in rest)
                   _TeamMemberTile(
                     member: m,
+                    tags: tagsByMember[m.memberId] ?? const [],
                     onEditRole: canManage ? () => _editRole(m) : null,
                     onRemove: canManage ? () => _remove(m) : null,
+                    onTags: canEditTags
+                        ? () => showMemberTagsSheet(context, m.memberId)
+                        : null,
                   ),
               ],
             ],
@@ -197,10 +226,18 @@ class _SectionLabel extends StatelessWidget {
 
 class _TeamMemberTile extends StatelessWidget {
   final MinistryMember member;
+  final List<Tag> tags;
   final VoidCallback? onEditRole;
   final VoidCallback? onRemove;
+  final VoidCallback? onTags;
 
-  const _TeamMemberTile({required this.member, this.onEditRole, this.onRemove});
+  const _TeamMemberTile({
+    required this.member,
+    required this.tags,
+    this.onEditRole,
+    this.onRemove,
+    this.onTags,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -212,7 +249,7 @@ class _TeamMemberTile extends StatelessWidget {
 
     final subtitle = member.teamSubtitle;
 
-    final hasActions = onEditRole != null || onRemove != null;
+    final hasActions = onEditRole != null || onRemove != null || onTags != null;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -250,6 +287,14 @@ class _TeamMemberTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(subtitle, style: CommunityDesign.metaStyle(context)),
+                  if (tags.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [for (final tag in tags) TagChip(tag: tag)],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -260,8 +305,20 @@ class _TeamMemberTile extends StatelessWidget {
                 onSelected: (value) {
                   if (value == 'role') onEditRole?.call();
                   if (value == 'remove') onRemove?.call();
+                  if (value == 'tags') onTags?.call();
                 },
                 itemBuilder: (context) => [
+                  if (onTags != null)
+                    const PopupMenuItem(
+                      value: 'tags',
+                      child: Row(
+                        children: [
+                          Icon(Icons.label_outline, size: 18),
+                          SizedBox(width: 10),
+                          Text('Tags'),
+                        ],
+                      ),
+                    ),
                   if (onEditRole != null)
                     const PopupMenuItem(
                       value: 'role',

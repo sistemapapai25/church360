@@ -11,6 +11,7 @@ import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../tags/presentation/widgets/member_tags_panel.dart';
 
 /// Tela de formulário de ministério (criar/editar)
 class MinistryFormScreen extends ConsumerStatefulWidget {
@@ -189,6 +190,32 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                // Tags — só na edição: ministry_tag precisa do id.
+                if (isEditing)
+                  PermissionGate(
+                    permission: 'tags.view',
+                    showLoading: false,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: GlassCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Tags',
+                              style: CommunityDesign.titleStyle(
+                                context,
+                              ).copyWith(fontSize: 18),
+                            ),
+                            const SizedBox(height: 12),
+                            MinistryTagsPanel(ministryId: widget.ministryId!),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
 
                 // Tipo — só na criação. Ver _ministryType.
                 if (widget.ministryId == null) ...[

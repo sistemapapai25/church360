@@ -25,7 +25,7 @@ class TagFilterChips extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tagsAsync = ref.watch(allTagsProvider);
-    final tags = tagsAsync.value ?? const [];
+    final tags = tagsAsync.valueOrNull ?? const [];
 
     if (tags.isEmpty) {
       return const SizedBox.shrink();
