@@ -15,6 +15,12 @@ final allWorshipServicesProvider = FutureProvider<List<WorshipService>>((ref) as
   return repo.getAllWorshipServices();
 });
 
+/// Provider de visitantes presentes por culto (id do culto -> quantidade)
+final worshipVisitorCountsProvider = FutureProvider<Map<String, int>>((ref) async {
+  final repo = ref.watch(worshipRepositoryProvider);
+  return repo.getVisitorCountByService();
+});
+
 /// Provider de culto por ID
 final worshipServiceByIdProvider = FutureProvider.family<WorshipService?, String>((ref, id) async {
   final repo = ref.watch(worshipRepositoryProvider);

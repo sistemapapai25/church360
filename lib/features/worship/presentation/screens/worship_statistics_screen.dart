@@ -98,6 +98,8 @@ class _WorshipStatisticsScreenState
 
               // Summary Cards
               _buildSummaryCards(services),
+              const SizedBox(height: 12),
+              _buildMembersVisitorsCards(services),
               const SizedBox(height: 24),
 
               // Attendance Trend Chart
@@ -223,6 +225,40 @@ class _WorshipStatisticsScreenState
             maxAttendance.toString(),
             Icons.groups,
             Colors.purple,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Separa o total de presentes do período em membros e visitantes.
+  Widget _buildMembersVisitorsCards(List<WorshipService> services) {
+    final countsAsync = ref.watch(worshipVisitorCountsProvider);
+    final visitorCounts = countsAsync.valueOrNull;
+    // Sem a contagem (carregando ou erro), não inventa número.
+    final pending = countsAsync.hasError ? '-' : '...';
+    final total = services.fold<int>(0, (sum, s) => sum + s.totalAttendance);
+    final visitors = visitorCounts == null
+        ? null
+        : services.fold<int>(0, (sum, s) => sum + (visitorCounts[s.id] ?? 0));
+
+    return Row(
+      children: [
+        Expanded(
+          child: _buildSummaryCard(
+            'Membros',
+            visitors == null ? pending : (total - visitors).toString(),
+            Icons.person,
+            Colors.teal,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildSummaryCard(
+            'Visitantes',
+            visitors?.toString() ?? pending,
+            Icons.person_add_alt,
+            Colors.pink,
           ),
         ),
       ],

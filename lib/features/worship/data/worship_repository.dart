@@ -117,6 +117,23 @@ class WorshipRepository {
     return response.count;
   }
 
+  /// Visitantes presentes por culto (id do culto -> quantidade).
+  /// Usa o status atual da pessoa: visitante que virou membro conta como membro.
+  Future<Map<String, int>> getVisitorCountByService() async {
+    final response = await _supabase
+        .from('worship_attendance')
+        .select('worship_service_id, user_account:user_id!inner(status)')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('user_account.status', 'visitor');
+
+    final counts = <String, int>{};
+    for (final row in response as List) {
+      final id = row['worship_service_id'] as String;
+      counts[id] = (counts[id] ?? 0) + 1;
+    }
+    return counts;
+  }
+
   // ==================== WORSHIP ATTENDANCE ====================
 
   /// Buscar presenças de um culto
