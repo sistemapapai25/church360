@@ -450,7 +450,9 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
                                           textCapitalization:
                                               TextCapitalization.sentences,
                                           decoration: const InputDecoration(
-                                            labelText: 'Título do módulo *',
+                                            labelText: 'Título do módulo',
+                                            helperText:
+                                                'Em branco, vira "Módulo N"',
                                             border: OutlineInputBorder(),
                                           ),
                                         ),

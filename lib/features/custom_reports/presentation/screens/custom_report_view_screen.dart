@@ -9,6 +9,7 @@ import '../providers/custom_report_data_provider.dart';
 import '../widgets/report_filter_dialog.dart';
 import '../widgets/custom_report_chart_renderer.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/constants/supabase_constants.dart';
 
 /// Tela de visualização de um relatório customizado
 class CustomReportViewScreen extends ConsumerStatefulWidget {
@@ -53,7 +54,9 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
             icon: const Icon(Icons.share),
             tooltip: 'Compartilhar',
             onPressed: () {
-              final link = '/custom-reports/${widget.reportId}/view';
+              // endereço completo (antes copiava só o caminho interno)
+              final link =
+                  '${SupabaseConstants.appWebBaseUrl}custom-reports/${widget.reportId}/view';
               Clipboard.setData(ClipboardData(text: link));
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(

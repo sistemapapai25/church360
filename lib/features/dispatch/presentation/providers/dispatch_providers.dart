@@ -286,7 +286,9 @@ class VariableRegistry {
       final res = await _supabase
           .from('user_account')
           .select('first_name,last_name')
-          .eq('id', uid)
+          // uid pode ser user_account.id ou auth_user_id (como no servidor)
+          .or('id.eq.$uid,auth_user_id.eq.$uid')
+          .limit(1)
           .maybeSingle();
       if (res == null) return null;
       final first = (res['first_name'] ?? '').toString();
@@ -305,7 +307,9 @@ class VariableRegistry {
       final res = await _supabase
           .from('user_account')
           .select('nickname')
-          .eq('id', uid)
+          // uid pode ser user_account.id ou auth_user_id (como no servidor)
+          .or('id.eq.$uid,auth_user_id.eq.$uid')
+          .limit(1)
           .maybeSingle();
       return res?['nickname']?.toString();
     } catch (_) {
@@ -431,7 +435,9 @@ class VariableRegistry {
       final res = await _supabase
           .from('user_account')
           .select('phone')
-          .eq('id', uid)
+          // uid pode ser user_account.id ou auth_user_id (como no servidor)
+          .or('id.eq.$uid,auth_user_id.eq.$uid')
+          .limit(1)
           .maybeSingle();
       return res?['phone']?.toString();
     } catch (_) {
@@ -467,7 +473,9 @@ class VariableRegistry {
       final res = await _supabase
           .from('user_account')
           .select('birthdate')
-          .eq('id', uid)
+          // uid pode ser user_account.id ou auth_user_id (como no servidor)
+          .or('id.eq.$uid,auth_user_id.eq.$uid')
+          .limit(1)
           .maybeSingle();
       final v = res?['birthdate']?.toString();
       if (v == null || v.isEmpty) return null;
@@ -493,7 +501,9 @@ class VariableRegistry {
       final res = await _supabase
           .from('user_account')
           .select('first_name,last_name')
-          .eq('id', uid)
+          // uid pode ser user_account.id ou auth_user_id (como no servidor)
+          .or('id.eq.$uid,auth_user_id.eq.$uid')
+          .limit(1)
           .maybeSingle();
       if (res == null) return null;
       final first = (res['first_name'] ?? '').toString();
@@ -512,7 +522,9 @@ class VariableRegistry {
       final res = await _supabase
           .from('user_account')
           .select('nickname,first_name')
-          .eq('id', uid)
+          // uid pode ser user_account.id ou auth_user_id (como no servidor)
+          .or('id.eq.$uid,auth_user_id.eq.$uid')
+          .limit(1)
           .maybeSingle();
       if (res == null) return null;
       final nick = (res['nickname'] ?? '').toString();
@@ -531,7 +543,9 @@ class VariableRegistry {
       final res = await _supabase
           .from('user_account')
           .select('first_name')
-          .eq('id', uid)
+          // uid pode ser user_account.id ou auth_user_id (como no servidor)
+          .or('id.eq.$uid,auth_user_id.eq.$uid')
+          .limit(1)
           .maybeSingle();
       final v = res?['first_name']?.toString();
       return (v == null || v.isEmpty) ? null : v;

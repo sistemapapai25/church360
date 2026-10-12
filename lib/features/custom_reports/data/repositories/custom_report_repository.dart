@@ -103,6 +103,11 @@ class CustomReportRepository {
         .from('custom_report')
         .update({'is_active': false, 'updated_at': DateTime.now().toIso8601String()})
         .eq('id', id);
+    // Tira o card do relatório da Dashboard (antes ficava lá, abrindo o excluído).
+    await _supabase
+        .from('dashboard_widget')
+        .delete()
+        .eq('widget_key', 'custom_report_$id');
   }
 
   /// Deletar relatório permanentemente

@@ -1719,8 +1719,11 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
         if (name != null && known.contains(name)) vars.add(name);
       }
       final repo = ref.read(messageTemplateRepositoryProvider);
-      final created = await repo.create(name: tn, content: tc, variables: vars.toList(), isActive: _templateActive);
-      _templateId = created.id;
+      // Regra que já tem template: atualiza (antes cada Salvar criava outro).
+      final saved = _templateId != null
+          ? await repo.update(id: _templateId!, name: tn, content: tc, variables: vars.toList(), isActive: _templateActive)
+          : await repo.create(name: tn, content: tc, variables: vars.toList(), isActive: _templateActive);
+      _templateId = saved.id;
     }
 
     final rule = DispatchRule(

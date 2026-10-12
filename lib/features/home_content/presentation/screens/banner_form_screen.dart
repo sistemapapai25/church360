@@ -223,7 +223,11 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
     final plansAsync = ref.watch(allReadingPlansProvider);
 
     return plansAsync.when(
-      data: (plans) {
+      data: (allPlans) {
+        // Só planos ativos; o plano já ligado ao banner continua na lista.
+        final plans = allPlans
+            .where((p) => p.isActive || p.id == _linkedId)
+            .toList();
         if (plans.isEmpty) {
           return const Text('Nenhum plano de leitura disponível');
         }
