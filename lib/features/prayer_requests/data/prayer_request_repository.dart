@@ -186,14 +186,6 @@ class PrayerRequestRepository {
     );
   }
 
-  /// Marcar pedido como cancelado
-  Future<PrayerRequest> markAsCancelled(String id) async {
-    return updatePrayerRequest(
-      id: id,
-      status: PrayerStatus.cancelled,
-    );
-  }
-
   // =====================================================
   // PRAYER REQUEST PRAYERS - CRUD
   // =====================================================
