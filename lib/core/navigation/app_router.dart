@@ -1765,25 +1765,6 @@ final appRouter = GoRouter(
     ),
 
     // =====================================================
-    // ROTAS: PEDIDOS DE ORAÇÃO (ADMIN - /home/prayer-requests)
-    // =====================================================
-    GoRoute(
-      path: '/home/prayer-requests',
-      builder: (context, state) => const PrayerRequestsListScreen(),
-    ),
-    GoRoute(
-      path: '/home/prayer-requests/new',
-      builder: (context, state) => const PrayerRequestFormScreen(),
-    ),
-    GoRoute(
-      path: '/home/prayer-requests/:id/edit',
-      builder: (context, state) {
-        final id = state.pathParameters['id']!;
-        return PrayerRequestFormScreen(prayerRequestId: id);
-      },
-    ),
-
-    // =====================================================
     // ROTAS: BÍBLIA
     // =====================================================
     GoRoute(

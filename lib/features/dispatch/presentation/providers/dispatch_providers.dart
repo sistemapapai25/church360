@@ -684,46 +684,6 @@ final allMessageTemplatesProvider = FutureProvider<List<MessageTemplate>>((ref) 
   return repo.getAll();
 });
 
-final messageTemplateActionsProvider = Provider<MessageTemplateActions>((ref) {
-  return MessageTemplateActions(ref);
-});
-
-class MessageTemplateActions {
-  final Ref _ref;
-  MessageTemplateActions(this._ref);
-
-  MessageTemplateRepository get _repo => _ref.read(messageTemplateRepositoryProvider);
-
-  Future<void> create(String name, String content, {bool isActive = true}) async {
-    final vars = _extractVariables(content);
-    await _repo.create(name: name, content: content, variables: vars, isActive: isActive);
-    _ref.invalidate(allMessageTemplatesProvider);
-  }
-
-  Future<void> update(String id, {String? name, String? content, bool? isActive}) async {
-    List<String>? vars;
-    if (content != null) vars = _extractVariables(content);
-    await _repo.update(id: id, name: name, content: content, variables: vars, isActive: isActive);
-    _ref.invalidate(allMessageTemplatesProvider);
-  }
-
-  Future<void> delete(String id) async {
-    await _repo.delete(id);
-    _ref.invalidate(allMessageTemplatesProvider);
-  }
-
-  List<String> _extractVariables(String content) {
-    final regex = RegExp(r'\{([a-zA-Z0-9_]+)\}');
-    final matches = regex.allMatches(content);
-    final set = <String>{};
-    for (final m in matches) {
-      set.add(m.group(1) ?? '');
-    }
-    set.removeWhere((e) => e.isEmpty);
-    return set.toList()..sort();
-  }
-}
-
 enum DispatchStatus {
   pending('pending', 'Pendente'),
   processing('processing', 'Processando'),
@@ -889,10 +849,6 @@ class DispatchMonitoringRepository {
   Future<void> cancelJob(String id) async {
     await _supabase.from('dispatch_job').update({'status': 'cancelled'}).eq('id', id);
   }
-
-  Future<void> deleteJob(String id) async {
-    await _supabase.from('dispatch_job').delete().eq('id', id);
-  }
 }
 
 final monitoringRepositoryProvider = Provider<DispatchMonitoringRepository>((ref) {
@@ -930,11 +886,6 @@ class MonitoringActions {
 
   Future<void> cancel(String id) async {
     await _repo.cancelJob(id);
-    _ref.invalidate(recentDispatchJobsProvider);
-  }
-
-  Future<void> delete(String id) async {
-    await _repo.deleteJob(id);
     _ref.invalidate(recentDispatchJobsProvider);
   }
 }
