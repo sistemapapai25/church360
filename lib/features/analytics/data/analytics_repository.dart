@@ -108,33 +108,18 @@ class AnalyticsRepository {
     int newVisitorsThisMonth = 0;
     try {
       final visitors = await _supabase
-          .from('visitor')
-          .select('first_visit_date')
-          .eq('tenant_id', tenantId);
+          .from('user_account')
+          .select('created_at')
+          .eq('tenant_id', tenantId)
+          .eq('status', 'visitor');
       totalVisitors = (visitors as List).length;
       for (final raw in visitors) {
         final row = Map<String, dynamic>.from(raw as Map);
-        if (_isCurrentMonth(row['first_visit_date'], now)) {
+        if (_isCurrentMonth(row['created_at'], now)) {
           newVisitorsThisMonth += 1;
         }
       }
-    } catch (_) {
-      // Fallback quando a tabela visitor não existe: derivar do user_account.
-      try {
-        final visitorsFromMembers = await _supabase
-            .from('user_account')
-            .select('created_at')
-            .eq('tenant_id', tenantId)
-            .eq('status', 'visitor');
-        totalVisitors = (visitorsFromMembers as List).length;
-        for (final raw in visitorsFromMembers) {
-          final row = Map<String, dynamic>.from(raw as Map);
-          if (_isCurrentMonth(row['created_at'], now)) {
-            newVisitorsThisMonth += 1;
-          }
-        }
-      } catch (_) {}
-    }
+    } catch (_) {}
 
     int servicesThisMonth = 0;
     int attendanceAccumulator = 0;
