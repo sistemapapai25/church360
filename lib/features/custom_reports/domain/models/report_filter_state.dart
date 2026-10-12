@@ -1,7 +1,8 @@
 import '../enums/report_enums.dart';
 
-/// Estado temporário de filtros aplicados a um relatório
-/// Não é salvo no banco - apenas usado durante a visualização
+/// Filtros aplicados na visualização de um relatório. Valem até sair da
+/// tela, a menos que alguém com reports.edit use "Salvar filtros"
+/// (ReportConfig.savedFilters).
 class ReportFilterState {
   final DataSource dataSource;
   final DateTime? startDate;
@@ -36,6 +37,32 @@ class ReportFilterState {
       customFilters: customFilters ?? this.customFilters,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        if (startDate != null) 'start_date': _day(startDate!),
+        if (endDate != null) 'end_date': _day(endDate!),
+        if (status != null) 'status': status,
+        if (gender != null) 'gender': gender,
+        if (customFilters.isNotEmpty) 'custom': customFilters,
+      };
+
+  factory ReportFilterState.fromJson(
+    DataSource dataSource,
+    Map<String, dynamic>? json,
+  ) {
+    if (json == null) return ReportFilterState(dataSource: dataSource);
+    DateTime? date(String key) => DateTime.tryParse(json[key]?.toString() ?? '');
+    return ReportFilterState(
+      dataSource: dataSource,
+      startDate: date('start_date'),
+      endDate: date('end_date'),
+      status: json['status'] as String?,
+      gender: json['gender'] as String?,
+      customFilters: Map<String, dynamic>.from(json['custom'] as Map? ?? {}),
+    );
+  }
+
+  static String _day(DateTime d) => d.toIso8601String().substring(0, 10);
 
   /// Limpar todos os filtros
   ReportFilterState clear() {

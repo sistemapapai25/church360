@@ -300,7 +300,11 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
             child: InkWell(
               onTap: () {
                 setState(() {
-                  if (_selectedDataSource != source) _dateField = null;
+                  if (_selectedDataSource != source) {
+                    _dateField = null;
+                    // Filtros salvos (status, gênero) eram da fonte antiga.
+                    _config = _config.copyWith(savedFilters: const {});
+                  }
                   _selectedDataSource = source;
                   // Reset métrica e agrupamento ao mudar fonte de dados
                   _selectedMetric = null;

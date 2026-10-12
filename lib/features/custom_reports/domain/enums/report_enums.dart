@@ -242,25 +242,6 @@ enum GroupByType {
   }
 }
 
-/// Tipo de permissão
-enum PermissionType {
-  user('user', 'Usuário'),
-  group('group', 'Grupo'),
-  public('public', 'Público');
-
-  final String value;
-  final String label;
-
-  const PermissionType(this.value, this.label);
-
-  static PermissionType fromValue(String value) {
-    return PermissionType.values.firstWhere(
-      (e) => e.value == value,
-      orElse: () => PermissionType.public,
-    );
-  }
-}
-
 /// Operador de comparação para filtros
 enum FilterOperator {
   equals('eq', 'Igual a'),

@@ -219,6 +219,9 @@ class ReportConfig {
   /// Contribuições/Despesas: data usada no período e nos agrupamentos por data
   /// ('vencimento' ou 'data_pagamento'). Sem escolha = vencimento.
   final String? dateField;
+  /// Filtros gravados pelo "Salvar filtros" da visualização: 'main' e o id
+  /// de cada visualização adicional -> ReportFilterState.toJson().
+  final Map<String, dynamic>? savedFilters;
 
   const ReportConfig({
     this.filters = const [],
@@ -230,6 +233,7 @@ class ReportConfig {
     this.orderBy,
     this.orderAscending = true,
     this.dateField,
+    this.savedFilters,
   });
 
   Map<String, dynamic> toJson() {
@@ -243,6 +247,7 @@ class ReportConfig {
       'order_by': orderBy,
       'order_ascending': orderAscending,
       if (dateField != null) 'date_field': dateField,
+      if (savedFilters != null) 'saved_filters': savedFilters,
     };
   }
 
@@ -269,6 +274,7 @@ class ReportConfig {
       orderBy: json['order_by'] as String?,
       orderAscending: json['order_ascending'] as bool? ?? true,
       dateField: json['date_field'] as String?,
+      savedFilters: json['saved_filters'] as Map<String, dynamic>?,
     );
   }
 
@@ -282,6 +288,7 @@ class ReportConfig {
     String? orderBy,
     bool? orderAscending,
     String? dateField,
+    Map<String, dynamic>? savedFilters,
   }) {
     return ReportConfig(
       filters: filters ?? this.filters,
@@ -293,6 +300,7 @@ class ReportConfig {
       orderBy: orderBy ?? this.orderBy,
       orderAscending: orderAscending ?? this.orderAscending,
       dateField: dateField ?? this.dateField,
+      savedFilters: savedFilters ?? this.savedFilters,
     );
   }
 
