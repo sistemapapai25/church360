@@ -16,7 +16,14 @@ class WorshipServicePickerSheet extends ConsumerWidget {
   /// fechar o sheet (este widget faz o pop antes de chamar).
   final void Function(WorshipService service) onSelected;
 
-  const WorshipServicePickerSheet({super.key, required this.onSelected});
+  /// Para que serve a escolha (linha abaixo do título).
+  final String subtitle;
+
+  const WorshipServicePickerSheet({
+    super.key,
+    required this.onSelected,
+    this.subtitle = 'Para iniciar o checklist de presença do diaconato.',
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -49,7 +56,7 @@ class WorshipServicePickerSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Para iniciar o checklist de presença do diaconato.',
+              subtitle,
               style: CommunityDesign.metaStyle(context),
             ),
             const SizedBox(height: 16),

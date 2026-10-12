@@ -67,9 +67,13 @@ void main() {
         'Relatórios',
       ];
       expect(catalog.tabLabelsFor('raizes'), esperado);
-      // O Diaconato nasce com Materiais ligada (as cartilhas, 003900).
+      // O Diaconato nasce com Rotina (004000), Pedidos (004100) e Materiais
+      // (003900) ligadas.
       expect(catalog.tabLabelsFor('diaconato'), [
-        ...esperado.take(4),
+        'Painel',
+        'Rotina',
+        'Pedidos',
+        ...esperado.skip(1).take(3),
         'Materiais',
         ...esperado.skip(4),
       ]);
@@ -279,6 +283,7 @@ void main() {
       expect(keys(all), [
         'equipe', 'escala', 'financeiro', 'whatsapp', 'relatorios',
         'louvores-off', 'alunos-off', 'checklist-off', 'materiais-off',
+        'rotina-off', 'pedidos-off',
       ]);
     });
 
@@ -298,6 +303,7 @@ void main() {
       expect(keys(r), [
         'equipe', 'escala', 'financeiro', 'whatsapp-off', 'relatorios',
         'louvores-off', 'alunos', 'checklist-off', 'materiais-off',
+        'rotina-off', 'pedidos-off',
       ]);
     });
 
