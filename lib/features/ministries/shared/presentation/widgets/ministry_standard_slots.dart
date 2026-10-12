@@ -3,6 +3,7 @@ import '../../../../courses/presentation/widgets/formacao_turmas_tab.dart';
 import '../../../louvor/presentation/louvores_tab.dart';
 import '../../domain/ministry_type_catalog.dart';
 import 'ministry_finance_tab.dart';
+import 'ministry_materials_tab.dart';
 import 'ministry_reports_tab.dart';
 import 'ministry_scale_tab.dart';
 import 'ministry_team_tab.dart';
@@ -42,8 +43,12 @@ Map<String, MinistryTabSlot> ministryStandardSlots(
     builder: (_) => FormacaoTurmasTab(ministryId: ministryId),
   ),
   MinistryTabKeys.checklist: MinistryTabSlot(
-    defaultLabel: 'Checklist',
+    defaultLabel: 'Etapas',
     builder: (_) => BatismoChecklistTab(ministryId: ministryId),
+  ),
+  MinistryTabKeys.materiais: MinistryTabSlot(
+    defaultLabel: 'Materiais',
+    builder: (_) => MinistryMaterialsTab(ministryId: ministryId),
   ),
   MinistryTabKeys.whatsapp: MinistryTabSlot(
     defaultLabel: 'WhatsApp',

@@ -46,7 +46,7 @@ void main() {
         'Escala',
         'Financeiro',
         'Turmas',
-        'Checklist',
+        'Etapas',
         'WhatsApp',
         'Relatórios',
       ]);
@@ -67,7 +67,12 @@ void main() {
         'Relatórios',
       ];
       expect(catalog.tabLabelsFor('raizes'), esperado);
-      expect(catalog.tabLabelsFor('diaconato'), esperado);
+      // O Diaconato nasce com Materiais ligada (as cartilhas, 003900).
+      expect(catalog.tabLabelsFor('diaconato'), [
+        ...esperado.take(4),
+        'Materiais',
+        ...esperado.skip(4),
+      ]);
     });
 
     test('atalhos de rota batem com as rotas do app_router', () {
@@ -273,7 +278,7 @@ void main() {
       final all = MinistryTypeCatalog.fallback.availableTabsFor('generic');
       expect(keys(all), [
         'equipe', 'escala', 'financeiro', 'whatsapp', 'relatorios',
-        'louvores-off', 'alunos-off', 'checklist-off',
+        'louvores-off', 'alunos-off', 'checklist-off', 'materiais-off',
       ]);
     });
 
@@ -292,7 +297,7 @@ void main() {
       );
       expect(keys(r), [
         'equipe', 'escala', 'financeiro', 'whatsapp-off', 'relatorios',
-        'louvores-off', 'alunos', 'checklist-off',
+        'louvores-off', 'alunos', 'checklist-off', 'materiais-off',
       ]);
     });
 

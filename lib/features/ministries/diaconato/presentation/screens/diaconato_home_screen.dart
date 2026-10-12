@@ -341,6 +341,17 @@ class _LastCountHero extends StatelessWidget {
                 ),
               ],
             ),
+            if (lastCount.totalChildren > 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                adultsAndChildrenLabel(
+                  lastCount.totalPeople,
+                  lastCount.totalChildren,
+                ),
+                key: const ValueKey('last-count-children'),
+                style: CommunityDesign.metaStyle(context),
+              ),
+            ],
           ],
         ),
       ),
