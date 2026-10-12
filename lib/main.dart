@@ -148,9 +148,13 @@ class _AppBootstrapState extends State<AppBootstrap> {
   /// O `push` precisa esperar a Home virar a rota atual: antes do
   /// `MaterialApp.router` montar, o `go` ainda não foi processado, e um
   /// `push` imediato empilharia sobre a rota velha.
+  ///
+  /// Vai para `/home?tab=home`, não `/home`: sem `tab` a Home sincroniza a URL
+  /// com `go('/home?tab=home')` no primeiro frame, e esse `go` limpa a pilha,
+  /// derrubando a tela recém-empilhada (F5 voltava para a Home).
   void _abrirSobreAHome(String location) {
     final delegate = appRouter.routerDelegate;
-    appRouter.go('/home');
+    appRouter.go('/home?tab=home');
     void empilhar() {
       final config = delegate.currentConfiguration;
       if (config.isEmpty) return;
