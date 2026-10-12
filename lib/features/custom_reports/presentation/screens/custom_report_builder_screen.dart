@@ -936,6 +936,7 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
       );
 
       String? createdReportId;
+      var widgetCreated = false;
 
       if (widget.reportId != null) {
         debugPrint('🟢 Atualizando relatório...');
@@ -970,6 +971,7 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
             isEnabled: true,
           );
           debugPrint('✅ Widget criado no dashboard!');
+          widgetCreated = true;
         } catch (e) {
           // Se falhar ao criar widget, apenas loga mas não impede o fluxo
           debugPrint('⚠️ Erro ao criar widget no dashboard: $e');
@@ -983,7 +985,9 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
             content: Text(
               widget.reportId != null
                   ? 'Relatório atualizado com sucesso!'
-                  : 'Relatório criado e adicionado ao Dashboard!',
+                  : (widgetCreated
+                      ? 'Relatório criado e adicionado ao Dashboard!'
+                      : 'Relatório criado. Não foi possível pôr o card no Dashboard.'),
             ),
             backgroundColor: Colors.green,
           ),

@@ -8,6 +8,7 @@ import '../providers/custom_report_providers.dart';
 import '../providers/custom_report_data_provider.dart';
 import '../widgets/report_filter_dialog.dart';
 import '../widgets/custom_report_chart_renderer.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de visualização de um relatório customizado
 class CustomReportViewScreen extends ConsumerStatefulWidget {
@@ -37,12 +38,16 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
       appBar: AppBar(
         title: const Text('Relatório Customizado'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            tooltip: 'Editar',
-            onPressed: () {
-              context.push('/custom-reports/${widget.reportId}/edit');
-            },
+          PermissionGate(
+            permission: 'reports.edit',
+            showLoading: false,
+            child: IconButton(
+              icon: const Icon(Icons.edit),
+              tooltip: 'Editar',
+              onPressed: () {
+                context.push('/custom-reports/${widget.reportId}/edit');
+              },
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.share),

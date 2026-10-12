@@ -28,6 +28,7 @@ class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
   bool _isPublic = true;
   bool _allowWhatsappContact = false;
   bool _isLoading = false;
+  String? _authorId;
 
   @override
   void initState() {
@@ -48,6 +49,7 @@ class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
           _descriptionController.text = testimony.description;
           _isPublic = testimony.isPublic;
           _allowWhatsappContact = testimony.allowWhatsappContact;
+          _authorId = testimony.authorId;
         });
       }
     } catch (e) {
@@ -73,9 +75,12 @@ class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
     final requiredPermission = isEditMode
         ? 'testimonies.edit'
         : 'testimonies.create';
-    final hasPermission = await ref.read(
-      currentUserHasPermissionProvider(requiredPermission).future,
-    );
+    // O autor edita o próprio testemunho sem testimonies.edit (o banco deixa).
+    final isAuthor = isEditMode && _authorId == ref.read(currentUserIdProvider);
+    final hasPermission = isAuthor ||
+        await ref.read(
+          currentUserHasPermissionProvider(requiredPermission).future,
+        );
     if (!hasPermission) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -253,37 +258,41 @@ class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
             ),
             const SizedBox(height: 32),
 
-            // Botão Salvar
-            DisabledByPermission(
-              permission: isEditing ? 'testimonies.edit' : 'testimonies.create',
-              disabledTooltip: 'Você não tem permissão para esta ação',
-              child: FilledButton.icon(
-                onPressed: _isLoading ? null : _saveTestimony,
-                icon: _isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(AppIcons.save),
-                label: Text(
-                  _isLoading
-                      ? 'Salvando...'
-                      : (isEditing
-                            ? 'Atualizar Testemunho'
-                            : 'Criar Testemunho'),
-                ),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.all(16),
-                ),
+            // Botão Salvar (o autor salva o próprio testemunho sem a permissão)
+            if (isEditing && _authorId == ref.watch(currentUserIdProvider))
+              _saveButton(isEditing)
+            else
+              DisabledByPermission(
+                permission:
+                    isEditing ? 'testimonies.edit' : 'testimonies.create',
+                disabledTooltip: 'Você não tem permissão para esta ação',
+                child: _saveButton(isEditing),
               ),
-            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _saveButton(bool isEditing) {
+    return FilledButton.icon(
+      onPressed: _isLoading ? null : _saveTestimony,
+      icon: _isLoading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+          : const Icon(AppIcons.save),
+      label: Text(
+        _isLoading
+            ? 'Salvando...'
+            : (isEditing ? 'Atualizar Testemunho' : 'Criar Testemunho'),
+      ),
+      style: FilledButton.styleFrom(padding: const EdgeInsets.all(16)),
     );
   }
 }
