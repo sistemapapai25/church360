@@ -380,13 +380,13 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.error_outline,
+              error is ReportAccessDenied ? Icons.lock_outline : Icons.error_outline,
               size: 48,
-              color: Colors.red[300],
+              color: error is ReportAccessDenied ? Colors.grey[500] : Colors.red[300],
             ),
             const SizedBox(height: 16),
             Text(
-              'Erro ao carregar dados',
+              error is ReportAccessDenied ? 'Sem acesso' : 'Erro ao carregar dados',
               style: TextStyle(
                 color: Colors.grey[600],
                 fontSize: 16,

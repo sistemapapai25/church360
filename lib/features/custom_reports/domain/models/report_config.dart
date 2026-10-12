@@ -216,6 +216,9 @@ class ReportConfig {
   final int? limit;
   final String? orderBy;
   final bool orderAscending;
+  /// Contribuições/Despesas: data usada no período e nos agrupamentos por data
+  /// ('vencimento' ou 'data_pagamento'). Sem escolha = vencimento.
+  final String? dateField;
 
   const ReportConfig({
     this.filters = const [],
@@ -226,6 +229,7 @@ class ReportConfig {
     this.limit,
     this.orderBy,
     this.orderAscending = true,
+    this.dateField,
   });
 
   Map<String, dynamic> toJson() {
@@ -238,6 +242,7 @@ class ReportConfig {
       'limit': limit,
       'order_by': orderBy,
       'order_ascending': orderAscending,
+      if (dateField != null) 'date_field': dateField,
     };
   }
 
@@ -263,6 +268,7 @@ class ReportConfig {
       limit: json['limit'] as int?,
       orderBy: json['order_by'] as String?,
       orderAscending: json['order_ascending'] as bool? ?? true,
+      dateField: json['date_field'] as String?,
     );
   }
 
@@ -275,6 +281,7 @@ class ReportConfig {
     int? limit,
     String? orderBy,
     bool? orderAscending,
+    String? dateField,
   }) {
     return ReportConfig(
       filters: filters ?? this.filters,
@@ -285,6 +292,7 @@ class ReportConfig {
       limit: limit ?? this.limit,
       orderBy: orderBy ?? this.orderBy,
       orderAscending: orderAscending ?? this.orderAscending,
+      dateField: dateField ?? this.dateField,
     );
   }
 
