@@ -506,7 +506,6 @@ class DataSourceMetadataRegistry {
       supportedVisualizations: [
         VisualizationType.card,
         VisualizationType.kpi,
-        VisualizationType.gauge,
         VisualizationType.bar,
         VisualizationType.table,
       ],
