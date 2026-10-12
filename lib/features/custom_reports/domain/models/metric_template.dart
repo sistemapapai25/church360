@@ -74,7 +74,7 @@ class MetricTemplates {
             id: 'members_avg_age',
             label: 'Média de Idade',
             description: 'Idade média dos membros',
-            fieldName: 'birth_date',
+            fieldName: 'age',
             aggregationType: AggregationType.avg,
             groupByOptions: [
               const GroupByOption(type: GroupByType.none, label: 'Sem agrupamento'),
@@ -94,8 +94,8 @@ class MetricTemplates {
             aggregationType: AggregationType.count,
             groupByOptions: [
               const GroupByOption(type: GroupByType.none, label: 'Sem agrupamento'),
-              const GroupByOption(type: GroupByType.month, label: 'Por mês de visita', fieldName: 'visit_date'),
-              const GroupByOption(type: GroupByType.year, label: 'Por ano de visita', fieldName: 'visit_date'),
+              const GroupByOption(type: GroupByType.month, label: 'Por mês de visita', fieldName: 'first_visit_date'),
+              const GroupByOption(type: GroupByType.year, label: 'Por ano de visita', fieldName: 'first_visit_date'),
               const GroupByOption(type: GroupByType.status, label: 'Por status', fieldName: 'status'),
             ],
           ),
@@ -127,8 +127,8 @@ class MetricTemplates {
             aggregationType: AggregationType.count,
             groupByOptions: [
               const GroupByOption(type: GroupByType.none, label: 'Sem agrupamento'),
-              const GroupByOption(type: GroupByType.month, label: 'Por mês', fieldName: 'event_date'),
-              const GroupByOption(type: GroupByType.year, label: 'Por ano', fieldName: 'event_date'),
+              const GroupByOption(type: GroupByType.month, label: 'Por mês', fieldName: 'start_date'),
+              const GroupByOption(type: GroupByType.year, label: 'Por ano', fieldName: 'start_date'),
               const GroupByOption(type: GroupByType.status, label: 'Por status', fieldName: 'status'),
               const GroupByOption(type: GroupByType.type, label: 'Por tipo', fieldName: 'event_type'),
             ],
@@ -145,7 +145,7 @@ class MetricTemplates {
             aggregationType: AggregationType.count,
             groupByOptions: [
               const GroupByOption(type: GroupByType.none, label: 'Sem agrupamento'),
-              const GroupByOption(type: GroupByType.month, label: 'Por mês', fieldName: 'created_at'),
+              const GroupByOption(type: GroupByType.month, label: 'Por mês', fieldName: 'registered_at'),
               const GroupByOption(type: GroupByType.status, label: 'Por status', fieldName: 'status'),
             ],
           ),
@@ -158,13 +158,13 @@ class MetricTemplates {
             id: 'contributions_sum',
             label: 'Total de Contribuições',
             description: 'Soma de todas as contribuições',
-            fieldName: 'amount',
+            fieldName: 'valor',
             aggregationType: AggregationType.sum,
             groupByOptions: [
               const GroupByOption(type: GroupByType.none, label: 'Sem agrupamento'),
-              const GroupByOption(type: GroupByType.month, label: 'Por mês', fieldName: 'contribution_date'),
-              const GroupByOption(type: GroupByType.year, label: 'Por ano', fieldName: 'contribution_date'),
-              const GroupByOption(type: GroupByType.type, label: 'Por tipo', fieldName: 'contribution_type'),
+              const GroupByOption(type: GroupByType.month, label: 'Por mês', fieldName: 'vencimento'),
+              const GroupByOption(type: GroupByType.year, label: 'Por ano', fieldName: 'vencimento'),
+              const GroupByOption(type: GroupByType.type, label: 'Por categoria', fieldName: 'categoria'),
             ],
           ),
           MetricTemplate(
@@ -175,20 +175,20 @@ class MetricTemplates {
             aggregationType: AggregationType.count,
             groupByOptions: [
               const GroupByOption(type: GroupByType.none, label: 'Sem agrupamento'),
-              const GroupByOption(type: GroupByType.month, label: 'Por mês', fieldName: 'contribution_date'),
-              const GroupByOption(type: GroupByType.type, label: 'Por tipo', fieldName: 'contribution_type'),
+              const GroupByOption(type: GroupByType.month, label: 'Por mês', fieldName: 'vencimento'),
+              const GroupByOption(type: GroupByType.type, label: 'Por categoria', fieldName: 'categoria'),
             ],
           ),
           MetricTemplate(
             id: 'contributions_avg',
             label: 'Média de Contribuição',
             description: 'Valor médio das contribuições',
-            fieldName: 'amount',
+            fieldName: 'valor',
             aggregationType: AggregationType.avg,
             groupByOptions: [
               const GroupByOption(type: GroupByType.none, label: 'Sem agrupamento'),
-              const GroupByOption(type: GroupByType.month, label: 'Por mês', fieldName: 'contribution_date'),
-              const GroupByOption(type: GroupByType.type, label: 'Por tipo', fieldName: 'contribution_type'),
+              const GroupByOption(type: GroupByType.month, label: 'Por mês', fieldName: 'vencimento'),
+              const GroupByOption(type: GroupByType.type, label: 'Por categoria', fieldName: 'categoria'),
             ],
           ),
         ];
@@ -199,13 +199,13 @@ class MetricTemplates {
             id: 'expenses_sum',
             label: 'Total de Despesas',
             description: 'Soma de todas as despesas',
-            fieldName: 'amount',
+            fieldName: 'valor',
             aggregationType: AggregationType.sum,
             groupByOptions: [
               const GroupByOption(type: GroupByType.none, label: 'Sem agrupamento'),
-              const GroupByOption(type: GroupByType.month, label: 'Por mês', fieldName: 'expense_date'),
-              const GroupByOption(type: GroupByType.year, label: 'Por ano', fieldName: 'expense_date'),
-              const GroupByOption(type: GroupByType.category, label: 'Por categoria', fieldName: 'category'),
+              const GroupByOption(type: GroupByType.month, label: 'Por mês', fieldName: 'vencimento'),
+              const GroupByOption(type: GroupByType.year, label: 'Por ano', fieldName: 'vencimento'),
+              const GroupByOption(type: GroupByType.category, label: 'Por categoria', fieldName: 'categoria'),
             ],
           ),
           MetricTemplate(
@@ -216,8 +216,8 @@ class MetricTemplates {
             aggregationType: AggregationType.count,
             groupByOptions: [
               const GroupByOption(type: GroupByType.none, label: 'Sem agrupamento'),
-              const GroupByOption(type: GroupByType.month, label: 'Por mês', fieldName: 'expense_date'),
-              const GroupByOption(type: GroupByType.category, label: 'Por categoria', fieldName: 'category'),
+              const GroupByOption(type: GroupByType.month, label: 'Por mês', fieldName: 'vencimento'),
+              const GroupByOption(type: GroupByType.category, label: 'Por categoria', fieldName: 'categoria'),
             ],
           ),
         ];
