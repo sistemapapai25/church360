@@ -210,11 +210,6 @@ class PrayerRequestActions {
     await updatePrayerRequest(id: id, status: PrayerStatus.answered);
   }
 
-  /// Marcar como cancelado
-  Future<void> markAsCancelled(String id) async {
-    await updatePrayerRequest(id: id, status: PrayerStatus.cancelled);
-  }
-
   /// Marcar "eu orei"
   Future<void> markAsPrayed({
     required String prayerRequestId,

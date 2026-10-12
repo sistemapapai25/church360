@@ -16,6 +16,23 @@ final myNetworkUnitsProvider = FutureProvider<List<TenantUnit>>((ref) async {
   return repo.listMyNetworkUnits();
 });
 
+/// Só a rede do tenant atual (matriz + filiais). A RPC devolve todas as redes
+/// do usuário (o seletor de igreja precisa delas); quem está em várias igrejas,
+/// como o platform owner, via redes misturadas na tela de Filiais.
+final currentNetworkUnitsProvider = FutureProvider<List<TenantUnit>>((
+  ref,
+) async {
+  final units = await ref.watch(myNetworkUnitsProvider.future);
+  final current = units.where(
+    (u) => u.tenantId == SupabaseConstants.currentTenantId,
+  );
+  if (current.isEmpty) return const [];
+  final root = current.first.parentTenantId ?? current.first.tenantId;
+  return units
+      .where((u) => u.tenantId == root || u.parentTenantId == root)
+      .toList();
+});
+
 /// True quando o tenant atual é `kind == 'matriz'` e o usuário tem
 /// `access_level_number >= 5` nele. Gate de tenant-kind + nível, não uma
 /// permissão RBAC — mesmo raciocínio de `currentUserIsOwnerProvider`. Defesa

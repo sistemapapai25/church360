@@ -268,7 +268,14 @@ class _DispatchRulesSheetState extends ConsumerState<_DispatchRulesSheet> {
                   builder: (context) => _EditRuleDialog(),
                 );
                 if (created != null) {
-                  await actions.createRule(created);
+                  try {
+                    await actions.createRule(created);
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erro ao criar regra: $e')),
+                    );
+                  }
                 }
               },
             ),
@@ -391,7 +398,14 @@ class _DispatchRulesSheetState extends ConsumerState<_DispatchRulesSheet> {
                     builder: (context) => _EditRuleDialog(initial: r),
                   );
                   if (updated != null) {
-                    await actions.updateRule(r.id, updated);
+                    try {
+                      await actions.updateRule(r.id, updated);
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Erro ao salvar regra: $e')),
+                      );
+                    }
                   }
                 },
                 onLongPress: () async {
@@ -407,7 +421,14 @@ class _DispatchRulesSheetState extends ConsumerState<_DispatchRulesSheet> {
                     ),
                   );
                   if (confirmed == true) {
-                    await actions.deleteRule(r.id);
+                    try {
+                      await actions.deleteRule(r.id);
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Erro ao remover regra: $e')),
+                      );
+                    }
                   }
                 },
               );

@@ -15,7 +15,7 @@ class BranchesListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final canCreateAsync = ref.watch(isMatrizAdminProvider);
-    final unitsAsync = ref.watch(myNetworkUnitsProvider);
+    final unitsAsync = ref.watch(currentNetworkUnitsProvider);
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),

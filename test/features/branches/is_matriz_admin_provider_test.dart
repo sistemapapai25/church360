@@ -111,4 +111,33 @@ void main() {
       expect(await container.read(isMatrizAdminProvider.future), isFalse);
     });
   });
+
+  test('currentNetworkUnitsProvider mostra só a rede do tenant atual', () async {
+    final container = _buildContainer(
+      units: [
+        TenantUnit(
+          tenantId: currentTenantId,
+          name: 'Matriz',
+          kind: 'matriz',
+          isCurrent: false,
+        ),
+        TenantUnit(
+          tenantId: 'filial-1',
+          name: 'Filial',
+          kind: 'filial',
+          parentTenantId: currentTenantId,
+          isCurrent: false,
+        ),
+        const TenantUnit(
+          tenantId: 'outra-igreja',
+          name: 'Outra',
+          kind: 'independente',
+          isCurrent: false,
+        ),
+      ],
+    );
+
+    final units = await container.read(currentNetworkUnitsProvider.future);
+    expect(units.map((u) => u.tenantId), [currentTenantId, 'filial-1']);
+  });
 }
