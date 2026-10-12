@@ -95,8 +95,8 @@ class ReportFilterState {
             label: 'Status',
             type: FilterType.select,
             icon: 'check_circle',
+            // Sem 'visitor': a fonte Membros não traz visitantes.
             options: _options([
-              'visitor',
               'new_convert',
               'member_active',
               'member_inactive',

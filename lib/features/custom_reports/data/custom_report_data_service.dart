@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../../../core/widgets/age_range_filter.dart';
@@ -29,9 +30,15 @@ class CustomReportDataService {
     // Construir query base (mesma tabela e recorte da tela de cada módulo)
     var query = _baseQuery(report.dataSource);
 
+    // Data escolhida no construtor (Contribuições/Despesas); senão a da fonte.
+    final dateField = _isLedger(report.dataSource) && report.config.dateField != null
+        ? report.config.dateField!
+        : null;
+
     // Aplicar filtros temporários (do botão de funil)
     if (filterState != null) {
-      query = _applyFilters(query, filterState, report.dataSource);
+      query = _applyFilters(
+          query, filterState, dateField ?? _getDateField(report.dataSource));
     }
 
     // Executar query
@@ -41,8 +48,11 @@ class CustomReportDataService {
         .toList();
 
     // Processar dados baseado na agregação
-    return _processData(data, aggregation, report.dataSource);
+    return processData(data, aggregation, report.dataSource, dateField);
   }
+
+  static bool _isLedger(DataSource s) =>
+      s == DataSource.contributions || s == DataSource.expenses;
 
   /// Query base por DataSource: as fontes que o construtor oferece
   /// (DataSourceMetadataRegistry) leem a tabela que a tela do módulo lê.
@@ -51,9 +61,13 @@ class CustomReportDataService {
   ) {
     final tenantId = SupabaseConstants.currentTenantId;
     switch (dataSource) {
-      // Membros: a tela de Membros lista todo o user_account do tenant.
+      // Membros sem visitantes (Visitantes tem fonte própria).
       case DataSource.members:
-        return _supabase.from('user_account').select().eq('tenant_id', tenantId);
+        return _supabase
+            .from('user_account')
+            .select()
+            .eq('tenant_id', tenantId)
+            .or('status.is.null,status.neq.visitor');
       case DataSource.visitors:
         return _supabase
             .from('user_account')
@@ -125,11 +139,10 @@ class CustomReportDataService {
   PostgrestFilterBuilder<List<Map<String, dynamic>>> _applyFilters(
     PostgrestFilterBuilder<List<Map<String, dynamic>>> query,
     ReportFilterState filterState,
-    DataSource dataSource,
+    String dateField,
   ) {
     // Filtro de período por dia. A data final entra inteira: < dia seguinte
     // (com lte 00:00 o último dia sumia nas colunas timestamptz).
-    final dateField = _getDateField(dataSource);
     if (filterState.startDate != null) {
       query = query.gte(dateField, _day(filterState.startDate!));
     }
@@ -172,7 +185,7 @@ class CustomReportDataService {
         return 'start_date';
       case DataSource.eventRegistrations:
         return 'registered_at';
-      // Mesmo campo do filtro de período do Financeiro.
+      // Padrão do Financeiro; o construtor pode trocar por data_pagamento.
       case DataSource.contributions:
       case DataSource.expenses:
         return 'vencimento';
@@ -195,10 +208,12 @@ class CustomReportDataService {
   }
 
   /// Processar dados baseado na agregação
-  List<Map<String, dynamic>> _processData(
+  @visibleForTesting
+  List<Map<String, dynamic>> processData(
     List<dynamic> data,
     ReportAggregation aggregation,
     DataSource dataSource,
+    String? dateField,
   ) {
     // Se não há agrupamento, retornar valor único
     if (aggregation.groupBy == GroupByType.none) {
@@ -215,7 +230,7 @@ class CustomReportDataService {
     final Map<String, List<dynamic>> groups = {};
 
     for (var item in data) {
-      final groupKey = _getGroupKey(item, aggregation, dataSource);
+      final groupKey = _getGroupKey(item, aggregation, dataSource, dateField);
       if (!groups.containsKey(groupKey)) {
         groups[groupKey] = [];
       }
@@ -243,13 +258,14 @@ class CustomReportDataService {
     dynamic item,
     ReportAggregation aggregation,
     DataSource dataSource,
+    String? dateField,
   ) {
     switch (aggregation.groupBy) {
       case GroupByType.day:
       case GroupByType.week:
       case GroupByType.month:
       case GroupByType.year:
-        return _getDateGroupKey(item, aggregation, dataSource);
+        return _getDateGroupKey(item, aggregation, dataSource, dateField);
 
       case GroupByType.status:
         final status = item['status']?.toString();
@@ -280,8 +296,11 @@ class CustomReportDataService {
     dynamic item,
     ReportAggregation aggregation,
     DataSource dataSource,
+    String? chosenDateField,
   ) {
-    final dateField = aggregation.groupByField ?? _getDateField(dataSource);
+    final dateField = chosenDateField ??
+        aggregation.groupByField ??
+        _getDateField(dataSource);
     final dateStr = item[dateField]?.toString();
     
     if (dateStr == null) return 'Sem data';
