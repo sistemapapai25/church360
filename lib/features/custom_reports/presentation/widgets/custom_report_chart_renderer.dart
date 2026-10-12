@@ -52,9 +52,78 @@ class CustomReportChartRenderer extends StatelessWidget {
         return _buildPieChart(context);
       case 'area':
         return _buildAreaChart(context);
+      case 'table':
+        return _buildTable(context);
+      // Medidor sem meta configurável: mostra o número, como o card.
+      case 'card':
+      case 'kpi':
+      case 'multi_card':
+      case 'gauge':
+        return _buildCards(context);
       default:
         return _buildBarChart(context);
     }
+  }
+
+  /// Tabela: uma linha por grupo.
+  Widget _buildTable(BuildContext context) {
+    return SingleChildScrollView(
+      child: SizedBox(
+        width: double.infinity,
+        child: DataTable(
+          columns: const [
+            DataColumn(label: Text('Item')),
+            DataColumn(label: Text('Valor'), numeric: true),
+          ],
+          rows: data
+              .map((item) => DataRow(cells: [
+                    DataCell(Text(item['label'].toString())),
+                    DataCell(Text(_formatValue((item['value'] as num).toDouble()))),
+                  ]))
+              .toList(),
+        ),
+      ),
+    );
+  }
+
+  /// Card/KPI: número em destaque, um por grupo.
+  Widget _buildCards(BuildContext context) {
+    final theme = Theme.of(context);
+    return SingleChildScrollView(
+      child: Center(
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          alignment: WrapAlignment.center,
+          children: data.map((item) {
+            return Card.outlined(
+              child: Container(
+                width: 160,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _formatValue((item['value'] as num).toDouble()),
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item['label'].toString(),
+                      style: theme.textTheme.bodyMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
   }
 
   /// Gráfico de Barras Vertical

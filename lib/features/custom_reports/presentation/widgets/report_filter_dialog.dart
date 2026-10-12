@@ -241,11 +241,11 @@ class _ReportFilterDialogState extends State<ReportFilterDialog> {
     String? currentValue;
     if (filter.key == 'status') currentValue = _currentState.status;
     if (filter.key == 'gender') currentValue = _currentState.gender;
-    if (filter.key == 'type') currentValue = _currentState.type;
 
     final options = <_NullableStringOption>[
       const _NullableStringOption(null, 'Todos'),
-      ...?filter.options?.map((option) => _NullableStringOption(option, option)),
+      ...?filter.options?.entries
+          .map((option) => _NullableStringOption(option.key, option.value)),
     ];
     final selectedOption = options.firstWhere(
       (option) => option.value == currentValue,
@@ -292,8 +292,6 @@ class _ReportFilterDialogState extends State<ReportFilterDialog> {
                     _currentState = _currentState.copyWith(status: value);
                   } else if (filter.key == 'gender') {
                     _currentState = _currentState.copyWith(gender: value);
-                  } else if (filter.key == 'type') {
-                    _currentState = _currentState.copyWith(type: value);
                   }
                 });
               },
