@@ -84,6 +84,16 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
           _selectedVisualization = report.visualizationType;
           _visualizations = List.from(report.config.visualizations); // NOVO
           _config = report.config; // NOVO
+          // Volta a métrica e o agrupamento salvos (antes o usuário tinha de escolher de novo).
+          final saved = report.config.aggregations.firstOrNull;
+          if (saved != null) {
+            _selectedMetric = MetricTemplates.getTemplatesForDataSource(report.dataSource)
+                .where((m) => m.fieldName == saved.fieldName && m.aggregationType == saved.aggregationType)
+                .firstOrNull;
+            _selectedGroupBy = _selectedMetric?.groupByOptions
+                .where((g) => g.type == saved.groupBy && g.fieldName == saved.groupByField)
+                .firstOrNull;
+          }
         });
       }
     } catch (e) {
