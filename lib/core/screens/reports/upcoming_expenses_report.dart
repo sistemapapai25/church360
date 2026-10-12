@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../design/app_icons.dart';
-import '../../../features/auth/presentation/providers/auth_provider.dart';
-import '../../../features/financial/domain/models/contribution.dart';
+import '../../../features/financeiro/domain/models/lancamento.dart';
+import '../../../features/financeiro/presentation/providers/financeiro_providers.dart';
 import '../../widgets/glass_card.dart';
 
 /// Enum para períodos de filtro
@@ -20,23 +20,23 @@ enum ExpensePeriod {
   const ExpensePeriod(this.label);
 }
 
-/// Provider para despesas futuras com filtro de período
+/// Provider para despesas futuras com filtro de período: contas da igreja
+/// em aberto no Financeiro (`lancamentos`), pelo vencimento.
 final upcomingExpensesByPeriodProvider =
-    FutureProvider.family<List<Expense>, (DateTime, DateTime)>((
+    FutureProvider.family<List<Lancamento>, (DateTime, DateTime)>((
       ref,
       dates,
     ) async {
-      final supabase = ref.watch(supabaseClientProvider);
       final (startDate, endDate) = dates;
-
-      final response = await supabase
-          .from('expense')
-          .select()
-          .gte('date', startDate.toIso8601String().split('T')[0])
-          .lte('date', endDate.toIso8601String().split('T')[0])
-          .order('date', ascending: true);
-
-      return (response as List).map((json) => Expense.fromJson(json)).toList();
+      final contas = await ref
+          .watch(lancamentosRepositoryProvider)
+          .getAllLancamentos(
+            startDate: startDate,
+            endDate: endDate,
+            tipo: TipoLancamento.despesa,
+            status: StatusLancamento.emAberto,
+          );
+      return contas..sort((a, b) => a.vencimento.compareTo(b.vencimento));
     });
 
 /// Tela de relatório de próximas despesas/contas a pagar
@@ -118,7 +118,7 @@ class _UpcomingExpensesReportScreenState
                   // Calcular total
                   final total = expenses.fold<double>(
                     0,
-                    (sum, e) => sum + e.amount,
+                    (sum, e) => sum + e.valor,
                   );
                   final formatter = NumberFormat.currency(
                     locale: 'pt_BR',
@@ -126,10 +126,10 @@ class _UpcomingExpensesReportScreenState
                   );
 
                   // Agrupar por categoria
-                  final Map<String, List<Expense>> expensesByCategory = {};
+                  final Map<String, List<Lancamento>> expensesByCategory = {};
                   for (final expense in expenses) {
                     expensesByCategory
-                        .putIfAbsent(expense.category, () => [])
+                        .putIfAbsent(expense.categoriaNome ?? 'Sem categoria', () => [])
                         .add(expense);
                   }
 
@@ -190,8 +190,8 @@ class _UpcomingExpensesReportScreenState
                       // Lista de Despesas
                       ...expenses.map((expense) {
                         final now = DateTime.now();
-                        final daysUntil = expense.date.difference(now).inDays;
-                        final isOverdue = expense.date.isBefore(now);
+                        final daysUntil = expense.vencimento.difference(now).inDays;
+                        final isOverdue = expense.vencimento.isBefore(now);
                         final isToday = daysUntil == 0;
                         final isThisWeek = daysUntil <= 7 && daysUntil > 0;
 
@@ -227,7 +227,7 @@ class _UpcomingExpensesReportScreenState
                                 ),
                               ),
                               title: Text(
-                                expense.description,
+                                expense.descricao ?? 'Sem descrição',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -244,7 +244,7 @@ class _UpcomingExpensesReportScreenState
                                         color: Colors.grey[600],
                                       ),
                                       const SizedBox(width: 4),
-                                      Text(expense.category),
+                                      Text(expense.categoriaNome ?? 'Sem categoria'),
                                       const SizedBox(width: 12),
                                       Icon(
                                         AppIcons.calendarFilled,
@@ -255,7 +255,7 @@ class _UpcomingExpensesReportScreenState
                                       Text(
                                         DateFormat(
                                           'dd/MM/yyyy',
-                                        ).format(expense.date),
+                                        ).format(expense.vencimento),
                                       ),
                                     ],
                                   ),
@@ -281,7 +281,7 @@ class _UpcomingExpensesReportScreenState
                                 ],
                               ),
                               trailing: Text(
-                                formatter.format(expense.amount),
+                                formatter.format(expense.valor),
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,

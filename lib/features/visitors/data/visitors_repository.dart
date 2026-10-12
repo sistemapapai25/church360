@@ -166,58 +166,6 @@ class VisitorsRepository {
     return Visitor.fromJson(response);
   }
 
-  /// Buscar visitantes recentes (últimos 30 dias)
-  Future<List<Visitor>> getRecentVisitors() async {
-    final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
-    
-    final response = await _supabase
-        .from('visitor')
-        .select()
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .gte('first_visit_date', thirtyDaysAgo.toIso8601String().split('T')[0])
-        .order('first_visit_date', ascending: false);
-
-    return (response as List)
-        .map((json) => Visitor.fromJson(json))
-        .toList();
-  }
-
-  /// Buscar visitantes inativos (sem visita há mais de X dias)
-  Future<List<Visitor>> getInactiveVisitors({int days = 30}) async {
-    final cutoffDate = DateTime.now().subtract(Duration(days: days));
-    
-    final response = await _supabase
-        .from('visitor')
-        .select()
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .lt('last_visit_date', cutoffDate.toIso8601String().split('T')[0])
-        .neq('status', 'converted')
-        .order('last_visit_date', ascending: true);
-
-    return (response as List)
-        .map((json) => Visitor.fromJson(json))
-        .toList();
-  }
-
-  /// Contar visitantes por status
-  Future<Map<VisitorStatus, int>> countVisitorsByStatus() async {
-    final response = await _supabase
-        .from('visitor')
-        .select('status');
-
-    final counts = <VisitorStatus, int>{};
-    for (final status in VisitorStatus.values) {
-      counts[status] = 0;
-    }
-
-    for (final row in response as List) {
-      final status = VisitorStatus.fromValue(row['status'] as String);
-      counts[status] = (counts[status] ?? 0) + 1;
-    }
-
-    return counts;
-  }
-
   // ==================== VISITOR VISITS ====================
 
   /// Buscar visitas de um visitante
@@ -390,65 +338,5 @@ class VisitorsRepository {
     return (response as List)
         .map((json) => VisitorFollowup.fromJson(json))
         .toList();
-  }
-
-  // ==================== VISITANTES DE REUNIÕES ====================
-
-  /// Buscar visitantes de uma reunião específica
-  Future<List<Visitor>> getVisitorsByMeeting(String meetingId) async {
-    final response = await _supabase
-        .from('visitor')
-        .select('''
-          *,
-          mentor:user_account!assigned_mentor_id(first_name, last_name)
-        ''')
-        .eq('meeting_id', meetingId)
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .order('created_at', ascending: false);
-
-    return (response as List)
-        .map((json) => Visitor.fromJson(json))
-        .toList();
-  }
-
-  /// Buscar todas as salvações
-  Future<List<Visitor>> getAllSalvations() async {
-    final response = await _supabase
-        .from('visitor')
-        .select('''
-          *,
-          mentor:user_account!assigned_mentor_id(first_name, last_name)
-        ''')
-        .eq('is_salvation', true)
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .order('salvation_date', ascending: false);
-
-    return (response as List)
-        .map((json) => Visitor.fromJson(json))
-        .toList();
-  }
-
-  /// Contar total de salvações
-  Future<int> countSalvations() async {
-    final response = await _supabase
-        .from('visitor')
-        .select()
-        .eq('is_salvation', true)
-        .eq('tenant_id', SupabaseConstants.currentTenantId);
-
-    return (response as List).length;
-  }
-
-  /// Contar salvações por período
-  Future<int> countSalvationsByPeriod(DateTime startDate, DateTime endDate) async {
-    final response = await _supabase
-        .from('visitor')
-        .select()
-        .eq('is_salvation', true)
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .gte('salvation_date', startDate.toIso8601String().split('T')[0])
-        .lte('salvation_date', endDate.toIso8601String().split('T')[0]);
-
-    return (response as List).length;
   }
 }

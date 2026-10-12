@@ -112,12 +112,16 @@ final eventsAnalysisByPeriodProvider =
 
       // Buscar visitantes do mesmo período
       final visitorsResponse = await supabase
-          .from('visitor')
-          .select('id, first_visit_date, last_visit_date, status')
+          .from('user_account')
+          .select('id, created_at')
           .eq('tenant_id', SupabaseConstants.currentTenantId)
-          .gte('first_visit_date', startDate.toIso8601String().split('T')[0])
-          .lte('first_visit_date', endDate.toIso8601String().split('T')[0])
-          .neq('status', 'converted');
+          .eq('status', 'visitor')
+          // first_visit_date não é preenchido pelo cadastro: vale a data dele.
+          .gte('created_at', startDate.toIso8601String().split('T')[0])
+          .lt(
+            'created_at',
+            endDate.add(const Duration(days: 1)).toIso8601String().split('T')[0],
+          );
 
       final visitors = visitorsResponse as List;
 
