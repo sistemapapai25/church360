@@ -42,6 +42,10 @@ abstract final class MinistryTabKeys {
   // Material de Apoio vinculado ao ministério (manuais, cartilhas).
   static const materiais = 'materiais';
 
+  // Checklist pré, durante e pós-culto (Ficha 3 do Diaconato). Não é a
+  // 'checklist' do Batismo, que são as etapas do aluno.
+  static const rotina = 'rotina';
+
   /// As abas que **todo** ministério pode ligar na engrenagem, na ordem
   /// padrão. Aba nova que deve chegar a todos os ministérios entra aqui (e em
   /// `ministryStandardSlots`); o padrão dela é desligada, salvo no tipo cujo
@@ -54,6 +58,7 @@ abstract final class MinistryTabKeys {
     MinistryTypeTab(alunos, 'Turmas'),
     MinistryTypeTab(checklist, 'Etapas'),
     MinistryTypeTab(materiais, 'Materiais'),
+    MinistryTypeTab(rotina, 'Rotina'),
     MinistryTypeTab(whatsapp, 'WhatsApp'),
     MinistryTypeTab(relatorios, 'Relatórios'),
   ];
@@ -332,6 +337,7 @@ class MinistryTypeCatalog {
       description: 'Painel de triagem e ceias.',
       tabs: [
         MinistryTypeTab(MinistryTabKeys.painel, 'Painel'),
+        MinistryTypeTab(MinistryTabKeys.rotina, 'Rotina'),
         MinistryTypeTab(MinistryTabKeys.equipe, 'Equipe'),
         MinistryTypeTab(MinistryTabKeys.escala, 'Escala'),
         MinistryTypeTab(MinistryTabKeys.financeiro, 'Financeiro'),

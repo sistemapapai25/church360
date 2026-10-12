@@ -49,7 +49,7 @@ ministérios. Por isso a rota `/ministries/:id` **não** tem `PermissionOnlyRout
 
 Desde 01/10/2026 (supabase#91 + app#222) **todo ministério tem todas as abas
 padrão** — `MinistryTabKeys.standard`: Equipe, Escala, Financeiro, Louvores,
-Turmas (chave `alunos`), Etapas (chave `checklist`), Materiais, WhatsApp e
+Turmas (chave `alunos`), Etapas (chave `checklist`), Materiais, Rotina, WhatsApp e
 Relatórios. O Painel é a exceção: só Raízes e Diaconato o têm.
 
 | Quem | Faz o quê, na engrenagem | Grava em |
@@ -137,7 +137,7 @@ tabs: ministryTabsFromCatalog(
 ```
 
 Chaves já registradas: `equipe`, `escala`, `financeiro`, `whatsapp`,
-`relatorios`, `alunos`, `checklist`, `materiais`, `painel`, `louvores`
+`relatorios`, `alunos`, `checklist`, `materiais`, `rotina`, `painel`, `louvores`
 (`MinistryTabKeys`). As telas partem de `ministryStandardSlots` e só
 acrescentam ou trocam o que é delas (ex.: `{...ministryStandardSlots(id),
 MinistryTabKeys.painel: ...}`).
