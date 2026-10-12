@@ -225,39 +225,47 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       return _buildCustomReportWidget(context, reportId);
     }
 
+    // O card abre o relatório só para quem tem reports.view (senão, Acesso Negado).
+    Widget toReport(String route, Widget card) => PermissionGate(
+          permission: 'reports.view',
+          showLoading: false,
+          fallback: card,
+          child: InkWell(onTap: () => context.push(route), child: card),
+        );
+
     // Widgets padrão
     final widgetMap = {
-      'birthdays_month': InkWell(
-        onTap: () => context.push('/reports/members?tab=birthdays'),
-        child: const BirthdaysThisMonthCard(),
+      'birthdays_month': toReport(
+        '/reports/members?tab=birthdays',
+        const BirthdaysThisMonthCard(),
       ),
-      'recent_members': InkWell(
-        onTap: () => context.push('/reports/members?tab=recent'),
-        child: const RecentMembersCard(),
+      'recent_members': toReport(
+        '/reports/members?tab=recent',
+        const RecentMembersCard(),
       ),
-      'upcoming_events': InkWell(
-        onTap: () => context.push('/reports/events'),
-        child: const UpcomingEventsCard(),
+      'upcoming_events': toReport(
+        '/reports/events',
+        const UpcomingEventsCard(),
       ),
       'upcoming_expenses': InkWell(
         onTap: () => context.push('/financial-reports?tab=expenses'),
         child: const UpcomingExpensesCard(),
       ),
-      'member_growth': InkWell(
-        onTap: () => context.push('/reports/members'),
-        child: const MemberGrowthChart(),
+      'member_growth': toReport(
+        '/reports/members',
+        const MemberGrowthChart(),
       ),
-      'events_stats': InkWell(
-        onTap: () => context.push('/reports/events'),
-        child: const EventsStatsCard(),
+      'events_stats': toReport(
+        '/reports/events',
+        const EventsStatsCard(),
       ),
-      'top_active_groups': InkWell(
-        onTap: () => context.push('/reports/groups'),
-        child: const TopActiveGroupsCard(),
+      'top_active_groups': toReport(
+        '/reports/groups',
+        const TopActiveGroupsCard(),
       ),
-      'average_attendance': InkWell(
-        onTap: () => context.push('/reports/attendance'),
-        child: const AverageAttendanceCard(),
+      'average_attendance': toReport(
+        '/reports/attendance',
+        const AverageAttendanceCard(),
       ),
       // 'top_tags': InkWell(
       //   onTap: () => context.push('/reports/members?tab=tags'),
