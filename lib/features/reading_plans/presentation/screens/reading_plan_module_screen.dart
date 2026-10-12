@@ -70,36 +70,10 @@ class _ReadingPlanModuleScreenState
       return explicitReference;
     }
 
+    // Sem referência cadastrada, não inventa livro: mostra só o dia.
     final normalizedDay = day < 1 ? 1 : day;
     final totalDays = plan.totalModules < 1 ? 1 : plan.totalModules;
-    switch (plan.category) {
-      case 'old_testament':
-        const books = [
-          'Gênesis',
-          'Êxodo',
-          'Levítico',
-          'Números',
-          'Deuteronômio',
-        ];
-        final index = ((normalizedDay - 1) * books.length ~/ totalDays).clamp(
-          0,
-          books.length - 1,
-        );
-        return books[index];
-      case 'new_testament':
-        const books = ['Mateus', 'Marcos', 'Lucas', 'João', 'Atos'];
-        final index = ((normalizedDay - 1) * books.length ~/ totalDays).clamp(
-          0,
-          books.length - 1,
-        );
-        return books[index];
-      case 'devotional':
-        return 'Leitura devocional e aplicação prática';
-      case 'complete_bible':
-        return 'Leitura bíblica contínua (AT + NT)';
-      default:
-        return 'Conteúdo do plano';
-    }
+    return 'Dia $normalizedDay de $totalDays';
   }
 
   String _moduleContent(
@@ -346,7 +320,9 @@ class _ReadingPlanModuleScreenState
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      _moduleContent(plan, moduleDay, module: module),
+                      isLocked
+                          ? 'Este módulo libera quando você concluir o anterior.'
+                          : _moduleContent(plan, moduleDay, module: module),
                       style: CommunityDesign.contentStyle(context),
                     ),
                   ],

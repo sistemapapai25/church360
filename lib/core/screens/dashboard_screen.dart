@@ -243,26 +243,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         '/reports/members?tab=recent',
         const RecentMembersCard(),
       ),
-      'upcoming_events': toReport(
-        '/reports/events',
-        const UpcomingEventsCard(),
-      ),
+      // o card abre o relatório dele (rota com a permissão do card)
+      'upcoming_events': const UpcomingEventsCard(),
       'upcoming_expenses': InkWell(
         onTap: () => context.push('/financial-reports?tab=expenses'),
         child: const UpcomingExpensesCard(),
       ),
-      'member_growth': toReport(
-        '/reports/members',
-        const MemberGrowthChart(),
-      ),
-      'events_stats': toReport(
-        '/reports/events',
-        const EventsStatsCard(),
-      ),
-      'top_active_groups': toReport(
-        '/reports/groups',
-        const TopActiveGroupsCard(),
-      ),
+      // o card abre o relatório dele (rota com a permissão do card)
+      'member_growth': const MemberGrowthChart(),
+      // o card abre o relatório dele (rota com a permissão do card)
+      'events_stats': const EventsStatsCard(),
+      // o card abre o relatório dele (rota com a permissão do card)
+      'top_active_groups': const TopActiveGroupsCard(),
       'average_attendance': toReport(
         '/reports/attendance',
         const AverageAttendanceCard(),

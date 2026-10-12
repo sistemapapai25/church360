@@ -4,6 +4,7 @@
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
+import '../../financeiro/data/lancamentos_scope.dart';
 import '../domain/models/analytics_models.dart';
 
 class AnalyticsRepository {
@@ -70,7 +71,9 @@ class AnalyticsRepository {
         if ((row['status']?.toString() ?? '') == 'member_active') {
           activeMembers += 1;
         }
-        if (_isCurrentMonth(row['created_at'], now)) {
+        // novo membro = ficha de membro criada no mês (visitante não conta)
+        if (_isCurrentMonth(row['created_at'], now) &&
+            (row['status']?.toString() ?? '').startsWith('member_')) {
           newMembersThisMonth += 1;
         }
       }
@@ -154,44 +157,25 @@ class AnalyticsRepository {
       }
     } catch (_) {}
 
+    // Financeiro do mês pela mesma base do módulo Financeiro (lancamentos pagos,
+    // recorte da igreja). Antes lia contribution/donation/expense, que não
+    // recebem mais lançamentos.
     double contributionsThisMonth = 0;
-    try {
-      final contributions = await _supabase
-          .from('contribution')
-          .select('amount,date')
-          .eq('tenant_id', tenantId);
-      for (final raw in contributions as List) {
-        final row = Map<String, dynamic>.from(raw as Map);
-        if (_isCurrentMonth(row['date'], now) && row['amount'] is num) {
-          contributionsThisMonth += (row['amount'] as num).toDouble();
-        }
-      }
-    } catch (_) {}
-
-    try {
-      final donations = await _supabase
-          .from('donation')
-          .select('amount,date')
-          .eq('tenant_id', tenantId);
-      for (final raw in donations as List) {
-        final row = Map<String, dynamic>.from(raw as Map);
-        if (_isCurrentMonth(row['date'], now) && row['amount'] is num) {
-          contributionsThisMonth += (row['amount'] as num).toDouble();
-        }
-      }
-    } catch (_) {}
-
     double expensesThisMonth = 0;
     try {
-      final expenses = await _supabase
-          .from('expense')
-          .select('amount,date')
-          .eq('tenant_id', tenantId);
-      for (final raw in expenses as List) {
+      final rows = await _supabase
+          .from('lancamentos')
+          .select('tipo,valor,valor_pago,data_pagamento')
+          .eq('tenant_id', tenantId)
+          .eq('status', 'PAGO')
+          .isFilter('deleted_at', null)
+          .or(kLancamentosIgrejaScope);
+      for (final raw in rows as List) {
         final row = Map<String, dynamic>.from(raw as Map);
-        if (_isCurrentMonth(row['date'], now) && row['amount'] is num) {
-          expensesThisMonth += (row['amount'] as num).toDouble();
-        }
+        if (!_isCurrentMonth(row['data_pagamento'], now)) continue;
+        final v = num.tryParse('${row['valor_pago'] ?? row['valor'] ?? 0}') ?? 0;
+        if (row['tipo'] == 'RECEITA') contributionsThisMonth += v.toDouble();
+        if (row['tipo'] == 'DESPESA') expensesThisMonth += v.toDouble();
       }
     } catch (_) {}
 

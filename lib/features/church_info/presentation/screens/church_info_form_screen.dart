@@ -163,7 +163,9 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Logo atualizada com sucesso!')),
+            const SnackBar(
+              content: Text('Logo enviada. Toque em Salvar para gravar.'),
+            ),
           );
         }
       } catch (e) {

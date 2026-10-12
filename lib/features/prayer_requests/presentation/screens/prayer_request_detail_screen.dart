@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
@@ -370,6 +371,10 @@ class _PrayerRequestDetailScreenState
                     ),
                   ),
                 ),
+
+                // Mensagens de apoio: só o autor vê, sem dizer quem escreveu
+                if (prayerRequest.authorId == currentUserId)
+                  _SupportMessages(prayerRequestId: widget.prayerRequestId),
               ],
             ),
           );
@@ -469,6 +474,47 @@ class _StatItem extends StatelessWidget {
           style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
         ),
       ],
+    );
+  }
+}
+
+class _SupportMessages extends ConsumerWidget {
+  final String prayerRequestId;
+
+  const _SupportMessages({required this.prayerRequestId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notes = (ref
+                .watch(prayerRequestPrayersProvider(prayerRequestId))
+                .valueOrNull ??
+            const <PrayerRequestPrayer>[])
+        .where((p) => p.hasNote)
+        .toList();
+    if (notes.isEmpty) return const SizedBox.shrink();
+
+    final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: GlassCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Mensagens de apoio (${notes.length})',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            for (final p in notes) ...[
+              const SizedBox(height: 12),
+              Text(p.note!, style: Theme.of(context).textTheme.bodyMedium),
+              Text(
+                dateFormat.format(p.prayedAt.toLocal()),
+                style: CommunityDesign.metaStyle(context),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

@@ -505,7 +505,13 @@ class _TagPickerSheetState extends ConsumerState<_TagPickerSheet> {
         'applies_to': 'ministry',
         'color': '#3F51B5',
       });
-      await widget.save(repository, tag.id, true);
+      try {
+        await widget.save(repository, tag.id, true);
+      } catch (_) {
+        // Não marcou: apaga a tag recém-criada para não ficar órfã.
+        await repository.deleteTag(tag.id).catchError((_) {});
+        rethrow;
+      }
       widget.invalidate(ref);
       ref.invalidate(allTagsProvider);
       _newTagName.clear();
