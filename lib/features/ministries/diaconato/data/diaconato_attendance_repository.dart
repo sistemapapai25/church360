@@ -111,7 +111,8 @@ class DiaconatoAttendanceRepository {
   /// - Para pessoas que **estavam** marcadas presentes na DB mas não estão
   ///   mais em `presentByUser`, remove a linha **se** o `absent_action` atual
   ///   é `none` (preserva triagens já feitas pela aba Ausentes do MD.3).
-  /// - Atualiza os totais e `total_unregistered_visitors` da contagem.
+  /// - Atualiza os totais, `total_unregistered_visitors` e `total_children`
+  ///   (crianças contadas à mão, dentro do total) da contagem.
   ///
   /// Não toca em linhas com `present = false` e `absent_action != 'none'`
   /// (essas só serão criadas/editadas na aba Ausentes).
@@ -119,6 +120,7 @@ class DiaconatoAttendanceRepository {
     required String attendanceCountId,
     required Map<String, DiaconatoPersonType> presentByUser,
     required int totalUnregisteredVisitors,
+    int totalChildren = 0,
     String? notes,
   }) async {
     final existing = await getPersonRows(attendanceCountId);
@@ -172,6 +174,7 @@ class DiaconatoAttendanceRepository {
       'total_members_present': totalMembers,
       'total_registered_visitors_present': totalVisitors,
       'total_unregistered_visitors': totalUnregisteredVisitors,
+      'total_children': totalChildren,
       if (notes != null) 'notes': notes,
     };
 

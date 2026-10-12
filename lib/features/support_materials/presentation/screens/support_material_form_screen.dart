@@ -21,10 +21,14 @@ class SupportMaterialFormScreen extends ConsumerStatefulWidget {
   /// Material novo criado pela aula da turma: já nasce vinculado a ela.
   final String? lessonId;
 
+  /// Material novo criado pela aba Materiais do ministério.
+  final String? ministryId;
+
   const SupportMaterialFormScreen({
     super.key,
     this.materialId,
     this.lessonId,
+    this.ministryId,
   });
 
   @override
@@ -63,6 +67,10 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
     } else if (widget.lessonId != null) {
       _selectedEntities[MaterialLinkType.studyLesson] = {
         widget.lessonId!: 'Esta aula',
+      };
+    } else if (widget.ministryId != null) {
+      _selectedEntities[MaterialLinkType.ministry] = {
+        widget.ministryId!: 'Este ministério',
       };
     }
   }

@@ -39,6 +39,9 @@ abstract final class MinistryTabKeys {
   // Louvor
   static const louvores = 'louvores';
 
+  // Material de Apoio vinculado ao ministério (manuais, cartilhas).
+  static const materiais = 'materiais';
+
   /// As abas que **todo** ministério pode ligar na engrenagem, na ordem
   /// padrão. Aba nova que deve chegar a todos os ministérios entra aqui (e em
   /// `ministryStandardSlots`); o padrão dela é desligada, salvo no tipo cujo
@@ -49,7 +52,8 @@ abstract final class MinistryTabKeys {
     MinistryTypeTab(financeiro, 'Financeiro'),
     MinistryTypeTab(louvores, 'Louvores'),
     MinistryTypeTab(alunos, 'Turmas'),
-    MinistryTypeTab(checklist, 'Checklist'),
+    MinistryTypeTab(checklist, 'Etapas'),
+    MinistryTypeTab(materiais, 'Materiais'),
     MinistryTypeTab(whatsapp, 'WhatsApp'),
     MinistryTypeTab(relatorios, 'Relatórios'),
   ];
@@ -292,13 +296,13 @@ class MinistryTypeCatalog {
     MinistryTypeSpec(
       code: MinistryTypeCodes.batismo,
       label: 'Batismo',
-      description: 'Turmas, alunos, aulas e checklist.',
+      description: 'Turmas, alunos, aulas e etapas.',
       tabs: [
         MinistryTypeTab(MinistryTabKeys.equipe, 'Equipe'),
         MinistryTypeTab(MinistryTabKeys.escala, 'Escala'),
         MinistryTypeTab(MinistryTabKeys.financeiro, 'Financeiro'),
         MinistryTypeTab(MinistryTabKeys.alunos, 'Turmas'),
-        MinistryTypeTab(MinistryTabKeys.checklist, 'Checklist'),
+        MinistryTypeTab(MinistryTabKeys.checklist, 'Etapas'),
         MinistryTypeTab(MinistryTabKeys.whatsapp, 'WhatsApp'),
         MinistryTypeTab(MinistryTabKeys.relatorios, 'Relatórios'),
       ],
@@ -331,6 +335,7 @@ class MinistryTypeCatalog {
         MinistryTypeTab(MinistryTabKeys.equipe, 'Equipe'),
         MinistryTypeTab(MinistryTabKeys.escala, 'Escala'),
         MinistryTypeTab(MinistryTabKeys.financeiro, 'Financeiro'),
+        MinistryTypeTab(MinistryTabKeys.materiais, 'Materiais'),
         MinistryTypeTab(MinistryTabKeys.whatsapp, 'WhatsApp'),
         MinistryTypeTab(MinistryTabKeys.relatorios, 'Relatórios'),
       ],

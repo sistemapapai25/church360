@@ -201,7 +201,7 @@ class TurmaMateriaisTab extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             for (final material in groupMaterials)
-              _MaterialCard(
+              TurmaMaterialCard(
                 key: ValueKey(material.id),
                 material: material,
                 onOpen: () => _openMaterial(context, material),
@@ -330,12 +330,14 @@ IconData turmaMaterialIcon(SupportMaterialType type) => switch (type) {
   SupportMaterialType.other => AppIcons.insertDriveFile,
 };
 
-class _MaterialCard extends StatelessWidget {
+/// Cartão de um material na lista. Também usado na aba Materiais do
+/// ministério.
+class TurmaMaterialCard extends StatelessWidget {
   final SupportMaterial material;
   final VoidCallback onOpen;
   final VoidCallback? onUnlink;
 
-  const _MaterialCard({
+  const TurmaMaterialCard({
     super.key,
     required this.material,
     required this.onOpen,

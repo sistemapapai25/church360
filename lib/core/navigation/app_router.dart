@@ -1264,6 +1264,7 @@ final appRouter = GoRouter(
         permission: 'support_materials.create',
         child: SupportMaterialFormScreen(
           lessonId: state.uri.queryParameters['lesson'],
+          ministryId: state.uri.queryParameters['ministry'],
         ),
       ),
     ),

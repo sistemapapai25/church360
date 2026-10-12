@@ -41,6 +41,13 @@ enum DiaconatoAbsentAction {
   }
 }
 
+/// "12 adultos · 3 crianças" — as crianças estão dentro de [total].
+String adultsAndChildrenLabel(int total, int children) {
+  final adults = total - children;
+  return '$adults ${adults == 1 ? 'adulto' : 'adultos'} · '
+      '$children ${children == 1 ? 'criança' : 'crianças'}';
+}
+
 /// Contagem oficial de presença num culto, feita por um ministério.
 class WorshipAttendanceCount {
   final String id;
@@ -52,6 +59,9 @@ class WorshipAttendanceCount {
   final int totalRegisteredVisitorsPresent;
   final int totalUnregisteredVisitors;
   final int totalPeople;
+
+  /// Crianças, contadas à mão, dentro de [totalPeople].
+  final int totalChildren;
   final String? countedBy;
   final String? notes;
   final DateTime createdAt;
@@ -67,6 +77,7 @@ class WorshipAttendanceCount {
     required this.totalRegisteredVisitorsPresent,
     required this.totalUnregisteredVisitors,
     required this.totalPeople,
+    this.totalChildren = 0,
     this.countedBy,
     this.notes,
     required this.createdAt,
@@ -86,6 +97,7 @@ class WorshipAttendanceCount {
       totalUnregisteredVisitors:
           (json['total_unregistered_visitors'] as num?)?.toInt() ?? 0,
       totalPeople: (json['total_people'] as num?)?.toInt() ?? 0,
+      totalChildren: (json['total_children'] as num?)?.toInt() ?? 0,
       countedBy: json['counted_by'] as String?,
       notes: json['notes'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),

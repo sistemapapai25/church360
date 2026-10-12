@@ -75,7 +75,7 @@ void main() {
 
     expect(find.text('Vai abrir com 7 abas:'), findsOneWidget);
     expect(find.text('Turmas'), findsOneWidget);
-    expect(find.text('Checklist'), findsOneWidget);
+    expect(find.text('Etapas'), findsOneWidget);
     // WhatsApp segue na lista: desde 24/09 as duas abas se chamam igual — o
     // que muda entre os tipos e' o que ela fala com (equipe x alunos).
   });
