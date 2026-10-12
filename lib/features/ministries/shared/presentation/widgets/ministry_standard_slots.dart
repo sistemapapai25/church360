@@ -5,6 +5,7 @@ import '../../domain/ministry_type_catalog.dart';
 import 'ministry_finance_tab.dart';
 import 'ministry_materials_tab.dart';
 import 'ministry_reports_tab.dart';
+import 'ministry_requests_tab.dart';
 import 'ministry_routine_tab.dart';
 import 'ministry_scale_tab.dart';
 import 'ministry_team_tab.dart';
@@ -54,6 +55,10 @@ Map<String, MinistryTabSlot> ministryStandardSlots(
   MinistryTabKeys.rotina: MinistryTabSlot(
     defaultLabel: 'Rotina',
     builder: (_) => MinistryRoutineTab(ministryId: ministryId),
+  ),
+  MinistryTabKeys.pedidos: MinistryTabSlot(
+    defaultLabel: 'Pedidos',
+    builder: (_) => MinistryRequestsTab(ministryId: ministryId),
   ),
   MinistryTabKeys.whatsapp: MinistryTabSlot(
     defaultLabel: 'WhatsApp',

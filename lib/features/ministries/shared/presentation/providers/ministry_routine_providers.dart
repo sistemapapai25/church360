@@ -30,6 +30,12 @@ final ministryRoutineRunProvider = FutureProvider.family<RoutineRun, String>(
   (ref, runId) => ref.watch(ministryRoutineRepositoryProvider).getRun(runId),
 );
 
+final ministryRequestsProvider =
+    FutureProvider.family<List<MinistryRequest>, String>(
+      (ref, ministryId) =>
+          ref.watch(ministryRoutineRepositoryProvider).getRequests(ministryId),
+    );
+
 /// Sem realtime: toda gravação invalida na mão.
 void invalidateMinistryRoutine(
   WidgetRef ref,
@@ -38,5 +44,6 @@ void invalidateMinistryRoutine(
 }) {
   ref.invalidate(ministryRoutineItemsProvider(ministryId));
   ref.invalidate(ministryRoutineRunsProvider(ministryId));
+  ref.invalidate(ministryRequestsProvider(ministryId));
   if (runId != null) ref.invalidate(ministryRoutineRunProvider(runId));
 }

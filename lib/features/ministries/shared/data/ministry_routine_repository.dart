@@ -20,10 +20,14 @@ class MinistryRoutineCaps {
   final bool canMark;
   final bool canManage;
 
+  /// A aba Pedidos está ligada (a Rotina mostra "Abrir pedido").
+  final bool requestsOn;
+
   const MinistryRoutineCaps({
     required this.canView,
     required this.canMark,
     required this.canManage,
+    this.requestsOn = false,
   });
 }
 
@@ -49,6 +53,7 @@ class MinistryRoutineRepository {
       canView: m['can_view'] == true,
       canMark: m['can_mark'] == true,
       canManage: m['can_manage'] == true,
+      requestsOn: m['requests_on'] == true,
     );
   }
 
@@ -179,6 +184,53 @@ class MinistryRoutineRepository {
               as num)
           .toInt();
 
+  /// Pedidos do ministério, os mais novos primeiro.
+  Future<List<MinistryRequest>> getRequests(String ministryId) async {
+    try {
+      final rows = await _supabase
+          .from('ministry_request')
+          .select('*, ministry_stock_item(name), worship_service(service_date)')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .eq('ministry_id', ministryId)
+          .order('opened_at', ascending: false)
+          .limit(200);
+      return [
+        for (final r in rows as List)
+          MinistryRequest.fromJson(r as Map<String, dynamic>),
+      ];
+    } on PostgrestException catch (e) {
+      throw _traduzir(e);
+    }
+  }
+
+  Future<void> openRequest({
+    required String ministryId,
+    required String title,
+    required RequestKind kind,
+    String? location,
+    String? details,
+    String? worshipServiceId,
+    String? stockItemId,
+  }) => _rpc('ministry_request_open', {
+    'p_ministry_id': ministryId,
+    'p_title': title,
+    'p_kind': kind.value,
+    'p_location': location,
+    'p_details': details,
+    'p_worship_service_id': worshipServiceId,
+    'p_stock_item_id': stockItemId,
+  });
+
+  Future<void> setRequestStatus(
+    String requestId,
+    RequestStatus status, {
+    String? note,
+  }) => _rpc('ministry_request_set_status', {
+    'p_request_id': requestId,
+    'p_status': status.value,
+    'p_note': note,
+  });
+
   Future<dynamic> _rpc(String fn, Map<String, dynamic> params) async {
     try {
       return await _supabase.rpc(fn, params: params);
@@ -213,6 +265,10 @@ class MinistryRoutineRepository {
     'So o lider do dia ou o lider do ministerio':
         'Só o líder do dia ou o líder do ministério',
     'So quem e da equipe': 'Só quem é da equipe',
+    'muda a situacao': 'muda a situação',
+    'Situacao invalida': 'Situação inválida',
+    'Tipo de pedido invalido': 'Tipo de pedido inválido',
+    'neste ministerio': 'neste ministério',
     'Etapa invalida': 'Etapa inválida',
     'nao encontrad': 'não encontrad',
     'esta desligada neste ministerio': 'está desligada neste ministério',

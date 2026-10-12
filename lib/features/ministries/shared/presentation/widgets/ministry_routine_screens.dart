@@ -10,6 +10,7 @@ import '../../../presentation/providers/ministries_provider.dart';
 import '../../data/ministry_routine_repository.dart';
 import '../../domain/ministry_routine.dart';
 import '../providers/ministry_routine_providers.dart';
+import 'ministry_requests_tab.dart';
 import 'ministry_routine_tab.dart';
 
 const _declaration =
@@ -328,21 +329,39 @@ class _MinistryRoutineRunScreenState
                       'de reposição ou conserto',
                 ),
               ),
-              if (editable)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => _run(
-                      () => _repo.setRun(
-                        runId: run.id,
-                        leaderOfDay: run.leaderOfDay,
-                        needsNotes: _notes.text,
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                children: [
+                  // Pedido vale mesmo com a rotina confirmada.
+                  if ((caps?.canMark ?? false) && (caps?.requestsOn ?? false))
+                    TextButton.icon(
+                      key: const ValueKey('routine-open-request'),
+                      onPressed: () => showRequestFormSheet(
+                        context,
+                        ministryId: widget.ministryId,
+                        worshipServiceId: run.worshipServiceId,
+                        initialDetails: _notes.text.trim().isEmpty
+                            ? null
+                            : _notes.text.trim(),
                       ),
-                      done: 'Necessidades salvas.',
+                      icon: const Icon(AppIcons.add, size: 18),
+                      label: const Text('Abrir pedido'),
                     ),
-                    child: const Text('Salvar necessidades'),
-                  ),
-                ),
+                  if (editable)
+                    TextButton(
+                      onPressed: () => _run(
+                        () => _repo.setRun(
+                          runId: run.id,
+                          leaderOfDay: run.leaderOfDay,
+                          needsNotes: _notes.text,
+                        ),
+                        done: 'Necessidades salvas.',
+                      ),
+                      child: const Text('Salvar necessidades'),
+                    ),
+                ],
+              ),
               if (editable) ...[
                 const SizedBox(height: 16),
                 FilledButton.icon(

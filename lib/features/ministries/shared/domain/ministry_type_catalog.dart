@@ -46,6 +46,9 @@ abstract final class MinistryTabKeys {
   // 'checklist' do Batismo, que são as etapas do aluno.
   static const rotina = 'rotina';
 
+  // Pedidos de manutenção e reposição (F4).
+  static const pedidos = 'pedidos';
+
   /// As abas que **todo** ministério pode ligar na engrenagem, na ordem
   /// padrão. Aba nova que deve chegar a todos os ministérios entra aqui (e em
   /// `ministryStandardSlots`); o padrão dela é desligada, salvo no tipo cujo
@@ -59,6 +62,7 @@ abstract final class MinistryTabKeys {
     MinistryTypeTab(checklist, 'Etapas'),
     MinistryTypeTab(materiais, 'Materiais'),
     MinistryTypeTab(rotina, 'Rotina'),
+    MinistryTypeTab(pedidos, 'Pedidos'),
     MinistryTypeTab(whatsapp, 'WhatsApp'),
     MinistryTypeTab(relatorios, 'Relatórios'),
   ];
@@ -338,6 +342,7 @@ class MinistryTypeCatalog {
       tabs: [
         MinistryTypeTab(MinistryTabKeys.painel, 'Painel'),
         MinistryTypeTab(MinistryTabKeys.rotina, 'Rotina'),
+        MinistryTypeTab(MinistryTabKeys.pedidos, 'Pedidos'),
         MinistryTypeTab(MinistryTabKeys.equipe, 'Equipe'),
         MinistryTypeTab(MinistryTabKeys.escala, 'Escala'),
         MinistryTypeTab(MinistryTabKeys.financeiro, 'Financeiro'),

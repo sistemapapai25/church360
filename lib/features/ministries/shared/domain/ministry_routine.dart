@@ -154,3 +154,87 @@ List<(String, int, int)> mostMissedRoutineItems(
     ..sort((a, b) => b.$2.compareTo(a.$2));
   return out.take(limit).toList();
 }
+
+// ---------------------------------------------------------------------------
+// Aba Pedidos (F4, migration 20261008004100_ministerio_pedidos).
+
+enum RequestKind {
+  conserto('conserto', 'Conserto'),
+  reposicao('reposicao', 'Reposição'),
+  outro('outro', 'Outro');
+
+  final String value;
+  final String label;
+
+  const RequestKind(this.value, this.label);
+
+  static RequestKind fromValue(String? v) =>
+      values.firstWhere((k) => k.value == v, orElse: () => outro);
+}
+
+enum RequestStatus {
+  aberto('aberto', 'Aberto'),
+  andamento('andamento', 'Em andamento'),
+  resolvido('resolvido', 'Resolvido'),
+  cancelado('cancelado', 'Cancelado');
+
+  final String value;
+  final String label;
+
+  const RequestStatus(this.value, this.label);
+
+  bool get isOpen => this == aberto || this == andamento;
+
+  static RequestStatus fromValue(String? v) =>
+      values.firstWhere((s) => s.value == v, orElse: () => aberto);
+}
+
+/// Pedido de manutenção ou reposição do ministério.
+class MinistryRequest {
+  final String id;
+  final String title;
+  final RequestKind kind;
+  final String? location;
+  final String? details;
+  final RequestStatus status;
+  final String? statusNote;
+  final String? stockItemName;
+  final DateTime? serviceDate;
+
+  /// `user_account.id` de quem abriu.
+  final String? openedBy;
+  final DateTime openedAt;
+
+  const MinistryRequest({
+    required this.id,
+    required this.title,
+    required this.kind,
+    this.location,
+    this.details,
+    required this.status,
+    this.statusNote,
+    this.stockItemName,
+    this.serviceDate,
+    this.openedBy,
+    required this.openedAt,
+  });
+
+  factory MinistryRequest.fromJson(Map<String, dynamic> j) {
+    final item = j['ministry_stock_item'];
+    final ws = j['worship_service'];
+    final date = ws is Map ? ws['service_date'] as String? : null;
+    return MinistryRequest(
+      id: j['id'] as String,
+      title: j['title'] as String? ?? '',
+      kind: RequestKind.fromValue(j['kind'] as String?),
+      location: j['location'] as String?,
+      details: j['details'] as String?,
+      status: RequestStatus.fromValue(j['status'] as String?),
+      statusNote: j['status_note'] as String?,
+      stockItemName: item is Map ? item['name'] as String? : null,
+      serviceDate: date == null ? null : DateTime.tryParse(date),
+      openedBy: j['opened_by'] as String?,
+      openedAt: DateTime.parse(j['opened_at'] as String).toLocal(),
+    );
+  }
+}
