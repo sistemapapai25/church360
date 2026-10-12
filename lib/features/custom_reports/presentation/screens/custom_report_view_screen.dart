@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../domain/enums/report_enums.dart';
 import '../../domain/models/custom_report.dart';
+import '../../domain/models/report_config.dart';
 import '../../domain/models/report_filter_state.dart';
 import '../providers/custom_report_providers.dart';
 import '../providers/custom_report_data_provider.dart';
@@ -249,7 +251,8 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
             // Renderizar gráfico real com dados do Supabase
             SizedBox(
               height: 300,
-              child: _buildChartWithData(context, report, _mainFilterState),
+              child: _buildChartWithData(
+                  context, report, _mainFilterState, report.visualizationType),
             ),
           ],
         ),
@@ -257,7 +260,12 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
     );
   }
 
-  Widget _buildAdditionalVisualization(BuildContext context, CustomReport report, viz, int index) {
+  Widget _buildAdditionalVisualization(
+    BuildContext context,
+    CustomReport report,
+    ReportVisualization viz,
+    int index,
+  ) {
     final filterState = _additionalFilterStates[index]!;
 
     return Card(
@@ -296,7 +304,7 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
             // Renderizar gráfico real com dados do Supabase
             SizedBox(
               height: 250,
-              child: _buildChartWithData(context, report, filterState),
+              child: _buildChartWithData(context, report, filterState, viz.type),
             ),
           ],
         ),
@@ -335,7 +343,6 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
           debugPrint('  - Período: ${newState.startDate} até ${newState.endDate}');
           debugPrint('  - Status: ${newState.status}');
           debugPrint('  - Gênero: ${newState.gender}');
-          debugPrint('  - Tipo: ${newState.type}');
           debugPrint('  - Total de filtros ativos: ${newState.activeFilterCount}');
         },
       ),
@@ -347,6 +354,7 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
     BuildContext context,
     CustomReport report,
     ReportFilterState? filterState,
+    VisualizationType visualizationType,
   ) {
     // Buscar dados usando o provider
     final dataAsync = ref.watch(
@@ -359,7 +367,7 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
     return dataAsync.when(
       data: (data) {
         return CustomReportChartRenderer(
-          visualizationType: report.visualizationType,
+          visualizationType: visualizationType,
           data: data,
           title: report.name,
         );

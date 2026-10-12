@@ -61,7 +61,10 @@ class CustomReportDataService {
             .eq('tenant_id', tenantId)
             .eq('status', 'visitor');
       case DataSource.events:
-        return _supabase.from('event').select().eq('tenant_id', tenantId);
+        return _supabase
+            .from('event')
+            .select('*, tipo:event_type(label)')
+            .eq('tenant_id', tenantId);
       case DataSource.eventRegistrations:
         return _supabase
             .from('event_registration')
@@ -91,11 +94,13 @@ class CustomReportDataService {
   }
 
   /// Campos calculados usados pelos templates: nome da categoria do
-  /// lançamento, idade e faixa etária do membro.
+  /// lançamento, nome do tipo de evento, idade e faixa etária do membro.
   Map<String, dynamic> _withDerivedFields(dynamic raw, DataSource dataSource) {
     final row = Map<String, dynamic>.from(raw as Map);
     final categoria = row['categoria'];
     if (categoria is Map) row['categoria'] = categoria['name'];
+    final tipo = row.remove('tipo');
+    if (tipo is Map) row['event_type'] = tipo['label'];
 
     if (dataSource == DataSource.members || dataSource == DataSource.visitors) {
       final age = Member.fromJson(row).age;
@@ -122,14 +127,17 @@ class CustomReportDataService {
     ReportFilterState filterState,
     DataSource dataSource,
   ) {
-    // Filtro de período
+    // Filtro de período por dia. A data final entra inteira: < dia seguinte
+    // (com lte 00:00 o último dia sumia nas colunas timestamptz).
+    final dateField = _getDateField(dataSource);
     if (filterState.startDate != null) {
-      final dateField = _getDateField(dataSource);
-      query = query.gte(dateField, filterState.startDate!.toIso8601String());
+      query = query.gte(dateField, _day(filterState.startDate!));
     }
     if (filterState.endDate != null) {
-      final dateField = _getDateField(dataSource);
-      query = query.lte(dateField, filterState.endDate!.toIso8601String());
+      query = query.lt(
+        dateField,
+        _day(filterState.endDate!.add(const Duration(days: 1))),
+      );
     }
 
     // Filtro de status
@@ -137,17 +145,9 @@ class CustomReportDataService {
       query = query.eq('status', filterState.status!);
     }
 
-    // Filtro de gênero (para membros)
-    if (filterState.gender != null && filterState.gender!.isNotEmpty && dataSource == DataSource.members) {
+    // Filtro de gênero (membros e visitantes)
+    if (filterState.gender != null && filterState.gender!.isNotEmpty) {
       query = query.eq('gender', filterState.gender!);
-    }
-
-    // Filtro de tipo
-    if (filterState.type != null && filterState.type!.isNotEmpty) {
-      final typeField = _getTypeField(dataSource);
-      if (typeField != null) {
-        query = query.eq(typeField, filterState.type!);
-      }
     }
 
     // Filtros customizados
@@ -159,6 +159,8 @@ class CustomReportDataService {
 
     return query;
   }
+
+  static String _day(DateTime d) => d.toIso8601String().substring(0, 10);
 
   /// Obter campo de data baseado no DataSource
   String _getDateField(DataSource dataSource) {
@@ -250,7 +252,8 @@ class CustomReportDataService {
         return _getDateGroupKey(item, aggregation, dataSource);
 
       case GroupByType.status:
-        return item['status']?.toString() ?? 'Sem status';
+        final status = item['status']?.toString();
+        return status == null ? 'Sem status' : reportValueLabel(status);
 
       case GroupByType.category:
       case GroupByType.type:
@@ -262,7 +265,8 @@ class CustomReportDataService {
 
       case GroupByType.custom:
         if (aggregation.groupByField != null) {
-          return item[aggregation.groupByField]?.toString() ?? 'Sem valor';
+          final value = item[aggregation.groupByField]?.toString();
+          return value == null ? 'Sem valor' : reportValueLabel(value);
         }
         return 'Sem agrupamento';
 
