@@ -34,7 +34,9 @@ import '../../features/courses/presentation/providers/courses_provider.dart';
 import '../../features/church_info/domain/models/church_info.dart';
 import '../../features/church_info/presentation/providers/church_info_provider.dart';
 import '../../features/home_content/presentation/providers/banners_provider.dart';
+import '../../features/members/domain/models/member.dart';
 import '../../features/members/presentation/providers/members_provider.dart';
+import '../../features/members/presentation/widgets/member_life_events.dart';
 import '../../features/quick_news/domain/models/quick_news.dart';
 import '../../features/quick_news/presentation/providers/quick_news_provider.dart';
 import '../../features/study_groups/domain/models/study_group.dart';
@@ -3167,6 +3169,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
 
     final events = anyError == null && !isLoading
         ? _JourneyEvent.merge(
+            member: memberAsync.value,
             memberId: memberId,
             readings: readings,
             studyGroups: groups,
@@ -3323,7 +3326,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Text(
-                      'Quando você ler devocionais, iniciar cursos ou entrar em grupos, isso aparece aqui.',
+                      'Quando você ler devocionais, entrar em grupos ou tiver datas no seu cadastro (batismo, membresia...), isso aparece aqui.',
                       style: CommunityDesign.metaStyle(context),
                     ),
                   )
@@ -3403,7 +3406,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
   }
 }
 
-enum _JourneyEventKind { devotional, studyGroup }
+enum _JourneyEventKind { devotional, studyGroup, lifeEvent }
 
 class _JourneyEvent {
   final DateTime when;
@@ -3425,6 +3428,7 @@ class _JourneyEvent {
   });
 
   static List<_JourneyEvent> merge({
+    required Member? member,
     required String? memberId,
     required List<Map<String, dynamic>> readings,
     required List<StudyGroup> studyGroups,
@@ -3434,6 +3438,17 @@ class _JourneyEvent {
       ...studyGroups.map(
         (g) => _JourneyEvent._fromStudyGroup(g, memberId: memberId),
       ),
+      if (member != null)
+        for (final e in memberLifeEvents(member))
+          _JourneyEvent(
+            when: e.when,
+            kind: _JourneyEventKind.lifeEvent,
+            title: e.title,
+            subtitle: e.subtitle,
+            route: null,
+            icon: e.icon,
+            isPinned: false,
+          ),
     ];
 
     items.sort((a, b) => b.when.compareTo(a.when));

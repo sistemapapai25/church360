@@ -27,7 +27,10 @@ import '../../../permissions/providers/permissions_providers.dart';
 import '../../../tags/presentation/widgets/member_tags_panel.dart';
 
 import '../providers/members_provider.dart';
+import '../widgets/member_life_events.dart';
 import '../widgets/send_access_invite.dart';
+import '../../../study_groups/domain/models/study_group.dart';
+import '../../../study_groups/presentation/providers/study_group_provider.dart';
 import '../../../legal/terms_acceptance.dart';
 import '../../data/members_repository.dart';
 import '../../data/family_relationships_repository.dart';
@@ -601,6 +604,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     final journeyItems = _buildJourneyItems(
       readingsAsync.value ?? const <Map<String, dynamic>>[],
       member,
+      ref.watch(currentUserStudyGroupsProvider).value ?? const <StudyGroup>[],
     );
     final canShowLeadership = _shouldShowLeadership(member);
 
@@ -1455,11 +1459,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                   context,
                 ).copyWith(fontSize: 16, fontWeight: FontWeight.w800),
               ),
-              const Spacer(),
-              Icon(
-                Icons.arrow_forward_ios,
-                color: colorScheme.onSurfaceVariant,
-              ),
             ],
           ),
           const SizedBox(height: _sectionGap),
@@ -1721,9 +1720,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         ),
       );
     }
-    if (member.credentialDate != null) {
-      churchItems.add(_buildCredentialRow(context, member.credentialDate!));
-    }
 
     final privacyItems = <Widget>[
       _buildLgpdConsentRow(context, ref, member),
@@ -1944,26 +1940,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     return _getMaritalStatusLabel(status);
   }
 
-  Widget _buildCredentialRow(BuildContext context, DateTime credentialDate) {
-    final today = DateTime.now();
-    final reference = DateTime(today.year, today.month, today.day);
-    final expiry = DateTime(
-      credentialDate.year,
-      credentialDate.month,
-      credentialDate.day,
-    );
-    final isValid = !expiry.isBefore(reference);
-    final label = isValid ? 'Válida até' : 'Vencida em';
-    final valueColor = isValid ? Colors.green : Colors.red;
-
-    return _buildInfoRow(
-      Icons.badge,
-      'Credencial',
-      '$label ${_formatShortDate(credentialDate)}',
-      valueColor: valueColor,
-    );
-  }
-
   /// Campos que entram na conta de completude do cadastro, com rótulo
   /// legível e se estão preenchidos. "Notas/observações" é um campo livre,
   /// não um dado cadastral, e não entra aqui.
@@ -2101,87 +2077,10 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     return type == 'lider' || type == 'coordenador' || type == 'admin';
   }
 
-  /// Marcos da vida da pessoa que já estão no cadastro, na ordem em que a
-  /// vida acontece. Só entra o que está preenchido: campo vazio não vira item
-  /// "não informado" — o cadastro é magro e a linha do tempo viraria uma lista
-  /// de buracos.
-  ///
-  /// As datas saem do `Member` já parseado, e são exibidas pelo mesmo
-  /// `_formatShortDate` que o resto da ficha usa. Isso é de propósito: as datas
-  /// do banco guardam hora de parede de São Paulo rotulada como UTC, e
-  /// qualquer conversão de fuso aqui faria a linha do tempo divergir em um dia
-  /// da data que a própria ficha mostra logo acima.
-  static const List<
-    ({
-      DateTime? Function(Member) get,
-      String title,
-      String subtitle,
-      IconData icon,
-    })
-  >
-  _lifeEvents = [
-    (
-      get: _getBirthdate,
-      title: 'Nascimento',
-      subtitle: 'Data de nascimento',
-      icon: Icons.cake_outlined,
-    ),
-    (
-      get: _getFirstVisitDate,
-      title: 'Primeira visita',
-      subtitle: 'Primeira vez na igreja',
-      icon: Icons.waving_hand_outlined,
-    ),
-    (
-      get: _getSalvationDate,
-      title: 'Decisão por Cristo',
-      subtitle: 'Decisão registrada',
-      icon: Icons.volunteer_activism_outlined,
-    ),
-    (
-      get: _getConversionDate,
-      title: 'Conversão',
-      subtitle: 'Data de conversão',
-      icon: Icons.auto_awesome_outlined,
-    ),
-    (
-      get: _getBaptismDate,
-      title: 'Batismo',
-      subtitle: 'Batismo nas águas',
-      icon: Icons.water_drop_outlined,
-    ),
-    (
-      get: _getMarriageDate,
-      title: 'Casamento',
-      subtitle: 'Data de casamento',
-      icon: Icons.favorite_outline,
-    ),
-    (
-      get: _getMembershipDate,
-      title: 'Tornou-se membro',
-      subtitle: 'Entrada para o rol de membros',
-      icon: Icons.badge,
-    ),
-    (
-      get: _getCredentialDate,
-      title: 'Credencial',
-      subtitle: 'Emissão da credencial',
-      icon: Icons.card_membership_outlined,
-    ),
-  ];
-
-  static DateTime? _getBirthdate(Member m) => m.birthdate;
-  static DateTime? _getFirstVisitDate(Member m) => m.firstVisitDate;
-  static DateTime? _getSalvationDate(Member m) => m.salvationDate;
-  static DateTime? _getConversionDate(Member m) => m.conversionDate;
-  static DateTime? _getBaptismDate(Member m) => m.baptismDate;
-  static DateTime? _getMarriageDate(Member m) => m.marriageDate;
-  static DateTime? _getMembershipDate(Member m) => m.membershipDate;
-  static DateTime? _getCredentialDate(Member m) => m.credentialDate;
-
   List<_JourneyItem> _buildJourneyItems(
     List<Map<String, dynamic>> readings,
     Member member,
+    List<StudyGroup> studyGroups,
   ) {
     final items = readings.map((row) {
       final readAt =
@@ -2201,15 +2100,23 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       );
     }).toList();
 
-    for (final evento in _lifeEvents) {
-      final quando = evento.get(member);
-      if (quando == null) continue;
+    for (final evento in memberLifeEvents(member)) {
       items.add(
         _JourneyItem(
-          when: quando,
+          when: evento.when,
           title: evento.title,
           subtitle: evento.subtitle,
           icon: evento.icon,
+        ),
+      );
+    }
+    for (final g in studyGroups) {
+      items.add(
+        _JourneyItem(
+          when: g.startDate,
+          title: 'Participa do grupo de estudo',
+          subtitle: g.name,
+          icon: Icons.groups,
         ),
       );
     }
@@ -2762,10 +2669,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           'Data de Membresia',
           _formatShortDate(member.membershipDate!),
         ),
-      if (member.credentialDate != null)
-        _buildCredentialRow(context, member.credentialDate!)
-      else
-        _buildInfoRow(Icons.badge, 'Credencial', 'Não informada'),
     ];
 
     final privacyItems = <Widget>[

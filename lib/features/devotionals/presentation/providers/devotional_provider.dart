@@ -144,7 +144,7 @@ final isDevotionalSavedProvider = FutureProvider.family<bool, String>((ref, devo
   if (member == null) return false;
   return repository.isDevotionalSaved(
     devotionalId: devotionalId,
-    userId: member.id,
+    userId: member.authUserId ?? member.id,
   );
 });
 
@@ -153,7 +153,7 @@ final savedDevotionalsProvider = FutureProvider<List<Devotional>>((ref) async {
   final repository = ref.watch(devotionalRepositoryProvider);
   final member = await ref.watch(currentMemberProvider.future);
   if (member == null) return const [];
-  final devotionals = await repository.getSavedDevotionals(member.id);
+  final devotionals = await repository.getSavedDevotionals(member.authUserId ?? member.id);
   final withReacts = await _withDevotionalReactions(
     Supabase.instance.client,
     devotionals,
@@ -192,7 +192,7 @@ final currentUserReadingsProvider = FutureProvider<List<DevotionalReading>>((ref
   final repository = ref.watch(devotionalRepositoryProvider);
   final member = await ref.watch(currentMemberProvider.future);
   if (member == null) return [];
-  return repository.getUserReadings(member.id);
+  return repository.getUserReadings(member.authUserId ?? member.id);
 });
 
 final currentUserReadingsWithDevotionalProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
@@ -200,7 +200,7 @@ final currentUserReadingsWithDevotionalProvider = FutureProvider<List<Map<String
   final repository = ref.watch(devotionalRepositoryProvider);
   final member = await ref.watch(currentMemberProvider.future);
   if (member == null) return const [];
-  return repository.getUserReadingsWithDevotional(member.id);
+  return repository.getUserReadingsWithDevotional(member.authUserId ?? member.id);
 });
 
 /// Provider para leituras de um usuário específico
@@ -216,7 +216,7 @@ final hasUserReadDevotionalProvider = FutureProvider.family<bool, String>((ref, 
   final repository = ref.watch(devotionalRepositoryProvider);
   final member = await ref.watch(currentMemberProvider.future);
   if (member == null) return false;
-  return repository.hasUserReadDevotional(member.id, devotionalId);
+  return repository.hasUserReadDevotional(member.authUserId ?? member.id, devotionalId);
 });
 
 /// Provider para leitura específica do usuário
@@ -224,7 +224,7 @@ final userDevotionalReadingProvider = FutureProvider.family<DevotionalReading?, 
   final repository = ref.watch(devotionalRepositoryProvider);
   final member = await ref.watch(currentMemberProvider.future);
   if (member == null) return null;
-  return repository.getUserDevotionalReading(member.id, devotionalId);
+  return repository.getUserDevotionalReading(member.authUserId ?? member.id, devotionalId);
 });
 
 // =====================================================
@@ -242,7 +242,7 @@ final currentUserReadingStreakProvider = FutureProvider<int>((ref) async {
   final repository = ref.watch(devotionalRepositoryProvider);
   final member = await ref.watch(currentMemberProvider.future);
   if (member == null) return 0;
-  return repository.getUserReadingStreak(member.id);
+  return repository.getUserReadingStreak(member.authUserId ?? member.id);
 });
 
 /// Provider para total de leituras do usuário atual
@@ -250,7 +250,7 @@ final currentUserTotalReadingsProvider = FutureProvider<int>((ref) async {
   final repository = ref.watch(devotionalRepositoryProvider);
   final member = await ref.watch(currentMemberProvider.future);
   if (member == null) return 0;
-  return repository.getUserTotalReadings(member.id);
+  return repository.getUserTotalReadings(member.authUserId ?? member.id);
 });
 
 /// Provider para devocionais mais lidos
@@ -315,7 +315,7 @@ class DevotionalActions {
       content: content,
       scriptureReference: scriptureReference,
       devotionalDate: devotionalDate,
-      authorId: member.id,
+      authorId: member.authUserId ?? member.id,
       isPublished: isPublished,
       imageUrl: imageUrl,
       category: category,
@@ -420,12 +420,13 @@ class DevotionalActions {
 
     await repository.markAsRead(
       devotionalId: devotionalId,
-      userId: member.id,
+      userId: member.authUserId ?? member.id,
       notes: notes,
     );
 
     // Invalidar providers
     ref.invalidate(currentUserReadingsProvider);
+    ref.invalidate(currentUserReadingsWithDevotionalProvider);
     ref.invalidate(hasUserReadDevotionalProvider(devotionalId));
     ref.invalidate(userDevotionalReadingProvider(devotionalId));
     ref.invalidate(devotionalReadingsProvider(devotionalId));
@@ -448,6 +449,7 @@ class DevotionalActions {
 
     // Invalidar providers
     ref.invalidate(currentUserReadingsProvider);
+    ref.invalidate(currentUserReadingsWithDevotionalProvider);
   }
 
   /// Deletar leitura
@@ -458,6 +460,7 @@ class DevotionalActions {
 
     // Invalidar providers
     ref.invalidate(currentUserReadingsProvider);
+    ref.invalidate(currentUserReadingsWithDevotionalProvider);
     ref.invalidate(currentUserReadingStreakProvider);
     ref.invalidate(currentUserTotalReadingsProvider);
   }
@@ -471,18 +474,18 @@ class DevotionalActions {
 
     final isSaved = await repository.isDevotionalSaved(
       devotionalId: devotionalId,
-      userId: member.id,
+      userId: member.authUserId ?? member.id,
     );
 
     if (isSaved) {
       await repository.removeSavedDevotional(
         devotionalId: devotionalId,
-        userId: member.id,
+        userId: member.authUserId ?? member.id,
       );
     } else {
       await repository.saveDevotional(
         devotionalId: devotionalId,
-        userId: member.id,
+        userId: member.authUserId ?? member.id,
       );
     }
 
