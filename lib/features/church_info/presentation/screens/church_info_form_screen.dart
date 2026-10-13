@@ -46,7 +46,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
   final _youtubeController = TextEditingController();
   final _twitterController = TextEditingController();
 
-  // Presença pelo celular (005000)
+  // Presença pelo celular (005200)
   double? _latitude;
   double? _longitude;
   final _radiusController = TextEditingController(text: '20');

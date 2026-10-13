@@ -6,7 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Resposta das RPCs `worship_geo_status`/`worship_geo_checkin` (migration
-/// 005000), mais os casos do próprio aparelho (permissão e GPS).
+/// 005200), mais os casos do próprio aparelho (permissão e GPS).
 enum GeoCheckinStatus {
   semConta,
   semLocal,

@@ -20,7 +20,7 @@ import '../providers/diaconato_attendance_providers.dart';
 /// segundo passo do checklist (salvar lá abre esta tela). Cada ausente
 /// recebe uma ação: sem ação, ligar, visitar, ceia, ligar + ceia ou
 /// encaminhar a outro ministério. Ligar, visitar e encaminhar viram
-/// pendência na aba Acompanhar (005000). Quando há visitantes não
+/// pendência na aba Acompanhar (005200). Quando há visitantes não
 /// cadastrados na contagem, mostra banner de captação para o Raízes.
 class DiaconatoAbsenteesScreen extends ConsumerWidget {
   final String ministryId;

@@ -53,7 +53,7 @@ abstract final class MinistryTabKeys {
   // conteúdo a quem tem ministry_assist.view/.manage.
   static const assistencia = 'assistencia';
 
-  // Ausentes do culto com pendência (005000). Não está no catálogo: a aba
+  // Ausentes do culto com pendência (005200). Não está no catálogo: a aba
   // aparece sozinha no shell enquanto houver pendência.
   static const acompanhar = 'acompanhar';
 

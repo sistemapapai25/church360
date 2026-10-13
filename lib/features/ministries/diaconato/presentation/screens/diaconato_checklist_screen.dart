@@ -19,7 +19,7 @@ import '../providers/diaconato_attendance_providers.dart';
 /// para cada um, stepper para visitantes não cadastrados, total ao vivo,
 /// salvar em `worship_attendance_count` + `worship_attendance_person`.
 ///
-/// Chega com quem já marcou presença pelo celular (localização, 005000) ou
+/// Chega com quem já marcou presença pelo celular (localização, 005200) ou
 /// pelo check-in de Cultos; o diácono confere e marca quem faltar. Salvar
 /// leva direto aos Ausentes do mesmo culto: é um fluxo só.
 class DiaconatoChecklistScreen extends ConsumerWidget {

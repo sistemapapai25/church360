@@ -15,7 +15,7 @@ class ChurchInfo {
   final List<ServiceTime>? serviceTimes;
   final List<Pastor>? pastors;
 
-  /// Local para a presença pelo celular (migration 005000). Sem coordenada,
+  /// Local para a presença pelo celular (migration 005200). Sem coordenada,
   /// o recurso fica desligado.
   final double? latitude;
   final double? longitude;
