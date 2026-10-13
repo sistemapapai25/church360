@@ -310,7 +310,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       paragraphs: const [
         'Ao se cadastrar, você confirma que as informações fornecidas são verdadeiras e poderão ser usadas para comunicação oficial da igreja.',
         'Sua conta é pessoal: não compartilhe a senha. O que você vê no app sobre pessoas, finanças e crianças é sigiloso e só pode ser usado na sua função na igreja.',
-        'O assistente virtual pode errar. Com a sua confirmação, ele registra problemas para a equipe de suporte da plataforma Church360, que pode ler a conversa só para atender e corrigir o app.',
+        'O assistente virtual pode errar. Ele registra problemas, sugestões e dúvidas para a equipe de suporte da plataforma Church360, que pode ler a conversa só para atender e corrigir o app.',
         'O descumprimento pode levar a restrições de acesso. O texto completo (versão 1.1) está em papai.church360.com.br/termos.',
       ],
       onReadConfirmed: () {
