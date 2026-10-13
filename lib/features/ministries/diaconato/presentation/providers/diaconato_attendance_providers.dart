@@ -26,3 +26,13 @@ final diaconatoDashboardStatsProvider =
   final repo = ref.watch(diaconatoAttendanceRepositoryProvider);
   return repo.getDashboardStats(ministryId);
 });
+
+/// Pendências de ausentes do ministério (ligar, visitar ou recebidas por
+/// encaminhamento). Alimenta a aba Acompanhar, que aparece sozinha quando há
+/// alguma.
+final absenteeFollowupsProvider =
+    FutureProvider.family<List<AbsenteeFollowup>, String>(
+        (ref, ministryId) async {
+  final repo = ref.watch(diaconatoAttendanceRepositoryProvider);
+  return repo.getFollowups(ministryId);
+});

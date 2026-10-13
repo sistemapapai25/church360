@@ -22,6 +22,7 @@ import 'features/support_chat/domain/models/support_agent.dart';
 import 'features/support_chat/presentation/providers/agents_providers.dart';
 import 'features/support_chat/presentation/widgets/support_chat_container.dart';
 import 'features/support_chat/presentation/widgets/universal_support_chat.dart';
+import 'features/worship/data/geo_checkin_service.dart';
 
 void main() {
   runZonedGuarded(
@@ -331,6 +332,9 @@ class Church360App extends ConsumerWidget {
         onOpenRoute: appRouter.go,
       ).catchError((Object e) => debugPrint('Push indisponivel: $e')),
     );
+    // Presença no culto pela localização: confere sozinho ao abrir/voltar,
+    // só se a permissão já foi dada. Idempotente.
+    ref.read(geoCheckinServiceProvider).startAutoCheck();
     return MaterialApp.router(
       title: AppBranding.appName,
       debugShowCheckedModeBanner: false,

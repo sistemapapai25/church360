@@ -16,10 +16,12 @@ import '../providers/diaconato_attendance_providers.dart';
 
 /// Tela "Ausentes" do Diaconato (Lote MD.3).
 ///
-/// Lista derivada: quem não foi marcado presente no checklist do culto.
-/// Permite triar cada ausente em uma das ações (`none`/`call`/`communion`/
-/// `call_and_communion`). Quando há visitantes não cadastrados na contagem,
-/// mostra banner de captação para o Raízes.
+/// Lista derivada: quem não foi marcado presente no checklist do culto. É o
+/// segundo passo do checklist (salvar lá abre esta tela). Cada ausente
+/// recebe uma ação: sem ação, ligar, visitar, ceia, ligar + ceia ou
+/// encaminhar a outro ministério. Ligar, visitar e encaminhar viram
+/// pendência na aba Acompanhar (005000). Quando há visitantes não
+/// cadastrados na contagem, mostra banner de captação para o Raízes.
 class DiaconatoAbsenteesScreen extends ConsumerWidget {
   final String ministryId;
   final String worshipServiceId;
@@ -70,6 +72,9 @@ class _AbsenteesContentState extends ConsumerState<_AbsenteesContent> {
   /// userIds que tiveram a triagem mexida nesta sessão (vão para o save).
   final Set<String> _dirtyUserIds = <String>{};
 
+  /// Pendência já concluída (ligação/visita feita, encaminhamento atendido).
+  final Set<String> _doneUserIds = <String>{};
+
   bool _saving = false;
 
   @override
@@ -115,8 +120,18 @@ class _AbsenteesContentState extends ConsumerState<_AbsenteesContent> {
       triageSeeds[p.userId] = AbsenteeTriage(
         action: action,
         personType: p.personType,
+        forwardMinistryId: (existing != null && !existing.present)
+            ? existing.forwardMinistryId
+            : null,
       );
     }
+    _doneUserIds
+      ..clear()
+      ..addAll(
+        personRows
+            .where((r) => !r.present && r.followupDoneAt != null)
+            .map((r) => r.userId),
+      );
 
     _count = count;
     _service = service;
@@ -132,16 +147,73 @@ class _AbsenteesContentState extends ConsumerState<_AbsenteesContent> {
     );
   }
 
-  void _setTriage(String userId, DiaconatoAbsentAction action) {
+  Future<void> _setTriage(String userId, DiaconatoAbsentAction action) async {
     final current = _triageByUser[userId];
-    if (current == null || current.action == action) return;
+    if (current == null) return;
+    String? forwardTo;
+    if (action == DiaconatoAbsentAction.forward) {
+      // Encaminhar pede o ministério; tocar de novo troca o destino.
+      forwardTo = await _pickMinistry();
+      if (forwardTo == null) return;
+    } else if (current.action == action) {
+      return;
+    }
+    if (!mounted) return;
     setState(() {
       _triageByUser[userId] = AbsenteeTriage(
         action: action,
         personType: current.personType,
+        forwardMinistryId: forwardTo,
       );
       _dirtyUserIds.add(userId);
+      _doneUserIds.remove(userId);
     });
+  }
+
+  Future<String?> _pickMinistry() async {
+    final ministries = await ref.read(activeMinistriesProvider.future);
+    if (!mounted) return null;
+    final options = ministries.where((m) => m.id != widget.ministryId).toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.7,
+          ),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Text(
+                  'Encaminhar para qual ministério?',
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w700, fontSize: 16),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Text(
+                  'Os líderes recebem um aviso e a pessoa aparece na aba '
+                  'Acompanhar do ministério até alguém concluir.',
+                  style: CommunityDesign.metaStyle(context),
+                ),
+              ),
+              for (final m in options)
+                ListTile(
+                  title: Text(m.name),
+                  onTap: () => Navigator.of(context).pop(m.id),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _save() async {
@@ -164,6 +236,8 @@ class _AbsenteesContentState extends ConsumerState<_AbsenteesContent> {
       // Mesma razao do checklist: os KPIs do painel do Diaconato vem de um
       // `FutureProvider` com cache, e a triagem muda o que eles contam.
       ref.invalidate(diaconatoDashboardStatsProvider(widget.ministryId));
+      // A aba Acompanhar (deste e dos ministérios que receberam) muda junto.
+      ref.invalidate(absenteeFollowupsProvider);
 
       if (!mounted) return;
       setState(() {
@@ -223,6 +297,11 @@ class _AbsenteesContentState extends ConsumerState<_AbsenteesContent> {
   }
 
   Widget _buildBody(BuildContext context, _AbsenteesData data) {
+    final ministryNames = <String?, String>{
+      for (final m
+          in ref.watch(activeMinistriesProvider).valueOrNull ?? const [])
+        m.id: m.name,
+    };
     final triagedCount = _triageByUser.values
         .where((t) => t.action != DiaconatoAbsentAction.none)
         .length;
@@ -245,6 +324,14 @@ class _AbsenteesContentState extends ConsumerState<_AbsenteesContent> {
                   count: data.count.totalUnregisteredVisitors,
                 ),
               ],
+              const SizedBox(height: 16),
+              Text(
+                'Ligar, Visitar e Encaminhar ficam como pendência na aba '
+                'Acompanhar (deste ministério, ou do que recebeu o '
+                'encaminhamento) até alguém concluir. A ceia segue pelos '
+                'Lotes de ceia.',
+                style: CommunityDesign.metaStyle(context),
+              ),
               const SizedBox(height: 20),
               if (!data.hasAnyPresentMark) ...[
                 _NoChecklistBanner(
@@ -268,6 +355,9 @@ class _AbsenteesContentState extends ConsumerState<_AbsenteesContent> {
                     current:
                         _triageByUser[p.userId]?.action ??
                         DiaconatoAbsentAction.none,
+                    forwardMinistryName:
+                        ministryNames[_triageByUser[p.userId]?.forwardMinistryId],
+                    done: _doneUserIds.contains(p.userId),
                     onChanged: (a) => _setTriage(p.userId, a),
                   ),
                 ),
@@ -542,11 +632,15 @@ class _NoChecklistBanner extends StatelessWidget {
 class _AbsenteeTile extends StatelessWidget {
   final DiaconatoEligiblePerson person;
   final DiaconatoAbsentAction current;
+  final String? forwardMinistryName;
+  final bool done;
   final ValueChanged<DiaconatoAbsentAction> onChanged;
 
   const _AbsenteeTile({
     required this.person,
     required this.current,
+    this.forwardMinistryName,
+    this.done = false,
     required this.onChanged,
   });
 
@@ -603,10 +697,21 @@ class _AbsenteeTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (triaged)
+                if (done)
+                  StatusBadge.done(label: 'Concluído', icon: AppIcons.checkCircle)
+                else if (triaged)
                   StatusBadge.done(label: 'Triado', icon: AppIcons.checkCircle),
               ],
             ),
+            if (current == DiaconatoAbsentAction.forward) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Encaminhado para ${forwardMinistryName ?? 'outro ministério'}',
+                style: CommunityDesign.metaStyle(
+                  context,
+                ).copyWith(fontWeight: FontWeight.w600),
+              ),
+            ],
             const SizedBox(height: 10),
             Wrap(
               spacing: 6,

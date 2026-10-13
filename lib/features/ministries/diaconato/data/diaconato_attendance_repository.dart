@@ -103,6 +103,41 @@ class DiaconatoAttendanceRepository {
         .toList();
   }
 
+  /// Quem já marcou presença no culto pelo próprio celular (localização) ou
+  /// pelo check-in do módulo Cultos. O checklist chega com essas pessoas
+  /// marcadas; o diácono confere e marca quem faltar.
+  Future<Set<String>> getCheckedInUserIds(String eventId) async {
+    final response = await _supabase
+        .from('worship_attendance')
+        .select('user_id')
+        .eq('event_id', eventId);
+    return {
+      for (final r in response as List)
+        if ((r as Map)['user_id'] != null) r['user_id'] as String,
+    };
+  }
+
+  // =====================================================
+  // Pendências dos ausentes (aba Acompanhar)
+  // =====================================================
+
+  Future<List<AbsenteeFollowup>> getFollowups(String ministryId) async {
+    final response = await _supabase.rpc(
+      'absentee_followups',
+      params: {'p_ministry_id': ministryId},
+    );
+    return (response as List)
+        .map((j) => AbsenteeFollowup.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> completeFollowup(String personId, {String? notes}) async {
+    await _supabase.rpc(
+      'absentee_followup_done',
+      params: {'p_person_id': personId, 'p_notes': notes},
+    );
+  }
+
   // =====================================================
   // Save do checklist (MD.2)
   // =====================================================
@@ -158,6 +193,11 @@ class DiaconatoAttendanceRepository {
                 'person_type': presentByUser[userId]!.value,
                 'present': true,
                 'absent_action': DiaconatoAbsentAction.none.value,
+                // Veio afinal: some a pendência (o CHECK do banco exige o
+                // ministério nulo fora de "encaminhar").
+                'forward_ministry_id': null,
+                'followup_done_at': null,
+                'followup_done_by': null,
               })
           .toList();
       await _supabase
@@ -244,6 +284,12 @@ class DiaconatoAttendanceRepository {
         'person_type': triage.personType.value,
         'present': false,
         'absent_action': triage.action.value,
+        'forward_ministry_id': triage.action == DiaconatoAbsentAction.forward
+            ? triage.forwardMinistryId
+            : null,
+        // Ação nova = pendência nova.
+        'followup_done_at': null,
+        'followup_done_by': null,
       });
     }
 

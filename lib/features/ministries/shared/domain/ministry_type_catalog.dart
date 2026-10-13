@@ -53,6 +53,10 @@ abstract final class MinistryTabKeys {
   // conteúdo a quem tem ministry_assist.view/.manage.
   static const assistencia = 'assistencia';
 
+  // Ausentes do culto com pendência (005000). Não está no catálogo: a aba
+  // aparece sozinha no shell enquanto houver pendência.
+  static const acompanhar = 'acompanhar';
+
   /// As abas que **todo** ministério pode ligar na engrenagem, na ordem
   /// padrão. Aba nova que deve chegar a todos os ministérios entra aqui (e em
   /// `ministryStandardSlots`); o padrão dela é desligada, salvo no tipo cujo

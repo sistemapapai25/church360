@@ -88,6 +88,11 @@ class _FakeDiaconatoRepository extends DiaconatoAttendanceRepository {
   ) async => const [];
 
   @override
+  Future<Set<String>> getCheckedInUserIds(String eventId) async => const {
+    'member-1',
+  };
+
+  @override
   Future<List<DiaconatoEligiblePerson>> getEligiblePeople() async => const [
     DiaconatoEligiblePerson(
       userId: 'member-1',
@@ -210,6 +215,11 @@ void main() {
       expect(find.byIcon(AppIcons.eventFilled), findsOneWidget);
       expect(find.byIcon(AppIcons.groups), findsOneWidget);
       expect(find.byIcon(AppIcons.visitor), findsOneWidget);
+
+      // Quem fez check-in pelo celular chega marcado, e o checklist pede o
+      // Salvar (a marcação ainda não está gravada).
+      expect(find.text('Check-in pelo celular'), findsOneWidget);
+      expect(find.text('Salvar e ver ausentes'), findsOneWidget);
     },
   );
 }
