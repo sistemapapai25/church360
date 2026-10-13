@@ -9,7 +9,6 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/date_period_filter.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/pearl_fab.dart';
-import '../../../../core/widgets/status_badge.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 
 /// Tela de listagem de visitantes
@@ -24,8 +23,7 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
   String _searchQuery = '';
   bool _showFilters = false;
   DatePeriodSelection _firstVisitFilter = const DatePeriodSelection();
-  DatePeriodSelection _salvationFilter = const DatePeriodSelection();
-  final Set<String> _followUpStatuses = <String>{};
+  DatePeriodSelection _conversionFilter = const DatePeriodSelection();
   bool _onlyWantsContact = false;
   RangeValues? _ageRange; // null = sem filtro
   static const double _ageMin = 0;
@@ -35,8 +33,7 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
   int _activeFilterCount() {
     var count = 0;
     if (_firstVisitFilter.period != DatePeriod.all) count++;
-    if (_salvationFilter.period != DatePeriod.all) count++;
-    if (_followUpStatuses.isNotEmpty) count++;
+    if (_conversionFilter.period != DatePeriod.all) count++;
     if (_onlyWantsContact) count++;
     if (_ageRange != null) count++;
     return count;
@@ -44,12 +41,8 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
 
   bool _matchesFilters(Visitor v) {
     if (!_firstVisitFilter.matches(v.firstVisitDate)) return false;
-    if (_salvationFilter.period != DatePeriod.all) {
-      if (!_salvationFilter.matches(v.salvationDate)) return false;
-    }
-    if (_followUpStatuses.isNotEmpty &&
-        !_followUpStatuses.contains(v.followUpStatus)) {
-      return false;
+    if (_conversionFilter.period != DatePeriod.all) {
+      if (!_conversionFilter.matches(v.conversionDate)) return false;
     }
     if (_onlyWantsContact && !v.wantsContact) return false;
     if (_ageRange != null) {
@@ -175,7 +168,7 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
                     onChanged: (value) =>
                         setState(() => _searchQuery = value.trim()),
                     decoration: InputDecoration(
-                      hintText: 'Digite o nome ou apelido...',
+                      hintText: 'Digite o nome...',
                       hintStyle: CommunityDesign.metaStyle(context),
                       prefixIcon: const Icon(AppIcons.search, size: 20),
                       suffixIcon: _searchQuery.trim().isNotEmpty
@@ -238,24 +231,11 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
                     ),
                     const SizedBox(height: 16),
                     DatePeriodFilter(
-                      label: 'Decisão / salvação',
+                      label: 'Data de conversão',
                       icon: AppIcons.favorite,
-                      selection: _salvationFilter,
+                      selection: _conversionFilter,
                       onChanged: (sel) =>
-                          setState(() => _salvationFilter = sel),
-                    ),
-                    const SizedBox(height: 16),
-                    _FollowUpFilter(
-                      selected: _followUpStatuses,
-                      onToggle: (status) {
-                        setState(() {
-                          if (_followUpStatuses.contains(status)) {
-                            _followUpStatuses.remove(status);
-                          } else {
-                            _followUpStatuses.add(status);
-                          }
-                        });
-                      },
+                          setState(() => _conversionFilter = sel),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -297,9 +277,7 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
                 if (_searchQuery.isNotEmpty) {
                   final query = _searchQuery.toLowerCase();
                   filteredVisitors = visitors.where((visitor) {
-                    return visitor.displayName.toLowerCase().contains(query) ||
-                        (visitor.nickname?.toLowerCase().contains(query) ??
-                            false);
+                    return visitor.displayName.toLowerCase().contains(query);
                   }).toList();
                 }
 
@@ -404,22 +382,6 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
   }
 }
 
-AppStatusTone _visitorStatusTone(VisitorStatus status) {
-  return switch (status) {
-    VisitorStatus.converted => AppStatusTone.done,
-    VisitorStatus.inactive => AppStatusTone.dropped,
-    _ => AppStatusTone.active,
-  };
-}
-
-AppStatusTone _followUpStatusTone(String status) {
-  return switch (status) {
-    'completed' => AppStatusTone.done,
-    'pending' || 'in_progress' => AppStatusTone.active,
-    _ => AppStatusTone.dropped,
-  };
-}
-
 /// Widget de card de visitante com design rico
 class _VisitorCard extends ConsumerWidget {
   final Visitor visitor;
@@ -433,7 +395,7 @@ class _VisitorCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Foto, Nome, Apelido e Status
+          // Header: Foto e Nome
           Row(
             children: [
               // Foto do visitante
@@ -457,7 +419,7 @@ class _VisitorCard extends ConsumerWidget {
                     : null,
               ),
               const SizedBox(width: 16),
-              // Nome e apelido
+              // Nome
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,35 +429,6 @@ class _VisitorCard extends ConsumerWidget {
                       style: CommunityDesign.titleStyle(
                         context,
                       ).copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    if (visitor.nickname != null) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Text(
-                            '"${visitor.nickname}"',
-                            style: CommunityDesign.metaStyle(
-                              context,
-                            ).copyWith(fontStyle: FontStyle.italic),
-                          ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        StatusBadge(
-                          label: visitor.status.label,
-                          tone: _visitorStatusTone(visitor.status),
-                        ),
-                        StatusBadge(
-                          label: visitor.followUpStatusLabel,
-                          tone: _followUpStatusTone(visitor.followUpStatus),
-                          icon: AppIcons.followUp,
-                        ),
-                      ],
                     ),
                   ],
                 ),
@@ -531,7 +464,11 @@ class _VisitorCard extends ConsumerWidget {
             visitor.age != null ? '${visitor.age} anos' : 'Idade não informada',
           ),
           const SizedBox(height: 8),
-          _buildInfoRow(context, AppIcons.location, visitor.state ?? 'GO'),
+          _buildInfoRow(
+            context,
+            AppIcons.location,
+            visitor.state ?? 'Estado não informado',
+          ),
           const SizedBox(height: 16),
           // Botões de ação
           Row(
@@ -585,61 +522,6 @@ class _VisitorCard extends ConsumerWidget {
       ],
     );
   }
-}
-
-class _FollowUpFilter extends StatelessWidget {
-  final Set<String> selected;
-  final ValueChanged<String> onToggle;
-
-  const _FollowUpFilter({required this.selected, required this.onToggle});
-
-  static const _options = <_FollowUpOption>[
-    _FollowUpOption('pending', 'Pendente'),
-    _FollowUpOption('in_progress', 'Em andamento'),
-    _FollowUpOption('completed', 'Concluído'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(AppIcons.followUp, size: 18, color: theme.colorScheme.primary),
-            const SizedBox(width: 8),
-            Text(
-              'Acompanhamento',
-              style: CommunityDesign.titleStyle(
-                context,
-              ).copyWith(fontSize: 14, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _options
-              .map(
-                (opt) => FilterChip(
-                  label: Text(opt.label),
-                  selected: selected.contains(opt.value),
-                  onSelected: (_) => onToggle(opt.value),
-                ),
-              )
-              .toList(),
-        ),
-      ],
-    );
-  }
-}
-
-class _FollowUpOption {
-  final String value;
-  final String label;
-  const _FollowUpOption(this.value, this.label);
 }
 
 class _AgeRangeFilter extends StatelessWidget {

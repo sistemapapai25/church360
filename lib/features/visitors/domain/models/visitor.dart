@@ -1,27 +1,6 @@
 /// Enums e Models para o sistema de visitantes
 library;
 
-/// Status do visitante
-enum VisitorStatus {
-  firstVisit('first_visit', 'Primeira Visita'),
-  returning('returning', 'Retornando'),
-  regular('regular', 'Frequentando'),
-  converted('converted', 'Convertido'),
-  inactive('inactive', 'Inativo');
-
-  final String value;
-  final String label;
-
-  const VisitorStatus(this.value, this.label);
-
-  static VisitorStatus fromValue(String value) {
-    return VisitorStatus.values.firstWhere(
-      (status) => status.value == value,
-      orElse: () => VisitorStatus.firstVisit,
-    );
-  }
-}
-
 /// Origem do visitante (Tipo de Membro para visitantes)
 enum VisitorSource {
   church('church', 'Veio da Igreja (Culto)'),
@@ -84,7 +63,6 @@ class Visitor {
   final DateTime? firstVisitDate;
   final DateTime? lastVisitDate;
   final int totalVisits;
-  final VisitorStatus status;
   final HowFoundChurch? howFound;
 
   // Informações adicionais
@@ -106,7 +84,6 @@ class Visitor {
   final String? meetingId;
 
   // Campos adicionais
-  final int? age;
   final String? gender; // M, F
   final String? howFoundUs; // Texto livre
   final bool wantsContact;
@@ -114,7 +91,7 @@ class Visitor {
 
   // Campos de salvação
   final bool isSalvation;
-  final DateTime? salvationDate;
+  final DateTime? conversionDate;
   final String? testimony;
 
   // Campos de batismo
@@ -129,7 +106,6 @@ class Visitor {
   final String? assignedMentorName; // Computed from join
 
   // Campos de acompanhamento
-  final String followUpStatus; // pending, in_progress, completed
   final DateTime? lastContactDate;
 
   // Timestamps
@@ -151,7 +127,6 @@ class Visitor {
     required this.firstVisitDate,
     this.lastVisitDate,
     required this.totalVisits,
-    required this.status,
     this.howFound,
     this.prayerRequest,
     this.interests,
@@ -161,13 +136,12 @@ class Visitor {
     this.assignedTo,
     this.visitorSource = VisitorSource.church,
     this.meetingId,
-    this.age,
     this.gender,
     this.howFoundUs,
     this.wantsContact = true,
     this.wantsToReturn = false,
     this.isSalvation = false,
-    this.salvationDate,
+    this.conversionDate,
     this.testimony,
     this.wantsBaptism = false,
     this.baptismEventId,
@@ -176,7 +150,6 @@ class Visitor {
     this.discipleshipCourseId,
     this.assignedMentorId,
     this.assignedMentorName,
-    this.followUpStatus = 'pending',
     this.lastContactDate,
     required this.createdAt,
     required this.updatedAt,
@@ -187,8 +160,6 @@ class Visitor {
 
   String get displayName => fullName;
 
-  String? get nickname => null; // Visitors don't have nicknames in the current schema
-
   String get initials {
     final first = firstName.isNotEmpty ? firstName[0].toUpperCase() : '';
     final last = lastName.isNotEmpty ? lastName[0].toUpperCase() : '';
@@ -197,13 +168,14 @@ class Visitor {
 
   String? get photoUrl => null; // Visitors don't have photos in the current schema
 
-  String get followUpStatusLabel {
-    switch (followUpStatus) {
-      case 'pending': return 'Pendente';
-      case 'in_progress': return 'Em Andamento';
-      case 'completed': return 'Concluído';
-      default: return followUpStatus;
-    }
+  /// Idade calculada pela data de nascimento (user_account não tem coluna de idade).
+  int? get age {
+    final b = birthDate;
+    if (b == null) return null;
+    final now = DateTime.now();
+    var years = now.year - b.year;
+    if (now.month < b.month || (now.month == b.month && now.day < b.day)) years--;
+    return years;
   }
 
   factory Visitor.fromJson(Map<String, dynamic> json) {
@@ -254,10 +226,10 @@ class Visitor {
       city: json['city'] as String?,
       state: json['state'] as String?,
       zipCode: json['zip_code'] as String?,
-      firstVisitDate: parseDate(json['first_visit_date']),
+      // first_visit_date é opcional no cadastro: sem ela, vale a data do cadastro.
+      firstVisitDate: parseDate(json['first_visit_date']) ?? parseDate(json['created_at']),
       lastVisitDate: parseDate(json['last_visit_date']),
       totalVisits: json['total_visits'] as int? ?? 1,
-      status: VisitorStatus.fromValue(json['status'] as String? ?? 'first_visit'),
       howFound: json['how_found'] != null
           ? HowFoundChurch.fromValue(json['how_found'] as String)
           : null,
@@ -271,13 +243,12 @@ class Visitor {
           ? VisitorSource.fromValue(json['visitor_source'] as String)
           : VisitorSource.church,
       meetingId: json['meeting_id'] as String?,
-      age: json['age'] as int?,
       gender: json['gender'] as String?,
       howFoundUs: json['how_found_us'] as String?,
       wantsContact: json['wants_contact'] as bool? ?? true,
       wantsToReturn: json['wants_to_return'] as bool? ?? false,
       isSalvation: json['is_salvation'] as bool? ?? false,
-      salvationDate: parseDate(json['salvation_date']),
+      conversionDate: parseDate(json['conversion_date']),
       testimony: json['testimony'] as String?,
       wantsBaptism: json['wants_baptism'] as bool? ?? false,
       baptismEventId: json['baptism_event_id'] as String?,
@@ -286,7 +257,6 @@ class Visitor {
       discipleshipCourseId: json['discipleship_course_id'] as String?,
       assignedMentorId: json['assigned_mentor_id'] as String?,
       assignedMentorName: assignedMentorName ?? json['assigned_mentor_name'] as String?,
-      followUpStatus: json['follow_up_status'] as String? ?? 'pending',
       lastContactDate: parseDate(json['last_contact_date']),
       createdAt: parseDate(json['created_at']) ?? DateTime.now(),
       updatedAt: parseDate(json['updated_at']) ?? parseDate(json['created_at']) ?? DateTime.now(),
@@ -309,7 +279,6 @@ class Visitor {
       'first_visit_date': firstVisitDate?.toIso8601String().split('T')[0],
       'last_visit_date': lastVisitDate?.toIso8601String().split('T')[0],
       'total_visits': totalVisits,
-      'status': status.value,
       'how_found': howFound?.value,
       'prayer_request': prayerRequest,
       'interests': interests,
@@ -319,13 +288,12 @@ class Visitor {
       'assigned_to': assignedTo,
       'visitor_source': visitorSource.value,
       'meeting_id': meetingId,
-      'age': age,
       'gender': gender,
       'how_found_us': howFoundUs,
       'wants_contact': wantsContact,
       'wants_to_return': wantsToReturn,
       'is_salvation': isSalvation,
-      'salvation_date': salvationDate?.toIso8601String().split('T')[0],
+      'conversion_date': conversionDate?.toIso8601String().split('T')[0],
       'testimony': testimony,
       'wants_baptism': wantsBaptism,
       'baptism_event_id': baptismEventId,
@@ -333,7 +301,6 @@ class Visitor {
       'wants_discipleship': wantsDiscipleship,
       'discipleship_course_id': discipleshipCourseId,
       'assigned_mentor_id': assignedMentorId,
-      'follow_up_status': followUpStatus,
       'last_contact_date': lastContactDate?.toIso8601String().split('T')[0],
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),

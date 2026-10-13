@@ -22,6 +22,8 @@ import '../../domain/models/member_directory_entry.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../kids/presentation/providers/kids_providers.dart';
 import '../../../access_levels/presentation/providers/access_level_provider.dart';
+import '../../../visitors/presentation/providers/visitors_provider.dart'
+    show allVisitorsProvider;
 
 /// Tela de formulário de membro (criar/editar)
 class MemberFormScreen extends ConsumerStatefulWidget {
@@ -994,6 +996,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         ref.invalidate(allMembersProvider);
         ref.invalidate(activeMembersProvider);
         ref.invalidate(visitorsProvider);
+        ref.invalidate(allVisitorsProvider);
         ref.invalidate(managedChildrenProvider);
         // A ficha tem DUAS chaves: `user_account.id` e `auth_user_id`, e
         // elas só coincidem por acaso. Comparar o uid do login apenas com
