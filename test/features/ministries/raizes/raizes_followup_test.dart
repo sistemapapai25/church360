@@ -72,4 +72,30 @@ void main() {
     expect(sortLifeHouses(houses, null).map((h) => h.id), ['a', 'b']);
     expect(houses[1].details, 'Quarta 20:00 · Rua 2, Centro · Líder: Ana');
   });
+
+  test('RaizesReport lê o JSON da raizes_report (005500)', () {
+    final r = RaizesReport.fromJson({
+      'since': '2026-05-01',
+      'funnel': {'visitante_novo': 8, 'contactado': 2, 'xyz': 1},
+      'contact_24h': {'total': 4, 'on_time': 3, 'late': 0, 'none': 1},
+      'visits': [
+        {'name': 'Ana', 'total': 3, 'completed': 2, 'open': 1},
+      ],
+      'decisions': [
+        {'month': '2026-10', 'type': 'reconciliation', 'count': 1},
+        {'month': '2026-10', 'type': 'accepted_jesus', 'count': 2},
+        {'month': '2026-10', 'type': 'outro', 'count': 9},
+      ],
+    });
+    // Etapa desconhecida cai em Visitante novo, como no resto do app.
+    expect(r.funnel[RaizesStage.visitanteNovo], 9);
+    expect(r.funnel[RaizesStage.contactado], 2);
+    expect(r.contactOnTime, 3);
+    expect(r.contactNone, 1);
+    expect(r.visits.single.open, 1);
+    expect(r.decisionsByMonth['2026-10'], {
+      RaizesDecision.reconciliation: 1,
+      RaizesDecision.acceptedJesus: 2,
+    });
+  });
 }

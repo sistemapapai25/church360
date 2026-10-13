@@ -177,3 +177,69 @@ class RaizesTimelineEntry {
         isContact: false,
       );
 }
+
+/// Relatório do Raízes (RPC `raizes_report`, 005500): só números.
+class RaizesReport {
+  /// Primeiro dia do período (o 1º do mês, [months] meses atrás).
+  final DateTime since;
+
+  /// Pessoas por etapa; quem não tem etapa conta como Visitante novo.
+  final Map<RaizesStage, int> funnel;
+
+  /// Cadastrados no período que querem contato (e já passaram de 24h).
+  final int contactTotal;
+  final int contactOnTime;
+  final int contactLate;
+  final int contactNone;
+
+  /// Visitas no lar por responsável: (nome, total, feitas, em aberto).
+  final List<({String name, int total, int completed, int open})> visits;
+
+  /// Decisões por mês ('YYYY-MM') e tipo.
+  final Map<String, Map<RaizesDecision, int>> decisionsByMonth;
+
+  const RaizesReport({
+    required this.since,
+    required this.funnel,
+    required this.contactTotal,
+    required this.contactOnTime,
+    required this.contactLate,
+    required this.contactNone,
+    required this.visits,
+    required this.decisionsByMonth,
+  });
+
+  factory RaizesReport.fromJson(Map<String, dynamic> j) {
+    final funnel = <RaizesStage, int>{};
+    (j['funnel'] as Map<String, dynamic>? ?? const {}).forEach((k, v) {
+      final stage = RaizesStage.fromValue(k);
+      funnel[stage] = (funnel[stage] ?? 0) + (v as num).toInt();
+    });
+    final c = j['contact_24h'] as Map<String, dynamic>? ?? const {};
+    int n(Object? v) => (v as num?)?.toInt() ?? 0;
+    final decisions = <String, Map<RaizesDecision, int>>{};
+    for (final d in (j['decisions'] as List? ?? const [])) {
+      final type = RaizesDecision.fromValue(d['type'] as String?);
+      if (type == null) continue;
+      decisions.putIfAbsent(d['month'] as String, () => {})[type] = n(d['count']);
+    }
+    return RaizesReport(
+      since: DateTime.parse(j['since'] as String),
+      funnel: funnel,
+      contactTotal: n(c['total']),
+      contactOnTime: n(c['on_time']),
+      contactLate: n(c['late']),
+      contactNone: n(c['none']),
+      visits: [
+        for (final v in (j['visits'] as List? ?? const []))
+          (
+            name: v['name'] as String,
+            total: n(v['total']),
+            completed: n(v['completed']),
+            open: n(v['open']),
+          ),
+      ],
+      decisionsByMonth: decisions,
+    );
+  }
+}

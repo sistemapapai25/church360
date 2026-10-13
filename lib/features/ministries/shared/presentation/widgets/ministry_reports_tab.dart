@@ -32,7 +32,18 @@ import '../providers/ministry_finance_providers.dart';
 class MinistryReportsTab extends ConsumerWidget {
   final String ministryId;
 
-  const MinistryReportsTab({super.key, required this.ministryId});
+  /// Cartões do tipo de ministério, acima do panorama comum (ex.: Raízes).
+  final List<Widget> leading;
+
+  /// Chamado no puxar-para-atualizar, para o tipo recarregar os seus dados.
+  final VoidCallback? onRefresh;
+
+  const MinistryReportsTab({
+    super.key,
+    required this.ministryId,
+    this.leading = const [],
+    this.onRefresh,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -71,6 +82,7 @@ class MinistryReportsTab extends ConsumerWidget {
 
     return RefreshIndicator(
       onRefresh: () async {
+        onRefresh?.call();
         ref.invalidate(ministryMembersProvider(ministryId));
         ref.invalidate(ministrySchedulesProvider(ministryId));
         if (access.canView) {
@@ -81,19 +93,20 @@ class MinistryReportsTab extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
         children: [
-          _ReportCard(
+          for (final w in leading) ...[w, const SizedBox(height: 10)],
+          MinistryReportCard(
             icon: AppIcons.group,
             title: 'Equipe',
             lines: [
-              _ReportLine('Pessoas na equipe', '${team.total}'),
-              _ReportLine('Liderança', '${team.leaders}'),
-              _ReportLine('Membros', '${team.members}'),
-              _ReportLine(
+              MinistryReportLine('Pessoas na equipe', '${team.total}'),
+              MinistryReportLine('Liderança', '${team.leaders}'),
+              MinistryReportLine('Membros', '${team.members}'),
+              MinistryReportLine(
                 'Com telefone utilizável',
                 '${team.withPhone} de ${team.total}',
               ),
               if (team.incompletePhone > 0)
-                _ReportLine(
+                MinistryReportLine(
                   'Telefone incompleto na ficha',
                   '${team.incompletePhone}',
                   warn: true,
@@ -101,30 +114,30 @@ class MinistryReportsTab extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _ReportCard(
+          MinistryReportCard(
             icon: AppIcons.calendar,
             title: 'Escala',
             lines: [
-              _ReportLine('Escalas registradas', '${scale.total}'),
-              _ReportLine('Daqui para frente', '${scale.upcoming}'),
-              _ReportLine(
+              MinistryReportLine('Escalas registradas', '${scale.total}'),
+              MinistryReportLine('Daqui para frente', '${scale.upcoming}'),
+              MinistryReportLine(
                 'Próximo compromisso',
                 scale.nextLabel ?? 'nenhum agendado',
               ),
-              _ReportLine('Pessoas escaladas', '${scale.distinctPeople}'),
+              MinistryReportLine('Pessoas escaladas', '${scale.distinctPeople}'),
             ],
           ),
           const SizedBox(height: 10),
           if (access.canView && summary != null)
-            _ReportCard(
+            MinistryReportCard(
               icon: AppIcons.finance,
               title: 'Caixa do departamento',
               lines: [
-                _ReportLine('Entradas', _money.format(summary.entradas)),
-                _ReportLine('Saídas', _money.format(summary.saidas)),
-                _ReportLine('Saldo', _money.format(summary.saldo)),
+                MinistryReportLine('Entradas', _money.format(summary.entradas)),
+                MinistryReportLine('Saídas', _money.format(summary.saidas)),
+                MinistryReportLine('Saldo', _money.format(summary.saldo)),
                 if (summary.pendentesCount > 0)
-                  _ReportLine(
+                  MinistryReportLine(
                     'Aguardando aprovação',
                     '${summary.pendentesCount} · '
                         '${_money.format(summary.pendentesTotal)}',
@@ -133,11 +146,11 @@ class MinistryReportsTab extends ConsumerWidget {
               ],
             )
           else
-            _ReportCard(
+            MinistryReportCard(
               icon: AppIcons.finance,
               title: 'Caixa do departamento',
               lines: const [
-                _ReportLine(
+                MinistryReportLine(
                   'Fora deste resumo',
                   'sem permissão de ver o caixa',
                 ),
@@ -284,20 +297,21 @@ class _ScaleNumbers {
   }
 }
 
-class _ReportLine {
+class MinistryReportLine {
   final String label;
   final String value;
   final bool warn;
 
-  const _ReportLine(this.label, this.value, {this.warn = false});
+  const MinistryReportLine(this.label, this.value, {this.warn = false});
 }
 
-class _ReportCard extends StatelessWidget {
+class MinistryReportCard extends StatelessWidget {
   final IconData icon;
   final String title;
-  final List<_ReportLine> lines;
+  final List<MinistryReportLine> lines;
 
-  const _ReportCard({
+  const MinistryReportCard({
+    super.key,
     required this.icon,
     required this.title,
     required this.lines,
