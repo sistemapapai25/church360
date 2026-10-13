@@ -76,4 +76,38 @@ void main() {
       expect(member.lgpdConsentAt!.toUtc().month, 3);
     });
   });
+
+  group('Ficha do Raízes (004800)', () {
+    final baseJson = <String, dynamic>{
+      'id': 'member-1',
+      'email': 'test@example.com',
+      'created_at': '2026-01-01T10:00:00.000Z',
+    };
+
+    test('lê e devolve os campos do visitante', () {
+      final member = Member.fromJson({
+        ...baseJson,
+        'invited_by': 'Maria',
+        'first_visit_event_id': 'ev-1',
+        'wants_visit': true,
+        'wants_life_house': false,
+        'visitor_profiles': ['casais', 'jovens'],
+        'decision_type': 'reconciliation',
+      });
+
+      expect(member.invitedBy, 'Maria');
+      expect(member.visitorProfiles, ['casais', 'jovens']);
+      final json = member.toJson();
+      expect(json['first_visit_event_id'], 'ev-1');
+      expect(json['wants_visit'], isTrue);
+      expect(json['wants_life_house'], isFalse);
+      expect(json['decision_type'], 'reconciliation');
+    });
+
+    test('sem os campos, perfil vem vazio e não nulo', () {
+      final member = Member.fromJson(baseJson);
+      expect(member.visitorProfiles, isEmpty);
+      expect(member.toJson()['visitor_profiles'], isEmpty);
+    });
+  });
 }
