@@ -552,7 +552,7 @@ void main() {
         ),
       );
 
-      expect(find.textContaining('Nenhum encontro registrado ainda'),
+      expect(find.textContaining('Nenhuma chamada registrada ainda'),
           findsOneWidget);
       expect(find.textContaining('não há frequência a calcular'),
           findsOneWidget);

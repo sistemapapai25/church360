@@ -699,7 +699,7 @@ class _TemplateSheet extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Text(
                 'Nenhum modelo ativo cadastrado. Os modelos ficam em '
-                'Configurações › Disparos e valem para o app inteiro.',
+                'Configuração de Disparos e valem para o app inteiro.',
                 style: CommunityDesign.metaStyle(context),
               ),
             )

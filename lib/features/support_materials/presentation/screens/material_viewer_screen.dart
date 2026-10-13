@@ -151,20 +151,22 @@ class _MaterialViewerScreenState extends ConsumerState<MaterialViewerScreen> {
       ),
       actions: [
         // Gestão: só pela Dashboard e com a permissão de cada ação.
-        PermissionGate(
-          permission: 'support_materials.edit',
-          showLoading: false,
-          child: IconButton(
+        // O autor edita o seu; o de outra pessoa exige .edit.
+        if (!ViewOnlyScope.isActive(context) &&
+            (ref.watch(canEditMaterialProvider(material.id)).valueOrNull ??
+                false))
+          IconButton(
+            tooltip: 'Editar material',
             icon: const Icon(Icons.edit),
             onPressed: () {
               context.push('/support-materials/${material.id}/edit');
             },
           ),
-        ),
         PermissionGate(
           permission: 'support_materials.manage_modules',
           showLoading: false,
           child: IconButton(
+            tooltip: 'Gerenciar módulos',
             icon: const Icon(Icons.library_books),
             onPressed: () {
               context.push(
@@ -399,6 +401,15 @@ class _MaterialViewerScreenState extends ConsumerState<MaterialViewerScreen> {
             ),
           ],
 
+          // Conteúdo (material do tipo Texto)
+          if (material.content?.trim().isNotEmpty ?? false) ...[
+            const SizedBox(height: 16),
+            SelectableText(
+              material.content!,
+              style: const TextStyle(fontSize: 16, height: 1.5),
+            ),
+          ],
+
           // Botões de ação
           const SizedBox(height: 24),
           Wrap(
@@ -411,6 +422,14 @@ class _MaterialViewerScreenState extends ConsumerState<MaterialViewerScreen> {
                   onPressed: () => _downloadFile(material.fileUrl!),
                   icon: const Icon(Icons.download),
                   label: const Text('Baixar Arquivo'),
+                ),
+
+              // Abrir link externo (material do tipo Link)
+              if (material.externalLink?.trim().isNotEmpty ?? false)
+                ElevatedButton.icon(
+                  onPressed: () => _openVideo(material.externalLink!.trim()),
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text('Abrir Link'),
                 ),
 
               // Abrir vídeo

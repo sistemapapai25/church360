@@ -8,6 +8,8 @@ import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/app_tabs.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
+import '../../../../support_materials/domain/models/support_material_link.dart';
+import '../../../../support_materials/presentation/widgets/linked_materials.dart';
 import '../../../louvor/presentation/praise_received_view.dart';
 import '../../../louvor/presentation/providers/praise_providers.dart';
 import '../../../domain/models/ministry.dart';
@@ -15,6 +17,9 @@ import '../../domain/ministry_type_catalog.dart';
 import '../../../notifications/presentation/screens/ministry_notification_config_screen.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../presentation/utils/ministry_visuals.dart';
+import '../../../diaconato/presentation/providers/diaconato_attendance_providers.dart';
+import '../screens/ministry_about_screen.dart';
+import 'ministry_followups_tab.dart';
 
 /// Uma aba do workspace de um ministério.
 ///
@@ -230,6 +235,24 @@ class _MinistryWorkspaceShellState
 
   void _openEdit() => context.push('/ministries/${widget.ministryId}/edit');
 
+  /// Tocar no ícone abre "Sobre o ministério" (visão, diretrizes, regras e
+  /// base doutrinária), como o logo da igreja abre "Quem somos".
+  void _openAbout(bool canEdit) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (about) => MinistryAboutScreen(
+          ministryId: widget.ministryId,
+          onEdit: canEdit
+              ? () {
+                  Navigator.of(about).pop();
+                  _openEdit();
+                }
+              : null,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ministryAsync = ref.watch(ministryByIdProvider(widget.ministryId));
@@ -280,6 +303,23 @@ class _MinistryWorkspaceShellState
         ),
       );
     }
+    // Ausentes com pendência aqui (ligar/visitar, ou encaminhados por outro
+    // ministério): a aba Acompanhar aparece sozinha enquanto houver alguma,
+    // sem passar pela engrenagem. O aviso aos líderes abre ?tab=acompanhar.
+    final followups =
+        ref.watch(absenteeFollowupsProvider(widget.ministryId)).valueOrNull ??
+        const [];
+    if (followups.isNotEmpty &&
+        !tabs.any((t) => t.key == MinistryTabKeys.acompanhar)) {
+      tabs.add(
+        MinistryWorkspaceTab(
+          label: 'Acompanhar',
+          key: MinistryTabKeys.acompanhar,
+          count: '${followups.length}',
+          builder: (_) => MinistryFollowupsTab(ministryId: widget.ministryId),
+        ),
+      );
+    }
     final linked = _linkedTab == null
         ? -1
         : tabs.indexWhere((t) => t.key == _linkedTab);
@@ -306,12 +346,24 @@ class _MinistryWorkspaceShellState
         ),
         title: Row(
           children: [
-            _MinistryGlyph(ministry: ministry),
+            Tooltip(
+              message: 'Sobre o ministério',
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => _openAbout(canEdit),
+                child: _MinistryGlyph(ministry: ministry),
+              ),
+            ),
             const SizedBox(width: 10),
             Expanded(child: _WorkspaceTitle(name: name)),
           ],
         ),
         actions: [
+          // Material de apoio vinculado ao ministério (some quando não há).
+          LinkedMaterialsAction(
+            linkType: MaterialLinkType.ministry,
+            entityId: widget.ministryId,
+          ),
           if (canEdit)
             IconButton(
               icon: const Icon(AppIcons.notificationsActive),

@@ -12,10 +12,15 @@ class EntitySelectorDialog extends ConsumerStatefulWidget {
   final MaterialLinkType linkType;
   final List<String> initialSelectedIds;
 
+  /// Nomes dos já selecionados (id -> nome). Sem eles, quem não for tocado
+  /// de novo volta sem nome e o chamador perdia o vínculo ao reabrir.
+  final Map<String, String> initialNames;
+
   const EntitySelectorDialog({
     super.key,
     required this.linkType,
     this.initialSelectedIds = const [],
+    this.initialNames = const {},
   });
 
   @override
@@ -30,6 +35,7 @@ class _EntitySelectorDialogState extends ConsumerState<EntitySelectorDialog> {
   void initState() {
     super.initState();
     _selectedIds.addAll(widget.initialSelectedIds);
+    _entityNames.addAll(widget.initialNames);
   }
 
   @override
@@ -104,7 +110,10 @@ class _EntitySelectorDialogState extends ConsumerState<EntitySelectorDialog> {
                         onPressed: () {
                           Navigator.pop(context, {
                             'ids': _selectedIds.toList(),
-                            'names': _entityNames,
+                            'names': {
+                              for (final id in _selectedIds)
+                                id: _entityNames[id] ?? id,
+                            },
                           });
                         },
                         icon: const Icon(Icons.check),

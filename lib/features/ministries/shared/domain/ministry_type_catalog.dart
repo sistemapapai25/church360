@@ -39,6 +39,24 @@ abstract final class MinistryTabKeys {
   // Louvor
   static const louvores = 'louvores';
 
+  // Material de Apoio vinculado ao ministério (manuais, cartilhas).
+  static const materiais = 'materiais';
+
+  // Checklist pré, durante e pós-culto (Ficha 3 do Diaconato). Não é a
+  // 'checklist' do Batismo, que são as etapas do aluno.
+  static const rotina = 'rotina';
+
+  // Pedidos de manutenção e reposição (F4).
+  static const pedidos = 'pedidos';
+
+  // Ação social: famílias assistidas (F6). Dado sensível: a aba só mostra
+  // conteúdo a quem tem ministry_assist.view/.manage.
+  static const assistencia = 'assistencia';
+
+  // Ausentes do culto com pendência (005200). Não está no catálogo: a aba
+  // aparece sozinha no shell enquanto houver pendência.
+  static const acompanhar = 'acompanhar';
+
   /// As abas que **todo** ministério pode ligar na engrenagem, na ordem
   /// padrão. Aba nova que deve chegar a todos os ministérios entra aqui (e em
   /// `ministryStandardSlots`); o padrão dela é desligada, salvo no tipo cujo
@@ -49,7 +67,11 @@ abstract final class MinistryTabKeys {
     MinistryTypeTab(financeiro, 'Financeiro'),
     MinistryTypeTab(louvores, 'Louvores'),
     MinistryTypeTab(alunos, 'Turmas'),
-    MinistryTypeTab(checklist, 'Checklist'),
+    MinistryTypeTab(checklist, 'Etapas'),
+    MinistryTypeTab(materiais, 'Materiais'),
+    MinistryTypeTab(rotina, 'Rotina'),
+    MinistryTypeTab(pedidos, 'Pedidos'),
+    MinistryTypeTab(assistencia, 'Assistência'),
     MinistryTypeTab(whatsapp, 'WhatsApp'),
     MinistryTypeTab(relatorios, 'Relatórios'),
   ];
@@ -292,13 +314,13 @@ class MinistryTypeCatalog {
     MinistryTypeSpec(
       code: MinistryTypeCodes.batismo,
       label: 'Batismo',
-      description: 'Turmas, alunos, aulas e checklist.',
+      description: 'Turmas, alunos, aulas e etapas.',
       tabs: [
         MinistryTypeTab(MinistryTabKeys.equipe, 'Equipe'),
         MinistryTypeTab(MinistryTabKeys.escala, 'Escala'),
         MinistryTypeTab(MinistryTabKeys.financeiro, 'Financeiro'),
         MinistryTypeTab(MinistryTabKeys.alunos, 'Turmas'),
-        MinistryTypeTab(MinistryTabKeys.checklist, 'Checklist'),
+        MinistryTypeTab(MinistryTabKeys.checklist, 'Etapas'),
         MinistryTypeTab(MinistryTabKeys.whatsapp, 'WhatsApp'),
         MinistryTypeTab(MinistryTabKeys.relatorios, 'Relatórios'),
       ],
@@ -312,9 +334,11 @@ class MinistryTypeCatalog {
       description: 'Painel de visitas e acompanhamento.',
       tabs: [
         MinistryTypeTab(MinistryTabKeys.painel, 'Painel'),
+        MinistryTypeTab(MinistryTabKeys.rotina, 'Rotina'),
         MinistryTypeTab(MinistryTabKeys.equipe, 'Equipe'),
         MinistryTypeTab(MinistryTabKeys.escala, 'Escala'),
         MinistryTypeTab(MinistryTabKeys.financeiro, 'Financeiro'),
+        MinistryTypeTab(MinistryTabKeys.materiais, 'Materiais'),
         MinistryTypeTab(MinistryTabKeys.whatsapp, 'WhatsApp'),
         MinistryTypeTab(MinistryTabKeys.relatorios, 'Relatórios'),
       ],
@@ -328,15 +352,33 @@ class MinistryTypeCatalog {
       description: 'Painel de triagem e ceias.',
       tabs: [
         MinistryTypeTab(MinistryTabKeys.painel, 'Painel'),
+        MinistryTypeTab(MinistryTabKeys.rotina, 'Rotina'),
+        MinistryTypeTab(MinistryTabKeys.pedidos, 'Pedidos'),
         MinistryTypeTab(MinistryTabKeys.equipe, 'Equipe'),
         MinistryTypeTab(MinistryTabKeys.escala, 'Escala'),
         MinistryTypeTab(MinistryTabKeys.financeiro, 'Financeiro'),
+        MinistryTypeTab(MinistryTabKeys.materiais, 'Materiais'),
         MinistryTypeTab(MinistryTabKeys.whatsapp, 'WhatsApp'),
         MinistryTypeTab(MinistryTabKeys.relatorios, 'Relatórios'),
       ],
       routeSuffix: '/diaconato',
       offeredOnCreate: true,
       sortOrder: 40,
+    ),
+    MinistryTypeSpec(
+      code: 'louvor',
+      label: 'Louvor',
+      description: 'Equipe, escala, biblioteca de louvores e cifras.',
+      tabs: [
+        MinistryTypeTab(MinistryTabKeys.equipe, 'Equipe'),
+        MinistryTypeTab(MinistryTabKeys.escala, 'Escala'),
+        MinistryTypeTab(MinistryTabKeys.louvores, 'Louvores'),
+        MinistryTypeTab(MinistryTabKeys.financeiro, 'Financeiro'),
+        MinistryTypeTab(MinistryTabKeys.whatsapp, 'WhatsApp'),
+        MinistryTypeTab(MinistryTabKeys.relatorios, 'Relatórios'),
+      ],
+      offeredOnCreate: true,
+      sortOrder: 50,
     ),
   ]);
 }

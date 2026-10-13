@@ -121,10 +121,7 @@ Future<CourseHubState> _baptismHub(
   // Mesma régua de liderança de `turmaAccessProvider` (ramo Batismo).
   final canSeeAll = await ref.watch(ministriesCanSeeAllProvider.future);
   final inMinistry = await ref.watch(ministryAccessProvider(ministryId).future);
-  final view = await ref.watch(
-    currentUserHasPermissionProvider('baptism.view').future,
-  );
-  final management = elevatedOrCourseView || canSeeAll || (view && inMinistry);
+  final management = elevatedOrCourseView || canSeeAll || inMinistry;
 
   final enrollments = await ref.watch(myBaptismEnrollmentsProvider.future);
   final mineIds = {

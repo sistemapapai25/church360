@@ -32,6 +32,8 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
 
   // Step 1: Fonte de Dados
   DataSource? _selectedDataSource;
+  // Contribuições/Despesas: 'vencimento' ou 'data_pagamento' (o usuário escolhe).
+  String? _dateField;
 
   // Step 2: Métrica e Agrupamento (NOVO)
   MetricTemplate? _selectedMetric;
@@ -84,6 +86,20 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
           _selectedVisualization = report.visualizationType;
           _visualizations = List.from(report.config.visualizations); // NOVO
           _config = report.config; // NOVO
+          // Relatório antigo sem escolha conta por vencimento.
+          _dateField = _isLedger(report.dataSource)
+              ? (report.config.dateField ?? 'vencimento')
+              : null;
+          // Volta a métrica e o agrupamento salvos (antes o usuário tinha de escolher de novo).
+          final saved = report.config.aggregations.firstOrNull;
+          if (saved != null) {
+            _selectedMetric = MetricTemplates.getTemplatesForDataSource(report.dataSource)
+                .where((m) => m.fieldName == saved.fieldName && m.aggregationType == saved.aggregationType)
+                .firstOrNull;
+            _selectedGroupBy = _selectedMetric?.groupByOptions
+                .where((g) => g.type == saved.groupBy && g.fieldName == saved.groupByField)
+                .firstOrNull;
+          }
         });
       }
     } catch (e) {
@@ -244,8 +260,16 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
     );
   }
 
+  static bool _isLedger(DataSource? s) =>
+      s == DataSource.contributions || s == DataSource.expenses;
+
   Widget _buildStep1DataSource() {
-    final availableSources = DataSourceMetadataRegistry.availableDataSources;
+    // Fonte financeira só para quem consegue ler (senão o relatório vem vazio).
+    final availableSources = DataSourceMetadataRegistry.availableDataSources
+        .where((s) =>
+            s == _selectedDataSource ||
+            (ref.watch(reportSourceAllowedProvider(s)).valueOrNull ?? false))
+        .toList();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -276,6 +300,11 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
             child: InkWell(
               onTap: () {
                 setState(() {
+                  if (_selectedDataSource != source) {
+                    _dateField = null;
+                    // Filtros salvos (status, gênero) eram da fonte antiga.
+                    _config = _config.copyWith(savedFilters: const {});
+                  }
                   _selectedDataSource = source;
                   // Reset métrica e agrupamento ao mudar fonte de dados
                   _selectedMetric = null;
@@ -339,6 +368,39 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
             ),
           );
         }),
+
+        if (_isLedger(_selectedDataSource)) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Qual data usar?',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Vale para o filtro de período e para agrupar por mês ou ano.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey[600],
+                ),
+          ),
+          RadioGroup<String>(
+            groupValue: _dateField,
+            onChanged: (v) => setState(() => _dateField = v),
+            child: const Column(
+              children: [
+                RadioListTile<String>(
+                  value: 'vencimento',
+                  title: Text('Data de vencimento'),
+                ),
+                RadioListTile<String>(
+                  value: 'data_pagamento',
+                  title: Text('Data de pagamento'),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -817,8 +879,9 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
     switch (_currentStep) {
       case 0: // Informações Básicas
         return _nameController.text.trim().isNotEmpty;
-      case 1: // Fonte de Dados
-        return _selectedDataSource != null;
+      case 1: // Fonte de Dados (Contribuições/Despesas pedem a data)
+        return _selectedDataSource != null &&
+            (!_isLedger(_selectedDataSource) || _dateField != null);
       case 2: // Métrica e Agrupamento
         return _selectedMetric != null && _selectedGroupBy != null;
       case 3: // Visualização Principal
@@ -918,6 +981,7 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
       final configWithData = _config.copyWith(
         visualizations: _visualizations,
         aggregations: aggregation != null ? [aggregation] : [],
+        dateField: _dateField,
       );
 
       debugPrint('🟢 Criando report object...');
@@ -936,6 +1000,7 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
       );
 
       String? createdReportId;
+      var widgetCreated = false;
 
       if (widget.reportId != null) {
         debugPrint('🟢 Atualizando relatório...');
@@ -970,6 +1035,7 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
             isEnabled: true,
           );
           debugPrint('✅ Widget criado no dashboard!');
+          widgetCreated = true;
         } catch (e) {
           // Se falhar ao criar widget, apenas loga mas não impede o fluxo
           debugPrint('⚠️ Erro ao criar widget no dashboard: $e');
@@ -983,7 +1049,9 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
             content: Text(
               widget.reportId != null
                   ? 'Relatório atualizado com sucesso!'
-                  : 'Relatório criado e adicionado ao Dashboard!',
+                  : (widgetCreated
+                      ? 'Relatório criado e adicionado ao Dashboard!'
+                      : 'Relatório criado. Não foi possível pôr o card no Dashboard.'),
             ),
             backgroundColor: Colors.green,
           ),

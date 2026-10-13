@@ -268,7 +268,14 @@ class _DispatchRulesSheetState extends ConsumerState<_DispatchRulesSheet> {
                   builder: (context) => _EditRuleDialog(),
                 );
                 if (created != null) {
-                  await actions.createRule(created);
+                  try {
+                    await actions.createRule(created);
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erro ao criar regra: $e')),
+                    );
+                  }
                 }
               },
             ),
@@ -391,7 +398,14 @@ class _DispatchRulesSheetState extends ConsumerState<_DispatchRulesSheet> {
                     builder: (context) => _EditRuleDialog(initial: r),
                   );
                   if (updated != null) {
-                    await actions.updateRule(r.id, updated);
+                    try {
+                      await actions.updateRule(r.id, updated);
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Erro ao salvar regra: $e')),
+                      );
+                    }
                   }
                 },
                 onLongPress: () async {
@@ -407,7 +421,14 @@ class _DispatchRulesSheetState extends ConsumerState<_DispatchRulesSheet> {
                     ),
                   );
                   if (confirmed == true) {
-                    await actions.deleteRule(r.id);
+                    try {
+                      await actions.deleteRule(r.id);
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Erro ao remover regra: $e')),
+                      );
+                    }
                   }
                 },
               );
@@ -1379,6 +1400,7 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
               builder: (context) => EntitySelectorDialog(
                 linkType: linkType,
                 initialSelectedIds: _selectedEntities.keys.toList(),
+                initialNames: _selectedEntities,
               ),
             );
             if (res != null) {
@@ -1718,8 +1740,11 @@ class _EditRuleDialogState extends ConsumerState<_EditRuleDialog> {
         if (name != null && known.contains(name)) vars.add(name);
       }
       final repo = ref.read(messageTemplateRepositoryProvider);
-      final created = await repo.create(name: tn, content: tc, variables: vars.toList(), isActive: _templateActive);
-      _templateId = created.id;
+      // Regra que já tem template: atualiza (antes cada Salvar criava outro).
+      final saved = _templateId != null
+          ? await repo.update(id: _templateId!, name: tn, content: tc, variables: vars.toList(), isActive: _templateActive)
+          : await repo.create(name: tn, content: tc, variables: vars.toList(), isActive: _templateActive);
+      _templateId = saved.id;
     }
 
     final rule = DispatchRule(
@@ -1779,274 +1804,6 @@ class _MemberSearchList extends ConsumerWidget {
     );
   }
 }
-
-class _TemplatesSheet extends ConsumerStatefulWidget {
-  const _TemplatesSheet();
-
-  @override
-  ConsumerState<_TemplatesSheet> createState() => _TemplatesSheetState();
-}
-
-class _TemplatesSheetState extends ConsumerState<_TemplatesSheet> {
-  @override
-  Widget build(BuildContext context) {
-    final templatesAsync = ref.watch(allMessageTemplatesProvider);
-    final actions = ref.read(messageTemplateActionsProvider);
-
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.8,
-      minChildSize: 0.4,
-      maxChildSize: 0.95,
-      builder: (context, controller) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Templates de Mensagem'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.add),
-              tooltip: 'Novo Template',
-              onPressed: () async {
-                final created = await showDialog<_EditTemplateResult?>(
-                  context: context,
-                  builder: (context) => const _EditTemplateDialog(),
-                );
-                if (created != null) {
-                  await actions.create(created.name, created.content, isActive: created.isActive);
-                }
-              },
-            ),
-          ],
-        ),
-        body: templatesAsync.when(
-          data: (list) => ListView.builder(
-            controller: controller,
-            itemCount: list.length,
-            itemBuilder: (context, index) {
-              final t = list[index];
-              final varsLabel = t.variables.isEmpty ? '' : ' · {${t.variables.join(', ')}}';
-              return ListTile(
-                leading: const Icon(Icons.description),
-                title: Text(t.name),
-                subtitle: Text('Ativo: ${t.isActive ? 'Sim' : 'Não'}$varsLabel'),
-                onTap: () async {
-                  final updated = await showDialog<_EditTemplateResult?>(
-                    context: context,
-                    builder: (context) => _EditTemplateDialog(
-                      initialName: t.name,
-                      initialContent: t.content,
-                      initialActive: t.isActive,
-                    ),
-                  );
-                  if (updated != null) {
-                    await actions.update(t.id, name: updated.name, content: updated.content, isActive: updated.isActive);
-                  }
-                },
-                onLongPress: () async {
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Remover template'),
-                      content: const Text('Deseja remover este template?'),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remover')),
-                      ],
-                    ),
-                  );
-                  if (confirmed == true) {
-                    await actions.delete(t.id);
-                  }
-                },
-              );
-            },
-          ),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Erro ao carregar templates: $e')),
-        ),
-      ),
-    );
-  }
-}
-
-class _EditTemplateResult {
-  final String name;
-  final String content;
-  final bool isActive;
-  const _EditTemplateResult(this.name, this.content, this.isActive);
-}
-
-class _EditTemplateDialog extends StatefulWidget {
-  final String? initialName;
-  final String? initialContent;
-  final bool? initialActive;
-  const _EditTemplateDialog({this.initialName, this.initialContent, this.initialActive});
-
-  @override
-  State<_EditTemplateDialog> createState() => _EditTemplateDialogState();
-}
-
-class _EditTemplateDialogState extends State<_EditTemplateDialog> {
-  final _nameController = TextEditingController();
-  final _contentController = TextEditingController();
-  bool _isActive = true;
-  String _preview = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController.text = widget.initialName ?? '';
-    _contentController.text = widget.initialContent ?? '';
-    _isActive = widget.initialActive ?? true;
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _contentController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      scrollable: true,
-      titlePadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-      contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-      title: Text(widget.initialName == null ? 'Novo Template' : 'Editar Template'),
-      content: SizedBox(
-        width: 560,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Nome', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _contentController,
-              maxLines: 8,
-              decoration: const InputDecoration(
-                labelText: 'Conteúdo (use variáveis em {chaves})',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SwitchListTile(
-              value: _isActive,
-              title: const Text('Ativo'),
-              onChanged: (v) => setState(() => _isActive = v),
-            ),
-            const SizedBox(height: 12),
-            Consumer(builder: (context, ref, _) {
-              final registry = ref.read(variableRegistryProvider);
-              final engine = ref.read(templateEngineProvider);
-              final vars = registry.resolvers.keys.toList()..sort();
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Variáveis disponíveis', style: Theme.of(context).textTheme.titleSmall),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final v in vars)
-                        SizedBox(
-                          height: 36,
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Chip(label: Text('{$v}')),
-                              ),
-                              Positioned(
-                                right: -6,
-                                top: -6,
-                                child: Tooltip(
-                                  message: _variableDescription(v),
-                                  waitDuration: const Duration(milliseconds: 250),
-                                  child: const Icon(Icons.info_outline, size: 18),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Pré-visualização', style: Theme.of(context).textTheme.titleSmall),
-                      TextButton(
-                        onPressed: () async {
-                          final ctx = RenderContext(targetType: null, targetId: null, payload: {});
-                          final out = await engine.render(_contentController.text, ctx);
-                          if (mounted) setState(() => _preview = out);
-                        },
-                        child: const Text('Gerar preview'),
-                      ),
-                    ],
-                  ),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          _preview.isEmpty ? 'Sem preview gerado' : _preview,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            }),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-        FilledButton(onPressed: _save, child: const Text('Salvar')),
-      ],
-    );
-  }
-
-  void _save() {
-    final name = _nameController.text.trim();
-    final content = _contentController.text.trim();
-    if (name.isEmpty || content.isEmpty) return;
-    Navigator.pop(context, _EditTemplateResult(name, content, _isActive));
-  }
-}
-
-String _variableDescription(String v) {
-  const d = {
-    'member_full_name': 'Nome completo do destinatário.',
-    'member_nickname': 'Apelido do destinatário.',
-    'member_phone': 'Telefone do destinatário.',
-    'birthday_date': 'Dia e mês do aniversário no formato dd/MM.',
-    'church_name': 'Nome da igreja.',
-    'church_address': 'Endereço da igreja.',
-    'event_name': 'Nome do evento.',
-    'event_date': 'Data do evento no formato dd/MM/yyyy.',
-    'event_time': 'Hora do evento no formato HH:mm.',
-    'event_location_address': 'Endereço/local do evento.',
-    'event_link': 'Primeiro link de material de apoio vinculado ao evento.',
-    'schedule_link': 'Link do PDF da escala do evento.',
-    'ministry_name': 'Nome do ministério relacionado.',
-    'payment_date': 'Data de pagamento em dd/MM/yyyy.',
-    'due_date': 'Data de vencimento em dd/MM/yyyy.',
-  };
-  return d[v] ?? 'Variável {$v}.';
-}
-
- 
 
 class _MonitoringSheet extends ConsumerStatefulWidget {
   const _MonitoringSheet();

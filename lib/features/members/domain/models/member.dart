@@ -76,6 +76,19 @@ class Member {
   final String? followUpStatus;
   final DateTime? lastContactDate;
   final bool? wantsContact;
+
+  // Ficha do Raízes (004800)
+  final String? invitedBy;
+  final String? firstVisitEventId;
+  final bool? wantsVisit;
+  final bool? wantsLifeHouse;
+  final List<String> visitorProfiles;
+  final String? decisionType;
+  final DateTime? decisionDate;
+  final String? decisionEventId;
+  final String? lifeHouseGroupId;
+  final DateTime? lifeHouseReferredAt;
+  final String? raizesStage;
   final bool? wantsToReturn;
 
   // Outros
@@ -161,6 +174,17 @@ class Member {
     this.followUpStatus,
     this.lastContactDate,
     this.wantsContact,
+    this.invitedBy,
+    this.firstVisitEventId,
+    this.wantsVisit,
+    this.wantsLifeHouse,
+    this.visitorProfiles = const [],
+    this.decisionType,
+    this.decisionDate,
+    this.decisionEventId,
+    this.lifeHouseGroupId,
+    this.lifeHouseReferredAt,
+    this.raizesStage,
     this.wantsToReturn,
 
     // Outros
@@ -377,6 +401,23 @@ class Member {
           ? DateTime.parse(json['last_contact_date'] as String)
           : null,
       wantsContact: json['wants_contact'] as bool?,
+      invitedBy: json['invited_by'] as String?,
+      firstVisitEventId: json['first_visit_event_id'] as String?,
+      wantsVisit: json['wants_visit'] as bool?,
+      wantsLifeHouse: json['wants_life_house'] as bool?,
+      visitorProfiles: [
+        for (final p in (json['visitor_profiles'] as List?) ?? const []) '$p',
+      ],
+      decisionType: json['decision_type'] as String?,
+      decisionDate: json['decision_date'] != null
+          ? DateTime.parse(json['decision_date'] as String)
+          : null,
+      decisionEventId: json['decision_event_id'] as String?,
+      lifeHouseGroupId: json['life_house_group_id'] as String?,
+      lifeHouseReferredAt: json['life_house_referred_at'] != null
+          ? DateTime.parse(json['life_house_referred_at'] as String).toLocal()
+          : null,
+      raizesStage: json['raizes_stage'] as String?,
       wantsToReturn: json['wants_to_return'] as bool?,
 
       // Outros
@@ -476,6 +517,12 @@ class Member {
       'follow_up_status': followUpStatus,
       'last_contact_date': lastContactDate?.toIso8601String(),
       'wants_contact': wantsContact,
+      'invited_by': invitedBy,
+      'first_visit_event_id': firstVisitEventId,
+      'wants_visit': wantsVisit,
+      'wants_life_house': wantsLifeHouse,
+      'visitor_profiles': visitorProfiles,
+      'decision_type': decisionType,
       'wants_to_return': wantsToReturn,
 
       // Outros

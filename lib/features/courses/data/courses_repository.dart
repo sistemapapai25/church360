@@ -334,7 +334,7 @@ class CoursesRepository {
   }
 
   static const _turmaColumns =
-      'id, name, status, start_date, end_date, ministry_id, baptism_turma_id, course_id';
+      'id, name, status, start_date, end_date, ministry_id, baptism_turma_id, course_id, is_public';
 
   // ==================== COURSE LESSONS ====================
 

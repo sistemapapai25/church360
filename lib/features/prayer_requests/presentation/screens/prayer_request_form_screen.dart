@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/prayer_request_provider.dart';
 import '../../domain/models/prayer_request.dart';
-import '../../../members/presentation/providers/members_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
@@ -44,11 +43,11 @@ class _PrayerRequestFormScreenState
     if (!_formKey.currentState!.validate()) return;
 
     if (_isEditing) {
-      final currentMemberId = ref.read(currentMemberProvider).value?.id;
+      final currentUserId = ref.read(currentUserIdProvider);
       final prayerRequest = ref
           .read(prayerRequestByIdProvider(widget.prayerRequestId!))
           .value;
-      final isAuthor = prayerRequest?.authorId == currentMemberId;
+      final isAuthor = prayerRequest?.authorId == currentUserId;
       final canEdit = await ref.read(
         currentUserHasPermissionProvider('prayer_requests.edit').future,
       );

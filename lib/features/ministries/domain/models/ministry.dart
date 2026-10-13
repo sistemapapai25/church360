@@ -36,6 +36,12 @@ class Ministry {
   final int? memberCount;
   final String? whatsappGroupNumber;
 
+  // "Sobre o ministério" (tocar no ícone do ministério). Texto livre do líder.
+  final String? vision;
+  final String? guidelines;
+  final String? rules;
+  final String? doctrinalBase;
+
   Ministry({
     required this.id,
     required this.name,
@@ -53,6 +59,10 @@ class Ministry {
     this.leaderPhoto,
     this.memberCount,
     this.whatsappGroupNumber,
+    this.vision,
+    this.guidelines,
+    this.rules,
+    this.doctrinalBase,
   });
 
   /// Abas que o líder ligou/desligou na engrenagem (`settings.tabs`), chave →
@@ -92,6 +102,10 @@ class Ministry {
       leaderPhoto: json['leader_photo'] as String?,
       memberCount: json['member_count'] as int?,
       whatsappGroupNumber: json['whatsapp_group_number'] as String?,
+      vision: json['vision'] as String?,
+      guidelines: json['guidelines'] as String?,
+      rules: json['rules'] as String?,
+      doctrinalBase: json['doctrinal_base'] as String?,
     );
   }
 
@@ -110,6 +124,10 @@ class Ministry {
       'ministry_type': ministryTypeCode,
       'settings': settings,
       'whatsapp_group_number': whatsappGroupNumber,
+      'vision': vision,
+      'guidelines': guidelines,
+      'rules': rules,
+      'doctrinal_base': doctrinalBase,
     };
   }
 
@@ -130,6 +148,10 @@ class Ministry {
     String? leaderPhoto,
     int? memberCount,
     String? whatsappGroupNumber,
+    String? vision,
+    String? guidelines,
+    String? rules,
+    String? doctrinalBase,
   }) {
     return Ministry(
       id: id ?? this.id,
@@ -148,6 +170,10 @@ class Ministry {
       leaderPhoto: leaderPhoto ?? this.leaderPhoto,
       memberCount: memberCount ?? this.memberCount,
       whatsappGroupNumber: whatsappGroupNumber ?? this.whatsappGroupNumber,
+      vision: vision ?? this.vision,
+      guidelines: guidelines ?? this.guidelines,
+      rules: rules ?? this.rules,
+      doctrinalBase: doctrinalBase ?? this.doctrinalBase,
     );
   }
 

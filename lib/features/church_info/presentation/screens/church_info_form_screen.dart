@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../../../../core/design/app_icons.dart';
@@ -44,6 +47,14 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
   final _youtubeController = TextEditingController();
   final _twitterController = TextEditingController();
 
+  // Presença pelo celular (005200)
+  double? _latitude;
+  double? _longitude;
+  final _coordsController = TextEditingController();
+  final _radiusController = TextEditingController(text: '20');
+  final _windowController = TextEditingController(text: '60');
+  bool _locating = false;
+
   String? _logoUrl;
   bool _isLoading = false;
   ChurchInfo? _existingInfo;
@@ -53,10 +64,30 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
   @override
   void initState() {
     super.initState();
-    // Iniciar o carregamento dos dados se necessário
-    // Usamos addPostFrameCallback para evitar modificações durante o build inicial
+    // Preenche o formulário com os dados da igreja. `fireImmediately`: o
+    // provider quase sempre já chegou carregado (o topo da aba Igreja usa o
+    // logo e o nome), e um `ref.listen` só dispararia numa mudança — o
+    // formulário abria vazio. Depois do primeiro frame para o setState não
+    // cair no meio do build.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(churchInfoProvider);
+      if (!mounted) return;
+      ref.listenManual<AsyncValue<ChurchInfo?>>(churchInfoProvider, (
+        previous,
+        next,
+      ) {
+        if (_dataLoaded) return;
+        next.when(
+          data: (info) {
+            if (info != null) {
+              _populateForm(info);
+            } else {
+              setState(() => _dataLoaded = true);
+            }
+          },
+          error: (err, stack) => setState(() => _dataLoaded = true),
+          loading: () {},
+        );
+      }, fireImmediately: true);
     });
   }
 
@@ -75,6 +106,9 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
     _instagramController.dispose();
     _youtubeController.dispose();
     _twitterController.dispose();
+    _coordsController.dispose();
+    _radiusController.dispose();
+    _windowController.dispose();
     for (var controller in _valuesControllers) {
       controller.dispose();
     }
@@ -93,6 +127,11 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
       _emailController.text = info.email ?? '';
       _websiteController.text = info.website ?? '';
       _logoUrl = info.logoUrl;
+      _latitude = info.latitude;
+      _longitude = info.longitude;
+      _coordsController.text = _formatLatLng(info.latitude, info.longitude);
+      _radiusController.text = info.checkinRadiusM.toString();
+      _windowController.text = info.checkinWindowMin.toString();
 
       // Valores
       _valuesControllers.clear();
@@ -163,7 +202,9 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Logo atualizada com sucesso!')),
+            const SnackBar(
+              content: Text('Logo enviada. Toque em Salvar para gravar.'),
+            ),
           );
         }
       } catch (e) {
@@ -268,6 +309,10 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
             ? null
             : _websiteController.text.trim(),
         'social_media': socialMedia.isEmpty ? null : socialMedia,
+        'latitude': _latitude,
+        'longitude': _longitude,
+        'checkin_radius_m': int.parse(_radiusController.text.trim()),
+        'checkin_window_min': int.parse(_windowController.text.trim()),
         'updated_at': DateTime.now().toIso8601String(),
       };
 
@@ -308,25 +353,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Escutar mudanças no provider
-    ref.listen<AsyncValue<ChurchInfo?>>(churchInfoProvider, (previous, next) {
-      next.when(
-        data: (info) {
-          if (!_dataLoaded) {
-            if (info != null) {
-              _populateForm(info);
-            } else {
-              setState(() => _dataLoaded = true);
-            }
-          }
-        },
-        error: (err, stack) {
-          setState(() => _dataLoaded = true);
-        },
-        loading: () {},
-      );
-    });
-
+    // Só para o carregando da primeira vez; quem preenche é o listenManual.
     final churchInfoState = ref.watch(churchInfoProvider);
 
     if (churchInfoState.isLoading && !_dataLoaded) {
@@ -490,6 +517,12 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
             ),
             const SizedBox(height: 16),
 
+            _buildSectionCard(
+              title: 'Presença pelo celular',
+              children: [_buildCheckinSection()],
+            ),
+            const SizedBox(height: 16),
+
             // Social Media Section
             _buildSectionCard(
               title: 'Redes Sociais',
@@ -585,6 +618,186 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
     );
   }
 
+  static String _formatLatLng(double? lat, double? lng) =>
+      lat == null || lng == null
+      ? ''
+      : '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}';
+
+  void _setCoords(String text) {
+    final ll = parseLatLng(text);
+    setState(() {
+      _latitude = ll?.$1;
+      _longitude = ll?.$2;
+    });
+  }
+
+  /// Abre o endereço de "Contato e Localização" no Google Maps, para pegar o
+  /// pino da igreja. O endereço digitado sozinho (quadra/lote) costuma cair
+  /// no meio da rua; o pino é o ponto certo.
+  Future<void> _openAddressInMaps() async {
+    final address = _addressController.text.trim();
+    final uri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query='
+      '${Uri.encodeComponent(address.isEmpty ? _nameController.text.trim() : address)}',
+    );
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  /// Alternativa: o GPS de quem está dentro do templo.
+  Future<void> _useCurrentLocation() async {
+    setState(() => _locating = true);
+    try {
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.unableToDetermine) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm != LocationPermission.whileInUse &&
+          perm != LocationPermission.always) {
+        throw Exception('permissão de localização negada');
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          timeLimit: Duration(seconds: 30),
+        ),
+      );
+      if (!mounted) return;
+      setState(() {
+        _latitude = pos.latitude;
+        _longitude = pos.longitude;
+        _coordsController.text = _formatLatLng(pos.latitude, pos.longitude);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Local marcado (precisão de ${pos.accuracy.round()} m). '
+            'Toque em Salvar para gravar.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Não deu para pegar a localização: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  Widget _buildCheckinSection() {
+    final hasLocation = _latitude != null && _longitude != null;
+    String? intRange(String? v, int min, int max) {
+      final n = int.tryParse((v ?? '').trim());
+      if (n == null || n < min || n > max) return 'Entre $min e $max';
+      return null;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Com o local marcado, o app confirma sozinho a presença de quem '
+          'abrir o app dentro da igreja na primeira hora do culto, e manda o '
+          'aviso "Você está no culto?" 15 minutos depois do início. Os '
+          'diáconos só marcam no checklist quem faltar.',
+          style: CommunityDesign.metaStyle(context),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Como marcar: toque em Abrir no Google Maps (usa o endereço de '
+          'Contato e Localização), confira o pino da igreja, segure o dedo '
+          'sobre ele (no computador, clique com o botão direito) para copiar '
+          'as coordenadas e cole abaixo.',
+          style: CommunityDesign.metaStyle(context),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _coordsController,
+          decoration: InputDecoration(
+            labelText: 'Coordenadas da igreja',
+            hintText: 'Ex.: -16.812345, -49.245678',
+            helperText: hasLocation
+                ? 'Local marcado. Toque em Salvar para gravar.'
+                : 'Vazio: recurso desligado.',
+            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(AppIcons.location),
+          ),
+          onChanged: _setCoords,
+          validator: (v) => (v ?? '').trim().isEmpty || parseLatLng(v!) != null
+              ? null
+              : 'Cole no formato -16.812345, -49.245678',
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton.tonalIcon(
+              onPressed: _openAddressInMaps,
+              icon: const Icon(AppIcons.location),
+              label: const Text('Abrir no Google Maps'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _locating ? null : _useCurrentLocation,
+              icon: _locating
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(AppIcons.location),
+              label: const Text('Estou no templo: usar meu GPS'),
+            ),
+            if (hasLocation)
+              TextButton(
+                onPressed: () => setState(() {
+                  _latitude = null;
+                  _longitude = null;
+                  _coordsController.clear();
+                }),
+                child: const Text('Desligar'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _radiusController,
+                decoration: const InputDecoration(
+                  labelText: 'Raio (metros)',
+                  helperText: 'A precisão do GPS (até 50 m) é somada.',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                validator: (v) => intRange(v, 5, 1000),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextFormField(
+                controller: _windowController,
+                decoration: const InputDecoration(
+                  labelText: 'Janela (minutos)',
+                  helperText: 'A partir do início do culto.',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                validator: (v) => intRange(v, 15, 300),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildSectionCard({
     required String title,
     required List<Widget> children,
@@ -627,10 +840,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                 _logoUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
-                  return const AppLogo(
-                    variant: AppLogoVariant.selo,
-                    fit: BoxFit.cover,
-                  );
+                  return ChurchLogo(url: null, name: _nameController.text);
                 },
               ),
             ),
@@ -647,8 +857,8 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                 width: 3,
               ),
             ),
-            child: const ClipOval(
-              child: AppLogo(variant: AppLogoVariant.selo, fit: BoxFit.cover),
+            child: ClipOval(
+              child: ChurchLogo(url: null, name: _nameController.text),
             ),
           ),
         const SizedBox(height: 16),

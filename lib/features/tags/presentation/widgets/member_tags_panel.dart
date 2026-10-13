@@ -72,6 +72,68 @@ class MemberTagsPanel extends ConsumerWidget {
   }
 }
 
+/// Painel de tags de um ministério, para a tela de configuração dele.
+/// Mesmo formato do [MemberTagsPanel], lendo `ministry_tag`.
+class MinistryTagsPanel extends ConsumerWidget {
+  final String ministryId;
+
+  const MinistryTagsPanel({super.key, required this.ministryId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tagsAsync = ref.watch(tagsByMinistryProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        tagsAsync.when(
+          data: (byId) {
+            final tags = byId[ministryId] ?? const <Tag>[];
+            if (tags.isEmpty) {
+              return Text(
+                'Nenhuma tag atribuída.',
+                style: CommunityDesign.metaStyle(context),
+              );
+            }
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: tags.map((tag) => TagChip(tag: tag)).toList(),
+            );
+          },
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (_, __) => Text(
+            'Não foi possível carregar as tags.',
+            style: CommunityDesign.metaStyle(context),
+          ),
+        ),
+        PermissionGate(
+          permission: 'tags.edit',
+          showLoading: false,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => showMinistryTagsSheet(context, ministryId),
+                icon: const Icon(Icons.label_outline, size: 18),
+                label: const Text('Gerenciar tags'),
+                style: CommunityDesign.pillButtonStyle(
+                  context,
+                  Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Chip de leitura de uma tag, tingido pela cor dela.
 ///
 /// O fundo usa alpha baixo de propósito: cor cheia com texto branco vira
@@ -118,31 +180,95 @@ class TagChip extends StatelessWidget {
 
 /// Abre o seletor de tags do membro.
 Future<void> showMemberTagsSheet(BuildContext context, String memberId) {
+  return _showTagPickerSheet(
+    context,
+    _TagPickerSheet(
+      title: 'Tags do membro',
+      hint:
+          'Marque o que vale para esta pessoa agora. Tag é marcador manual '
+          'e temporário — o que é dado do cadastro fica no cadastro.',
+      watchAssigned: (ref) => ref
+          .watch(memberTagsProvider(memberId))
+          .whenData((tags) => tags.map((t) => t.id).toSet()),
+      save: (repo, tagId, assign) => assign
+          ? repo.addTagToMember(memberId, tagId)
+          : repo.removeTagFromMember(memberId, tagId),
+      invalidate: (ref) => ref.invalidate(memberTagsProvider(memberId)),
+    ),
+  );
+}
+
+/// Abre o seletor de tags do ministério (`ministry_tag`, mesmas regras de
+/// `member_tag`: marcar exige `tags.edit`).
+Future<void> showMinistryTagsSheet(BuildContext context, String ministryId) {
+  return _showTagPickerSheet(
+    context,
+    _TagPickerSheet(
+      title: 'Tags do ministério',
+      hint:
+          'Marque as tags que classificam este ministério. Tag criada aqui '
+          'fica disponível para os outros ministérios.',
+      ministry: true,
+      watchAssigned: (ref) => ref
+          .watch(tagsByMinistryProvider)
+          .whenData((byId) => {...?byId[ministryId]?.map((t) => t.id)}),
+      save: (repo, tagId, assign) => assign
+          ? repo.addTagToMinistry(ministryId, tagId)
+          : repo.removeTagFromMinistry(ministryId, tagId),
+      invalidate: (ref) => ref.invalidate(tagsByMinistryProvider),
+    ),
+  );
+}
+
+Future<void> _showTagPickerSheet(BuildContext context, Widget sheet) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (context) => _MemberTagsSheet(memberId: memberId),
+    builder: (context) => sheet,
   );
 }
 
-class _MemberTagsSheet extends ConsumerStatefulWidget {
-  final String memberId;
+class _TagPickerSheet extends ConsumerStatefulWidget {
+  final String title;
+  final String hint;
+  final AsyncValue<Set<String>> Function(WidgetRef ref) watchAssigned;
+  final Future<void> Function(TagsRepository repo, String tagId, bool assign)
+  save;
+  final void Function(WidgetRef ref) invalidate;
 
-  const _MemberTagsSheet({required this.memberId});
+  /// true = lista só tags de ministério e permite criar uma ali mesmo.
+  final bool ministry;
+
+  const _TagPickerSheet({
+    required this.title,
+    required this.hint,
+    required this.watchAssigned,
+    required this.save,
+    required this.invalidate,
+    this.ministry = false,
+  });
 
   @override
-  ConsumerState<_MemberTagsSheet> createState() => _MemberTagsSheetState();
+  ConsumerState<_TagPickerSheet> createState() => _TagPickerSheetState();
 }
 
-class _MemberTagsSheetState extends ConsumerState<_MemberTagsSheet> {
+class _TagPickerSheetState extends ConsumerState<_TagPickerSheet> {
   /// Tags em gravação, por id — evita toque duplo na mesma linha.
   final Set<String> _saving = <String>{};
+  final _newTagName = TextEditingController();
+  bool _creating = false;
+
+  @override
+  void dispose() {
+    _newTagName.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final allTagsAsync = ref.watch(allTagsProvider);
-    final memberTagsAsync = ref.watch(memberTagsProvider(widget.memberId));
+    final assignedAsync = widget.watchAssigned(ref);
 
     return SafeArea(
       child: ConstrainedBox(
@@ -156,7 +282,7 @@ class _MemberTagsSheetState extends ConsumerState<_MemberTagsSheet> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
               child: Text(
-                'Tags do membro',
+                widget.title,
                 style: CommunityDesign.titleStyle(
                   context,
                 ).copyWith(fontSize: 18, fontWeight: FontWeight.bold),
@@ -165,37 +291,72 @@ class _MemberTagsSheetState extends ConsumerState<_MemberTagsSheet> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
               child: Text(
-                'Marque o que vale para esta pessoa agora. Tag é marcador manual '
-                'e temporário — o que é dado do cadastro fica no cadastro.',
+                widget.hint,
                 style: CommunityDesign.metaStyle(context),
               ),
             ),
+            if (widget.ministry)
+              PermissionGate(
+                permission: 'tags.create',
+                showLoading: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  child: TextField(
+                    controller: _newTagName,
+                    enabled: !_creating,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _createTag(),
+                    decoration: InputDecoration(
+                      labelText: 'Nova tag',
+                      hintText: 'Ex.: Louvor, Infantil, Social',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: _creating
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.add),
+                              tooltip: 'Criar e marcar',
+                              onPressed: _createTag,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
             Flexible(
               child: allTagsAsync.when(
-                data: (allTags) {
+                data: (all) {
+                  final allTags = all
+                      .where((t) => t.isMinistry == widget.ministry)
+                      .toList();
                   if (allTags.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                       child: Text(
-                        'Nenhuma tag cadastrada ainda. Crie as tags da igreja '
-                        'no menu Tags.',
+                        widget.ministry
+                            ? 'Nenhuma tag de ministério ainda.'
+                            : 'Nenhuma tag cadastrada ainda. Crie as tags da '
+                                  'igreja no menu Tags.',
                         style: CommunityDesign.metaStyle(context),
                       ),
                     );
                   }
 
-                  // Sem isso, o sheet aberto antes das tags do membro chegarem
-                  // mostraria todas desmarcadas por um instante.
-                  if (!memberTagsAsync.hasValue) {
+                  // Sem isso, o sheet aberto antes das tags atribuídas
+                  // chegarem mostraria todas desmarcadas por um instante.
+                  if (!assignedAsync.hasValue) {
                     return const Padding(
                       padding: EdgeInsets.symmetric(vertical: 32),
                       child: Center(child: CircularProgressIndicator()),
                     );
                   }
 
-                  final assignedIds = memberTagsAsync.value!
-                      .map((tag) => tag.id)
-                      .toSet();
+                  final assignedIds = assignedAsync.value!;
 
                   return ListView.builder(
                     shrinkWrap: true,
@@ -297,13 +458,9 @@ class _MemberTagsSheetState extends ConsumerState<_MemberTagsSheet> {
 
     final repository = ref.read(tagsRepositoryProvider);
     try {
-      if (isAssigned) {
-        await repository.removeTagFromMember(widget.memberId, tag.id);
-      } else {
-        await repository.addTagToMember(widget.memberId, tag.id);
-      }
+      await widget.save(repository, tag.id, !isAssigned);
 
-      ref.invalidate(memberTagsProvider(widget.memberId));
+      widget.invalidate(ref);
       // A lista de tags carrega a contagem de membros junto.
       ref.invalidate(allTagsProvider);
 
@@ -334,7 +491,55 @@ class _MemberTagsSheetState extends ConsumerState<_MemberTagsSheet> {
     }
   }
 
-  /// A RLS de `member_tag` responde 42501 a quem não tem `tags.edit`; sem esta
+  /// Cria a tag de ministério no catálogo (vale para todos os ministérios)
+  /// e já marca neste. Criar exige `tags.create` (RLS de `tag`).
+  Future<void> _createTag() async {
+    final name = _newTagName.text.trim();
+    if (name.isEmpty || _creating) return;
+    setState(() => _creating = true);
+
+    final repository = ref.read(tagsRepositoryProvider);
+    try {
+      final tag = await repository.createTag({
+        'name': name,
+        'applies_to': 'ministry',
+        'color': '#3F51B5',
+      });
+      try {
+        await widget.save(repository, tag.id, true);
+      } catch (_) {
+        // Não marcou: apaga a tag recém-criada para não ficar órfã.
+        await repository.deleteTag(tag.id).catchError((_) {});
+        rethrow;
+      }
+      widget.invalidate(ref);
+      ref.invalidate(allTagsProvider);
+      _newTagName.clear();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Tag "$name" criada e atribuída.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        final message = error is PostgrestException && error.code == '23505'
+            ? 'Já existe uma tag chamada "$name" (pode ser uma tag de pessoa).'
+            : error is PostgrestException && error.code == '42501'
+            ? 'Você não tem permissão para criar tags.'
+            : 'Erro ao criar tag: $error';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
+  }
+
+  /// A RLS de `member_tag`/`ministry_tag` responde 42501 a quem não tem `tags.edit`; sem esta
   /// tradução o usuário via o texto cru do PostgREST.
   String _errorMessage(Object error, {required bool isAssigned}) {
     final acao = isAssigned ? 'remover' : 'atribuir';

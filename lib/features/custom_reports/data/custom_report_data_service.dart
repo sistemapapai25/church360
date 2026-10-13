@@ -1,4 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
+import '../../../core/widgets/age_range_filter.dart';
+import '../../financeiro/data/lancamentos_scope.dart';
+import '../../members/domain/models/member.dart';
 import '../domain/models/custom_report.dart';
 import '../domain/models/report_config.dart';
 import '../domain/models/report_filter_state.dart';
@@ -21,78 +26,131 @@ class CustomReportDataService {
     }
 
     final aggregation = report.config.aggregations.first;
-    final tableName = _getTableName(report.dataSource);
 
-    // Construir query base
-    var query = _supabase.from(tableName).select('*');
+    // Construir query base (mesma tabela e recorte da tela de cada módulo)
+    var query = _baseQuery(report.dataSource);
+
+    // Data escolhida no construtor (Contribuições/Despesas); senão a da fonte.
+    final dateField = _isLedger(report.dataSource) && report.config.dateField != null
+        ? report.config.dateField!
+        : null;
 
     // Aplicar filtros temporários (do botão de funil)
     if (filterState != null) {
-      query = _applyFilters(query, filterState, report.dataSource);
+      query = _applyFilters(
+          query, filterState, dateField ?? _getDateField(report.dataSource));
     }
 
     // Executar query
     final response = await query;
-    final data = response as List;
+    final data = (response as List)
+        .map((row) => _withDerivedFields(row, report.dataSource))
+        .toList();
 
     // Processar dados baseado na agregação
-    return _processData(data, aggregation, report.dataSource);
+    return processData(data, aggregation, report.dataSource, dateField);
   }
 
-  /// Obter nome da tabela baseado no DataSource
-  String _getTableName(DataSource dataSource) {
+  static bool _isLedger(DataSource s) =>
+      s == DataSource.contributions || s == DataSource.expenses;
+
+  /// Query base por DataSource: as fontes que o construtor oferece
+  /// (DataSourceMetadataRegistry) leem a tabela que a tela do módulo lê.
+  PostgrestFilterBuilder<List<Map<String, dynamic>>> _baseQuery(
+    DataSource dataSource,
+  ) {
+    final tenantId = SupabaseConstants.currentTenantId;
     switch (dataSource) {
+      // Membros sem visitantes (Visitantes tem fonte própria).
       case DataSource.members:
-        return 'member';
+        return _supabase
+            .from('user_account')
+            .select()
+            .eq('tenant_id', tenantId)
+            .or('status.is.null,status.neq.visitor');
       case DataSource.visitors:
-        return 'visitor';
-      case DataSource.households:
-        return 'household';
+        return _supabase
+            .from('user_account')
+            .select()
+            .eq('tenant_id', tenantId)
+            .eq('status', 'visitor');
       case DataSource.events:
-        return 'event';
+        return _supabase
+            .from('event')
+            .select('*, tipo:event_type(label)')
+            .eq('tenant_id', tenantId);
       case DataSource.eventRegistrations:
-        return 'event_registration';
+        return _supabase
+            .from('event_registration')
+            .select()
+            .eq('tenant_id', tenantId);
+      // Contribuições/Despesas: mesmo recorte do FinancialRepository
+      // (lançamento pago, não apagado, da igreja).
       case DataSource.contributions:
-        return 'contribution';
       case DataSource.expenses:
-        return 'expense';
-      case DataSource.donations:
-        return 'donation';
+        return _supabase
+            .from('lancamentos')
+            .select('*, categoria:categoria_id(name)')
+            .eq('tipo',
+                dataSource == DataSource.contributions ? 'RECEITA' : 'DESPESA')
+            .eq('tenant_id', tenantId)
+            .eq('status', 'PAGO')
+            .isFilter('deleted_at', null)
+            .or(kLancamentosIgrejaScope);
       case DataSource.financialGoals:
-        return 'financial_goal';
-      case DataSource.groups:
-        return 'group';
-      case DataSource.groupMembers:
-        return 'group_member';
-      case DataSource.groupMeetings:
-        return 'group_meeting';
-      case DataSource.groupAttendance:
-        return 'group_attendance';
-      case DataSource.worshipServices:
-        return 'worship_service';
-      case DataSource.worshipAttendance:
-        return 'worship_attendance';
-      case DataSource.churchSchedule:
-        return 'church_schedule';
+        return _supabase
+            .from('financial_goal')
+            .select()
+            .eq('tenant_id', tenantId);
       default:
-        throw Exception('DataSource não suportado: $dataSource');
+        throw Exception('Fonte de dados sem suporte: ${dataSource.label}');
     }
+  }
+
+  /// Campos calculados usados pelos templates: nome da categoria do
+  /// lançamento, nome do tipo de evento, idade e faixa etária do membro.
+  Map<String, dynamic> _withDerivedFields(dynamic raw, DataSource dataSource) {
+    final row = Map<String, dynamic>.from(raw as Map);
+    final categoria = row['categoria'];
+    if (categoria is Map) row['categoria'] = categoria['name'];
+    final tipo = row.remove('tipo');
+    if (tipo is Map) row['event_type'] = tipo['label'];
+
+    if (dataSource == DataSource.members || dataSource == DataSource.visitors) {
+      final age = Member.fromJson(row).age;
+      row['age'] = age;
+      row['age_group'] = ageGroupLabel(age);
+    }
+    return row;
+  }
+
+  /// Rótulo da faixa etária, nas mesmas faixas do filtro de idade.
+  static String ageGroupLabel(int? age) {
+    if (age == null) return 'Sem data de nascimento';
+    return AgeRange.values
+        .firstWhere(
+          (r) => r.min != null && age >= r.min! && (r.max == null || age <= r.max!),
+          orElse: () => AgeRange.all,
+        )
+        .label;
   }
 
   /// Aplicar filtros temporários na query
   PostgrestFilterBuilder<List<Map<String, dynamic>>> _applyFilters(
     PostgrestFilterBuilder<List<Map<String, dynamic>>> query,
     ReportFilterState filterState,
-    DataSource dataSource,
+    String dateField,
   ) {
-    // Filtro de período
+    // Filtro de período por dia. A data final entra inteira: < dia seguinte
+    // (com lte 00:00 o último dia sumia nas colunas timestamptz).
     if (filterState.startDate != null) {
-      final dateField = _getDateField(dataSource);
-      query = query.gte(dateField, filterState.startDate!.toIso8601String());
+      query = query.gte(dateField, _day(filterState.startDate!));
     }
     if (filterState.endDate != null) {
-      final dateField = _getDateField(dataSource);
-      query = query.lte(dateField, filterState.endDate!.toIso8601String());
+      query = query.lt(
+        dateField,
+        _day(filterState.endDate!.add(const Duration(days: 1))),
+      );
     }
 
     // Filtro de status
@@ -100,17 +158,9 @@ class CustomReportDataService {
       query = query.eq('status', filterState.status!);
     }
 
-    // Filtro de gênero (para membros)
-    if (filterState.gender != null && filterState.gender!.isNotEmpty && dataSource == DataSource.members) {
+    // Filtro de gênero (membros e visitantes)
+    if (filterState.gender != null && filterState.gender!.isNotEmpty) {
       query = query.eq('gender', filterState.gender!);
-    }
-
-    // Filtro de tipo
-    if (filterState.type != null && filterState.type!.isNotEmpty) {
-      final typeField = _getTypeField(dataSource);
-      if (typeField != null) {
-        query = query.eq(typeField, filterState.type!);
-      }
     }
 
     // Filtros customizados
@@ -123,22 +173,22 @@ class CustomReportDataService {
     return query;
   }
 
+  static String _day(DateTime d) => d.toIso8601String().substring(0, 10);
+
   /// Obter campo de data baseado no DataSource
   String _getDateField(DataSource dataSource) {
     switch (dataSource) {
-      case DataSource.members:
       case DataSource.visitors:
-      case DataSource.groups:
-        return 'created_at';
+        return 'first_visit_date';
       case DataSource.events:
+      case DataSource.financialGoals:
         return 'start_date';
+      case DataSource.eventRegistrations:
+        return 'registered_at';
+      // Padrão do Financeiro; o construtor pode trocar por data_pagamento.
       case DataSource.contributions:
       case DataSource.expenses:
-        return 'date';
-      case DataSource.groupMeetings:
-        return 'meeting_date';
-      case DataSource.worshipServices:
-        return 'service_date';
+        return 'vencimento';
       default:
         return 'created_at';
     }
@@ -148,9 +198,8 @@ class CustomReportDataService {
   String? _getTypeField(DataSource dataSource) {
     switch (dataSource) {
       case DataSource.contributions:
-        return 'type';
       case DataSource.expenses:
-        return 'category';
+        return 'categoria';
       case DataSource.events:
         return 'event_type';
       default:
@@ -159,10 +208,12 @@ class CustomReportDataService {
   }
 
   /// Processar dados baseado na agregação
-  List<Map<String, dynamic>> _processData(
+  @visibleForTesting
+  List<Map<String, dynamic>> processData(
     List<dynamic> data,
     ReportAggregation aggregation,
     DataSource dataSource,
+    String? dateField,
   ) {
     // Se não há agrupamento, retornar valor único
     if (aggregation.groupBy == GroupByType.none) {
@@ -179,7 +230,7 @@ class CustomReportDataService {
     final Map<String, List<dynamic>> groups = {};
 
     for (var item in data) {
-      final groupKey = _getGroupKey(item, aggregation, dataSource);
+      final groupKey = _getGroupKey(item, aggregation, dataSource, dateField);
       if (!groups.containsKey(groupKey)) {
         groups[groupKey] = [];
       }
@@ -207,27 +258,31 @@ class CustomReportDataService {
     dynamic item,
     ReportAggregation aggregation,
     DataSource dataSource,
+    String? dateField,
   ) {
     switch (aggregation.groupBy) {
       case GroupByType.day:
       case GroupByType.week:
       case GroupByType.month:
       case GroupByType.year:
-        return _getDateGroupKey(item, aggregation, dataSource);
+        return _getDateGroupKey(item, aggregation, dataSource, dateField);
 
       case GroupByType.status:
-        return item['status']?.toString() ?? 'Sem status';
+        final status = item['status']?.toString();
+        return status == null ? 'Sem status' : reportValueLabel(status);
 
       case GroupByType.category:
-        return item['category']?.toString() ?? 'Sem categoria';
-
       case GroupByType.type:
         final typeField = _getTypeField(dataSource);
-        return item[typeField]?.toString() ?? 'Sem tipo';
+        return item[typeField]?.toString() ??
+            (aggregation.groupBy == GroupByType.category
+                ? 'Sem categoria'
+                : 'Sem tipo');
 
       case GroupByType.custom:
         if (aggregation.groupByField != null) {
-          return item[aggregation.groupByField]?.toString() ?? 'Sem valor';
+          final value = item[aggregation.groupByField]?.toString();
+          return value == null ? 'Sem valor' : reportValueLabel(value);
         }
         return 'Sem agrupamento';
 
@@ -241,8 +296,11 @@ class CustomReportDataService {
     dynamic item,
     ReportAggregation aggregation,
     DataSource dataSource,
+    String? chosenDateField,
   ) {
-    final dateField = aggregation.groupByField ?? _getDateField(dataSource);
+    final dateField = chosenDateField ??
+        aggregation.groupByField ??
+        _getDateField(dataSource);
     final dateStr = item[dateField]?.toString();
     
     if (dateStr == null) return 'Sem data';
@@ -291,12 +349,13 @@ class CustomReportDataService {
         });
 
       case AggregationType.avg:
-        final sum = data.fold<double>(0, (sum, item) {
-          final value = item[aggregation.fieldName];
-          if (value == null) return sum;
-          return sum + (value is num ? value.toDouble() : 0);
-        });
-        return sum / data.length;
+        // Só quem tem valor entra na média (membro sem nascimento não é idade 0).
+        final values = data
+            .map((item) => item[aggregation.fieldName])
+            .whereType<num>()
+            .toList();
+        if (values.isEmpty) return 0;
+        return values.fold<double>(0, (sum, v) => sum + v) / values.length;
 
       case AggregationType.min:
         return data.fold<double>(double.infinity, (min, item) {

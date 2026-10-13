@@ -29,8 +29,8 @@ class AppErrorInfo {
 }
 
 /// Padroniza erro para:
-/// 1) Mensagem amigavel ao usuario
-/// 2) Log tecnico (codigo + detalhes) no console
+/// 1) Mensagem amigável ao usuário
+/// 2) Log técnico (código + detalhes) no console
 ///
 /// Objetivo: nunca exibir SQL/stack bruto no app.
 class AppErrorHandler {
@@ -50,38 +50,38 @@ class AppErrorHandler {
           final haystack = '$msgLower $detailsLower';
           if (haystack.contains('categories_unique_name')) {
             userMessage =
-                'Ja existe uma categoria com esse nome. Selecione a existente ou use um nome diferente.';
+                'Já existe uma categoria com esse nome. Selecione a existente ou use um nome diferente.';
           } else if (haystack.contains('beneficiaries_unique_name')) {
             userMessage =
-                'Ja existe um beneficiario com esse nome. Selecione o existente ou use um nome diferente.';
+                'Já existe um beneficiário com esse nome. Selecione o existente ou use um nome diferente.';
           } else if (haystack.contains('contas_financeiras') ||
               haystack.contains('unique') && haystack.contains('conta')) {
             userMessage =
-                'Ja existe uma conta com esse nome. Selecione a existente ou use um nome diferente.';
+                'Já existe uma conta com esse nome. Selecione a existente ou use um nome diferente.';
           } else {
             userMessage =
-                'Esse item ja existe. Verifique os dados e tente novamente.';
+                'Esse item já existe. Verifique os dados e tente novamente.';
           }
           break;
         case '23502': // not_null_violation
-          userMessage = 'Preencha os campos obrigatorios e tente novamente.';
+          userMessage = 'Preencha os campos obrigatórios e tente novamente.';
           break;
         case '22P02': // invalid_text_representation
           userMessage =
-              'Algum dado informado e invalido. Revise e tente novamente.';
+              'Algum dado informado é inválido. Revise e tente novamente.';
           break;
         case '42501': // insufficient_privilege
-          userMessage = 'Voce nao tem permissao para realizar esta acao.';
+          userMessage = 'Você não tem permissão para realizar esta ação.';
           break;
         case 'PGRST204': // missing column in schema cache
         case '42P01': // undefined_table
         case '42703': // undefined_column
         case '42883': // undefined_function
           userMessage =
-              'O sistema esta em atualizacao. Tente novamente em instantes.';
+              'O sistema está em atualização. Tente novamente em instantes.';
           break;
         case 'PGRST116': // single() requested but returned 0+ rows
-          userMessage = 'Nao foi possivel carregar os dados. Tente novamente.';
+          userMessage = 'Não foi possível carregar os dados. Tente novamente.';
           break;
         default:
           userMessage = 'Ocorreu um erro. Tente novamente.';
@@ -103,12 +103,24 @@ class AppErrorHandler {
       final normalized = msg.toLowerCase();
       final userMessage = switch (normalized) {
         _ when normalized.contains('jwt') && normalized.contains('expired') =>
-          'Sessao expirada. Faca login novamente.',
+          'Sessão expirada. Faça login novamente.',
         _
             when normalized.contains('invalid login') ||
                 normalized.contains('invalid_credentials') =>
-          'Credenciais invalidas. Verifique e tente novamente.',
-        _ => 'Falha de autenticacao. Tente novamente.',
+          'E-mail ou senha incorretos. Verifique e tente novamente.',
+        _ when normalized.contains('email not confirmed') =>
+          'Confirme seu e-mail antes de entrar: abra o link que enviamos '
+              'na sua caixa de entrada (veja também o spam).',
+        _ when normalized.contains('already registered') =>
+          'Este e-mail já tem conta. Entre com sua senha ou use '
+              '"Esqueci minha senha".',
+        _ when normalized.contains('password should be') =>
+          'A senha precisa ter pelo menos 6 caracteres.',
+        _
+            when normalized.contains('rate limit') ||
+                normalized.contains('security purposes') =>
+          'Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.',
+        _ => 'Falha de autenticação. Tente novamente.',
       };
 
       return AppErrorInfo(
@@ -128,7 +140,7 @@ class AppErrorHandler {
 
     if (error is FormatException) {
       return AppErrorInfo(
-        userMessage: 'Dados invalidos. Revise e tente novamente.',
+        userMessage: 'Dados inválidos. Revise e tente novamente.',
         debugMessage: error.message,
         specific: true,
       );

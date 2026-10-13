@@ -21,12 +21,15 @@ enum DiaconatoPersonType {
 }
 
 /// Triagem da ausência. `none` é o default; valores de ação só fazem sentido
-/// quando `present = false`.
+/// quando `present = false`. Ligar, visitar e encaminhar viram pendência
+/// (aba Acompanhar) até alguém concluir; a ceia segue pelos lotes.
 enum DiaconatoAbsentAction {
   none('none', 'Sem ação'),
   call('call', 'Ligar'),
+  visit('visit', 'Visitar'),
   communion('communion', 'Levar ceia'),
-  callAndCommunion('call_and_communion', 'Ligar + ceia');
+  callAndCommunion('call_and_communion', 'Ligar + ceia'),
+  forward('forward', 'Encaminhar');
 
   final String value;
   final String label;
@@ -41,6 +44,13 @@ enum DiaconatoAbsentAction {
   }
 }
 
+/// "12 adultos · 3 crianças" — as crianças estão dentro de [total].
+String adultsAndChildrenLabel(int total, int children) {
+  final adults = total - children;
+  return '$adults ${adults == 1 ? 'adulto' : 'adultos'} · '
+      '$children ${children == 1 ? 'criança' : 'crianças'}';
+}
+
 /// Contagem oficial de presença num culto, feita por um ministério.
 class WorshipAttendanceCount {
   final String id;
@@ -52,6 +62,9 @@ class WorshipAttendanceCount {
   final int totalRegisteredVisitorsPresent;
   final int totalUnregisteredVisitors;
   final int totalPeople;
+
+  /// Crianças, contadas à mão, dentro de [totalPeople].
+  final int totalChildren;
   final String? countedBy;
   final String? notes;
   final DateTime createdAt;
@@ -67,6 +80,7 @@ class WorshipAttendanceCount {
     required this.totalRegisteredVisitorsPresent,
     required this.totalUnregisteredVisitors,
     required this.totalPeople,
+    this.totalChildren = 0,
     this.countedBy,
     this.notes,
     required this.createdAt,
@@ -77,7 +91,7 @@ class WorshipAttendanceCount {
     return WorshipAttendanceCount(
       id: json['id'] as String,
       tenantId: json['tenant_id'] as String,
-      worshipServiceId: json['worship_service_id'] as String,
+      worshipServiceId: json['event_id'] as String,
       ministryId: json['ministry_id'] as String,
       serviceDate: DateTime.parse(json['service_date'] as String),
       totalMembersPresent: (json['total_members_present'] as num?)?.toInt() ?? 0,
@@ -86,6 +100,7 @@ class WorshipAttendanceCount {
       totalUnregisteredVisitors:
           (json['total_unregistered_visitors'] as num?)?.toInt() ?? 0,
       totalPeople: (json['total_people'] as num?)?.toInt() ?? 0,
+      totalChildren: (json['total_children'] as num?)?.toInt() ?? 0,
       countedBy: json['counted_by'] as String?,
       notes: json['notes'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -106,6 +121,12 @@ class WorshipAttendancePerson {
   final DiaconatoAbsentAction absentAction;
   final String? absenceReason;
   final String? notes;
+
+  /// Ministério que recebeu o encaminhamento (só com [absentAction] forward).
+  final String? forwardMinistryId;
+
+  /// Pendência concluída (ligação/visita feita, encaminhamento atendido).
+  final DateTime? followupDoneAt;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -119,6 +140,8 @@ class WorshipAttendancePerson {
     required this.absentAction,
     this.absenceReason,
     this.notes,
+    this.forwardMinistryId,
+    this.followupDoneAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -136,6 +159,10 @@ class WorshipAttendancePerson {
       ),
       absenceReason: json['absence_reason'] as String?,
       notes: json['notes'] as String?,
+      forwardMinistryId: json['forward_ministry_id'] as String?,
+      followupDoneAt: json['followup_done_at'] == null
+          ? null
+          : DateTime.parse(json['followup_done_at'] as String),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -148,7 +175,60 @@ class AbsenteeTriage {
   final DiaconatoAbsentAction action;
   final DiaconatoPersonType personType;
 
-  const AbsenteeTriage({required this.action, required this.personType});
+  /// Só com [action] forward.
+  final String? forwardMinistryId;
+
+  const AbsenteeTriage({
+    required this.action,
+    required this.personType,
+    this.forwardMinistryId,
+  });
+}
+
+/// Pendência de um ausente (ligar, visitar ou encaminhado), lida pela RPC
+/// `absentee_followups`: o ministério que contou vê as dele, e o que recebeu
+/// um encaminhamento vê as encaminhadas.
+class AbsenteeFollowup {
+  final String personId;
+  final String userId;
+  final String fullName;
+  final String? phone;
+  final String? photoUrl;
+  final DiaconatoAbsentAction action;
+  final String fromMinistryName;
+  final String eventName;
+  final DateTime serviceDate;
+  final String? notes;
+
+  const AbsenteeFollowup({
+    required this.personId,
+    required this.userId,
+    required this.fullName,
+    this.phone,
+    this.photoUrl,
+    required this.action,
+    required this.fromMinistryName,
+    required this.eventName,
+    required this.serviceDate,
+    this.notes,
+  });
+
+  factory AbsenteeFollowup.fromJson(Map<String, dynamic> json) {
+    return AbsenteeFollowup(
+      personId: json['person_id'] as String,
+      userId: json['user_id'] as String,
+      fullName: (json['full_name'] as String?)?.trim().isNotEmpty == true
+          ? (json['full_name'] as String).trim()
+          : 'Sem nome',
+      phone: json['phone'] as String?,
+      photoUrl: json['photo_url'] as String?,
+      action: DiaconatoAbsentAction.fromValue(json['action'] as String),
+      fromMinistryName: (json['from_ministry_name'] as String?) ?? '',
+      eventName: (json['event_name'] as String?) ?? '',
+      serviceDate: DateTime.parse(json['service_date'] as String),
+      notes: json['notes'] as String?,
+    );
+  }
 }
 
 /// Pessoa elegível para aparecer no checklist (membro ativo ou visitante já

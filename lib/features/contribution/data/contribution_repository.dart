@@ -102,37 +102,4 @@ class ContributionRepository {
       rethrow;
     }
   }
-
-  /// Deletar informação de contribuição
-  Future<void> deleteContributionInfo(String id) async {
-    try {
-      await _supabase
-          .from('contribution_info')
-          .delete()
-          .eq('id', id)
-          .eq('tenant_id', SupabaseConstants.currentTenantId);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Ativar/Desativar informação de contribuição
-  Future<ContributionInfo> toggleActiveStatus(String id, bool isActive) async {
-    try {
-      final response = await _supabase
-          .from('contribution_info')
-          .update({
-            'is_active': isActive,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', id)
-          .eq('tenant_id', SupabaseConstants.currentTenantId)
-          .select()
-          .single();
-
-      return ContributionInfo.fromJson(response);
-    } catch (e) {
-      rethrow;
-    }
-  }
 }

@@ -12,6 +12,8 @@ import '../widgets/course_turmas_section.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/media/video_play_overlay.dart';
 import '../../../permissions/providers/permissions_providers.dart';
+import '../../../support_materials/domain/models/support_material_link.dart';
+import '../../../support_materials/presentation/widgets/linked_materials.dart';
 
 /// Tela de visualização de curso (para alunos)
 class CourseViewerScreen extends ConsumerStatefulWidget {
@@ -112,6 +114,13 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
                     // pela Dashboard.
                     if (widget.fromDashboard)
                       CourseSubjectsSection(courseId: course.id),
+
+                    // Material de apoio vinculado ao curso pelo módulo
+                    // Material de Apoio (some quando não há).
+                    LinkedMaterialsSection(
+                      linkType: MaterialLinkType.course,
+                      entityId: course.id,
+                    ),
 
                     // Turmas do curso (study_groups.course_id), para
                     // qualquer tipo de curso. Carrega à parte das aulas.

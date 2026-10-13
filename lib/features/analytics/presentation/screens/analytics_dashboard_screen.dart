@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers/analytics_provider.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/errors/app_error_handler.dart';
 
 class AnalyticsDashboardScreen extends ConsumerWidget {
@@ -213,48 +214,73 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
                 // Relatórios Detalhados
                 _buildSectionTitle(context, 'Relatórios Detalhados', Icons.analytics),
                 const SizedBox(height: 12),
-                _buildReportButton(
-                  context,
-                  title: 'Relatório de Membros',
-                  subtitle: 'Crescimento, conversões e estatísticas',
-                  icon: Icons.groups,
-                  color: Colors.blue,
-                  onTap: () {
-                    context.push('/reports/members');
-                  },
+                PermissionGate(
+                  permission: 'reports.view',
+                  showLoading: false,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildReportButton(
+                      context,
+                      title: 'Relatório de Membros',
+                      subtitle: 'Crescimento, conversões e estatísticas',
+                      icon: Icons.groups,
+                      color: Colors.blue,
+                      onTap: () {
+                        context.push('/reports/members');
+                      },
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 12),
-                _buildReportButton(
-                  context,
-                  title: 'Relatório Financeiro',
-                  subtitle: 'Receitas, despesas e metas',
-                  icon: Icons.attach_money,
-                  color: Colors.green,
-                  onTap: () {
-                    context.push('/financial-reports');
-                  },
+                PermissionGate(
+                  permission: 'financial.view_reports',
+                  showLoading: false,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildReportButton(
+                      context,
+                      title: 'Relatório Financeiro',
+                      subtitle: 'Receitas, despesas e metas',
+                      icon: Icons.attach_money,
+                      color: Colors.green,
+                      onTap: () {
+                        context.push('/financial-reports');
+                      },
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 12),
-                _buildReportButton(
-                  context,
-                  title: 'Relatório de Cultos',
-                  subtitle: 'Frequência e participação',
-                  icon: Icons.church,
-                  color: Colors.purple,
-                  onTap: () {
-                    context.push('/reports/attendance');
-                  },
+                PermissionGate(
+                  permission: 'worship.view_statistics',
+                  showLoading: false,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildReportButton(
+                      context,
+                      title: 'Relatório de Cultos',
+                      subtitle: 'Frequência e participação',
+                      icon: Icons.church,
+                      color: Colors.purple,
+                      onTap: () {
+                        context.push('/worship-statistics');
+                      },
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 12),
-                _buildReportButton(
-                  context,
-                  title: 'Relatório de Grupos',
-                  subtitle: 'Participação e reuniões',
-                  icon: Icons.groups,
-                  color: Colors.orange,
-                  onTap: () {
-                    context.push('/reports/groups');
-                  },
+                PermissionGate(
+                  permission: 'reports.view',
+                  showLoading: false,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildReportButton(
+                      context,
+                      title: 'Relatório de Grupos',
+                      subtitle: 'Participação e reuniões',
+                      icon: Icons.groups,
+                      color: Colors.orange,
+                      onTap: () {
+                        context.push('/reports/groups');
+                      },
+                    ),
+                  ),
                 ),
               ],
             ),

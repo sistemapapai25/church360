@@ -10,6 +10,7 @@ import '../../../../../core/widgets/status_badge.dart';
 import '../../../../../core/widgets/pearl_fab.dart';
 import '../../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../presentation/providers/ministries_provider.dart';
+import '../../../shared/presentation/widgets/assignee_without_permission_tile.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../../data/raizes_repository.dart';
 import '../../domain/models/raizes_visit.dart';
@@ -598,6 +599,9 @@ class _CreateVisitDialog extends ConsumerStatefulWidget {
   ConsumerState<_CreateVisitDialog> createState() => _CreateVisitDialogState();
 }
 
+/// Permissão da tela que o aviso de visita abre (o guard da Agenda).
+const _visitAssigneePermission = 'raizes.view';
+
 class _CreateVisitDialogState extends ConsumerState<_CreateVisitDialog> {
   String? _visitorId;
   String? _assignedTo;
@@ -714,28 +718,113 @@ class _CreateVisitDialogState extends ConsumerState<_CreateVisitDialog> {
         'Falha ao carregar responsáveis: $e',
         style: const TextStyle(color: Colors.red),
       ),
-      data: (list) {
-        return DropdownButtonFormField<String?>(
-          initialValue: _assignedTo,
-          decoration: const InputDecoration(
-            labelText: 'Responsável (membro do Raízes)',
-            border: OutlineInputBorder(),
-          ),
-          items: <DropdownMenuItem<String?>>[
-            const DropdownMenuItem<String?>(
-              value: null,
-              child: Text('Sem responsável'),
-            ),
-            ...list.map(
-              (v) => DropdownMenuItem<String?>(
-                value: v['id'],
-                child: Text(v['name'] ?? ''),
+      data: (all) {
+        // Só escolhe quem abre a Agenda de visitas, para onde o aviso leva
+        // (Diaconato 6). Os outros ficam no atalho "Dar permissão".
+        final allowedAsync = ref.watch(
+          ministryMemberIdsWithPermissionProvider((
+            ministryId: widget.ministryId,
+            permission: _visitAssigneePermission,
+          )),
+        );
+        if (allowedAsync.isLoading) return const LinearProgressIndicator();
+        if (allowedAsync.hasError) {
+          return Text(
+            'Falha ao conferir responsáveis: ${allowedAsync.error}',
+            style: const TextStyle(color: Colors.red),
+          );
+        }
+        final allowed = allowedAsync.value ?? const {};
+        final list = all.where((v) => allowed.contains(v['id'])).toList();
+        final blocked = all.where((v) => !allowed.contains(v['id'])).toList();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<String?>(
+              initialValue: list.any((v) => v['id'] == _assignedTo)
+                  ? _assignedTo
+                  : null,
+              decoration: const InputDecoration(
+                labelText: 'Responsável (membro do Raízes)',
+                border: OutlineInputBorder(),
               ),
+              items: <DropdownMenuItem<String?>>[
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('Sem responsável'),
+                ),
+                ...list.map(
+                  (v) => DropdownMenuItem<String?>(
+                    value: v['id'],
+                    child: Text(v['name'] ?? ''),
+                  ),
+                ),
+              ],
+              onChanged: (v) => setState(() => _assignedTo = v),
             ),
+            if (blocked.isNotEmpty)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () => _showBlockedAssignees(blocked),
+                  child: Text(
+                    'A pessoa não aparece? ${blocked.length} sem permissão',
+                  ),
+                ),
+              ),
           ],
-          onChanged: (v) => setState(() => _assignedTo = v),
         );
       },
+    );
+  }
+
+  /// Lista quem está no Raízes mas não abre a Agenda de visitas. Consumer:
+  /// quem recebe a permissão some daqui e entra no seletor na volta.
+  void _showBlockedAssignees(List<Map<String, String>> initial) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Consumer(
+          builder: (ctx, ref, _) {
+            final allowed =
+                ref
+                    .watch(
+                      ministryMemberIdsWithPermissionProvider((
+                        ministryId: widget.ministryId,
+                        permission: _visitAssigneePermission,
+                      )),
+                    )
+                    .valueOrNull ??
+                const {};
+            final blocked = initial
+                .where((v) => !allowed.contains(v['id']))
+                .toList();
+            return ListView(
+              shrinkWrap: true,
+              children: [
+                const ListTile(
+                  title: Text(
+                    'Sem permissão para a Agenda de visitas',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    'Responsável precisa abrir a tela do aviso (raizes.view).',
+                  ),
+                ),
+                if (blocked.isEmpty)
+                  const ListTile(title: Text('Todos já podem ser escolhidos.')),
+                for (final v in blocked)
+                  AssigneeWithoutPermissionTile(
+                    ministryId: widget.ministryId,
+                    permission: _visitAssigneePermission,
+                    memberId: v['id']!,
+                    name: v['name'] ?? '',
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 

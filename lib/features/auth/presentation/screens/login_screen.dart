@@ -106,6 +106,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     setState(() => _redirectDestino = destino);
   }
 
+  /// Repassa o destino do link (D-04) para o cadastro: quem abriu um link
+  /// sem ter conta cria a conta e volta para o link, não para a home.
+  String _signupRedirectQuery(String sep) {
+    final destino = _redirectDestino;
+    if (destino == null) return '';
+    return '${sep}redirect=${Uri.encodeComponent(destino)}';
+  }
+
   void _syncFocusState() {
     if (!mounted) return;
     setState(() {
@@ -207,7 +215,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 'Seu e-mail foi pré-cadastrado pela igreja. Clique em "Criar conta" para definir sua senha e concluir o acesso.';
             altActionLabel = 'Criar conta';
             final uriEmail = Uri.encodeComponent(email);
-            altAction = () => context.push('/signup?email=$uriEmail');
+            altAction = () => context.push(
+              '/signup?email=$uriEmail${_signupRedirectQuery('&')}',
+            );
           } else {
             altActionLabel = 'Redefinir senha';
             altAction = _isSendingReset ? null : _handlePasswordReset;
@@ -661,7 +671,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           ),
         ),
         TextButton(
-          onPressed: () => context.push('/signup'),
+          onPressed: () => context.push('/signup${_signupRedirectQuery('?')}'),
           style: TextButton.styleFrom(
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),

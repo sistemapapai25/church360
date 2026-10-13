@@ -59,7 +59,10 @@ class ChurchInfoScreen extends ConsumerWidget {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: const AppLogo(variant: AppLogoVariant.selo),
+                  child: ChurchLogo(
+                    url: churchInfoAsync.valueOrNull?.logoUrl,
+                    name: churchInfoAsync.valueOrNull?.name ?? '',
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -83,7 +86,11 @@ class ChurchInfoScreen extends ConsumerWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(width: 96, height: 96, child: const AppLogo()),
+                    const SizedBox(
+                      width: 96,
+                      height: 96,
+                      child: ChurchLogo(url: null, name: ''),
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       'Informações não disponíveis',
@@ -235,16 +242,23 @@ class ChurchInfoScreen extends ConsumerWidget {
                   height: 120,
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) {
-                    return const SizedBox(
+                    return SizedBox(
                       width: 120,
                       height: 120,
-                      child: AppLogo(),
+                      child: ChurchLogo(url: null, name: churchInfo.name),
                     );
                   },
                 ),
               )
             else
-              const SizedBox(width: 120, height: 120, child: AppLogo()),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 120,
+                  height: 120,
+                  child: ChurchLogo(url: null, name: churchInfo.name),
+                ),
+              ),
             const SizedBox(height: 16),
 
             // Nome

@@ -15,19 +15,16 @@ final allWorshipServicesProvider = FutureProvider<List<WorshipService>>((ref) as
   return repo.getAllWorshipServices();
 });
 
+/// Provider de visitantes presentes por culto (id do culto -> quantidade)
+final worshipVisitorCountsProvider = FutureProvider<Map<String, int>>((ref) async {
+  final repo = ref.watch(worshipRepositoryProvider);
+  return repo.getVisitorCountByService();
+});
+
 /// Provider de culto por ID
 final worshipServiceByIdProvider = FutureProvider.family<WorshipService?, String>((ref, id) async {
   final repo = ref.watch(worshipRepositoryProvider);
   return repo.getWorshipServiceById(id);
-});
-
-/// Provider de cultos por período
-final worshipServicesByDateRangeProvider = FutureProvider.family<List<WorshipService>, Map<String, DateTime>>((ref, dateRange) async {
-  final repo = ref.watch(worshipRepositoryProvider);
-  return repo.getWorshipServicesByDateRange(
-    dateRange['startDate']!,
-    dateRange['endDate']!,
-  );
 });
 
 /// Provider de presenças de um culto
@@ -35,28 +32,3 @@ final worshipAttendanceProvider = FutureProvider.family<List<WorshipAttendance>,
   final repo = ref.watch(worshipRepositoryProvider);
   return repo.getWorshipAttendance(worshipServiceId);
 });
-
-/// Provider de histórico de presença de um membro
-final memberAttendanceHistoryProvider = FutureProvider.family<List<WorshipAttendance>, String>((ref, memberId) async {
-  final repo = ref.watch(worshipRepositoryProvider);
-  return repo.getMemberAttendanceHistory(memberId);
-});
-
-/// Provider de estatísticas de frequência de um membro
-final memberAttendanceStatsProvider = FutureProvider.family<Map<String, dynamic>, String>((ref, memberId) async {
-  final repo = ref.watch(worshipRepositoryProvider);
-  return repo.getMemberAttendanceStats(memberId);
-});
-
-/// Provider de membros ausentes
-final absentMembersProvider = FutureProvider.family<List<String>, int>((ref, lastServicesCount) async {
-  final repo = ref.watch(worshipRepositoryProvider);
-  return repo.getAbsentMembers(lastServicesCount: lastServicesCount);
-});
-
-/// Provider de contagem total de cultos
-final totalWorshipServicesCountProvider = FutureProvider<int>((ref) async {
-  final repo = ref.watch(worshipRepositoryProvider);
-  return repo.countWorshipServices();
-});
-

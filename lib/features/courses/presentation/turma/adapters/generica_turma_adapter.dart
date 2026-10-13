@@ -5,6 +5,7 @@ import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/utils/name_sort.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/widgets/glass_card.dart';
+import '../../../../members/domain/models/member_directory_entry.dart';
 import '../../../../members/presentation/providers/members_provider.dart';
 import '../../../../study_groups/domain/models/study_group.dart';
 import '../../../../study_groups/presentation/providers/study_group_provider.dart';
@@ -36,10 +37,10 @@ class GenericaTurmaAdapter implements TurmaSurfaces {
 
   /// A chamada fica na aba Presença da aula, como no Batismo.
   ///
-  /// Só o líder ativo do grupo grava (`study_lesson_led_by_me`); o elevado
-  /// só lê. Quem é liderança só por `courses.*` não enxerga a presença pela
-  /// RLS — uma chamada vazia diria que ninguém foi marcado, então recebe um
-  /// aviso. Na vitrine de Cursos também não há chamada.
+  /// Grava quem passa em `study_lesson_roll_allowed`: líder, elevado ou
+  /// `courses.manage_lessons`. Quem é liderança só por `courses.view` não
+  /// enxerga a presença pela RLS — uma chamada vazia diria que ninguém foi
+  /// marcado, então recebe um aviso. Na vitrine de Cursos não há chamada.
   @override
   Widget lessonPresence(StudyLesson lesson) {
     if (access.isStudent || (access.readOnly && access.enrolled)) {
@@ -54,7 +55,7 @@ class GenericaTurmaAdapter implements TurmaSurfaces {
         message: 'Você não é aluno desta turma.',
       );
     }
-    if (!access.leadsGroup && !access.elevated) {
+    if (!access.canTakeRoll) {
       return const TurmaMessage(
         icon: AppIcons.lock,
         message: 'A chamada é feita pelo líder da turma.',
@@ -63,12 +64,15 @@ class GenericaTurmaAdapter implements TurmaSurfaces {
     return _LessonRoll(
       studyGroupId: origin.studyGroupId,
       lesson: lesson,
-      canMark: access.leadsGroup,
+      canMark: access.canTakeRoll,
     );
   }
 
   /// A turma genérica não tem ministério: a gestão dela é esta mesma tela,
   /// pela porta que grava.
+  @override
+  bool get acceptsJoin => true;
+
   @override
   TurmaManageTarget? get manage =>
       (label: 'Gerenciar', route: '/turmas/${origin.studyGroupId}/gestao');
@@ -123,17 +127,19 @@ Map<String, GenericaAttendanceCount> genericaCountsByUser(
   };
 }
 
-/// Nome de quem participa, pelo diretório de membros do tenant.
-///
-/// `study_participants.user_id` é `auth.uid()`; o diretório é por
-/// `user_account.id`. Quando as duas chaves não coincidem o nome não é
-/// achado e a linha diz "Participante".
-final genericaParticipantNamesProvider = FutureProvider<Map<String, String>>((
-  ref,
-) async {
-  final directory = await ref.watch(memberDirectoryProvider.future);
-  return {for (final m in directory) m.id: m.displayName};
-});
+/// Nome de quem participa, por `study_participants.user_id` (`auth.uid()`).
+/// Vem de `turma_roster`, que cruza as duas chaves no banco; o diretório de
+/// membros é por `user_account.id` e não acharia ninguém.
+final genericaParticipantNamesProvider =
+    FutureProvider.family<Map<String, String>, String>((
+      ref,
+      studyGroupId,
+    ) async {
+      final roster = await ref
+          .watch(studyGroupRepositoryProvider)
+          .getTurmaRoster(studyGroupId);
+      return {for (final r in roster) r.userId: r.name};
+    });
 
 String _nameOf(Map<String, String> names, String userId) =>
     names[userId] ?? 'Participante';
@@ -169,11 +175,11 @@ class GenericaParticipantes extends ConsumerWidget {
 
   /// Presença de cada participante em todas as aulas não arquivadas.
   ///
-  /// Só quem enxerga a chamada pela RLS (líder do grupo ou elevado) recebe
+  /// Só quem enxerga a chamada pela RLS (`study_lesson_roll_allowed`) recebe
   /// a contagem; para os demais o mapa fica vazio e a linha não diz nada,
   /// em vez de dizer "0 presentes".
   Map<String, GenericaAttendanceCount> _counts(WidgetRef ref) {
-    if (!access.leadsGroup && !access.elevated) return const {};
+    if (!access.canTakeRoll && !access.elevated) return const {};
     final lessons = ref.watch(groupLessonsProvider(studyGroupId)).valueOrNull;
     if (lessons == null) return const {};
     return genericaCountsByUser([
@@ -189,7 +195,8 @@ class GenericaParticipantes extends ConsumerWidget {
       groupParticipantsProvider(studyGroupId),
     );
     final names =
-        ref.watch(genericaParticipantNamesProvider).valueOrNull ?? const {};
+        ref.watch(genericaParticipantNamesProvider(studyGroupId)).valueOrNull ??
+        const {};
     final meta = CommunityDesign.metaStyle(context);
     final counts = _counts(ref);
 
@@ -201,15 +208,30 @@ class GenericaParticipantes extends ConsumerWidget {
       ),
       data: (participants) {
         final active = _byName(participants.where((p) => p.isActive), names);
+        final manage = access.canManageMembers
+            ? _ManageMembersBar(studyGroupId: studyGroupId)
+            : null;
         if (active.isEmpty) {
-          return const TurmaMessage(
-            icon: AppIcons.student,
-            message: 'Nenhum participante nesta turma ainda.',
+          return Column(
+            children: [
+              if (manage != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: manage,
+                ),
+              const Expanded(
+                child: TurmaMessage(
+                  icon: AppIcons.student,
+                  message: 'Nenhum participante nesta turma ainda.',
+                ),
+              ),
+            ],
           );
         }
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
           children: [
+            ?manage,
             Text(
               '${active.length} '
               '${active.length == 1 ? 'participante' : 'participantes'}',
@@ -245,6 +267,170 @@ class GenericaParticipantes extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Gestão da turma genérica: incluir participante e trocar o líder
+/// (`turma_add_participant` / `turma_set_leader`). Quem decide é o banco
+/// (`turma_can_manage`); aqui o botão só some para quem não gerencia.
+class _ManageMembersBar extends ConsumerWidget {
+  final String studyGroupId;
+
+  const _ManageMembersBar({required this.studyGroupId});
+
+  Future<void> _pick(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool leader,
+  }) async {
+    final repo = ref.read(studyGroupRepositoryProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    final roster = await repo.getTurmaRoster(studyGroupId);
+    if (!context.mounted) return;
+    // Incluir: some quem já participa. Trocar líder: some só o líder atual.
+    final exclude = {
+      for (final r in roster)
+        if (r.userAccountId != null && (!leader || r.role == 'leader'))
+          r.userAccountId!,
+    };
+    final person = await showModalBottomSheet<MemberDirectoryEntry>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _PersonPicker(
+        title: leader ? 'Trocar líder' : 'Adicionar participante',
+        hint: leader ? 'O líder atual sai da turma.' : null,
+        exclude: exclude,
+      ),
+    );
+    if (person == null) return;
+    try {
+      if (leader) {
+        await repo.setTurmaLeader(studyGroupId, person.id);
+      } else {
+        await repo.addTurmaParticipant(studyGroupId, person.id);
+      }
+      if (!context.mounted) return;
+      ref.invalidate(groupParticipantsProvider(studyGroupId));
+      ref.invalidate(genericaParticipantNamesProvider(studyGroupId));
+      ref.invalidate(turmaMyParticipationProvider(studyGroupId));
+      ref.invalidate(turmaAccessProvider(studyGroupId));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            leader
+                ? '${person.displayName} agora é o líder da turma.'
+                : '${person.displayName} entrou na turma.',
+          ),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().contains('SEM_LOGIN')
+                ? '${person.displayName} ainda não tem login no app.'
+                : 'Não foi possível salvar. Tente de novo.',
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          OutlinedButton.icon(
+            onPressed: () => _pick(context, ref, leader: false),
+            icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+            label: const Text('Adicionar participante'),
+          ),
+          OutlinedButton.icon(
+            onPressed: () => _pick(context, ref, leader: true),
+            icon: const Icon(Icons.swap_horiz, size: 18),
+            label: const Text('Trocar líder'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Escolhe uma pessoa do diretório da igreja (`user_account.id`).
+class _PersonPicker extends ConsumerStatefulWidget {
+  final String title;
+  final String? hint;
+  final Set<String> exclude;
+
+  const _PersonPicker({required this.title, this.hint, required this.exclude});
+
+  @override
+  ConsumerState<_PersonPicker> createState() => _PersonPickerState();
+}
+
+class _PersonPickerState extends ConsumerState<_PersonPicker> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final all = ref.watch(memberDirectoryProvider).valueOrNull;
+    final needle = _query.toLowerCase();
+    final people = [
+      for (final m in all ?? const <MemberDirectoryEntry>[])
+        if (!widget.exclude.contains(m.id) &&
+            (needle.isEmpty || m.displayName.toLowerCase().contains(needle)))
+          m,
+    ]..sort((a, b) => compareNames(a.displayName, b.displayName));
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.7,
+          child: Column(
+            children: [
+              ListTile(
+                title: Text(
+                  widget.title,
+                  style: CommunityDesign.titleStyle(
+                    context,
+                  ).copyWith(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                subtitle: widget.hint == null ? null : Text(widget.hint!),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  decoration: const InputDecoration(
+                    hintText: 'Buscar pelo nome',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (v) => setState(() => _query = v.trim()),
+                ),
+              ),
+              Expanded(
+                child: all == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : ListView(
+                        children: [
+                          for (final m in people)
+                            ListTile(
+                              title: Text(m.displayName),
+                              onTap: () => Navigator.of(context).pop(m),
+                            ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -360,7 +546,10 @@ class _RollState extends ConsumerState<_Roll> {
       groupParticipantsProvider(widget.studyGroupId),
     );
     final names =
-        ref.watch(genericaParticipantNamesProvider).valueOrNull ?? const {};
+        ref
+            .watch(genericaParticipantNamesProvider(widget.studyGroupId))
+            .valueOrNull ??
+        const {};
     final meta = CommunityDesign.metaStyle(context);
 
     return ListView(

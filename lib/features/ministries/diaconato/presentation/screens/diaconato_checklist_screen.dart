@@ -18,6 +18,10 @@ import '../providers/diaconato_attendance_providers.dart';
 /// Lista membros + visitantes cadastrados em duas seções, switch presente
 /// para cada um, stepper para visitantes não cadastrados, total ao vivo,
 /// salvar em `worship_attendance_count` + `worship_attendance_person`.
+///
+/// Chega com quem já marcou presença pelo celular (localização, 005200) ou
+/// pelo check-in de Cultos; o diácono confere e marca quem faltar. Salvar
+/// leva direto aos Ausentes do mesmo culto: é um fluxo só.
 class DiaconatoChecklistScreen extends ConsumerWidget {
   final String ministryId;
   final String worshipServiceId;
@@ -66,11 +70,16 @@ class _DiaconatoChecklistContentState
 
   final Set<String> _presentMemberIds = <String>{};
   final Set<String> _presentVisitorIds = <String>{};
+
+  /// Marcados sozinhos porque a pessoa fez check-in (celular ou Cultos).
+  final Set<String> _fromCheckin = <String>{};
   int _unregisteredVisitors = 0;
+  int _children = 0;
   bool _saving = false;
   bool _dirty = false;
 
   final _unregisteredController = TextEditingController(text: '0');
+  final _childrenController = TextEditingController(text: '0');
 
   @override
   void initState() {
@@ -81,6 +90,7 @@ class _DiaconatoChecklistContentState
   @override
   void dispose() {
     _unregisteredController.dispose();
+    _childrenController.dispose();
     super.dispose();
   }
 
@@ -95,9 +105,11 @@ class _DiaconatoChecklistContentState
       ),
       worshipRepo.getWorshipServiceById(widget.worshipServiceId),
       repo.getEligiblePeople(),
+      repo.getCheckedInUserIds(widget.worshipServiceId),
     ]);
 
     final count = results[0] as WorshipAttendanceCount;
+    final checkedIn = results[3] as Set<String>;
     final personRows = await repo.getPersonRows(count.id);
 
     final data = _ChecklistData(
@@ -113,6 +125,8 @@ class _DiaconatoChecklistContentState
     _eligible = data.eligible;
     _unregisteredVisitors = data.count.totalUnregisteredVisitors;
     _unregisteredController.text = _unregisteredVisitors.toString();
+    _children = data.count.totalChildren;
+    _childrenController.text = _children.toString();
 
     for (final row in data.personRows) {
       if (!row.present) continue;
@@ -122,7 +136,23 @@ class _DiaconatoChecklistContentState
         _presentVisitorIds.add(row.userId);
       }
     }
-    _dirty = false;
+    // Check-in de quem o diácono ainda não decidiu (sem linha nesta
+    // contagem). Quem ele já marcou ausente continua ausente.
+    final decided = {for (final r in data.personRows) r.userId};
+    _fromCheckin.clear();
+    for (final p in data.eligible) {
+      if (!checkedIn.contains(p.userId) || decided.contains(p.userId)) {
+        continue;
+      }
+      _fromCheckin.add(p.userId);
+      if (p.personType == DiaconatoPersonType.member) {
+        _presentMemberIds.add(p.userId);
+      } else {
+        _presentVisitorIds.add(p.userId);
+      }
+    }
+    // Marcados pelo check-in ainda não estão gravados: pede o Salvar.
+    _dirty = _fromCheckin.isNotEmpty;
 
     return data;
   }
@@ -149,31 +179,45 @@ class _DiaconatoChecklistContentState
     });
   }
 
-  void _onUnregisteredChanged(String text) {
-    final parsed = int.tryParse(text.trim()) ?? 0;
-    final clamped = parsed < 0 ? 0 : parsed;
-    if (clamped != _unregisteredVisitors) {
-      setState(() {
-        _unregisteredVisitors = clamped;
-        _dirty = true;
-      });
-    }
+  int get _totalMarked =>
+      _presentMemberIds.length +
+      _presentVisitorIds.length +
+      _unregisteredVisitors;
+
+  /// Muda um contador. [fromButton] reescreve o campo; vindo do teclado, o
+  /// campo já mostra o que a pessoa digitou.
+  void _setUnregistered(int value, bool fromButton) {
+    final next = value.clamp(0, 9999);
+    if (fromButton) _unregisteredController.text = next.toString();
+    if (next == _unregisteredVisitors) return;
+    setState(() {
+      _unregisteredVisitors = next;
+      _dirty = true;
+    });
   }
 
-  void _bumpUnregistered(int delta) {
-    final next = (_unregisteredVisitors + delta).clamp(0, 9999);
-    if (next != _unregisteredVisitors) {
-      setState(() {
-        _unregisteredVisitors = next;
-        _unregisteredController.text = next.toString();
-        _dirty = true;
-      });
-    }
+  void _setChildren(int value, bool fromButton) {
+    final next = value.clamp(0, 9999);
+    if (fromButton) _childrenController.text = next.toString();
+    if (next == _children) return;
+    setState(() {
+      _children = next;
+      _dirty = true;
+    });
   }
 
   Future<void> _save() async {
     final count = _count;
     if (count == null) return;
+    // O banco recusa crianças acima do total (CHECK); avisar antes.
+    if (_children > _totalMarked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Há mais crianças do que pessoas no total do culto.'),
+        ),
+      );
+      return;
+    }
 
     setState(() => _saving = true);
     try {
@@ -190,6 +234,7 @@ class _DiaconatoChecklistContentState
         attendanceCountId: count.id,
         presentByUser: presentByUser,
         totalUnregisteredVisitors: _unregisteredVisitors,
+        totalChildren: _children,
       );
 
       // O painel do Diaconato le `diaconatoDashboardStatsProvider`, que e um
@@ -212,6 +257,12 @@ class _DiaconatoChecklistContentState
           ),
           backgroundColor: Colors.green,
         ),
+      );
+      // Mesmo fluxo: quem ficou desmarcado aparece em seguida para decidir
+      // ligação, visita, ceia ou encaminhamento. `push` para o voltar
+      // retornar ao checklist.
+      context.push(
+        '/ministries/${widget.ministryId}/diaconato/absentees/${widget.worshipServiceId}',
       );
     } catch (e) {
       if (!mounted) return;
@@ -268,10 +319,7 @@ class _DiaconatoChecklistContentState
         .where((p) => p.personType == DiaconatoPersonType.visitor)
         .toList();
 
-    final totalMarked =
-        _presentMemberIds.length +
-        _presentVisitorIds.length +
-        _unregisteredVisitors;
+    final totalMarked = _totalMarked;
 
     return Column(
       children: [
@@ -299,6 +347,7 @@ class _DiaconatoChecklistContentState
                   (p) => _PersonTile(
                     person: p,
                     present: _presentMemberIds.contains(p.userId),
+                    fromCheckin: _fromCheckin.contains(p.userId),
                     onChanged: (v) => _toggleMember(p.userId, v),
                   ),
                 ),
@@ -312,28 +361,47 @@ class _DiaconatoChecklistContentState
               if (visitors.isEmpty)
                 _EmptyHint(
                   text:
-                      'Nenhum visitante/novo convertido cadastrado em user_account.',
+                      'Nenhum visitante ou novo convertido cadastrado.',
                 )
               else
                 ...visitors.map(
                   (p) => _PersonTile(
                     person: p,
                     present: _presentVisitorIds.contains(p.userId),
+                    fromCheckin: _fromCheckin.contains(p.userId),
                     onChanged: (v) => _toggleVisitor(p.userId, v),
                   ),
                 ),
               const SizedBox(height: 24),
-              _UnregisteredCard(
+              _CounterCard(
+                title: 'Visitantes não cadastrados',
+                hint: 'Pessoas presentes que ainda não têm cadastro na igreja.',
+                icon: AppIcons.addCircle,
+                color: Colors.orange,
                 controller: _unregisteredController,
                 count: _unregisteredVisitors,
-                onChanged: _onUnregisteredChanged,
-                onBump: _bumpUnregistered,
+                onSet: _setUnregistered,
+              ),
+              const SizedBox(height: 16),
+              _CounterCard(
+                key: const ValueKey('checklist-children'),
+                title: 'Crianças',
+                hint:
+                    'Quantas das pessoas acima são crianças. Conte à mão: '
+                    'visitante sem cadastro não tem data de nascimento.',
+                icon: AppIcons.groups,
+                color: Colors.purple,
+                controller: _childrenController,
+                count: _children,
+                max: totalMarked,
+                onSet: _setChildren,
               ),
             ],
           ),
         ),
         _StickyFooter(
           total: totalMarked,
+          children: _children,
           dirty: _dirty,
           saving: _saving,
           onSave: _save,
@@ -557,11 +625,13 @@ class _SectionHeader extends StatelessWidget {
 class _PersonTile extends StatelessWidget {
   final DiaconatoEligiblePerson person;
   final bool present;
+  final bool fromCheckin;
   final ValueChanged<bool> onChanged;
 
   const _PersonTile({
     required this.person,
     required this.present,
+    this.fromCheckin = false,
     required this.onChanged,
   });
 
@@ -600,11 +670,23 @@ class _PersonTile extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      person.displayName,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          person.displayName,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (fromCheckin)
+                          Text(
+                            'Check-in pelo celular',
+                            style: CommunityDesign.metaStyle(
+                              context,
+                            ).copyWith(fontSize: 11, color: Colors.green),
+                          ),
+                      ],
                     ),
                   ),
                   Switch.adaptive(
@@ -622,17 +704,29 @@ class _PersonTile extends StatelessWidget {
   }
 }
 
-class _UnregisteredCard extends StatelessWidget {
+/// Contador com − e +: visitantes não cadastrados e crianças.
+class _CounterCard extends StatelessWidget {
+  final String title;
+  final String hint;
+  final IconData icon;
+  final Color color;
   final TextEditingController controller;
   final int count;
-  final ValueChanged<String> onChanged;
-  final void Function(int delta) onBump;
 
-  const _UnregisteredCard({
+  /// Teto do +. Sem teto, só o limite do campo (4 dígitos).
+  final int? max;
+  final void Function(int value, bool fromButton) onSet;
+
+  const _CounterCard({
+    super.key,
+    required this.title,
+    required this.hint,
+    required this.icon,
+    required this.color,
     required this.controller,
     required this.count,
-    required this.onChanged,
-    required this.onBump,
+    this.max,
+    required this.onSet,
   });
 
   @override
@@ -644,10 +738,10 @@ class _UnregisteredCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(AppIcons.addCircle, color: Colors.orange, size: 18),
+              Icon(icon, color: color, size: 18),
               const SizedBox(width: 8),
               Text(
-                'Visitantes não cadastrados',
+                title,
                 style: CommunityDesign.titleStyle(
                   context,
                 ).copyWith(fontWeight: FontWeight.w700, fontSize: 15),
@@ -656,14 +750,14 @@ class _UnregisteredCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Pessoas presentes que ainda não estão em user_account.',
+            hint,
             style: CommunityDesign.metaStyle(context),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
               IconButton.filledTonal(
-                onPressed: count > 0 ? () => onBump(-1) : null,
+                onPressed: count > 0 ? () => onSet(count - 1, true) : null,
                 icon: const Icon(AppIcons.remove),
               ),
               const SizedBox(width: 8),
@@ -687,12 +781,14 @@ class _UnregisteredCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     fontSize: 18,
                   ),
-                  onChanged: onChanged,
+                  onChanged: (t) => onSet(int.tryParse(t.trim()) ?? 0, false),
                 ),
               ),
               const SizedBox(width: 8),
               IconButton.filledTonal(
-                onPressed: () => onBump(1),
+                onPressed: max == null || count < max!
+                    ? () => onSet(count + 1, true)
+                    : null,
                 icon: const Icon(AppIcons.add),
               ),
             ],
@@ -705,12 +801,14 @@ class _UnregisteredCard extends StatelessWidget {
 
 class _StickyFooter extends StatelessWidget {
   final int total;
+  final int children;
   final bool dirty;
   final bool saving;
   final VoidCallback onSave;
 
   const _StickyFooter({
     required this.total,
+    required this.children,
     required this.dirty,
     required this.saving,
     required this.onSave,
@@ -748,6 +846,11 @@ class _StickyFooter extends StatelessWidget {
                   context,
                 ).copyWith(fontWeight: FontWeight.w800, fontSize: 18),
               ),
+              if (children > 0)
+                Text(
+                  adultsAndChildrenLabel(total, children),
+                  style: CommunityDesign.metaStyle(context),
+                ),
             ],
           ),
           const Spacer(),
@@ -767,8 +870,8 @@ class _StickyFooter extends StatelessWidget {
               saving
                   ? 'Salvando...'
                   : dirty
-                  ? 'Salvar'
-                  : 'Salvo',
+                  ? 'Salvar e ver ausentes'
+                  : 'Ver ausentes',
             ),
           ),
         ],

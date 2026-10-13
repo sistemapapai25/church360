@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 /// Dialog com o link pronto pra copiar, além da opção de compartilhar
@@ -18,6 +19,7 @@ Future<void> showShareLinkDialog(
   required String url,
   required String shareText,
   String? warning,
+  bool showQr = false,
 }) {
   return showDialog<void>(
     context: context,
@@ -47,6 +49,16 @@ Future<void> showShareLinkDialog(
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (showQr) ...[
+            Center(
+              child: Container(
+                color: Colors.white,
+                padding: const EdgeInsets.all(8),
+                child: QrImageView(data: url, size: 200),
+              ),
             ),
             const SizedBox(height: 12),
           ],

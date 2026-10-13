@@ -98,7 +98,8 @@ void main() {
     expect(find.byType(GlassCard), findsAtLeastNWidgets(2));
     expect(find.byIcon(AppIcons.factCheck), findsOneWidget);
     expect(find.byIcon(AppIcons.checklist), findsOneWidget);
-    expect(find.byIcon(AppIcons.callMissed), findsOneWidget);
+    // Ausentes deixou de ser atalho: é o passo seguinte do checklist.
+    expect(find.byIcon(AppIcons.callMissed), findsNothing);
     expect(find.byIcon(AppIcons.communion), findsAtLeastNWidgets(2));
   });
 

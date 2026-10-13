@@ -15,6 +15,10 @@ class CustomReportsListScreen extends ConsumerStatefulWidget {
 }
 
 class _CustomReportsListScreenState extends ConsumerState<CustomReportsListScreen> {
+  bool get _canCreate => ref
+      .watch(currentUserHasPermissionProvider('reports.create'))
+      .maybeWhen(data: (v) => v, orElse: () => false);
+
   bool _showOnlyMyReports = false;
 
   @override
@@ -61,6 +65,9 @@ class _CustomReportsListScreenState extends ConsumerState<CustomReportsListScree
                 final canDelete = ref
                     .watch(currentUserHasPermissionProvider('reports.delete'))
                     .maybeWhen(data: (v) => v, orElse: () => false);
+                final canEdit = ref
+                    .watch(currentUserHasPermissionProvider('reports.edit'))
+                    .maybeWhen(data: (v) => v, orElse: () => false);
                 return _ReportCard(
                   report: report,
                   canDuplicate: canDuplicate,
@@ -68,9 +75,9 @@ class _CustomReportsListScreenState extends ConsumerState<CustomReportsListScree
                   onTap: () {
                     context.push('/custom-reports/${report.id}/view');
                   },
-                  onEdit: () {
-                    context.push('/custom-reports/${report.id}/edit');
-                  },
+                  onEdit: canEdit
+                      ? () => context.push('/custom-reports/${report.id}/edit')
+                      : null,
                   onDuplicate: () => _duplicateReport(report),
                   onDelete: () => _confirmDelete(context, report),
                 );
@@ -98,13 +105,15 @@ class _CustomReportsListScreenState extends ConsumerState<CustomReportsListScree
           ),
         ),
       ),
-      floatingActionButton: PearlFab(
-        onPressed: () {
-          context.push('/custom-reports/new');
-        },
-        icon: Icons.add,
-        label: 'Novo Relatório',
-      ),
+      floatingActionButton: _canCreate
+          ? PearlFab(
+              onPressed: () {
+                context.push('/custom-reports/new');
+              },
+              icon: Icons.add,
+              label: 'Novo Relatório',
+            )
+          : null,
     );
   }
 
@@ -135,14 +144,16 @@ class _CustomReportsListScreenState extends ConsumerState<CustomReportsListScree
                 ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              context.push('/custom-reports/new');
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Criar Primeiro Relatório'),
-          ),
+          if (_canCreate) ...[
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                context.push('/custom-reports/new');
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Criar Primeiro Relatório'),
+            ),
+          ],
         ],
       ),
     );
@@ -248,7 +259,7 @@ class _ReportCard extends StatelessWidget {
   final bool canDuplicate;
   final bool canDelete;
   final VoidCallback onTap;
-  final VoidCallback onEdit;
+  final VoidCallback? onEdit;
   final VoidCallback onDuplicate;
   final VoidCallback onDelete;
 
@@ -257,7 +268,7 @@ class _ReportCard extends StatelessWidget {
     required this.canDuplicate,
     required this.canDelete,
     required this.onTap,
-    required this.onEdit,
+    this.onEdit,
     required this.onDuplicate,
     required this.onDelete,
   });
@@ -328,11 +339,12 @@ class _ReportCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton.icon(
-                    onPressed: onEdit,
-                    icon: const Icon(Icons.edit, size: 18),
-                    label: const Text('Editar'),
-                  ),
+                  if (onEdit != null)
+                    TextButton.icon(
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit, size: 18),
+                      label: const Text('Editar'),
+                    ),
                   if (canDuplicate) ...[
                     const SizedBox(width: 8),
                     TextButton.icon(

@@ -24,23 +24,11 @@ class NotificationPreferencesScreen extends ConsumerWidget {
 
           return ListView(
             children: [
-              // Seção: Devocionais
-              _SectionHeader(
-                icon: Icons.book,
-                title: 'Devocionais',
-                color: Colors.blue,
-              ),
-              _PreferenceTile(
-                title: 'Devocional Diário',
-                subtitle: 'Notificar quando um novo devocional for publicado',
-                value: preferences.devotionalDaily,
-                onChanged: (value) async {
-                  await actions.updatePreferences(devotionalDaily: value);
-                },
-              ),
-              const Divider(),
-
-              // Seção: Pedidos de Oração
+              // Só as chaves que têm quem gere aviso. Devocional, oração
+              // respondida, reunião, culto, grupo, meta financeira e
+              // aniversário nunca tiveram gerador (backend-scripts/176a) e
+              // saíram da tela. "Alguém orou" tem o gatilho
+              // trigger_notify_prayer_request_prayed.
               _SectionHeader(
                 icon: Icons.favorite,
                 title: 'Pedidos de Oração',
@@ -54,20 +42,11 @@ class NotificationPreferencesScreen extends ConsumerWidget {
                   await actions.updatePreferences(prayerRequestPrayed: value);
                 },
               ),
-              _PreferenceTile(
-                title: 'Oração respondida',
-                subtitle: 'Notificar quando um pedido for marcado como respondido',
-                value: preferences.prayerRequestAnswered,
-                onChanged: (value) async {
-                  await actions.updatePreferences(prayerRequestAnswered: value);
-                },
-              ),
               const Divider(),
 
-              // Seção: Eventos e Reuniões
               _SectionHeader(
                 icon: Icons.event,
-                title: 'Eventos e Reuniões',
+                title: 'Eventos',
                 color: Colors.green,
               ),
               // Fase 4 — NOTIF-01 (D-04): anúncio e lembrete são preferências
@@ -94,54 +73,6 @@ class NotificationPreferencesScreen extends ConsumerWidget {
                   await actions.updatePreferences(eventReminder: value);
                 },
               ),
-              _PreferenceTile(
-                title: 'Lembrete de Reunião',
-                subtitle: 'Notificar 1 hora antes de uma reunião',
-                value: preferences.meetingReminder,
-                onChanged: (value) async {
-                  await actions.updatePreferences(meetingReminder: value);
-                },
-              ),
-              _PreferenceTile(
-                title: 'Lembrete de Culto',
-                subtitle: 'Notificar 1 hora antes de um culto',
-                value: preferences.worshipReminder,
-                onChanged: (value) async {
-                  await actions.updatePreferences(worshipReminder: value);
-                },
-              ),
-              const Divider(),
-
-              // Seção: Grupos e Comunidade
-              _SectionHeader(
-                icon: Icons.group,
-                title: 'Grupos e Comunidade',
-                color: Colors.purple,
-              ),
-              _PreferenceTile(
-                title: 'Novo membro no grupo',
-                subtitle: 'Notificar quando um novo membro entrar no grupo',
-                value: preferences.groupNewMember,
-                onChanged: (value) async {
-                  await actions.updatePreferences(groupNewMember: value);
-                },
-              ),
-              const Divider(),
-
-              // Seção: Financeiro
-              _SectionHeader(
-                icon: Icons.attach_money,
-                title: 'Financeiro',
-                color: Colors.orange,
-              ),
-              _PreferenceTile(
-                title: 'Meta financeira atingida',
-                subtitle: 'Notificar quando uma meta financeira for atingida',
-                value: preferences.financialGoalReached,
-                onChanged: (value) async {
-                  await actions.updatePreferences(financialGoalReached: value);
-                },
-              ),
               const Divider(),
 
               // Seção: Outros
@@ -149,14 +80,6 @@ class NotificationPreferencesScreen extends ConsumerWidget {
                 icon: Icons.notifications,
                 title: 'Outros',
                 color: Colors.grey,
-              ),
-              _PreferenceTile(
-                title: 'Aniversários',
-                subtitle: 'Notificar sobre aniversários de membros',
-                value: preferences.birthdayReminder,
-                onChanged: (value) async {
-                  await actions.updatePreferences(birthdayReminder: value);
-                },
               ),
               _PreferenceTile(
                 title: 'Notificações gerais',

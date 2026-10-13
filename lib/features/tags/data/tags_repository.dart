@@ -183,6 +183,45 @@ class TagsRepository {
     }
   }
 
+  /// Tags de todos os ministérios do tenant, agrupadas por `ministry.id`.
+  /// Uma consulta só, para a lista de ministérios não fazer N+1.
+  Future<Map<String, List<Tag>>> getTagsByMinistry() async {
+    final response = await _supabase
+        .from('ministry_tag')
+        .select(
+          'ministry_id, tag:tag_id (id, name, color, category, created_at, applies_to)',
+        )
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
+
+    final result = <String, List<Tag>>{};
+    for (final row in response as List) {
+      final tag = row['tag'];
+      if (tag == null) continue;
+      (result[row['ministry_id'] as String] ??= []).add(Tag.fromJson(tag));
+    }
+    for (final tags in result.values) {
+      tags.sort((a, b) => a.name.compareTo(b.name));
+    }
+    return result;
+  }
+
+  /// Adicionar tag a um ministério
+  Future<void> addTagToMinistry(String ministryId, String tagId) async {
+    await _supabase.from('ministry_tag').insert({
+      'ministry_id': ministryId,
+      'tag_id': tagId,
+    });
+  }
+
+  /// Remover tag de um ministério
+  Future<void> removeTagFromMinistry(String ministryId, String tagId) async {
+    await _supabase
+        .from('ministry_tag')
+        .delete()
+        .eq('ministry_id', ministryId)
+        .eq('tag_id', tagId);
+  }
+
   /// Contar total de tags
   Future<int> getTotalTagsCount() async {
     try {

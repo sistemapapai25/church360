@@ -88,6 +88,11 @@ class _FakeDiaconatoRepository extends DiaconatoAttendanceRepository {
   ) async => const [];
 
   @override
+  Future<Set<String>> getCheckedInUserIds(String eventId) async => const {
+    'member-1',
+  };
+
+  @override
   Future<List<DiaconatoEligiblePerson>> getEligiblePeople() async => const [
     DiaconatoEligiblePerson(
       userId: 'member-1',
@@ -120,7 +125,7 @@ class _FakeWorshipRepository extends WorshipRepository {
         id: 'service-1',
         serviceDate: _now,
         serviceTime: '19:00',
-        serviceType: WorshipType.sundayEvening,
+        serviceType: WorshipType.sunday,
         theme: 'Culto de celebração',
         speaker: null,
         totalAttendance: 0,
@@ -152,7 +157,7 @@ void main() {
     // O painel é a primeira aba do workspace desde 24/09: a tela inteira
     // não cabe na altura padrão do teste, e sem isto o `ListView` nem
     // constrói os cards de baixo.
-    await tester.binding.setSurfaceSize(const Size(1200, 2400));
+    await tester.binding.setSurfaceSize(const Size(1200, 3200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
@@ -210,6 +215,11 @@ void main() {
       expect(find.byIcon(AppIcons.eventFilled), findsOneWidget);
       expect(find.byIcon(AppIcons.groups), findsOneWidget);
       expect(find.byIcon(AppIcons.visitor), findsOneWidget);
+
+      // Quem fez check-in pelo celular chega marcado, e o checklist pede o
+      // Salvar (a marcação ainda não está gravada).
+      expect(find.text('Check-in pelo celular'), findsOneWidget);
+      expect(find.text('Salvar e ver ausentes'), findsOneWidget);
     },
   );
 }

@@ -52,32 +52,40 @@ class _WorshipStatisticsScreenState
       ),
       body: servicesAsync.when(
         data: (allServices) {
-          // Filter by period
+          // Filtra pelo período, do início (inclusive) até hoje: culto
+          // futuro ainda não tem presença e só puxaria a média para baixo.
           final startDate = _getStartDate();
+          final now = DateTime.now();
           final services = allServices
-              .where((s) => s.serviceDate.isAfter(startDate))
+              .where(
+                (s) =>
+                    !s.serviceDate.isBefore(startDate) &&
+                    !s.serviceDate.isAfter(now),
+              )
               .toList();
 
           if (services.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.bar_chart,
-                    size: 64,
-                    color: Colors.grey[400],
+            // O filtro continua na tela para dar para trocar o período.
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildPeriodFilter(),
+                const SizedBox(height: 48),
+                Icon(
+                  Icons.bar_chart,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Nenhum culto no período selecionado',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.grey[600],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Nenhum culto no período selecionado',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             );
           }
 
@@ -90,6 +98,8 @@ class _WorshipStatisticsScreenState
 
               // Summary Cards
               _buildSummaryCards(services),
+              const SizedBox(height: 12),
+              _buildMembersVisitorsCards(services),
               const SizedBox(height: 24),
 
               // Attendance Trend Chart
@@ -215,6 +225,40 @@ class _WorshipStatisticsScreenState
             maxAttendance.toString(),
             Icons.groups,
             Colors.purple,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Separa o total de presentes do período em membros e visitantes.
+  Widget _buildMembersVisitorsCards(List<WorshipService> services) {
+    final countsAsync = ref.watch(worshipVisitorCountsProvider);
+    final visitorCounts = countsAsync.valueOrNull;
+    // Sem a contagem (carregando ou erro), não inventa número.
+    final pending = countsAsync.hasError ? '-' : '...';
+    final total = services.fold<int>(0, (sum, s) => sum + s.totalAttendance);
+    final visitors = visitorCounts == null
+        ? null
+        : services.fold<int>(0, (sum, s) => sum + (visitorCounts[s.id] ?? 0));
+
+    return Row(
+      children: [
+        Expanded(
+          child: _buildSummaryCard(
+            'Membros',
+            visitors == null ? pending : (total - visitors).toString(),
+            Icons.person,
+            Colors.teal,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildSummaryCard(
+            'Visitantes',
+            visitors?.toString() ?? pending,
+            Icons.person_add_alt,
+            Colors.pink,
           ),
         ),
       ],
@@ -625,16 +669,14 @@ class _WorshipStatisticsScreenState
 
   Color _getTypeColor(WorshipType type) {
     switch (type) {
-      case WorshipType.sundayMorning:
+      case WorshipType.sunday:
         return Colors.orange;
-      case WorshipType.sundayEvening:
-        return Colors.purple;
       case WorshipType.wednesday:
         return Colors.blue;
-      case WorshipType.friday:
-        return Colors.green;
-      case WorshipType.special:
+      case WorshipType.communion:
         return Colors.red;
+      case WorshipType.drops:
+        return Colors.purple;
       case WorshipType.other:
         return Colors.grey;
     }

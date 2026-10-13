@@ -8,7 +8,7 @@ import '../../../../worship/presentation/providers/worship_provider.dart';
 
 /// Modal bottom sheet para escolher um culto antes de abrir o checklist.
 ///
-/// Lista os cultos mais recentes (ordem desc por `service_date`). Limitado em
+/// Lista os cultos da Agenda (event `culto%`), o mais novo primeiro. Limitado em
 /// 30 itens para manter o sheet compacto — se precisar buscar mais antigos,
 /// dá pra evoluir para um picker dedicado depois.
 class WorshipServicePickerSheet extends ConsumerWidget {
@@ -16,7 +16,14 @@ class WorshipServicePickerSheet extends ConsumerWidget {
   /// fechar o sheet (este widget faz o pop antes de chamar).
   final void Function(WorshipService service) onSelected;
 
-  const WorshipServicePickerSheet({super.key, required this.onSelected});
+  /// Para que serve a escolha (linha abaixo do título).
+  final String subtitle;
+
+  const WorshipServicePickerSheet({
+    super.key,
+    required this.onSelected,
+    this.subtitle = 'Para iniciar o checklist de presença do diaconato.',
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -49,7 +56,7 @@ class WorshipServicePickerSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Para iniciar o checklist de presença do diaconato.',
+              subtitle,
               style: CommunityDesign.metaStyle(context),
             ),
             const SizedBox(height: 16),
@@ -64,7 +71,7 @@ class WorshipServicePickerSheet extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(vertical: 32),
                       child: Center(
                         child: Text(
-                          'Nenhum culto cadastrado.',
+                          'Nenhum culto na Agenda.',
                           style: CommunityDesign.metaStyle(context),
                         ),
                       ),

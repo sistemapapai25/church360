@@ -5,14 +5,19 @@ import 'package:go_router/go_router.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/widgets/glass_card.dart';
+import '../../../../../core/utils/share_link_utils.dart';
+import '../../../../../core/widgets/share_link_dialog.dart';
+import '../../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../shared/domain/ministry_type_catalog.dart';
 import '../../../shared/presentation/providers/ministry_type_catalog_providers.dart';
+import '../../../shared/presentation/widgets/ministry_reports_tab.dart';
 import '../../../shared/presentation/widgets/ministry_standard_slots.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../../../shared/presentation/widgets/ministry_workspace_shell.dart';
 import '../../domain/models/raizes_dashboard_stats.dart';
 import '../providers/raizes_dashboard_provider.dart';
+import '../widgets/raizes_report_cards.dart';
 
 /// Workspace do Raízes — o mesmo esqueleto do Batismo, com uma aba a mais.
 ///
@@ -85,6 +90,14 @@ class _RaizesWorkspace extends ConsumerWidget {
           MinistryTabKeys.painel: MinistryTabSlot(
             defaultLabel: 'Painel',
             builder: (_) => RaizesPainelTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.relatorios: MinistryTabSlot(
+            defaultLabel: 'Relatórios',
+            builder: (_) => MinistryReportsTab(
+              ministryId: ministryId,
+              leading: [RaizesReportCards(ministryId: ministryId)],
+              onRefresh: () => ref.invalidate(raizesReportProvider(ministryId)),
+            ),
           ),
         },
       ),
@@ -161,23 +174,57 @@ class _RaizesPainelTabState extends ConsumerState<RaizesPainelTab> {
             onTap: () => context.push('/ministries/$ministryId/raizes/visits'),
             color: Colors.deepPurple,
           ),
-          const SizedBox(height: 12),
-          _PrimaryActionCard(
-            icon: AppIcons.personSearch,
-            title: 'Ver visitantes',
-            description:
-                'Abrir a lista completa de visitantes com os filtros do Raízes (primeira visita, salvação, follow-up, faixa etária).',
-            onTap: () => context.push('/visitors'),
-            color: colorScheme.primary,
+          // A lista e o cadastro de visitantes são da igreja, não do
+          // ministério: cobram `visitors.*` (a rota e o banco também).
+          PermissionGate(
+            permission: 'visitors.view',
+            showLoading: false,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: _PrimaryActionCard(
+                icon: AppIcons.personSearch,
+                title: 'Ver visitantes',
+                description:
+                    'Abrir a lista completa de visitantes com os filtros do Raízes (primeira visita, salvação, follow-up, faixa etária).',
+                onTap: () => context.push('/visitors'),
+                color: colorScheme.primary,
+              ),
+            ),
+          ),
+          PermissionGate(
+            permission: 'visitors.create',
+            showLoading: false,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: _PrimaryActionCard(
+                icon: AppIcons.personAdd,
+                title: 'Cadastrar novo visitante',
+                description: 'Abre o formulário pré-configurado para visitantes.',
+                onTap: () =>
+                    context.push('/members/new?status=visitor&type=visitante'),
+                color: colorScheme.tertiary,
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           _PrimaryActionCard(
-            icon: AppIcons.personAdd,
-            title: 'Cadastrar novo visitante',
-            description: 'Abre o formulário pré-configurado para visitantes.',
-            onTap: () =>
-                context.push('/members/new?status=visitor&type=visitante'),
-            color: colorScheme.tertiary,
+            icon: Icons.qr_code_2,
+            title: 'QR Code de cadastro',
+            description:
+                'Para a mesa do visitante: quem lê o QR se cadastra sozinho, sem login, e a liderança recebe o aviso.',
+            onTap: () {
+              final url = ShareLinkUtils.buildShareUrl(
+                '/raizes/$ministryId/cadastro',
+              );
+              showShareLinkDialog(
+                context,
+                title: 'QR Code de cadastro',
+                url: url,
+                shareText: 'Faça seu cadastro de visitante: $url',
+                showQr: true,
+              );
+            },
+            color: Colors.green.shade700,
           ),
           const SizedBox(height: 12),
           _PrimaryActionCard(
@@ -235,6 +282,18 @@ class _StatsGrid extends StatelessWidget {
         value: stats.wantingContactPending,
         icon: AppIcons.unread,
         color: Colors.orange,
+      ),
+      _StatItem(
+        title: 'Sem contato (24h)',
+        value: stats.withoutContact24h,
+        icon: Icons.phone_missed_outlined,
+        color: Colors.deepOrange,
+      ),
+      _StatItem(
+        title: 'Querem visita',
+        value: stats.wantingVisit,
+        icon: Icons.home_outlined,
+        color: Colors.brown,
       ),
       _StatItem(
         title: 'Sem padrinho',

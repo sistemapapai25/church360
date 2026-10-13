@@ -76,12 +76,17 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
                       context,
                     ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Clique no + para criar um grupo',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.grey[500]),
+                  PermissionGate(
+                    permission: 'groups.create',
+                    showLoading: false,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Clique no + para criar um grupo',
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(color: Colors.grey[500]),
+                      ),
+                    ),
                   ),
                 ],
               ),

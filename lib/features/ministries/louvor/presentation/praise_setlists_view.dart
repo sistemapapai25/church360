@@ -71,7 +71,10 @@ class _PraiseSetlistsViewState extends ConsumerState<PraiseSetlistsView> {
         message: praiseErrorText(e),
         onRetry: () => ref.invalidate(praiseSetlistsProvider(ministryId)),
       ),
-      data: (all) {
+      data: (rows) {
+        // Só rascunho nunca publicado: o integrante recebe a linha sem
+        // revisão (a RLS esconde o rascunho), então não entra na lista.
+        final all = rows.where((s) => s.current != null).toList();
         final now = DateTime.now();
         final shown = all.where(_matches).toList();
         final upcoming =

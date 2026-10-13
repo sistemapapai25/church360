@@ -12,7 +12,7 @@ import 'package:church360_app/core/screens/reports/member_growth_report.dart';
 import 'package:church360_app/core/screens/reports/upcoming_events_report.dart';
 import 'package:church360_app/core/screens/reports/upcoming_expenses_report.dart';
 import 'package:church360_app/features/events/domain/models/event.dart';
-import 'package:church360_app/features/financial/domain/models/contribution.dart';
+import 'package:church360_app/features/financeiro/domain/models/lancamento.dart';
 import 'package:church360_app/core/widgets/glass_card.dart';
 
 void main() {
@@ -182,15 +182,21 @@ void main() {
   testWidgets('próximas despesas usam GlassCard no resumo e na listagem', (
     tester,
   ) async {
-    final expense = Expense(
-      id: 'expense-1',
-      category: 'Aluguel',
-      amount: 1500,
-      paymentMethod: PaymentMethod.transfer,
-      date: DateTime.now().add(const Duration(days: 5)),
-      description: 'Aluguel do templo',
-      createdAt: DateTime(2026, 1, 1),
-    );
+    final expense = Lancamento.fromJson({
+      'id': 'expense-1',
+      'tipo': 'DESPESA',
+      'categoria_id': 'cat-1',
+      'categoria': {'name': 'Aluguel'},
+      'descricao': 'Aluguel do templo',
+      'valor': 1500,
+      'vencimento': DateTime.now()
+          .add(const Duration(days: 5))
+          .toIso8601String()
+          .split('T')[0],
+      'status': 'EM_ABERTO',
+      'created_at': '2026-01-01T00:00:00Z',
+      'tenant_id': 'tenant-1',
+    });
 
     await tester.pumpWidget(
       ProviderScope(

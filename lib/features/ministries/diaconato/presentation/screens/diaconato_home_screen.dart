@@ -20,7 +20,7 @@ import '../widgets/worship_service_picker_sheet.dart';
 /// Workspace do Diaconato — o mesmo esqueleto do Batismo, com uma aba a
 /// mais.
 ///
-/// O dashboard de KPIs e os atalhos de checklist, ausentes e lotes de ceia
+/// O dashboard de KPIs e os atalhos de presença (checklist → ausentes) e lotes de ceia
 /// viraram a aba **Painel**, ao lado de Equipe, Escala, Financeiro, Avisos e
 /// Relatórios, que são as mesmas de qualquer ministério. As telas por culto
 /// continuam em rotas próprias: são de um evento, não do departamento.
@@ -121,11 +121,15 @@ class _DiaconatoPainelTabState extends ConsumerState<DiaconatoPainelTab> {
           const SizedBox(height: 24),
           _SectionLabel(text: 'ATALHOS'),
           const SizedBox(height: 8),
+          // Checklist e Ausentes viraram um fluxo só: salvar o checklist
+          // abre os ausentes do mesmo culto.
           _PlaceholderCard(
             icon: AppIcons.checklist,
-            title: 'Checklist de presença',
+            title: 'Presença do culto',
             description:
-                'Membros primeiro, visitantes cadastrados depois, contagem de não cadastrados.',
+                'Quem fez check-in pelo celular já vem marcado. Marque quem '
+                'faltar e salve: os ausentes aparecem em seguida para '
+                'ligar, visitar, levar a ceia ou encaminhar.',
             onTap: () => _openWorshipServicePicker(
               context,
               destinationPath: '/checklist',
@@ -133,21 +137,10 @@ class _DiaconatoPainelTabState extends ConsumerState<DiaconatoPainelTab> {
           ),
           const SizedBox(height: 16),
           _PlaceholderCard(
-            icon: AppIcons.callMissed,
-            title: 'Ausentes',
-            description:
-                'Triagem dos ausentes: sem ação, ligação, ceia, ou ambos.',
-            onTap: () => _openWorshipServicePicker(
-              context,
-              destinationPath: '/absentees',
-            ),
-          ),
-          const SizedBox(height: 16),
-          _PlaceholderCard(
             icon: AppIcons.communion,
             title: 'Lotes de ceia',
             description:
-                'Lote por culto com responsável, status e (em breve) WhatsApp via dispatch.',
+                'Lote por culto com responsável, status e lembrete por WhatsApp.',
             onTap: () => _openWorshipServicePicker(
               context,
               destinationPath: '/communion-batches',
@@ -221,7 +214,6 @@ class _DashboardBody extends StatelessWidget {
           const SizedBox(height: 16),
           _UnregisteredBanner(
             count: stats.unregisteredVisitorsLast30Days,
-            onCapture: () => context.push('/ministries'),
           ),
         ],
       ],
@@ -342,6 +334,17 @@ class _LastCountHero extends StatelessWidget {
                 ),
               ],
             ),
+            if (lastCount.totalChildren > 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                adultsAndChildrenLabel(
+                  lastCount.totalPeople,
+                  lastCount.totalChildren,
+                ),
+                key: const ValueKey('last-count-children'),
+                style: CommunityDesign.metaStyle(context),
+              ),
+            ],
           ],
         ),
       ),
@@ -520,14 +523,16 @@ class _KpiChip extends StatelessWidget {
   }
 }
 
-class _UnregisteredBanner extends StatelessWidget {
+class _UnregisteredBanner extends ConsumerWidget {
   final int count;
-  final VoidCallback onCapture;
 
-  const _UnregisteredBanner({required this.count, required this.onCapture});
+  const _UnregisteredBanner({required this.count});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Sem Raízes que a pessoa possa abrir, o botão some (antes caía na lista
+    // de ministérios).
+    final raizesId = ref.watch(visibleRaizesMinistryIdProvider).value;
     return GlassCard(
       accentColor: Colors.orange,
       padding: const EdgeInsets.all(14),
@@ -550,12 +555,15 @@ class _UnregisteredBanner extends StatelessWidget {
                   'Cadastre no Raízes para incluir nas próximas triagens.',
                   style: CommunityDesign.metaStyle(context),
                 ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: onCapture,
-                  icon: const Icon(AppIcons.eco, size: 16),
-                  label: const Text('Ir para Raízes'),
-                ),
+                if (raizesId != null) ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        context.push('/ministries/$raizesId/raizes'),
+                    icon: const Icon(AppIcons.eco, size: 16),
+                    label: const Text('Ir para Raízes'),
+                  ),
+                ],
               ],
             ),
           ),
@@ -657,8 +665,8 @@ class _PlaceholderCard extends StatelessWidget {
 /// Abre o picker de culto e empurra
 /// `/ministries/<id>/diaconato<destinationPath>/<serviceId>` na seleção.
 ///
-/// Usado pelos cards "Checklist de presença" (`/checklist`) e "Ausentes"
-/// (`/absentees`) da home do Diaconato.
+/// Usado pelos cards "Presença do culto" (`/checklist`) e "Lotes de ceia"
+/// (`/communion-batches`) da home do Diaconato.
 void _openWorshipServicePicker(
   BuildContext context, {
   required String destinationPath,

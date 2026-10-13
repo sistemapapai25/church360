@@ -26,12 +26,16 @@ class WorshipServicesScreen extends ConsumerWidget {
           style: CommunityDesign.titleStyle(context),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.bar_chart),
-            onPressed: () {
-              context.push('/worship-statistics');
-            },
-            tooltip: 'Estatísticas',
+          PermissionGate(
+            permission: 'worship.view_statistics',
+            showLoading: false,
+            child: IconButton(
+              icon: const Icon(Icons.bar_chart),
+              onPressed: () {
+                context.push('/worship-statistics');
+              },
+              tooltip: 'Estatísticas',
+            ),
           ),
         ],
       ),
@@ -49,7 +53,7 @@ class WorshipServicesScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Nenhum culto cadastrado',
+                    'Nenhum culto na Agenda',
                     style: TextStyle(
                       fontSize: 18,
                       color: Colors.grey[600],
@@ -57,7 +61,7 @@ class WorshipServicesScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Clique no botão + para adicionar',
+                    'Os cultos vêm da Agenda (eventos do tipo Culto).',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[500],
@@ -95,13 +99,13 @@ class WorshipServicesScreen extends ConsumerWidget {
         ),
       ),
       floatingActionButton: PermissionGate(
-        permission: 'worship.create',
+        permission: 'events.create',
         child: PearlFab(
           onPressed: () {
-            context.push('/worship-services/new');
+            context.push('/events/new');
           },
           icon: Icons.add,
-          label: 'Novo Culto',
+          label: 'Novo culto na Agenda',
         ),
       ),
     );
@@ -118,80 +122,21 @@ class _WorshipServiceCard extends ConsumerWidget {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
-  Future<void> _deleteService(BuildContext context, WidgetRef ref) async {
-    final hasPermission = await ref.read(
-      currentUserHasPermissionProvider('worship.delete').future,
-    );
-    if (!hasPermission) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Você não tem permissão para esta ação')),
-        );
-      }
-      return;
-    }
-    if (!context.mounted) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Excluir Culto'),
-        content: const Text('Tem certeza que deseja excluir este culto? Esta ação não pode ser desfeita.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Excluir'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && context.mounted) {
-      try {
-        await ref.read(worshipRepositoryProvider).deleteService(service.id);
-        ref.invalidate(allWorshipServicesProvider);
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Culto excluído com sucesso!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erro ao excluir culto: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final canEdit = ref
-        .watch(currentUserHasPermissionProvider('worship.edit'))
+        .watch(currentUserHasPermissionProvider('events.edit'))
         .maybeWhen(data: (v) => v, orElse: () => false);
-    final canDelete = ref
-        .watch(currentUserHasPermissionProvider('worship.delete'))
+    final canAttend = ref
+        .watch(currentUserHasPermissionProvider('worship.attendance'))
         .maybeWhen(data: (v) => v, orElse: () => false);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
-        onTap: () {
-          context.push('/worship-services/${service.id}/attendance');
-        },
+        onTap: canAttend
+            ? () => context.push('/worship-services/${service.id}/attendance')
+            : null,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -265,40 +210,12 @@ class _WorshipServiceCard extends ConsumerWidget {
                       ),
                     ),
                   // Menu de opções
-                  if (canEdit || canDelete)
-                    PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert),
-                      onSelected: (value) {
-                        if (value == 'edit' && canEdit) {
-                          context.push('/worship-services/${service.id}/edit');
-                        } else if (value == 'delete' && canDelete) {
-                          _deleteService(context, ref);
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        if (canEdit)
-                          const PopupMenuItem(
-                            value: 'edit',
-                            child: Row(
-                              children: [
-                                Icon(Icons.edit, size: 20),
-                                SizedBox(width: 8),
-                                Text('Editar'),
-                              ],
-                            ),
-                          ),
-                        if (canDelete)
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                Icon(Icons.delete, size: 20, color: Colors.red),
-                                SizedBox(width: 8),
-                                Text('Excluir', style: TextStyle(color: Colors.red)),
-                              ],
-                            ),
-                          ),
-                      ],
+                  // Editar e excluir são pela Agenda.
+                  if (canEdit)
+                    IconButton(
+                      icon: const Icon(Icons.edit_calendar),
+                      tooltip: 'Editar na Agenda',
+                      onPressed: () => context.push('/events/${service.id}/edit'),
                     ),
                 ],
               ),
@@ -350,7 +267,8 @@ class _WorshipServiceCard extends ConsumerWidget {
                     ),
                   ),
                   const Spacer(),
-                  TextButton.icon(
+                  if (canAttend)
+                    TextButton.icon(
                     onPressed: () {
                       context.push('/worship-services/${service.id}/attendance');
                     },
@@ -371,16 +289,14 @@ class _WorshipServiceCard extends ConsumerWidget {
 
   Color _getTypeColor(WorshipType type) {
     switch (type) {
-      case WorshipType.sundayMorning:
+      case WorshipType.sunday:
         return Colors.orange;
-      case WorshipType.sundayEvening:
-        return Colors.purple;
       case WorshipType.wednesday:
         return Colors.blue;
-      case WorshipType.friday:
-        return Colors.green;
-      case WorshipType.special:
+      case WorshipType.communion:
         return Colors.red;
+      case WorshipType.drops:
+        return Colors.purple;
       case WorshipType.other:
         return Colors.grey;
     }
@@ -388,16 +304,14 @@ class _WorshipServiceCard extends ConsumerWidget {
 
   IconData _getTypeIcon(WorshipType type) {
     switch (type) {
-      case WorshipType.sundayMorning:
+      case WorshipType.sunday:
         return Icons.wb_sunny;
-      case WorshipType.sundayEvening:
-        return Icons.nightlight;
       case WorshipType.wednesday:
         return Icons.menu_book;
-      case WorshipType.friday:
-        return Icons.favorite;
-      case WorshipType.special:
-        return Icons.celebration;
+      case WorshipType.communion:
+        return Icons.local_drink;
+      case WorshipType.drops:
+        return Icons.water_drop;
       case WorshipType.other:
         return Icons.church;
     }

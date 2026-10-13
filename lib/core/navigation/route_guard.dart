@@ -15,6 +15,7 @@ import '../../features/permissions/providers/permissions_providers.dart'
 import '../../features/branches/presentation/providers/branches_provider.dart';
 import '../../features/members/presentation/providers/members_provider.dart';
 import '../../features/kids/presentation/providers/kids_providers.dart';
+import '../../features/support_materials/presentation/providers/support_materials_provider.dart';
 
 /// Tela de acesso negado
 class AccessDeniedScreen extends StatelessWidget {
@@ -594,5 +595,35 @@ class MemberEditRoute extends ConsumerWidget {
       requiredLevel: AccessLevelType.admin,
       child: child,
     );
+  }
+}
+
+/// Edição do material `/support-materials/:id/edit`: o autor edita o seu
+/// mesmo só com `support_materials.create`; o de outra pessoa exige
+/// `support_materials.edit` (ou elevado). Mesma regra da RLS de UPDATE,
+/// via [canEditMaterialProvider].
+class MaterialEditRoute extends ConsumerWidget {
+  final String materialId;
+  final Widget child;
+
+  const MaterialEditRoute({
+    super.key,
+    required this.materialId,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    const denied = PermissionDeniedScreen(
+      requiredPermission: 'support_materials.edit',
+    );
+    return ref
+        .watch(canEditMaterialProvider(materialId))
+        .when(
+          data: (ok) => ok ? child : denied,
+          loading: () =>
+              const Scaffold(body: Center(child: CircularProgressIndicator())),
+          error: (_, _) => denied,
+        );
   }
 }

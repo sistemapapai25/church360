@@ -12,10 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Visitor _visitor({
-  VisitorStatus status = VisitorStatus.firstVisit,
-  String followUpStatus = 'pending',
-}) {
+Visitor _visitor() {
   final now = DateTime(2026, 9, 20);
   return Visitor(
     id: 'visitor-1',
@@ -24,11 +21,9 @@ Visitor _visitor({
     phone: '(11) 99999-9999',
     firstVisitDate: now,
     totalVisits: 1,
-    status: status,
-    age: 29,
+    birthDate: DateTime(DateTime.now().year - 29, 1, 1),
     gender: 'female',
     state: 'SP',
-    followUpStatus: followUpStatus,
     createdAt: now,
     updatedAt: now,
   );
@@ -42,13 +37,13 @@ Widget _host(Widget child, List<Override> overrides) {
 }
 
 void main() {
-  testWidgets('visitantes usam GlassCard e badges de ciclo e acompanhamento', (
+  testWidgets('visitantes usam GlassCard e mostram a idade pela data de nascimento', (
     tester,
   ) async {
     await tester.pumpWidget(
       _host(const VisitorsListScreen(), [
         allVisitorsProvider.overrideWith(
-          (ref) async => [_visitor(followUpStatus: 'completed')],
+          (ref) async => [_visitor()],
         ),
         currentUserHasPermissionProvider(
           'visitors.create',
@@ -58,8 +53,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ana Souza'), findsOneWidget);
-    expect(find.text('PRIMEIRA VISITA'), findsOneWidget);
-    expect(find.text('CONCLUÍDO'), findsOneWidget);
+    expect(find.text('29 anos'), findsOneWidget);
+    expect(find.text('SP'), findsOneWidget);
     expect(find.byType(GlassCard), findsNWidgets(2));
     expect(find.byIcon(AppIcons.search), findsNWidgets(2));
   });
@@ -120,16 +115,16 @@ void main() {
     await tester.pumpWidget(
       _host(const VisitorsStatisticsScreen(), [
         allVisitorsProvider.overrideWith(
-          (ref) async => [_visitor(status: VisitorStatus.converted)],
+          (ref) async => [_visitor()],
         ),
       ]),
     );
     await tester.pumpAndSettle();
 
     expect(find.text('Estatísticas de Visitantes'), findsOneWidget);
-    expect(find.byType(GlassCard), findsNWidgets(7));
+    expect(find.byType(GlassCard), findsNWidgets(5));
     expect(find.byIcon(AppIcons.groups), findsOneWidget);
     expect(find.byIcon(AppIcons.analytics), findsOneWidget);
-    expect(find.byIcon(AppIcons.checkCircle), findsOneWidget);
+    expect(find.text('Convertidos'), findsNothing);
   });
 }

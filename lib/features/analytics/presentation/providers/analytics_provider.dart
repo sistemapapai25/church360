@@ -63,34 +63,6 @@ final financialReportProvider = FutureProvider.family<List<FinancialReportData>,
 );
 
 // =====================================================
-// CULTOS
-// =====================================================
-
-final worshipStatisticsProvider = FutureProvider<WorshipStatistics>((ref) async {
-  final repository = ref.watch(analyticsRepositoryProvider);
-  return repository.getWorshipStatistics();
-});
-
-final worshipAttendanceReportProvider = FutureProvider.family<List<WorshipAttendanceData>, DateRange>(
-  (ref, dateRange) async {
-    final repository = ref.watch(analyticsRepositoryProvider);
-    return repository.getWorshipAttendanceReport(
-      startDate: dateRange.startDate,
-      endDate: dateRange.endDate,
-    );
-  },
-);
-
-// =====================================================
-// GRUPOS
-// =====================================================
-
-final groupStatisticsProvider = FutureProvider<GroupStatistics>((ref) async {
-  final repository = ref.watch(analyticsRepositoryProvider);
-  return repository.getGroupStatistics();
-});
-
-// =====================================================
 // HELPER CLASSES
 // =====================================================
 

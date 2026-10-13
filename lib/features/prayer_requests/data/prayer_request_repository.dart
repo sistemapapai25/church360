@@ -166,11 +166,16 @@ class PrayerRequestRepository {
 
   /// Deletar pedido de oração
   Future<void> deletePrayerRequest(String id) async {
-    await _supabase
+    final deleted = await _supabase
         .from('prayer_requests')
         .delete()
         .eq('id', id)
-        .eq('tenant_id', SupabaseConstants.currentTenantId);
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .select('id');
+    // RLS recusa DELETE em silêncio (0 linhas): só o autor apaga.
+    if ((deleted as List).isEmpty) {
+      throw Exception('Só o autor pode apagar este pedido.');
+    }
   }
 
   /// Marcar pedido como respondido
@@ -178,14 +183,6 @@ class PrayerRequestRepository {
     return updatePrayerRequest(
       id: id,
       status: PrayerStatus.answered,
-    );
-  }
-
-  /// Marcar pedido como cancelado
-  Future<PrayerRequest> markAsCancelled(String id) async {
-    return updatePrayerRequest(
-      id: id,
-      status: PrayerStatus.cancelled,
     );
   }
 
@@ -218,9 +215,9 @@ class PrayerRequestRepository {
         .eq('prayer_request_id', prayerRequestId)
         .eq('user_id', userId)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .maybeSingle();
+        .limit(1);
 
-    return response != null;
+    return (response as List).isNotEmpty;
   }
 
   /// Marcar "eu orei"

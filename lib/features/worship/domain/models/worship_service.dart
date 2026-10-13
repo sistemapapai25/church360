@@ -1,10 +1,13 @@
-/// Modelo de culto/serviço religioso
+import '../../../ministries/shared/domain/ministry_routine.dart' show cultoWallTime;
+
+/// Culto da Agenda: um `event` com `event_type` `culto%` (migration 004700).
+/// Não há mais cadastro próprio de culto; criar e editar é pela Agenda.
 class WorshipService {
   final String id;
   final DateTime serviceDate;
-  final String? serviceTime; // HH:mm format
+  final String? serviceTime; // HH:mm, hora de parede
   final WorshipType serviceType;
-  final String? theme;
+  final String? theme; // nome do evento
   final String? speaker;
   final int totalAttendance;
   final String? notes;
@@ -24,71 +27,50 @@ class WorshipService {
     required this.updatedAt,
   });
 
-  factory WorshipService.fromJson(Map<String, dynamic> json) {
+  /// Colunas lidas de `event`; `WorshipRepository` usa este select.
+  static const eventSelect =
+      'id, name, description, event_type, start_date, created_at, updated_at, '
+      'worship_attendance(count), worship_attendance_count(total_people)';
+
+  /// Linha de `event` com as contagens embutidas de [eventSelect].
+  /// Presença = o maior entre os check-ins e a contagem do Diaconato.
+  factory WorshipService.fromEvent(Map<String, dynamic> json) {
+    final (date, time) = cultoWallTime(json['start_date'] as String?);
+    final checkins = json['worship_attendance'];
+    final checkinCount = checkins is List && checkins.isNotEmpty
+        ? (checkins.first['count'] as num? ?? 0).toInt()
+        : 0;
+    var census = 0;
+    final counts = json['worship_attendance_count'];
+    if (counts is List) {
+      for (final c in counts) {
+        final n = (c['total_people'] as num? ?? 0).toInt();
+        if (n > census) census = n;
+      }
+    }
+    final createdAt = DateTime.parse(json['created_at'] as String);
     return WorshipService(
       id: json['id'] as String,
-      serviceDate: DateTime.parse(json['service_date'] as String),
-      serviceTime: json['service_time'] as String?,
-      serviceType: WorshipType.fromValue(json['service_type'] as String),
-      theme: json['theme'] as String?,
-      speaker: json['speaker'] as String?,
-      totalAttendance: json['total_attendance'] as int? ?? 0,
-      notes: json['notes'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'service_date': serviceDate.toIso8601String().split('T')[0],
-      'service_time': serviceTime,
-      'service_type': serviceType.value,
-      'theme': theme,
-      'speaker': speaker,
-      'total_attendance': totalAttendance,
-      'notes': notes,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
-    };
-  }
-
-  WorshipService copyWith({
-    String? id,
-    DateTime? serviceDate,
-    String? serviceTime,
-    WorshipType? serviceType,
-    String? theme,
-    String? speaker,
-    int? totalAttendance,
-    String? notes,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return WorshipService(
-      id: id ?? this.id,
-      serviceDate: serviceDate ?? this.serviceDate,
-      serviceTime: serviceTime ?? this.serviceTime,
-      serviceType: serviceType ?? this.serviceType,
-      theme: theme ?? this.theme,
-      speaker: speaker ?? this.speaker,
-      totalAttendance: totalAttendance ?? this.totalAttendance,
-      notes: notes ?? this.notes,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
+      serviceDate: date ?? createdAt,
+      serviceTime: time,
+      serviceType: WorshipType.fromValue(json['event_type'] as String? ?? ''),
+      theme: json['name'] as String?,
+      totalAttendance: checkinCount > census ? checkinCount : census,
+      notes: json['description'] as String?,
+      createdAt: createdAt,
+      updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? '') ??
+          createdAt,
     );
   }
 }
 
-/// Tipo de culto
+/// Tipo de culto = o `event_type` da Agenda.
 enum WorshipType {
-  sundayMorning('sunday_morning', 'Domingo Manhã'),
-  sundayEvening('sunday_evening', 'Domingo Noite'),
-  wednesday('wednesday', 'Quarta-feira'),
-  friday('friday', 'Sexta-feira'),
-  special('special', 'Especial'),
-  other('other', 'Outro');
+  sunday('culto_normal', 'Culto Domingo'),
+  wednesday('culto_quarta', 'Culto Quarta'),
+  communion('culto_de_ceia', 'Culto de Ceia'),
+  drops('culto_drops', 'Culto Drops'),
+  other('other', 'Outro culto');
 
   final String value;
   final String label;
@@ -113,6 +95,10 @@ class WorshipAttendance {
   final String? notes;
   final DateTime createdAt;
 
+  /// O que a pessoa achou do culto (tela /presenca): otimo | gostando |
+  /// mais_ou_menos. Nulo se não respondeu.
+  final String? reaction;
+
   const WorshipAttendance({
     required this.id,
     required this.worshipServiceId,
@@ -121,24 +107,26 @@ class WorshipAttendance {
     required this.checkedInAt,
     this.notes,
     required this.createdAt,
+    this.reaction,
   });
 
   factory WorshipAttendance.fromJson(Map<String, dynamic> json) {
     return WorshipAttendance(
       id: json['id'] as String,
-      worshipServiceId: json['worship_service_id'] as String,
+      worshipServiceId: json['event_id'] as String,
       memberId: json['user_id'] as String,
       memberName: json['member_name'] as String?,
       checkedInAt: DateTime.parse(json['checked_in_at'] as String),
       notes: json['notes'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
+      reaction: json['reaction'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'worship_service_id': worshipServiceId,
+      'event_id': worshipServiceId,
       'user_id': memberId,
       'checked_in_at': checkedInAt.toIso8601String(),
       'notes': notes,

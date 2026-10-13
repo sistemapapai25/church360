@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../permissions/providers/permissions_providers.dart'
+    show currentUserHasPermissionProvider;
 import '../../data/groups_repository.dart';
 import '../../domain/models/group.dart';
 import '../../domain/models/group_visitor.dart';
@@ -28,6 +30,31 @@ final groupByIdProvider = FutureProvider.family<Group?, String>((ref, id) async 
   final repo = ref.watch(groupsRepositoryProvider);
   return repo.getGroupById(id);
 });
+
+/// Pode gerenciar ESTE grupo: tem a [permission] (groups.edit,
+/// groups.manage_members, groups.manage_meetings) OU é o líder do grupo com
+/// groups.manage_own. O segundo caminho pergunta ao banco a mesma função que
+/// as policies usam (`group_manage_own_allows`, migration 20261008001900).
+final canManageGroupProvider =
+    FutureProvider.family<bool, ({String groupId, String permission})>((
+      ref,
+      args,
+    ) async {
+      if (await ref.watch(
+        currentUserHasPermissionProvider(args.permission).future,
+      )) {
+        return true;
+      }
+      if (!await ref.watch(
+        currentUserHasPermissionProvider('groups.manage_own').future,
+      )) {
+        return false;
+      }
+      final allowed = await ref
+          .watch(supabaseClientProvider)
+          .rpc('group_manage_own_allows', params: {'p_group': args.groupId});
+      return allowed == true;
+    });
 
 /// Provider de contagem total de grupos
 final totalGroupsCountProvider = FutureProvider<int>((ref) async {
@@ -62,37 +89,4 @@ final visitorsProvider = FutureProvider.family<List<GroupVisitor>, String>((ref,
   final repo = ref.watch(groupsRepositoryProvider);
   return repo.getVisitorsByMeeting(meetingId);
 });
-
-// =====================================================
-// SALVAÇÕES (agora parte de visitantes)
-// =====================================================
-
-/// Provider de salvações de uma reunião (filtra visitantes que são salvações)
-final salvationsProvider = FutureProvider.family<List<GroupVisitor>, String>((ref, meetingId) async {
-  final repo = ref.watch(groupsRepositoryProvider);
-  return repo.getSalvationsByMeeting(meetingId);
-});
-
-/// Provider de todas as salvações (para relatórios)
-final allSalvationsProvider = FutureProvider<List<GroupVisitor>>((ref) async {
-  final repo = ref.watch(groupsRepositoryProvider);
-  return repo.getAllSalvations();
-});
-
-/// Provider de contagem total de salvações
-final totalSalvationsCountProvider = FutureProvider<int>((ref) async {
-  final repo = ref.watch(groupsRepositoryProvider);
-  return repo.countSalvations();
-});
-
-/// Provider de contagem de salvações por período
-final salvationsCountProvider = FutureProvider.family<int, ({DateTime startDate, DateTime endDate})>(
-  (ref, params) async {
-    final repo = ref.watch(groupsRepositoryProvider);
-    return repo.countSalvationsByPeriod(
-      startDate: params.startDate,
-      endDate: params.endDate,
-    );
-  },
-);
 

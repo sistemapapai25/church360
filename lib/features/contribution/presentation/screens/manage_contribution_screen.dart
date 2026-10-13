@@ -162,8 +162,9 @@ class _ManageContributionScreenState extends ConsumerState<ManageContributionScr
         data: (info) {
           // Carregar dados apenas uma vez
           if (_contributionInfoId == null && info != null) {
+            // setState: sem ele os campos de seleção ficavam em branco.
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              _loadContributionInfo(info);
+              if (mounted) setState(() => _loadContributionInfo(info));
             });
           }
 
@@ -202,6 +203,7 @@ class _ManageContributionScreenState extends ConsumerState<ManageContributionScr
 
                 // Tipo de Chave PIX
                 DropdownMenu<String>(
+                  key: ValueKey('pix-$_contributionInfoId'),
                   initialSelection: _pixType,
                   label: const Text('Tipo de Chave PIX'),
                   leadingIcon: const Icon(Icons.pix),
@@ -286,6 +288,7 @@ class _ManageContributionScreenState extends ConsumerState<ManageContributionScr
 
                 // Tipo de Conta
                 DropdownMenu<String>(
+                  key: ValueKey('account-$_contributionInfoId'),
                   initialSelection: _accountType,
                   label: const Text('Tipo de Conta'),
                   leadingIcon: const Icon(Icons.account_box),

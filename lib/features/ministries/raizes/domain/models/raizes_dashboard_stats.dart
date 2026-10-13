@@ -10,11 +10,20 @@ class RaizesDashboardStats {
   /// Lista direta de trabalho para o Raízes.
   final int wantingContactPending;
 
+  /// Visitantes que pediram visita no lar (`wants_visit`, ficha do Raízes),
+  /// status visitor/new_convert.
+  final int wantingVisit;
+
+  /// Mesma regra do alerta das 24h (005000): visitor/new_convert que aceita
+  /// contato, cadastrado há mais de 24h e há menos de 30 dias, sem nenhum
+  /// contato registrado.
+  final int withoutContact24h;
+
   /// Visitantes sem padrinho/responsável (`assigned_mentor_id IS NULL`),
   /// considerando apenas status visitor/new_convert.
   final int withoutMentor;
 
-  /// Novas decisões nos últimos 30 dias (`is_salvation = true` e `salvation_date >= hoje - 30`).
+  /// Novas decisões nos últimos 30 dias (`conversion_date >= hoje - 30`).
   final int newSalvationsLast30Days;
 
   /// Primeira visita nos últimos 30 dias (`first_visit_date >= hoje - 30`).
@@ -32,6 +41,8 @@ class RaizesDashboardStats {
     required this.totalActiveVisitors,
     required this.wantingContactPending,
     required this.withoutMentor,
+    this.wantingVisit = 0,
+    this.withoutContact24h = 0,
     required this.newSalvationsLast30Days,
     required this.newVisitorsLast30Days,
     required this.visitsToday,

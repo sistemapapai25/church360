@@ -1,13 +1,25 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
+import '../../domain/enums/report_enums.dart';
 import '../../domain/models/custom_report.dart';
+import '../../domain/models/report_config.dart';
 import '../../domain/models/report_filter_state.dart';
 import '../providers/custom_report_providers.dart';
 import '../providers/custom_report_data_provider.dart';
 import '../widgets/report_filter_dialog.dart';
 import '../widgets/custom_report_chart_renderer.dart';
+import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/constants/supabase_constants.dart';
+import '../../../../core/utils/csv_writer.dart';
+import '../../../../core/utils/file_download.dart';
+import '../../../../core/widgets/share_link_dialog.dart';
 
 /// Tela de visualização de um relatório customizado
 class CustomReportViewScreen extends ConsumerStatefulWidget {
@@ -32,27 +44,55 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
   @override
   Widget build(BuildContext context) {
     final reportAsync = ref.watch(customReportByIdProvider(widget.reportId));
+    final report = reportAsync.valueOrNull;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Relatório Customizado'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            tooltip: 'Editar',
-            onPressed: () {
-              context.push('/custom-reports/${widget.reportId}/edit');
-            },
+          PermissionGate(
+            permission: 'reports.edit',
+            showLoading: false,
+            child: IconButton(
+              icon: const Icon(Icons.edit),
+              tooltip: 'Editar',
+              onPressed: () {
+                context.push('/custom-reports/${widget.reportId}/edit');
+              },
+            ),
           ),
+          if (report != null)
+            PermissionGate(
+              permission: 'reports.edit',
+              showLoading: false,
+              child: IconButton(
+                icon: const Icon(Icons.bookmark_add_outlined),
+                tooltip: 'Salvar filtros',
+                onPressed: () => _saveFilters(report),
+              ),
+            ),
+          if (report != null)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.download),
+              tooltip: 'Exportar',
+              onSelected: (format) => _export(report, pdf: format == 'pdf'),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'pdf', child: Text('Exportar PDF')),
+                PopupMenuItem(value: 'csv', child: Text('Exportar planilha (CSV)')),
+              ],
+            ),
           IconButton(
             icon: const Icon(Icons.share),
             tooltip: 'Compartilhar',
             onPressed: () {
-              final link = '/custom-reports/${widget.reportId}/view';
-              Clipboard.setData(ClipboardData(text: link));
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Link copiado para a área de transferência')),
+              final url =
+                  '${SupabaseConstants.appWebBaseUrl}custom-reports/${widget.reportId}/view';
+              showShareLinkDialog(
+                context,
+                title: 'Compartilhar relatório',
+                url: url,
+                shareText: 'Relatório "${report?.name ?? ''}":\n$url',
+                warning: 'Só abre para quem tem permissão de ver relatórios.',
               );
             },
           ),
@@ -117,7 +157,8 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
                 final viz = entry.value;
 
                 // Inicializar estado de filtro se não existir
-                _additionalFilterStates[index] ??= ReportFilterState(dataSource: report.dataSource);
+                _additionalFilterStates[index] ??= ReportFilterState.fromJson(
+                    report.dataSource, report.config.savedFilters?[viz.id]);
 
                 return Column(
                   children: [
@@ -203,7 +244,8 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
 
   Widget _buildMainVisualization(BuildContext context, CustomReport report) {
     // Inicializar estado de filtro se não existir
-    _mainFilterState ??= ReportFilterState(dataSource: report.dataSource);
+    _mainFilterState ??= ReportFilterState.fromJson(
+        report.dataSource, report.config.savedFilters?['main']);
 
     return Card(
       child: Padding(
@@ -241,7 +283,8 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
             // Renderizar gráfico real com dados do Supabase
             SizedBox(
               height: 300,
-              child: _buildChartWithData(context, report, _mainFilterState),
+              child: _buildChartWithData(
+                  context, report, _mainFilterState, report.visualizationType),
             ),
           ],
         ),
@@ -249,7 +292,12 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
     );
   }
 
-  Widget _buildAdditionalVisualization(BuildContext context, CustomReport report, viz, int index) {
+  Widget _buildAdditionalVisualization(
+    BuildContext context,
+    CustomReport report,
+    ReportVisualization viz,
+    int index,
+  ) {
     final filterState = _additionalFilterStates[index]!;
 
     return Card(
@@ -288,7 +336,7 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
             // Renderizar gráfico real com dados do Supabase
             SizedBox(
               height: 250,
-              child: _buildChartWithData(context, report, filterState),
+              child: _buildChartWithData(context, report, filterState, viz.type),
             ),
           ],
         ),
@@ -327,7 +375,6 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
           debugPrint('  - Período: ${newState.startDate} até ${newState.endDate}');
           debugPrint('  - Status: ${newState.status}');
           debugPrint('  - Gênero: ${newState.gender}');
-          debugPrint('  - Tipo: ${newState.type}');
           debugPrint('  - Total de filtros ativos: ${newState.activeFilterCount}');
         },
       ),
@@ -339,6 +386,7 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
     BuildContext context,
     CustomReport report,
     ReportFilterState? filterState,
+    VisualizationType visualizationType,
   ) {
     // Buscar dados usando o provider
     final dataAsync = ref.watch(
@@ -351,7 +399,7 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
     return dataAsync.when(
       data: (data) {
         return CustomReportChartRenderer(
-          visualizationType: report.visualizationType,
+          visualizationType: visualizationType,
           data: data,
           title: report.name,
         );
@@ -364,13 +412,13 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.error_outline,
+              error is ReportAccessDenied ? Icons.lock_outline : Icons.error_outline,
               size: 48,
-              color: Colors.red[300],
+              color: error is ReportAccessDenied ? Colors.grey[500] : Colors.red[300],
             ),
             const SizedBox(height: 16),
             Text(
-              'Erro ao carregar dados',
+              error is ReportAccessDenied ? 'Sem acesso' : 'Erro ao carregar dados',
               style: TextStyle(
                 color: Colors.grey[600],
                 fontSize: 16,
@@ -390,5 +438,84 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
         ),
       ),
     );
+  }
+
+  /// Grava no relatório os filtros aplicados agora (principal e adicionais).
+  Future<void> _saveFilters(CustomReport report) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final saved = <String, dynamic>{
+      if (_mainFilterState != null) 'main': _mainFilterState!.toJson(),
+      for (final e in _additionalFilterStates.entries)
+        if (e.key < report.config.visualizations.length)
+          report.config.visualizations[e.key].id: e.value.toJson(),
+    };
+    try {
+      await ref.read(updateCustomReportProvider)(
+        report.copyWith(config: report.config.copyWith(savedFilters: saved)),
+      );
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Filtros salvos no relatório')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Não foi possível salvar os filtros: $e')),
+      );
+    }
+  }
+
+  /// Exporta os dados da visualização principal, com os filtros aplicados.
+  Future<void> _export(CustomReport report, {required bool pdf}) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final List<Map<String, dynamic>> data;
+    try {
+      data = await ref.read(customReportDataProvider((
+        report: report,
+        filterState: _mainFilterState,
+      )).future);
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Não foi possível exportar: $e')));
+      return;
+    }
+
+    final number = NumberFormat.decimalPattern('pt_BR');
+    final valueHeader = report.config.aggregations.firstOrNull?.label ?? 'Valor';
+    final rows = [
+      for (final row in data)
+        [row['label']?.toString() ?? '', number.format(row['value'] ?? 0)],
+    ];
+    final stamp = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+
+    if (pdf) {
+      final doc = pw.Document()
+        ..addPage(pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(24),
+          build: (_) => [
+            pw.Text(report.name,
+                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 12),
+            pw.TableHelper.fromTextArray(
+              headers: ['Grupo', valueHeader],
+              data: rows,
+              headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            ),
+          ],
+        ));
+      await Printing.layoutPdf(
+        onLayout: (_) async => doc.save(),
+        name: 'relatorio_$stamp.pdf',
+      );
+      return;
+    }
+
+    final csv = CsvWriter(['Grupo', valueHeader]);
+    rows.forEach(csv.addRow);
+    final filename = 'relatorio_$stamp.csv';
+    if (kIsWeb) {
+      downloadCsv(filename, csv.build());
+      messenger.showSnackBar(SnackBar(content: Text('Planilha baixada: $filename')));
+    } else {
+      await Share.share(csv.build(), subject: filename);
+    }
   }
 }

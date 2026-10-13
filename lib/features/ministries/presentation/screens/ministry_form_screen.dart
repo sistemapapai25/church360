@@ -5,12 +5,14 @@ import 'package:go_router/go_router.dart';
 import '../providers/ministries_provider.dart';
 import '../../shared/domain/ministry_type_catalog.dart';
 import '../../shared/presentation/providers/ministry_type_catalog_providers.dart';
+import '../../shared/presentation/screens/ministry_about_screen.dart';
 import '../../shared/presentation/widgets/ministry_tabs_settings_card.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../tags/presentation/widgets/member_tags_panel.dart';
 
 /// Tela de formulário de ministério (criar/editar)
 class MinistryFormScreen extends ConsumerStatefulWidget {
@@ -26,6 +28,11 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+
+  /// "Sobre o ministério" (tocar no ícone), chave = coluna em ministry.
+  final _aboutControllers = {
+    for (final s in ministryAboutSections) s.key: TextEditingController(),
+  };
 
   /// A cor saiu do formulário (01/10): fica a do cadastro, e ministério novo
   /// nasce azul.
@@ -56,6 +63,9 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
       setState(() {
         _nameController.text = ministry.name;
         _descriptionController.text = ministry.description ?? '';
+        for (final e in _aboutControllers.entries) {
+          e.value.text = ministryAboutText(ministry, e.key) ?? '';
+        }
         _selectedColor = ministry.color;
       });
     }
@@ -65,6 +75,9 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    for (final c in _aboutControllers.values) {
+      c.dispose();
+    }
     _newFunctionController.dispose();
     super.dispose();
   }
@@ -185,10 +198,54 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
                         maxLength: 500,
                         textCapitalization: TextCapitalization.sentences,
                       ),
+                      // Só na edição: a RPC de criação não recebe estes
+                      // campos. Aparecem ao tocar no ícone do ministério.
+                      if (isEditing)
+                        for (final s in ministryAboutSections) ...[
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _aboutControllers[s.key],
+                            decoration: InputDecoration(
+                              labelText: '${s.label} (opcional)',
+                              prefixIcon: Icon(s.icon),
+                              border: const OutlineInputBorder(),
+                              alignLabelWithHint: true,
+                            ),
+                            minLines: 2,
+                            maxLines: 8,
+                            textCapitalization: TextCapitalization.sentences,
+                          ),
+                        ],
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                // Tags — só na edição: ministry_tag precisa do id.
+                if (isEditing)
+                  PermissionGate(
+                    permission: 'tags.view',
+                    showLoading: false,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: GlassCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Tags',
+                              style: CommunityDesign.titleStyle(
+                                context,
+                              ).copyWith(fontSize: 18),
+                            ),
+                            const SizedBox(height: 12),
+                            MinistryTagsPanel(ministryId: widget.ministryId!),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
 
                 // Tipo — só na criação. Ver _ministryType.
                 if (widget.ministryId == null) ...[
@@ -501,11 +558,15 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
         'name': _nameController.text.trim(),
         if (_descriptionController.text.isNotEmpty)
           'description': _descriptionController.text.trim(),
+        if (widget.ministryId != null)
+          for (final e in _aboutControllers.entries)
+            e.key: e.value.text.trim().isEmpty ? null : e.value.text.trim(),
       };
 
       if (widget.ministryId != null) {
         // Editar
         await repository.updateMinistry(widget.ministryId!, data);
+        ref.invalidate(ministryByIdProvider(widget.ministryId!));
         funcoesSalvas = await _saveFunctionRequirements();
       } else {
         // Criar — pela RPC, para o ministério e o vínculo do líder nascerem

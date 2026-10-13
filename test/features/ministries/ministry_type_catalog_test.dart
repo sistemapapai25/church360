@@ -20,12 +20,24 @@ void main() {
   group('fallback embutido — espelho do seed da migration', () {
     const catalog = MinistryTypeCatalog.fallback;
 
-    test('tem os quatro tipos, na ordem do sort_order', () {
+    test('tem os cinco tipos, na ordem do sort_order', () {
       expect(catalog.types.map((t) => t.code).toList(), [
         'generic',
         'batismo',
         'raizes',
         'diaconato',
+        'louvor',
+      ]);
+    });
+
+    test('louvor tem a biblioteca de louvores (catálogo do banco)', () {
+      expect(catalog.tabLabelsFor('louvor'), [
+        'Equipe',
+        'Escala',
+        'Louvores',
+        'Financeiro',
+        'WhatsApp',
+        'Relatórios',
       ]);
     });
 
@@ -46,7 +58,7 @@ void main() {
         'Escala',
         'Financeiro',
         'Turmas',
-        'Checklist',
+        'Etapas',
         'WhatsApp',
         'Relatórios',
       ]);
@@ -66,8 +78,24 @@ void main() {
         'WhatsApp',
         'Relatórios',
       ];
-      expect(catalog.tabLabelsFor('raizes'), esperado);
-      expect(catalog.tabLabelsFor('diaconato'), esperado);
+      // O Raízes nasce com Rotina e Materiais ligadas (004700).
+      expect(catalog.tabLabelsFor('raizes'), [
+        'Painel',
+        'Rotina',
+        ...esperado.skip(1).take(3),
+        'Materiais',
+        ...esperado.skip(4),
+      ]);
+      // O Diaconato nasce com Rotina (004000), Pedidos (004100) e Materiais
+      // (003900) ligadas.
+      expect(catalog.tabLabelsFor('diaconato'), [
+        'Painel',
+        'Rotina',
+        'Pedidos',
+        ...esperado.skip(1).take(3),
+        'Materiais',
+        ...esperado.skip(4),
+      ]);
     });
 
     test('atalhos de rota batem com as rotas do app_router', () {
@@ -88,7 +116,7 @@ void main() {
           '/ministries/m1');
     });
 
-    test('os quatro são oferecidos na criação, e a RPC valida o mesmo', () {
+    test('os cinco são oferecidos na criação, e a RPC valida o mesmo', () {
       // create_ministry_with_leader consulta ministry_type.offered_on_create
       // no servidor e devolve 22023 para qualquer outro valor. Se esta lista
       // e o catálogo do banco divergirem, a criação falha em runtime.
@@ -97,6 +125,7 @@ void main() {
         'batismo',
         'raizes',
         'diaconato',
+        'louvor',
       ]);
     });
 
@@ -273,7 +302,8 @@ void main() {
       final all = MinistryTypeCatalog.fallback.availableTabsFor('generic');
       expect(keys(all), [
         'equipe', 'escala', 'financeiro', 'whatsapp', 'relatorios',
-        'louvores-off', 'alunos-off', 'checklist-off',
+        'louvores-off', 'alunos-off', 'checklist-off', 'materiais-off',
+        'rotina-off', 'pedidos-off', 'assistencia-off',
       ]);
     });
 
@@ -292,7 +322,8 @@ void main() {
       );
       expect(keys(r), [
         'equipe', 'escala', 'financeiro', 'whatsapp-off', 'relatorios',
-        'louvores-off', 'alunos', 'checklist-off',
+        'louvores-off', 'alunos', 'checklist-off', 'materiais-off',
+        'rotina-off', 'pedidos-off', 'assistencia-off',
       ]);
     });
 

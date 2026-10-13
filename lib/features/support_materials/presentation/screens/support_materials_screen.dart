@@ -159,7 +159,10 @@ class _MaterialCard extends ConsumerWidget {
             .watch(currentUserHasPermissionProvider(code))
             .maybeWhen(data: (v) => v, orElse: () => false);
     final canDelete = can('support_materials.delete');
-    final canEdit = can('support_materials.edit');
+    // O autor edita o seu; o de outra pessoa exige .edit.
+    final canEdit =
+        gestao &&
+        (ref.watch(canEditMaterialProvider(material.id)).valueOrNull ?? false);
     final canModules = can('support_materials.manage_modules');
 
     return Card(

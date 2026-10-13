@@ -61,10 +61,6 @@
     gap:48px;
     align-items:start;
   }
-  @media (max-width:760px){
-    .wrap{grid-template-columns:1fr; padding:32px 18px 64px;}
-    nav.toc{display:none;}
-  }
 
   header.masthead{
     grid-column:1 / -1;
@@ -134,6 +130,12 @@
     letter-spacing:0.12em;
     color:var(--ink-muted);
     margin-bottom:8px;
+  }
+
+  /* depois de nav.toc: senão o display:flex dela vence e o índice fica por cima do texto */
+  @media (max-width:760px){
+    .wrap{grid-template-columns:1fr; padding:32px 18px 64px;}
+    nav.toc{display:none;}
   }
 
   main{min-width:0;}

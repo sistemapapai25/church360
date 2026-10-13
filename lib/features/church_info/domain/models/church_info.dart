@@ -1,3 +1,17 @@
+/// Lê "latitude, longitude" do que a pessoa colou: as coordenadas copiadas do
+/// Google Maps ("-16.8123, -49.2456") ou um link com elas
+/// (".../@-16.8123,-49.2456,17z"). Devolve null se não achar um par válido.
+(double, double)? parseLatLng(String text) {
+  final m = RegExp(
+    r'(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)',
+  ).firstMatch(text);
+  if (m == null) return null;
+  final lat = double.parse(m.group(1)!);
+  final lng = double.parse(m.group(2)!);
+  if (lat.abs() > 90 || lng.abs() > 180) return null;
+  return (lat, lng);
+}
+
 /// Modelo de Informações da Igreja
 class ChurchInfo {
   final String id;
@@ -14,6 +28,13 @@ class ChurchInfo {
   final Map<String, String>? socialMedia; // {'facebook': 'url', 'instagram': 'url', etc}
   final List<ServiceTime>? serviceTimes;
   final List<Pastor>? pastors;
+
+  /// Local para a presença pelo celular (migration 005200). Sem coordenada,
+  /// o recurso fica desligado.
+  final double? latitude;
+  final double? longitude;
+  final int checkinRadiusM;
+  final int checkinWindowMin;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -32,6 +53,10 @@ class ChurchInfo {
     this.socialMedia,
     this.serviceTimes,
     this.pastors,
+    this.latitude,
+    this.longitude,
+    this.checkinRadiusM = 20,
+    this.checkinWindowMin = 60,
     required this.createdAt,
     this.updatedAt,
   });
@@ -65,6 +90,10 @@ class ChurchInfo {
               .map((e) => Pastor.fromJson(e as Map<String, dynamic>))
               .toList()
           : null,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      checkinRadiusM: (json['checkin_radius_m'] as num?)?.toInt() ?? 20,
+      checkinWindowMin: (json['checkin_window_min'] as num?)?.toInt() ?? 60,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)

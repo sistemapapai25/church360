@@ -2,6 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../constants/supabase_constants.dart';
+import '../../features/financeiro/domain/models/lancamento.dart';
+import '../../features/financeiro/presentation/providers/financeiro_providers.dart'
+    show lancamentosRepositoryProvider;
 
 /// Provider para estatísticas de crescimento de membros (últimos 6 meses)
 final memberGrowthStatsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
@@ -259,37 +262,28 @@ final birthdaysThisMonthProvider = FutureProvider<List<Map<String, dynamic>>>((r
   return allBirthdays;
 });
 
-/// Provider para próximas despesas (próximos 30 dias)
+/// Provider para próximas despesas (próximos 30 dias): contas da igreja em
+/// aberto no Financeiro (`lancamentos`), pelo vencimento.
 final upcomingExpensesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  final supabase = ref.watch(supabaseClientProvider);
-
   final now = DateTime.now();
-  final thirtyDaysFromNow = now.add(const Duration(days: 30));
+  final contas = await ref.watch(lancamentosRepositoryProvider).getAllLancamentos(
+        startDate: now,
+        endDate: now.add(const Duration(days: 30)),
+        tipo: TipoLancamento.despesa,
+        status: StatusLancamento.emAberto,
+      );
+  contas.sort((a, b) => a.vencimento.compareTo(b.vencimento));
 
-  // Buscar despesas com data futura (próximos 30 dias)
-  final response = await supabase
-      .from('expense')
-      .select('id, category, amount, date, description')
-      .eq('tenant_id', SupabaseConstants.currentTenantId)
-      .gte('date', now.toIso8601String().split('T')[0])
-      .lte('date', thirtyDaysFromNow.toIso8601String().split('T')[0])
-      .order('date', ascending: true);
-
-  final expenses = (response as List).map((expense) {
-    final date = DateTime.parse(expense['date'] as String);
-    final isOverdue = date.isBefore(now);
-
-    return {
-      'id': expense['id'],
-      'category': expense['category'],
-      'amount': (expense['amount'] as num).toDouble(),
-      'date': date,
-      'description': expense['description'],
-      'is_overdue': isOverdue,
-    };
-  }).toList();
-
-  return expenses;
+  return contas
+      .map((c) => {
+            'id': c.id,
+            'category': c.categoriaNome ?? 'Sem categoria',
+            'amount': c.valor,
+            'date': c.vencimento,
+            'description': c.descricao ?? '',
+            'is_overdue': c.vencimento.isBefore(now),
+          })
+      .toList();
 });
 
 /// Provider para novos membros (últimos 30 dias)
@@ -303,6 +297,8 @@ final recentMembersProvider = FutureProvider<List<Map<String, dynamic>>>((ref) a
       .from('user_account')
       .select('id, first_name, last_name, photo_url, created_at')
       .eq('tenant_id', SupabaseConstants.currentTenantId)
+      // só membros (antes contava visitantes)
+      .inFilter('status', ['member_active', 'member_inactive'])
       .gte('created_at', thirtyDaysAgo.toIso8601String())
       .order('created_at', ascending: false);
 
@@ -417,6 +413,7 @@ final memberStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final recentResponse = await supabase
       .from('user_account')
       .select('id')
+      .inFilter('status', ['member_active', 'member_inactive'])
       .gte('created_at', thirtyDaysAgo.toIso8601String())
       .eq('tenant_id', SupabaseConstants.currentTenantId);
 
@@ -500,15 +497,38 @@ final attendanceByGroupProvider = FutureProvider<List<Map<String, dynamic>>>((re
     }
   }
 
+  // Membros de cada grupo (comunhão: group_member; estudo: study_participants)
+  final ids = groupStats.keys.toList();
+  final memberCount = <String, int>{};
+  final communion = await supabase
+      .from('group_member')
+      .select('group_id')
+      .inFilter('group_id', ids);
+  for (final r in communion as List) {
+    final id = r['group_id'] as String;
+    memberCount[id] = (memberCount[id] ?? 0) + 1;
+  }
+  final study = await supabase
+      .from('study_participants')
+      .select('study_group_id')
+      .eq('is_active', true)
+      .inFilter('study_group_id', ids);
+  for (final r in study as List) {
+    final id = r['study_group_id'] as String;
+    memberCount[id] = (memberCount[id] ?? 0) + 1;
+  }
+
   // Converter para lista e calcular média
-  final result = groupStats.values.map((stats) {
+  final result = groupStats.entries.map((e) {
+    final stats = e.value;
     final totalPresent = stats['total_present'] as int;
     final totalMeetings = stats['total_meetings'] as int;
 
     return {
       'group_name': stats['group_name'],
       'total_present': totalPresent,
-      'total_expected': totalMeetings * 10, // Estimativa de 10 pessoas por reunião
+      // membros reais × reuniões (antes: 10 fixos, dava mais de 100%)
+      'total_expected': totalMeetings * (memberCount[e.key] ?? 0),
       'average_attendance': totalMeetings > 0 ? totalPresent / totalMeetings : 0.0,
     };
   }).toList();

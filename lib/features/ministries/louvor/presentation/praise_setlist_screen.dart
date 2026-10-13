@@ -365,6 +365,13 @@ class _DraftEditorState extends ConsumerState<_DraftEditor> {
     }
   }
 
+  Future<void> _delete() async {
+    setState(() => _busy = true);
+    if (!await _deleteSetlist(context, ref, widget.setlist.id) && mounted) {
+      setState(() => _busy = false);
+    }
+  }
+
   /// Troca o evento na hora (é do repertório, não da revisão).
   Future<void> _changeEvent() async {
     final repo = ref.read(praiseRepositoryProvider);
@@ -530,27 +537,41 @@ class _DraftEditorState extends ConsumerState<_DraftEditor> {
                   const SizedBox(height: 8),
                 ],
               ),
-              footer: widget.canManage
+              footer: widget.canManage || widget.canPublish
                   ? Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          OutlinedButton.icon(
-                            icon: const Icon(AppIcons.add),
-                            label: const Text('Adicionar da Biblioteca'),
-                            onPressed: editable ? _add : null,
-                          ),
-                          const SizedBox(height: 8),
-                          TextButton(
-                            onPressed: editable ? _discard : null,
-                            style: TextButton.styleFrom(
-                              foregroundColor: Theme.of(
-                                context,
-                              ).colorScheme.error,
+                          if (widget.canManage) ...[
+                            OutlinedButton.icon(
+                              icon: const Icon(AppIcons.add),
+                              label: const Text('Adicionar da Biblioteca'),
+                              onPressed: editable ? _add : null,
                             ),
-                            child: const Text('Descartar rascunho'),
-                          ),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: editable ? _discard : null,
+                              style: TextButton.styleFrom(
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.error,
+                              ),
+                              child: const Text('Descartar rascunho'),
+                            ),
+                          ],
+                          // Quem só publica não monta nem descarta, mas
+                          // exclui (a RPC aceita com rascunho aberto).
+                          if (widget.canPublish)
+                            TextButton(
+                              onPressed: _busy ? null : _delete,
+                              style: TextButton.styleFrom(
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.error,
+                              ),
+                              child: const Text('Excluir repertório'),
+                            ),
                         ],
                       ),
                     )
@@ -665,6 +686,54 @@ class _DraftEditorState extends ConsumerState<_DraftEditor> {
   }
 }
 
+/// Excluir repertório (só quem publica, igual à RPC): confirma, apaga e fecha
+/// a tela. Serve ao publicado e ao rascunho aberto. Devolve se apagou.
+Future<bool> _deleteSetlist(
+  BuildContext context,
+  WidgetRef ref,
+  String setlistId,
+) async {
+  final ok =
+      await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Excluir repertório?'),
+          content: const Text(
+            'Some para toda a equipe, com todas as revisões. '
+            'Não dá para desfazer.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Excluir'),
+            ),
+          ],
+        ),
+      ) ==
+      true;
+  if (!ok) return false;
+  try {
+    await ref.read(praiseRepositoryProvider).deleteSetlist(setlistId);
+    invalidatePraise(ref);
+    if (context.mounted) Navigator.pop(context);
+    return true;
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(praiseErrorText(e))));
+    }
+    return false;
+  }
+}
+
 // ----------------------------------------------------------- publicado (8)
 
 class _PublishedView extends ConsumerStatefulWidget {
@@ -738,44 +807,9 @@ class _PublishedViewState extends ConsumerState<_PublishedView> {
   }
 
   Future<void> _delete() async {
-    final ok =
-        await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Excluir repertório?'),
-            content: const Text(
-              'Some para toda a equipe, com todas as revisões. '
-              'Não dá para desfazer.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancelar'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                ),
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Excluir'),
-              ),
-            ],
-          ),
-        ) ==
-        true;
-    if (!ok) return;
     setState(() => _busy = true);
-    try {
-      await ref.read(praiseRepositoryProvider).deleteSetlist(widget.setlist.id);
-      invalidatePraise(ref);
-      if (mounted) Navigator.pop(context);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(praiseErrorText(e))));
-        setState(() => _busy = false);
-      }
+    if (!await _deleteSetlist(context, ref, widget.setlist.id) && mounted) {
+      setState(() => _busy = false);
     }
   }
 

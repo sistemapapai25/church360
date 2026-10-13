@@ -16,67 +16,35 @@ import '../../../../core/utils/storage_upload_path.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/onboarding/onboarding_tour_prefs.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/media/webcam_foto.dart';
 import '../../../../core/widgets/spotlight_tour.dart';
 import '../../../devotionals/presentation/providers/devotional_provider.dart';
+import '../../../kids/presentation/providers/kids_providers.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../notifications/presentation/widgets/notification_badge.dart';
+import '../../../ministries/raizes/presentation/widgets/raizes_followup_section.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../tags/presentation/widgets/member_tags_panel.dart';
 
 import '../providers/members_provider.dart';
+import '../widgets/member_life_events.dart';
 import '../widgets/send_access_invite.dart';
+import '../../../study_groups/domain/models/study_group.dart';
+import '../../../study_groups/presentation/providers/study_group_provider.dart';
+import '../../../legal/terms_acceptance.dart';
 import '../../data/members_repository.dart';
 import '../../data/family_relationships_repository.dart';
 import '../../domain/models/member.dart';
 import '../../domain/lgpd_request_labels.dart';
+import '../../../visitors/presentation/providers/visitors_provider.dart'
+    show allVisitorsProvider;
 
 const double _pagePadding = 16;
 const double _cardPadding = 16;
 const double _cardRadius = 16;
 const double _sectionGap = 16;
 const double _iconBubbleSize = 36;
-
-class _LgpdRequestOption {
-  final String type;
-  final String title;
-  final String subtitle;
-  final IconData icon;
-
-  const _LgpdRequestOption({
-    required this.type,
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
-}
-
-const List<_LgpdRequestOption> _lgpdRequestOptions = [
-  _LgpdRequestOption(
-    type: 'export',
-    title: 'Exportação de dados',
-    subtitle: 'Solicitar cópia dos dados pessoais tratados',
-    icon: AppIcons.download,
-  ),
-  _LgpdRequestOption(
-    type: 'deletion',
-    title: 'Exclusão de dados',
-    subtitle: 'Solicitar remoção de dados quando aplicável',
-    icon: AppIcons.delete,
-  ),
-  _LgpdRequestOption(
-    type: 'anonymization',
-    title: 'Anonimização',
-    subtitle: 'Solicitar anonimização dos dados pessoais',
-    icon: AppIcons.visibilityOff,
-  ),
-  _LgpdRequestOption(
-    type: 'retention',
-    title: 'Retenção',
-    subtitle: 'Solicitar informação/ajuste de prazo de retenção',
-    icon: AppIcons.history,
-  ),
-];
 
 /// Tela de perfil completo do membro
 class MemberProfileScreen extends ConsumerStatefulWidget {
@@ -229,21 +197,30 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               title: const Text('Tirar Foto'),
               onTap: () async {
                 Navigator.pop(context);
-                // No navegador do computador o pedido de câmera é ignorado e
-                // abre o seletor de arquivos; no web, defaultTargetPlatform é
-                // o SO do navegador.
-                final cameraIndisponivel = kIsWeb &&
+                // No navegador do computador o pedido de câmera do
+                // image_picker é ignorado e abre o seletor de arquivos: lá a
+                // foto sai da webcam. No web, defaultTargetPlatform é o SO do
+                // navegador.
+                final navegadorDeComputador = kIsWeb &&
                     defaultTargetPlatform != TargetPlatform.android &&
                     defaultTargetPlatform != TargetPlatform.iOS;
-                if (cameraIndisponivel) {
-                  ScaffoldMessenger.of(this.context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Câmera indisponível neste dispositivo. Use "Escolher '
-                        'da Galeria" ou tire a foto pelo celular.',
+                if (navegadorDeComputador) {
+                  try {
+                    final image = await tirarFotoWebcam(this.context);
+                    if (image != null && mounted) {
+                      await _uploadPhoto(image, memberId);
+                    }
+                  } catch (_) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(this.context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Não foi possível abrir a câmera. Libere o acesso à '
+                          'câmera no navegador ou use "Escolher da Galeria".',
+                        ),
                       ),
-                    ),
-                  );
+                    );
+                  }
                   return;
                 }
                 final XFile? image = await picker.pickImage(
@@ -307,13 +284,26 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           .from('member-photos')
           .getPublicUrl(fileName);
 
-      await supabase
+      // A RLS barra o UPDATE devolvendo 0 linhas, sem erro: sem o `select`
+      // a tela dizia "Foto atualizada" e a foto antiga continuava lá.
+      final updated = await supabase
           .from('user_account')
           .update({'photo_url': publicUrl})
-          .eq('id', memberId);
+          .eq('id', memberId)
+          .select('id');
+      if (updated.isEmpty) {
+        throw Exception('sem permissão para trocar a foto deste cadastro');
+      }
 
+      // Relê tudo que mostra a foto (perfil, Home, listas de membros) para a
+      // nova aparecer na hora, sem precisar recarregar o app.
       ref.invalidate(currentMemberProvider);
       ref.invalidate(memberByIdProvider(memberId));
+      ref.invalidate(allMembersProvider);
+      ref.invalidate(activeMembersProvider);
+      ref.invalidate(visitorsProvider);
+      ref.invalidate(allVisitorsProvider);
+      ref.invalidate(managedChildrenProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -477,6 +467,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       if (context.mounted) {
         // Invalida a lista de membros para atualizar
         ref.invalidate(allMembersProvider);
+        ref.invalidate(allVisitorsProvider);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -614,6 +605,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     final journeyItems = _buildJourneyItems(
       readingsAsync.value ?? const <Map<String, dynamic>>[],
       member,
+      ref.watch(currentUserStudyGroupsProvider).value ?? const <StudyGroup>[],
     );
     final canShowLeadership = _shouldShowLeadership(member);
 
@@ -647,6 +639,22 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           child: _buildPersonalInfoNew(context, ref, member),
         ),
         const SizedBox(height: _sectionGap),
+        if ((ref
+                    .watch(currentUserHasPermissionProvider('visitors.view'))
+                    .valueOrNull ??
+                false) &&
+            (member.status == 'visitor' ||
+                member.status == 'new_convert' ||
+                member.raizesStage != null)) ...[
+          _buildSection(
+            context,
+            icon: Icons.diversity_1,
+            title: 'Acompanhamento (Raízes)',
+            sectionKey: 'raizes_followup',
+            child: RaizesFollowupSection(member: member),
+          ),
+          const SizedBox(height: _sectionGap),
+        ],
         _buildSection(
           context,
           icon: Icons.family_restroom,
@@ -768,64 +776,41 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   }
 
   Widget _buildCommitmentTermsRow(BuildContext context, Member member) {
+    // O aceite é da pessoa logada: na ficha de outra pessoa só abre o texto.
+    final isOwn = ref.watch(currentMemberProvider).valueOrNull?.id == member.id;
+    if (!isOwn) {
+      return _buildInfoRowWithAction(
+        Icons.handshake_outlined,
+        'Termos de Compromisso',
+        'Visualizar documento',
+        'Abrir',
+        () async {
+          await _openCommitmentTerms();
+        },
+        valueIcon: Icons.open_in_new,
+        valueColor: Colors.deepPurple,
+        actionColor: Colors.deepPurple,
+      );
+    }
+    final acceptedAt = ref.watch(currentTermsAcceptanceProvider).valueOrNull;
+    final accepted = acceptedAt != null;
     return _buildInfoRowWithAction(
       Icons.handshake_outlined,
       'Termos de Compromisso',
-      'Visualizar documento',
-      'Abrir',
+      accepted
+          ? 'v$kTermsVersion aceito em ${_formatShortDate(acceptedAt)}'
+          : 'v$kTermsVersion pendente',
+      accepted ? 'Abrir' : 'Aceitar',
       () async {
-        await _openCommitmentTerms();
-      },
-      valueIcon: Icons.open_in_new,
-      valueColor: Colors.deepPurple,
-      actionColor: Colors.deepPurple,
-    );
-  }
-
-  Widget _buildLgpdRightsRow(
-    BuildContext context,
-    WidgetRef ref,
-    Member member,
-  ) {
-    final currentMember = ref.watch(currentMemberProvider).valueOrNull;
-    final canRequest = currentMember?.id == member.id;
-    return _buildInfoRowWithAction(
-      Icons.gavel_outlined,
-      'Direitos do Titular',
-      'Exportação, exclusão, anonimização e retenção',
-      canRequest ? 'Solicitar' : 'Ver Política',
-      () async {
-        if (!canRequest) {
-          await _openLgpdPolicy();
+        if (accepted) {
+          await _openCommitmentTerms();
           return;
         }
-        await _openLgpdRightsRequestDialog(context, ref);
+        await showTermsAcceptanceDialog(context, ref);
       },
-      valueIcon: Icons.privacy_tip_outlined,
-      valueColor: Colors.teal,
-      actionColor: canRequest ? Colors.teal : Colors.blue,
-    );
-  }
-
-  Widget _buildLgpdRequestsHistoryRow(
-    BuildContext context,
-    WidgetRef ref,
-    Member member,
-  ) {
-    final currentMember = ref.watch(currentMemberProvider).valueOrNull;
-    final canOpen = currentMember?.id == member.id;
-    return _buildInfoRowWithAction(
-      Icons.history_outlined,
-      'Minhas Solicitações LGPD',
-      'Acompanhar status das solicitações enviadas',
-      canOpen ? 'Ver Histórico' : 'Indisponível',
-      () async {
-        if (!canOpen) return;
-        await _openLgpdRequestsHistory(context, ref);
-      },
-      valueIcon: Icons.receipt_long_outlined,
-      valueColor: Colors.indigo,
-      actionColor: canOpen ? Colors.indigo : Colors.grey,
+      valueIcon: accepted ? Icons.check_circle : Icons.info_outline,
+      valueColor: accepted ? Colors.green : Colors.orange,
+      actionColor: Colors.deepPurple,
     );
   }
 
@@ -855,224 +840,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       valueColor: Colors.deepOrange,
       actionColor: Colors.deepOrange,
     );
-  }
-
-  Future<void> _openLgpdRightsRequestDialog(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    final option = await showModalBottomSheet<_LgpdRequestOption>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: const Text('Solicitar direito LGPD'),
-                subtitle: const Text('Escolha o tipo de solicitação'),
-                leading: const Icon(Icons.privacy_tip_outlined),
-              ),
-              for (final item in _lgpdRequestOptions)
-                ListTile(
-                  leading: Icon(item.icon),
-                  title: Text(item.title),
-                  subtitle: Text(item.subtitle),
-                  onTap: () => Navigator.of(sheetContext).pop(item),
-                ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (option == null || !context.mounted) return;
-
-    final reasonController = TextEditingController();
-    DateTime? retentionUntil;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (innerContext, setInnerState) {
-            return AlertDialog(
-              title: Text(option.title),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(option.subtitle),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: reasonController,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Detalhes (opcional)',
-                      hintText:
-                          'Descreva qualquer contexto para esta solicitação',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  if (option.type == 'retention') ...[
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: () async {
-                        final now = DateTime.now();
-                        final picked = await showDatePicker(
-                          context: innerContext,
-                          initialDate: now.add(const Duration(days: 30)),
-                          firstDate: now,
-                          lastDate: DateTime(now.year + 10),
-                        );
-                        if (picked == null) return;
-                        setInnerState(() => retentionUntil = picked);
-                      },
-                      icon: const Icon(Icons.calendar_today),
-                      label: Text(
-                        retentionUntil == null
-                            ? 'Definir prazo de retenção'
-                            : 'Retenção até ${_formatShortDate(retentionUntil!)}',
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(true),
-                  child: const Text('Enviar solicitação'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    if (confirmed != true) {
-      reasonController.dispose();
-      return;
-    }
-
-    try {
-      final repo = ref.read(membersRepositoryProvider);
-      await repo.submitLgpdDataRequest(
-        requestType: option.type,
-        reason: reasonController.text.trim().isEmpty
-            ? null
-            : reasonController.text.trim(),
-        retentionUntil: retentionUntil,
-      );
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Solicitação LGPD enviada: ${option.title}.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Não foi possível enviar a solicitação LGPD: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      reasonController.dispose();
-    }
-  }
-
-  Future<void> _openLgpdRequestsHistory(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    try {
-      final repo = ref.read(membersRepositoryProvider);
-      final requests = await repo.getMyLgpdDataRequests(limit: 30);
-      if (!context.mounted) return;
-      await showModalBottomSheet<void>(
-        context: context,
-        showDragHandle: true,
-        isScrollControlled: true,
-        builder: (sheetContext) {
-          return SafeArea(
-            child: SizedBox(
-              height: MediaQuery.of(sheetContext).size.height * 0.7,
-              child: Column(
-                children: [
-                  const ListTile(
-                    leading: Icon(Icons.receipt_long_outlined),
-                    title: Text('Histórico de solicitações LGPD'),
-                    subtitle: Text('Últimas solicitações enviadas por você'),
-                  ),
-                  const Divider(height: 1),
-                  Expanded(
-                    child: requests.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'Você ainda não enviou solicitações LGPD.',
-                            ),
-                          )
-                        : ListView.separated(
-                            itemCount: requests.length,
-                            separatorBuilder: (_, __) =>
-                                const Divider(height: 1),
-                            itemBuilder: (itemContext, index) {
-                              final request = requests[index];
-                              final requestedAtText =
-                                  request.requestedAt == null
-                                  ? 'Data não informada'
-                                  : _formatShortDate(request.requestedAt!);
-                              final resolvedAtText = request.resolvedAt == null
-                                  ? null
-                                  : _formatShortDate(request.resolvedAt!);
-                              final resolutionNotes =
-                                  (request.resolutionNotes ?? '').trim();
-                              final hasResolutionNotes =
-                                  resolutionNotes.isNotEmpty;
-                              return ListTile(
-                                leading: const Icon(Icons.privacy_tip_outlined),
-                                title: Text(
-                                  lgpdRequestTypeLabel(request.requestType),
-                                ),
-                                subtitle: Text(
-                                  [
-                                    'Status: ${lgpdStatusLabel(request.status)}',
-                                    'Solicitado em: $requestedAtText',
-                                    if (resolvedAtText != null)
-                                      'Resolvido em: $resolvedAtText',
-                                    if (hasResolutionNotes)
-                                      'Observação: $resolutionNotes',
-                                  ].join('\n'),
-                                ),
-                                isThreeLine: true,
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Não foi possível carregar histórico LGPD: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 
   Future<void> _openLgpdAdminQueue(BuildContext context, WidgetRef ref) async {
@@ -1709,11 +1476,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                   context,
                 ).copyWith(fontSize: 16, fontWeight: FontWeight.w800),
               ),
-              const Spacer(),
-              Icon(
-                Icons.arrow_forward_ios,
-                color: colorScheme.onSurfaceVariant,
-              ),
             ],
           ),
           const SizedBox(height: _sectionGap),
@@ -1975,8 +1737,56 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         ),
       );
     }
-    if (member.credentialDate != null) {
-      churchItems.add(_buildCredentialRow(context, member.credentialDate!));
+
+    // Ficha do Raízes (004800): só para quem vê visitantes (D6).
+    final raizesItems = <Widget>[];
+    final canSeeVisitors =
+        ref.watch(currentUserHasPermissionProvider('visitors.view')).valueOrNull ??
+        false;
+    if (canSeeVisitors) {
+      if (_hasValue(member.invitedBy)) {
+        raizesItems.add(
+          _buildInfoRow(Icons.person_add_alt, 'Quem convidou', member.invitedBy!),
+        );
+      }
+      if (member.wantsVisit != null) {
+        raizesItems.add(
+          _buildInfoRow(
+            Icons.home_outlined,
+            'Deseja visita',
+            member.wantsVisit! ? 'Sim' : 'Não',
+          ),
+        );
+      }
+      if (member.wantsLifeHouse != null) {
+        raizesItems.add(
+          _buildInfoRow(
+            Icons.groups_outlined,
+            'Interesse em Casa de Vida',
+            member.wantsLifeHouse! ? 'Sim' : 'Não',
+          ),
+        );
+      }
+      if (member.visitorProfiles.isNotEmpty) {
+        raizesItems.add(
+          _buildInfoRow(
+            Icons.diversity_3,
+            'Perfil',
+            member.visitorProfiles
+                .map((p) => '${p[0].toUpperCase()}${p.substring(1)}')
+                .join(', '),
+          ),
+        );
+      }
+      if (_hasValue(member.prayerRequest)) {
+        raizesItems.add(
+          _buildInfoRow(
+            Icons.volunteer_activism_outlined,
+            'Pedido de oração',
+            member.prayerRequest!,
+          ),
+        );
+      }
     }
 
     final privacyItems = <Widget>[
@@ -2002,6 +1812,14 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         groupKey: 'personal_info.church',
         children: churchItems,
       ),
+      if (raizesItems.isNotEmpty)
+        _buildFieldGroup(
+          context,
+          icon: Icons.diversity_1,
+          title: 'Acolhimento (Raízes)',
+          groupKey: 'personal_info.raizes',
+          children: raizesItems,
+        ),
       _buildFieldGroup(
         context,
         icon: Icons.privacy_tip_outlined,
@@ -2198,26 +2016,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     return _getMaritalStatusLabel(status);
   }
 
-  Widget _buildCredentialRow(BuildContext context, DateTime credentialDate) {
-    final today = DateTime.now();
-    final reference = DateTime(today.year, today.month, today.day);
-    final expiry = DateTime(
-      credentialDate.year,
-      credentialDate.month,
-      credentialDate.day,
-    );
-    final isValid = !expiry.isBefore(reference);
-    final label = isValid ? 'Válida até' : 'Vencida em';
-    final valueColor = isValid ? Colors.green : Colors.red;
-
-    return _buildInfoRow(
-      Icons.badge,
-      'Credencial',
-      '$label ${_formatShortDate(credentialDate)}',
-      valueColor: valueColor,
-    );
-  }
-
   /// Campos que entram na conta de completude do cadastro, com rótulo
   /// legível e se estão preenchidos. "Notas/observações" é um campo livre,
   /// não um dado cadastral, e não entra aqui.
@@ -2355,87 +2153,10 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     return type == 'lider' || type == 'coordenador' || type == 'admin';
   }
 
-  /// Marcos da vida da pessoa que já estão no cadastro, na ordem em que a
-  /// vida acontece. Só entra o que está preenchido: campo vazio não vira item
-  /// "não informado" — o cadastro é magro e a linha do tempo viraria uma lista
-  /// de buracos.
-  ///
-  /// As datas saem do `Member` já parseado, e são exibidas pelo mesmo
-  /// `_formatShortDate` que o resto da ficha usa. Isso é de propósito: as datas
-  /// do banco guardam hora de parede de São Paulo rotulada como UTC, e
-  /// qualquer conversão de fuso aqui faria a linha do tempo divergir em um dia
-  /// da data que a própria ficha mostra logo acima.
-  static const List<
-    ({
-      DateTime? Function(Member) get,
-      String title,
-      String subtitle,
-      IconData icon,
-    })
-  >
-  _lifeEvents = [
-    (
-      get: _getBirthdate,
-      title: 'Nascimento',
-      subtitle: 'Data de nascimento',
-      icon: Icons.cake_outlined,
-    ),
-    (
-      get: _getFirstVisitDate,
-      title: 'Primeira visita',
-      subtitle: 'Primeira vez na igreja',
-      icon: Icons.waving_hand_outlined,
-    ),
-    (
-      get: _getSalvationDate,
-      title: 'Decisão por Cristo',
-      subtitle: 'Decisão registrada',
-      icon: Icons.volunteer_activism_outlined,
-    ),
-    (
-      get: _getConversionDate,
-      title: 'Conversão',
-      subtitle: 'Data de conversão',
-      icon: Icons.auto_awesome_outlined,
-    ),
-    (
-      get: _getBaptismDate,
-      title: 'Batismo',
-      subtitle: 'Batismo nas águas',
-      icon: Icons.water_drop_outlined,
-    ),
-    (
-      get: _getMarriageDate,
-      title: 'Casamento',
-      subtitle: 'Data de casamento',
-      icon: Icons.favorite_outline,
-    ),
-    (
-      get: _getMembershipDate,
-      title: 'Tornou-se membro',
-      subtitle: 'Entrada para o rol de membros',
-      icon: Icons.badge,
-    ),
-    (
-      get: _getCredentialDate,
-      title: 'Credencial',
-      subtitle: 'Emissão da credencial',
-      icon: Icons.card_membership_outlined,
-    ),
-  ];
-
-  static DateTime? _getBirthdate(Member m) => m.birthdate;
-  static DateTime? _getFirstVisitDate(Member m) => m.firstVisitDate;
-  static DateTime? _getSalvationDate(Member m) => m.salvationDate;
-  static DateTime? _getConversionDate(Member m) => m.conversionDate;
-  static DateTime? _getBaptismDate(Member m) => m.baptismDate;
-  static DateTime? _getMarriageDate(Member m) => m.marriageDate;
-  static DateTime? _getMembershipDate(Member m) => m.membershipDate;
-  static DateTime? _getCredentialDate(Member m) => m.credentialDate;
-
   List<_JourneyItem> _buildJourneyItems(
     List<Map<String, dynamic>> readings,
     Member member,
+    List<StudyGroup> studyGroups,
   ) {
     final items = readings.map((row) {
       final readAt =
@@ -2455,15 +2176,23 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       );
     }).toList();
 
-    for (final evento in _lifeEvents) {
-      final quando = evento.get(member);
-      if (quando == null) continue;
+    for (final evento in memberLifeEvents(member)) {
       items.add(
         _JourneyItem(
-          when: quando,
+          when: evento.when,
           title: evento.title,
           subtitle: evento.subtitle,
           icon: evento.icon,
+        ),
+      );
+    }
+    for (final g in studyGroups) {
+      items.add(
+        _JourneyItem(
+          when: g.startDate,
+          title: 'Participa do grupo de estudo',
+          subtitle: g.name,
+          icon: Icons.groups,
         ),
       );
     }
@@ -3016,10 +2745,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           'Data de Membresia',
           _formatShortDate(member.membershipDate!),
         ),
-      if (member.credentialDate != null)
-        _buildCredentialRow(context, member.credentialDate!)
-      else
-        _buildInfoRow(Icons.badge, 'Credencial', 'Não informada'),
     ];
 
     final privacyItems = <Widget>[

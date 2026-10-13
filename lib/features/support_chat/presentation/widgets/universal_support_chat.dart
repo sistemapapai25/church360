@@ -19,6 +19,7 @@ import '../../domain/models/support_agent.dart';
 import '../../domain/speech_text.dart';
 import '../providers/agents_providers.dart';
 import 'agent_avatar.dart';
+import 'audio_message_bubble.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 
 /// Componente para o Chat de Suporte Universal
@@ -88,8 +89,18 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   late final AudioPlayer _audioPlayer;
   PlayerState _audioPlayerState = PlayerState.stopped;
   String? _playingAudioId;
+  Duration _audioPosition = Duration.zero;
+  // Duração do arquivo tocando (áudio do atendente não traz a duração gravada).
+  Duration _audioDuration = Duration.zero;
+  // Ondas reais: volume do microfone a cada 100 ms enquanto grava; vira barras na bolha.
+  StreamSubscription<Amplitude>? _amplitudeSub;
+  final List<double> _recLevels = [];
+  DateTime? _recStartedAt;
+  final Map<String, Map<String, dynamic>> _audioMeta = {};
   final FlutterTts _tts = FlutterTts();
   Map<String, dynamic>? _speakingMsg;
+  // 0 a 1: quanto da fala atual já foi lida (avança a onda da bolha do agente).
+  double _speakProgress = 0;
   // Fala toda resposta até a pessoa desligar em Opções > Voz (pedido do usuário).
   bool _autoSpeak = true;
   static const _autoSpeakKey = 'support_auto_speak';
@@ -107,6 +118,8 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   String _supportStatus = 'bot';
   Timer? _humanPoll;
   static const _humanSeenKey = 'support_human_seen_at';
+  // Último status visto: sem ele, quem fecha o chat esperando o atendente não vê "voltou a atender" ao reabrir.
+  static const _supportStatusKey = 'support_status';
 
   static const int _maxLocalMessagesPerAgent = 50;
 
@@ -159,12 +172,22 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       setState(() {
         _playingAudioId = null;
         _audioPlayerState = PlayerState.stopped;
+        _audioPosition = Duration.zero;
       });
+    });
+    _audioPlayer.onDurationChanged.listen((d) {
+      if (mounted) setState(() => _audioDuration = d);
+    });
+    _audioPlayer.onPositionChanged.listen((pos) {
+      if (mounted) setState(() => _audioPosition = pos);
     });
     _tts.setLanguage('pt-BR');
     void clearSpeaking() {
       if (mounted && _speakingMsg != null) setState(() => _speakingMsg = null);
     }
+    _tts.setProgressHandler((text, start, end, word) {
+      if (mounted && _speakingMsg != null && text.isNotEmpty) setState(() => _speakProgress = end / text.length);
+    });
     _tts.setCompletionHandler(clearSpeaking);
     _tts.setCancelHandler(clearSpeaking);
     _tts.setErrorHandler((_) => clearSpeaking());
@@ -210,6 +233,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     _textController.removeListener(_handleTextChanged);
     _textController.dispose();
     _scrollController.dispose();
+    _amplitudeSub?.cancel();
     _audioPlayer.dispose();
     _audioRecorder.dispose();
     _tts.stop();
@@ -745,8 +769,12 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           'isError': false,
         });
       });
+      unawaited(_saveLocalHistorySafely());
       _scrollToBottom();
     }
+    unawaited(SharedPreferences.getInstance()
+        .then((p) => p.setString(_supportStatusKey, _supportStatus))
+        .catchError((_) => true));
     if (_supportStatus == 'bot') {
       _humanPoll?.cancel();
       _humanPoll = null;
@@ -774,31 +802,57 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
               .order('last_message_at', ascending: false)
               .limit(1)
               .maybeSingle();
-      if (session == null) return;
+      if (session == null) {
+        // Conversa apagada ou sem acesso: não fica preso no modo atendente.
+        _applySupportStatus(null, 'encerrada');
+        return;
+      }
       final id = session['id'].toString();
 
       final prefs = await SharedPreferences.getInstance();
       final seen = prefs.getString(_humanSeenKey);
       var query = client
           .from('support_message')
-          .select('content,created_at')
+          .select('content,created_at,author_id,audio_paths')
           .eq('session_id', id)
           .eq('role', 'humano');
       if (seen != null) query = query.gt('created_at', seen);
       final rows = await query.order('created_at');
       if (!mounted) return;
       if (rows.isNotEmpty) {
+        // Foto e primeiro nome de quem respondeu (o membro não lê o cadastro do atendente).
+        final authors = <String, Map<String, dynamic>>{};
+        try {
+          for (final a in await client.rpc('support_human_authors', params: {'p_session_id': id}) as List) {
+            authors[a['author_id'].toString()] = Map<String, dynamic>.from(a as Map);
+          }
+        } catch (_) {}
+        if (!mounted) return;
         setState(() {
           for (final r in rows) {
+            final author = authors[r['author_id']?.toString()];
+            // Áudio do atendente (Support360): arquivo no bucket support-audio, texto em "Transcrição".
+            final paths = (r['audio_paths'] as List?)?.map((p) => p.toString()).toList() ?? const <String>[];
+            final said = r['content'].toString();
             _messages.add({
+              if (paths.isNotEmpty) 'audioItems': [for (final p in paths) {'storagePath': p}],
+              if (paths.isNotEmpty) 'transcript': said.startsWith('Transcrição: ') ? said.substring(13) : said,
               'role': 'assistant',
-              'content': 'Atendente da igreja:\n${r['content']}',
+              if ((author?['first_name']?.toString() ?? '').isNotEmpty) 'humanName': author!['first_name'].toString(),
+              if (author?['photo_url'] != null) 'humanPhoto': author!['photo_url'].toString(),
+              'content': '$_humanPrefix${r['content']}',
               'time': DateTime.tryParse(r['created_at'].toString())?.toLocal() ?? DateTime.now(),
             });
           }
         });
         await prefs.setString(_humanSeenKey, rows.last['created_at'].toString());
-        if (_autoSpeak) unawaited(_toggleSpeak(_messages.last));
+        final last = _messages.last;
+        final lastAudio = (last['audioItems'] as List?)?.whereType<Map>().firstOrNull?['storagePath']?.toString();
+        if (_autoSpeak) {
+          unawaited(lastAudio != null
+              ? _togglePlayAudioItem(id: lastAudio, storagePath: lastAudio)
+              : _toggleSpeak(last));
+        }
         await _saveLocalHistorySafely();
         _scrollToBottom();
       }
@@ -812,6 +866,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       if (!mounted) return;
       setState(() {
         _threadId = prefs.getString(_threadStorageKey);
+        _supportStatus = prefs.getString(_supportStatusKey) ?? 'bot';
       });
     } catch (_) {}
   }
@@ -857,6 +912,11 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           'role': role,
           'content': text,
           'time': time,
+          if (item['audio'] is List)
+            'audioItems': (item['audio'] as List).whereType<Map>().map((a) => Map<String, dynamic>.from(a)).toList(),
+          if (item['transcript'] != null) 'transcript': item['transcript'].toString(),
+          if (item['humanName'] != null) 'humanName': item['humanName'].toString(),
+          if (item['humanPhoto'] != null) 'humanPhoto': item['humanPhoto'].toString(),
         });
       }
 
@@ -885,10 +945,20 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         final content = msg['content']?.toString() ?? '';
         final time = msg['time'] is DateTime ? msg['time'] as DateTime : DateTime.now();
 
+        // O arquivo fica no bucket support-audio: aqui só o caminho, a onda, a duração e a transcrição.
+        final audio = (msg['audioItems'] as List?)?.whereType<Map>().map((a) => {
+              'durationMs': a['durationMs'],
+              'levels': a['levels'],
+              if (a['storagePath'] != null) 'storagePath': a['storagePath'],
+            }).toList();
         serializable.add({
           'sender': role == 'user' ? 'user' : 'agent',
           'text': content,
           'timestamp': time.millisecondsSinceEpoch,
+          if (audio != null && audio.isNotEmpty) 'audio': audio,
+          if (msg['transcript'] != null) 'transcript': msg['transcript'],
+          if (msg['humanName'] != null) 'humanName': msg['humanName'],
+          if (msg['humanPhoto'] != null) 'humanPhoto': msg['humanPhoto'],
         });
       }
 
@@ -932,6 +1002,9 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
 
     if (_isRecording) {
       String? path;
+      await _amplitudeSub?.cancel();
+      _amplitudeSub = null;
+      final durationMs = _recStartedAt == null ? 0 : DateTime.now().difference(_recStartedAt!).inMilliseconds;
       try {
         path = await _audioRecorder.stop();
       } catch (_) {}
@@ -958,6 +1031,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           bytes: bytes,
           path: path,
         );
+        _audioMeta[name] = {'durationMs': durationMs, 'levels': waveformBars(_recLevels)};
         if (!mounted) return;
         setState(() {
           _attachments.add(file);
@@ -996,6 +1070,11 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           path: path,
         );
       }
+      _recLevels.clear();
+      _recStartedAt = DateTime.now();
+      _amplitudeSub = _audioRecorder
+          .onAmplitudeChanged(const Duration(milliseconds: 100))
+          .listen((a) => _recLevels.add(a.current), onError: (_) {});
       if (!mounted) return;
       setState(() {
         _isRecording = true;
@@ -1015,7 +1094,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   }
 
   String _audioItemId(Map<String, dynamic> item, int index) {
-    final path = item['path']?.toString().trim();
+    final path = (item['path'] ?? item['storagePath'])?.toString().trim();
     if (path != null && path.isNotEmpty) return path;
     final name = item['name']?.toString().trim().isNotEmpty == true ? item['name']!.toString() : 'audio';
     final bytes = _bytesFromDynamic(item['bytes']);
@@ -1025,8 +1104,10 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
 
   Future<void> _togglePlayAudioItem({
     required String id,
+    String? name,
     String? path,
     Uint8List? bytes,
+    String? storagePath,
   }) async {
     try {
       if (_playingAudioId == id && _audioPlayerState == PlayerState.playing) {
@@ -1040,8 +1121,18 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       }
 
       await _audioPlayer.stop();
-      if (bytes != null) {
+      _audioDuration = Duration.zero;
+      if (bytes != null && kIsWeb) {
+        // audioplayers_web 4.x não implementa BytesSource (UnimplementedError): vira data URI.
+        const mimes = {'wav': 'audio/wav', 'm4a': 'audio/mp4', 'mp3': 'audio/mpeg', 'ogg': 'audio/ogg', 'aac': 'audio/aac'};
+        final mime = mimes[(name ?? '').toLowerCase().split('.').last] ?? 'audio/wav';
+        await _audioPlayer.play(UrlSource(Uri.dataFromBytes(bytes, mimeType: mime).toString()));
+      } else if (bytes != null) {
         await _audioPlayer.play(BytesSource(bytes));
+      } else if ((path ?? '').trim().isEmpty && storagePath != null) {
+        // Histórico reaberto: o arquivo está no bucket privado support-audio.
+        final url = await Supabase.instance.client.storage.from('support-audio').createSignedUrl(storagePath, 600);
+        await _audioPlayer.play(UrlSource(url));
       } else {
         final p = path?.trim() ?? '';
         if (p.isEmpty) return;
@@ -1079,10 +1170,19 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
 
   Future<void> _toggleSpeak(Map<String, dynamic> msg) async {
     final wasThis = identical(_speakingMsg, msg);
+    final wasSpeaking = _speakingMsg != null;
     await _tts.stop();
-    final text = textForSpeech(msg['content']?.toString() ?? '');
+    // No navegador o flutter_tts só volta a "parado" quando chega o evento do
+    // cancel; um speak() antes disso é descartado calado (o Moisés ficava mudo
+    // quando a resposta chegava com a anterior ainda sendo lida).
+    if (wasSpeaking) await Future<void>.delayed(const Duration(milliseconds: 300));
+    final raw = msg['content']?.toString() ?? '';
+    final text = textForSpeech(raw.startsWith(_humanPrefix) ? raw.substring(_humanPrefix.length) : raw);
     if (!mounted) return;
-    setState(() => _speakingMsg = (wasThis || text.isEmpty) ? null : msg);
+    setState(() {
+      _speakingMsg = (wasThis || text.isEmpty) ? null : msg;
+      _speakProgress = 0;
+    });
     if (_speakingMsg != null) await _tts.speak(text);
   }
 
@@ -1306,6 +1406,13 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
 
     request.fields['message'] = message;
     request.fields['agentKey'] = _activeAgentKey;
+    // A versão é da conversa, não da igreja (Support360/DESIGN.md D6): a
+    // support-chat grava os dois em support_session. APP_VERSION vem do
+    // --dart-define do deploy (data + commit); build local manda 'dev'.
+    request.fields['appVersion'] =
+        const String.fromEnvironment('APP_VERSION', defaultValue: 'dev');
+    request.fields['platform'] =
+        kIsWeb ? 'web' : defaultTargetPlatform.name.toLowerCase();
     if (_threadId != null) {
       request.fields['threadId'] = _threadId!;
     }
@@ -1463,6 +1570,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   }
 
   Future<void> _handleSend() async {
+    await _stopSpeaking();
     if (mounted && _showQuickActions) {
       setState(() {
         _showQuickActions = false;
@@ -1530,6 +1638,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         'name': f.name,
         if (f.path != null) 'path': f.path,
         if (f.bytes != null) 'bytes': f.bytes,
+        ...?_audioMeta.remove(f.name),
       });
     }
     if (audioItems.isNotEmpty) {
@@ -1566,6 +1675,17 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       );
       final replyRaw = (data['reply'] ?? '').toString();
       final newThreadId = data['threadId']?.toString();
+      final transcripts = (data['transcripts'] as List?)?.map((t) => t.toString().trim()).where((t) => t.isNotEmpty).toList();
+      final audioPaths = (data['audioPaths'] as List?)?.map((p) => p.toString()).toList() ?? const <String>[];
+      final sentAudio = (userMsg['audioItems'] as List?)?.whereType<Map>().toList() ?? const <Map>[];
+      for (var i = 0; i < audioPaths.length && i < sentAudio.length; i++) {
+        sentAudio[i]['storagePath'] = audioPaths[i];
+      }
+      final hasTranscript = transcripts != null && transcripts.isNotEmpty;
+      if ((hasTranscript || audioPaths.isNotEmpty) && mounted) {
+        if (hasTranscript) setState(() => userMsg['transcript'] = transcripts.join('\n\n'));
+        await _saveLocalHistorySafely();
+      }
 
       if (newThreadId != null && newThreadId.isNotEmpty && newThreadId != _threadId) {
         await _saveThread(newThreadId);
@@ -1856,9 +1976,13 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         ListView.builder(
           controller: _scrollController,
           padding: const EdgeInsets.all(16),
-          itemCount: _messages.length,
+          itemCount: _messages.length + (_agentRecording ? 1 : 0),
           reverse: true,
           itemBuilder: (context, index) {
+            if (_agentRecording) {
+              if (index == 0) return _buildAgentRecording();
+              index--;
+            }
             final msg = _messages[_messages.length - 1 - index];
             final isUser = msg['role'] == 'user';
             final isSystem = msg['role'] == 'system';
@@ -1926,12 +2050,19 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
             .toList()
         : const <Map<String, dynamic>>[];
     final bubbleAgent = (!isUser && msg['agent'] is ResolvedAgent) ? msg['agent'] as ResolvedAgent : _agent;
+    final human = !isUser && (msg['content']?.toString().startsWith(_humanPrefix) ?? false);
     final transferCandidates = (!isUser && msg['transferCandidates'] is List)
         ? (msg['transferCandidates'] as List).cast<Map<String, dynamic>>()
         : const <Map<String, dynamic>>[];
     final contactProposal = (!isUser && msg['contactUpdateProposal'] is Map)
         ? Map<String, dynamic>.from(msg['contactUpdateProposal'] as Map)
         : null;
+    // A resposta do agente é a "fala" dele: bolha de áudio (lida pela voz do aparelho)
+    // com o texto atrás de "Transcrição" (pedido do usuário, 10/10).
+    // Texto do atendente chega como texto (pedido do usuário); só o áudio dele vira bolha.
+    final agentVoice = !isUser && !human && audioItems.isEmpty && (msg['content']?.toString().trim().isNotEmpty ?? false);
+    // Só áudio: a bolha do áudio já é o card, sem balão em volta nem o texto "[Áudio]".
+    final audioOnly = agentVoice || (audioItems.isNotEmpty && (human || msg['content'] == '[Áudio]'));
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -1940,7 +2071,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!isUser) ...[
-            _buildAgentAvatar(bubbleAgent),
+            human ? _humanAvatar(msg, 36) : _buildAgentAvatar(bubbleAgent),
             const SizedBox(width: 8),
           ],
           Flexible(
@@ -1951,13 +2082,13 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                   Padding(
                     padding: const EdgeInsets.only(left: 4, bottom: 2),
                     child: Text(
-                      bubbleAgent.name,
+                      human ? (msg['humanName']?.toString() ?? 'Atendente da igreja') : bubbleAgent.name,
                       style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54),
                     ),
                   ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
+                  padding: audioOnly ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: audioOnly ? null : BoxDecoration(
                     color: isUser ? _accentColor : Colors.white,
                     borderRadius: BorderRadius.circular(12).copyWith(
                       topLeft: isUser ? const Radius.circular(12) : Radius.zero,
@@ -1975,50 +2106,13 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (audioItems.isNotEmpty)
+                      if (agentVoice) _buildAgentVoiceBubble(msg, bubbleAgent),
+                      for (final entry in audioItems.asMap().entries)
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: audioItems.asMap().entries.map((entry) {
-                              final idx = entry.key;
-                              final item = entry.value;
-                              final id = _audioItemId(item, idx);
-                              final path = item['path']?.toString();
-                              final bytes = _bytesFromDynamic(item['bytes']);
-                              final isPlaying = _playingAudioId == id && _audioPlayerState == PlayerState.playing;
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 6),
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: isUser ? _accentColor.withValues(alpha: 0.15) : const Color(0xFFF3F4F6),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: Icon(isPlaying ? Icons.stop : Icons.play_arrow),
-                                      onPressed: _isLoading
-                                          ? null
-                                          : () => _togglePlayAudioItem(id: id, path: path, bytes: bytes),
-                                      visualDensity: VisualDensity.compact,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Mensagem de áudio',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isUser ? _accentColor : const Color(0xFF111827),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
+                          padding: EdgeInsets.only(bottom: audioOnly && entry.key == audioItems.length - 1 ? 0 : 8),
+                          child: _buildAudioBubble(msg, entry.value, entry.key, isUser, human: human),
                         ),
-                      if (attachments != null && attachments.isNotEmpty)
+                      if (!audioOnly && attachments != null && attachments.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4),
                           child: Column(
@@ -2033,13 +2127,15 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                             )).toList(),
                           ),
                         ),
-                      Text(
-                        msg['content'] as String,
-                        style: TextStyle(
-                          color: isUser ? Colors.white : const Color(0xFF1F2937),
-                          fontSize: 14,
+                      if (!audioOnly)
+                        Text(
+                          // O nome do atendente já vai em cima da bolha.
+                          human ? (msg['content'] as String).substring(_humanPrefix.length) : msg['content'] as String,
+                          style: TextStyle(
+                            color: isUser ? Colors.white : const Color(0xFF1F2937),
+                            fontSize: 14,
+                          ),
                         ),
-                      ),
                       if (!isUser && transferCandidates.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         Wrap(
@@ -2167,7 +2263,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                       _formatTime(msg['time'] as DateTime),
                       style: const TextStyle(fontSize: 10, color: Colors.grey),
                     ),
-                    if (!isUser)
+                    if (!isUser && !agentVoice)
                       IconButton(
                         onPressed: () => _toggleSpeak(msg),
                         icon: Icon(
@@ -2188,6 +2284,107 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       ),
     );
   }
+
+  /// Enquanto a resposta não chega: "Moisés está gravando áudio…", como no WhatsApp.
+  bool get _agentRecording => _isLoading && _supportStatus == 'bot' && _messages.isNotEmpty && _messages.last['role'] == 'user';
+
+  Widget _buildAgentRecording() => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          children: [
+            _buildAgentAvatar(_agent),
+            const SizedBox(width: 8),
+            Icon(Icons.mic, size: 16, color: _accentColor),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                '${_agent.name} está gravando áudio…',
+                style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: _accentColor),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  /// Fala do atendente: o histórico guarda com este começo (vale também para conversas antigas).
+  static const _humanPrefix = 'Atendente da igreja:\n';
+
+  Widget _humanAvatar(Map<String, dynamic> msg, double size) {
+    final name = msg['humanName']?.toString() ?? 'Atendente';
+    final photo = msg['humanPhoto']?.toString();
+    final initial = Container(
+      color: _accentColor,
+      alignment: Alignment.center,
+      child: Text(name.characters.first.toUpperCase(),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: size * 0.4)),
+    );
+    return SizedBox(
+      width: size,
+      height: size,
+      child: ClipOval(
+        child: photo == null ? initial : Image.network(photo, fit: BoxFit.cover, errorBuilder: (_, __, ___) => initial),
+      ),
+    );
+  }
+
+  Widget _buildAgentVoiceBubble(Map<String, dynamic> msg, ResolvedAgent agent) {
+    final text = msg['content'].toString();
+    final isPlaying = identical(_speakingMsg, msg);
+    return AudioMessageBubble(
+      isUser: false,
+      accent: _accentColor,
+      bars: speechBars(text),
+      durationMs: speechDurationMs(text),
+      progress: isPlaying ? _speakProgress : 0,
+      isPlaying: isPlaying,
+      avatar: AgentAvatar(agent: agent, size: 32),
+      onToggle: () => _toggleSpeak(msg),
+      transcript: text,
+      showTranscript: msg['showTranscript'] == true,
+      onToggleTranscript: () => setState(() => msg['showTranscript'] = msg['showTranscript'] != true),
+    );
+  }
+
+  Widget _buildAudioBubble(Map<String, dynamic> msg, Map<String, dynamic> item, int index, bool isUser, {bool human = false}) {
+    final id = _audioItemId(item, index);
+    final path = item['path']?.toString();
+    final bytes = _bytesFromDynamic(item['bytes']);
+    final storagePath = item['storagePath']?.toString();
+    final canPlay = bytes != null || (path != null && path.isNotEmpty) || storagePath != null;
+    final isPlaying = _playingAudioId == id && _audioPlayerState == PlayerState.playing;
+    var durationMs = (item['durationMs'] as num?)?.toInt() ?? 0;
+    if (durationMs == 0 && isPlaying && _audioDuration > Duration.zero) {
+      durationMs = item['durationMs'] = _audioDuration.inMilliseconds;
+    }
+    final levels = (item['levels'] as List?)?.map((v) => (v as num).toDouble()).toList();
+    final transcript = msg['transcript']?.toString();
+    final photo = isUser ? ref.watch(currentMemberProvider).valueOrNull : null;
+    final photoUrl = photo?.photoUrl ?? photo?.avatarUrl;
+    final initial = photo?.initials ?? 'V';
+    return AudioMessageBubble(
+      isUser: isUser,
+      accent: _accentColor,
+      bars: levels ?? (transcript != null ? speechBars(transcript) : waveformBars(const [])),
+      durationMs: durationMs,
+      progress: isPlaying && durationMs > 0 ? _audioPosition.inMilliseconds / durationMs : 0,
+      isPlaying: isPlaying,
+      avatar: isUser
+          ? (photoUrl != null && photoUrl.isNotEmpty
+              ? Image.network(photoUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _initialAvatar(initial))
+              : _initialAvatar(initial))
+          : (human ? _humanAvatar(msg, 32) : AgentAvatar(agent: _agent, size: 32)),
+      onToggle: !canPlay || _isLoading ? null : () => _togglePlayAudioItem(id: id, name: item['name']?.toString(), path: path, bytes: bytes, storagePath: storagePath),
+      transcript: msg['transcript']?.toString(),
+      showTranscript: msg['showTranscript'] == true,
+      onToggleTranscript: () => setState(() => msg['showTranscript'] = msg['showTranscript'] != true),
+    );
+  }
+
+  Widget _initialAvatar(String initial) => Container(
+        color: Colors.white24,
+        alignment: Alignment.center,
+        child: Text(initial, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+      );
 
   Widget _buildAgentAvatar(ResolvedAgent agent) {
     return Container(

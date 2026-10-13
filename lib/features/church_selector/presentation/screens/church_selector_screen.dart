@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/widgets/app_restart_scope.dart';
 import '../../../branches/domain/models/tenant_unit.dart';
@@ -76,7 +77,12 @@ class _ChurchSelectorScreenState extends ConsumerState<ChurchSelectorScreen> {
       if (!mounted) return;
       setState(() => _switchingTenantId = null);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Não foi possível trocar de igreja: $e')),
+        SnackBar(
+          content: Text(
+            'Não foi possível trocar de igreja. '
+            '${AppErrorHandler.userMessage(e, feature: 'church_selector')}',
+          ),
+        ),
       );
     }
   }
@@ -179,7 +185,10 @@ class _ChurchSelectorScreenState extends ConsumerState<ChurchSelectorScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          error.toString(),
+                          AppErrorHandler.userMessage(
+                            error,
+                            feature: 'church_selector',
+                          ),
                           style: CommunityDesign.metaStyle(context),
                           textAlign: TextAlign.center,
                         ),

@@ -34,7 +34,9 @@ import '../../features/courses/presentation/providers/courses_provider.dart';
 import '../../features/church_info/domain/models/church_info.dart';
 import '../../features/church_info/presentation/providers/church_info_provider.dart';
 import '../../features/home_content/presentation/providers/banners_provider.dart';
+import '../../features/members/domain/models/member.dart';
 import '../../features/members/presentation/providers/members_provider.dart';
+import '../../features/members/presentation/widgets/member_life_events.dart';
 import '../../features/quick_news/domain/models/quick_news.dart';
 import '../../features/quick_news/presentation/providers/quick_news_provider.dart';
 import '../../features/study_groups/domain/models/study_group.dart';
@@ -55,6 +57,7 @@ import '../../features/ministries/domain/models/ministry.dart';
 import '../../features/ministries/presentation/providers/ministries_provider.dart';
 import '../widgets/spotlight_tour.dart';
 import '../onboarding/onboarding_tour_prefs.dart';
+import '../../features/legal/terms_acceptance.dart';
 
 /// Tela principal do app com navegação por abas fixas
 class HomeScreen extends ConsumerStatefulWidget {
@@ -99,7 +102,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _tourJaConsultado = true;
     final jaViu = await OnboardingTourPrefs.jaConcluiu();
     if (!mounted) return;
-    if (jaViu) return _oferecerPush();
+    if (jaViu) {
+      // Fora do tour, como o push: o aceite vem antes do convite de push
+      // para os dois não se sobreporem.
+      await askTermsAcceptanceIfPending(context, ref);
+      if (!mounted) return;
+      return _oferecerPush();
+    }
     setState(() => _tourVisivel = true);
   }
 
@@ -168,7 +177,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     if (!mounted) return;
     setState(() => _tourVisivel = false);
-    if (!concluiu) return;
+    // Na primeira sessão o aviso do Termo esperava o tour e nunca vinha.
+    await askTermsAcceptanceIfPending(context, ref);
+    if (!mounted || !concluiu) return;
 
     // Segunda etapa: os três alvos que só existem dentro de "Meu Perfil"
     // (editar dados, trocar senha, minha jornada). O tour da Home não navega
@@ -2411,19 +2422,7 @@ class _ChurchIdentityHeader extends StatelessWidget {
                         ),
                       ),
                       child: ClipOval(
-                        child: logoUrl != null && logoUrl.isNotEmpty
-                            ? Image.network(
-                                logoUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const AppLogo(
-                                  variant: AppLogoVariant.selo,
-                                  fit: BoxFit.cover,
-                                ),
-                              )
-                            : const AppLogo(
-                                variant: AppLogoVariant.selo,
-                                fit: BoxFit.cover,
-                              ),
+                        child: ChurchLogo(url: logoUrl, name: name),
                       ),
                     ),
                   ),
@@ -2514,10 +2513,7 @@ class _ChurchIdentityHeader extends StatelessWidget {
               shape: BoxShape.circle,
               color: cs.surfaceContainerHighest,
             ),
-            child: const AppLogo(
-              variant: AppLogoVariant.selo,
-              fit: BoxFit.cover,
-            ),
+            child: const ChurchLogo(url: null, name: 'Igreja'),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -3167,9 +3163,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
         readingsAsync.isLoading ||
         groupsAsync.isLoading;
     final Object? anyError =
-        memberAsync.error ??
-        readingsAsync.error ??
-        groupsAsync.error;
+        memberAsync.error ?? readingsAsync.error ?? groupsAsync.error;
 
     final memberId = memberAsync.value?.id;
     final readings = readingsAsync.value ?? const <Map<String, dynamic>>[];
@@ -3177,6 +3171,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
 
     final events = anyError == null && !isLoading
         ? _JourneyEvent.merge(
+            member: memberAsync.value,
             memberId: memberId,
             readings: readings,
             studyGroups: groups,
@@ -3333,7 +3328,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Text(
-                      'Quando você ler devocionais, iniciar cursos ou entrar em grupos, isso aparece aqui.',
+                      'Quando você ler devocionais, entrar em grupos ou tiver datas no seu cadastro (batismo, membresia...), isso aparece aqui.',
                       style: CommunityDesign.metaStyle(context),
                     ),
                   )
@@ -3413,7 +3408,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
   }
 }
 
-enum _JourneyEventKind { devotional, studyGroup }
+enum _JourneyEventKind { devotional, studyGroup, lifeEvent }
 
 class _JourneyEvent {
   final DateTime when;
@@ -3435,6 +3430,7 @@ class _JourneyEvent {
   });
 
   static List<_JourneyEvent> merge({
+    required Member? member,
     required String? memberId,
     required List<Map<String, dynamic>> readings,
     required List<StudyGroup> studyGroups,
@@ -3444,6 +3440,17 @@ class _JourneyEvent {
       ...studyGroups.map(
         (g) => _JourneyEvent._fromStudyGroup(g, memberId: memberId),
       ),
+      if (member != null)
+        for (final e in memberLifeEvents(member))
+          _JourneyEvent(
+            when: e.when,
+            kind: _JourneyEventKind.lifeEvent,
+            title: e.title,
+            subtitle: e.subtitle,
+            route: null,
+            icon: e.icon,
+            isPinned: false,
+          ),
     ];
 
     items.sort((a, b) => b.when.compareTo(a.when));
@@ -3984,111 +3991,6 @@ class _DevotionalCoverFallback extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.85),
         size: 28,
       ),
-    );
-  }
-}
-
-// =====================================================
-// WIDGET: Card "Fique por dentro"
-// =====================================================
-
-class _StayInformedCard extends ConsumerStatefulWidget {
-  final void Function(int) onNavigateToTab;
-
-  const _StayInformedCard({required this.onNavigateToTab});
-
-  @override
-  ConsumerState<_StayInformedCard> createState() => _StayInformedCardState();
-}
-
-class _StayInformedCardState extends ConsumerState<_StayInformedCard> {
-  bool _isExpanded = true;
-
-  @override
-  Widget build(BuildContext context) {
-    final eventsAsync = ref.watch(upcomingEventsProvider);
-
-    return eventsAsync.when(
-      data: (events) {
-        if (events.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        // Pegar apenas os primeiros 4 eventos
-        final displayEvents = events.take(4).toList();
-
-        final items = displayEvents.map((event) {
-          return HomeContentCard(
-            thumbnail: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (event.imageUrl != null)
-                  ChurchImage(
-                    imageUrl: event.imageUrl!,
-                    type: ChurchImageType.hero,
-                  )
-                else
-                  Container(
-                    color: Theme.of(context).colorScheme.tertiaryContainer,
-                    child: Icon(
-                      Icons.event,
-                      color: Theme.of(context).colorScheme.tertiary,
-                      size: 32,
-                    ),
-                  ),
-                // Badge de data
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${event.startDate.day}/${event.startDate.month}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            title: event.name,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => EventDetailScreen(eventId: event.id),
-                ),
-              );
-            },
-          );
-        }).toList();
-
-        return HomeSectionWidget(
-          title: 'Fique por dentro',
-          isExpanded: _isExpanded,
-          onToggle: () {
-            setState(() {
-              _isExpanded = !_isExpanded;
-            });
-          },
-          items: items,
-          onSeeAll: () {
-            widget.onNavigateToTab(1);
-          },
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }

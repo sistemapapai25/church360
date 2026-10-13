@@ -56,3 +56,49 @@ class AppLogo extends StatelessWidget {
     );
   }
 }
+
+/// Logo da igreja do tenant (church_info.logo_url). Sem logo, ou se a imagem
+/// falhar, mostra as iniciais do nome (ou um ícone, sem nome). Não cai na gota
+/// do [AppLogo]: ela é a marca da Águas Purificadoras e apareceria para
+/// qualquer outra igreja sem logo cadastrada. Recortar com ClipOval/ClipRRect.
+class ChurchLogo extends StatelessWidget {
+  final String? url;
+  final String name;
+  final BoxFit fit;
+
+  const ChurchLogo({
+    super.key,
+    required this.url,
+    required this.name,
+    this.fit = BoxFit.cover,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final words = name.trim().split(RegExp(r'\s+')).where((w) => w.length > 2);
+    final initials = (words.isEmpty ? [name.trim()] : words)
+        .where((w) => w.isNotEmpty)
+        .take(2)
+        .map((w) => w[0].toUpperCase())
+        .join();
+    final fallback = Container(
+      color: cs.primaryContainer,
+      padding: const EdgeInsets.all(8),
+      child: FittedBox(
+        child: initials.isEmpty
+            ? Icon(Icons.church_outlined, color: cs.onPrimaryContainer)
+            : Text(
+                initials,
+                style: TextStyle(
+                  color: cs.onPrimaryContainer,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+      ),
+    );
+    final u = url?.trim() ?? '';
+    if (u.isEmpty) return fallback;
+    return Image.network(u, fit: fit, errorBuilder: (_, __, ___) => fallback);
+  }
+}

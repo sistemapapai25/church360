@@ -39,3 +39,8 @@ final mostUsedTagsProvider = FutureProvider<List<Tag>>((ref) async {
   return repository.getMostUsedTags(limit: 5);
 });
 
+
+/// Tags de todos os ministérios do tenant, por `ministry.id`.
+final tagsByMinistryProvider = FutureProvider<Map<String, List<Tag>>>((ref) {
+  return ref.watch(tagsRepositoryProvider).getTagsByMinistry();
+});

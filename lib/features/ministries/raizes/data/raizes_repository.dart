@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/supabase_constants.dart';
 import '../domain/models/raizes_dashboard_stats.dart';
+import '../domain/models/raizes_followup.dart';
 import '../domain/models/raizes_sponsor_profile.dart';
 import '../domain/models/raizes_visit.dart';
 import '../domain/models/visitor_recommendation.dart';
@@ -30,7 +31,9 @@ class RaizesRepository {
 
   /// Carrega os KPIs do dashboard em paralelo. Inclui contagens de visitas
   /// (`raizes_visit_schedule`) introduzidas no Lote 4B.
-  Future<RaizesDashboardStats> getDashboardStats() async {
+  /// Visitantes são da igreja inteira (não pertencem a um ministério); as
+  /// visitas, não: cada uma é de um ministério Raízes.
+  Future<RaizesDashboardStats> getDashboardStats(String ministryId) async {
     final tenantId = SupabaseConstants.currentTenantId;
     final today = _isoDateToday();
     final thirtyDaysAgo = _isoDate(DateTime.now().subtract(const Duration(days: 30)));
@@ -41,8 +44,10 @@ class RaizesRepository {
       _countWithoutMentor(tenantId),
       _countNewSalvations(tenantId, thirtyDaysAgo),
       _countNewVisitors(tenantId, thirtyDaysAgo),
-      _countVisitsOn(tenantId, today),
-      _countVisitsOverdue(tenantId, today),
+      _countVisitsOn(tenantId, ministryId, today),
+      _countVisitsOverdue(tenantId, ministryId, today),
+      _countWantingVisit(tenantId),
+      _countWithoutContact24h(tenantId),
     ]);
 
     return RaizesDashboardStats(
@@ -53,7 +58,35 @@ class RaizesRepository {
       newVisitorsLast30Days: results[4],
       visitsToday: results[5],
       visitsOverdue: results[6],
+      wantingVisit: results[7],
+      withoutContact24h: results[8],
     );
+  }
+
+  Future<int> _countWithoutContact24h(String tenantId) async {
+    final now = DateTime.now().toUtc();
+    final response = await _supabase
+        .from('user_account')
+        .select()
+        .eq('tenant_id', tenantId)
+        .inFilter('status', const ['visitor', 'new_convert'])
+        .not('wants_contact', 'is', false)
+        .isFilter('last_contact_date', null)
+        .lte('created_at', now.subtract(const Duration(hours: 24)).toIso8601String())
+        .gt('created_at', now.subtract(const Duration(days: 30)).toIso8601String())
+        .count(CountOption.exact);
+    return response.count;
+  }
+
+  Future<int> _countWantingVisit(String tenantId) async {
+    final response = await _supabase
+        .from('user_account')
+        .select()
+        .eq('tenant_id', tenantId)
+        .inFilter('status', const ['visitor', 'new_convert'])
+        .eq('wants_visit', true)
+        .count(CountOption.exact);
+    return response.count;
   }
 
   Future<int> _countTotalActive(String tenantId) async {
@@ -94,8 +127,7 @@ class RaizesRepository {
         .from('user_account')
         .select()
         .eq('tenant_id', tenantId)
-        .eq('is_salvation', true)
-        .gte('salvation_date', sinceIsoDate)
+        .or('conversion_date.gte.$sinceIsoDate,decision_date.gte.$sinceIsoDate')
         .count(CountOption.exact);
     return response.count;
   }
@@ -111,22 +143,32 @@ class RaizesRepository {
     return response.count;
   }
 
-  Future<int> _countVisitsOn(String tenantId, String todayIso) async {
+  Future<int> _countVisitsOn(
+    String tenantId,
+    String ministryId,
+    String todayIso,
+  ) async {
     final response = await _supabase
         .from('raizes_visit_schedule')
         .select()
         .eq('tenant_id', tenantId)
+        .eq('ministry_id', ministryId)
         .eq('scheduled_date', todayIso)
         .inFilter('status', const ['pending', 'confirmed'])
         .count(CountOption.exact);
     return response.count;
   }
 
-  Future<int> _countVisitsOverdue(String tenantId, String todayIso) async {
+  Future<int> _countVisitsOverdue(
+    String tenantId,
+    String ministryId,
+    String todayIso,
+  ) async {
     final response = await _supabase
         .from('raizes_visit_schedule')
         .select()
         .eq('tenant_id', tenantId)
+        .eq('ministry_id', ministryId)
         .lt('scheduled_date', todayIso)
         .inFilter('status', const ['pending', 'confirmed'])
         .count(CountOption.exact);
@@ -259,6 +301,20 @@ class RaizesRepository {
         .delete()
         .eq('id', visitId)
         .eq('tenant_id', SupabaseConstants.currentTenantId);
+  }
+
+  // =====================================================
+  // RELATÓRIO (R9)
+  // =====================================================
+
+  /// Funil, contato em 24h, visitas por responsável e decisões por mês dos
+  /// últimos [months] meses. Sem visitors.view/followup a RPC dá 42501.
+  Future<RaizesReport> getReport(String ministryId, {int months = 6}) async {
+    final response = await _supabase.rpc(
+      'raizes_report',
+      params: {'p_ministry_id': ministryId, 'p_months': months},
+    );
+    return RaizesReport.fromJson(Map<String, dynamic>.from(response as Map));
   }
 
   // =====================================================
@@ -640,6 +696,152 @@ class RaizesRepository {
   // =====================================================
 
   String _isoDateToday() => _isoDate(DateTime.now());
+
+  // =====================================================
+  // ACOMPANHAMENTO (004900): etapa e contatos
+  // =====================================================
+
+  /// Contatos e mudanças de etapa da pessoa, o mais novo primeiro. A RLS só
+  /// devolve linhas para quem tem visitors.view ou visitors.followup.
+  Future<List<RaizesTimelineEntry>> getFollowupTimeline(String userId) async {
+    final results = await Future.wait([
+      _supabase
+          .from('user_followup')
+          .select(
+            'followup_date, followup_type, description, '
+            'by:user_account!visitor_followup_completed_by_fkey(first_name, last_name)',
+          )
+          .eq('user_id', userId),
+      _supabase
+          .from('raizes_stage_history')
+          .select(
+            'changed_at, from_stage, to_stage, note, '
+            'by:user_account!raizes_stage_history_changed_by_fkey(first_name, last_name)',
+          )
+          .eq('user_id', userId),
+    ]);
+    final entries = [
+      for (final r in results[0] as List)
+        RaizesTimelineEntry.fromContact(r as Map<String, dynamic>),
+      for (final r in results[1] as List)
+        RaizesTimelineEntry.fromStage(r as Map<String, dynamic>),
+    ]..sort((a, b) => b.when.compareTo(a.when));
+    return entries;
+  }
+
+  /// Muda a etapa (só quem tem visitors.followup). Devolve false se já era
+  /// essa etapa.
+  Future<bool> setStage(String userId, RaizesStage stage, {String? note}) async =>
+      await _supabase.rpc(
+            'raizes_set_stage',
+            params: {
+              'p_user_id': userId,
+              'p_stage': stage.value,
+              'p_note': (note ?? '').trim().isEmpty ? null : note!.trim(),
+            },
+          )
+          as bool;
+
+  /// Registra (ou apaga, com [decision] null) a decisão espiritual (005200).
+  Future<void> registerDecision(
+    String userId,
+    RaizesDecision? decision, {
+    DateTime? date,
+    String? eventId,
+  }) async {
+    await _supabase.rpc(
+      'raizes_register_decision',
+      params: {
+        'p_user_id': userId,
+        'p_type': decision?.value,
+        'p_date': date == null ? null : _isoDate(date),
+        'p_event_id': eventId,
+      },
+    );
+  }
+
+  /// Casas de Vida ativas (Grupos de Comunhão), pela RPC do Raízes.
+  Future<List<RaizesLifeHouse>> listLifeHouses() async {
+    final rows = await _supabase.rpc('raizes_list_life_houses');
+    return [
+      for (final r in rows as List)
+        RaizesLifeHouse.fromJson(Map<String, dynamic>.from(r as Map)),
+    ];
+  }
+
+  /// Encaminha para a Casa de Vida ([groupId] null desfaz). Avisa o líder.
+  Future<void> referLifeHouse(String userId, String? groupId) async {
+    await _supabase.rpc(
+      'raizes_refer_life_house',
+      params: {'p_user_id': userId, 'p_group_id': groupId},
+    );
+  }
+
+  /// Registra um contato feito (só quem tem visitors.followup).
+  Future<void> logContact(
+    String userId,
+    RaizesContactKind kind, {
+    String? notes,
+    DateTime? date,
+  }) async {
+    await _supabase.rpc(
+      'raizes_log_contact',
+      params: {
+        'p_user_id': userId,
+        'p_kind': kind.value,
+        'p_notes': (notes ?? '').trim().isEmpty ? null : notes!.trim(),
+        'p_date': date == null ? null : _isoDate(date),
+      },
+    );
+  }
+
+  // =====================================================
+  // CADASTRO PÚBLICO PELO QR CODE (005100) — funciona sem login
+  // =====================================================
+
+  Future<Map<String, dynamic>> getPublicInfo(String ministryId) async =>
+      Map<String, dynamic>.from(
+        await _supabase.rpc(
+              'raizes_public_info',
+              params: {'p_ministry_id': ministryId},
+            )
+            as Map,
+      );
+
+  /// Devolve 'created' ou 'returning' (telefone já cadastrado).
+  Future<String> registerPublic({
+    required String ministryId,
+    required String fullName,
+    required String phone,
+    String? neighborhood,
+    String? invitedBy,
+    String? maritalStatus,
+    String? prayerRequest,
+    bool? wantsVisit,
+    bool wantsContact = true,
+    bool? wantsLifeHouse,
+    List<String> profiles = const [],
+  }) async {
+    String? opt(String? v) => (v ?? '').trim().isEmpty ? null : v!.trim();
+    return await _supabase.rpc(
+          'raizes_register_public',
+          params: {
+            'p_ministry_id': ministryId,
+            'p_full_name': fullName.trim(),
+            'p_phone': phone.trim(),
+            'p_lgpd_consent': true,
+            'p_neighborhood': opt(neighborhood),
+            'p_invited_by': opt(invitedBy),
+            'p_marital_status': maritalStatus,
+            'p_prayer_request': opt(prayerRequest),
+            'p_wants_visit': wantsVisit,
+            'p_wants_contact': wantsContact,
+            'p_wants_life_house': wantsLifeHouse,
+            'p_profiles': profiles,
+          },
+        )
+        as String;
+  }
 
   String _isoDate(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-'

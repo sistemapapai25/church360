@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -45,12 +46,14 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
         );
         (context.canPop() ? context.pop() : context.go('/home'));
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'Não foi possível confirmar a senha atual ou salvar a nova senha.',
+              e is AuthException && e.code == 'no_password'
+                  ? e.message
+                  : 'Não foi possível confirmar a senha atual ou salvar a nova senha.',
             ),
             backgroundColor: Colors.red,
           ),

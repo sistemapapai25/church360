@@ -65,7 +65,7 @@ class _PrayerRequestsListScreenState
             },
             itemBuilder: (context) => [
               const PopupMenuItem(value: null, child: Text('Todos')),
-              ...PrayerStatus.values.map(
+              ...[PrayerStatus.pending, PrayerStatus.answered].map(
                 (status) => PopupMenuItem(
                   value: status,
                   child: Row(

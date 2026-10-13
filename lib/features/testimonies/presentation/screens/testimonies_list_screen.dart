@@ -127,11 +127,15 @@ class _TestimonyCard extends ConsumerWidget {
     final hasDeletePermission = ref
         .watch(currentUserHasPermissionProvider('testimonies.delete'))
         .maybeWhen(data: (v) => v, orElse: () => false);
+    // O autor edita e exclui o próprio testemunho (o banco deixa).
+    final isAuthor = testimony.authorId == ref.watch(currentUserIdProvider);
+    final canEdit = hasEditPermission || isAuthor;
+    final canDelete = hasDeletePermission || isAuthor;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: GlassCard(
-        onTap: hasEditPermission
+        onTap: canEdit
             ? () => context.push('/home/testimonies/${testimony.id}/edit')
             : null,
         padding: const EdgeInsets.all(16),
@@ -211,7 +215,7 @@ class _TestimonyCard extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 // Botão Editar
-                if (hasEditPermission) ...[
+                if (canEdit) ...[
                   TextButton.icon(
                     onPressed: () =>
                         context.push('/home/testimonies/${testimony.id}/edit'),
@@ -222,7 +226,7 @@ class _TestimonyCard extends ConsumerWidget {
                 ],
 
                 // Botão Deletar
-                if (hasDeletePermission)
+                if (canDelete)
                   TextButton.icon(
                     onPressed: () => _showDeleteDialog(context, ref),
                     icon: const Icon(AppIcons.delete, size: 18),
@@ -252,9 +256,12 @@ class _TestimonyCard extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () async {
-              final hasPermission = await ref.read(
-                currentUserHasPermissionProvider('testimonies.delete').future,
-              );
+              final hasPermission = testimony.authorId ==
+                      ref.read(currentUserIdProvider) ||
+                  await ref.read(
+                    currentUserHasPermissionProvider('testimonies.delete')
+                        .future,
+                  );
               if (!hasPermission) {
                 if (context.mounted) {
                   Navigator.pop(context);

@@ -4,6 +4,7 @@ import '../../../../core/constants/supabase_constants.dart';
 import '../domain/models/communion_delivery.dart';
 import '../domain/models/diaconato_dashboard_stats.dart';
 import '../domain/models/worship_attendance.dart';
+import '../../shared/domain/ministry_routine.dart' show cultoWallTime;
 
 /// Repository do checklist de presença do Diaconato.
 ///
@@ -21,9 +22,9 @@ class DiaconatoAttendanceRepository {
   // Cargas de leitura
   // =====================================================
 
-  /// Recupera (ou cria) a contagem oficial para `(worship_service, ministry)`.
+  /// Recupera (ou cria) a contagem oficial para `(culto da Agenda, ministry)`.
   ///
-  /// Como há `UNIQUE(worship_service_id, ministry_id)` na tabela, qualquer
+  /// Como há `UNIQUE(event_id, ministry_id)` na tabela, qualquer
   /// par sempre tem no máximo uma linha. Se ainda não existir, insere com
   /// totais zerados e `counted_by` resolvido a partir do usuário logado.
   Future<WorshipAttendanceCount> getOrCreateAttendanceCount({
@@ -34,7 +35,7 @@ class DiaconatoAttendanceRepository {
         .from('worship_attendance_count')
         .select()
         .eq('tenant_id', _tenantId)
-        .eq('worship_service_id', worshipServiceId)
+        .eq('event_id', worshipServiceId)
         .eq('ministry_id', ministryId)
         .maybeSingle();
 
@@ -42,19 +43,21 @@ class DiaconatoAttendanceRepository {
       return WorshipAttendanceCount.fromJson(existing);
     }
 
-    final ws = await _supabase
-        .from('worship_service')
-        .select('service_date')
+    // O culto é um evento da Agenda; a data é a hora de parede do início.
+    final ev = await _supabase
+        .from('event')
+        .select('start_date')
         .eq('id', worshipServiceId)
         .eq('tenant_id', _tenantId)
         .single();
-    final serviceDate = ws['service_date'] as String;
+    final (date, _) = cultoWallTime(ev['start_date'] as String?);
+    final serviceDate = (date ?? DateTime.now()).toIso8601String().split('T')[0];
 
     final countedByUserAccountId = await _resolveCurrentUserAccountId();
 
     final payload = <String, dynamic>{
       'tenant_id': _tenantId,
-      'worship_service_id': worshipServiceId,
+      'event_id': worshipServiceId,
       'ministry_id': ministryId,
       'service_date': serviceDate,
       if (countedByUserAccountId != null) 'counted_by': countedByUserAccountId,
@@ -100,6 +103,41 @@ class DiaconatoAttendanceRepository {
         .toList();
   }
 
+  /// Quem já marcou presença no culto pelo próprio celular (localização) ou
+  /// pelo check-in do módulo Cultos. O checklist chega com essas pessoas
+  /// marcadas; o diácono confere e marca quem faltar.
+  Future<Set<String>> getCheckedInUserIds(String eventId) async {
+    final response = await _supabase
+        .from('worship_attendance')
+        .select('user_id')
+        .eq('event_id', eventId);
+    return {
+      for (final r in response as List)
+        if ((r as Map)['user_id'] != null) r['user_id'] as String,
+    };
+  }
+
+  // =====================================================
+  // Pendências dos ausentes (aba Acompanhar)
+  // =====================================================
+
+  Future<List<AbsenteeFollowup>> getFollowups(String ministryId) async {
+    final response = await _supabase.rpc(
+      'absentee_followups',
+      params: {'p_ministry_id': ministryId},
+    );
+    return (response as List)
+        .map((j) => AbsenteeFollowup.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> completeFollowup(String personId, {String? notes}) async {
+    await _supabase.rpc(
+      'absentee_followup_done',
+      params: {'p_person_id': personId, 'p_notes': notes},
+    );
+  }
+
   // =====================================================
   // Save do checklist (MD.2)
   // =====================================================
@@ -111,7 +149,8 @@ class DiaconatoAttendanceRepository {
   /// - Para pessoas que **estavam** marcadas presentes na DB mas não estão
   ///   mais em `presentByUser`, remove a linha **se** o `absent_action` atual
   ///   é `none` (preserva triagens já feitas pela aba Ausentes do MD.3).
-  /// - Atualiza os totais e `total_unregistered_visitors` da contagem.
+  /// - Atualiza os totais, `total_unregistered_visitors` e `total_children`
+  ///   (crianças contadas à mão, dentro do total) da contagem.
   ///
   /// Não toca em linhas com `present = false` e `absent_action != 'none'`
   /// (essas só serão criadas/editadas na aba Ausentes).
@@ -119,6 +158,7 @@ class DiaconatoAttendanceRepository {
     required String attendanceCountId,
     required Map<String, DiaconatoPersonType> presentByUser,
     required int totalUnregisteredVisitors,
+    int totalChildren = 0,
     String? notes,
   }) async {
     final existing = await getPersonRows(attendanceCountId);
@@ -153,6 +193,11 @@ class DiaconatoAttendanceRepository {
                 'person_type': presentByUser[userId]!.value,
                 'present': true,
                 'absent_action': DiaconatoAbsentAction.none.value,
+                // Veio afinal: some a pendência (o CHECK do banco exige o
+                // ministério nulo fora de "encaminhar").
+                'forward_ministry_id': null,
+                'followup_done_at': null,
+                'followup_done_by': null,
               })
           .toList();
       await _supabase
@@ -172,6 +217,7 @@ class DiaconatoAttendanceRepository {
       'total_members_present': totalMembers,
       'total_registered_visitors_present': totalVisitors,
       'total_unregistered_visitors': totalUnregisteredVisitors,
+      'total_children': totalChildren,
       if (notes != null) 'notes': notes,
     };
 
@@ -238,6 +284,12 @@ class DiaconatoAttendanceRepository {
         'person_type': triage.personType.value,
         'present': false,
         'absent_action': triage.action.value,
+        'forward_ministry_id': triage.action == DiaconatoAbsentAction.forward
+            ? triage.forwardMinistryId
+            : null,
+        // Ação nova = pendência nova.
+        'followup_done_at': null,
+        'followup_done_by': null,
       });
     }
 
@@ -550,7 +602,7 @@ class DiaconatoAttendanceRepository {
     );
 
     final phase1 = await Future.wait([
-      _fetchLastCount(tenantId, ministryId),
+      _fetchLastCount(tenantId, ministryId, _isoDate(today)),
       _countEligible(tenantId),
       _fetchOpenBatchIds(tenantId, ministryId),
       _sumUnregisteredVisitorsSince(tenantId, ministryId, thirtyDaysAgoIso),
@@ -591,15 +643,21 @@ class DiaconatoAttendanceRepository {
     );
   }
 
+  /// Último culto **de fato contado**: abrir o checklist/ausentes/lote já cria
+  /// a contagem zerada (`getOrCreateAttendanceCount`), e dá para abrir culto
+  /// futuro — sem os dois filtros, o herói mostrava esses.
   Future<WorshipAttendanceCount?> _fetchLastCount(
     String tenantId,
     String ministryId,
+    String todayIso,
   ) async {
     final response = await _supabase
         .from('worship_attendance_count')
         .select()
         .eq('tenant_id', tenantId)
         .eq('ministry_id', ministryId)
+        .lte('service_date', todayIso)
+        .gt('total_people', 0)
         .order('service_date', ascending: false)
         .limit(1)
         .maybeSingle();

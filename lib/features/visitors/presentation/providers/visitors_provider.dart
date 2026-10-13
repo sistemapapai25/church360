@@ -15,14 +15,6 @@ final allVisitorsProvider = FutureProvider<List<Visitor>>((ref) async {
   return repo.getAllVisitors();
 });
 
-/// Provider de visitantes por status
-final visitorsByStatusProvider = FutureProvider.family<List<Visitor>, VisitorStatus>(
-  (ref, status) async {
-    final repo = ref.watch(visitorsRepositoryProvider);
-    return repo.getVisitorsByStatus(status);
-  },
-);
-
 /// Provider de visitante por ID
 final visitorByIdProvider = FutureProvider.family<Visitor?, String>(
   (ref, id) async {
@@ -30,24 +22,6 @@ final visitorByIdProvider = FutureProvider.family<Visitor?, String>(
     return repo.getVisitorById(id);
   },
 );
-
-/// Provider de visitantes recentes (últimos 30 dias)
-final recentVisitorsProvider = FutureProvider<List<Visitor>>((ref) async {
-  final repo = ref.watch(visitorsRepositoryProvider);
-  return repo.getRecentVisitors();
-});
-
-/// Provider de visitantes inativos
-final inactiveVisitorsProvider = FutureProvider<List<Visitor>>((ref) async {
-  final repo = ref.watch(visitorsRepositoryProvider);
-  return repo.getInactiveVisitors(days: 30);
-});
-
-/// Provider de contagem por status
-final visitorCountByStatusProvider = FutureProvider<Map<VisitorStatus, int>>((ref) async {
-  final repo = ref.watch(visitorsRepositoryProvider);
-  return repo.countVisitorsByStatus();
-});
 
 /// Provider de visitas de um visitante
 final visitorVisitsProvider = FutureProvider.family<List<VisitorVisit>, String>(

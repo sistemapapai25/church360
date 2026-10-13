@@ -1268,6 +1268,8 @@ class _ReaderState extends ConsumerState<_Reader>
     final canManage = ref
         .watch(praiseAccessProvider)
         .maybeWhen(data: (a) => a.canManage, orElse: () => false);
+    final canManageSong =
+        canManage && widget.reading == null && songAsync.valueOrNull != null;
 
     final scaffold = Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -1328,19 +1330,21 @@ class _ReaderState extends ConsumerState<_Reader>
                     icon: const Icon(AppIcons.history),
                     onPressed: _pickVersion,
                   ),
-                if (_shown != null)
+                // Música sem versão (gravação da versão falhou) ainda
+                // precisa do Editar/Arquivar para quem gerencia.
+                if (_shown != null || canManageSong)
                   PopupMenuButton<String>(
                     icon: const Icon(AppIcons.more),
                     onSelected: (v) {
-                      final shown = _shown!;
+                      final shown = _shown;
                       switch (v) {
                         case 'favorite':
                           setState(() => _favorite = !_favorite);
                           togglePraiseFavorite(widget.songId).ignore();
                         case 'copy':
-                          _copy(shown.version);
+                          _copy(shown!.version);
                         case 'export':
-                          _export(shown.title, shown.version);
+                          _export(shown!.title, shown.version);
                         case 'edit':
                           context.push(
                             '/ministries/${widget.ministryId}/louvores/musicas/${widget.songId}/editar',
@@ -1356,17 +1360,17 @@ class _ReaderState extends ConsumerState<_Reader>
                           _favorite ? 'Tirar das favoritas' : 'Favoritar',
                         ),
                       ),
-                      const PopupMenuItem(
-                        value: 'copy',
-                        child: Text('Copiar cifra'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'export',
-                        child: Text('Exportar ChordPro (.cho)'),
-                      ),
-                      if (canManage &&
-                          widget.reading == null &&
-                          songAsync.valueOrNull != null) ...[
+                      if (_shown != null) ...[
+                        const PopupMenuItem(
+                          value: 'copy',
+                          child: Text('Copiar cifra'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'export',
+                          child: Text('Exportar ChordPro (.cho)'),
+                        ),
+                      ],
+                      if (canManageSong) ...[
                         const PopupMenuItem(
                           value: 'edit',
                           child: Text('Editar (gera nova versão)'),

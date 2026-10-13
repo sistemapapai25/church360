@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/ministries_repository.dart';
 import '../../domain/models/ministry.dart';
+import '../../shared/domain/ministry_type_catalog.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 
@@ -45,6 +46,20 @@ final activeMinistriesCountProvider = FutureProvider<int>((ref) async {
 final ministryMembersProvider = FutureProvider.family<List<MinistryMember>, String>((ref, ministryId) async {
   final repo = ref.watch(ministriesRepositoryProvider);
   return repo.getMinistryMembers(ministryId);
+});
+
+/// IDs (`user_account.id`) dos membros do ministério que abrem uma tela com
+/// `MinistrySubmoduleGuard(requiredPermission: permission)`: visão global OU
+/// vínculo + a permissão. Filtra seletores de responsável, para o aviso não
+/// levar a pessoa a uma tela bloqueada (RPC `ministry_member_ids_with_permission`,
+/// migration 20261008001700).
+final ministryMemberIdsWithPermissionProvider = FutureProvider.autoDispose
+    .family<Set<String>, ({String ministryId, String permission})>((ref, args) async {
+  final rows = await Supabase.instance.client.rpc(
+    'ministry_member_ids_with_permission',
+    params: {'p_ministry_id': args.ministryId, 'p_code': args.permission},
+  );
+  return {for (final id in rows as List) id as String};
 });
 
 /// Provider de ministérios de um membro
@@ -124,6 +139,18 @@ final visibleMinistriesProvider = FutureProvider<List<Ministry>>((ref) async {
     return ref.watch(allMinistriesProvider.future);
   }
   return ref.watch(currentMemberMinistriesProvider.future);
+});
+
+/// Raízes ativo que o usuário atual pode abrir (visão global OU vínculo), ou
+/// nulo. É o destino do "Ir para Raízes" do Diaconato.
+final visibleRaizesMinistryIdProvider = FutureProvider<String?>((ref) async {
+  final ministries = await ref.watch(visibleMinistriesProvider.future);
+  for (final m in ministries) {
+    if (m.isActive && m.ministryTypeCode == MinistryTypeCodes.raizes) {
+      return m.id;
+    }
+  }
+  return null;
 });
 
 /// Indica se o usuário atual pode **entrar** em um ministério específico —

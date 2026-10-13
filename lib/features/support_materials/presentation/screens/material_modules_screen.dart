@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/support_materials_provider.dart';
@@ -252,6 +254,7 @@ class _ModuleFormDialogState extends ConsumerState<ModuleFormDialog> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
   String? _fileUrl;
+  String? _fileName;
   String? _videoUrl;
   String? _coverImageUrl;
   bool _isLoading = false;
@@ -263,6 +266,7 @@ class _ModuleFormDialogState extends ConsumerState<ModuleFormDialog> {
       _titleController.text = widget.module!.title;
       _contentController.text = widget.module!.content ?? '';
       _fileUrl = widget.module!.fileUrl;
+      _fileName = widget.module!.fileName;
       _videoUrl = widget.module!.videoUrl;
       _coverImageUrl = widget.module!.coverImageUrl;
     }
@@ -283,19 +287,26 @@ class _ModuleFormDialogState extends ConsumerState<ModuleFormDialog> {
     try {
       final repository = ref.read(supportMaterialsRepositoryProvider);
       
-      final data = {
+      final data = <String, dynamic>{
         'material_id': widget.materialId,
         'title': _titleController.text.trim(),
         'content': _contentController.text.trim().isEmpty
             ? null
             : _contentController.text.trim(),
         'file_url': _fileUrl,
+        'file_name': _fileUrl == null ? null : _fileName,
         'video_url': _videoUrl,
         'cover_image_url': _coverImageUrl,
       };
 
       if (widget.module == null) {
-        // Criar novo
+        // Criar novo no fim da lista (sem order_index todos nasciam com 0).
+        final current =
+            ref.read(modulesByMaterialProvider(widget.materialId)).valueOrNull ??
+            const <SupportMaterialModule>[];
+        data['order_index'] = current.isEmpty
+            ? 0
+            : current.map((m) => m.orderIndex).reduce(max) + 1;
         await repository.createModule(data);
       } else {
         // Atualizar existente
@@ -422,7 +433,10 @@ class _ModuleFormDialogState extends ConsumerState<ModuleFormDialog> {
                     // Upload de Arquivo
                     FileUploadWidget(
                       initialFileUrl: _fileUrl,
-                      onFileUrlChanged: (url, name) => setState(() => _fileUrl = url),
+                      onFileUrlChanged: (url, name) => setState(() {
+                        _fileUrl = url;
+                        _fileName = name;
+                      }),
                       storageBucket: 'support-material-files',
                       tenantScopedPath: true,
                       label: 'Arquivo do Módulo (Opcional)',

@@ -7,7 +7,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/utils/share_link_utils.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
-import '../../../permissions/providers/permissions_providers.dart';
+import '../widgets/group_permission_gate.dart';
 
 import '../../data/group_meetings_repository.dart';
 import '../providers/meetings_provider.dart';
@@ -51,9 +51,9 @@ class MeetingDetailScreen extends ConsumerWidget {
             onPressed: shareMeetingLink,
           ),
           // Botão de editar
-          PermissionGate(
-            permission: 'groups.edit',
-            showLoading: false,
+          GroupPermissionGate(
+            groupId: groupId,
+            permission: 'groups.manage_meetings',
             fallback: const SizedBox.shrink(),
             child: IconButton(
               icon: const Icon(Icons.edit),
@@ -360,9 +360,9 @@ class _AttendanceList extends ConsumerWidget {
                           ),
                     ),
                     const Spacer(),
-                    PermissionGate(
+                    GroupPermissionGate(
+                      groupId: groupId,
                       permission: 'groups.manage_meetings',
-                      showLoading: false,
                       child: TextButton.icon(
                         onPressed: () => _showAddAttendanceDialog(
                           context,
@@ -456,7 +456,7 @@ class _AttendanceCard extends ConsumerWidget {
     final canManageMeetings =
         !ViewOnlyScope.isActive(context) &&
         ref
-            .watch(currentUserHasPermissionProvider('groups.manage_meetings'))
+            .watch(groups_providers.canManageGroupProvider((groupId: groupId, permission: 'groups.manage_meetings')))
             .maybeWhen(data: (v) => v, orElse: () => false);
 
     return Card(
@@ -518,7 +518,7 @@ class _AttendanceCard extends ConsumerWidget {
 
   Future<void> _toggleAttendance(BuildContext context, WidgetRef ref) async {
     final hasPermission = await ref.read(
-      currentUserHasPermissionProvider('groups.manage_meetings').future,
+      groups_providers.canManageGroupProvider((groupId: groupId, permission: 'groups.manage_meetings')).future,
     );
     if (!hasPermission) {
       if (context.mounted) {
@@ -554,7 +554,7 @@ class _AttendanceCard extends ConsumerWidget {
 
   Future<void> _deleteAttendance(BuildContext context, WidgetRef ref) async {
     final hasPermission = await ref.read(
-      currentUserHasPermissionProvider('groups.manage_meetings').future,
+      groups_providers.canManageGroupProvider((groupId: groupId, permission: 'groups.manage_meetings')).future,
     );
     if (!hasPermission) {
       if (context.mounted) {
@@ -813,21 +813,20 @@ class _VisitorsList extends ConsumerWidget {
                       ),
                 ),
                 const Spacer(),
-                FilledButton.icon(
-                  onPressed: () async {
-                    // Navegar para tela de cadastro de visitante
-                    // Passando meetingId e groupId como query parameters
-                    final result = await context.push(
-                      '/groups/$groupId/meetings/$meetingId/visitors/new',
-                    );
-
-                    // Se retornou sucesso, atualizar lista
-                    if (result == true && context.mounted) {
-                      ref.invalidate(groups_providers.visitorsProvider(meetingId));
-                    }
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Adicionar'),
+                // Cadastra (visitors.create) e marca presença na reunião
+                // (group_attendance exige groups.manage_meetings no banco).
+                GroupPermissionGate(
+                  groupId: groupId,
+                  permission: 'groups.manage_meetings',
+                  child: PermissionGate(
+                    permission: 'visitors.create',
+                    showLoading: false,
+                    child: FilledButton.icon(
+                      onPressed: () => _addVisitor(context, ref),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Adicionar'),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -886,5 +885,38 @@ class _VisitorsList extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => Center(child: Text('Erro: $error')),
     );
+  }
+
+  /// Abre o cadastro de visitante; o form devolve o id criado e a
+  /// presença do visitante é gravada nesta reunião.
+  Future<void> _addVisitor(BuildContext context, WidgetRef ref) async {
+    final visitorId = await context.push<String>(
+      '/groups/$groupId/meetings/$meetingId/visitors/new',
+    );
+    if (visitorId == null || !context.mounted) return;
+
+    try {
+      final repository = ref.read(groupMeetingsRepositoryProvider);
+      await repository.recordAttendance({
+        'meeting_id': meetingId,
+        'user_id': visitorId,
+        'was_present': true,
+      });
+      await repository.updateMeetingAttendanceCount(meetingId);
+    } catch (e) {
+      if (context.mounted) {
+        AppErrorHandler.showSnackBar(
+          context,
+          e,
+          feature: 'meetings.add_visitor',
+          fallbackMessage:
+              'Visitante cadastrado, mas não foi possível ligá-lo à reunião.',
+        );
+      }
+    }
+    ref.invalidate(groups_providers.visitorsProvider(meetingId));
+    ref.invalidate(meetingAttendancesProvider(meetingId));
+    ref.invalidate(meetingByIdProvider(meetingId));
+    ref.invalidate(meetingsListProvider(groupId));
   }
 }

@@ -22,6 +22,10 @@ import '../../domain/models/member_directory_entry.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../kids/presentation/providers/kids_providers.dart';
 import '../../../access_levels/presentation/providers/access_level_provider.dart';
+import '../../../ministries/shared/domain/ministry_routine.dart';
+import '../../../ministries/shared/presentation/providers/ministry_routine_providers.dart';
+import '../../../visitors/presentation/providers/visitors_provider.dart'
+    show allVisitorsProvider;
 
 /// Tela de formulário de membro (criar/editar)
 class MemberFormScreen extends ConsumerStatefulWidget {
@@ -69,6 +73,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   final _stateController = TextEditingController();
   final _zipCodeController = TextEditingController();
   final _notesController = TextEditingController();
+  final _invitedByController = TextEditingController();
+  final _prayerRequestController = TextEditingController();
 
   // Valores selecionados
   DateTime? _birthdate;
@@ -82,6 +88,22 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   DateTime? _baptismDate;
   DateTime? _firstVisitDate;
   bool? _wantsContact;
+
+  // Ficha do Raízes (manual §6), só para visitante / novo convertido.
+  String? _firstVisitEventId;
+  bool? _wantsVisit;
+  bool? _wantsLifeHouse;
+  final Set<String> _visitorProfiles = {};
+  String? _decisionType;
+  Future<List<RoutineCulto>>? _cultos;
+  static const _visitorProfileLabels = {
+    'casais': 'Casais',
+    'jovens': 'Jovens',
+    'adolescentes': 'Adolescentes',
+    'infantil': 'Infantil',
+    'homens': 'Homens',
+    'mulheres': 'Mulheres',
+  };
 
   // Responsável (pai/mãe/tutor) — obrigatório ao cadastrar/editar um menor
   // pela tela administrativa de membros (fora do fluxo Kids de autocadastro).
@@ -450,6 +472,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           _stateController.text = member.state ?? '';
           _zipCodeController.text = member.zipCode ?? '';
           _notesController.text = member.notes ?? '';
+          _invitedByController.text = member.invitedBy ?? '';
+          _prayerRequestController.text = member.prayerRequest ?? '';
 
           _birthdate = member.birthdate;
           _gender = member.gender;
@@ -462,6 +486,13 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           _baptismDate = member.baptismDate;
           _firstVisitDate = member.firstVisitDate;
           _wantsContact = member.wantsContact;
+          _firstVisitEventId = member.firstVisitEventId;
+          _wantsVisit = member.wantsVisit;
+          _wantsLifeHouse = member.wantsLifeHouse;
+          _visitorProfiles
+            ..clear()
+            ..addAll(member.visitorProfiles);
+          _decisionType = member.decisionType;
         });
 
         final rawProfession = member.profession;
@@ -541,6 +572,8 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     _stateController.dispose();
     _zipCodeController.dispose();
     _notesController.dispose();
+    _invitedByController.dispose();
+    _prayerRequestController.dispose();
     super.dispose();
   }
 
@@ -629,6 +662,25 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     }
   }
 
+  /// O aviso de validação some em segundos e o campo com erro costuma ficar
+  /// fora da tela: a pessoa achava que tinha salvo. Espera as seções
+  /// terminarem de abrir (AnimatedCrossFade de 200ms) e rola até o 1º erro.
+  void _rolarAtePrimeiroErro() {
+    Future.delayed(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
+      final formContext = _formKey.currentContext;
+      if (formContext == null || !formContext.mounted) return;
+      final alvo = primeiroCampoComErro(formContext);
+      if (alvo == null) return;
+      Scrollable.ensureVisible(
+        alvo,
+        alignment: 0.2,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
   Future<void> _saveMember() async {
     if (!_formKey.currentState!.validate()) {
       // As seções começam recolhidas: sem abrir, o erro fica escondido e o
@@ -644,6 +696,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           backgroundColor: Colors.red,
         ),
       );
+      _rolarAtePrimeiroErro();
       return;
     }
 
@@ -758,6 +811,22 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         if (_wantsContact != null) {
           memberData['wants_contact'] = _wantsContact;
         }
+        if (_invitedByController.text.trim().isNotEmpty) {
+          memberData['invited_by'] = _invitedByController.text.trim();
+        }
+        if (_prayerRequestController.text.trim().isNotEmpty) {
+          memberData['prayer_request'] = _prayerRequestController.text.trim();
+        }
+        if (_firstVisitEventId != null) {
+          memberData['first_visit_event_id'] = _firstVisitEventId;
+        }
+        if (_wantsVisit != null) memberData['wants_visit'] = _wantsVisit;
+        if (_wantsLifeHouse != null) {
+          memberData['wants_life_house'] = _wantsLifeHouse;
+        }
+        if (_visitorProfiles.isNotEmpty) {
+          memberData['visitor_profiles'] = _visitorProfiles.toList();
+        }
         if (_addressController.text.trim().isNotEmpty) {
           memberData['address'] = _addressController.text.trim();
         }
@@ -870,6 +939,17 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           baptismDate: _baptismDate,
           firstVisitDate: _firstVisitDate,
           wantsContact: _wantsContact,
+          invitedBy: _invitedByController.text.trim().isEmpty
+              ? null
+              : _invitedByController.text.trim(),
+          prayerRequest: _prayerRequestController.text.trim().isEmpty
+              ? null
+              : _prayerRequestController.text.trim(),
+          firstVisitEventId: _firstVisitEventId,
+          wantsVisit: _wantsVisit,
+          wantsLifeHouse: _wantsLifeHouse,
+          visitorProfiles: _visitorProfiles.toList(),
+          decisionType: _decisionType,
           address: _addressController.text.trim().isEmpty
               ? null
               : _addressController.text.trim(),
@@ -974,20 +1054,22 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
         ref.invalidate(allMembersProvider);
         ref.invalidate(activeMembersProvider);
         ref.invalidate(visitorsProvider);
+        ref.invalidate(allVisitorsProvider);
         ref.invalidate(managedChildrenProvider);
+        // A ficha tem DUAS chaves: `user_account.id` e `auth_user_id`, e
+        // elas só coincidem por acaso. Comparar o uid do login apenas com
+        // `widget.memberId` fazia quem tem os dois valores diferentes
+        // (caso de quem já teve cadastro fundido) editar o próprio perfil
+        // sem que `currentMemberProvider` fosse relido — a pessoa salvava
+        // e continuava vendo o dado velho. Mesmo tropeço do OwnerOnlyRoute.
+        final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+        final editandoASiMesmo =
+            widget.memberId != null &&
+            currentUserId != null &&
+            (currentUserId == widget.memberId ||
+                currentUserId == _existingMember?.authUserId);
         if (widget.memberId != null) {
           ref.invalidate(memberByIdProvider(widget.memberId!));
-          // A ficha tem DUAS chaves: `user_account.id` e `auth_user_id`, e
-          // elas só coincidem por acaso. Comparar o uid do login apenas com
-          // `widget.memberId` fazia quem tem os dois valores diferentes
-          // (caso de quem já teve cadastro fundido) editar o próprio perfil
-          // sem que `currentMemberProvider` fosse relido — a pessoa salvava
-          // e continuava vendo o dado velho. Mesmo tropeço do OwnerOnlyRoute.
-          final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-          final editandoASiMesmo =
-              currentUserId != null &&
-              (currentUserId == widget.memberId ||
-                  currentUserId == _existingMember?.authUserId);
           if (editandoASiMesmo) {
             ref.invalidate(currentMemberProvider);
           }
@@ -1034,7 +1116,16 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           );
         }
 
-        (context.canPop() ? context.pop() : context.go('/home'));
+        // Sem pilha (o PWA recarregado reabre direto na edição), quem
+        // editou o próprio perfil volta para a ficha, não para a Home: ver
+        // os dados novos na tela de perfil é o que mostra que gravou.
+        // Na criação devolve o id: quem abriu o form (ex.: visitante da
+        // reunião do grupo) usa para ligar o cadastro novo.
+        if (context.canPop()) {
+          context.pop(widget.memberId == null ? savedMemberId : null);
+        } else {
+          context.go(editandoASiMesmo ? '/profile' : '/home');
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -1200,6 +1291,130 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  /// Campos do cadastro do Projeto Raízes (manual §6): quem convidou, culto
+  /// da visita, deseja visita, Casa de Vida, perfil e pedido de oração.
+  Widget _buildRaizesIntake(BuildContext context, bool canEditVisitInfo) {
+    final fill = Theme.of(context).colorScheme.surfaceContainerHighest;
+    _cultos ??= ref.read(ministryRoutineRepositoryProvider).cultos();
+    return Column(
+      key: const ValueKey('raizes-intake'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Acolhimento (Raízes)',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _invitedByController,
+          maxLength: 200,
+          decoration: InputDecoration(
+            labelText: 'Quem convidou',
+            filled: true,
+            fillColor: fill,
+            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(Icons.person_add_alt),
+          ),
+        ),
+        if (canEditVisitInfo) ...[
+          const SizedBox(height: 8),
+          FutureBuilder<List<RoutineCulto>>(
+            future: _cultos,
+            builder: (context, snap) {
+              final cultos = snap.data ?? const <RoutineCulto>[];
+              final known = cultos.any((c) => c.id == _firstVisitEventId);
+              return DropdownButtonFormField<String?>(
+                key: ValueKey('raizes-culto-${cultos.length}'),
+                initialValue: _firstVisitEventId,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: 'Culto da visita',
+                  filled: true,
+                  fillColor: fill,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.event),
+                ),
+                items: [
+                  const DropdownMenuItem(
+                    value: null,
+                    child: Text('Não informado'),
+                  ),
+                  if (_firstVisitEventId != null && !known)
+                    DropdownMenuItem(
+                      value: _firstVisitEventId,
+                      child: const Text('Culto já registrado'),
+                    ),
+                  for (final c in cultos)
+                    DropdownMenuItem(
+                      value: c.id,
+                      child: Text(
+                        c.date == null
+                            ? c.name
+                            : '${c.name} · ${DateFormat('dd/MM').format(c.date!)}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (v) => setState(() {
+                  _firstVisitEventId = v;
+                  final culto = cultos.where((c) => c.id == v).firstOrNull;
+                  if (_firstVisitDate == null && culto?.date != null) {
+                    _firstVisitDate = culto!.date;
+                  }
+                }),
+              );
+            },
+          ),
+        ],
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Deseja visita'),
+          secondary: const Icon(Icons.home_outlined),
+          value: _wantsVisit ?? false,
+          onChanged: (v) => setState(() => _wantsVisit = v),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Interesse em Casa de Vida'),
+          secondary: const Icon(Icons.groups_outlined),
+          value: _wantsLifeHouse ?? false,
+          onChanged: (v) => setState(() => _wantsLifeHouse = v),
+        ),
+        const SizedBox(height: 8),
+        Text('Perfil', style: CommunityDesign.metaStyle(context)),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final e in _visitorProfileLabels.entries)
+              FilterChip(
+                label: Text(e.value),
+                selected: _visitorProfiles.contains(e.key),
+                onSelected: (on) => setState(
+                  () => on
+                      ? _visitorProfiles.add(e.key)
+                      : _visitorProfiles.remove(e.key),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _prayerRequestController,
+          maxLines: 3,
+          decoration: InputDecoration(
+            labelText: 'Pedido de oração',
+            filled: true,
+            fillColor: fill,
+            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(Icons.volunteer_activism_outlined),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1948,6 +2163,15 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         ),
                         const SizedBox(height: 16),
 
+                        if (_status == 'visitor' ||
+                            _status == 'new_convert') ...[
+                          _buildRaizesIntake(
+                            context,
+                            canEditEcclesiasticalInfo,
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
                         // Data de Batismo
                         InkWell(
                           onTap: () =>
@@ -2523,4 +2747,24 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
       ),
     );
   }
+}
+
+/// Primeiro campo (na ordem da árvore) dentro de [formContext] que está
+/// mostrando erro de validação.
+@visibleForTesting
+Element? primeiroCampoComErro(BuildContext formContext) {
+  Element? primeiro;
+  void visitar(Element e) {
+    if (primeiro != null) return;
+    if (e is StatefulElement &&
+        e.state is FormFieldState &&
+        (e.state as FormFieldState).hasError) {
+      primeiro = e;
+      return;
+    }
+    e.visitChildren(visitar);
+  }
+
+  formContext.visitChildElements(visitar);
+  return primeiro;
 }

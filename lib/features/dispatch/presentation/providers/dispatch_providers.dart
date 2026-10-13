@@ -286,7 +286,9 @@ class VariableRegistry {
       final res = await _supabase
           .from('user_account')
           .select('first_name,last_name')
-          .eq('id', uid)
+          // uid pode ser user_account.id ou auth_user_id (como no servidor)
+          .or('id.eq.$uid,auth_user_id.eq.$uid')
+          .limit(1)
           .maybeSingle();
       if (res == null) return null;
       final first = (res['first_name'] ?? '').toString();
@@ -305,7 +307,9 @@ class VariableRegistry {
       final res = await _supabase
           .from('user_account')
           .select('nickname')
-          .eq('id', uid)
+          // uid pode ser user_account.id ou auth_user_id (como no servidor)
+          .or('id.eq.$uid,auth_user_id.eq.$uid')
+          .limit(1)
           .maybeSingle();
       return res?['nickname']?.toString();
     } catch (_) {
@@ -431,7 +435,9 @@ class VariableRegistry {
       final res = await _supabase
           .from('user_account')
           .select('phone')
-          .eq('id', uid)
+          // uid pode ser user_account.id ou auth_user_id (como no servidor)
+          .or('id.eq.$uid,auth_user_id.eq.$uid')
+          .limit(1)
           .maybeSingle();
       return res?['phone']?.toString();
     } catch (_) {
@@ -467,7 +473,9 @@ class VariableRegistry {
       final res = await _supabase
           .from('user_account')
           .select('birthdate')
-          .eq('id', uid)
+          // uid pode ser user_account.id ou auth_user_id (como no servidor)
+          .or('id.eq.$uid,auth_user_id.eq.$uid')
+          .limit(1)
           .maybeSingle();
       final v = res?['birthdate']?.toString();
       if (v == null || v.isEmpty) return null;
@@ -493,7 +501,9 @@ class VariableRegistry {
       final res = await _supabase
           .from('user_account')
           .select('first_name,last_name')
-          .eq('id', uid)
+          // uid pode ser user_account.id ou auth_user_id (como no servidor)
+          .or('id.eq.$uid,auth_user_id.eq.$uid')
+          .limit(1)
           .maybeSingle();
       if (res == null) return null;
       final first = (res['first_name'] ?? '').toString();
@@ -512,7 +522,9 @@ class VariableRegistry {
       final res = await _supabase
           .from('user_account')
           .select('nickname,first_name')
-          .eq('id', uid)
+          // uid pode ser user_account.id ou auth_user_id (como no servidor)
+          .or('id.eq.$uid,auth_user_id.eq.$uid')
+          .limit(1)
           .maybeSingle();
       if (res == null) return null;
       final nick = (res['nickname'] ?? '').toString();
@@ -531,7 +543,9 @@ class VariableRegistry {
       final res = await _supabase
           .from('user_account')
           .select('first_name')
-          .eq('id', uid)
+          // uid pode ser user_account.id ou auth_user_id (como no servidor)
+          .or('id.eq.$uid,auth_user_id.eq.$uid')
+          .limit(1)
           .maybeSingle();
       final v = res?['first_name']?.toString();
       return (v == null || v.isEmpty) ? null : v;
@@ -552,8 +566,10 @@ class VariableRegistry {
       } catch (_) {
         return null;
       }
-      final publicUrl = _supabase.storage.from('schedule-pdf').getPublicUrl(fileName);
-      return publicUrl;
+      // Bucket privado (lista nomes): link assinado de 7 dias para a UAZAPI baixar.
+      return await _supabase.storage
+          .from('schedule-pdf')
+          .createSignedUrl(fileName, 7 * 24 * 3600);
     } catch (_) {
       return null;
     }
@@ -667,46 +683,6 @@ final allMessageTemplatesProvider = FutureProvider<List<MessageTemplate>>((ref) 
   final repo = ref.watch(messageTemplateRepositoryProvider);
   return repo.getAll();
 });
-
-final messageTemplateActionsProvider = Provider<MessageTemplateActions>((ref) {
-  return MessageTemplateActions(ref);
-});
-
-class MessageTemplateActions {
-  final Ref _ref;
-  MessageTemplateActions(this._ref);
-
-  MessageTemplateRepository get _repo => _ref.read(messageTemplateRepositoryProvider);
-
-  Future<void> create(String name, String content, {bool isActive = true}) async {
-    final vars = _extractVariables(content);
-    await _repo.create(name: name, content: content, variables: vars, isActive: isActive);
-    _ref.invalidate(allMessageTemplatesProvider);
-  }
-
-  Future<void> update(String id, {String? name, String? content, bool? isActive}) async {
-    List<String>? vars;
-    if (content != null) vars = _extractVariables(content);
-    await _repo.update(id: id, name: name, content: content, variables: vars, isActive: isActive);
-    _ref.invalidate(allMessageTemplatesProvider);
-  }
-
-  Future<void> delete(String id) async {
-    await _repo.delete(id);
-    _ref.invalidate(allMessageTemplatesProvider);
-  }
-
-  List<String> _extractVariables(String content) {
-    final regex = RegExp(r'\{([a-zA-Z0-9_]+)\}');
-    final matches = regex.allMatches(content);
-    final set = <String>{};
-    for (final m in matches) {
-      set.add(m.group(1) ?? '');
-    }
-    set.removeWhere((e) => e.isEmpty);
-    return set.toList()..sort();
-  }
-}
 
 enum DispatchStatus {
   pending('pending', 'Pendente'),
@@ -873,10 +849,6 @@ class DispatchMonitoringRepository {
   Future<void> cancelJob(String id) async {
     await _supabase.from('dispatch_job').update({'status': 'cancelled'}).eq('id', id);
   }
-
-  Future<void> deleteJob(String id) async {
-    await _supabase.from('dispatch_job').delete().eq('id', id);
-  }
 }
 
 final monitoringRepositoryProvider = Provider<DispatchMonitoringRepository>((ref) {
@@ -914,11 +886,6 @@ class MonitoringActions {
 
   Future<void> cancel(String id) async {
     await _repo.cancelJob(id);
-    _ref.invalidate(recentDispatchJobsProvider);
-  }
-
-  Future<void> delete(String id) async {
-    await _repo.deleteJob(id);
     _ref.invalidate(recentDispatchJobsProvider);
   }
 }
@@ -1234,8 +1201,10 @@ class DispatchSchedulerRepository {
       } catch (_) {
         return null;
       }
-      final publicUrl = _supabase.storage.from('schedule-pdf').getPublicUrl(fileName);
-      return publicUrl;
+      // Bucket privado (lista nomes): link assinado de 7 dias para a UAZAPI baixar.
+      return await _supabase.storage
+          .from('schedule-pdf')
+          .createSignedUrl(fileName, 7 * 24 * 3600);
     } catch (_) {
       return null;
     }

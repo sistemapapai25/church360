@@ -16,12 +16,15 @@ import '../../features/qr_scanner/presentation/screens/qr_scanner_screen.dart';
 import '../../features/groups/presentation/screens/groups_list_screen.dart';
 import '../../features/groups/presentation/screens/group_detail_screen.dart';
 import '../../features/groups/presentation/screens/group_form_screen.dart';
+import '../../features/groups/presentation/widgets/group_permission_gate.dart';
 import '../../features/groups/presentation/screens/meeting_form_screen.dart';
 import '../../features/groups/presentation/screens/meeting_detail_screen.dart';
 import '../../features/ministries/presentation/screens/ministries_list_screen.dart';
 import '../../features/ministries/presentation/screens/generic_ministry_home_screen.dart';
 import '../../features/ministries/presentation/screens/ministry_form_screen.dart';
+import '../../features/ministries/shared/presentation/widgets/offering_confirm_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_home_screen.dart';
+import '../../features/ministries/raizes/presentation/screens/raizes_public_registration_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_visits_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_recommendations_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_sponsors_screen.dart';
@@ -52,8 +55,8 @@ import '../../features/financeiro/presentation/screens/extrato_screen.dart';
 import '../../features/financeiro/presentation/screens/comprovante_review_screen.dart';
 import '../../features/worship/presentation/screens/worship_services_screen.dart';
 import '../../features/worship/presentation/screens/worship_attendance_screen.dart';
-import '../../features/worship/presentation/screens/worship_service_form_screen.dart';
 import '../../features/worship/presentation/screens/worship_statistics_screen.dart';
+import '../../features/worship/presentation/screens/presence_checkin_screen.dart';
 import '../../features/visitors/presentation/screens/visitors_list_screen.dart';
 import '../../features/visitors/presentation/screens/visitor_visit_form_screen.dart';
 import '../../features/visitors/presentation/screens/visitor_followup_form_screen.dart';
@@ -313,8 +316,19 @@ final appRouter = GoRouter(
     final isPublicBaptismRegister =
         state.matchedLocation.startsWith('/batismo/') &&
         state.matchedLocation.endsWith('/inscricao');
+    // Cadastro do visitante pelo QR Code da mesa do Raízes. Mesmo desenho:
+    // a garantia está em `raizes_register_public` (SECURITY DEFINER, anon).
+    final isPublicRaizesRegister =
+        state.matchedLocation.startsWith('/raizes/') &&
+        state.matchedLocation.endsWith('/cadastro');
+    // Só a tela do grupo é pública (o anon lê por `get_public_group`). A
+    // reunião (`/groups/:id/meetings/...`) NÃO é (lote 9, Grupos 10): a RLS
+    // de `group_meeting` barra o anon e a tela abria vazia. Link de reunião
+    // sem sessão cai no login (ou no cadastro, que repassa o `?redirect=`) e
+    // volta para o link depois de entrar.
     final isPublicGroupDetail =
         state.matchedLocation.startsWith('/groups/') &&
+        !state.matchedLocation.contains('/meetings') &&
         !state.matchedLocation.endsWith('/edit') &&
         !state.matchedLocation.endsWith('/new');
     final isPublicStudyGroupDetail =
@@ -335,6 +349,7 @@ final appRouter = GoRouter(
         !isPublicEventRegister &&
         !isPublicEventDetail &&
         !isPublicBaptismRegister &&
+        !isPublicRaizesRegister &&
         !isPublicGroupDetail &&
         !isPublicStudyGroupDetail) {
       // D-04: o destino não pode se perder no desvio para o login. É
@@ -429,8 +444,13 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/agents-center',
-      builder: (context, state) =>
-          const DashboardAccessGate(child: AgentsCenterScreen()),
+      // Mesma permissão do item "Agentes IA" do menu.
+      builder: (context, state) => const DashboardAccessGate(
+        child: PermissionOnlyRoute(
+          permission: 'agents.manage_center',
+          child: AgentsCenterScreen(),
+        ),
+      ),
     ),
     GoRoute(
       path: '/members',
@@ -446,10 +466,17 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final type = state.uri.queryParameters['type'];
         final status = state.uri.queryParameters['status'];
-        return MemberFormScreen(
+        final form = MemberFormScreen(
           initialMemberType: type,
           initialStatus: status,
           kidsByStaff: state.uri.queryParameters['staff'] == '1',
+        );
+        // Mesma regra do botão Salvar do form: o cadastro de filho no Kids
+        // fica aberto ao responsável logado; o resto exige a permissão.
+        if (type?.trim().toLowerCase() == 'crianca') return form;
+        return PermissionOnlyRoute(
+          permission: status == 'visitor' ? 'visitors.create' : 'members.create',
+          child: form,
         );
       },
     ),
@@ -522,7 +549,8 @@ final appRouter = GoRouter(
       path: '/groups/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return PermissionOnlyRoute(
+        return GroupPermissionRoute(
+          groupId: id,
           permission: 'groups.edit',
           child: GroupFormScreen(groupId: id),
         );
@@ -543,7 +571,8 @@ final appRouter = GoRouter(
       path: '/groups/:groupId/meetings/new',
       builder: (context, state) {
         final groupId = state.pathParameters['groupId']!;
-        return PermissionOnlyRoute(
+        return GroupPermissionRoute(
+          groupId: groupId,
           permission: 'groups.manage_meetings',
           child: MeetingFormScreen(groupId: groupId),
         );
@@ -554,7 +583,8 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final groupId = state.pathParameters['groupId']!;
         final meetingId = state.pathParameters['meetingId']!;
-        return PermissionOnlyRoute(
+        return GroupPermissionRoute(
+          groupId: groupId,
           permission: 'groups.manage_meetings',
           child: MeetingFormScreen(groupId: groupId, meetingId: meetingId),
         );
@@ -575,9 +605,10 @@ final appRouter = GoRouter(
     // Novo visitante de reunião
     GoRoute(
       path: '/groups/:groupId/meetings/:meetingId/visitors/new',
-      builder: (context, state) {
-        return MemberFormScreen(initialStatus: 'visitor');
-      },
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'visitors.create',
+        child: MemberFormScreen(initialStatus: 'visitor'),
+      ),
     ),
     // Rotas de ministérios
     GoRoute(
@@ -659,6 +690,13 @@ final appRouter = GoRouter(
         return BaptismPublicRegistrationScreen(ministryId: id);
       },
     ),
+    // Pública de propósito (ver as exceções do redirect).
+    GoRoute(
+      path: '/raizes/:ministryId/cadastro',
+      builder: (context, state) => RaizesPublicRegistrationScreen(
+        ministryId: state.pathParameters['ministryId']!,
+      ),
+    ),
     GoRoute(
       path: '/ministries/:id/raizes',
       builder: (context, state) {
@@ -686,6 +724,13 @@ final appRouter = GoRouter(
         final id = state.pathParameters['id']!;
         return RaizesSponsorsScreen(ministryId: id);
       },
+    ),
+    // Ofertas do culto (F5): quem da Tesouraria recebeu confirma. Sem gate de
+    // rota: a RPC só devolve a entrega a quem vê o ministério ou a recebeu.
+    GoRoute(
+      path: '/ofertas/:id',
+      builder: (context, state) =>
+          OfferingConfirmScreen(deliveryId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/ministries/:id/diaconato',
@@ -950,22 +995,15 @@ final appRouter = GoRouter(
         );
       },
     ),
+    // Cadastrar e editar culto é pela Agenda (004700); links antigos caem lá.
     GoRoute(
       path: '/worship-services/new',
-      builder: (context, state) => const PermissionOnlyRoute(
-        permission: 'worship.create',
-        child: WorshipServiceFormScreen(),
-      ),
+      redirect: (context, state) => '/events/new',
     ),
     GoRoute(
       path: '/worship-services/:id/edit',
-      builder: (context, state) {
-        final id = state.pathParameters['id']!;
-        return PermissionOnlyRoute(
-          permission: 'worship.edit',
-          child: WorshipServiceFormScreen(worshipServiceId: id),
-        );
-      },
+      redirect: (context, state) =>
+          '/events/${state.pathParameters['id']}/edit',
     ),
     GoRoute(
       path: '/worship-statistics',
@@ -974,19 +1012,30 @@ final appRouter = GoRouter(
         child: WorshipStatisticsScreen(),
       ),
     ),
+    // Entravam sem guard nenhum (o Raízes empurra /visitors para qualquer um
+    // do ministério). Mesma régua do item "Visitantes" da Dashboard.
     GoRoute(
       path: '/visitors',
-      builder: (context, state) => const VisitorsListScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'visitors.view',
+        child: VisitorsListScreen(),
+      ),
     ),
     GoRoute(
       path: '/visitors/statistics',
-      builder: (context, state) => const VisitorsStatisticsScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'visitors.view',
+        child: VisitorsStatisticsScreen(),
+      ),
     ),
     GoRoute(
       path: '/visitors/new',
-      builder: (context, state) => const MemberFormScreen(
-        initialStatus: 'visitor',
-        initialMemberType: 'visitante',
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'visitors.create',
+        child: MemberFormScreen(
+          initialStatus: 'visitor',
+          initialMemberType: 'visitante',
+        ),
       ),
     ),
     GoRoute(
@@ -1000,14 +1049,20 @@ final appRouter = GoRouter(
       path: '/visitors/:id/visit/new',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return VisitorVisitFormScreen(visitorId: id);
+        return PermissionOnlyRoute(
+          permission: 'visitors.followup',
+          child: VisitorVisitFormScreen(visitorId: id),
+        );
       },
     ),
     GoRoute(
       path: '/visitors/:id/followup/new',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return VisitorFollowupFormScreen(visitorId: id);
+        return PermissionOnlyRoute(
+          permission: 'visitors.followup',
+          child: VisitorFollowupFormScreen(visitorId: id),
+        );
       },
     ),
     GoRoute(
@@ -1015,7 +1070,13 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         final followupId = state.pathParameters['followupId']!;
-        return VisitorFollowupFormScreen(visitorId: id, followupId: followupId);
+        return PermissionOnlyRoute(
+          permission: 'visitors.followup',
+          child: VisitorFollowupFormScreen(
+            visitorId: id,
+            followupId: followupId,
+          ),
+        );
       },
     ),
 
@@ -1134,6 +1195,12 @@ final appRouter = GoRouter(
     // NOTIFICATIONS ROUTES
     // =====================================================
 
+    // Presença no culto pela localização (aberta pelo aviso "Chegou bem ao <culto>?")
+    GoRoute(
+      path: '/presenca',
+      builder: (context, state) => const PresenceCheckinScreen(),
+    ),
+
     // Lista de notificações
     GoRoute(
       path: '/notifications',
@@ -1155,13 +1222,15 @@ final appRouter = GoRouter(
       redirect: (context, state) => studyGroupsListRedirect(state.uri),
     ),
 
-    // Nova turma. `?courseId=` já escolhe o curso (vindo da tela do curso).
+    // Nova turma. `?courseId=` já escolhe o curso (vindo da tela do curso);
+    // `?ministryId=` liga a turma ao ministério (aba Turmas dele).
     GoRoute(
       path: '/study-groups/new',
       builder: (context, state) => PermissionOnlyRoute(
         permission: 'study_groups.create',
         child: StudyGroupFormScreen(
           initialCourseId: state.uri.queryParameters['courseId'],
+          ministryId: state.uri.queryParameters['ministryId'],
         ),
       ),
     ),
@@ -1233,6 +1302,7 @@ final appRouter = GoRouter(
         permission: 'support_materials.create',
         child: SupportMaterialFormScreen(
           lessonId: state.uri.queryParameters['lesson'],
+          ministryId: state.uri.queryParameters['ministry'],
         ),
       ),
     ),
@@ -1242,8 +1312,8 @@ final appRouter = GoRouter(
       path: '/support-materials/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return PermissionOnlyRoute(
-          permission: 'support_materials.edit',
+        return MaterialEditRoute(
+          materialId: id,
           child: SupportMaterialFormScreen(materialId: id),
         );
       },
@@ -1734,25 +1804,6 @@ final appRouter = GoRouter(
     ),
 
     // =====================================================
-    // ROTAS: PEDIDOS DE ORAÇÃO (ADMIN - /home/prayer-requests)
-    // =====================================================
-    GoRoute(
-      path: '/home/prayer-requests',
-      builder: (context, state) => const PrayerRequestsListScreen(),
-    ),
-    GoRoute(
-      path: '/home/prayer-requests/new',
-      builder: (context, state) => const PrayerRequestFormScreen(),
-    ),
-    GoRoute(
-      path: '/home/prayer-requests/:id/edit',
-      builder: (context, state) {
-        final id = state.pathParameters['id']!;
-        return PrayerRequestFormScreen(prayerRequestId: id);
-      },
-    ),
-
-    // =====================================================
     // ROTAS: BÍBLIA
     // =====================================================
     GoRoute(
@@ -1866,12 +1917,15 @@ final appRouter = GoRouter(
     ),
 
     // Vincular cadastros (fichas duplicadas). As RPCs por tras da tela
-    // exigem role_global = owner; o guard aqui e' para a pessoa ver acesso
-    // negado em vez de uma lista que estoura.
+    // exigem owner ou `members.merge_duplicates` (o owner passa pelo bypass
+    // de check_user_permission); o guard e' para a pessoa ver acesso negado
+    // em vez de uma lista que estoura.
     GoRoute(
       path: '/duplicate-accounts',
-      builder: (context, state) =>
-          const OwnerOnlyRoute(child: DuplicateAccountsScreen()),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'members.merge_duplicates',
+        child: DuplicateAccountsScreen(),
+      ),
     ),
 
     // Configuração de Disparos (WhatsApp/Uazapi)
@@ -2039,7 +2093,10 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/upcoming-expenses-report',
-      builder: (context, state) => const UpcomingExpensesReportScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'financial.view_reports',
+        child: UpcomingExpensesReportScreen(),
+      ),
     ),
 
     // =====================================================
@@ -2047,7 +2104,10 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/upcoming-events-report',
-      builder: (context, state) => const UpcomingEventsReportScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'events.view',
+        child: UpcomingEventsReportScreen(),
+      ),
     ),
 
     // =====================================================
@@ -2055,7 +2115,10 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/member-growth-report',
-      builder: (context, state) => const MemberGrowthReportScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'members.view',
+        child: MemberGrowthReportScreen(),
+      ),
     ),
 
     // =====================================================
@@ -2063,7 +2126,10 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/events-analysis-report',
-      builder: (context, state) => const EventsAnalysisReportScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'events.view_statistics',
+        child: EventsAnalysisReportScreen(),
+      ),
     ),
 
     // =====================================================
@@ -2071,7 +2137,10 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/active-groups-report',
-      builder: (context, state) => const ActiveGroupsReportScreen(),
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'groups.view',
+        child: ActiveGroupsReportScreen(),
+      ),
     ),
 
     // =====================================================

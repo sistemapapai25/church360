@@ -1,7 +1,36 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/repositories/custom_report_repository.dart';
+import '../../../permissions/providers/permissions_providers.dart'
+    show currentUserHasPermissionProvider, currentUserIsElevatedProvider;
+import '../../domain/enums/report_enums.dart';
 import '../../domain/models/custom_report.dart';
+
+/// O usuário atual consegue ler a fonte? Espelha a RLS de leitura:
+/// lancamentos = financial.view OU financial.view_reports;
+/// financial_goal = financial.view OU elevado. As demais fontes ficam livres.
+/// Erro vira false (fail-closed na tela; a RLS segue sendo a autoridade).
+final reportSourceAllowedProvider =
+    FutureProvider.family<bool, DataSource>((ref, source) async {
+  Future<bool> has(String code) async {
+    try {
+      return await ref.watch(currentUserHasPermissionProvider(code).future);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  switch (source) {
+    case DataSource.contributions:
+    case DataSource.expenses:
+      return await has('financial.view') || await has('financial.view_reports');
+    case DataSource.financialGoals:
+      return await has('financial.view') ||
+          await ref.watch(currentUserIsElevatedProvider.future);
+    default:
+      return true;
+  }
+});
 
 /// Provider do repositório
 final customReportRepositoryProvider = Provider<CustomReportRepository>((ref) {
@@ -37,12 +66,6 @@ final myCustomReportsStreamProvider = StreamProvider<List<CustomReport>>((ref) {
 final customReportByIdProvider = FutureProvider.family<CustomReport?, String>((ref, id) async {
   final repository = ref.watch(customReportRepositoryProvider);
   return await repository.getReportById(id);
-});
-
-/// Provider para permissões de um relatório
-final reportPermissionsProvider = FutureProvider.family<List<CustomReportPermission>, String>((ref, reportId) async {
-  final repository = ref.watch(customReportRepositoryProvider);
-  return await repository.getReportPermissions(reportId);
 });
 
 /// Provider para criar relatório
@@ -92,104 +115,3 @@ final duplicateCustomReportProvider = Provider<Future<CustomReport> Function(Str
     return duplicated;
   };
 });
-
-/// Provider para adicionar permissão
-final addReportPermissionProvider = Provider<Future<CustomReportPermission> Function(CustomReportPermission)>((ref) {
-  final repository = ref.watch(customReportRepositoryProvider);
-  return (permission) async {
-    final added = await repository.addPermission(permission);
-    // Invalidar provider de permissões
-    ref.invalidate(reportPermissionsProvider(permission.reportId));
-    return added;
-  };
-});
-
-/// Provider para remover permissão
-final removeReportPermissionProvider = Provider<Future<void> Function(String, String)>((ref) {
-  final repository = ref.watch(customReportRepositoryProvider);
-  return (permissionId, reportId) async {
-    await repository.removePermission(permissionId);
-    // Invalidar provider de permissões
-    ref.invalidate(reportPermissionsProvider(reportId));
-  };
-});
-
-/// Provider para tornar relatório público
-final makeReportPublicProvider = Provider<Future<CustomReportPermission> Function(String)>((ref) {
-  final repository = ref.watch(customReportRepositoryProvider);
-  return (reportId) async {
-    final permission = await repository.makeReportPublic(reportId);
-    // Invalidar provider de permissões
-    ref.invalidate(reportPermissionsProvider(reportId));
-    return permission;
-  };
-});
-
-/// Provider para remover acesso público
-final removePublicAccessProvider = Provider<Future<void> Function(String)>((ref) {
-  final repository = ref.watch(customReportRepositoryProvider);
-  return (reportId) async {
-    await repository.removePublicAccess(reportId);
-    // Invalidar provider de permissões
-    ref.invalidate(reportPermissionsProvider(reportId));
-  };
-});
-
-/// Provider para compartilhar com usuário
-final shareReportWithUserProvider = Provider<Future<CustomReportPermission> Function({
-  required String reportId,
-  required String userId,
-  bool canView,
-  bool canEdit,
-  bool canDelete,
-})>((ref) {
-  final repository = ref.watch(customReportRepositoryProvider);
-  return ({
-    required String reportId,
-    required String userId,
-    bool canView = true,
-    bool canEdit = false,
-    bool canDelete = false,
-  }) async {
-    final permission = await repository.shareWithUser(
-      reportId: reportId,
-      userId: userId,
-      canView: canView,
-      canEdit: canEdit,
-      canDelete: canDelete,
-    );
-    // Invalidar provider de permissões
-    ref.invalidate(reportPermissionsProvider(reportId));
-    return permission;
-  };
-});
-
-/// Provider para compartilhar com grupo
-final shareReportWithGroupProvider = Provider<Future<CustomReportPermission> Function({
-  required String reportId,
-  required String groupId,
-  bool canView,
-  bool canEdit,
-  bool canDelete,
-})>((ref) {
-  final repository = ref.watch(customReportRepositoryProvider);
-  return ({
-    required String reportId,
-    required String groupId,
-    bool canView = true,
-    bool canEdit = false,
-    bool canDelete = false,
-  }) async {
-    final permission = await repository.shareWithGroup(
-      reportId: reportId,
-      groupId: groupId,
-      canView: canView,
-      canEdit: canEdit,
-      canDelete: canDelete,
-    );
-    // Invalidar provider de permissões
-    ref.invalidate(reportPermissionsProvider(reportId));
-    return permission;
-  };
-});
-

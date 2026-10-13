@@ -43,7 +43,16 @@ class FormacaoTurmasTab extends ConsumerStatefulWidget {
   /// com a gestão.
   final bool fromDashboard;
 
-  const FormacaoTurmasTab({super.key, this.fromDashboard = false});
+  /// Aba Turmas de um ministério que não é o Batismo: só as turmas comuns
+  /// dele, e "Nova turma" já leva o ministério (o curso é escolhido no
+  /// formulário). É área de gestão, como a Dashboard.
+  final String? ministryId;
+
+  const FormacaoTurmasTab({
+    super.key,
+    this.fromDashboard = false,
+    this.ministryId,
+  });
 
   @override
   ConsumerState<FormacaoTurmasTab> createState() => _FormacaoTurmasTabState();
@@ -95,6 +104,8 @@ class _FormacaoTurmasTabState extends ConsumerState<FormacaoTurmasTab> {
             .watch(currentUserHasPermissionProvider('study_groups.create'))
             .valueOrNull ??
         false;
+    final ministryId = widget.ministryId;
+    final managing = widget.fromDashboard || ministryId != null;
 
     return Column(
       children: [
@@ -105,18 +116,23 @@ class _FormacaoTurmasTabState extends ConsumerState<FormacaoTurmasTab> {
             searchHint: 'Buscar turma...',
             onSearchChanged: (v) => setState(() => _query = v.trim()),
             filters: [
-              AppFilterButton(
-                label: _origin.label,
-                icon: Icons.filter_list,
-                active: _origin != TurmaOriginFilter.all,
-                onTap: _pickOrigin,
-              ),
+              if (ministryId == null)
+                AppFilterButton(
+                  label: _origin.label,
+                  icon: Icons.filter_list,
+                  active: _origin != TurmaOriginFilter.all,
+                  onTap: _pickOrigin,
+                ),
             ],
-            primaryAction: canCreate && widget.fromDashboard
+            primaryAction: canCreate && managing
                 ? AppFilterAction(
                     label: 'Nova turma',
                     icon: Icons.add,
-                    onPressed: () => context.push('/study-groups/new'),
+                    onPressed: () => context.push(
+                      ministryId == null
+                          ? '/study-groups/new'
+                          : '/study-groups/new?ministryId=$ministryId',
+                    ),
                   )
                 : null,
           ),
@@ -146,6 +162,7 @@ class _FormacaoTurmasTabState extends ConsumerState<FormacaoTurmasTab> {
                 for (final t in all)
                   if (visible(t) &&
                       _origin.accepts(t) &&
+                      (ministryId == null || t.ministryId == ministryId) &&
                       (needle.isEmpty || t.name.toLowerCase().contains(needle)))
                     t,
               ];
@@ -167,7 +184,7 @@ class _FormacaoTurmasTabState extends ConsumerState<FormacaoTurmasTab> {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: FormacaoTurmaCard(
-                        fromDashboard: widget.fromDashboard,
+                        fromDashboard: managing,
                         turma: turma,
                         courseTitle: courseTitle[turma.courseId],
                         ministryName: ministryName[turma.ministryId],

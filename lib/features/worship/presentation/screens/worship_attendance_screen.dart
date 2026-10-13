@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../providers/worship_provider.dart';
+import '../../domain/models/worship_service.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../members/domain/models/member.dart';
 import '../../../permissions/providers/permissions_providers.dart';
@@ -38,7 +39,15 @@ class _WorshipAttendanceScreenState
   Widget build(BuildContext context) {
     final serviceAsync = ref.watch(worshipServiceByIdProvider(widget.worshipServiceId));
     final attendanceAsync = ref.watch(worshipAttendanceProvider(widget.worshipServiceId));
-    final membersAsync = ref.watch(activeMembersProvider);
+    // Regra do check-in (Cultos A6): membros ativos + visitantes. Inativo fica
+    // de fora porque não frequenta mais.
+    final activeAsync = ref.watch(activeMembersProvider);
+    final visitorsAsync = ref.watch(visitorsProvider);
+    final AsyncValue<List<Member>> membersAsync = activeAsync.when(
+      data: (active) => visitorsAsync.whenData((visitors) => [...active, ...visitors]),
+      loading: () => const AsyncValue.loading(),
+      error: AsyncValue.error,
+    );
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -124,6 +133,14 @@ class _WorshipAttendanceScreenState
                         ),
                       ],
                     ),
+                    // Reações da tela /presenca ("O que está achando do culto?").
+                    if (_reactionSummary(attendanceAsync.valueOrNull) case final summary?) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'O que estão achando: $summary',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                      ),
+                    ],
                   ],
                 ),
               );
@@ -138,7 +155,7 @@ class _WorshipAttendanceScreenState
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Buscar membro...',
+                hintText: 'Buscar membro ou visitante...',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
@@ -202,7 +219,7 @@ class _WorshipAttendanceScreenState
                       return Center(
                         child: Text(
                           _searchQuery.isEmpty
-                              ? 'Nenhum membro encontrado'
+                              ? 'Nenhum membro ou visitante encontrado'
                               : 'Nenhum resultado para "$_searchQuery"',
                           style: TextStyle(color: Colors.grey[600]),
                         ),
@@ -223,6 +240,7 @@ class _WorshipAttendanceScreenState
                           onToggle: () {
                             ref.invalidate(worshipAttendanceProvider(widget.worshipServiceId));
                             ref.invalidate(worshipServiceByIdProvider(widget.worshipServiceId));
+                            ref.invalidate(allWorshipServicesProvider);
                           },
                         );
                       },
@@ -243,6 +261,22 @@ class _WorshipAttendanceScreenState
 }
 
 /// Tile de membro para check-in
+/// "🙌 5 · 🙂 3 · 😐 1", ou nulo se ninguém reagiu.
+String? _reactionSummary(List<WorshipAttendance>? attendances) {
+  const emojis = {'otimo': '🙌', 'gostando': '🙂', 'mais_ou_menos': '😐'};
+  final counts = <String, int>{};
+  for (final a in attendances ?? const <WorshipAttendance>[]) {
+    if (emojis.containsKey(a.reaction)) {
+      counts[a.reaction!] = (counts[a.reaction!] ?? 0) + 1;
+    }
+  }
+  if (counts.isEmpty) return null;
+  return [
+    for (final e in emojis.entries)
+      if (counts[e.key] != null) '${e.value} ${counts[e.key]}',
+  ].join(' · ');
+}
+
 class _MemberCheckInTile extends ConsumerStatefulWidget {
   final Member member;
   final bool isPresent;
@@ -350,10 +384,16 @@ class _MemberCheckInTileState extends ConsumerState<_MemberCheckInTile> {
             fontWeight: widget.isPresent ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
-        subtitle: widget.isPresent
-            ? const Text(
-                'Presente',
-                style: TextStyle(color: Colors.green, fontSize: 12),
+        subtitle: widget.isPresent || widget.member.isVisitor
+            ? Text(
+                [
+                  if (widget.member.isVisitor) 'Visitante',
+                  if (widget.isPresent) 'Presente',
+                ].join(' · '),
+                style: TextStyle(
+                  color: widget.isPresent ? Colors.green : Colors.orange[800],
+                  fontSize: 12,
+                ),
               )
             : null,
         trailing: _isLoading

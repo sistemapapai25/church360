@@ -22,6 +22,7 @@ import 'features/support_chat/domain/models/support_agent.dart';
 import 'features/support_chat/presentation/providers/agents_providers.dart';
 import 'features/support_chat/presentation/widgets/support_chat_container.dart';
 import 'features/support_chat/presentation/widgets/universal_support_chat.dart';
+import 'features/worship/data/geo_checkin_service.dart';
 
 void main() {
   runZonedGuarded(
@@ -117,11 +118,22 @@ class _AppBootstrapState extends State<AppBootstrap> {
     // a URL real antes de montar o MaterialApp preserva o callback do
     // Supabase (`/reset-password?code=...`).
     final startupLocation = initialAppLocation();
+    final user = client.auth.currentUser ?? client.auth.currentSession?.user;
     if (startupLocation != '/' && startupLocation != '/splash') {
-      appRouter.go(startupLocation);
+      // F5 / Ctrl+Shift+R abria a tela sozinha na pilha, e a AppBar sem pilha
+      // não mostra o voltar. Logado, empilha a tela sobre a Home para o
+      // voltar existir (e levar à Home). Sem sessão, o redirect do login
+      // cuida do caminho.
+      final path = Uri.tryParse(startupLocation)?.path ?? '';
+      if (user != null &&
+          path != '/home' &&
+          safeRedirect(startupLocation) != null) {
+        _abrirSobreAHome(startupLocation);
+      } else {
+        appRouter.go(startupLocation);
+      }
     }
 
-    final user = client.auth.currentUser ?? client.auth.currentSession?.user;
     if (user != null) {
       unawaited(
         SupabaseConstants.syncTenantFromServer(
@@ -132,6 +144,27 @@ class _AppBootstrapState extends State<AppBootstrap> {
         }),
       );
     }
+  }
+
+  /// O `push` precisa esperar a Home virar a rota atual: antes do
+  /// `MaterialApp.router` montar, o `go` ainda não foi processado, e um
+  /// `push` imediato empilharia sobre a rota velha.
+  ///
+  /// Vai para `/home?tab=home`, não `/home`: sem `tab` a Home sincroniza a URL
+  /// com `go('/home?tab=home')` no primeiro frame, e esse `go` limpa a pilha,
+  /// derrubando a tela recém-empilhada (F5 voltava para a Home).
+  void _abrirSobreAHome(String location) {
+    final delegate = appRouter.routerDelegate;
+    appRouter.go('/home?tab=home');
+    void empilhar() {
+      final config = delegate.currentConfiguration;
+      if (config.isEmpty) return;
+      delegate.removeListener(empilhar);
+      // Se o redirect mandou para outro lugar (termo, login), não empilha.
+      if (config.uri.path == '/home') appRouter.push(location);
+    }
+
+    delegate.addListener(empilhar);
   }
 
   void _retry() {
@@ -299,6 +332,9 @@ class Church360App extends ConsumerWidget {
         onOpenRoute: appRouter.go,
       ).catchError((Object e) => debugPrint('Push indisponivel: $e')),
     );
+    // Presença no culto pela localização: confere sozinho ao abrir/voltar,
+    // só se a permissão já foi dada. Idempotente.
+    ref.read(geoCheckinServiceProvider).startAutoCheck();
     return MaterialApp.router(
       title: AppBranding.appName,
       debugShowCheckedModeBanner: false,

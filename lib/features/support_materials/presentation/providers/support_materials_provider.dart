@@ -4,6 +4,8 @@ import '../../data/support_materials_repository.dart';
 import '../../domain/models/support_material.dart';
 import '../../domain/models/support_material_module.dart';
 import '../../domain/models/support_material_link.dart';
+import '../../../courses/presentation/turma/tabs/turma_materiais_tab.dart'
+    show turmaMaterialRightsProvider;
 
 // =====================================================
 // REPOSITORY PROVIDER
@@ -27,6 +29,16 @@ final allMaterialsProvider = FutureProvider<List<SupportMaterial>>((ref) async {
 final materialByIdProvider = FutureProvider.family<SupportMaterial?, String>((ref, id) async {
   final repository = ref.watch(supportMaterialsRepositoryProvider);
   return repository.getMaterialById(id);
+});
+
+/// Pode editar este material: o autor (mesmo só com `support_materials.create`),
+/// quem tem `support_materials.edit` ou é elevado. Espelho da RLS de UPDATE de
+/// `support_material`, a mesma regra de [turmaMaterialRightsProvider].
+final canEditMaterialProvider = FutureProvider.family<bool, String>((ref, id) async {
+  final material = await ref.watch(materialByIdProvider(id).future);
+  if (material == null) return false;
+  final rights = await ref.watch(turmaMaterialRightsProvider.future);
+  return rights.canManage(material);
 });
 
 /// Provider para buscar materiais por categoria

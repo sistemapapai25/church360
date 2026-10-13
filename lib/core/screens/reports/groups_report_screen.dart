@@ -30,36 +30,9 @@ class GroupsReportScreen extends ConsumerWidget {
               itemCount: groups.length,
               itemBuilder: (context, index) {
                 final group = groups[index];
-                final name = group['name'] as String;
+                final name = group['group_name'] as String;
                 final meetingCount = group['meeting_count'] as int;
-                final type = group['type'] as String?;
-
-                // Determinar ícone e cor baseado no tipo
-                IconData icon;
-                Color color;
-                String typeLabel;
-
-                switch (type) {
-                  case 'communion':
-                    icon = AppIcons.groupsFilled;
-                    color = Colors.blue;
-                    typeLabel = 'Comunhão';
-                    break;
-                  case 'study':
-                    icon = AppIcons.study;
-                    color = Colors.green;
-                    typeLabel = 'Estudo';
-                    break;
-                  case 'ministry':
-                    icon = AppIcons.volunteer;
-                    color = Colors.purple;
-                    typeLabel = 'Ministério';
-                    break;
-                  default:
-                    icon = AppIcons.group;
-                    color = Colors.grey;
-                    typeLabel = 'Outro';
-                }
+                const color = Colors.blue;
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -68,13 +41,12 @@ class GroupsReportScreen extends ConsumerWidget {
                     child: ListTile(
                       leading: CircleAvatar(
                         backgroundColor: color.withValues(alpha: 0.2),
-                        child: Icon(icon, color: color),
+                        child: const Icon(AppIcons.groupsFilled, color: color),
                       ),
                       title: Text(
                         name,
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      subtitle: Text(typeLabel),
                       trailing: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,

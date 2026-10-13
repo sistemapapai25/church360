@@ -61,10 +61,6 @@
     gap:48px;
     align-items:start;
   }
-  @media (max-width:760px){
-    .wrap{grid-template-columns:1fr; padding:32px 18px 64px;}
-    nav.toc{display:none;}
-  }
 
   header.masthead{
     grid-column:1 / -1;
@@ -134,6 +130,12 @@
     letter-spacing:0.12em;
     color:var(--ink-muted);
     margin-bottom:8px;
+  }
+
+  /* depois de nav.toc: senão o display:flex dela vence e o índice fica por cima do texto */
+  @media (max-width:760px){
+    .wrap{grid-template-columns:1fr; padding:32px 18px 64px;}
+    nav.toc{display:none;}
   }
 
   main{min-width:0;}
@@ -230,8 +232,8 @@
     <h1>Termo de Uso, Responsabilidade, Confidencialidade e Compromisso — PAPAI</h1>
     <p>Regras de uso do aplicativo PAPAI e compromissos de quem acessa dados da comunidade.</p>
     <div class="meta">
-      <span>Versão: <strong>1.0</strong></span>
-      <span>Vigência: <strong>08 de outubro de 2026</strong></span>
+      <span>Versão: <strong>1.2</strong></span>
+      <span>Vigência: <strong>13 de outubro de 2026</strong></span>
       <span>Contato: <strong>rgachurch360@gmail.com</strong></span>
     </div>
   </header>
@@ -364,6 +366,7 @@
         <li>As respostas podem ser incompletas ou incorretas: confira informações importantes no próprio app ou com a liderança.</li>
         <li>As mensagens enviadas ao assistente são processadas por um provedor externo de inteligência artificial e ficam registradas para continuidade do atendimento. Evite enviar dados sensíveis desnecessários.</li>
         <li>Quando o assistente propuser uma ação que altere dados, poderá ser exigida sua confirmação, registrada em histórico de auditoria.</li>
+        <li>O assistente pode registrar um problema, uma sugestão ou uma dúvida de uso para a equipe de suporte da plataforma Church360, que não faz parte da sua igreja. Nesse caso, e quando a equipe da plataforma for chamada a ajudar no atendimento, ela pode ler a conversa de suporte, o relato e informações técnicas (tela, versão do app, aparelho e se você tinha acesso à tela). O uso é só para atender e corrigir o app, e todo acesso fica registrado.</li>
         <li>O assistente não substitui decisões pastorais, jurídicas, médicas, contábeis ou administrativas.</li>
       </ul>
     </section>
@@ -411,7 +414,7 @@
     <section id="retencao">
       <h2><span class="num">21</span>Retenção, exclusão e direitos do titular</h2>
       <p>Excluir a conta não apaga necessariamente todos os registros na hora: alguns podem ser mantidos por obrigação legal, registros administrativos e financeiros, segurança, auditoria ou exercício de direitos, conforme a <a class="inline" href="/privacidade">Política de Privacidade</a>.</p>
-      <p>Você pode exercer os direitos previstos na LGPD (acesso, correção, exclusão, anonimização, portabilidade e revogação de consentimento) pela área de Privacidade do seu perfil no app ou pelo e-mail <a class="inline" href="mailto:rgachurch360@gmail.com">rgachurch360@gmail.com</a>.</p>
+      <p>Você pode exercer os direitos previstos na LGPD (acesso, correção, exclusão, anonimização, portabilidade e revogação de consentimento) pelo e-mail <a class="inline" href="mailto:rgachurch360@gmail.com">rgachurch360@gmail.com</a>. No app, a área Privacidade e Termos do seu perfil mostra a situação do seu consentimento e os documentos.</p>
     </section>
 
     <section id="incidentes">

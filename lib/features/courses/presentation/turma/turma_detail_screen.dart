@@ -8,6 +8,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_tabs.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../study_groups/domain/models/study_group.dart';
+import '../../../study_groups/presentation/providers/study_group_provider.dart';
 import '../../domain/models/course_turma.dart';
 import '../providers/courses_provider.dart';
 import '../widgets/course_turmas_section.dart';
@@ -70,6 +71,32 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
   void _retry() {
     ref.invalidate(turmaByIdProvider(widget.studyGroupId));
     ref.invalidate(turmaAccessProvider(widget.studyGroupId));
+  }
+
+  /// "Participar" de turma pública: o banco confere se está aberta e se há
+  /// vaga (`turma_join`).
+  Future<void> _join() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(studyGroupRepositoryProvider)
+          .joinTurma(widget.studyGroupId);
+      ref.invalidate(turmaMyParticipationProvider(widget.studyGroupId));
+      ref.invalidate(turmaAccessProvider(widget.studyGroupId));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Você agora participa desta turma.')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().contains('TURMA_LOTADA')
+                ? 'Esta turma já está lotada.'
+                : 'Não foi possível entrar na turma agora.',
+          ),
+        ),
+      );
+    }
   }
 
   /// Aulas e Materiais são iguais para qualquer turma; Alunos e Minha
@@ -138,10 +165,22 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
         origin == null ||
         (widget.courseId != null && turma.courseId != widget.courseId) ||
         !access.hasAccess) {
-      return const TurmaMessageScaffold(
+      final canJoin =
+          turma != null &&
+          origin != null &&
+          turmaSurfacesFor(origin, access).acceptsJoin &&
+          turma.isPublic &&
+          turma.status == StudyGroupStatus.active &&
+          (widget.courseId == null || turma.courseId == widget.courseId);
+      return TurmaMessageScaffold(
         child: _TurmaMessage(
-          icon: AppIcons.lock,
-          message: 'Você não tem acesso a esta turma.',
+          icon: canJoin ? AppIcons.study : AppIcons.lock,
+          message: canJoin
+              ? 'Esta turma está aberta. Participe para ver as aulas e a '
+                    'sua frequência.'
+              : 'Você não tem acesso a esta turma.',
+          actionLabel: canJoin ? 'Participar' : null,
+          onAction: canJoin ? _join : null,
         ),
       );
     }

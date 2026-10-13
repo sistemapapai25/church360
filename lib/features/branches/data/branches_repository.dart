@@ -54,6 +54,7 @@ class BranchesRepository {
         .from('user_access_level')
         .select('user_id')
         .eq('user_id', candidateId)
+        .limit(1) // uma linha por igreja: quem está em várias quebrava o maybeSingle
         .maybeSingle();
     return row?['user_id'] as String?;
   }

@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
@@ -137,6 +138,25 @@ class _EditorState extends ConsumerState<_Editor> {
   String? _trimOrNull(TextEditingController c) =>
       c.text.trim().isEmpty ? null : c.text.trim();
 
+  /// Abre a busca da cifra na web (título + artista); a pessoa copia e cola.
+  Future<void> _searchChords() async {
+    final q = [
+      _title.text,
+      _artist.text,
+      'cifra',
+    ].map((t) => t.trim()).where((t) => t.isNotEmpty).join(' ');
+    if (_title.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Preencha o título para buscar.')),
+      );
+      return;
+    }
+    await launchUrl(
+      Uri.https('www.google.com', '/search', {'q': q}),
+      mode: LaunchMode.externalApplication,
+    );
+  }
+
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
     // Na prévia o campo da cifra não está montado e o validator não roda.
@@ -182,9 +202,17 @@ class _EditorState extends ConsumerState<_Editor> {
             draft.bpm != v.bpm;
         if (!infoChanged && !versionChanged) {
           if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Nada mudou.')));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  _trimOrNull(_note) == null
+                      ? 'Nada mudou.'
+                      // A nota descreve uma versão nova; sozinha não cria uma.
+                      : 'A nota só é gravada junto com uma mudança na cifra, '
+                            'tom, capo ou BPM.',
+                ),
+              ),
+            );
           }
           return;
         }
@@ -564,6 +592,11 @@ class _EditorState extends ConsumerState<_Editor> {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
+                            OutlinedButton.icon(
+                              icon: const Icon(AppIcons.search),
+                              label: const Text('Buscar'),
+                              onPressed: _searchChords,
+                            ),
                             OutlinedButton.icon(
                               icon: const Icon(AppIcons.upload),
                               label: const Text('Importar arquivo'),

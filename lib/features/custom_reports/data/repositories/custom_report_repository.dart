@@ -1,6 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/models/custom_report.dart';
-import '../../domain/enums/report_enums.dart';
 import '../../../../core/constants/supabase_constants.dart';
 
 /// Repositório para gerenciar relatórios customizados
@@ -103,6 +102,11 @@ class CustomReportRepository {
         .from('custom_report')
         .update({'is_active': false, 'updated_at': DateTime.now().toIso8601String()})
         .eq('id', id);
+    // Tira o card do relatório da Dashboard (antes ficava lá, abrindo o excluído).
+    await _supabase
+        .from('dashboard_widget')
+        .delete()
+        .eq('widget_key', 'custom_report_$id');
   }
 
   /// Deletar relatório permanentemente
@@ -171,138 +175,5 @@ class CustomReportRepository {
               .toList();
           return reports;
         });
-  }
-
-  // ==========================================
-  // PERMISSÕES
-  // ==========================================
-
-  /// Buscar permissões de um relatório
-  Future<List<CustomReportPermission>> getReportPermissions(String reportId) async {
-    final response = await _supabase
-        .from('custom_report_permission')
-        .select()
-        .eq('report_id', reportId)
-        .order('created_at', ascending: false);
-
-    return (response as List)
-        .map((json) => CustomReportPermission.fromJson(json))
-        .toList();
-  }
-
-  /// Adicionar permissão
-  Future<CustomReportPermission> addPermission(CustomReportPermission permission) async {
-    final response = await _supabase
-        .from('custom_report_permission')
-        .insert(permission.toInsertJson())
-        .select()
-        .single();
-
-    return CustomReportPermission.fromJson(response);
-  }
-
-  /// Atualizar permissão
-  Future<CustomReportPermission> updatePermission(CustomReportPermission permission) async {
-    final response = await _supabase
-        .from('custom_report_permission')
-        .update({
-          'can_view': permission.canView,
-          'can_edit': permission.canEdit,
-          'can_delete': permission.canDelete,
-        })
-        .eq('id', permission.id)
-        .select()
-        .single();
-
-    return CustomReportPermission.fromJson(response);
-  }
-
-  /// Remover permissão
-  Future<void> removePermission(String permissionId) async {
-    await _supabase
-        .from('custom_report_permission')
-        .delete()
-        .eq('id', permissionId);
-  }
-
-  /// Tornar relatório público
-  Future<CustomReportPermission> makeReportPublic(String reportId) async {
-    // Verificar se já existe permissão pública
-    final existing = await _supabase
-        .from('custom_report_permission')
-        .select()
-        .eq('report_id', reportId)
-        .eq('permission_type', 'public')
-        .maybeSingle();
-
-    if (existing != null) {
-      return CustomReportPermission.fromJson(existing);
-    }
-
-    // Criar nova permissão pública
-    final permission = CustomReportPermission(
-      id: '',
-      reportId: reportId,
-      permissionType: PermissionType.public,
-      canView: true,
-      canEdit: false,
-      canDelete: false,
-      createdAt: DateTime.now(),
-    );
-
-    return await addPermission(permission);
-  }
-
-  /// Remover acesso público
-  Future<void> removePublicAccess(String reportId) async {
-    await _supabase
-        .from('custom_report_permission')
-        .delete()
-        .eq('report_id', reportId)
-        .eq('permission_type', 'public');
-  }
-
-  /// Compartilhar relatório com usuário
-  Future<CustomReportPermission> shareWithUser({
-    required String reportId,
-    required String userId,
-    bool canView = true,
-    bool canEdit = false,
-    bool canDelete = false,
-  }) async {
-    final permission = CustomReportPermission(
-      id: '',
-      reportId: reportId,
-      permissionType: PermissionType.user,
-      userId: userId,
-      canView: canView,
-      canEdit: canEdit,
-      canDelete: canDelete,
-      createdAt: DateTime.now(),
-    );
-
-    return await addPermission(permission);
-  }
-
-  /// Compartilhar relatório com grupo
-  Future<CustomReportPermission> shareWithGroup({
-    required String reportId,
-    required String groupId,
-    bool canView = true,
-    bool canEdit = false,
-    bool canDelete = false,
-  }) async {
-    final permission = CustomReportPermission(
-      id: '',
-      reportId: reportId,
-      permissionType: PermissionType.group,
-      groupId: groupId,
-      canView: canView,
-      canEdit: canEdit,
-      canDelete: canDelete,
-      createdAt: DateTime.now(),
-    );
-
-    return await addPermission(permission);
   }
 }

@@ -177,6 +177,7 @@ class StudyGroupRepository {
   /// Criar grupo
   Future<StudyGroup> createStudyGroup({
     required String courseId,
+    String? ministryId,
     required String name,
     String? description,
     String? studyTopic,
@@ -196,6 +197,7 @@ class StudyGroupRepository {
         .from('study_groups')
         .insert({
           'course_id': courseId,
+          'ministry_id': ministryId,
           'name': name,
           'description': description,
           'study_topic': studyTopic,
@@ -694,6 +696,54 @@ class StudyGroupRepository {
         })
         .eq('id', participantId)
         .eq('tenant_id', SupabaseConstants.currentTenantId);
+  }
+
+  // Turma genérica pelas RPCs do lote 5c (20261008001100). Elas convertem
+  // `user_account.id` em `auth.uid()` no banco: aqui não se mexe em chave.
+
+  /// "Participar" de turma pública ativa.
+  Future<void> joinTurma(String studyGroupId) => _supabase.rpc(
+    'turma_join',
+    params: {'p_study_group_id': studyGroupId},
+  );
+
+  /// Gestão inclui um membro (`user_account.id`).
+  Future<void> addTurmaParticipant(String studyGroupId, String userAccountId) =>
+      _supabase.rpc(
+        'turma_add_participant',
+        params: {
+          'p_study_group_id': studyGroupId,
+          'p_user_account_id': userAccountId,
+        },
+      );
+
+  /// Gestão troca o líder; o anterior sai da turma.
+  Future<void> setTurmaLeader(String studyGroupId, String userAccountId) =>
+      _supabase.rpc(
+        'turma_set_leader',
+        params: {
+          'p_study_group_id': studyGroupId,
+          'p_user_account_id': userAccountId,
+        },
+      );
+
+  /// Participantes ativos com nome. `userId` é o de `study_participants`
+  /// (`auth.uid()`); `userAccountId` é o do diretório.
+  Future<List<({String userId, String? userAccountId, String name, String role})>>
+  getTurmaRoster(String studyGroupId) async {
+    final rows = await _supabase.rpc(
+      'turma_roster',
+      params: {'p_study_group_id': studyGroupId},
+    );
+    return [
+      for (final r in rows as List)
+        (
+          userId: r['user_id'] as String,
+          userAccountId: r['user_account_id'] as String?,
+          name: r['full_name'] as String,
+          role: r['role'] as String,
+        ),
+    ];
   }
 
   /// Sair do grupo (usuário atual)

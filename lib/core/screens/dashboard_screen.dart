@@ -28,6 +28,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
+  void initState() {
+    super.initState();
+    // O menu de Gestão já chega aberto; tocar fora (no scrim) fecha, como
+    // em qualquer endDrawer modal. Só na entrada: voltar de uma tela
+    // empilhada reaproveita este State e não reabre.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scaffoldKey.currentState?.openEndDrawer();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: true,
@@ -214,39 +225,39 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       return _buildCustomReportWidget(context, reportId);
     }
 
+    // O card abre o relatório só para quem tem reports.view (senão, Acesso Negado).
+    Widget toReport(String route, Widget card) => PermissionGate(
+          permission: 'reports.view',
+          showLoading: false,
+          fallback: card,
+          child: InkWell(onTap: () => context.push(route), child: card),
+        );
+
     // Widgets padrão
     final widgetMap = {
-      'birthdays_month': InkWell(
-        onTap: () => context.push('/reports/members?tab=birthdays'),
-        child: const BirthdaysThisMonthCard(),
+      'birthdays_month': toReport(
+        '/reports/members?tab=birthdays',
+        const BirthdaysThisMonthCard(),
       ),
-      'recent_members': InkWell(
-        onTap: () => context.push('/reports/members?tab=recent'),
-        child: const RecentMembersCard(),
+      'recent_members': toReport(
+        '/reports/members?tab=recent',
+        const RecentMembersCard(),
       ),
-      'upcoming_events': InkWell(
-        onTap: () => context.push('/reports/events'),
-        child: const UpcomingEventsCard(),
-      ),
+      // o card abre o relatório dele (rota com a permissão do card)
+      'upcoming_events': const UpcomingEventsCard(),
       'upcoming_expenses': InkWell(
         onTap: () => context.push('/financial-reports?tab=expenses'),
         child: const UpcomingExpensesCard(),
       ),
-      'member_growth': InkWell(
-        onTap: () => context.push('/reports/members'),
-        child: const MemberGrowthChart(),
-      ),
-      'events_stats': InkWell(
-        onTap: () => context.push('/reports/events'),
-        child: const EventsStatsCard(),
-      ),
-      'top_active_groups': InkWell(
-        onTap: () => context.push('/reports/groups'),
-        child: const TopActiveGroupsCard(),
-      ),
-      'average_attendance': InkWell(
-        onTap: () => context.push('/reports/attendance'),
-        child: const AverageAttendanceCard(),
+      // o card abre o relatório dele (rota com a permissão do card)
+      'member_growth': const MemberGrowthChart(),
+      // o card abre o relatório dele (rota com a permissão do card)
+      'events_stats': const EventsStatsCard(),
+      // o card abre o relatório dele (rota com a permissão do card)
+      'top_active_groups': const TopActiveGroupsCard(),
+      'average_attendance': toReport(
+        '/reports/attendance',
+        const AverageAttendanceCard(),
       ),
       // 'top_tags': InkWell(
       //   onTap: () => context.push('/reports/members?tab=tags'),
@@ -412,7 +423,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             _DrawerCategory(
               icon: Icons.groups,
               title: 'PESSOAS',
-              permissions: const ['members.view', 'visitors.view'],
+              permissions: const ['members.view', 'visitors.view', 'tags.view'],
               children: [
                 PermissionGate(
                   permission: 'members.view',
@@ -428,6 +439,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     icon: Icons.person_add,
                     title: 'Visitantes',
                     route: '/visitors',
+                  ),
+                ),
+                PermissionGate(
+                  permission: 'tags.view',
+                  child: const _DrawerMenuItem(
+                    icon: Icons.label_outline,
+                    title: 'Tags',
+                    route: '/tags',
                   ),
                 ),
               ],
@@ -520,6 +539,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               permissions: const [
                 'community.moderate',
                 'testimonies.moderate',
+                'quick_news.create',
                 'prayer_requests.moderate',
                 'devotionals.create',
                 'live_stream.manage',
@@ -544,6 +564,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     icon: Icons.volunteer_activism_outlined,
                     title: 'Pedidos de oração',
                     route: '/prayer-requests?from=dashboard',
+                  ),
+                ),
+                // Testemunhos (moderação)
+                PermissionGate(
+                  permission: 'testimonies.moderate',
+                  child: const _DrawerMenuItem(
+                    icon: Icons.record_voice_over_outlined,
+                    title: 'Testemunhos',
+                    route: '/home/testimonies',
+                  ),
+                ),
+                // Avisos rápidos (Fique por Dentro)
+                PermissionGate(
+                  permission: 'quick_news.create',
+                  child: const _DrawerMenuItem(
+                    icon: Icons.campaign_outlined,
+                    title: 'Avisos',
+                    route: '/home/quick-news',
                   ),
                 ),
                 // Devocionais
@@ -665,6 +703,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 'dispatch.configure',
                 'reports.view_analytics',
                 'reports.view',
+                'members.merge_duplicates',
               ],
               extraVisibilityCheck: currentUserSeesConfigCategoryExtrasProvider,
               children: [
@@ -709,22 +748,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     route: '/dispatch-config',
                   ),
                 ),
-                Consumer(
-                  builder: (context, ref, _) {
-                    final isOwnerAsync = ref.watch(currentUserIsOwnerProvider);
-                    return isOwnerAsync.when(
-                      data: (isOwner) {
-                        if (!isOwner) return const SizedBox.shrink();
-                        return const _DrawerMenuItem(
-                          icon: Icons.people_alt_outlined,
-                          title: 'Vincular Cadastros',
-                          route: '/duplicate-accounts',
-                        );
-                      },
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    );
-                  },
+                PermissionGate(
+                  permission: 'members.merge_duplicates',
+                  child: const _DrawerMenuItem(
+                    icon: Icons.people_alt_outlined,
+                    title: 'Vincular Cadastros',
+                    route: '/duplicate-accounts',
+                  ),
                 ),
                 Consumer(
                   builder: (context, ref, _) {

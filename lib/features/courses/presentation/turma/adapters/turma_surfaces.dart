@@ -25,6 +25,10 @@ abstract interface class TurmaSurfaces {
   /// vitrine de Cursos. Cada origem sabe a sua porta — a tela só mostra o
   /// botão. `null` quando não há porta.
   TurmaManageTarget? get manage;
+
+  /// A turma aceita "Participar" quando é pública (`turma_join`). O
+  /// Batismo não: lá a entrada é a inscrição do ministério.
+  bool get acceptsJoin;
 }
 
 /// Único `switch` sobre a origem na árvore da tela da turma.
