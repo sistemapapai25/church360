@@ -86,6 +86,8 @@ class Member {
   final String? decisionType;
   final DateTime? decisionDate;
   final String? decisionEventId;
+  final String? lifeHouseGroupId;
+  final DateTime? lifeHouseReferredAt;
   final String? raizesStage;
   final bool? wantsToReturn;
 
@@ -180,6 +182,8 @@ class Member {
     this.decisionType,
     this.decisionDate,
     this.decisionEventId,
+    this.lifeHouseGroupId,
+    this.lifeHouseReferredAt,
     this.raizesStage,
     this.wantsToReturn,
 
@@ -409,6 +413,10 @@ class Member {
           ? DateTime.parse(json['decision_date'] as String)
           : null,
       decisionEventId: json['decision_event_id'] as String?,
+      lifeHouseGroupId: json['life_house_group_id'] as String?,
+      lifeHouseReferredAt: json['life_house_referred_at'] != null
+          ? DateTime.parse(json['life_house_referred_at'] as String).toLocal()
+          : null,
       raizesStage: json['raizes_stage'] as String?,
       wantsToReturn: json['wants_to_return'] as bool?,
 

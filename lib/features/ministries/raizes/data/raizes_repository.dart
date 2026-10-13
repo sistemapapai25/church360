@@ -746,6 +746,23 @@ class RaizesRepository {
     );
   }
 
+  /// Casas de Vida ativas (Grupos de Comunhão), pela RPC do Raízes.
+  Future<List<RaizesLifeHouse>> listLifeHouses() async {
+    final rows = await _supabase.rpc('raizes_list_life_houses');
+    return [
+      for (final r in rows as List)
+        RaizesLifeHouse.fromJson(Map<String, dynamic>.from(r as Map)),
+    ];
+  }
+
+  /// Encaminha para a Casa de Vida ([groupId] null desfaz). Avisa o líder.
+  Future<void> referLifeHouse(String userId, String? groupId) async {
+    await _supabase.rpc(
+      'raizes_refer_life_house',
+      params: {'p_user_id': userId, 'p_group_id': groupId},
+    );
+  }
+
   /// Registra um contato feito (só quem tem visitors.followup).
   Future<void> logContact(
     String userId,

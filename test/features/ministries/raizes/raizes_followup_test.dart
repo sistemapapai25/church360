@@ -55,4 +55,21 @@ void main() {
     );
     expect(RaizesDecision.pastoralSupport.suggestedStage, isNull);
   });
+
+  test('Casa de Vida: mesmo bairro primeiro e detalhes legíveis', () {
+    final houses = [
+      RaizesLifeHouse.fromJson({'id': 'a', 'name': 'Alfa', 'meeting_address': 'Rua 1, Vila Nova'}),
+      RaizesLifeHouse.fromJson({
+        'id': 'b',
+        'name': 'Beta',
+        'meeting_address': 'Rua 2, Centro',
+        'meeting_day_of_week': 3,
+        'meeting_time': '20:00:00',
+        'leader_name': 'Ana',
+      }),
+    ];
+    expect(sortLifeHouses(houses, 'centro').map((h) => h.id), ['b', 'a']);
+    expect(sortLifeHouses(houses, null).map((h) => h.id), ['a', 'b']);
+    expect(houses[1].details, 'Quarta 20:00 · Rua 2, Centro · Líder: Ana');
+  });
 }
