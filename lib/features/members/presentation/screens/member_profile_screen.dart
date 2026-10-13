@@ -1721,6 +1721,57 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       );
     }
 
+    // Ficha do Raízes (004800): só para quem vê visitantes (D6).
+    final raizesItems = <Widget>[];
+    final canSeeVisitors =
+        ref.watch(currentUserHasPermissionProvider('visitors.view')).valueOrNull ??
+        false;
+    if (canSeeVisitors) {
+      if (_hasValue(member.invitedBy)) {
+        raizesItems.add(
+          _buildInfoRow(Icons.person_add_alt, 'Quem convidou', member.invitedBy!),
+        );
+      }
+      if (member.wantsVisit != null) {
+        raizesItems.add(
+          _buildInfoRow(
+            Icons.home_outlined,
+            'Deseja visita',
+            member.wantsVisit! ? 'Sim' : 'Não',
+          ),
+        );
+      }
+      if (member.wantsLifeHouse != null) {
+        raizesItems.add(
+          _buildInfoRow(
+            Icons.groups_outlined,
+            'Interesse em Casa de Vida',
+            member.wantsLifeHouse! ? 'Sim' : 'Não',
+          ),
+        );
+      }
+      if (member.visitorProfiles.isNotEmpty) {
+        raizesItems.add(
+          _buildInfoRow(
+            Icons.diversity_3,
+            'Perfil',
+            member.visitorProfiles
+                .map((p) => '${p[0].toUpperCase()}${p.substring(1)}')
+                .join(', '),
+          ),
+        );
+      }
+      if (_hasValue(member.prayerRequest)) {
+        raizesItems.add(
+          _buildInfoRow(
+            Icons.volunteer_activism_outlined,
+            'Pedido de oração',
+            member.prayerRequest!,
+          ),
+        );
+      }
+    }
+
     final privacyItems = <Widget>[
       _buildLgpdConsentRow(context, ref, member),
       _buildLgpdPolicyRow(context, member),
@@ -1744,6 +1795,14 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         groupKey: 'personal_info.church',
         children: churchItems,
       ),
+      if (raizesItems.isNotEmpty)
+        _buildFieldGroup(
+          context,
+          icon: Icons.diversity_1,
+          title: 'Acolhimento (Raízes)',
+          groupKey: 'personal_info.raizes',
+          children: raizesItems,
+        ),
       _buildFieldGroup(
         context,
         icon: Icons.privacy_tip_outlined,

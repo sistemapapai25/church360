@@ -80,6 +80,9 @@ class MembersRepository {
     'state',
     'zip_code',
     'notes',
+    'prayer_request',
+    'invited_by',
+    'first_visit_event_id',
   };
 
   bool _isMissingColumnError(Object error, [Iterable<String>? columns]) {

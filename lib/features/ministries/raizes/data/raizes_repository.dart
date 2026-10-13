@@ -45,6 +45,7 @@ class RaizesRepository {
       _countNewVisitors(tenantId, thirtyDaysAgo),
       _countVisitsOn(tenantId, ministryId, today),
       _countVisitsOverdue(tenantId, ministryId, today),
+      _countWantingVisit(tenantId),
     ]);
 
     return RaizesDashboardStats(
@@ -55,7 +56,19 @@ class RaizesRepository {
       newVisitorsLast30Days: results[4],
       visitsToday: results[5],
       visitsOverdue: results[6],
+      wantingVisit: results[7],
     );
+  }
+
+  Future<int> _countWantingVisit(String tenantId) async {
+    final response = await _supabase
+        .from('user_account')
+        .select()
+        .eq('tenant_id', tenantId)
+        .inFilter('status', const ['visitor', 'new_convert'])
+        .eq('wants_visit', true)
+        .count(CountOption.exact);
+    return response.count;
   }
 
   Future<int> _countTotalActive(String tenantId) async {

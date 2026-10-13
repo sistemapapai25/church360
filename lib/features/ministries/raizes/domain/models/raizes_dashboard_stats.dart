@@ -10,6 +10,10 @@ class RaizesDashboardStats {
   /// Lista direta de trabalho para o Raízes.
   final int wantingContactPending;
 
+  /// Visitantes que pediram visita no lar (`wants_visit`, ficha do Raízes),
+  /// status visitor/new_convert.
+  final int wantingVisit;
+
   /// Visitantes sem padrinho/responsável (`assigned_mentor_id IS NULL`),
   /// considerando apenas status visitor/new_convert.
   final int withoutMentor;
@@ -32,6 +36,7 @@ class RaizesDashboardStats {
     required this.totalActiveVisitors,
     required this.wantingContactPending,
     required this.withoutMentor,
+    this.wantingVisit = 0,
     required this.newSalvationsLast30Days,
     required this.newVisitorsLast30Days,
     required this.visitsToday,

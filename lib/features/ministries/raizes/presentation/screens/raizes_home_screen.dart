@@ -252,6 +252,12 @@ class _StatsGrid extends StatelessWidget {
         color: Colors.orange,
       ),
       _StatItem(
+        title: 'Querem visita',
+        value: stats.wantingVisit,
+        icon: Icons.home_outlined,
+        color: Colors.brown,
+      ),
+      _StatItem(
         title: 'Sem padrinho',
         value: stats.withoutMentor,
         icon: AppIcons.personOff,
