@@ -4,6 +4,7 @@
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
+import '../../worship/domain/models/worship_service.dart';
 import '../../financeiro/data/lancamentos_scope.dart';
 import '../domain/models/analytics_models.dart';
 
@@ -30,30 +31,14 @@ class AnalyticsRepository {
     return parsed.year == now.year && parsed.month == now.month;
   }
 
-  bool _isMissingSchemaDependency(PostgrestException error) {
-    return error.code == '42P01' ||
-        error.code == '42703' ||
-        error.code == '42883';
-  }
-
   // =====================================================
   // DASHBOARD GERAL
   // =====================================================
 
-  /// Obter resumo geral do dashboard
+  /// Obter resumo geral do dashboard. Calculado aqui: a RPC
+  /// `get_dashboard_summary` lia tabelas que não existem mais e foi apagada
+  /// na 004700.
   Future<DashboardSummary> getDashboardSummary() async {
-    try {
-      final response = await _supabase.rpc('get_dashboard_summary').single();
-      return DashboardSummary.fromJson(response);
-    } on PostgrestException catch (error) {
-      if (_isMissingSchemaDependency(error)) {
-        return _getDashboardSummaryFallback();
-      }
-      rethrow;
-    }
-  }
-
-  Future<DashboardSummary> _getDashboardSummaryFallback() async {
     final now = DateTime.now();
     final tenantId = SupabaseConstants.currentTenantId;
 
@@ -125,19 +110,22 @@ class AnalyticsRepository {
     int attendanceAccumulator = 0;
     int attendanceSamples = 0;
     try {
+      // Cultos da Agenda do mês até hoje (start_date é hora de parede).
+      final inicio = DateTime.utc(now.year, now.month);
+      final amanha = DateTime.utc(now.year, now.month, now.day + 1);
       final services = await _supabase
-          .from('worship_service')
-          .select('date,attendance_count')
-          .eq('tenant_id', tenantId);
-      for (final raw in services as List) {
-        final row = Map<String, dynamic>.from(raw as Map);
-        if (_isCurrentMonth(row['date'], now)) {
-          servicesThisMonth += 1;
-          final attendance = row['attendance_count'];
-          if (attendance is num) {
-            attendanceAccumulator += attendance.toInt();
-            attendanceSamples += 1;
-          }
+          .from('event')
+          .select(WorshipService.eventSelect)
+          .eq('tenant_id', tenantId)
+          .like('event_type', 'culto%')
+          .gte('start_date', inicio.toIso8601String())
+          .lt('start_date', amanha.toIso8601String());
+      for (final raw in services) {
+        final culto = WorshipService.fromEvent(raw);
+        servicesThisMonth += 1;
+        if (culto.totalAttendance > 0) {
+          attendanceAccumulator += culto.totalAttendance;
+          attendanceSamples += 1;
         }
       }
     } catch (_) {}
@@ -236,33 +224,6 @@ class AnalyticsRepository {
     );
     return (response as List)
         .map((json) => FinancialReportData.fromJson(json))
-        .toList();
-  }
-
-  // =====================================================
-  // CULTOS
-  // =====================================================
-
-  /// Obter estatísticas de cultos
-  Future<WorshipStatistics> getWorshipStatistics() async {
-    final response = await _supabase.rpc('get_worship_statistics').single();
-    return WorshipStatistics.fromJson(response);
-  }
-
-  /// Obter relatório de frequência em cultos
-  Future<List<WorshipAttendanceData>> getWorshipAttendanceReport({
-    required DateTime startDate,
-    required DateTime endDate,
-  }) async {
-    final response = await _supabase.rpc(
-      'get_worship_attendance_report',
-      params: {
-        'start_date': startDate.toIso8601String().split('T')[0],
-        'end_date': endDate.toIso8601String().split('T')[0],
-      },
-    );
-    return (response as List)
-        .map((json) => WorshipAttendanceData.fromJson(json))
         .toList();
   }
 }

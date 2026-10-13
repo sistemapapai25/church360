@@ -120,7 +120,7 @@ class _FakeWorshipRepository extends WorshipRepository {
         id: 'service-1',
         serviceDate: _now,
         serviceTime: '19:00',
-        serviceType: WorshipType.sundayEvening,
+        serviceType: WorshipType.sunday,
         theme: 'Culto de celebração',
         speaker: null,
         totalAttendance: 0,

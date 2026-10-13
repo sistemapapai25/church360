@@ -48,7 +48,7 @@ class KidsAttendance {
       childId: json['child_id'] as String,
       childName: json['child_name'] as String?,
       childPhoto: json['child_photo'] as String?,
-      worshipServiceId: json['worship_service_id'] as String,
+      worshipServiceId: json['event_id'] as String,
       checkInTime: DateTime.parse(json['checkin_time']),
       checkInBy: json['checkin_by'] as String?,
       checkInByName: json['checkin_by_name'] as String?,
@@ -68,7 +68,7 @@ class KidsAttendance {
     return {
       'id': id,
       'child_id': childId,
-      'worship_service_id': worshipServiceId,
+      'event_id': worshipServiceId,
       'checkin_time': checkInTime.toIso8601String(),
       'checkin_by': checkInBy,
       'checkin_token_id': checkInTokenId,

@@ -54,7 +54,6 @@ import '../../features/financeiro/presentation/screens/extrato_screen.dart';
 import '../../features/financeiro/presentation/screens/comprovante_review_screen.dart';
 import '../../features/worship/presentation/screens/worship_services_screen.dart';
 import '../../features/worship/presentation/screens/worship_attendance_screen.dart';
-import '../../features/worship/presentation/screens/worship_service_form_screen.dart';
 import '../../features/worship/presentation/screens/worship_statistics_screen.dart';
 import '../../features/visitors/presentation/screens/visitors_list_screen.dart';
 import '../../features/visitors/presentation/screens/visitor_visit_form_screen.dart';
@@ -981,22 +980,15 @@ final appRouter = GoRouter(
         );
       },
     ),
+    // Cadastrar e editar culto é pela Agenda (004700); links antigos caem lá.
     GoRoute(
       path: '/worship-services/new',
-      builder: (context, state) => const PermissionOnlyRoute(
-        permission: 'worship.create',
-        child: WorshipServiceFormScreen(),
-      ),
+      redirect: (context, state) => '/events/new',
     ),
     GoRoute(
       path: '/worship-services/:id/edit',
-      builder: (context, state) {
-        final id = state.pathParameters['id']!;
-        return PermissionOnlyRoute(
-          permission: 'worship.edit',
-          child: WorshipServiceFormScreen(worshipServiceId: id),
-        );
-      },
+      redirect: (context, state) =>
+          '/events/${state.pathParameters['id']}/edit',
     ),
     GoRoute(
       path: '/worship-statistics',

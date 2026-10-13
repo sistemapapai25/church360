@@ -9,126 +9,57 @@ class WorshipRepository {
 
   WorshipRepository(this._supabase);
 
-  // ==================== WORSHIP SERVICES ====================
+  // ==================== CULTOS (da Agenda) ====================
+
+  /// Cultos da Agenda (`event` com `event_type` `culto%`) até 2 semanas à
+  /// frente, o mais novo primeiro. `start_date` é hora de parede rotulada UTC.
+  /// Rascunho some pela RLS de `event`.
+  PostgrestFilterBuilder<List<Map<String, dynamic>>> _cultos() {
+    final now = DateTime.now();
+    final limite = DateTime.utc(now.year, now.month, now.day)
+        .add(const Duration(days: 15));
+    return _supabase
+        .from('event')
+        .select(WorshipService.eventSelect)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .like('event_type', 'culto%')
+        .lt('start_date', limite.toIso8601String());
+  }
 
   /// Buscar todos os cultos
   Future<List<WorshipService>> getAllWorshipServices() async {
-    final response = await _supabase
-        .from('worship_service')
-        .select()
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .order('service_date', ascending: false);
-
-    return (response as List)
-        .map((json) => WorshipService.fromJson(json))
-        .toList();
-  }
-
-  /// Buscar cultos por período
-  Future<List<WorshipService>> getWorshipServicesByDateRange(
-    DateTime startDate,
-    DateTime endDate,
-  ) async {
-    final response = await _supabase
-        .from('worship_service')
-        .select()
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .gte('service_date', startDate.toIso8601String().split('T')[0])
-        .lte('service_date', endDate.toIso8601String().split('T')[0])
-        .order('service_date', ascending: false);
-
-    return (response as List)
-        .map((json) => WorshipService.fromJson(json))
-        .toList();
+    final response = await _cultos().order('start_date', ascending: false);
+    return response.map(WorshipService.fromEvent).toList();
   }
 
   /// Buscar culto por ID
   Future<WorshipService?> getWorshipServiceById(String id) async {
     final response = await _supabase
-        .from('worship_service')
-        .select()
+        .from('event')
+        .select(WorshipService.eventSelect)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('id', id)
         .maybeSingle();
 
     if (response == null) return null;
-    return WorshipService.fromJson(response);
+    return WorshipService.fromEvent(response);
   }
-
-  /// Criar culto
-  Future<WorshipService> createWorshipService(Map<String, dynamic> data) async {
-    final response = await _supabase
-        .from('worship_service')
-        .insert({
-          ...data,
-          'tenant_id': SupabaseConstants.currentTenantId,
-        })
-        .select()
-        .single();
-
-    return WorshipService.fromJson(response);
-  }
-
-  /// Atualizar culto
-  Future<WorshipService> updateWorshipService(
-    String id,
-    Map<String, dynamic> data,
-  ) async {
-    final response = await _supabase
-        .from('worship_service')
-        .update(data)
-        .eq('id', id)
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .select()
-        .single();
-
-    return WorshipService.fromJson(response);
-  }
-
-  /// Deletar culto
-  Future<void> deleteWorshipService(String id) async {
-    await _supabase
-        .from('worship_service')
-        .delete()
-        .eq('id', id)
-        .eq('tenant_id', SupabaseConstants.currentTenantId);
-  }
-
-  /// Alias para deleteWorshipService
-  Future<void> deleteService(String id) => deleteWorshipService(id);
 
   /// Alias para getWorshipServiceById
   Future<WorshipService?> getServiceById(String id) => getWorshipServiceById(id);
-
-  /// Alias para createWorshipService
-  Future<WorshipService> createService(Map<String, dynamic> data) => createWorshipService(data);
-
-  /// Alias para updateWorshipService
-  Future<WorshipService> updateService(String id, Map<String, dynamic> data) => updateWorshipService(id, data);
-
-  /// Contar total de cultos
-  Future<int> countWorshipServices() async {
-    final response = await _supabase
-        .from('worship_service')
-        .select()
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .count();
-
-    return response.count;
-  }
 
   /// Visitantes presentes por culto (id do culto -> quantidade).
   /// Usa o status atual da pessoa: visitante que virou membro conta como membro.
   Future<Map<String, int>> getVisitorCountByService() async {
     final response = await _supabase
         .from('worship_attendance')
-        .select('worship_service_id, user_account:user_id!inner(status)')
+        .select('event_id, user_account:user_id!inner(status)')
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('user_account.status', 'visitor');
 
     final counts = <String, int>{};
     for (final row in response as List) {
-      final id = row['worship_service_id'] as String;
+      final id = row['event_id'] as String;
       counts[id] = (counts[id] ?? 0) + 1;
     }
     return counts;
@@ -148,7 +79,7 @@ class WorshipRepository {
           )
         ''')
         .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .eq('worship_service_id', worshipServiceId)
+        .eq('event_id', worshipServiceId)
         .order('checked_in_at', ascending: true);
 
     return (response as List).map((json) {
@@ -167,7 +98,7 @@ class WorshipRepository {
   /// Registrar presença (check-in)
   Future<WorshipAttendance> checkIn(String worshipServiceId, String memberId) async {
     final data = {
-      'worship_service_id': worshipServiceId,
+      'event_id': worshipServiceId,
       'user_id': memberId,
       'checked_in_at': DateTime.now().toIso8601String(),
       'tenant_id': SupabaseConstants.currentTenantId,
@@ -187,131 +118,8 @@ class WorshipRepository {
     await _supabase
         .from('worship_attendance')
         .delete()
-        .eq('worship_service_id', worshipServiceId)
+        .eq('event_id', worshipServiceId)
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('user_id', memberId);
-  }
-
-  /// Verificar se membro está presente
-  Future<bool> isMemberPresent(String worshipServiceId, String memberId) async {
-    final response = await _supabase
-        .from('worship_attendance')
-        .select()
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .eq('worship_service_id', worshipServiceId)
-        .eq('user_id', memberId)
-        .maybeSingle();
-
-    return response != null;
-  }
-
-  /// Buscar histórico de presença de um membro
-  Future<List<WorshipAttendance>> getMemberAttendanceHistory(String memberId) async {
-    final response = await _supabase
-        .from('worship_attendance')
-        .select('''
-          *,
-          worship_service:worship_service_id (
-            service_date,
-            service_type,
-            theme
-          )
-        ''')
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .eq('user_id', memberId)
-        .order('checked_in_at', ascending: false);
-
-    return (response as List)
-        .map((json) => WorshipAttendance.fromJson(json))
-        .toList();
-  }
-
-  /// Estatísticas de frequência de um membro
-  Future<Map<String, dynamic>> getMemberAttendanceStats(String memberId) async {
-    // Total de presenças
-    final totalResponse = await _supabase
-        .from('worship_attendance')
-        .select()
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .eq('user_id', memberId)
-        .count();
-
-    final totalAttendances = totalResponse.count;
-
-    // Total de cultos nos últimos 3 meses
-    final threeMonthsAgo = DateTime.now().subtract(const Duration(days: 90));
-    final totalServicesResponse = await _supabase
-        .from('worship_service')
-        .select()
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .gte('service_date', threeMonthsAgo.toIso8601String().split('T')[0])
-        .count();
-
-    final totalServices = totalServicesResponse.count;
-
-    // Presenças nos últimos 3 meses
-    final recentAttendancesResponse = await _supabase
-        .from('worship_attendance')
-        .select('*, worship_service:worship_service_id(service_date)')
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .eq('user_id', memberId);
-
-    final recentAttendances = (recentAttendancesResponse as List).where((json) {
-      final serviceDate = DateTime.parse(json['worship_service']['service_date']);
-      return serviceDate.isAfter(threeMonthsAgo);
-    }).length;
-
-    final attendanceRate = totalServices > 0
-        ? (recentAttendances / totalServices * 100).round()
-        : 0;
-
-    return {
-      'total_attendances': totalAttendances,
-      'recent_attendances': recentAttendances,
-      'total_services_last_3_months': totalServices,
-      'attendance_rate': attendanceRate,
-    };
-  }
-
-  /// Buscar membros ausentes (não compareceram nos últimos X cultos)
-  Future<List<String>> getAbsentMembers({int lastServicesCount = 3}) async {
-    // Buscar os últimos X cultos
-    final recentServices = await _supabase
-        .from('worship_service')
-        .select('id')
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .order('service_date', ascending: false)
-        .limit(lastServicesCount);
-
-    if (recentServices.isEmpty) return [];
-
-    final serviceIds = (recentServices as List)
-        .map((s) => s['id'] as String)
-        .toList();
-
-    // Buscar todos os membros ativos
-    final allMembers = await _supabase
-        .from('user_account')
-        .select('id')
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .eq('status', 'member_active');
-
-    final allMemberIds = (allMembers as List)
-        .map((m) => m['id'] as String)
-        .toSet();
-
-  // Buscar membros que compareceram
-  final attendances = await _supabase
-      .from('worship_attendance')
-      .select('user_id')
-      .eq('tenant_id', SupabaseConstants.currentTenantId)
-      .inFilter('worship_service_id', serviceIds);
-
-  final presentMemberIds = (attendances as List)
-      .map((a) => a['user_id'] as String)
-      .toSet();
-
-    // Retornar membros ausentes
-    return allMemberIds.difference(presentMemberIds).toList();
   }
 }
