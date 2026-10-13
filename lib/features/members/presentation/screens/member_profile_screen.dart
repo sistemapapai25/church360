@@ -22,6 +22,7 @@ import '../../../devotionals/presentation/providers/devotional_provider.dart';
 import '../../../kids/presentation/providers/kids_providers.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../notifications/presentation/widgets/notification_badge.dart';
+import '../../../ministries/raizes/presentation/widgets/raizes_followup_section.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../tags/presentation/widgets/member_tags_panel.dart';
@@ -638,6 +639,22 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           child: _buildPersonalInfoNew(context, ref, member),
         ),
         const SizedBox(height: _sectionGap),
+        if ((ref
+                    .watch(currentUserHasPermissionProvider('visitors.view'))
+                    .valueOrNull ??
+                false) &&
+            (member.status == 'visitor' ||
+                member.status == 'new_convert' ||
+                member.raizesStage != null)) ...[
+          _buildSection(
+            context,
+            icon: Icons.diversity_1,
+            title: 'Acompanhamento (Raízes)',
+            sectionKey: 'raizes_followup',
+            child: RaizesFollowupSection(member: member),
+          ),
+          const SizedBox(height: _sectionGap),
+        ],
         _buildSection(
           context,
           icon: Icons.family_restroom,

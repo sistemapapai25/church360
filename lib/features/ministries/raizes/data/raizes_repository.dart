@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/supabase_constants.dart';
 import '../domain/models/raizes_dashboard_stats.dart';
+import '../domain/models/raizes_followup.dart';
 import '../domain/models/raizes_sponsor_profile.dart';
 import '../domain/models/raizes_visit.dart';
 import '../domain/models/visitor_recommendation.dart';
@@ -664,6 +665,69 @@ class RaizesRepository {
   // =====================================================
 
   String _isoDateToday() => _isoDate(DateTime.now());
+
+  // =====================================================
+  // ACOMPANHAMENTO (004900): etapa e contatos
+  // =====================================================
+
+  /// Contatos e mudanças de etapa da pessoa, o mais novo primeiro. A RLS só
+  /// devolve linhas para quem tem visitors.view ou visitors.followup.
+  Future<List<RaizesTimelineEntry>> getFollowupTimeline(String userId) async {
+    final results = await Future.wait([
+      _supabase
+          .from('user_followup')
+          .select(
+            'followup_date, followup_type, description, '
+            'by:user_account!visitor_followup_completed_by_fkey(first_name, last_name)',
+          )
+          .eq('user_id', userId),
+      _supabase
+          .from('raizes_stage_history')
+          .select(
+            'changed_at, from_stage, to_stage, note, '
+            'by:user_account!raizes_stage_history_changed_by_fkey(first_name, last_name)',
+          )
+          .eq('user_id', userId),
+    ]);
+    final entries = [
+      for (final r in results[0] as List)
+        RaizesTimelineEntry.fromContact(r as Map<String, dynamic>),
+      for (final r in results[1] as List)
+        RaizesTimelineEntry.fromStage(r as Map<String, dynamic>),
+    ]..sort((a, b) => b.when.compareTo(a.when));
+    return entries;
+  }
+
+  /// Muda a etapa (só quem tem visitors.followup). Devolve false se já era
+  /// essa etapa.
+  Future<bool> setStage(String userId, RaizesStage stage, {String? note}) async =>
+      await _supabase.rpc(
+            'raizes_set_stage',
+            params: {
+              'p_user_id': userId,
+              'p_stage': stage.value,
+              'p_note': (note ?? '').trim().isEmpty ? null : note!.trim(),
+            },
+          )
+          as bool;
+
+  /// Registra um contato feito (só quem tem visitors.followup).
+  Future<void> logContact(
+    String userId,
+    RaizesContactKind kind, {
+    String? notes,
+    DateTime? date,
+  }) async {
+    await _supabase.rpc(
+      'raizes_log_contact',
+      params: {
+        'p_user_id': userId,
+        'p_kind': kind.value,
+        'p_notes': (notes ?? '').trim().isEmpty ? null : notes!.trim(),
+        'p_date': date == null ? null : _isoDate(date),
+      },
+    );
+  }
 
   String _isoDate(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-'

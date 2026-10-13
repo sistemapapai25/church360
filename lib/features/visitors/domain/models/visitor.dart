@@ -87,6 +87,9 @@ class Visitor {
   final String? gender; // M, F
   final String? howFoundUs; // Texto livre
   final bool wantsContact;
+
+  /// Etapa do acompanhamento do Raízes (004900); null = visitante novo.
+  final String? raizesStage;
   final bool wantsToReturn;
 
   // Campos de salvação
@@ -139,6 +142,7 @@ class Visitor {
     this.gender,
     this.howFoundUs,
     this.wantsContact = true,
+    this.raizesStage,
     this.wantsToReturn = false,
     this.isSalvation = false,
     this.conversionDate,
@@ -246,6 +250,7 @@ class Visitor {
       gender: json['gender'] as String?,
       howFoundUs: json['how_found_us'] as String?,
       wantsContact: json['wants_contact'] as bool? ?? true,
+      raizesStage: json['raizes_stage'] as String?,
       wantsToReturn: json['wants_to_return'] as bool? ?? false,
       isSalvation: json['is_salvation'] as bool? ?? false,
       conversionDate: parseDate(json['conversion_date']),
