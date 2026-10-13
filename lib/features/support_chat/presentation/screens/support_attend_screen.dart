@@ -29,6 +29,8 @@ class _SupportAttendScreenState extends State<SupportAttendScreen> {
   List<Map<String, dynamic>> _messages = [];
   String? _openId;
   bool _loading = true;
+  // Última leitura falhou: fila vazia não quer dizer "ninguém esperando".
+  bool _failed = false;
   bool _busy = false;
 
   static const _statusLabel = {
@@ -99,10 +101,14 @@ class _SupportAttendScreenState extends State<SupportAttendScreen> {
         _names = names;
         _messages = messages;
         _loading = false;
+        _failed = false;
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() {
+        _loading = false;
+        _failed = true;
+      });
     }
   }
 
@@ -190,11 +196,13 @@ class _SupportAttendScreenState extends State<SupportAttendScreen> {
 
   Widget _buildQueue() {
     if (_sessions.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           child: Text(
-            'Ninguém esperando atendimento agora.\nQuando o Moisés chamar um atendente, a conversa aparece aqui.',
+            _failed
+                ? 'Não foi possível carregar a fila. Confira a conexão; a tela tenta de novo sozinha.'
+                : 'Ninguém esperando atendimento agora.\nQuando o Moisés chamar um atendente, a conversa aparece aqui.',
             textAlign: TextAlign.center,
           ),
         ),

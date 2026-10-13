@@ -437,8 +437,13 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/agents-center',
-      builder: (context, state) =>
-          const DashboardAccessGate(child: AgentsCenterScreen()),
+      // Mesma permissão do item "Agentes IA" do menu.
+      builder: (context, state) => const DashboardAccessGate(
+        child: PermissionOnlyRoute(
+          permission: 'agents.manage_center',
+          child: AgentsCenterScreen(),
+        ),
+      ),
     ),
     GoRoute(
       path: '/members',
