@@ -177,7 +177,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     if (!mounted) return;
     setState(() => _tourVisivel = false);
-    if (!concluiu) return;
+    // Na primeira sessão o aviso do Termo esperava o tour e nunca vinha.
+    await askTermsAcceptanceIfPending(context, ref);
+    if (!mounted || !concluiu) return;
 
     // Segunda etapa: os três alvos que só existem dentro de "Meu Perfil"
     // (editar dados, trocar senha, minha jornada). O tour da Home não navega

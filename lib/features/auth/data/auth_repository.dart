@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../../notifications/data/push/push_registration_service.dart';
+import '../../legal/terms_acceptance.dart';
 
 /// Repository de autenticação
 /// Responsável por toda comunicação com Supabase Auth
@@ -100,6 +101,15 @@ class AuthRepository {
     if (currentUser == null || email == null || email.isEmpty) {
       throw AuthSessionMissingException();
     }
+    // Conta criada só pelo Google não tem senha para conferir.
+    final providers = currentUser.appMetadata['providers'];
+    if (providers is List && !providers.contains('email')) {
+      throw const AuthException(
+        'Sua conta entra pelo Google e ainda não tem senha. Toque em '
+        '"Esqueci minha senha" para receber o link e criar uma.',
+        code: 'no_password',
+      );
+    }
 
     // O Supabase não aceita a senha atual como parâmetro de `updateUser`.
     // Autenticar de novo comprova a senha e renova a sessão da mesma conta.
@@ -189,6 +199,9 @@ class AuthRepository {
       memberId: memberId,
       strategies: _commitmentTermsStrategies,
     );
+    // O aceite do cadastro é o da versão atual do Termo: sem esta linha o
+    // aviso da Home pedia o aceite de novo a quem acabou de se cadastrar.
+    await recordCurrentTermsAcceptance();
   }
 
   /// Cadastro feito com "Confirm email" ligado nasce sem sessão: o aceite
@@ -222,6 +235,7 @@ class AuthRepository {
         strategies: _commitmentTermsStrategies,
         acceptedAt: meta['commitment_terms_accepted_at']?.toString(),
       );
+      await recordCurrentTermsAcceptance();
     }
   }
 
@@ -869,31 +883,6 @@ class AuthRepository {
     final clean = email.trim();
     if (clean.isEmpty) return '';
     return clean.split('@').first;
-  }
-
-  /// Buscar dados de visitante por email (para auto-preenchimento no signup)
-  Future<Map<String, dynamic>?> getVisitorDataByEmail(String email) async {
-    try {
-      debugPrint('🔍 [AuthRepository] Buscando visitante com email: $email');
-
-      final response = await _supabase
-          .from('user_account')
-          .select(
-            'first_name, last_name, phone, address, city, state, zip_code',
-          )
-          .eq('email', email)
-          .eq('tenant_id', SupabaseConstants.currentTenantId)
-          .eq('status', 'visitor')
-          .maybeSingle();
-
-      debugPrint('📦 [AuthRepository] Resposta do Supabase: $response');
-
-      return response;
-    } catch (e, stackTrace) {
-      debugPrint('❌ [AuthRepository] ERRO ao buscar visitante: $e');
-      debugPrint('Stack trace: $stackTrace');
-      return null;
-    }
   }
 
   /// Registro de novo usuário

@@ -1,11 +1,22 @@
+import 'package:church360_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:church360_app/features/legal/terms_acceptance.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show User;
 
-Widget _host(DateTime? acceptedAt) {
+Widget _host(DateTime? acceptedAt, {String userId = 'u1'}) {
   return ProviderScope(
     overrides: [
+      currentUserProvider.overrideWithValue(
+        User(
+          id: userId,
+          appMetadata: const {},
+          userMetadata: const {},
+          aud: 'authenticated',
+          createdAt: '2026-10-12T00:00:00Z',
+        ),
+      ),
       currentTermsAcceptanceProvider.overrideWith((ref) async => acceptedAt),
     ],
     child: MaterialApp(
@@ -50,5 +61,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Li e aceito'), findsNothing);
+  });
+
+  testWidgets('outra conta no mesmo aparelho é perguntada', (tester) async {
+    await tester.pumpWidget(_host(null, userId: 'u2'));
+    await tester.tap(find.text('entrar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Li e aceito'), findsOneWidget);
   });
 }

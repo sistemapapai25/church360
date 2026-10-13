@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/supabase_constants.dart';
+import '../../core/errors/app_error_handler.dart';
+import '../auth/presentation/providers/auth_provider.dart';
 
 /// Versão do Termo publicada em `web/terms.html`. Ao publicar texto novo
 /// que exija novo aceite, suba esta versão junto: quem aceitou a anterior
@@ -13,10 +15,10 @@ const kTermsVersion = '1.1';
 const kTermsUrl = 'https://papai.church360.com.br/termos';
 
 /// Quando a pessoa logada aceitou a versão atual nesta igreja; null se ainda
-/// não aceitou.
+/// não aceitou. Refaz a leitura quando a conta logada muda.
 final currentTermsAcceptanceProvider = FutureProvider<DateTime?>((ref) async {
   final client = Supabase.instance.client;
-  final uid = client.auth.currentUser?.id;
+  final uid = ref.watch(currentUserProvider)?.id;
   if (uid == null) return null;
   final row = await client
       .from('terms_acceptance')
@@ -28,9 +30,10 @@ final currentTermsAcceptanceProvider = FutureProvider<DateTime?>((ref) async {
   return row == null ? null : DateTime.parse(row['accepted_at'] as String);
 });
 
-/// Registra o aceite da versão atual. Data e dono vêm do servidor; aceitar
-/// de novo (outra aba, toque duplo) não é erro.
-Future<void> acceptCurrentTerms(WidgetRef ref) async {
+/// Grava o aceite da versão atual para a conta logada. Data e dono vêm do
+/// servidor; aceitar de novo (outra aba, toque duplo) não é erro. Também é
+/// chamado pelo cadastro, onde a pessoa marca o aceite do Termo.
+Future<void> recordCurrentTermsAcceptance() async {
   try {
     await Supabase.instance.client.from('terms_acceptance').insert({
       'tenant_id': SupabaseConstants.currentTenantId,
@@ -40,13 +43,19 @@ Future<void> acceptCurrentTerms(WidgetRef ref) async {
   } on PostgrestException catch (e) {
     if (e.code != '23505') rethrow;
   }
+}
+
+Future<void> acceptCurrentTerms(WidgetRef ref) async {
+  await recordCurrentTermsAcceptance();
   ref.invalidate(currentTermsAcceptanceProvider);
 }
 
 Future<void> openTerms() =>
     launchUrl(Uri.parse(kTermsUrl), mode: LaunchMode.externalApplication);
 
-bool _askedThisSession = false;
+/// Conta que já foi perguntada nesta abertura do app. Guardar o id (e não um
+/// bool) faz outra conta, logada em seguida no mesmo aparelho, ser perguntada.
+String? _askedUserId;
 
 /// Pede o aceite a quem ainda não aceitou a versão atual. "Agora não" adia:
 /// volta a perguntar na próxima vez que o app abrir (uma vez por sessão).
@@ -54,7 +63,8 @@ Future<void> askTermsAcceptanceIfPending(
   BuildContext context,
   WidgetRef ref,
 ) async {
-  if (_askedThisSession) return;
+  final uid = ref.read(currentUserProvider)?.id;
+  if (uid == null || _askedUserId == uid) return;
   final DateTime? acceptedAt;
   try {
     acceptedAt = await ref.read(currentTermsAcceptanceProvider.future);
@@ -62,7 +72,7 @@ Future<void> askTermsAcceptanceIfPending(
     return; // Sem rede/tabela: não trava a entrada no app por isso.
   }
   if (acceptedAt != null || !context.mounted) return;
-  _askedThisSession = true;
+  _askedUserId = uid;
   await showTermsAcceptanceDialog(context, ref);
 }
 
@@ -77,7 +87,7 @@ Future<void> showTermsAcceptanceDialog(
       title: const Text('Termo de Uso e Compromisso'),
       content: const Text(
         'Publicamos a versão $kTermsVersion do Termo de Uso e Compromisso. '
-        'Leia e confirme que concorda para continuar usando o app.',
+        'Leia e confirme que concorda com a nova versão.',
       ),
       actions: [
         TextButton(onPressed: openTerms, child: const Text('Ler o Termo')),
@@ -105,7 +115,10 @@ Future<void> showTermsAcceptanceDialog(
   } catch (e) {
     messenger.showSnackBar(
       SnackBar(
-        content: Text('Não foi possível registrar o aceite: $e'),
+        content: Text(
+          'Não foi possível registrar o aceite. '
+          '${AppErrorHandler.userMessage(e, feature: 'terms')}',
+        ),
         backgroundColor: Colors.red,
       ),
     );

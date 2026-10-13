@@ -50,9 +50,11 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       return;
     }
     // O stream do SDK reapresenta o callback recente. Sem o callback, uma
-    // sessão comum nunca pode autorizar a redefinição nesta rota.
+    // sessão comum nunca pode autorizar a redefinição nesta rota. O prazo
+    // cobre a troca do `?code=` do link pela sessão, que em rede lenta
+    // passava dos 2 s antigos e virava "Link indisponível".
     unawaited(
-      Future<void>.delayed(const Duration(seconds: 2), () {
+      Future<void>.delayed(const Duration(seconds: 12), () {
         if (mounted && _status == _RecoveryStatus.validating) _invalidate();
       }),
     );

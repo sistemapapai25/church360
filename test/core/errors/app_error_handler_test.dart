@@ -17,7 +17,7 @@ void main() {
 
       final info = AppErrorHandler.map(err, feature: 'test.unique');
       expect(info.userMessage.toLowerCase(), isNot(contains('duplicate')));
-      expect(info.userMessage.toLowerCase(), contains('ja existe'));
+      expect(info.userMessage.toLowerCase(), contains('já existe'));
       expect(info.code, '23505');
     });
 
@@ -30,7 +30,7 @@ void main() {
       );
 
       final info = AppErrorHandler.map(err, feature: 'test.schema');
-      expect(info.userMessage.toLowerCase(), contains('atualizacao'));
+      expect(info.userMessage.toLowerCase(), contains('atualização'));
       expect(info.userMessage.toLowerCase(), isNot(contains('schema cache')));
     });
 
