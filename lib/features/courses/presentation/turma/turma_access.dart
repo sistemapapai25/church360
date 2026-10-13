@@ -129,7 +129,7 @@ final turmaAccessProvider = FutureProvider.family<TurmaAccess, String>((
     case BatismoTurmaOrigin(:final ministryId):
       // study_group_leadership_allows, ramo Batismo:
       // ministries_user_can_see_all() OU vínculo no ministério (ler não pede
-      // baptism.view desde 20261008004200; escrever pede baptism.edit).
+      // baptism.view desde 20261008004400; escrever pede baptism.edit).
       final canSeeAll = await ref.watch(ministriesCanSeeAllProvider.future);
       final inMinistry = await ref.watch(
         ministryAccessProvider(ministryId).future,
