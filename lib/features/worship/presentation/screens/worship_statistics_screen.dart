@@ -669,16 +669,14 @@ class _WorshipStatisticsScreenState
 
   Color _getTypeColor(WorshipType type) {
     switch (type) {
-      case WorshipType.sundayMorning:
+      case WorshipType.sunday:
         return Colors.orange;
-      case WorshipType.sundayEvening:
-        return Colors.purple;
       case WorshipType.wednesday:
         return Colors.blue;
-      case WorshipType.friday:
-        return Colors.green;
-      case WorshipType.special:
+      case WorshipType.communion:
         return Colors.red;
+      case WorshipType.drops:
+        return Colors.purple;
       case WorshipType.other:
         return Colors.grey;
     }

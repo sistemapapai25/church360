@@ -61,13 +61,13 @@ void main() {
       final checkedInOnly = KidsAttendance.fromJson({
         'id': 'a-1',
         'child_id': 'c-1',
-        'worship_service_id': 'ws-1',
+        'event_id': 'ws-1',
         'checkin_time': '2026-04-20T09:00:00.000Z',
       });
       final checkedOut = KidsAttendance.fromJson({
         'id': 'a-2',
         'child_id': 'c-1',
-        'worship_service_id': 'ws-1',
+        'event_id': 'ws-1',
         'checkin_time': '2026-04-20T09:00:00.000Z',
         'checkout_time': '2026-04-20T11:00:00.000Z',
       });
@@ -80,7 +80,7 @@ void main() {
       final model = KidsAttendance.fromJson({
         'id': 'a-3',
         'child_id': 'c-9',
-        'worship_service_id': 'ws-3',
+        'event_id': 'ws-3',
         'checkin_time': '2026-04-20T09:00:00.000Z',
         'checkout_time': '2026-04-20T10:30:00.000Z',
         'checkout_by': 'u-1',

@@ -4,6 +4,7 @@ import '../../../../core/constants/supabase_constants.dart';
 import '../domain/models/communion_delivery.dart';
 import '../domain/models/diaconato_dashboard_stats.dart';
 import '../domain/models/worship_attendance.dart';
+import '../../shared/domain/ministry_routine.dart' show cultoWallTime;
 
 /// Repository do checklist de presença do Diaconato.
 ///
@@ -21,9 +22,9 @@ class DiaconatoAttendanceRepository {
   // Cargas de leitura
   // =====================================================
 
-  /// Recupera (ou cria) a contagem oficial para `(worship_service, ministry)`.
+  /// Recupera (ou cria) a contagem oficial para `(culto da Agenda, ministry)`.
   ///
-  /// Como há `UNIQUE(worship_service_id, ministry_id)` na tabela, qualquer
+  /// Como há `UNIQUE(event_id, ministry_id)` na tabela, qualquer
   /// par sempre tem no máximo uma linha. Se ainda não existir, insere com
   /// totais zerados e `counted_by` resolvido a partir do usuário logado.
   Future<WorshipAttendanceCount> getOrCreateAttendanceCount({
@@ -34,7 +35,7 @@ class DiaconatoAttendanceRepository {
         .from('worship_attendance_count')
         .select()
         .eq('tenant_id', _tenantId)
-        .eq('worship_service_id', worshipServiceId)
+        .eq('event_id', worshipServiceId)
         .eq('ministry_id', ministryId)
         .maybeSingle();
 
@@ -42,19 +43,21 @@ class DiaconatoAttendanceRepository {
       return WorshipAttendanceCount.fromJson(existing);
     }
 
-    final ws = await _supabase
-        .from('worship_service')
-        .select('service_date')
+    // O culto é um evento da Agenda; a data é a hora de parede do início.
+    final ev = await _supabase
+        .from('event')
+        .select('start_date')
         .eq('id', worshipServiceId)
         .eq('tenant_id', _tenantId)
         .single();
-    final serviceDate = ws['service_date'] as String;
+    final (date, _) = cultoWallTime(ev['start_date'] as String?);
+    final serviceDate = (date ?? DateTime.now()).toIso8601String().split('T')[0];
 
     final countedByUserAccountId = await _resolveCurrentUserAccountId();
 
     final payload = <String, dynamic>{
       'tenant_id': _tenantId,
-      'worship_service_id': worshipServiceId,
+      'event_id': worshipServiceId,
       'ministry_id': ministryId,
       'service_date': serviceDate,
       if (countedByUserAccountId != null) 'counted_by': countedByUserAccountId,

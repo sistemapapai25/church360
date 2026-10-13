@@ -340,7 +340,7 @@ class VisitorVisit {
       id: json['id'] as String,
       visitorId: json['user_id'] as String,
       visitDate: DateTime.parse(json['visit_date'] as String),
-      worshipServiceId: json['worship_service_id'] as String?,
+      worshipServiceId: json['event_id'] as String?,
       notes: json['notes'] as String?,
       wasContacted: json['was_contacted'] as bool? ?? false,
       contactDate: json['contact_date'] != null
@@ -357,7 +357,7 @@ class VisitorVisit {
       'id': id,
       'user_id': visitorId,
       'visit_date': visitDate.toIso8601String().split('T')[0],
-      'worship_service_id': worshipServiceId,
+      'event_id': worshipServiceId,
       'notes': notes,
       'was_contacted': wasContacted,
       'contact_date': contactDate?.toIso8601String().split('T')[0],

@@ -352,7 +352,7 @@ class KidsRepository {
         .from('kids_attendance')
         .insert({
           'child_id': childId,
-          'worship_service_id': worshipServiceId,
+          'event_id': worshipServiceId,
           'checkin_by': checkInBy,
           'checkin_token_id': checkInTokenId,
           'checkin_time': DateTime.now().toIso8601String(),

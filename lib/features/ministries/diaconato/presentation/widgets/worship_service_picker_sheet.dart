@@ -8,7 +8,7 @@ import '../../../../worship/presentation/providers/worship_provider.dart';
 
 /// Modal bottom sheet para escolher um culto antes de abrir o checklist.
 ///
-/// Lista os cultos mais recentes (ordem desc por `service_date`). Limitado em
+/// Lista os cultos da Agenda (event `culto%`), o mais novo primeiro. Limitado em
 /// 30 itens para manter o sheet compacto — se precisar buscar mais antigos,
 /// dá pra evoluir para um picker dedicado depois.
 class WorshipServicePickerSheet extends ConsumerWidget {
@@ -71,7 +71,7 @@ class WorshipServicePickerSheet extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(vertical: 32),
                       child: Center(
                         child: Text(
-                          'Nenhum culto cadastrado.',
+                          'Nenhum culto na Agenda.',
                           style: CommunityDesign.metaStyle(context),
                         ),
                       ),

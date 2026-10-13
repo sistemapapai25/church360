@@ -88,7 +88,7 @@ class WorshipAttendanceCount {
     return WorshipAttendanceCount(
       id: json['id'] as String,
       tenantId: json['tenant_id'] as String,
-      worshipServiceId: json['worship_service_id'] as String,
+      worshipServiceId: json['event_id'] as String,
       ministryId: json['ministry_id'] as String,
       serviceDate: DateTime.parse(json['service_date'] as String),
       totalMembersPresent: (json['total_members_present'] as num?)?.toInt() ?? 0,
