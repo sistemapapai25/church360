@@ -95,6 +95,10 @@ class WorshipAttendance {
   final String? notes;
   final DateTime createdAt;
 
+  /// O que a pessoa achou do culto (tela /presenca): otimo | gostando |
+  /// mais_ou_menos. Nulo se não respondeu.
+  final String? reaction;
+
   const WorshipAttendance({
     required this.id,
     required this.worshipServiceId,
@@ -103,6 +107,7 @@ class WorshipAttendance {
     required this.checkedInAt,
     this.notes,
     required this.createdAt,
+    this.reaction,
   });
 
   factory WorshipAttendance.fromJson(Map<String, dynamic> json) {
@@ -114,6 +119,7 @@ class WorshipAttendance {
       checkedInAt: DateTime.parse(json['checked_in_at'] as String),
       notes: json['notes'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
+      reaction: json['reaction'] as String?,
     );
   }
 

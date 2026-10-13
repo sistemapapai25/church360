@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../providers/worship_provider.dart';
+import '../../domain/models/worship_service.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../members/domain/models/member.dart';
 import '../../../permissions/providers/permissions_providers.dart';
@@ -132,6 +133,14 @@ class _WorshipAttendanceScreenState
                         ),
                       ],
                     ),
+                    // Reações da tela /presenca ("O que está achando do culto?").
+                    if (_reactionSummary(attendanceAsync.valueOrNull) case final summary?) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'O que estão achando: $summary',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                      ),
+                    ],
                   ],
                 ),
               );
@@ -252,6 +261,22 @@ class _WorshipAttendanceScreenState
 }
 
 /// Tile de membro para check-in
+/// "🙌 5 · 🙂 3 · 😐 1", ou nulo se ninguém reagiu.
+String? _reactionSummary(List<WorshipAttendance>? attendances) {
+  const emojis = {'otimo': '🙌', 'gostando': '🙂', 'mais_ou_menos': '😐'};
+  final counts = <String, int>{};
+  for (final a in attendances ?? const <WorshipAttendance>[]) {
+    if (emojis.containsKey(a.reaction)) {
+      counts[a.reaction!] = (counts[a.reaction!] ?? 0) + 1;
+    }
+  }
+  if (counts.isEmpty) return null;
+  return [
+    for (final e in emojis.entries)
+      if (counts[e.key] != null) '${e.value} ${counts[e.key]}',
+  ].join(' · ');
+}
+
 class _MemberCheckInTile extends ConsumerStatefulWidget {
   final Member member;
   final bool isPresent;
