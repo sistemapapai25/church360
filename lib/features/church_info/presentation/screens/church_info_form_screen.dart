@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../../../../core/design/app_icons.dart';
@@ -49,6 +50,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
   // Presença pelo celular (005200)
   double? _latitude;
   double? _longitude;
+  final _coordsController = TextEditingController();
   final _radiusController = TextEditingController(text: '20');
   final _windowController = TextEditingController(text: '60');
   bool _locating = false;
@@ -104,6 +106,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
     _instagramController.dispose();
     _youtubeController.dispose();
     _twitterController.dispose();
+    _coordsController.dispose();
     _radiusController.dispose();
     _windowController.dispose();
     for (var controller in _valuesControllers) {
@@ -126,6 +129,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
       _logoUrl = info.logoUrl;
       _latitude = info.latitude;
       _longitude = info.longitude;
+      _coordsController.text = _formatLatLng(info.latitude, info.longitude);
       _radiusController.text = info.checkinRadiusM.toString();
       _windowController.text = info.checkinWindowMin.toString();
 
@@ -614,8 +618,32 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
     );
   }
 
-  /// Marca o local da igreja com o GPS de quem está no templo. É o jeito
-  /// mais certo: endereço convertido em coordenada erra dezenas de metros.
+  static String _formatLatLng(double? lat, double? lng) =>
+      lat == null || lng == null
+      ? ''
+      : '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}';
+
+  void _setCoords(String text) {
+    final ll = parseLatLng(text);
+    setState(() {
+      _latitude = ll?.$1;
+      _longitude = ll?.$2;
+    });
+  }
+
+  /// Abre o endereço de "Contato e Localização" no Google Maps, para pegar o
+  /// pino da igreja. O endereço digitado sozinho (quadra/lote) costuma cair
+  /// no meio da rua; o pino é o ponto certo.
+  Future<void> _openAddressInMaps() async {
+    final address = _addressController.text.trim();
+    final uri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query='
+      '${Uri.encodeComponent(address.isEmpty ? _nameController.text.trim() : address)}',
+    );
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  /// Alternativa: o GPS de quem está dentro do templo.
   Future<void> _useCurrentLocation() async {
     setState(() => _locating = true);
     try {
@@ -638,6 +666,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
       setState(() {
         _latitude = pos.latitude;
         _longitude = pos.longitude;
+        _coordsController.text = _formatLatLng(pos.latitude, pos.longitude);
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -673,17 +702,33 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
           'Com o local marcado, o app confirma sozinho a presença de quem '
           'abrir o app dentro da igreja na primeira hora do culto, e manda o '
           'aviso "Você está no culto?" 15 minutos depois do início. Os '
-          'diáconos só marcam no checklist quem faltar. Marque o local '
-          'estando dentro do templo.',
+          'diáconos só marcam no checklist quem faltar.',
+          style: CommunityDesign.metaStyle(context),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Como marcar: toque em Abrir no Google Maps (usa o endereço de '
+          'Contato e Localização), confira o pino da igreja, segure o dedo '
+          'sobre ele (no computador, clique com o botão direito) para copiar '
+          'as coordenadas e cole abaixo.',
           style: CommunityDesign.metaStyle(context),
         ),
         const SizedBox(height: 12),
-        Text(
-          hasLocation
-              ? 'Local: ${_latitude!.toStringAsFixed(6)}, '
-                    '${_longitude!.toStringAsFixed(6)}'
-              : 'Local não marcado: recurso desligado.',
-          style: const TextStyle(fontWeight: FontWeight.w600),
+        TextFormField(
+          controller: _coordsController,
+          decoration: InputDecoration(
+            labelText: 'Coordenadas da igreja',
+            hintText: 'Ex.: -16.812345, -49.245678',
+            helperText: hasLocation
+                ? 'Local marcado. Toque em Salvar para gravar.'
+                : 'Vazio: recurso desligado.',
+            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(AppIcons.location),
+          ),
+          onChanged: _setCoords,
+          validator: (v) => (v ?? '').trim().isEmpty || parseLatLng(v!) != null
+              ? null
+              : 'Cole no formato -16.812345, -49.245678',
         ),
         const SizedBox(height: 12),
         Wrap(
@@ -691,6 +736,11 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
           runSpacing: 8,
           children: [
             FilledButton.tonalIcon(
+              onPressed: _openAddressInMaps,
+              icon: const Icon(AppIcons.location),
+              label: const Text('Abrir no Google Maps'),
+            ),
+            OutlinedButton.icon(
               onPressed: _locating ? null : _useCurrentLocation,
               icon: _locating
                   ? const SizedBox(
@@ -699,13 +749,14 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(AppIcons.location),
-              label: const Text('Usar minha localização atual'),
+              label: const Text('Estou no templo: usar meu GPS'),
             ),
             if (hasLocation)
               TextButton(
                 onPressed: () => setState(() {
                   _latitude = null;
                   _longitude = null;
+                  _coordsController.clear();
                 }),
                 child: const Text('Desligar'),
               ),

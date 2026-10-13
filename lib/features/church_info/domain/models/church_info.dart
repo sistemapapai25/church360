@@ -1,3 +1,17 @@
+/// Lê "latitude, longitude" do que a pessoa colou: as coordenadas copiadas do
+/// Google Maps ("-16.8123, -49.2456") ou um link com elas
+/// (".../@-16.8123,-49.2456,17z"). Devolve null se não achar um par válido.
+(double, double)? parseLatLng(String text) {
+  final m = RegExp(
+    r'(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)',
+  ).firstMatch(text);
+  if (m == null) return null;
+  final lat = double.parse(m.group(1)!);
+  final lng = double.parse(m.group(2)!);
+  if (lat.abs() > 90 || lng.abs() > 180) return null;
+  return (lat, lng);
+}
+
 /// Modelo de Informações da Igreja
 class ChurchInfo {
   final String id;
