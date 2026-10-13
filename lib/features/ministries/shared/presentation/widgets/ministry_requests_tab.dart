@@ -397,26 +397,26 @@ class _RequestPhoto extends ConsumerWidget {
 Future<void> showRequestFormSheet(
   BuildContext context, {
   required String ministryId,
-  String? worshipServiceId,
+  String? eventId,
   String? initialDetails,
 }) => showModalBottomSheet<void>(
   context: context,
   isScrollControlled: true,
   builder: (_) => _RequestForm(
     ministryId: ministryId,
-    worshipServiceId: worshipServiceId,
+    eventId: eventId,
     initialDetails: initialDetails,
   ),
 );
 
 class _RequestForm extends ConsumerStatefulWidget {
   final String ministryId;
-  final String? worshipServiceId;
+  final String? eventId;
   final String? initialDetails;
 
   const _RequestForm({
     required this.ministryId,
-    this.worshipServiceId,
+    this.eventId,
     this.initialDetails,
   });
 
@@ -476,7 +476,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
         kind: _kind,
         location: _location.text,
         details: _details.text,
-        worshipServiceId: widget.worshipServiceId,
+        eventId: widget.eventId,
         stockItemId: _kind == RequestKind.reposicao ? _stockItemId : null,
         photoPath: photoPath,
       );
@@ -517,7 +517,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text('Novo pedido', style: CommunityDesign.titleStyle(context)),
-            if (widget.worshipServiceId != null)
+            if (widget.eventId != null)
               Text(
                 'Ligado ao culto desta rotina.',
                 style: CommunityDesign.metaStyle(context),

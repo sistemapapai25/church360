@@ -59,6 +59,9 @@ class RoutineCheck {
   /// `user_account.id` de alguém da Equipe.
   final String? responsibleUserId;
 
+  /// O líder do dia (ou do ministério) conferiu que foi feito.
+  final bool validated;
+
   const RoutineCheck({
     required this.id,
     this.itemId,
@@ -69,6 +72,7 @@ class RoutineCheck {
     required this.done,
     this.valueText,
     this.responsibleUserId,
+    this.validated = false,
   });
 
   factory RoutineCheck.fromJson(Map<String, dynamic> j) => RoutineCheck(
@@ -81,13 +85,51 @@ class RoutineCheck {
     done: j['done'] as bool? ?? false,
     valueText: j['value_text'] as String?,
     responsibleUserId: j['responsible_user_id'] as String?,
+    validated: j['validated_at'] != null,
   );
 }
 
-/// A rotina de um culto, com os itens.
+/// `event.start_date` é hora de parede rotulada UTC: devolve a data e a hora
+/// como foram escritas (sem converter fuso).
+(DateTime?, String?) cultoWallTime(String? startDate) {
+  final d = DateTime.tryParse(startDate ?? '')?.toUtc();
+  if (d == null) return (null, null);
+  return (
+    DateTime(d.year, d.month, d.day),
+    '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}',
+  );
+}
+
+/// Culto da Agenda (event com event_type `culto%`) para abrir a rotina.
+class RoutineCulto {
+  final String id;
+  final String name;
+  final DateTime? date;
+  final String? time;
+
+  const RoutineCulto({
+    required this.id,
+    required this.name,
+    this.date,
+    this.time,
+  });
+
+  factory RoutineCulto.fromJson(Map<String, dynamic> j) {
+    final (date, time) = cultoWallTime(j['start_date'] as String?);
+    return RoutineCulto(
+      id: j['id'] as String,
+      name: j['name'] as String? ?? 'Culto',
+      date: date,
+      time: time,
+    );
+  }
+}
+
+/// A rotina de um culto da Agenda, com os itens.
 class RoutineRun {
   final String id;
-  final String worshipServiceId;
+  final String eventId;
+  final String? serviceName;
   final DateTime? serviceDate;
   final String? serviceTime;
 
@@ -102,7 +144,8 @@ class RoutineRun {
 
   const RoutineRun({
     required this.id,
-    required this.worshipServiceId,
+    required this.eventId,
+    this.serviceName,
     this.serviceDate,
     this.serviceTime,
     this.leaderOfDay,
@@ -114,10 +157,13 @@ class RoutineRun {
 
   bool get confirmed => confirmedAt != null;
   int get doneCount => checks.where((c) => c.done).length;
+  int get validatedCount => checks.where((c) => c.done && c.validated).length;
 
   factory RoutineRun.fromJson(Map<String, dynamic> j) {
-    final ws = j['worship_service'];
-    final date = ws is Map ? ws['service_date'] as String? : null;
+    final ev = j['event'];
+    final (date, time) = cultoWallTime(
+      ev is Map ? ev['start_date'] as String? : null,
+    );
     final checks = [
       for (final c in (j['ministry_routine_check'] as List? ?? const []))
         RoutineCheck.fromJson(c as Map<String, dynamic>),
@@ -128,9 +174,10 @@ class RoutineRun {
     final offMap = off is List ? (off.isEmpty ? null : off.first) : off;
     return RoutineRun(
       id: j['id'] as String,
-      worshipServiceId: j['worship_service_id'] as String,
-      serviceDate: date == null ? null : DateTime.tryParse(date),
-      serviceTime: ws is Map ? ws['service_time'] as String? : null,
+      eventId: j['event_id'] as String,
+      serviceName: ev is Map ? ev['name'] as String? : null,
+      serviceDate: date,
+      serviceTime: time,
       leaderOfDay: j['leader_of_day'] as String?,
       needsNotes: j['needs_notes'] as String?,
       confirmedAt: DateTime.tryParse(
@@ -282,8 +329,10 @@ class MinistryRequest {
 
   factory MinistryRequest.fromJson(Map<String, dynamic> j) {
     final item = j['ministry_stock_item'];
-    final ws = j['worship_service'];
-    final date = ws is Map ? ws['service_date'] as String? : null;
+    final ev = j['event'];
+    final (date, _) = cultoWallTime(
+      ev is Map ? ev['start_date'] as String? : null,
+    );
     return MinistryRequest(
       id: j['id'] as String,
       title: j['title'] as String? ?? '',
@@ -293,7 +342,7 @@ class MinistryRequest {
       status: RequestStatus.fromValue(j['status'] as String?),
       statusNote: j['status_note'] as String?,
       stockItemName: item is Map ? item['name'] as String? : null,
-      serviceDate: date == null ? null : DateTime.tryParse(date),
+      serviceDate: date,
       photoPath: j['photo_path'] as String?,
       openedBy: j['opened_by'] as String?,
       openedAt: DateTime.parse(j['opened_at'] as String).toLocal(),
