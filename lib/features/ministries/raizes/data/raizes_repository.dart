@@ -746,6 +746,54 @@ class RaizesRepository {
     );
   }
 
+  // =====================================================
+  // CADASTRO PÚBLICO PELO QR CODE (005100) — funciona sem login
+  // =====================================================
+
+  Future<Map<String, dynamic>> getPublicInfo(String ministryId) async =>
+      Map<String, dynamic>.from(
+        await _supabase.rpc(
+              'raizes_public_info',
+              params: {'p_ministry_id': ministryId},
+            )
+            as Map,
+      );
+
+  /// Devolve 'created' ou 'returning' (telefone já cadastrado).
+  Future<String> registerPublic({
+    required String ministryId,
+    required String fullName,
+    required String phone,
+    String? neighborhood,
+    String? invitedBy,
+    String? maritalStatus,
+    String? prayerRequest,
+    bool? wantsVisit,
+    bool wantsContact = true,
+    bool? wantsLifeHouse,
+    List<String> profiles = const [],
+  }) async {
+    String? opt(String? v) => (v ?? '').trim().isEmpty ? null : v!.trim();
+    return await _supabase.rpc(
+          'raizes_register_public',
+          params: {
+            'p_ministry_id': ministryId,
+            'p_full_name': fullName.trim(),
+            'p_phone': phone.trim(),
+            'p_lgpd_consent': true,
+            'p_neighborhood': opt(neighborhood),
+            'p_invited_by': opt(invitedBy),
+            'p_marital_status': maritalStatus,
+            'p_prayer_request': opt(prayerRequest),
+            'p_wants_visit': wantsVisit,
+            'p_wants_contact': wantsContact,
+            'p_wants_life_house': wantsLifeHouse,
+            'p_profiles': profiles,
+          },
+        )
+        as String;
+  }
+
   String _isoDate(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-'
       '${d.month.toString().padLeft(2, '0')}-'

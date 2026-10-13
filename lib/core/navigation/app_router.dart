@@ -24,6 +24,7 @@ import '../../features/ministries/presentation/screens/generic_ministry_home_scr
 import '../../features/ministries/presentation/screens/ministry_form_screen.dart';
 import '../../features/ministries/shared/presentation/widgets/offering_confirm_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_home_screen.dart';
+import '../../features/ministries/raizes/presentation/screens/raizes_public_registration_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_visits_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_recommendations_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_sponsors_screen.dart';
@@ -314,6 +315,11 @@ final appRouter = GoRouter(
     final isPublicBaptismRegister =
         state.matchedLocation.startsWith('/batismo/') &&
         state.matchedLocation.endsWith('/inscricao');
+    // Cadastro do visitante pelo QR Code da mesa do Raízes. Mesmo desenho:
+    // a garantia está em `raizes_register_public` (SECURITY DEFINER, anon).
+    final isPublicRaizesRegister =
+        state.matchedLocation.startsWith('/raizes/') &&
+        state.matchedLocation.endsWith('/cadastro');
     // Só a tela do grupo é pública (o anon lê por `get_public_group`). A
     // reunião (`/groups/:id/meetings/...`) NÃO é (lote 9, Grupos 10): a RLS
     // de `group_meeting` barra o anon e a tela abria vazia. Link de reunião
@@ -342,6 +348,7 @@ final appRouter = GoRouter(
         !isPublicEventRegister &&
         !isPublicEventDetail &&
         !isPublicBaptismRegister &&
+        !isPublicRaizesRegister &&
         !isPublicGroupDetail &&
         !isPublicStudyGroupDetail) {
       // D-04: o destino não pode se perder no desvio para o login. É
@@ -681,6 +688,13 @@ final appRouter = GoRouter(
         final id = state.pathParameters['ministryId']!;
         return BaptismPublicRegistrationScreen(ministryId: id);
       },
+    ),
+    // Pública de propósito (ver as exceções do redirect).
+    GoRoute(
+      path: '/raizes/:ministryId/cadastro',
+      builder: (context, state) => RaizesPublicRegistrationScreen(
+        ministryId: state.pathParameters['ministryId']!,
+      ),
     ),
     GoRoute(
       path: '/ministries/:id/raizes',
