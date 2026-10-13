@@ -96,8 +96,7 @@ class RaizesRepository {
         .from('user_account')
         .select()
         .eq('tenant_id', tenantId)
-        .eq('is_salvation', true)
-        .gte('salvation_date', sinceIsoDate)
+        .gte('conversion_date', sinceIsoDate)
         .count(CountOption.exact);
     return response.count;
   }

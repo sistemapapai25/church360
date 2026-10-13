@@ -894,28 +894,32 @@ class MinistryRoutineConfigScreen extends ConsumerWidget {
         data: (items) => ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
-            OutlinedButton(
-              key: const ValueKey('routine-config-template'),
-              onPressed: () => _do(context, ref, (r) async {
-                final n = await r.useTemplate(ministryId);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        n == 0
-                            ? 'Todos os itens do modelo já estão na rotina.'
-                            : '$n itens do modelo foram acrescentados.',
-                      ),
-                    ),
-                  );
-                }
-              }),
-              child: const Text('Usar modelo do Diaconato'),
-            ),
-            const SizedBox(height: 4),
+            for (final (model, label) in routineTemplates)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: OutlinedButton(
+                  key: ValueKey('routine-config-template-$model'),
+                  onPressed: () => _do(context, ref, (r) async {
+                    final n = await r.useTemplate(ministryId, model);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            n == 0
+                                ? 'Todos os itens do modelo já estão na rotina.'
+                                : '$n itens do modelo foram acrescentados.',
+                          ),
+                        ),
+                      );
+                    }
+                  }),
+                  child: Text(label),
+                ),
+              ),
             Text(
-              'Acrescenta os itens da Ficha de Checklist Diário que faltam. '
-              'Depois é só apagar o que não serve.',
+              'Acrescenta os itens do modelo que faltam (Diaconato: Ficha de '
+              'Checklist Diário; Raízes: recepção, mesa do visitante e '
+              'pós-culto). Depois é só apagar o que não serve.',
               style: meta,
             ),
             for (final stage in RoutineStage.values) ...[

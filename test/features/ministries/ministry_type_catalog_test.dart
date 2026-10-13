@@ -66,7 +66,14 @@ void main() {
         'WhatsApp',
         'Relatórios',
       ];
-      expect(catalog.tabLabelsFor('raizes'), esperado);
+      // O Raízes nasce com Rotina e Materiais ligadas (004700).
+      expect(catalog.tabLabelsFor('raizes'), [
+        'Painel',
+        'Rotina',
+        ...esperado.skip(1).take(3),
+        'Materiais',
+        ...esperado.skip(4),
+      ]);
       // O Diaconato nasce com Rotina (004000), Pedidos (004100) e Materiais
       // (003900) ligadas.
       expect(catalog.tabLabelsFor('diaconato'), [

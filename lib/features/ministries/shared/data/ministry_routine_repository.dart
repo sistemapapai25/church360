@@ -221,11 +221,12 @@ class MinistryRoutineRepository {
     'p_ids': ids,
   });
 
-  /// Acrescenta os itens da Ficha 3 do Diaconato que ainda faltam. Devolve
-  /// quantos entraram.
-  Future<int> useTemplate(String ministryId) async =>
+  /// Acrescenta os itens do modelo (`diaconato` = Ficha 3, `raizes` = manual
+  /// do Projeto Raízes) que ainda faltam. Devolve quantos entraram.
+  Future<int> useTemplate(String ministryId, String model) async =>
       ((await _rpc('ministry_routine_use_template', {
                 'p_ministry_id': ministryId,
+                'p_model': model,
               }))
               as num)
           .toInt();
