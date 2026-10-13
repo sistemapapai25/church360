@@ -6,7 +6,6 @@ import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/widgets/glass_card.dart';
-import '../../../diaconato/presentation/widgets/worship_service_picker_sheet.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../data/ministry_routine_repository.dart';
 import '../../domain/ministry_routine.dart';
@@ -29,8 +28,7 @@ class MinistryRoutineTab extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: false,
-      builder: (_) => WorshipServicePickerSheet(
-        subtitle: 'Para abrir a rotina deste culto.',
+      builder: (_) => _CultoPickerSheet(
         onSelected: (s) async {
           try {
             final runId = await ref
@@ -266,6 +264,7 @@ class _RunCard extends StatelessWidget {
                   Text(
                     [
                       '${run.doneCount} de $total feitos ($pct%)',
+                      '${run.validatedCount} validados',
                       if (leaderName != null) 'Líder do dia: $leaderName',
                     ].join(' · '),
                     style: CommunityDesign.metaStyle(context),
@@ -296,14 +295,107 @@ class _RunCard extends StatelessWidget {
   }
 }
 
-/// "Dom, 12 de out · 19:00".
-String routineServiceLabel(RoutineRun run) {
-  final d = run.serviceDate;
-  if (d == null) return 'Culto';
-  final s = DateFormat("EEE, d 'de' MMM", 'pt_BR').format(d);
-  final time = (run.serviceTime ?? '');
-  final label = s[0].toUpperCase() + s.substring(1);
-  return time.length >= 5 ? '$label · ${time.substring(0, 5)}' : label;
+/// "Culto Quarta · Qua, 15 de out · 19:30".
+String routineServiceLabel(RoutineRun run) =>
+    _cultoLabel(run.serviceName, run.serviceDate, run.serviceTime);
+
+String _cultoLabel(String? name, DateTime? d, String? time) {
+  final parts = <String>[
+    if ((name ?? '').trim().isNotEmpty) name!.trim(),
+    if (d != null)
+      () {
+        final s = DateFormat("EEE, d 'de' MMM", 'pt_BR').format(d);
+        return s[0].toUpperCase() + s.substring(1);
+      }(),
+    if (time != null && time != '00:00') time,
+  ];
+  return parts.isEmpty ? 'Culto' : parts.join(' · ');
+}
+
+final _routineCultosProvider = FutureProvider.autoDispose<List<RoutineCulto>>(
+  (ref) => ref.watch(ministryRoutineRepositoryProvider).cultos(),
+);
+
+/// Escolher o culto da Agenda (event_type `culto%`) para abrir a rotina.
+class _CultoPickerSheet extends ConsumerWidget {
+  final void Function(RoutineCulto culto) onSelected;
+
+  const _CultoPickerSheet({required this.onSelected});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final meta = CommunityDesign.metaStyle(context);
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Selecione o culto',
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Cultos da Agenda: próximas 2 semanas e últimos 2 meses.',
+              style: meta,
+            ),
+            const SizedBox(height: 12),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.6,
+              ),
+              child: ref
+                  .watch(_routineCultosProvider)
+                  .when(
+                    loading: () => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                    error: (e, _) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: Text('$e', textAlign: TextAlign.center),
+                    ),
+                    data: (cultos) => cultos.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 32),
+                            child: Text(
+                              'Nenhum culto na Agenda neste período.',
+                              style: meta,
+                              textAlign: TextAlign.center,
+                            ),
+                          )
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: cultos.length,
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 1),
+                            itemBuilder: (context, i) {
+                              final c = cultos[i];
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: const Icon(AppIcons.event),
+                                title: Text(c.name),
+                                subtitle: Text(
+                                  _cultoLabel(null, c.date, c.time),
+                                ),
+                                onTap: () {
+                                  Navigator.of(context).pop();
+                                  onSelected(c);
+                                },
+                              );
+                            },
+                          ),
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 void showRoutineError(BuildContext context, Object e) {

@@ -44,10 +44,10 @@ class MinistryRoutineRepository {
   MinistryRoutineRepository(this._supabase);
 
   static const _runSelect =
-      'id, worship_service_id, leader_of_day, needs_notes, confirmed_at, '
-      'worship_service(service_date, service_time), '
+      'id, event_id, leader_of_day, needs_notes, confirmed_at, '
+      'event(name, start_date), '
       'ministry_routine_check(id, item_id, stage, title, asks_value, '
-      'sort_order, done, value_text, responsible_user_id), '
+      'sort_order, done, value_text, responsible_user_id, validated_at), '
       'ministry_offering_delivery(id, envelopes, cash_amount, delivered_by_1, '
       'delivered_by_2, received_by, notes, received_confirmed_at)';
 
@@ -122,13 +122,49 @@ class MinistryRoutineRepository {
     }
   }
 
+  /// Cultos da Agenda (event_type `culto%`) das próximas 2 semanas e dos
+  /// últimos 2 meses, o mais novo primeiro. `start_date` é hora de parede
+  /// rotulada UTC.
+  Future<List<RoutineCulto>> cultos() async {
+    final now = DateTime.now();
+    final today = DateTime.utc(now.year, now.month, now.day);
+    try {
+      final rows = await _supabase
+          .from('event')
+          .select('id, name, start_date')
+          .eq('tenant_id', SupabaseConstants.currentTenantId)
+          .like('event_type', 'culto%')
+          .gte(
+            'start_date',
+            today.subtract(const Duration(days: 60)).toIso8601String(),
+          )
+          .lt(
+            'start_date',
+            today.add(const Duration(days: 15)).toIso8601String(),
+          )
+          .order('start_date', ascending: false);
+      return [
+        for (final r in rows as List)
+          RoutineCulto.fromJson(r as Map<String, dynamic>),
+      ];
+    } on PostgrestException catch (e) {
+      throw _traduzir(e);
+    }
+  }
+
   /// Abre (ou devolve) a rotina do culto e alinha os itens com o modelo.
-  Future<String> open(String ministryId, String worshipServiceId) async =>
+  Future<String> open(String ministryId, String eventId) async =>
       await _rpc('ministry_routine_open', {
             'p_ministry_id': ministryId,
-            'p_worship_service_id': worshipServiceId,
+            'p_event_id': eventId,
           })
           as String;
+
+  /// O líder do dia (ou do ministério) confere o item feito.
+  Future<void> validateCheck(String checkId, bool valid) => _rpc(
+    'ministry_routine_check_validate',
+    {'p_check_id': checkId, 'p_valid': valid},
+  );
 
   Future<void> setCheck({
     required String checkId,
@@ -276,7 +312,7 @@ class MinistryRoutineRepository {
     try {
       final rows = await _supabase
           .from('ministry_request')
-          .select('*, ministry_stock_item(name), worship_service(service_date)')
+          .select('*, ministry_stock_item(name), event(start_date)')
           .eq('tenant_id', SupabaseConstants.currentTenantId)
           .eq('ministry_id', ministryId)
           .order('opened_at', ascending: false)
@@ -296,7 +332,7 @@ class MinistryRoutineRepository {
     required RequestKind kind,
     String? location,
     String? details,
-    String? worshipServiceId,
+    String? eventId,
     String? stockItemId,
     String? photoPath,
   }) => _rpc('ministry_request_open', {
@@ -305,7 +341,7 @@ class MinistryRoutineRepository {
     'p_kind': kind.value,
     'p_location': location,
     'p_details': details,
-    'p_worship_service_id': worshipServiceId,
+    'p_event_id': eventId,
     'p_stock_item_id': stockItemId,
     'p_photo_path': photoPath,
   });
@@ -354,6 +390,7 @@ class MinistryRoutineRepository {
     'So o lider do dia ou o lider do ministerio':
         'Só o líder do dia ou o líder do ministério',
     'So quem e da equipe': 'Só quem é da equipe',
+    'So da para validar': 'Só dá para validar',
     'muda a situacao': 'muda a situação',
     'Situacao invalida': 'Situação inválida',
     'Tipo de pedido invalido': 'Tipo de pedido inválido',

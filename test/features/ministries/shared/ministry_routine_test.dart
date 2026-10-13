@@ -18,12 +18,9 @@ Map<String, dynamic> _check(
 RoutineRun _run(String id, {bool confirmed = true, required List checks}) =>
     RoutineRun.fromJson({
       'id': id,
-      'worship_service_id': 'ws-$id',
+      'event_id': 'ev-$id',
       'confirmed_at': confirmed ? '2026-10-12T22:00:00Z' : null,
-      'worship_service': {
-        'service_date': '2026-10-12',
-        'service_time': '19:00:00',
-      },
+      'event': {'name': 'Culto Domingo', 'start_date': '2026-10-12T19:00:00Z'},
       'ministry_routine_check': checks,
     });
 
@@ -66,7 +63,7 @@ void main() {
   test('a entrega das ofertas vem junto da rotina (objeto ou lista)', () {
     Map<String, dynamic> base(Object? off) => {
       'id': 'r',
-      'worship_service_id': 'ws',
+      'event_id': 'ev',
       'ministry_routine_check': const [],
       'ministry_offering_delivery': off,
     };
@@ -100,5 +97,31 @@ void main() {
     // O intl põe espaço sem quebra entre o símbolo e o número.
     expect(formatReais(1234.5).replaceAll(' ', ' '), r'R$ 1.234,50');
     expect(formatReais(null), '—');
+  });
+  test('culto da Agenda: hora de parede e itens validados', () {
+    final run = RoutineRun.fromJson({
+      'id': 'r',
+      'event_id': 'ev',
+      'event': {
+        'name': 'Culto Quarta',
+        'start_date': '2026-10-15T19:30:00+00:00',
+      },
+      'ministry_routine_check': [
+        {
+          'id': 'a',
+          'stage': 'pre',
+          'done': true,
+          'validated_at': '2026-10-15T20:00:00Z',
+        },
+        {'id': 'b', 'stage': 'pre', 'done': true},
+        {'id': 'c', 'stage': 'pos', 'done': false},
+      ],
+    });
+    // 19:30 "UTC" é 19:30 de parede: não converte fuso.
+    expect(run.serviceDate, DateTime(2026, 10, 15));
+    expect(run.serviceTime, '19:30');
+    expect(run.serviceName, 'Culto Quarta');
+    expect(run.doneCount, 2);
+    expect(run.validatedCount, 1);
   });
 }

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../members/presentation/providers/members_provider.dart';
 import '../../../domain/models/ministry.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../data/ministry_routine_repository.dart';
@@ -192,6 +193,14 @@ class _MinistryRoutineRunScreenState
       showRoutineError(context, 'Escolha o líder do dia antes de confirmar.');
       return;
     }
+    final pending = run.doneCount - run.validatedCount;
+    if (pending > 0) {
+      showRoutineError(
+        context,
+        'Valide os itens feitos antes de confirmar (faltam $pending).',
+      );
+      return;
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -250,6 +259,13 @@ class _MinistryRoutineRunScreenState
             _notesLoaded = true;
           }
           final editable = (caps?.canMark ?? false) && !run.confirmed && !_busy;
+          // Valida e confirma: o líder do dia ou o líder do ministério.
+          final canValidate =
+              editable &&
+              ((caps?.canManage ?? false) ||
+                  (run.leaderOfDay != null &&
+                      run.leaderOfDay ==
+                          ref.watch(currentMemberProvider).valueOrNull?.id));
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             children: [
@@ -288,7 +304,8 @@ class _MinistryRoutineRunScreenState
                   ),
                 ),
               Text(
-                '${run.doneCount} de ${run.checks.length} itens feitos',
+                '${run.doneCount} de ${run.checks.length} itens feitos · '
+                '${run.validatedCount} validados pelo líder do dia',
                 style: meta,
               ),
               const SizedBox(height: 8),
@@ -337,6 +354,8 @@ class _MinistryRoutineRunScreenState
                     check: c,
                     responsibleName: names[c.responsibleUserId],
                     editable: editable,
+                    canValidate: canValidate,
+                    onValidate: (v) => _run(() => _repo.validateCheck(c.id, v)),
                     onToggle: (v) => _setCheck(c, done: v),
                     onValue: () => _editValue(c),
                     onResponsible: () async {
@@ -400,7 +419,7 @@ class _MinistryRoutineRunScreenState
                       onPressed: () => showRequestFormSheet(
                         context,
                         ministryId: widget.ministryId,
-                        worshipServiceId: run.worshipServiceId,
+                        eventId: run.eventId,
                         initialDetails: _notes.text.trim().isEmpty
                             ? null
                             : _notes.text.trim(),
@@ -432,7 +451,8 @@ class _MinistryRoutineRunScreenState
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Só o líder do dia ou o líder do ministério confirma. '
+                  'Só o líder do dia ou o líder do ministério valida os itens '
+                  'e confirma, depois de validar todos os itens feitos. '
                   'Depois de confirmada, a rotina fica travada.',
                   style: meta,
                 ),
@@ -633,6 +653,8 @@ class _CheckRow extends StatelessWidget {
   final RoutineCheck check;
   final String? responsibleName;
   final bool editable;
+  final bool canValidate;
+  final ValueChanged<bool> onValidate;
   final ValueChanged<bool> onToggle;
   final VoidCallback onValue;
   final VoidCallback onResponsible;
@@ -641,6 +663,8 @@ class _CheckRow extends StatelessWidget {
     required this.check,
     this.responsibleName,
     required this.editable,
+    required this.canValidate,
+    required this.onValidate,
     required this.onToggle,
     required this.onValue,
     required this.onResponsible,
@@ -688,6 +712,37 @@ class _CheckRow extends StatelessWidget {
                         onPressed: editable ? onValue : null,
                         icon: const Icon(AppIcons.editNote, size: 16),
                         label: Text(check.valueText ?? 'Anotar', style: meta),
+                      ),
+                    // 2ª checagem: o líder do dia confere o que foi feito.
+                    if (check.done)
+                      TextButton.icon(
+                        key: ValueKey('routine-validate-${check.id}'),
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(44, 36),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          foregroundColor: check.validated
+                              ? AppTheme.successColor
+                              : null,
+                        ),
+                        onPressed: canValidate
+                            ? () => onValidate(!check.validated)
+                            : null,
+                        icon: Icon(
+                          check.validated
+                              ? AppIcons.verified
+                              : Icons.radio_button_unchecked,
+                          size: 16,
+                        ),
+                        label: Text(
+                          check.validated
+                              ? 'Validado pelo líder'
+                              : (canValidate ? 'Validar' : 'Falta validar'),
+                          style: meta.copyWith(
+                            color: check.validated
+                                ? AppTheme.successColor
+                                : (canValidate ? null : AppTheme.warningColor),
+                          ),
+                        ),
                       ),
                   ],
                 ),
