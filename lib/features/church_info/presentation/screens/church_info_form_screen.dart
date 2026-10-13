@@ -62,10 +62,30 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
   @override
   void initState() {
     super.initState();
-    // Iniciar o carregamento dos dados se necessário
-    // Usamos addPostFrameCallback para evitar modificações durante o build inicial
+    // Preenche o formulário com os dados da igreja. `fireImmediately`: o
+    // provider quase sempre já chegou carregado (o topo da aba Igreja usa o
+    // logo e o nome), e um `ref.listen` só dispararia numa mudança — o
+    // formulário abria vazio. Depois do primeiro frame para o setState não
+    // cair no meio do build.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(churchInfoProvider);
+      if (!mounted) return;
+      ref.listenManual<AsyncValue<ChurchInfo?>>(churchInfoProvider, (
+        previous,
+        next,
+      ) {
+        if (_dataLoaded) return;
+        next.when(
+          data: (info) {
+            if (info != null) {
+              _populateForm(info);
+            } else {
+              setState(() => _dataLoaded = true);
+            }
+          },
+          error: (err, stack) => setState(() => _dataLoaded = true),
+          loading: () {},
+        );
+      }, fireImmediately: true);
     });
   }
 
@@ -329,25 +349,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Escutar mudanças no provider
-    ref.listen<AsyncValue<ChurchInfo?>>(churchInfoProvider, (previous, next) {
-      next.when(
-        data: (info) {
-          if (!_dataLoaded) {
-            if (info != null) {
-              _populateForm(info);
-            } else {
-              setState(() => _dataLoaded = true);
-            }
-          }
-        },
-        error: (err, stack) {
-          setState(() => _dataLoaded = true);
-        },
-        loading: () {},
-      );
-    });
-
+    // Só para o carregando da primeira vez; quem preenche é o listenManual.
     final churchInfoState = ref.watch(churchInfoProvider);
 
     if (churchInfoState.isLoading && !_dataLoaded) {
