@@ -1,12 +1,10 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_branding.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../providers/auth_provider.dart';
@@ -31,14 +29,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  bool _isCheckingEmail = false;
-  bool _foundVisitorData = false;
   bool _viewedLgpdPolicy = false;
   bool _viewedCommitmentTerms = false;
   bool _acceptedLgpd = false;
   bool _acceptedCommitmentTerms = false;
-
-  Timer? _debounceTimer;
 
   /// Destino do link que trouxe a pessoa até aqui (`?redirect=`, saneado por
   /// [safeRedirect]). Depois do cadastro ela volta para ele, não para a home.
@@ -53,8 +47,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       final email = (qp['email'] ?? '').trim();
       if (email.isNotEmpty && _emailController.text.trim().isEmpty) {
         _emailController.text = email;
-        // dispara busca de visitante (se aplicável) e feedback
-        _onEmailChanged(email);
       }
     } catch (_) {}
   }
@@ -67,88 +59,17 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _debounceTimer?.cancel();
     super.dispose();
   }
 
-  /// Buscar dados de visitante quando o email é alterado (com debounce)
-  void _onEmailChanged(String email) {
-    debugPrint('🔍 _onEmailChanged chamado com email: $email');
-
-    // Cancelar timer anterior
-    _debounceTimer?.cancel();
-
-    // Resetar estado se o email estiver vazio ou inválido
-    if (email.isEmpty || !email.contains('@')) {
-      debugPrint('❌ Email vazio ou sem @, resetando estado');
-      setState(() {
-        _foundVisitorData = false;
-      });
-      return;
-    }
-
-    debugPrint('⏱️ Iniciando timer de 1 segundo para buscar dados...');
-    // Criar novo timer para esperar 1 segundo após o usuário parar de digitar
-    _debounceTimer = Timer(const Duration(seconds: 1), () {
-      debugPrint('⏰ Timer disparado! Chamando _checkEmailForVisitorData...');
-      _checkEmailForVisitorData(email);
-    });
-  }
-
-  /// Buscar dados de visitante quando o email é alterado
-  Future<void> _checkEmailForVisitorData(String email) async {
-    debugPrint('🚀 _checkEmailForVisitorData iniciado para: $email');
-
-    setState(() {
-      _isCheckingEmail = true;
-      _foundVisitorData = false;
-    });
-
-    try {
-      debugPrint('📡 Buscando dados no Supabase...');
-      final authRepo = ref.read(authRepositoryProvider);
-      final visitorData = await authRepo.getVisitorDataByEmail(email.trim());
-
-      debugPrint('📦 Dados recebidos: $visitorData');
-
-      if (visitorData != null && mounted) {
-        debugPrint('✅ Visitante encontrado! Preenchendo campos...');
-        debugPrint('   - first_name: ${visitorData['first_name']}');
-        debugPrint('   - last_name: ${visitorData['last_name']}');
-
-        // Preencher os campos automaticamente
-        setState(() {
-          _firstNameController.text = visitorData['first_name'] ?? '';
-          _lastNameController.text = visitorData['last_name'] ?? '';
-          _nicknameController.text = (visitorData['nickname'] ?? visitorData['apelido'] ?? '') ?? '';
-          _foundVisitorData = true;
-        });
-
-        debugPrint('✅ Campos preenchidos com sucesso!');
-
-        // Mostrar mensagem de sucesso
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Dados encontrados! Nome e sobrenome preenchidos automaticamente.'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
-      } else {
-        debugPrint('❌ Nenhum visitante encontrado com este email');
-      }
-    } catch (e, stackTrace) {
-      debugPrint('❌ ERRO ao buscar dados do visitante: $e');
-      debugPrint('Stack trace: $stackTrace');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isCheckingEmail = false;
-        });
-      }
-    }
+  /// Volta para o login levando o destino do link que trouxe a pessoa.
+  void _irParaLogin() {
+    final destino = _redirectDestino;
+    context.go(
+      destino == null
+          ? '/login'
+          : '/login?redirect=${Uri.encodeComponent(destino)}',
+    );
   }
 
   Future<void> _handleSignUp() async {
@@ -189,7 +110,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
             duration: const Duration(seconds: 5),
           ),
         );
-        (context.canPop() ? context.pop() : context.go('/home'));
+        _irParaLogin();
         return;
       }
       
@@ -215,12 +136,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
             duration: const Duration(seconds: 8),
           ),
         );
-        final destino = _redirectDestino;
-        context.go(
-          destino == null
-              ? '/login'
-              : '/login?redirect=${Uri.encodeComponent(destino)}',
-        );
+        _irParaLogin();
         return;
       }
 
@@ -245,10 +161,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         if (alreadyRegistered) {
           message =
               'Este e-mail já está cadastrado. Envie um link para definir/redefinir sua senha e depois faça login.';
-        } else if (e is AuthException) {
-          message = e.message;
         } else {
-          message = e.toString();
+          message = AppErrorHandler.userMessage(e, feature: 'auth.signup');
         }
 
         if (alreadyRegistered) {
@@ -274,12 +188,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         duration: const Duration(seconds: 4),
                       ),
                     );
-                    if (mounted) (context.canPop() ? context.pop() : context.go('/home'));
+                    if (mounted) _irParaLogin();
                   } catch (err) {
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Não foi possível enviar o link: $err'),
+                        content: Text(
+                          'Não foi possível enviar o link: '
+                          '${AppErrorHandler.userMessage(err, feature: 'auth.signup')}',
+                        ),
                         backgroundColor: Colors.red,
                       ),
                     );
@@ -296,7 +213,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
               duration: const Duration(seconds: 3),
               action: SnackBarAction(
                 label: 'Fazer Login',
-                onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
+                onPressed: _irParaLogin,
               ),
             ),
           );
@@ -377,7 +294,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       paragraphs: const [
         'Seus dados pessoais serão utilizados exclusivamente para finalidades ministeriais e administrativas da igreja, como identificação, contato e acompanhamento pastoral.',
         'O tratamento dos dados seguirá os princípios da LGPD (Lei 13.709/2018), incluindo necessidade, transparência, segurança e minimização.',
-        'Você pode solicitar correção, anonimização, portabilidade, revogação de consentimento e exclusão, conforme hipóteses legais aplicáveis.',
+        'Você pode solicitar correção, anonimização, portabilidade, revogação de consentimento e exclusão, conforme hipóteses legais aplicáveis, pelo e-mail rgachurch360@gmail.com.',
         'Ao conceder o consentimento, o sistema registra data e horário para comprovação e auditoria interna.',
       ],
       onReadConfirmed: () {
@@ -392,9 +309,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       subtitle: 'Leia os termos antes de aceitar no cadastro.',
       paragraphs: const [
         'Ao se cadastrar, você confirma que as informações fornecidas são verdadeiras e poderão ser usadas para comunicação oficial da igreja.',
-        'Você se compromete a manter seus dados atualizados e a utilizar os recursos do aplicativo de forma ética e respeitosa.',
-        'A liderança pastoral pode visualizar o status de aceite dos termos e de consentimento LGPD para fins de conformidade.',
-        'O descumprimento das diretrizes pode implicar restrições de acesso conforme regras internas da organização.',
+        'Sua conta é pessoal: não compartilhe a senha. O que você vê no app sobre pessoas, finanças e crianças é sigiloso e só pode ser usado na sua função na igreja.',
+        'O assistente virtual pode errar. Com a sua confirmação, ele registra problemas para a equipe de suporte da plataforma Church360, que pode ler a conversa só para atender e corrigir o app.',
+        'O descumprimento pode levar a restrições de acesso. O texto completo (versão 1.1) está em papai.church360.com.br/termos.',
       ],
       onReadConfirmed: () {
         _viewedCommitmentTerms = true;
@@ -486,24 +403,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
                       ),
-                      suffixIcon: _isCheckingEmail
-                          ? const Padding(
-                              padding: EdgeInsets.all(12.0),
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            )
-                          : _foundVisitorData
-                              ? const Icon(Icons.check_circle, color: Colors.green)
-                              : null,
-                      helperText: _foundVisitorData
-                          ? '✅ Visitante encontrado! Dados preenchidos automaticamente.'
-                          : 'Se você já é visitante, seus dados serão preenchidos automaticamente',
-                      helperMaxLines: 2,
                     ),
-                    onChanged: _onEmailChanged,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Por favor, insira seu email';
@@ -851,7 +751,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         ),
                       ),
                       TextButton(
-                        onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
+                        onPressed: _irParaLogin,
                         style: TextButton.styleFrom(
                           foregroundColor: const Color(0xFF0B5FA5),
                           textStyle: const TextStyle(fontWeight: FontWeight.w600),

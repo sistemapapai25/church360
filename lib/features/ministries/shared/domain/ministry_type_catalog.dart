@@ -361,5 +361,20 @@ class MinistryTypeCatalog {
       offeredOnCreate: true,
       sortOrder: 40,
     ),
+    MinistryTypeSpec(
+      code: 'louvor',
+      label: 'Louvor',
+      description: 'Equipe, escala, biblioteca de louvores e cifras.',
+      tabs: [
+        MinistryTypeTab(MinistryTabKeys.equipe, 'Equipe'),
+        MinistryTypeTab(MinistryTabKeys.escala, 'Escala'),
+        MinistryTypeTab(MinistryTabKeys.louvores, 'Louvores'),
+        MinistryTypeTab(MinistryTabKeys.financeiro, 'Financeiro'),
+        MinistryTypeTab(MinistryTabKeys.whatsapp, 'WhatsApp'),
+        MinistryTypeTab(MinistryTabKeys.relatorios, 'Relatórios'),
+      ],
+      offeredOnCreate: true,
+      sortOrder: 50,
+    ),
   ]);
 }

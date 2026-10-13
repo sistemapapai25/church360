@@ -6,14 +6,17 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/notifications/data/push/push_registration_service.dart';
 
+/// Só no Android (e desktop) o app fecha de verdade.
+bool get _closesApp =>
+    !kIsWeb &&
+    defaultTargetPlatform != TargetPlatform.iOS &&
+    defaultTargetPlatform != TargetPlatform.macOS;
+
+/// Web e iPhone não fecham o app: lá "sair" encerra a sessão, senão o router
+/// devolvia a pessoa logada de /login para /home.
 Future<void> exitApp(BuildContext context) async {
-  if (kIsWeb || defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS) {
-    if (context.mounted) {
-      context.go('/login');
-    }
-    return;
-  }
-  await SystemNavigator.pop();
+  if (_closesApp) return SystemNavigator.pop();
+  await signOutAndExit(context);
 }
 
 Future<void> signOutAndExit(BuildContext context) async {
@@ -24,5 +27,9 @@ Future<void> signOutAndExit(BuildContext context) async {
   if (!context.mounted) {
     return;
   }
-  await exitApp(context);
+  if (_closesApp) {
+    await SystemNavigator.pop();
+  } else {
+    context.go('/login');
+  }
 }
