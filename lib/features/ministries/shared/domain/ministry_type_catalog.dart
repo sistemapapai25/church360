@@ -49,6 +49,10 @@ abstract final class MinistryTabKeys {
   // Pedidos de manutenção e reposição (F4).
   static const pedidos = 'pedidos';
 
+  // Ação social: famílias assistidas (F6). Dado sensível: a aba só mostra
+  // conteúdo a quem tem ministry_assist.view/.manage.
+  static const assistencia = 'assistencia';
+
   /// As abas que **todo** ministério pode ligar na engrenagem, na ordem
   /// padrão. Aba nova que deve chegar a todos os ministérios entra aqui (e em
   /// `ministryStandardSlots`); o padrão dela é desligada, salvo no tipo cujo
@@ -63,6 +67,7 @@ abstract final class MinistryTabKeys {
     MinistryTypeTab(materiais, 'Materiais'),
     MinistryTypeTab(rotina, 'Rotina'),
     MinistryTypeTab(pedidos, 'Pedidos'),
+    MinistryTypeTab(assistencia, 'Assistência'),
     MinistryTypeTab(whatsapp, 'WhatsApp'),
     MinistryTypeTab(relatorios, 'Relatórios'),
   ];

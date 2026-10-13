@@ -22,6 +22,7 @@ import '../../features/groups/presentation/screens/meeting_detail_screen.dart';
 import '../../features/ministries/presentation/screens/ministries_list_screen.dart';
 import '../../features/ministries/presentation/screens/generic_ministry_home_screen.dart';
 import '../../features/ministries/presentation/screens/ministry_form_screen.dart';
+import '../../features/ministries/shared/presentation/widgets/offering_confirm_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_home_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_visits_screen.dart';
 import '../../features/ministries/raizes/presentation/screens/raizes_recommendations_screen.dart';
@@ -704,6 +705,13 @@ final appRouter = GoRouter(
         final id = state.pathParameters['id']!;
         return RaizesSponsorsScreen(ministryId: id);
       },
+    ),
+    // Ofertas do culto (F5): quem da Tesouraria recebeu confirma. Sem gate de
+    // rota: a RPC só devolve a entrega a quem vê o ministério ou a recebeu.
+    GoRoute(
+      path: '/ofertas/:id',
+      builder: (context, state) =>
+          OfferingConfirmScreen(deliveryId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/ministries/:id/diaconato',

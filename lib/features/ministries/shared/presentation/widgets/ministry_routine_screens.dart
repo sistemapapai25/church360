@@ -29,11 +29,28 @@ Future<void> openRoutineRun(
 );
 
 /// Escolhe alguém da Equipe (ou ninguém). Devolve `(escolheu, id)`.
+/// [scheduled] (id -> função) sobe para o topo como "Escalados neste dia".
 Future<(bool, String?)> _pickTeamMember(
   BuildContext context,
   List<MinistryMember> team,
-  String title,
-) async {
+  String title, {
+  Map<String, String?> scheduled = const {},
+}) async {
+  final onDuty = [
+    for (final m in team)
+      if (scheduled.containsKey(m.memberId)) m,
+  ];
+  final rest = [
+    for (final m in team)
+      if (!scheduled.containsKey(m.memberId)) m,
+  ];
+  Widget tile(BuildContext ctx, MinistryMember m, String subtitle) => ListTile(
+    leading: const Icon(AppIcons.person),
+    title: Text(m.memberName),
+    subtitle: Text(subtitle),
+    onTap: () => Navigator.of(ctx).pop((true, m.memberId)),
+  );
+
   final r = await showModalBottomSheet<(bool, String?)>(
     context: context,
     isScrollControlled: true,
@@ -54,13 +71,22 @@ Future<(bool, String?)> _pickTeamMember(
               title: const Text('Ninguém'),
               onTap: () => Navigator.of(ctx).pop((true, null)),
             ),
-            for (final m in team)
-              ListTile(
-                leading: const Icon(AppIcons.person),
-                title: Text(m.memberName),
-                subtitle: Text(m.role.label),
-                onTap: () => Navigator.of(ctx).pop((true, m.memberId)),
+            if (onDuty.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text(
+                  'Escalados neste dia',
+                  style: CommunityDesign.metaStyle(ctx),
+                ),
               ),
+              for (final m in onDuty)
+                tile(ctx, m, scheduled[m.memberId] ?? 'Escalado'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text('Equipe', style: CommunityDesign.metaStyle(ctx)),
+              ),
+            ],
+            for (final m in rest) tile(ctx, m, m.role.label),
           ],
         ),
       ),
@@ -198,6 +224,13 @@ class _MinistryRoutineRunScreenState
         ref.watch(ministryMembersProvider(widget.ministryId)).valueOrNull ??
         const <MinistryMember>[];
     final names = {for (final m in team) m.memberId: m.memberName};
+    final scheduled =
+        ref.watch(ministryRoutineScheduledProvider(widget.runId)).valueOrNull ??
+        const <String, String?>{};
+    final onDutyNames = [
+      for (final id in scheduled.keys)
+        if (names[id] != null) names[id]!,
+    ];
     final meta = CommunityDesign.metaStyle(context);
 
     return Scaffold(
@@ -263,7 +296,13 @@ class _MinistryRoutineRunScreenState
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(AppIcons.personFilled),
                 title: const Text('Líder do dia'),
-                subtitle: Text(names[run.leaderOfDay] ?? 'Ninguém escolhido'),
+                subtitle: Text(
+                  names[run.leaderOfDay] ??
+                      (onDutyNames.isEmpty
+                          ? 'Ninguém escolhido'
+                          : 'Ninguém escolhido · escalados: '
+                                '${onDutyNames.join(', ')}'),
+                ),
                 trailing: editable ? const Icon(AppIcons.edit) : null,
                 onTap: editable
                     ? () async {
@@ -271,6 +310,7 @@ class _MinistryRoutineRunScreenState
                           context,
                           team,
                           'Líder do dia',
+                          scheduled: scheduled,
                         );
                         if (picked) {
                           await _run(
@@ -308,6 +348,26 @@ class _MinistryRoutineRunScreenState
                       if (r.$1) await _setCheck(c, responsible: r);
                     },
                   ),
+              ],
+              if (caps?.offeringOn ?? false) ...[
+                const SizedBox(height: 16),
+                _OfferingSection(
+                  run: run,
+                  team: team,
+                  editable: editable && !(run.offering?.received ?? false),
+                  onSave: (o) => _run(
+                    () => _repo.setOffering(
+                      runId: run.id,
+                      envelopes: o.envelopes,
+                      cashAmount: o.cashAmount,
+                      deliveredBy1: o.deliveredBy1,
+                      deliveredBy2: o.deliveredBy2,
+                      receivedBy: o.receivedBy,
+                      notes: o.notes,
+                    ),
+                    done: 'Entrega das ofertas salva.',
+                  ),
+                ),
               ],
               const SizedBox(height: 16),
               Text(
@@ -381,6 +441,190 @@ class _MinistryRoutineRunScreenState
           );
         },
       ),
+    );
+  }
+}
+
+/// Entrega das ofertas à Tesouraria (F5): envelopes, espécie, os dois da
+/// Equipe que entregaram e quem da Tesouraria recebeu. Quem recebeu confirma
+/// no próprio celular (aviso no sino, tela /ofertas/:id); depois disso trava.
+class _OfferingSection extends ConsumerWidget {
+  final RoutineRun run;
+  final List<MinistryMember> team;
+  final bool editable;
+  final Future<void> Function(OfferingDelivery) onSave;
+
+  const _OfferingSection({
+    required this.run,
+    required this.team,
+    required this.editable,
+    required this.onSave,
+  });
+
+  Future<void> _edit(
+    BuildContext context,
+    Map<String, String> receivers,
+  ) async {
+    final o = run.offering;
+    final env = TextEditingController(text: o?.envelopes?.toString() ?? '');
+    final cash = TextEditingController(
+      text: o?.cashAmount == null
+          ? ''
+          : o!.cashAmount!.toStringAsFixed(2).replaceAll('.', ','),
+    );
+    final notes = TextEditingController(text: o?.notes ?? '');
+    var d1 = o?.deliveredBy1;
+    var d2 = o?.deliveredBy2;
+    var rec = o?.receivedBy;
+    final teamNames = {for (final m in team) m.memberId: m.memberName};
+
+    Widget people(
+      String label,
+      String? value,
+      Map<String, String> options,
+      ValueChanged<String?> onChanged,
+    ) => DropdownButtonFormField<String?>(
+      initialValue: options.containsKey(value) ? value : null,
+      isExpanded: true,
+      decoration: InputDecoration(labelText: label),
+      items: [
+        const DropdownMenuItem(value: null, child: Text('Ninguém')),
+        for (final e in options.entries)
+          DropdownMenuItem(value: e.key, child: Text(e.value)),
+      ],
+      onChanged: onChanged,
+    );
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Entrega das ofertas'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: env,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Envelopes recolhidos',
+                ),
+              ),
+              TextField(
+                controller: cash,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: r'Valor em espécie (R$)',
+                  hintText: '0,00',
+                ),
+              ),
+              people('Entregou (1)', d1, teamNames, (v) => d1 = v),
+              people('Entregou (2)', d2, teamNames, (v) => d2 = v),
+              people('Recebeu (Tesouraria)', rec, receivers, (v) => rec = v),
+              TextField(
+                controller: notes,
+                maxLength: 1000,
+                decoration: const InputDecoration(
+                  labelText: 'Observação (opcional)',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+    final result = OfferingDelivery(
+      id: o?.id ?? '',
+      envelopes: int.tryParse(env.text.trim()),
+      cashAmount: parseReais(cash.text),
+      deliveredBy1: d1,
+      deliveredBy2: d2,
+      receivedBy: rec,
+      notes: notes.text,
+    );
+    env.dispose();
+    cash.dispose();
+    notes.dispose();
+    if (ok == true) await onSave(result);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final o = run.offering;
+    final receivers =
+        ref.watch(offeringReceiversProvider).valueOrNull ??
+        const <String, String>{};
+    final names = {for (final m in team) m.memberId: m.memberName};
+    final meta = CommunityDesign.metaStyle(context);
+    final delivered = [
+      for (final id in [o?.deliveredBy1, o?.deliveredBy2])
+        if (id != null) names[id] ?? 'alguém da equipe',
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Entrega das ofertas à Tesouraria',
+                style: CommunityDesign.titleStyle(
+                  context,
+                ).copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+            ),
+            if (editable)
+              TextButton(
+                key: const ValueKey('routine-offering-edit'),
+                onPressed: () => _edit(context, receivers),
+                child: Text(o == null ? 'Preencher' : 'Editar'),
+              ),
+          ],
+        ),
+        if (o == null)
+          Text('Ainda não preenchida.', style: meta)
+        else ...[
+          Text(
+            '${o.envelopes ?? '—'} envelopes · ${formatReais(o.cashAmount)} '
+            'em espécie',
+          ),
+          Text(
+            'Entregou: ${delivered.isEmpty ? '—' : delivered.join(' e ')}',
+            style: meta,
+          ),
+          Text(
+            'Recebeu: ${o.receivedBy == null ? '—' : receivers[o.receivedBy] ?? 'Tesouraria'}',
+            style: meta,
+          ),
+          if (o.notes != null) Text(o.notes!, style: meta),
+          const SizedBox(height: 4),
+          Text(
+            o.received
+                ? 'Recebimento confirmado em '
+                      '${DateFormat("dd/MM 'às' HH:mm").format(o.receivedConfirmedAt!)}.'
+                : (o.receivedBy == null
+                      ? 'Escolha quem recebeu: a pessoa confirma pelo app.'
+                      : 'Aguardando quem recebeu confirmar pelo app.'),
+            style: meta.copyWith(
+              color: o.received ? AppTheme.successColor : AppTheme.warningColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

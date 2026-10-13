@@ -36,6 +36,24 @@ final ministryRequestsProvider =
           ref.watch(ministryRoutineRepositoryProvider).getRequests(ministryId),
     );
 
+/// Escalados no dia do culto da rotina (sugestão de líder do dia).
+final ministryRoutineScheduledProvider =
+    FutureProvider.family<Map<String, String?>, String>(
+      (ref, runId) =>
+          ref.watch(ministryRoutineRepositoryProvider).scheduled(runId),
+    );
+
+/// A Tesouraria (quem pode receber as ofertas).
+final offeringReceiversProvider = FutureProvider<Map<String, String>>(
+  (ref) => ref.watch(ministryRoutineRepositoryProvider).offeringReceivers(),
+);
+
+/// A entrega das ofertas como quem recebeu vê (tela /ofertas/:id).
+final offeringDeliveryProvider =
+    FutureProvider.family<Map<String, dynamic>?, String>(
+      (ref, id) => ref.watch(ministryRoutineRepositoryProvider).getOffering(id),
+    );
+
 /// Sem realtime: toda gravação invalida na mão.
 void invalidateMinistryRoutine(
   WidgetRef ref,

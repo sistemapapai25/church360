@@ -2,6 +2,8 @@
 // pré, durante e pós-culto de um ministério. Tabelas e RPCs na migration
 // 20261008004000_ministerio_rotina.
 
+import 'package:intl/intl.dart';
+
 /// As três etapas, na ordem da Ficha 3 do Diaconato.
 enum RoutineStage {
   pre('pre', 'Pré-culto'),
@@ -95,6 +97,9 @@ class RoutineRun {
   final DateTime? confirmedAt;
   final List<RoutineCheck> checks;
 
+  /// Entrega das ofertas à Tesouraria (F5); nula enquanto ninguém preencheu.
+  final OfferingDelivery? offering;
+
   const RoutineRun({
     required this.id,
     required this.worshipServiceId,
@@ -104,6 +109,7 @@ class RoutineRun {
     this.needsNotes,
     this.confirmedAt,
     this.checks = const [],
+    this.offering,
   });
 
   bool get confirmed => confirmedAt != null;
@@ -116,6 +122,10 @@ class RoutineRun {
       for (final c in (j['ministry_routine_check'] as List? ?? const []))
         RoutineCheck.fromJson(c as Map<String, dynamic>),
     ]..sort(compareRoutineChecks);
+    // 1:1 pela run_id única: o PostgREST devolve objeto (ou lista, conforme
+    // a versão); aceitar os dois.
+    final off = j['ministry_offering_delivery'];
+    final offMap = off is List ? (off.isEmpty ? null : off.first) : off;
     return RoutineRun(
       id: j['id'] as String,
       worshipServiceId: j['worship_service_id'] as String,
@@ -127,9 +137,56 @@ class RoutineRun {
         j['confirmed_at'] as String? ?? '',
       )?.toLocal(),
       checks: checks,
+      offering: offMap is Map
+          ? OfferingDelivery.fromJson(offMap.cast<String, dynamic>())
+          : null,
     );
   }
 }
+
+/// Entrega das ofertas do culto à Tesouraria (migration 004200). Os ids de
+/// pessoa são `user_account.id`.
+class OfferingDelivery {
+  final String id;
+  final int? envelopes;
+  final double? cashAmount;
+  final String? deliveredBy1;
+  final String? deliveredBy2;
+  final String? receivedBy;
+  final String? notes;
+  final DateTime? receivedConfirmedAt;
+
+  const OfferingDelivery({
+    required this.id,
+    this.envelopes,
+    this.cashAmount,
+    this.deliveredBy1,
+    this.deliveredBy2,
+    this.receivedBy,
+    this.notes,
+    this.receivedConfirmedAt,
+  });
+
+  bool get received => receivedConfirmedAt != null;
+
+  factory OfferingDelivery.fromJson(Map<String, dynamic> j) => OfferingDelivery(
+    id: j['id'] as String,
+    envelopes: (j['envelopes'] as num?)?.toInt(),
+    cashAmount: (j['cash_amount'] as num?)?.toDouble(),
+    deliveredBy1: j['delivered_by_1'] as String?,
+    deliveredBy2: j['delivered_by_2'] as String?,
+    receivedBy: j['received_by'] as String?,
+    notes: j['notes'] as String?,
+    receivedConfirmedAt: DateTime.tryParse(
+      j['received_confirmed_at'] as String? ?? '',
+    )?.toLocal(),
+  );
+}
+
+/// "R\$ 1.234,50" (ou "—" sem valor).
+String formatReais(double? v) => v == null
+    ? '—'
+    : NumberFormat.currency(locale: 'pt_BR', symbol: r'R$').format(v);
 
 int compareRoutineChecks(RoutineCheck a, RoutineCheck b) {
   final byStage = a.stage.index.compareTo(b.stage.index);
@@ -201,6 +258,9 @@ class MinistryRequest {
   final String? stockItemName;
   final DateTime? serviceDate;
 
+  /// Caminho no bucket privado `ministry-request-photos`.
+  final String? photoPath;
+
   /// `user_account.id` de quem abriu.
   final String? openedBy;
   final DateTime openedAt;
@@ -215,6 +275,7 @@ class MinistryRequest {
     this.statusNote,
     this.stockItemName,
     this.serviceDate,
+    this.photoPath,
     this.openedBy,
     required this.openedAt,
   });
@@ -233,8 +294,19 @@ class MinistryRequest {
       statusNote: j['status_note'] as String?,
       stockItemName: item is Map ? item['name'] as String? : null,
       serviceDate: date == null ? null : DateTime.tryParse(date),
+      photoPath: j['photo_path'] as String?,
       openedBy: j['opened_by'] as String?,
       openedAt: DateTime.parse(j['opened_at'] as String).toLocal(),
     );
   }
+}
+
+/// "1.234,50" / "1234.5" / "" -> 1234.5 / null.
+double? parseReais(String text) {
+  final t = text.trim().replaceAll(RegExp(r'[R$\s]'), '');
+  if (t.isEmpty) return null;
+  // Com vírgula, o ponto é milhar; sem vírgula, o ponto é decimal.
+  return double.tryParse(
+    t.contains(',') ? t.replaceAll('.', '').replaceAll(',', '.') : t,
+  );
 }
