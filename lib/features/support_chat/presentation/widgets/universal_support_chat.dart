@@ -118,6 +118,8 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   String _supportStatus = 'bot';
   Timer? _humanPoll;
   static const _humanSeenKey = 'support_human_seen_at';
+  // Último status visto: sem ele, quem fecha o chat esperando o atendente não vê "voltou a atender" ao reabrir.
+  static const _supportStatusKey = 'support_status';
 
   static const int _maxLocalMessagesPerAgent = 50;
 
@@ -767,8 +769,12 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           'isError': false,
         });
       });
+      unawaited(_saveLocalHistorySafely());
       _scrollToBottom();
     }
+    unawaited(SharedPreferences.getInstance()
+        .then((p) => p.setString(_supportStatusKey, _supportStatus))
+        .catchError((_) => true));
     if (_supportStatus == 'bot') {
       _humanPoll?.cancel();
       _humanPoll = null;
@@ -796,7 +802,11 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
               .order('last_message_at', ascending: false)
               .limit(1)
               .maybeSingle();
-      if (session == null) return;
+      if (session == null) {
+        // Conversa apagada ou sem acesso: não fica preso no modo atendente.
+        _applySupportStatus(null, 'encerrada');
+        return;
+      }
       final id = session['id'].toString();
 
       final prefs = await SharedPreferences.getInstance();
@@ -856,6 +866,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       if (!mounted) return;
       setState(() {
         _threadId = prefs.getString(_threadStorageKey);
+        _supportStatus = prefs.getString(_supportStatusKey) ?? 'bot';
       });
     } catch (_) {}
   }
