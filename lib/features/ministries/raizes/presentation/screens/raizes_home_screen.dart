@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/widgets/glass_card.dart';
+import '../../../../../core/utils/share_link_utils.dart';
+import '../../../../../core/widgets/share_link_dialog.dart';
 import '../../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../shared/domain/ministry_type_catalog.dart';
@@ -193,6 +195,26 @@ class _RaizesPainelTabState extends ConsumerState<RaizesPainelTab> {
                 color: colorScheme.tertiary,
               ),
             ),
+          ),
+          const SizedBox(height: 12),
+          _PrimaryActionCard(
+            icon: Icons.qr_code_2,
+            title: 'QR Code de cadastro',
+            description:
+                'Para a mesa do visitante: quem lê o QR se cadastra sozinho, sem login, e a liderança recebe o aviso.',
+            onTap: () {
+              final url = ShareLinkUtils.buildShareUrl(
+                '/raizes/$ministryId/cadastro',
+              );
+              showShareLinkDialog(
+                context,
+                title: 'QR Code de cadastro',
+                url: url,
+                shareText: 'Faça seu cadastro de visitante: $url',
+                showQr: true,
+              );
+            },
+            color: Colors.green.shade700,
           ),
           const SizedBox(height: 12),
           _PrimaryActionCard(

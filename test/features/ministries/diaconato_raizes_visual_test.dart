@@ -152,7 +152,7 @@ void main() {
     // O painel é a primeira aba do workspace desde 24/09: a tela inteira
     // não cabe na altura padrão do teste, e sem isto o `ListView` nem
     // constrói os cards de baixo.
-    await tester.binding.setSurfaceSize(const Size(1200, 2400));
+    await tester.binding.setSurfaceSize(const Size(1200, 3200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
