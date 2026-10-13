@@ -367,7 +367,7 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
                     message:
                         'As etapas acima passam a valer assim que o '
                         'primeiro aluno entrar numa turma. O cadastro de '
-                        'alunos fica na aba Alunos.',
+                        'alunos fica em Turmas, dentro de cada turma.',
                   )
                 else ...[
                   _SectionLabel(

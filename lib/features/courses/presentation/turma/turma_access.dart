@@ -128,16 +128,16 @@ final turmaAccessProvider = FutureProvider.family<TurmaAccess, String>((
   switch (origin) {
     case BatismoTurmaOrigin(:final ministryId):
       // study_group_leadership_allows, ramo Batismo:
-      // ministries_user_can_see_all() OU (permissão E vínculo no ministério).
+      // ministries_user_can_see_all() OU vínculo no ministério (ler não pede
+      // baptism.view desde 20261008004200; escrever pede baptism.edit).
       final canSeeAll = await ref.watch(ministriesCanSeeAllProvider.future);
       final inMinistry = await ref.watch(
         ministryAccessProvider(ministryId).future,
       );
-      final view = await can('baptism.view');
       // study_group_student_allows: matrícula ativa ou concluída.
       final enrollments = await ref.watch(myBaptismEnrollmentsProvider.future);
       final enrolled = enrollments.any((e) => e.studyGroupId == studyGroupId);
-      final leadership = elevated || canSeeAll || (view && inMinistry);
+      final leadership = elevated || canSeeAll || inMinistry;
       if (leadership) {
         final edit = await can('baptism.edit');
         final manageLessons = await can('courses.manage_lessons');

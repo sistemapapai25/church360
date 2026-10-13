@@ -63,9 +63,9 @@ class BaptismStudent {
   }
 
   /// Campos graváveis. `source` fica de fora: quem cadastra pela tela é
-  /// sempre `manual`, e o valor `publica` só pode vir do formulário público
-  /// (que ainda não existe). Deixar a tela escrever nessa coluna permitiria
-  /// forjar a etiqueta de origem.
+  /// sempre `manual`, e o valor `publica` só vem da inscrição pelo link
+  /// (`register_baptism_public`). Deixar a tela escrever nessa coluna
+  /// permitiria forjar a etiqueta de origem.
   Map<String, dynamic> toWriteJson() {
     return {
       'turma_id': turmaId,
@@ -162,9 +162,8 @@ enum BaptismStudentStatus {
   }
 }
 
-/// De onde o cadastro veio. `publica` ainda não é produzido por nada: o
-/// formulário de inscrição sem login foi adiado (D3 do plano). A coluna já
-/// existe no banco para não exigir migration estrutural depois.
+/// De onde o cadastro veio. `publica` é gravado pela inscrição feita pelo
+/// link do Batismo.
 enum BaptismStudentSource {
   manual('manual', 'Cadastro manual'),
   publica('publica', 'Inscrição Pública');

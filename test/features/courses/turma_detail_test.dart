@@ -248,13 +248,9 @@ void main() {
       expect(a.canWriteLessons, isTrue);
     });
 
-    test('baptism.view + vínculo lê mas não escreve aula', () async {
+    test('vínculo sem baptism.view lê mas não escreve aula', () async {
       final a = await _access(
-        _accessOverrides(
-          turma: _baptismTurma,
-          inMinistry: true,
-          permissions: {'baptism.view'},
-        ),
+        _accessOverrides(turma: _baptismTurma, inMinistry: true),
       );
       expect(a.role, TurmaRole.leadership);
       expect(a.canWriteLessons, isFalse);

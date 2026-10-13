@@ -283,12 +283,11 @@ void main() {
     });
 
     test(
-      'baptism.view com vínculo é gestão e não consulta turmas abertas',
+      'vínculo sem baptism.view é gestão e não consulta turmas abertas',
       () async {
         final calls = <String>[];
         final hub = await _hub(
           _baptismOverrides(
-            baptismView: true,
             inMinistry: true,
             publicInfoCalls: calls,
           ),
