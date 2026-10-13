@@ -49,7 +49,7 @@ class _PresenceCheckinScreenState extends ConsumerState<PresenceCheckinScreen> {
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
         backgroundColor: CommunityDesign.headerColor(context),
-        title: const Text('Presença no culto'),
+        title: const Text('Bom culto!'),
         leading: IconButton(
           icon: const Icon(AppIcons.back),
           onPressed: () =>
@@ -69,7 +69,7 @@ class _PresenceCheckinScreenState extends ConsumerState<PresenceCheckinScreen> {
                       children: [
                         CircularProgressIndicator(),
                         SizedBox(height: 16),
-                        Text('Conferindo sua localização...'),
+                        Text('Só um instante...'),
                       ],
                     )
                   : _ResultView(result: _result!, onAsk: () => _run(ask: true)),
@@ -94,8 +94,8 @@ class _ResultView extends StatelessWidget {
       GeoCheckinStatus.presente || GeoCheckinStatus.jaMarcado => (
         AppIcons.checkCircle,
         Colors.green,
-        'Presença confirmada',
-        'Você está marcado como presente no $culto. Bom culto!',
+        'Que bom ter você aqui!',
+        'Sua chegada ao $culto ficou registrada. Bom culto!',
       ),
       GeoCheckinStatus.longe => (
         AppIcons.location,
@@ -107,9 +107,9 @@ class _ResultView extends StatelessWidget {
       GeoCheckinStatus.semPermissao || GeoCheckinStatus.aberta => (
         AppIcons.location,
         Theme.of(context).colorScheme.primary,
-        'Confirmar presença no $culto',
-        'Usamos sua localização só agora, para ver se você está na igreja. '
-            'Ela não é guardada: fica registrada só a sua presença.',
+        'Chegou ao $culto?',
+        'Toque em "Cheguei" e a gente fica sabendo que você está aqui. '
+            'O app confere sua localização só neste momento e não a guarda.',
       ),
       GeoCheckinStatus.semGps => (
         AppIcons.location,
@@ -171,7 +171,7 @@ class _ResultView extends StatelessWidget {
           FilledButton.icon(
             onPressed: onAsk,
             icon: Icon(asking ? AppIcons.location : AppIcons.refresh),
-            label: Text(asking ? 'Confirmar minha presença' : 'Tentar de novo'),
+            label: Text(asking ? 'Cheguei!' : 'Tentar de novo'),
           ),
         ],
       ],

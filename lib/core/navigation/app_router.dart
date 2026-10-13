@@ -1195,7 +1195,7 @@ final appRouter = GoRouter(
     // NOTIFICATIONS ROUTES
     // =====================================================
 
-    // Presença no culto pela localização (aberta pelo aviso "Você está no culto?")
+    // Presença no culto pela localização (aberta pelo aviso "Chegou bem ao <culto>?")
     GoRoute(
       path: '/presenca',
       builder: (context, state) => const PresenceCheckinScreen(),
