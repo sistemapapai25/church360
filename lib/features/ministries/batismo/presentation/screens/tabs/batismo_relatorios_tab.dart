@@ -307,8 +307,8 @@ class _BatismoRelatoriosTabState extends ConsumerState<BatismoRelatoriosTab> {
             child: _AttendanceSlot(
               async: rollsAsync,
               emptyLabel:
-                  'Nenhum encontro registrado ainda. Crie o primeiro na aba '
-                  'Presença para poder emitir a chamada.',
+                  'Nenhuma chamada registrada ainda. A chamada é feita '
+                  'dentro de cada aula, em Turmas.',
               isEmpty: rolls.isEmpty,
               onRetry: () => invalidateBaptismData(ref, widget.ministryId),
               child: roll == null
@@ -748,7 +748,7 @@ class _NoTurmasNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      'Crie a primeira turma na aba Alunos para poder emitir este relatório.',
+      'Crie a primeira turma na aba Turmas para poder emitir este relatório.',
       style: CommunityDesign.metaStyle(
         context,
       ).copyWith(color: Theme.of(context).disabledColor),
