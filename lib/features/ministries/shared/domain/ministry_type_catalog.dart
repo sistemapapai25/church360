@@ -330,9 +330,11 @@ class MinistryTypeCatalog {
       description: 'Painel de visitas e acompanhamento.',
       tabs: [
         MinistryTypeTab(MinistryTabKeys.painel, 'Painel'),
+        MinistryTypeTab(MinistryTabKeys.rotina, 'Rotina'),
         MinistryTypeTab(MinistryTabKeys.equipe, 'Equipe'),
         MinistryTypeTab(MinistryTabKeys.escala, 'Escala'),
         MinistryTypeTab(MinistryTabKeys.financeiro, 'Financeiro'),
+        MinistryTypeTab(MinistryTabKeys.materiais, 'Materiais'),
         MinistryTypeTab(MinistryTabKeys.whatsapp, 'WhatsApp'),
         MinistryTypeTab(MinistryTabKeys.relatorios, 'Relatórios'),
       ],

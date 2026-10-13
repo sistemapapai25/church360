@@ -45,11 +45,15 @@ class MinistryRoutineTab extends ConsumerWidget {
     );
   }
 
-  Future<void> _useTemplate(BuildContext context, WidgetRef ref) async {
+  Future<void> _useTemplate(
+    BuildContext context,
+    WidgetRef ref,
+    String model,
+  ) async {
     try {
       final n = await ref
           .read(ministryRoutineRepositoryProvider)
-          .useTemplate(ministryId);
+          .useTemplate(ministryId, model);
       invalidateMinistryRoutine(ref, ministryId);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -153,19 +157,20 @@ class MinistryRoutineTab extends ConsumerWidget {
                   Text(
                     caps.canManage
                         ? 'A rotina ainda não tem itens. Monte a sua em '
-                              '"Configurar itens" ou comece pelo modelo do '
-                              'Diaconato (pré, durante e pós-culto).'
+                              '"Configurar itens" ou comece por um modelo '
+                              '(pré, durante e pós-culto).'
                         : 'O líder ainda não montou a rotina deste ministério.',
                     style: meta,
                   ),
-                  if (caps.canManage) ...[
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      key: const ValueKey('routine-use-template'),
-                      onPressed: () => _useTemplate(context, ref),
-                      child: const Text('Usar modelo do Diaconato'),
-                    ),
-                  ],
+                  if (caps.canManage)
+                    for (final (model, label) in routineTemplates) ...[
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        key: ValueKey('routine-use-template-$model'),
+                        onPressed: () => _useTemplate(context, ref, model),
+                        child: Text(label),
+                      ),
+                    ],
                 ],
               ),
             )

@@ -4,6 +4,13 @@
 
 import 'package:intl/intl.dart';
 
+/// Modelos prontos de rotina (código da RPC `ministry_routine_use_template`
+/// e rótulo do botão). Qualquer ministério pode usar qualquer um.
+const routineTemplates = [
+  ('diaconato', 'Usar modelo do Diaconato'),
+  ('raizes', 'Usar modelo do Raízes'),
+];
+
 /// As três etapas, na ordem da Ficha 3 do Diaconato.
 enum RoutineStage {
   pre('pre', 'Pré-culto'),

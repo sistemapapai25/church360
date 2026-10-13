@@ -14,7 +14,7 @@ class RaizesDashboardStats {
   /// considerando apenas status visitor/new_convert.
   final int withoutMentor;
 
-  /// Novas decisões nos últimos 30 dias (`is_salvation = true` e `salvation_date >= hoje - 30`).
+  /// Novas decisões nos últimos 30 dias (`conversion_date >= hoje - 30`).
   final int newSalvationsLast30Days;
 
   /// Primeira visita nos últimos 30 dias (`first_visit_date >= hoje - 30`).
