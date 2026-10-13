@@ -13,6 +13,12 @@ import '../../../shared/presentation/providers/ministry_routine_providers.dart';
 import '../../domain/models/raizes_followup.dart';
 import '../providers/raizes_dashboard_provider.dart';
 
+/// Casas de Vida ativas (só para quem tem visitors.followup).
+final raizesLifeHousesProvider =
+    FutureProvider.autoDispose<List<RaizesLifeHouse>>(
+      (ref) => ref.watch(raizesRepositoryProvider).listLifeHouses(),
+    );
+
 /// Contatos e mudanças de etapa de uma pessoa (Raízes, 004900).
 final raizesFollowupTimelineProvider = FutureProvider.autoDispose
     .family<List<RaizesTimelineEntry>, String>(
@@ -93,6 +99,27 @@ class RaizesFollowupSection extends ConsumerWidget {
                 key: const ValueKey('raizes-decision'),
                 onPressed: () => _registerDecision(context, ref, stage),
                 child: Text(decision == null ? 'Registrar decisão' : 'Alterar'),
+              ),
+          ],
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                member.lifeHouseGroupId == null
+                    ? 'Casa de Vida: não encaminhado'
+                    : 'Casa de Vida: ${canFollow ? (ref.watch(raizesLifeHousesProvider).valueOrNull?.where((h) => h.id == member.lifeHouseGroupId).firstOrNull?.name ?? 'encaminhado') : 'encaminhado'}'
+                          '${member.lifeHouseReferredAt == null ? '' : ' em ${DateFormat('dd/MM/yyyy').format(member.lifeHouseReferredAt!)}'}',
+                style: meta,
+              ),
+            ),
+            if (canFollow)
+              TextButton(
+                key: const ValueKey('raizes-life-house'),
+                onPressed: () => _referLifeHouse(context, ref, stage),
+                child: Text(
+                  member.lifeHouseGroupId == null ? 'Encaminhar' : 'Trocar',
+                ),
               ),
           ],
         ),
@@ -217,6 +244,97 @@ class RaizesFollowupSection extends ConsumerWidget {
           onPressed: () async {
             try {
               await ref.read(raizesRepositoryProvider).setStage(member.id, next);
+              _refresh(ref);
+            } catch (_) {}
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _referLifeHouse(
+    BuildContext context,
+    WidgetRef ref,
+    RaizesStage stage,
+  ) async {
+    final List<RaizesLifeHouse> houses;
+    try {
+      houses = sortLifeHouses(
+        await ref.read(raizesLifeHousesProvider.future),
+        member.neighborhood,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_errorText(e))));
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    final picked = await showModalBottomSheet<RaizesLifeHouse>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              'Encaminhar para Casa de Vida',
+              style: Theme.of(ctx).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'O líder da Casa de Vida recebe um aviso com o nome e o telefone.',
+              style: CommunityDesign.metaStyle(ctx),
+            ),
+            if (houses.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text('Nenhuma Casa de Vida ativa em Grupos de Comunhão.'),
+              ),
+            for (final h in houses)
+              ListTile(
+                title: Text(h.name),
+                subtitle: Text(
+                  [
+                    if (h.isNear(member.neighborhood)) 'Mesmo bairro',
+                    if (h.details.isNotEmpty) h.details,
+                  ].join(' · '),
+                ),
+                trailing: h.id == member.lifeHouseGroupId
+                    ? const Icon(Icons.check)
+                    : null,
+                onTap: () => Navigator.pop(ctx, h),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+    try {
+      await ref.read(raizesRepositoryProvider).referLifeHouse(member.id, picked.id);
+      _refresh(ref);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_errorText(e))));
+      }
+      return;
+    }
+    if (!context.mounted || stage == RaizesStage.encaminhadoCasaVida) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Encaminhado para ${picked.name}.'),
+        action: SnackBarAction(
+          label: 'Etapa: Encaminhado',
+          onPressed: () async {
+            try {
+              await ref
+                  .read(raizesRepositoryProvider)
+                  .setStage(member.id, RaizesStage.encaminhadoCasaVida);
               _refresh(ref);
             } catch (_) {}
           },

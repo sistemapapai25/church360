@@ -53,6 +53,69 @@ enum RaizesDecision {
   };
 }
 
+/// Casa de Vida (Grupo de Comunhão) para encaminhar o visitante (005400).
+class RaizesLifeHouse {
+  final String id;
+  final String name;
+  final String? address;
+  final int? dayOfWeek;
+  final String? time;
+  final String? leaderName;
+
+  const RaizesLifeHouse({
+    required this.id,
+    required this.name,
+    this.address,
+    this.dayOfWeek,
+    this.time,
+    this.leaderName,
+  });
+
+  factory RaizesLifeHouse.fromJson(Map<String, dynamic> j) => RaizesLifeHouse(
+    id: j['id'] as String,
+    name: j['name'] as String? ?? 'Casa de Vida',
+    address: j['meeting_address'] as String?,
+    dayOfWeek: j['meeting_day_of_week'] as int?,
+    time: (j['meeting_time'] as String?)?.substring(0, 5),
+    leaderName: j['leader_name'] as String?,
+  );
+
+  static const _days = [
+    'Domingo',
+    'Segunda',
+    'Terça',
+    'Quarta',
+    'Quinta',
+    'Sexta',
+    'Sábado',
+  ];
+
+  /// "Quarta 20:00 · Rua X · Líder: Ana" (só o que existir).
+  String get details => [
+    if (dayOfWeek != null && dayOfWeek! >= 0 && dayOfWeek! < 7)
+      '${_days[dayOfWeek!]}${time == null ? '' : ' $time'}',
+    if ((address ?? '').trim().isNotEmpty) address!.trim(),
+    if ((leaderName ?? '').trim().isNotEmpty) 'Líder: ${leaderName!.trim()}',
+  ].join(' · ');
+
+  /// Mesmo bairro: o endereço do grupo cita o bairro do visitante.
+  bool isNear(String? neighborhood) {
+    final n = (neighborhood ?? '').trim().toLowerCase();
+    return n.isNotEmpty && (address ?? '').toLowerCase().contains(n);
+  }
+}
+
+/// Mais perto primeiro (mesmo bairro), depois por nome.
+List<RaizesLifeHouse> sortLifeHouses(
+  List<RaizesLifeHouse> houses,
+  String? neighborhood,
+) => [...houses]
+  ..sort((a, b) {
+    final na = a.isNear(neighborhood), nb = b.isNear(neighborhood);
+    if (na != nb) return na ? -1 : 1;
+    return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+  });
+
 enum RaizesContactKind {
   whatsapp('whatsapp', 'WhatsApp'),
   ligacao('ligacao', 'Ligação'),
