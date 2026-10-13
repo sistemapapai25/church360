@@ -18,6 +18,7 @@ import '../../../notifications/presentation/screens/ministry_notification_config
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../presentation/utils/ministry_visuals.dart';
 import '../../../diaconato/presentation/providers/diaconato_attendance_providers.dart';
+import '../screens/ministry_about_screen.dart';
 import 'ministry_followups_tab.dart';
 
 /// Uma aba do workspace de um ministério.
@@ -234,6 +235,24 @@ class _MinistryWorkspaceShellState
 
   void _openEdit() => context.push('/ministries/${widget.ministryId}/edit');
 
+  /// Tocar no ícone abre "Sobre o ministério" (visão, diretrizes, regras e
+  /// base doutrinária), como o logo da igreja abre "Quem somos".
+  void _openAbout(bool canEdit) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (about) => MinistryAboutScreen(
+          ministryId: widget.ministryId,
+          onEdit: canEdit
+              ? () {
+                  Navigator.of(about).pop();
+                  _openEdit();
+                }
+              : null,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ministryAsync = ref.watch(ministryByIdProvider(widget.ministryId));
@@ -327,7 +346,14 @@ class _MinistryWorkspaceShellState
         ),
         title: Row(
           children: [
-            _MinistryGlyph(ministry: ministry),
+            Tooltip(
+              message: 'Sobre o ministério',
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => _openAbout(canEdit),
+                child: _MinistryGlyph(ministry: ministry),
+              ),
+            ),
             const SizedBox(width: 10),
             Expanded(child: _WorkspaceTitle(name: name)),
           ],
