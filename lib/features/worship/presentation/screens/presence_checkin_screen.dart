@@ -7,9 +7,10 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../data/geo_checkin_service.dart';
 
-/// `/presenca`: aberta pelo aviso "Você está no culto?". Confere a
-/// localização na hora; se a permissão ainda não foi dada, explica e pede
-/// com um toque (o navegador exige o toque em alguns aparelhos).
+/// `/presenca`: aberta pelo aviso "Chegou bem? / O que está achando do
+/// culto?". A pessoa responde com uma reação; responder marca a presença pela
+/// localização (pede a permissão no toque, o navegador exige) e guarda a
+/// reação. Se a presença já estava marcada, só guarda a reação.
 class PresenceCheckinScreen extends ConsumerStatefulWidget {
   const PresenceCheckinScreen({super.key});
 
@@ -18,9 +19,18 @@ class PresenceCheckinScreen extends ConsumerStatefulWidget {
       _PresenceCheckinScreenState();
 }
 
+/// (valor gravado, rótulo do botão)
+const _reactions = [
+  ('otimo', 'Tá ótimo! 🙌'),
+  ('gostando', 'Tô gostando 🙂'),
+  ('mais_ou_menos', 'Mais ou menos 😐'),
+];
+
 class _PresenceCheckinScreenState extends ConsumerState<PresenceCheckinScreen> {
   GeoCheckinResult? _result;
   bool _busy = false;
+  bool _reacted = false;
+  String? _reaction;
 
   @override
   void initState() {
@@ -28,19 +38,34 @@ class _PresenceCheckinScreenState extends ConsumerState<PresenceCheckinScreen> {
     _run(ask: false);
   }
 
+  static bool _isPresent(GeoCheckinResult? r) =>
+      r?.status == GeoCheckinStatus.presente ||
+      r?.status == GeoCheckinStatus.jaMarcado;
+
   Future<void> _run({required bool ask}) async {
     setState(() => _busy = true);
+    final service = ref.read(geoCheckinServiceProvider);
     GeoCheckinResult r;
+    var reacted = _reacted;
     try {
-      r = await ref.read(geoCheckinServiceProvider).checkIn(ask: ask);
+      r = _isPresent(_result) ? _result! : await service.checkIn(ask: ask);
+      if (_isPresent(r) && _reaction != null) {
+        reacted = await service.react(_reaction!);
+      }
     } catch (_) {
       r = const GeoCheckinResult(GeoCheckinStatus.erro);
     }
     if (!mounted) return;
     setState(() {
       _result = r;
+      _reacted = reacted;
       _busy = false;
     });
+  }
+
+  void _react(String reaction) {
+    _reaction = reaction;
+    _run(ask: true);
   }
 
   @override
@@ -72,7 +97,12 @@ class _PresenceCheckinScreenState extends ConsumerState<PresenceCheckinScreen> {
                         Text('Só um instante...'),
                       ],
                     )
-                  : _ResultView(result: _result!, onAsk: () => _run(ask: true)),
+                  : _ResultView(
+                      result: _result!,
+                      reacted: _reacted,
+                      onReact: _react,
+                      onRetry: () => _run(ask: true),
+                    ),
             ),
           ),
         ),
@@ -83,19 +113,34 @@ class _PresenceCheckinScreenState extends ConsumerState<PresenceCheckinScreen> {
 
 class _ResultView extends StatelessWidget {
   final GeoCheckinResult result;
-  final VoidCallback onAsk;
+  final bool reacted;
+  final ValueChanged<String> onReact;
+  final VoidCallback onRetry;
 
-  const _ResultView({required this.result, required this.onAsk});
+  const _ResultView({
+    required this.result,
+    required this.reacted,
+    required this.onReact,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
     final culto = result.eventName ?? 'culto';
+    final primary = Theme.of(context).colorScheme.primary;
+    final present = _PresenceCheckinScreenState._isPresent(result);
     final (icon, color, title, text) = switch (result.status) {
+      _ when present && reacted => (
+        AppIcons.checkCircle,
+        Colors.green,
+        'Obrigado por contar!',
+        'Que bom ter você no $culto. Bom culto!',
+      ),
       GeoCheckinStatus.presente || GeoCheckinStatus.jaMarcado => (
         AppIcons.checkCircle,
         Colors.green,
         'Que bom ter você aqui!',
-        'Sua chegada ao $culto ficou registrada. Bom culto!',
+        'O que está achando do $culto?',
       ),
       GeoCheckinStatus.longe => (
         AppIcons.location,
@@ -106,10 +151,9 @@ class _ResultView extends StatelessWidget {
       ),
       GeoCheckinStatus.semPermissao || GeoCheckinStatus.aberta => (
         AppIcons.location,
-        Theme.of(context).colorScheme.primary,
-        'Chegou ao $culto?',
-        'Toque em "Cheguei" e a gente fica sabendo que você está aqui. '
-            'O app confere sua localização só neste momento e não a guarda.',
+        primary,
+        'Chegou bem?',
+        'O que está achando do $culto?',
       ),
       GeoCheckinStatus.semGps => (
         AppIcons.location,
@@ -119,13 +163,13 @@ class _ResultView extends StatelessWidget {
       ),
       GeoCheckinStatus.fechada => (
         AppIcons.info,
-        Theme.of(context).colorScheme.primary,
+        primary,
         'Nenhum culto agora',
         'A confirmação pela localização vale na primeira hora do culto.',
       ),
       GeoCheckinStatus.semLocal => (
         AppIcons.info,
-        Theme.of(context).colorScheme.primary,
+        primary,
         'Recurso não configurado',
         'A igreja ainda não cadastrou o local para a presença pelo celular.',
       ),
@@ -136,17 +180,16 @@ class _ResultView extends StatelessWidget {
         'Tente de novo em instantes. Se continuar, avise um diácono.',
       ),
     };
+    final asking =
+        result.status == GeoCheckinStatus.semPermissao ||
+        result.status == GeoCheckinStatus.aberta;
+    final showReactions = asking || (present && !reacted);
     final canRetry = switch (result.status) {
       GeoCheckinStatus.longe ||
-      GeoCheckinStatus.semPermissao ||
-      GeoCheckinStatus.aberta ||
       GeoCheckinStatus.semGps ||
       GeoCheckinStatus.erro => true,
       _ => false,
     };
-    final asking =
-        result.status == GeoCheckinStatus.semPermissao ||
-        result.status == GeoCheckinStatus.aberta;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -166,12 +209,35 @@ class _ResultView extends StatelessWidget {
           textAlign: TextAlign.center,
           style: CommunityDesign.metaStyle(context),
         ),
+        if (showReactions) ...[
+          const SizedBox(height: 20),
+          for (final (value, label) in _reactions)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.tonal(
+                  onPressed: () => onReact(value),
+                  child: Text(label),
+                ),
+              ),
+            ),
+        ],
+        if (asking) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Ao responder, o app confere sua localização só agora, para '
+            'registrar sua presença, e não a guarda.',
+            textAlign: TextAlign.center,
+            style: CommunityDesign.metaStyle(context).copyWith(fontSize: 12),
+          ),
+        ],
         if (canRetry) ...[
           const SizedBox(height: 20),
           FilledButton.icon(
-            onPressed: onAsk,
-            icon: Icon(asking ? AppIcons.location : AppIcons.refresh),
-            label: Text(asking ? 'Cheguei!' : 'Tentar de novo'),
+            onPressed: onRetry,
+            icon: const Icon(AppIcons.refresh),
+            label: const Text('Tentar de novo'),
           ),
         ],
       ],

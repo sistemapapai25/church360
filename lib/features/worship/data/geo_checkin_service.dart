@@ -104,6 +104,16 @@ class GeoCheckinService {
     );
   }
 
+  /// Guarda o que a pessoa está achando do culto aberto (`otimo`,
+  /// `gostando`, `mais_ou_menos`). Só grava se a presença já está marcada.
+  Future<bool> react(String reaction) async {
+    final r = await _supabase.rpc(
+      'worship_geo_react',
+      params: {'p_reaction': reaction},
+    );
+    return r is Map && r['status'] == 'ok';
+  }
+
   /// Liga a conferência silenciosa: no login, na abertura e sempre que o app
   /// volta para a frente. Idempotente.
   void startAutoCheck() {
