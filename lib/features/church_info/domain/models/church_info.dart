@@ -14,6 +14,13 @@ class ChurchInfo {
   final Map<String, String>? socialMedia; // {'facebook': 'url', 'instagram': 'url', etc}
   final List<ServiceTime>? serviceTimes;
   final List<Pastor>? pastors;
+
+  /// Local para a presença pelo celular (migration 005200). Sem coordenada,
+  /// o recurso fica desligado.
+  final double? latitude;
+  final double? longitude;
+  final int checkinRadiusM;
+  final int checkinWindowMin;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -32,6 +39,10 @@ class ChurchInfo {
     this.socialMedia,
     this.serviceTimes,
     this.pastors,
+    this.latitude,
+    this.longitude,
+    this.checkinRadiusM = 20,
+    this.checkinWindowMin = 60,
     required this.createdAt,
     this.updatedAt,
   });
@@ -65,6 +76,10 @@ class ChurchInfo {
               .map((e) => Pastor.fromJson(e as Map<String, dynamic>))
               .toList()
           : null,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      checkinRadiusM: (json['checkin_radius_m'] as num?)?.toInt() ?? 20,
+      checkinWindowMin: (json['checkin_window_min'] as num?)?.toInt() ?? 60,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)

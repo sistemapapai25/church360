@@ -60,6 +60,8 @@
 	<string>Precisamos do microfone para enviar mensagens de áudio no chat.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Precisamos da câmera para tirar a foto do seu perfil.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Usamos sua localização só durante o culto, para confirmar sua presença. Ela não é guardada.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Precisamos acessar suas fotos para escolher a imagem do seu perfil.</string>
 	<key>UIBackgroundModes</key>

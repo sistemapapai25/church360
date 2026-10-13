@@ -18,6 +18,10 @@ import '../providers/diaconato_attendance_providers.dart';
 /// Lista membros + visitantes cadastrados em duas seções, switch presente
 /// para cada um, stepper para visitantes não cadastrados, total ao vivo,
 /// salvar em `worship_attendance_count` + `worship_attendance_person`.
+///
+/// Chega com quem já marcou presença pelo celular (localização, 005200) ou
+/// pelo check-in de Cultos; o diácono confere e marca quem faltar. Salvar
+/// leva direto aos Ausentes do mesmo culto: é um fluxo só.
 class DiaconatoChecklistScreen extends ConsumerWidget {
   final String ministryId;
   final String worshipServiceId;
@@ -66,6 +70,9 @@ class _DiaconatoChecklistContentState
 
   final Set<String> _presentMemberIds = <String>{};
   final Set<String> _presentVisitorIds = <String>{};
+
+  /// Marcados sozinhos porque a pessoa fez check-in (celular ou Cultos).
+  final Set<String> _fromCheckin = <String>{};
   int _unregisteredVisitors = 0;
   int _children = 0;
   bool _saving = false;
@@ -98,9 +105,11 @@ class _DiaconatoChecklistContentState
       ),
       worshipRepo.getWorshipServiceById(widget.worshipServiceId),
       repo.getEligiblePeople(),
+      repo.getCheckedInUserIds(widget.worshipServiceId),
     ]);
 
     final count = results[0] as WorshipAttendanceCount;
+    final checkedIn = results[3] as Set<String>;
     final personRows = await repo.getPersonRows(count.id);
 
     final data = _ChecklistData(
@@ -127,7 +136,23 @@ class _DiaconatoChecklistContentState
         _presentVisitorIds.add(row.userId);
       }
     }
-    _dirty = false;
+    // Check-in de quem o diácono ainda não decidiu (sem linha nesta
+    // contagem). Quem ele já marcou ausente continua ausente.
+    final decided = {for (final r in data.personRows) r.userId};
+    _fromCheckin.clear();
+    for (final p in data.eligible) {
+      if (!checkedIn.contains(p.userId) || decided.contains(p.userId)) {
+        continue;
+      }
+      _fromCheckin.add(p.userId);
+      if (p.personType == DiaconatoPersonType.member) {
+        _presentMemberIds.add(p.userId);
+      } else {
+        _presentVisitorIds.add(p.userId);
+      }
+    }
+    // Marcados pelo check-in ainda não estão gravados: pede o Salvar.
+    _dirty = _fromCheckin.isNotEmpty;
 
     return data;
   }
@@ -233,6 +258,12 @@ class _DiaconatoChecklistContentState
           backgroundColor: Colors.green,
         ),
       );
+      // Mesmo fluxo: quem ficou desmarcado aparece em seguida para decidir
+      // ligação, visita, ceia ou encaminhamento. `push` para o voltar
+      // retornar ao checklist.
+      context.push(
+        '/ministries/${widget.ministryId}/diaconato/absentees/${widget.worshipServiceId}',
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -316,6 +347,7 @@ class _DiaconatoChecklistContentState
                   (p) => _PersonTile(
                     person: p,
                     present: _presentMemberIds.contains(p.userId),
+                    fromCheckin: _fromCheckin.contains(p.userId),
                     onChanged: (v) => _toggleMember(p.userId, v),
                   ),
                 ),
@@ -336,6 +368,7 @@ class _DiaconatoChecklistContentState
                   (p) => _PersonTile(
                     person: p,
                     present: _presentVisitorIds.contains(p.userId),
+                    fromCheckin: _fromCheckin.contains(p.userId),
                     onChanged: (v) => _toggleVisitor(p.userId, v),
                   ),
                 ),
@@ -592,11 +625,13 @@ class _SectionHeader extends StatelessWidget {
 class _PersonTile extends StatelessWidget {
   final DiaconatoEligiblePerson person;
   final bool present;
+  final bool fromCheckin;
   final ValueChanged<bool> onChanged;
 
   const _PersonTile({
     required this.person,
     required this.present,
+    this.fromCheckin = false,
     required this.onChanged,
   });
 
@@ -635,11 +670,23 @@ class _PersonTile extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      person.displayName,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          person.displayName,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (fromCheckin)
+                          Text(
+                            'Check-in pelo celular',
+                            style: CommunityDesign.metaStyle(
+                              context,
+                            ).copyWith(fontSize: 11, color: Colors.green),
+                          ),
+                      ],
                     ),
                   ),
                   Switch.adaptive(
@@ -823,8 +870,8 @@ class _StickyFooter extends StatelessWidget {
               saving
                   ? 'Salvando...'
                   : dirty
-                  ? 'Salvar'
-                  : 'Salvo',
+                  ? 'Salvar e ver ausentes'
+                  : 'Ver ausentes',
             ),
           ),
         ],

@@ -56,6 +56,7 @@ import '../../features/financeiro/presentation/screens/comprovante_review_screen
 import '../../features/worship/presentation/screens/worship_services_screen.dart';
 import '../../features/worship/presentation/screens/worship_attendance_screen.dart';
 import '../../features/worship/presentation/screens/worship_statistics_screen.dart';
+import '../../features/worship/presentation/screens/presence_checkin_screen.dart';
 import '../../features/visitors/presentation/screens/visitors_list_screen.dart';
 import '../../features/visitors/presentation/screens/visitor_visit_form_screen.dart';
 import '../../features/visitors/presentation/screens/visitor_followup_form_screen.dart';
@@ -1193,6 +1194,12 @@ final appRouter = GoRouter(
     // =====================================================
     // NOTIFICATIONS ROUTES
     // =====================================================
+
+    // Presença no culto pela localização (aberta pelo aviso "Você está no culto?")
+    GoRoute(
+      path: '/presenca',
+      builder: (context, state) => const PresenceCheckinScreen(),
+    ),
 
     // Lista de notificações
     GoRoute(

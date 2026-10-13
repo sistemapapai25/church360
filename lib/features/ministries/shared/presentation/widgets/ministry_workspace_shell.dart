@@ -17,6 +17,8 @@ import '../../domain/ministry_type_catalog.dart';
 import '../../../notifications/presentation/screens/ministry_notification_config_screen.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../presentation/utils/ministry_visuals.dart';
+import '../../../diaconato/presentation/providers/diaconato_attendance_providers.dart';
+import 'ministry_followups_tab.dart';
 
 /// Uma aba do workspace de um ministério.
 ///
@@ -279,6 +281,23 @@ class _MinistryWorkspaceShellState
           label: 'Louvores',
           key: MinistryTabKeys.louvores,
           builder: (_) => PraiseReceivedView(ministryId: widget.ministryId),
+        ),
+      );
+    }
+    // Ausentes com pendência aqui (ligar/visitar, ou encaminhados por outro
+    // ministério): a aba Acompanhar aparece sozinha enquanto houver alguma,
+    // sem passar pela engrenagem. O aviso aos líderes abre ?tab=acompanhar.
+    final followups =
+        ref.watch(absenteeFollowupsProvider(widget.ministryId)).valueOrNull ??
+        const [];
+    if (followups.isNotEmpty &&
+        !tabs.any((t) => t.key == MinistryTabKeys.acompanhar)) {
+      tabs.add(
+        MinistryWorkspaceTab(
+          label: 'Acompanhar',
+          key: MinistryTabKeys.acompanhar,
+          count: '${followups.length}',
+          builder: (_) => MinistryFollowupsTab(ministryId: widget.ministryId),
         ),
       );
     }
