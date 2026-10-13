@@ -28,6 +28,31 @@ enum RaizesStage {
   );
 }
 
+/// Decisão espiritual (manual §11), separada da etapa.
+enum RaizesDecision {
+  acceptedJesus('accepted_jesus', 'Aceitou Jesus'),
+  reconciliation('reconciliation', 'Reconciliação'),
+  pastoralSupport('pastoral_support', 'Apoio pastoral');
+
+  final String value;
+  final String label;
+  const RaizesDecision(this.value, this.label);
+
+  static RaizesDecision? fromValue(String? value) {
+    for (final d in RaizesDecision.values) {
+      if (d.value == value) return d;
+    }
+    return null;
+  }
+
+  /// Etapa que o app sugere depois de registrar a decisão.
+  RaizesStage? get suggestedStage => switch (this) {
+    RaizesDecision.acceptedJesus => RaizesStage.aceitouJesus,
+    RaizesDecision.reconciliation => RaizesStage.reconciliacao,
+    RaizesDecision.pastoralSupport => null,
+  };
+}
+
 enum RaizesContactKind {
   whatsapp('whatsapp', 'WhatsApp'),
   ligacao('ligacao', 'Ligação'),

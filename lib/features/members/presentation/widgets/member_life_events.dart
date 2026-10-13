@@ -28,6 +28,12 @@ memberLifeEvents(Member m) => [
       'Data de conversão',
       Icons.auto_awesome_outlined,
     ),
+    (
+      m.decisionType == 'reconciliation' ? m.decisionDate : null,
+      'Reconciliação',
+      'Voltou para Jesus',
+      Icons.restart_alt,
+    ),
     (m.baptismDate, 'Batismo', 'Batismo nas águas', Icons.water_drop_outlined),
     (m.marriageDate, 'Casamento', 'Data de casamento', Icons.favorite_outline),
     (

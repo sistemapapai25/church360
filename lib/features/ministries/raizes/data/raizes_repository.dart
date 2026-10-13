@@ -127,7 +127,7 @@ class RaizesRepository {
         .from('user_account')
         .select()
         .eq('tenant_id', tenantId)
-        .gte('conversion_date', sinceIsoDate)
+        .or('conversion_date.gte.$sinceIsoDate,decision_date.gte.$sinceIsoDate')
         .count(CountOption.exact);
     return response.count;
   }
@@ -727,6 +727,24 @@ class RaizesRepository {
             },
           )
           as bool;
+
+  /// Registra (ou apaga, com [decision] null) a decisão espiritual (005200).
+  Future<void> registerDecision(
+    String userId,
+    RaizesDecision? decision, {
+    DateTime? date,
+    String? eventId,
+  }) async {
+    await _supabase.rpc(
+      'raizes_register_decision',
+      params: {
+        'p_user_id': userId,
+        'p_type': decision?.value,
+        'p_date': date == null ? null : _isoDate(date),
+        'p_event_id': eventId,
+      },
+    );
+  }
 
   /// Registra um contato feito (só quem tem visitors.followup).
   Future<void> logContact(

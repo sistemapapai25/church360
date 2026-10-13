@@ -8,6 +8,8 @@ import '../../../../../core/utils/whatsapp_launcher.dart';
 import '../../../../members/domain/models/member.dart';
 import '../../../../members/presentation/providers/members_provider.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
+import '../../../shared/domain/ministry_routine.dart';
+import '../../../shared/presentation/providers/ministry_routine_providers.dart';
 import '../../domain/models/raizes_followup.dart';
 import '../providers/raizes_dashboard_provider.dart';
 
@@ -47,6 +49,7 @@ class RaizesFollowupSection extends ConsumerWidget {
         false;
     final timeline = ref.watch(raizesFollowupTimelineProvider(member.id));
     final stage = RaizesStage.fromValue(member.raizesStage);
+    final decision = RaizesDecision.fromValue(member.decisionType);
     final meta = CommunityDesign.metaStyle(context);
 
     return Column(
@@ -74,6 +77,25 @@ class RaizesFollowupSection extends ConsumerWidget {
             'Último contato: ${DateFormat('dd/MM/yyyy').format(member.lastContactDate!)}',
             style: meta,
           ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                decision == null
+                    ? 'Decisão: nenhuma registrada'
+                    : 'Decisão: ${decision.label}'
+                          '${member.decisionDate == null ? '' : ' em ${DateFormat('dd/MM/yyyy').format(member.decisionDate!)}'}',
+                style: meta,
+              ),
+            ),
+            if (canFollow)
+              TextButton(
+                key: const ValueKey('raizes-decision'),
+                onPressed: () => _registerDecision(context, ref, stage),
+                child: Text(decision == null ? 'Registrar decisão' : 'Alterar'),
+              ),
+          ],
+        ),
         if (canFollow) ...[
           const SizedBox(height: 8),
           FilledButton.icon(
@@ -172,6 +194,37 @@ class RaizesFollowupSection extends ConsumerWidget {
     }
   }
 
+  Future<void> _registerDecision(
+    BuildContext context,
+    WidgetRef ref,
+    RaizesStage stage,
+  ) async {
+    final picked = await showModalBottomSheet<RaizesDecision>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => _DecisionSheet(member: member),
+    );
+    if (picked == null) return;
+    _refresh(ref);
+    final next = picked.suggestedStage;
+    if (!context.mounted || next == null || next == stage) return;
+    // Etapa ≠ decisão: o app só sugere a etapa.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Decisão registrada.'),
+        action: SnackBarAction(
+          label: 'Etapa: ${next.label}',
+          onPressed: () async {
+            try {
+              await ref.read(raizesRepositoryProvider).setStage(member.id, next);
+              _refresh(ref);
+            } catch (_) {}
+          },
+        ),
+      ),
+    );
+  }
+
   Future<void> _logContact(
     BuildContext context,
     WidgetRef ref,
@@ -200,6 +253,135 @@ class RaizesFollowupSection extends ConsumerWidget {
             } catch (_) {}
           },
         ),
+      ),
+    );
+  }
+}
+
+/// Registra a decisão (tipo, data e culto). Devolve o tipo salvo.
+class _DecisionSheet extends ConsumerStatefulWidget {
+  final Member member;
+  const _DecisionSheet({required this.member});
+
+  @override
+  ConsumerState<_DecisionSheet> createState() => _DecisionSheetState();
+}
+
+class _DecisionSheetState extends ConsumerState<_DecisionSheet> {
+  late RaizesDecision _type =
+      RaizesDecision.fromValue(widget.member.decisionType) ??
+      RaizesDecision.acceptedJesus;
+  late DateTime _date = widget.member.decisionDate ?? DateTime.now();
+  late String? _eventId = widget.member.decisionEventId;
+  late final Future<List<RoutineCulto>> _cultos = ref
+      .read(ministryRoutineRepositoryProvider)
+      .cultos();
+  bool _saving = false;
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await ref
+          .read(raizesRepositoryProvider)
+          .registerDecision(
+            widget.member.id,
+            _type,
+            date: _date,
+            eventId: _eventId,
+          );
+      if (mounted) Navigator.pop(context, _type);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_errorText(e))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(
+            'Registrar decisão',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final d in RaizesDecision.values)
+                ChoiceChip(
+                  label: Text(d.label),
+                  selected: _type == d,
+                  onSelected: (_) => setState(() => _type = d),
+                ),
+            ],
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.calendar_today),
+            title: Text('Data: ${DateFormat('dd/MM/yyyy').format(_date)}'),
+            onTap: () async {
+              final d = await showDatePicker(
+                context: context,
+                initialDate: _date,
+                firstDate: DateTime(2000),
+                lastDate: DateTime.now(),
+              );
+              if (d != null) setState(() => _date = d);
+            },
+          ),
+          FutureBuilder<List<RoutineCulto>>(
+            future: _cultos,
+            builder: (context, snap) {
+              final cultos = snap.data ?? const <RoutineCulto>[];
+              final known = cultos.any((c) => c.id == _eventId);
+              return DropdownButtonFormField<String?>(
+                key: ValueKey('raizes-decision-culto-${cultos.length}'),
+                initialValue: _eventId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Culto'),
+                items: [
+                  const DropdownMenuItem(
+                    value: null,
+                    child: Text('Não informado'),
+                  ),
+                  if (_eventId != null && !known)
+                    DropdownMenuItem(
+                      value: _eventId,
+                      child: const Text('Culto já registrado'),
+                    ),
+                  for (final c in cultos)
+                    DropdownMenuItem(
+                      value: c.id,
+                      child: Text(
+                        c.date == null
+                            ? c.name
+                            : '${c.name} · ${DateFormat('dd/MM').format(c.date!)}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (v) => setState(() {
+                  _eventId = v;
+                  final c = cultos.where((x) => x.id == v).firstOrNull;
+                  if (c?.date != null) _date = c!.date!;
+                }),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            key: const ValueKey('raizes-decision-save'),
+            onPressed: _saving ? null : _save,
+            child: Text(_saving ? 'Salvando...' : 'Salvar decisão'),
+          ),
+        ],
       ),
     );
   }

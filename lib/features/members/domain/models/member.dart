@@ -84,6 +84,8 @@ class Member {
   final bool? wantsLifeHouse;
   final List<String> visitorProfiles;
   final String? decisionType;
+  final DateTime? decisionDate;
+  final String? decisionEventId;
   final String? raizesStage;
   final bool? wantsToReturn;
 
@@ -176,6 +178,8 @@ class Member {
     this.wantsLifeHouse,
     this.visitorProfiles = const [],
     this.decisionType,
+    this.decisionDate,
+    this.decisionEventId,
     this.raizesStage,
     this.wantsToReturn,
 
@@ -401,6 +405,10 @@ class Member {
         for (final p in (json['visitor_profiles'] as List?) ?? const []) '$p',
       ],
       decisionType: json['decision_type'] as String?,
+      decisionDate: json['decision_date'] != null
+          ? DateTime.parse(json['decision_date'] as String)
+          : null,
+      decisionEventId: json['decision_event_id'] as String?,
       raizesStage: json['raizes_stage'] as String?,
       wantsToReturn: json['wants_to_return'] as bool?,
 
