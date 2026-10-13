@@ -18,4 +18,25 @@ void main() {
 
     expect(titles, ['Batismo']);
   });
+
+  test('reconciliação registrada no Raízes entra como marco', () {
+    final member = Member.fromJson({
+      'id': 'member-1',
+      'email': 'test@example.com',
+      'created_at': '2026-01-01T10:00:00.000Z',
+      'decision_type': 'reconciliation',
+      'decision_date': '2026-10-12',
+    });
+    expect(memberLifeEvents(member).map((e) => e.title), ['Reconciliação']);
+
+    final aceitou = Member.fromJson({
+      'id': 'member-2',
+      'email': 'test@example.com',
+      'created_at': '2026-01-01T10:00:00.000Z',
+      'decision_type': 'accepted_jesus',
+      'decision_date': '2026-10-12',
+    });
+    // Aceitou Jesus aparece pela Data de conversão, não duplica.
+    expect(memberLifeEvents(aceitou), isEmpty);
+  });
 }

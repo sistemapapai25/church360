@@ -41,4 +41,18 @@ void main() {
     expect(s.title, 'Etapa: Visitante novo → Contactado');
     expect(s.byName, isNull);
   });
+
+  test('decisão: valores do CHECK da 004800 e etapa sugerida', () {
+    expect(RaizesDecision.values.map((d) => d.value), [
+      'accepted_jesus',
+      'reconciliation',
+      'pastoral_support',
+    ]);
+    expect(RaizesDecision.fromValue(null), isNull);
+    expect(
+      RaizesDecision.acceptedJesus.suggestedStage,
+      RaizesStage.aceitouJesus,
+    );
+    expect(RaizesDecision.pastoralSupport.suggestedStage, isNull);
+  });
 }
