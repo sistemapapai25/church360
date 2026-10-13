@@ -47,6 +47,7 @@ class RaizesRepository {
       _countVisitsOn(tenantId, ministryId, today),
       _countVisitsOverdue(tenantId, ministryId, today),
       _countWantingVisit(tenantId),
+      _countWithoutContact24h(tenantId),
     ]);
 
     return RaizesDashboardStats(
@@ -58,7 +59,23 @@ class RaizesRepository {
       visitsToday: results[5],
       visitsOverdue: results[6],
       wantingVisit: results[7],
+      withoutContact24h: results[8],
     );
+  }
+
+  Future<int> _countWithoutContact24h(String tenantId) async {
+    final now = DateTime.now().toUtc();
+    final response = await _supabase
+        .from('user_account')
+        .select()
+        .eq('tenant_id', tenantId)
+        .inFilter('status', const ['visitor', 'new_convert'])
+        .not('wants_contact', 'is', false)
+        .isFilter('last_contact_date', null)
+        .lte('created_at', now.subtract(const Duration(hours: 24)).toIso8601String())
+        .gt('created_at', now.subtract(const Duration(days: 30)).toIso8601String())
+        .count(CountOption.exact);
+    return response.count;
   }
 
   Future<int> _countWantingVisit(String tenantId) async {

@@ -252,6 +252,12 @@ class _StatsGrid extends StatelessWidget {
         color: Colors.orange,
       ),
       _StatItem(
+        title: 'Sem contato (24h)',
+        value: stats.withoutContact24h,
+        icon: Icons.phone_missed_outlined,
+        color: Colors.deepOrange,
+      ),
+      _StatItem(
         title: 'Querem visita',
         value: stats.wantingVisit,
         icon: Icons.home_outlined,
