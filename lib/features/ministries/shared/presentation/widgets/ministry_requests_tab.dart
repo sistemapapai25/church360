@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../core/design/app_icons.dart';
@@ -214,6 +217,12 @@ class _RequestCard extends StatelessWidget {
               children: [
                 _Badge(r.status.label, _statusColor(r.status)),
                 _Badge(r.kind.label, AppTheme.secondary),
+                if (r.photoPath != null)
+                  const Icon(
+                    AppIcons.image,
+                    size: 18,
+                    semanticLabel: 'Com foto',
+                  ),
               ],
             ),
             const SizedBox(height: 6),
@@ -280,6 +289,10 @@ Future<void> _showRequest(
               const SizedBox(height: 8),
               Text(r.details!),
             ],
+            if (r.photoPath != null) ...[
+              const SizedBox(height: 12),
+              _RequestPhoto(path: r.photoPath!),
+            ],
             if (canManage) ...[
               const SizedBox(height: 16),
               Text('Mudar situação', style: meta),
@@ -344,6 +357,41 @@ Future<void> _showRequest(
   ref.invalidate(ministryRequestsProvider(ministryId));
 }
 
+/// Foto do pedido (bucket privado: link temporário).
+class _RequestPhoto extends ConsumerWidget {
+  final String path;
+
+  const _RequestPhoto({required this.path});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => FutureBuilder<String>(
+    future: ref.read(ministryRoutineRepositoryProvider).requestPhotoUrl(path),
+    builder: (context, snap) {
+      if (snap.hasError) {
+        return Text(
+          'Não deu para abrir a foto.',
+          style: CommunityDesign.metaStyle(context),
+        );
+      }
+      if (!snap.hasData) {
+        return const SizedBox(
+          height: 160,
+          child: Center(child: CircularProgressIndicator()),
+        );
+      }
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          snap.data!,
+          height: 220,
+          fit: BoxFit.cover,
+          semanticLabel: 'Foto do pedido',
+        ),
+      );
+    },
+  );
+}
+
 /// Formulário de pedido novo. Da Rotina, vem com o culto e o texto das
 /// necessidades.
 Future<void> showRequestFormSheet(
@@ -382,7 +430,26 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   late final _details = TextEditingController(text: widget.initialDetails);
   RequestKind _kind = RequestKind.conserto;
   String? _stockItemId;
+  XFile? _photo;
+  Uint8List? _photoBytes;
   bool _busy = false;
+
+  Future<void> _pickPhoto() async {
+    final f = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 80,
+    );
+    if (f == null) return;
+    final bytes = await f.readAsBytes();
+    if (mounted) {
+      setState(() {
+        _photo = f;
+        _photoBytes = bytes;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -399,17 +466,20 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
     }
     setState(() => _busy = true);
     try {
-      await ref
-          .read(ministryRoutineRepositoryProvider)
-          .openRequest(
-            ministryId: widget.ministryId,
-            title: _title.text.trim(),
-            kind: _kind,
-            location: _location.text,
-            details: _details.text,
-            worshipServiceId: widget.worshipServiceId,
-            stockItemId: _kind == RequestKind.reposicao ? _stockItemId : null,
-          );
+      final repo = ref.read(ministryRoutineRepositoryProvider);
+      final photoPath = _photo == null
+          ? null
+          : await repo.uploadRequestPhoto(widget.ministryId, _photo!);
+      await repo.openRequest(
+        ministryId: widget.ministryId,
+        title: _title.text.trim(),
+        kind: _kind,
+        location: _location.text,
+        details: _details.text,
+        worshipServiceId: widget.worshipServiceId,
+        stockItemId: _kind == RequestKind.reposicao ? _stockItemId : null,
+        photoPath: photoPath,
+      );
       ref.invalidate(ministryRequestsProvider(widget.ministryId));
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -501,6 +571,41 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
               decoration: const InputDecoration(
                 labelText: 'Detalhes (opcional)',
               ),
+            ),
+            Row(
+              children: [
+                if (_photoBytes != null) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.memory(
+                      _photoBytes!,
+                      width: 56,
+                      height: 56,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                TextButton.icon(
+                  key: const ValueKey('request-photo'),
+                  onPressed: _busy ? null : _pickPhoto,
+                  icon: const Icon(AppIcons.image, size: 18),
+                  label: Text(
+                    _photo == null ? 'Anexar foto (opcional)' : 'Trocar foto',
+                  ),
+                ),
+                if (_photo != null)
+                  IconButton(
+                    tooltip: 'Tirar a foto',
+                    icon: const Icon(AppIcons.close, size: 18),
+                    onPressed: _busy
+                        ? null
+                        : () => setState(() {
+                            _photo = null;
+                            _photoBytes = null;
+                          }),
+                  ),
+              ],
             ),
             const SizedBox(height: 8),
             FilledButton(

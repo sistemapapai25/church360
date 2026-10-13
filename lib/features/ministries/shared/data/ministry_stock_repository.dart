@@ -107,11 +107,10 @@ class MinistryStockRepository {
     return id as String;
   }
 
-  Future<void> archiveItem(String itemId, bool archived) =>
-      _rpc('ministry_stock_item_archive', {
-        'p_item_id': itemId,
-        'p_archived': archived,
-      });
+  Future<void> archiveItem(String itemId, bool archived) => _rpc(
+    'ministry_stock_item_archive',
+    {'p_item_id': itemId, 'p_archived': archived},
+  );
 
   /// `saida`/`entrada`: quantidade positiva. `ajuste`: delta com sinal.
   /// `conferencia`: a quantidade contada. Devolve a nova quantidade.

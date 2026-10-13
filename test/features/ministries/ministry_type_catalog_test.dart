@@ -283,7 +283,7 @@ void main() {
       expect(keys(all), [
         'equipe', 'escala', 'financeiro', 'whatsapp', 'relatorios',
         'louvores-off', 'alunos-off', 'checklist-off', 'materiais-off',
-        'rotina-off', 'pedidos-off',
+        'rotina-off', 'pedidos-off', 'assistencia-off',
       ]);
     });
 
@@ -303,7 +303,7 @@ void main() {
       expect(keys(r), [
         'equipe', 'escala', 'financeiro', 'whatsapp-off', 'relatorios',
         'louvores-off', 'alunos', 'checklist-off', 'materiais-off',
-        'rotina-off', 'pedidos-off',
+        'rotina-off', 'pedidos-off', 'assistencia-off',
       ]);
     });
 

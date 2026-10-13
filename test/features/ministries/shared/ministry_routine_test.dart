@@ -62,4 +62,43 @@ void main() {
     ];
     expect(mostMissedRoutineItems(runs), [('Luzes', 2, 2), ('Água', 1, 2)]);
   });
+
+  test('a entrega das ofertas vem junto da rotina (objeto ou lista)', () {
+    Map<String, dynamic> base(Object? off) => {
+      'id': 'r',
+      'worship_service_id': 'ws',
+      'ministry_routine_check': const [],
+      'ministry_offering_delivery': off,
+    };
+    final off = {
+      'id': 'd',
+      'envelopes': 12,
+      'cash_amount': 345.5,
+      'delivered_by_1': 'u1',
+      'received_by': 't1',
+      'received_confirmed_at': '2026-10-13T01:00:00Z',
+    };
+    for (final shape in [
+      off,
+      [off],
+    ]) {
+      final o = RoutineRun.fromJson(base(shape)).offering!;
+      expect(o.envelopes, 12);
+      expect(o.cashAmount, 345.5);
+      expect(o.received, isTrue);
+    }
+    expect(RoutineRun.fromJson(base(null)).offering, isNull);
+    expect(RoutineRun.fromJson(base(const [])).offering, isNull);
+  });
+
+  test('valor em reais: lê com vírgula ou ponto e escreve no padrão BR', () {
+    expect(parseReais('1.234,50'), 1234.5);
+    expect(parseReais('345,5'), 345.5);
+    expect(parseReais('345.50'), 345.5);
+    expect(parseReais(r'R$ 10'), 10);
+    expect(parseReais('  '), isNull);
+    // O intl põe espaço sem quebra entre o símbolo e o número.
+    expect(formatReais(1234.5).replaceAll(' ', ' '), r'R$ 1.234,50');
+    expect(formatReais(null), '—');
+  });
 }

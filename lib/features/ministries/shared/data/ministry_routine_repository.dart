@@ -1,3 +1,4 @@
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/supabase_constants.dart';
@@ -23,11 +24,15 @@ class MinistryRoutineCaps {
   /// A aba Pedidos está ligada (a Rotina mostra "Abrir pedido").
   final bool requestsOn;
 
+  /// A Rotina mostra a entrega das ofertas à Tesouraria (Diaconato).
+  final bool offeringOn;
+
   const MinistryRoutineCaps({
     required this.canView,
     required this.canMark,
     required this.canManage,
     this.requestsOn = false,
+    this.offeringOn = false,
   });
 }
 
@@ -42,7 +47,11 @@ class MinistryRoutineRepository {
       'id, worship_service_id, leader_of_day, needs_notes, confirmed_at, '
       'worship_service(service_date, service_time), '
       'ministry_routine_check(id, item_id, stage, title, asks_value, '
-      'sort_order, done, value_text, responsible_user_id)';
+      'sort_order, done, value_text, responsible_user_id), '
+      'ministry_offering_delivery(id, envelopes, cash_amount, delivered_by_1, '
+      'delivered_by_2, received_by, notes, received_confirmed_at)';
+
+  static const _photoBucket = 'ministry-request-photos';
 
   Future<MinistryRoutineCaps> caps(String ministryId) async {
     final r = await _rpc('ministry_routine_caps', {
@@ -54,6 +63,7 @@ class MinistryRoutineRepository {
       canMark: m['can_mark'] == true,
       canManage: m['can_manage'] == true,
       requestsOn: m['requests_on'] == true,
+      offeringOn: m['offering_on'] == true,
     );
   }
 
@@ -184,6 +194,83 @@ class MinistryRoutineRepository {
               as num)
           .toInt();
 
+  /// Quem da Equipe está escalado num evento do ministério no dia do culto:
+  /// `user_account.id` -> função (ou null).
+  Future<Map<String, String?>> scheduled(String runId) async {
+    final rows = await _rpc('ministry_routine_scheduled', {'p_run_id': runId});
+    return {
+      for (final r in (rows as List? ?? const []))
+        (r as Map)['user_account_id'] as String: r['function_name'] as String?,
+    };
+  }
+
+  /// Quem pode receber as ofertas (a Tesouraria): `user_account.id` -> nome.
+  Future<Map<String, String>> offeringReceivers() async {
+    final rows = await _rpc('ministry_offering_receivers', const {});
+    return {
+      for (final r in (rows as List? ?? const []))
+        (r as Map)['id'] as String: r['name'] as String? ?? '',
+    };
+  }
+
+  Future<void> setOffering({
+    required String runId,
+    int? envelopes,
+    double? cashAmount,
+    String? deliveredBy1,
+    String? deliveredBy2,
+    String? receivedBy,
+    String? notes,
+  }) => _rpc('ministry_offering_set', {
+    'p_run_id': runId,
+    'p_envelopes': envelopes,
+    'p_cash_amount': cashAmount,
+    'p_delivered_by_1': deliveredBy1,
+    'p_delivered_by_2': deliveredBy2,
+    'p_received_by': receivedBy,
+    'p_notes': notes,
+  });
+
+  /// A entrega como a Tesouraria vê (nomes prontos). Null: não achou ou não
+  /// pode ver.
+  Future<Map<String, dynamic>?> getOffering(String deliveryId) async {
+    final r = await _rpc('ministry_offering_get', {
+      'p_delivery_id': deliveryId,
+    });
+    return r is Map ? r.cast<String, dynamic>() : null;
+  }
+
+  Future<void> confirmOffering(String deliveryId) =>
+      _rpc('ministry_offering_confirm', {'p_delivery_id': deliveryId});
+
+  /// Sobe a foto do pedido na pasta do ministério e devolve o caminho.
+  Future<String> uploadRequestPhoto(String ministryId, XFile file) async {
+    final ext = file.name.toLowerCase().endsWith('.png') ? 'png' : 'jpg';
+    final path = '$ministryId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+    try {
+      await _supabase.storage
+          .from(_photoBucket)
+          .uploadBinary(
+            path,
+            await file.readAsBytes(),
+            fileOptions: FileOptions(
+              contentType: ext == 'png' ? 'image/png' : 'image/jpeg',
+            ),
+          );
+      return path;
+    } on StorageException catch (e) {
+      throw MinistryRoutineException(
+        e.statusCode == '403'
+            ? 'Só quem é da equipe envia foto.'
+            : 'Não deu para enviar a foto: ${e.message}',
+      );
+    }
+  }
+
+  /// Link temporário (10 min) para ver a foto do pedido.
+  Future<String> requestPhotoUrl(String path) =>
+      _supabase.storage.from(_photoBucket).createSignedUrl(path, 600);
+
   /// Pedidos do ministério, os mais novos primeiro.
   Future<List<MinistryRequest>> getRequests(String ministryId) async {
     try {
@@ -211,6 +298,7 @@ class MinistryRoutineRepository {
     String? details,
     String? worshipServiceId,
     String? stockItemId,
+    String? photoPath,
   }) => _rpc('ministry_request_open', {
     'p_ministry_id': ministryId,
     'p_title': title,
@@ -219,6 +307,7 @@ class MinistryRoutineRepository {
     'p_details': details,
     'p_worship_service_id': worshipServiceId,
     'p_stock_item_id': stockItemId,
+    'p_photo_path': photoPath,
   });
 
   Future<void> setRequestStatus(
@@ -275,6 +364,14 @@ class MinistryRoutineRepository {
     'ja confirmada; so o lider': 'já confirmada; só o líder',
     'responsavel': 'responsável',
     'lider do dia': 'líder do dia',
+    'Tesouraria ja confirmou o recebimento; a entrega nao muda mais':
+        'Tesouraria já confirmou o recebimento; a entrega não muda mais',
+    'Quantidade de envelopes invalida': 'Quantidade de envelopes inválida',
+    'em especie nao pode': 'em espécie não pode',
+    'A entrega e feita': 'A entrega é feita',
+    'A observacao': 'A observação',
+    'So quem recebeu': 'Só quem recebeu',
+    'Foto de outro ministerio': 'Foto de outro ministério',
   };
 
   String _acentuar(String s) {

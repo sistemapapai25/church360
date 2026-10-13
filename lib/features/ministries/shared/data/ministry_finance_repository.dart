@@ -219,10 +219,7 @@ class MinistryFinanceRepository {
   /// pedido em aberto, e o lançamento **continua no saldo** até a decisão —
   /// de propósito: pedido de exclusão não pode mexer no resultado antes da
   /// hora.
-  Future<Lancamento> requestDelete({
-    required String id,
-    String? motivo,
-  }) async {
+  Future<Lancamento> requestDelete({required String id, String? motivo}) async {
     return _chamarRpc('request_lancamento_change', {
       'p_lancamento_id': id,
       'p_action': 'EXCLUSAO',
