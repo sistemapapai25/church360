@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/visitors_provider.dart';
 import '../../domain/models/visitor.dart';
+import '../../../ministries/raizes/domain/models/raizes_followup.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/date_period_filter.dart';
@@ -25,6 +26,7 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
   DatePeriodSelection _firstVisitFilter = const DatePeriodSelection();
   DatePeriodSelection _conversionFilter = const DatePeriodSelection();
   bool _onlyWantsContact = false;
+  RaizesStage? _stage; // null = todas as etapas
   RangeValues? _ageRange; // null = sem filtro
   static const double _ageMin = 0;
   static const double _ageMax = 100;
@@ -35,6 +37,7 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
     if (_firstVisitFilter.period != DatePeriod.all) count++;
     if (_conversionFilter.period != DatePeriod.all) count++;
     if (_onlyWantsContact) count++;
+    if (_stage != null) count++;
     if (_ageRange != null) count++;
     return count;
   }
@@ -45,6 +48,9 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
       if (!_conversionFilter.matches(v.conversionDate)) return false;
     }
     if (_onlyWantsContact && !v.wantsContact) return false;
+    if (_stage != null && RaizesStage.fromValue(v.raizesStage) != _stage) {
+      return false;
+    }
     if (_ageRange != null) {
       final age = v.age;
       if (age == null) return false;
@@ -253,6 +259,24 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<RaizesStage?>(
+                      key: const ValueKey('visitors-stage-filter'),
+                      initialValue: _stage,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Etapa do acompanhamento',
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('Todas as etapas'),
+                        ),
+                        for (final s in RaizesStage.values)
+                          DropdownMenuItem(value: s, child: Text(s.label)),
+                      ],
+                      onChanged: (s) => setState(() => _stage = s),
                     ),
                     const SizedBox(height: 8),
                     _AgeRangeFilter(
