@@ -1,5 +1,4 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
 import '../../../core/constants/supabase_constants.dart';
 
 import '../domain/models/visitor.dart';
@@ -26,23 +25,6 @@ class VisitorsRepository {
         .toList();
   }
 
-  /// Buscar visitantes por status
-  Future<List<Visitor>> getVisitorsByStatus(VisitorStatus status) async {
-    final response = await _supabase
-        .from('user_account')
-        .select('''
-          *,
-          mentor:user_account!assigned_mentor_id(first_name, last_name)
-        ''')
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .eq('status', 'visitor')
-        .order('first_visit_date', ascending: false);
-
-    return (response as List)
-        .map((json) => Visitor.fromJson(json))
-        .toList();
-  }
-
   /// Buscar visitante por ID
   Future<Visitor?> getVisitorById(String id) async {
     final response = await _supabase
@@ -56,113 +38,6 @@ class VisitorsRepository {
         .maybeSingle();
 
     if (response == null) return null;
-    return Visitor.fromJson(response);
-  }
-
-  /// Criar visitante
-  Future<Visitor> createVisitor(Map<String, dynamic> data) async {
-    // Gerar UUID para o visitante (não tem conta Auth)
-    const uuid = Uuid();
-    final visitorId = uuid.v4();
-
-    // Mapear campos para user_account
-    final userData = {
-      'id': visitorId, // Gerar UUID manualmente
-      'tenant_id': SupabaseConstants.currentTenantId,
-      'first_name': data['first_name'],
-      'last_name': data['last_name'],
-      'email': data['email'],
-      'phone': data['phone'],
-      'birthdate': data['birth_date'], // birth_date → birthdate
-      'address': data['address'],
-      'city': data['city'],
-      'state': data['state'],
-      'zip_code': data['zip_code'],
-      'gender': data['gender'],
-      'status': 'visitor', // SEMPRE 'visitor' para user_account (member_status ENUM)
-      'is_active': true,
-      'first_visit_date': data['first_visit_date'],
-      'last_visit_date': data['last_visit_date'],
-      'assigned_mentor_id': data['assigned_mentor_id'],
-      'follow_up_status': data['follow_up_status'],
-      'last_contact_date': data['last_contact_date'],
-      'wants_contact': data['wants_contact'],
-      'wants_to_return': data['wants_to_return'],
-      'notes': data['notes'],
-    };
-
-    // Remover campos null
-    userData.removeWhere((key, value) => value == null);
-
-    final response = await _supabase
-        .from('user_account')
-        .insert(userData)
-        .select()
-        .single();
-
-    return Visitor.fromJson(response);
-  }
-
-  /// Atualizar visitante
-  Future<Visitor> updateVisitor(String id, Map<String, dynamic> data) async {
-    // Mapear campos para user_account
-    final userData = {
-      'first_name': data['first_name'],
-      'last_name': data['last_name'],
-      'email': data['email'],
-      'phone': data['phone'],
-      'birthdate': data['birth_date'], // birth_date → birthdate
-      'address': data['address'],
-      'city': data['city'],
-      'state': data['state'],
-      'zip_code': data['zip_code'],
-      'gender': data['gender'],
-      'first_visit_date': data['first_visit_date'],
-      'last_visit_date': data['last_visit_date'],
-      'assigned_mentor_id': data['assigned_mentor_id'],
-      'follow_up_status': data['follow_up_status'],
-      'last_contact_date': data['last_contact_date'],
-      'wants_contact': data['wants_contact'],
-      'wants_to_return': data['wants_to_return'],
-      'notes': data['notes'],
-      // NÃO atualizar 'status' - deve permanecer 'visitor' em user_account
-    };
-
-    // Remover campos null
-    userData.removeWhere((key, value) => value == null);
-
-    final response = await _supabase
-        .from('user_account')
-        .update(userData)
-        .eq('id', id)
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .select()
-        .single();
-
-    return Visitor.fromJson(response);
-  }
-
-  /// Deletar visitante
-  Future<void> deleteVisitor(String id) async {
-    await _supabase
-        .from('user_account')
-        .delete()
-        .eq('id', id)
-        .eq('tenant_id', SupabaseConstants.currentTenantId);
-  }
-
-  /// Converter visitante em membro
-  Future<Visitor> convertToMember(String visitorId, String memberId) async {
-    final response = await _supabase
-        .from('user_account')
-        .update({
-          'status': 'member_active',
-        })
-        .eq('id', visitorId)
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .select()
-        .single();
-
     return Visitor.fromJson(response);
   }
 

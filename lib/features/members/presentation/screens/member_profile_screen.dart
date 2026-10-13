@@ -33,6 +33,8 @@ import '../../data/members_repository.dart';
 import '../../data/family_relationships_repository.dart';
 import '../../domain/models/member.dart';
 import '../../domain/lgpd_request_labels.dart';
+import '../../../visitors/presentation/providers/visitors_provider.dart'
+    show allVisitorsProvider;
 
 const double _pagePadding = 16;
 const double _cardPadding = 16;
@@ -296,6 +298,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       ref.invalidate(allMembersProvider);
       ref.invalidate(activeMembersProvider);
       ref.invalidate(visitorsProvider);
+      ref.invalidate(allVisitorsProvider);
       ref.invalidate(managedChildrenProvider);
 
       if (mounted) {
@@ -460,6 +463,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       if (context.mounted) {
         // Invalida a lista de membros para atualizar
         ref.invalidate(allMembersProvider);
+        ref.invalidate(allVisitorsProvider);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

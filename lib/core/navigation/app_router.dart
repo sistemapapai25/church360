@@ -1029,14 +1029,20 @@ final appRouter = GoRouter(
       path: '/visitors/:id/visit/new',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return VisitorVisitFormScreen(visitorId: id);
+        return PermissionOnlyRoute(
+          permission: 'visitors.followup',
+          child: VisitorVisitFormScreen(visitorId: id),
+        );
       },
     ),
     GoRoute(
       path: '/visitors/:id/followup/new',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
-        return VisitorFollowupFormScreen(visitorId: id);
+        return PermissionOnlyRoute(
+          permission: 'visitors.followup',
+          child: VisitorFollowupFormScreen(visitorId: id),
+        );
       },
     ),
     GoRoute(
@@ -1044,7 +1050,13 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         final followupId = state.pathParameters['followupId']!;
-        return VisitorFollowupFormScreen(visitorId: id, followupId: followupId);
+        return PermissionOnlyRoute(
+          permission: 'visitors.followup',
+          child: VisitorFollowupFormScreen(
+            visitorId: id,
+            followupId: followupId,
+          ),
+        );
       },
     ),
 
