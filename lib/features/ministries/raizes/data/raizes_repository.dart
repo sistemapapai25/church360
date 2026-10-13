@@ -304,6 +304,20 @@ class RaizesRepository {
   }
 
   // =====================================================
+  // RELATÓRIO (R9)
+  // =====================================================
+
+  /// Funil, contato em 24h, visitas por responsável e decisões por mês dos
+  /// últimos [months] meses. Sem visitors.view/followup a RPC dá 42501.
+  Future<RaizesReport> getReport(String ministryId, {int months = 6}) async {
+    final response = await _supabase.rpc(
+      'raizes_report',
+      params: {'p_ministry_id': ministryId, 'p_months': months},
+    );
+    return RaizesReport.fromJson(Map<String, dynamic>.from(response as Map));
+  }
+
+  // =====================================================
   // LEMBRETES INTERNOS
   // =====================================================
 

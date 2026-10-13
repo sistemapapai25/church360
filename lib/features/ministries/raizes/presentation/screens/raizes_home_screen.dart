@@ -11,11 +11,13 @@ import '../../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../../shared/domain/ministry_type_catalog.dart';
 import '../../../shared/presentation/providers/ministry_type_catalog_providers.dart';
+import '../../../shared/presentation/widgets/ministry_reports_tab.dart';
 import '../../../shared/presentation/widgets/ministry_standard_slots.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../../../shared/presentation/widgets/ministry_workspace_shell.dart';
 import '../../domain/models/raizes_dashboard_stats.dart';
 import '../providers/raizes_dashboard_provider.dart';
+import '../widgets/raizes_report_cards.dart';
 
 /// Workspace do Raízes — o mesmo esqueleto do Batismo, com uma aba a mais.
 ///
@@ -88,6 +90,14 @@ class _RaizesWorkspace extends ConsumerWidget {
           MinistryTabKeys.painel: MinistryTabSlot(
             defaultLabel: 'Painel',
             builder: (_) => RaizesPainelTab(ministryId: ministryId),
+          ),
+          MinistryTabKeys.relatorios: MinistryTabSlot(
+            defaultLabel: 'Relatórios',
+            builder: (_) => MinistryReportsTab(
+              ministryId: ministryId,
+              leading: [RaizesReportCards(ministryId: ministryId)],
+              onRefresh: () => ref.invalidate(raizesReportProvider(ministryId)),
+            ),
           ),
         },
       ),

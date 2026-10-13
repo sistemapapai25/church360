@@ -68,11 +68,14 @@ class _VisitorsStatisticsScreenState
             return v.firstVisitDate?.isAfter(cutoffDate) ?? false;
           }).length;
 
-          // Visitantes inativos (sem visita há mais de 60 dias)
+          // Visitantes inativos (sem visita há mais de 60 dias). Só o QR Code
+          // do Raízes grava a volta (last_visit_date); sem ela, a última
+          // visita conhecida é a primeira.
           final inactiveCount = visitors.where((v) {
-            if (v.lastVisitDate == null) return false;
+            final last = v.lastVisitDate ?? v.firstVisitDate;
+            if (last == null) return false;
             final cutoffDate = now.subtract(const Duration(days: 60));
-            return v.lastVisitDate!.isBefore(cutoffDate);
+            return last.isBefore(cutoffDate);
           }).length;
 
           return ListView(
@@ -172,6 +175,13 @@ class _VisitorsStatisticsScreenState
                 value: inactiveCount.toString(),
                 icon: AppIcons.warning,
                 color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Visitas contam o cadastro e cada volta registrada pelo '
+                'QR Code do Raízes (uma por dia). Quem volta sem ler o QR '
+                'não entra nessa conta.',
+                style: CommunityDesign.metaStyle(context),
               ),
               const SizedBox(height: 24),
 
