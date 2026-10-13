@@ -9,7 +9,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_core
   flutter_inappwebview_windows
   flutter_tts
-  geolocator_windows
   printing
   record_windows
   share_plus
