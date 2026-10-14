@@ -9,9 +9,11 @@ import '../layout/breakpoints.dart';
 import '../widgets/dashboard_card_frame.dart';
 import '../widgets/dashboard_charts.dart';
 import '../widgets/pearl_fab.dart';
+import '../widgets/qr_scanner_fab.dart';
 import '../providers/dashboard_widget_provider.dart';
 import '../../features/notifications/presentation/widgets/notification_badge.dart';
-import '../../features/custom_reports/presentation/providers/custom_report_providers.dart';
+import '../../features/custom_reports/presentation/providers/custom_report_data_provider.dart';
+import '../../features/custom_reports/presentation/widgets/custom_report_dashboard_card.dart';
 import '../../features/permissions/presentation/widgets/permission_gate.dart';
 import '../../features/support_chat/data/support_agents_data.dart';
 import '../../features/branches/presentation/providers/branches_provider.dart';
@@ -107,7 +109,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           tooltip: 'Menu de Gestão',
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-        body: ref
+        // B6: o Leitor de QR Code flutua sobre o corpo, arrastável, só para
+        // quem tem events.checkin; o FAB do Menu de Gestão continua no
+        // Scaffold.
+        body: Stack(
+          children: [
+            _buildBody(context),
+            const PermissionGate(
+              permission: 'events.checkin',
+              showLoading: false,
+              child: QrScannerFab(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    return ref
             .watch(enabledDashboardWidgetsProvider)
             .when(
               data: (widgets) {
@@ -142,6 +162,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 return RefreshIndicator(
                   onRefresh: () async {
                     ref.read(refreshDashboardWidgetsProvider)();
+                    // B4: os gráficos dos relatórios ficam em cache pela sessão.
+                    ref.invalidate(customReportDataProvider);
                   },
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
@@ -234,9 +256,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ),
               ),
-            ),
-      ),
-    );
+            );
   }
 
   /// Método auxiliar para mapear widget_key para Widget
@@ -244,7 +264,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     // Verificar se é um relatório customizado
     if (widgetKey.startsWith('custom_report_')) {
       final reportId = widgetKey.replaceFirst('custom_report_', '');
-      return _buildCustomReportWidget(context, reportId);
+      // B4: card com o gráfico do relatório (só título sem acesso à fonte).
+      return CustomReportDashboardCard(reportId: reportId);
     }
 
     // O card abre o relatório só para quem tem reports.view (senão, Acesso Negado).
@@ -307,86 +328,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     };
 
     return widgetMap[widgetKey] ?? const SizedBox.shrink();
-  }
-
-  /// Construir widget de relatório customizado
-  Widget _buildCustomReportWidget(BuildContext context, String reportId) {
-    return Consumer(
-      builder: (context, ref, child) {
-        final reportAsync = ref.watch(customReportByIdProvider(reportId));
-
-        return reportAsync.when(
-          data: (report) {
-            if (report == null) return const SizedBox.shrink();
-
-            return InkWell(
-              onTap: () => context.push('/custom-reports/$reportId/view'),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.assessment,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              report.name,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (report.description != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          report.description!,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: Colors.grey[600]),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Chip(
-                            label: Text(report.dataSource.label),
-                            backgroundColor: Colors.blue.withValues(alpha: 0.1),
-                            labelStyle: const TextStyle(fontSize: 11),
-                          ),
-                          const SizedBox(width: 8),
-                          Chip(
-                            label: Text(report.visualizationType.label),
-                            backgroundColor: Colors.green.withValues(
-                              alpha: 0.1,
-                            ),
-                            labelStyle: const TextStyle(fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-          loading: () => const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-          ),
-          error: (error, stack) => const SizedBox.shrink(),
-        );
-      },
-    );
   }
 
   Future<void> _openDashboardSettings(BuildContext context) async {
