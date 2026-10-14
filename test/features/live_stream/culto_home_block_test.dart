@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -78,9 +79,11 @@ void main() {
     expect(find.text('Chegou bem?'), findsNothing);
   });
 
-  testWidgets('culto com slides: fora do navegador, "Abrir slides"', (
+  testWidgets('culto com slides: sem WebView (desktop), "Abrir slides"', (
     tester,
   ) async {
+    // Android/iOS montam a WebView (sem plugin no teste); desktop abre fora.
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
     await tester.pumpWidget(
       _host(
         const CurrentCulto(
@@ -95,6 +98,8 @@ void main() {
 
     expect(find.text('Abrir slides'), findsOneWidget);
     expect(find.text('Sem slides neste culto'), findsNothing);
+    // O framework cobra a variável zerada antes dos tearDowns.
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('min recolhe para a faixa; tocar na faixa expande', (

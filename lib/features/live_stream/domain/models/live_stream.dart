@@ -4,6 +4,9 @@ class LiveStreamConfig {
   final String? streamUrl;
   final String? message;
   final bool isActive;
+
+  /// Slides colados na tela do Culto ao vivo (007400, `culto_set_slides`).
+  final String? slidesUrl;
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? createdBy;
@@ -13,6 +16,7 @@ class LiveStreamConfig {
     this.streamUrl,
     this.message,
     this.isActive = false,
+    this.slidesUrl,
     required this.createdAt,
     required this.updatedAt,
     this.createdBy,
@@ -24,6 +28,7 @@ class LiveStreamConfig {
       streamUrl: json['stream_url'] as String?,
       message: json['message'] as String?,
       isActive: json['is_active'] as bool? ?? false,
+      slidesUrl: json['slides_url'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       createdBy: json['created_by'] as String?,

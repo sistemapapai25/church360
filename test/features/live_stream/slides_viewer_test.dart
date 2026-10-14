@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:church360_app/features/live_stream/presentation/widgets/slides_viewer.dart';
@@ -34,6 +35,35 @@ void main() {
     test('PDF ou outro link fica como está (só tira espaços)', () {
       expect(
         slidesEmbedUrl(' https://x.test/culto.pdf '),
+        'https://x.test/culto.pdf',
+      );
+    });
+  });
+
+  group('slidesNativeUrl', () {
+    tearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    test('Android: PDF passa pelo visualizador do Google', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      expect(
+        slidesNativeUrl('https://x.test/culto.pdf'),
+        'https://docs.google.com/gview?embedded=true&url='
+        '${Uri.encodeComponent('https://x.test/culto.pdf')}',
+      );
+    });
+
+    test('Android: Google Slides vai direto no /embed', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      expect(
+        slidesNativeUrl('https://docs.google.com/presentation/d/1AbC/edit'),
+        'https://docs.google.com/presentation/d/1AbC/embed?start=false&loop=false',
+      );
+    });
+
+    test('iOS: PDF vai direto', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      expect(
+        slidesNativeUrl('https://x.test/culto.pdf'),
         'https://x.test/culto.pdf',
       );
     });
