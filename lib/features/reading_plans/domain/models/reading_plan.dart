@@ -59,6 +59,10 @@ class ReadingPlan {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
+  /// Modelo do catálogo da plataforma de que o plano foi importado (C1).
+  /// Nulo = criado à mão.
+  final String? templateCode;
+
   ReadingPlan({
     required this.id,
     required this.title,
@@ -70,6 +74,7 @@ class ReadingPlan {
     this.category,
     required this.createdAt,
     this.updatedAt,
+    this.templateCode,
   });
 
   /// Criar a partir de JSON
@@ -107,6 +112,7 @@ class ReadingPlan {
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
           : null,
+      templateCode: json['template_code'] as String?,
     );
   }
 
@@ -146,21 +152,62 @@ class ReadingPlan {
     return '$years ${years == 1 ? 'ano' : 'anos'}';
   }
 
-  String get categoryText {
-    switch (category) {
-      case 'complete_bible':
-        return 'Bíblia Completa';
-      case 'new_testament':
-        return 'Novo Testamento';
-      case 'old_testament':
-        return 'Antigo Testamento';
-      case 'devotional':
-        return 'Devocional';
-      default:
-        return 'Geral';
-    }
+  String get categoryText => readingPlanCategoryText(category);
+}
+
+/// Rótulo da categoria de plano ('complete_bible' → 'Bíblia Completa').
+String readingPlanCategoryText(String? category) {
+  switch (category) {
+    case 'complete_bible':
+      return 'Bíblia Completa';
+    case 'new_testament':
+      return 'Novo Testamento';
+    case 'old_testament':
+      return 'Antigo Testamento';
+    case 'devotional':
+      return 'Devocional';
+    default:
+      return 'Geral';
   }
 }
+
+/// Modelo pronto do catálogo da plataforma (`reading_plan_template`, C1).
+/// Só leitura; a igreja importa pela RPC `reading_plan_from_template`.
+class ReadingPlanTemplate {
+  final String code;
+  final String title;
+  final String? description;
+  final int durationDays;
+  final String? category;
+
+  const ReadingPlanTemplate({
+    required this.code,
+    required this.title,
+    this.description,
+    required this.durationDays,
+    this.category,
+  });
+
+  factory ReadingPlanTemplate.fromJson(Map<String, dynamic> json) {
+    final rawDuration = json['duration_days'];
+    final duration = rawDuration is num ? rawDuration.toInt() : 1;
+    final description = (json['description'] as String?)?.trim();
+    return ReadingPlanTemplate(
+      code: json['code'] as String,
+      title: json['title'] as String,
+      description: description == null || description.isEmpty
+          ? null
+          : description,
+      durationDays: duration < 1 ? 1 : duration,
+      category: json['category'] as String?,
+    );
+  }
+
+  String get categoryText => readingPlanCategoryText(category);
+}
+
+/// Plano em andamento da pessoa, pronto para a Home (C2).
+typedef ActiveReadingPlan = ({ReadingPlan plan, ReadingPlanProgress progress});
 
 /// Modelo de Progresso do Usuário em um Plano de Leitura
 class ReadingPlanProgress {

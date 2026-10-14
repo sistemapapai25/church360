@@ -371,6 +371,31 @@ class ReadingPlansRepository {
     return ReadingPlanProgress.fromJson(response);
   }
 
+  /// Modelos prontos do catálogo da plataforma (sem os módulos: 365 dias
+  /// por modelo pesam, e a lista só precisa de título e duração).
+  Future<List<ReadingPlanTemplate>> getTemplates() async {
+    final response = await _supabase
+        .from('reading_plan_template')
+        .select('code, title, description, duration_days, category')
+        .eq('is_active', true)
+        .order('sort_order')
+        .order('title');
+
+    return (response as List)
+        .map((json) => ReadingPlanTemplate.fromJson(json as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Copia um modelo do catálogo para a igreja (RPC com `reading_plans.manage`).
+  /// Devolve o id do plano criado.
+  Future<String> importTemplate(String code) async {
+    final result = await _supabase.rpc(
+      'reading_plan_from_template',
+      params: {'p_template_code': code},
+    );
+    return result as String;
+  }
+
   /// Buscar todos os planos em progresso do usuário
   Future<List<ReadingPlanProgress>> getUserActiveProgress(
     String memberId,

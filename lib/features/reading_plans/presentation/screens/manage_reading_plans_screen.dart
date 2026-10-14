@@ -8,10 +8,21 @@ import '../../../../core/design/app_icons.dart';
 import '../../../../core/widgets/church_image.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../domain/models/reading_plan.dart';
 import '../providers/reading_plans_provider.dart';
 
 class ManageReadingPlansScreen extends ConsumerWidget {
   const ManageReadingPlansScreen({super.key});
+
+  /// C1: folha com os modelos prontos do catálogo da plataforma.
+  static Future<void> openImportSheet(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => const _ImportTemplateSheet(),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -30,6 +41,11 @@ class ManageReadingPlansScreen extends ConsumerWidget {
         elevation: 0,
         centerTitle: false,
         actions: [
+          IconButton(
+            icon: const Icon(AppIcons.download),
+            onPressed: () => openImportSheet(context),
+            tooltip: 'Importar modelo',
+          ),
           IconButton(
             icon: const Icon(AppIcons.add),
             onPressed: () => context.push('/reading-plans/admin/new'),
@@ -74,6 +90,12 @@ class ManageReadingPlansScreen extends ConsumerWidget {
                       onPressed: () => context.push('/reading-plans/admin/new'),
                       icon: const Icon(AppIcons.add),
                       label: const Text('Criar primeiro plano'),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => openImportSheet(context),
+                      icon: const Icon(AppIcons.download),
+                      label: const Text('Importar modelo'),
                     ),
                   ],
                 ),
@@ -299,6 +321,150 @@ class ManageReadingPlansScreen extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Modelos prontos (C1): um por linha, "Importar" ou "Importado".
+class _ImportTemplateSheet extends ConsumerStatefulWidget {
+  const _ImportTemplateSheet();
+
+  @override
+  ConsumerState<_ImportTemplateSheet> createState() =>
+      _ImportTemplateSheetState();
+}
+
+class _ImportTemplateSheetState extends ConsumerState<_ImportTemplateSheet> {
+  String? _importing;
+
+  Future<void> _import(ReadingPlanTemplate template) async {
+    setState(() => _importing = template.code);
+    final repo = ref.read(readingPlansRepositoryProvider);
+    try {
+      await repo.importTemplate(template.code);
+      ref.invalidate(allReadingPlansProvider);
+      ref.invalidate(activeReadingPlansProvider);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Plano "${template.title}" importado e ativo.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _importing = null);
+      AppErrorHandler.showSnackBar(
+        context,
+        e,
+        feature: 'reading_plans.admin.import_template',
+        fallbackMessage: 'Nao foi possivel importar o modelo. Tente novamente.',
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final templatesAsync = ref.watch(readingPlanTemplatesProvider);
+    final imported = ref
+            .watch(allReadingPlansProvider)
+            .valueOrNull
+            ?.map((p) => p.templateCode)
+            .whereType<String>()
+            .toSet() ??
+        const <String>{};
+    final cs = Theme.of(context).colorScheme;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Importar modelo',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Planos prontos da plataforma. O plano importado é da igreja: '
+              'dá para editar, desativar ou excluir.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: cs.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 12),
+            templatesAsync.when(
+              data: (templates) {
+                if (templates.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Text('Nenhum modelo disponível.'),
+                  );
+                }
+                return Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: templates.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final t = templates[index];
+                      final done = imported.contains(t.code);
+                      final busy = _importing == t.code;
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(AppIcons.book, color: cs.primary),
+                        title: Text(
+                          t.title,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: Text(
+                          [
+                            '${t.durationDays} dias',
+                            t.categoryText,
+                            if (t.description != null) t.description!,
+                          ].join(' · '),
+                        ),
+                        trailing: done
+                            ? const StatusBadge.active(
+                                label: 'Importado',
+                                icon: AppIcons.check,
+                              )
+                            : busy
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : FilledButton(
+                                onPressed: _importing == null
+                                    ? () => _import(t)
+                                    : null,
+                                child: const Text('Importar'),
+                              ),
+                      );
+                    },
+                  ),
+                );
+              },
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (error, _) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  AppErrorHandler.userMessage(
+                    error,
+                    feature: 'reading_plans.admin.load_templates',
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
