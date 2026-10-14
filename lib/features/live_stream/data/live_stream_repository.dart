@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
+import '../domain/models/current_culto.dart';
 import '../domain/models/live_stream.dart';
 
 /// Repository para gerenciar culto ao vivo
@@ -51,6 +52,14 @@ class LiveStreamRepository {
 
     return LiveStreamConfig.fromJson(response);
   }
+
+  /// "Tem culto agora?" (RPC `current_culto`, 006500).
+  Future<CurrentCulto> currentCulto() async =>
+      CurrentCulto.fromJson(await _supabase.rpc('current_culto'));
+
+  /// "Encerrar modo culto agora" (RPC `culto_mode_off`, `live_stream.manage`):
+  /// desliga a chave e tira a Home do modo culto até o próximo culto da Agenda.
+  Future<void> cultoModeOff() => _supabase.rpc('culto_mode_off');
 
   Future<int> notifyLiveStreamActive({
     String? title,
