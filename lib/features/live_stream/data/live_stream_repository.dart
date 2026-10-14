@@ -42,7 +42,8 @@ class LiveStreamRepository {
     Map<String, dynamic> data,
   ) async {
     final payload = Map<String, dynamic>.from(data);
-    payload['tenant_id'] = payload['tenant_id'] ?? SupabaseConstants.currentTenantId;
+    payload['tenant_id'] =
+        payload['tenant_id'] ?? SupabaseConstants.currentTenantId;
 
     final response = await _supabase
         .from('live_stream')
@@ -61,6 +62,15 @@ class LiveStreamRepository {
   /// desliga a chave e tira a Home do modo culto até o próximo culto da Agenda.
   Future<void> cultoModeOff() => _supabase.rpc('culto_mode_off');
 
+  /// Slides pela tela do Culto ao vivo (RPC `culto_set_slides`, 007400,
+  /// `live_stream.manage`): guarda na chave e, se há culto na Agenda hoje,
+  /// vincula a ele. Devolve o culto vinculado (`event_id`, `title`,
+  /// `start_hhmm`) ou `event_id` nulo. [url] nulo tira os slides.
+  Future<Map<String, dynamic>> cultoSetSlides(String? url) async {
+    final r = await _supabase.rpc('culto_set_slides', params: {'p_url': url});
+    return r is Map ? Map<String, dynamic>.from(r) : const {};
+  }
+
   Future<int> notifyLiveStreamActive({
     String? title,
     String? body,
@@ -68,11 +78,7 @@ class LiveStreamRepository {
   }) async {
     final response = await _supabase.rpc(
       'notify_live_stream_active',
-      params: {
-        'p_title': title,
-        'p_body': body,
-        'p_route': route,
-      },
+      params: {'p_title': title, 'p_body': body, 'p_route': route},
     );
     if (response is int) return response;
     return 0;

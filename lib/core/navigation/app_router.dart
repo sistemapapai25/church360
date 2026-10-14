@@ -167,6 +167,7 @@ import '../../features/kids/presentation/screens/kids_admin_dashboard_screen.dar
 import '../../features/kids/presentation/screens/kids_select_child_screen.dart';
 import '../../features/support_chat/presentation/screens/agents_center_screen.dart';
 import '../../features/support_chat/presentation/screens/support_attend_screen.dart';
+import '../../features/live_stream/presentation/screens/culto_screen.dart';
 import '../../features/live_stream/presentation/screens/live_stream_screen.dart';
 import '../../features/live_stream/presentation/screens/manage_live_stream_screen.dart';
 
@@ -419,6 +420,11 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/live-stream',
       builder: (context, state) => const LiveStreamScreen(),
+    ),
+    // Modo culto em tela cheia (roadmap 14/10, A2): pública como /live-stream.
+    GoRoute(
+      path: '/culto',
+      builder: (context, state) => const CultoScreen(),
     ),
     GoRoute(
       path: '/live-stream/manage',
