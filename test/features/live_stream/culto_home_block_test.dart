@@ -8,7 +8,8 @@ import 'package:church360_app/features/live_stream/presentation/providers/live_s
 import 'package:church360_app/features/live_stream/presentation/widgets/culto_home_block.dart';
 import 'package:church360_app/features/worship/data/geo_checkin_service.dart';
 
-import '../worship/presence_reaction_panel_test.dart' show FakeGeoCheckinService;
+import '../worship/presence_reaction_panel_test.dart'
+    show FakeGeoCheckinService;
 
 Widget _host(CurrentCulto culto) => ProviderScope(
   overrides: [
@@ -27,7 +28,7 @@ Widget _host(CurrentCulto culto) => ProviderScope(
 );
 
 void main() {
-  testWidgets('culto da Agenda sem chave: título, hora, painel, sem Assistir', (
+  testWidgets('culto da Agenda sem chave: dois cards, painel, sem play', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -44,15 +45,19 @@ void main() {
     // O painel da presença responde ao servidor de mentira num microtask.
     await tester.pump();
 
+    expect(find.byKey(const ValueKey('culto-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('slides-card')), findsOneWidget);
     expect(find.text('Culto Quarta'), findsOneWidget);
     expect(find.text('desde 19:30'), findsOneWidget);
     expect(find.text('CULTO AGORA'), findsOneWidget);
+    expect(find.text('Slides'), findsOneWidget);
+    expect(find.text('Sem slides neste culto'), findsOneWidget);
     expect(find.text('Chegou bem?'), findsOneWidget);
     expect(find.text('Tá ótimo! 🙌'), findsOneWidget);
-    expect(find.text('Assistir'), findsNothing);
+    expect(find.byIcon(Icons.play_circle_fill), findsNothing);
   });
 
-  testWidgets('chave ligada sem culto na Agenda: AO VIVO e Assistir', (
+  testWidgets('chave ligada sem culto na Agenda: AO VIVO, play, mensagem', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -69,8 +74,60 @@ void main() {
     expect(find.text('AO VIVO'), findsOneWidget);
     expect(find.text('Culto ao vivo'), findsOneWidget);
     expect(find.text('Em instantes'), findsOneWidget);
-    expect(find.text('Assistir'), findsOneWidget);
+    expect(find.byIcon(Icons.play_circle_fill), findsOneWidget);
     expect(find.text('Chegou bem?'), findsNothing);
+  });
+
+  testWidgets('culto com slides: fora do navegador, "Abrir slides"', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        const CurrentCulto(
+          isLive: true,
+          eventId: 'e1',
+          title: 'Culto',
+          slidesUrl: 'https://docs.google.com/presentation/d/e/abc/pub',
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Abrir slides'), findsOneWidget);
+    expect(find.text('Sem slides neste culto'), findsNothing);
+  });
+
+  testWidgets('min recolhe para a faixa; tocar na faixa expande', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        const CurrentCulto(
+          isLive: true,
+          eventId: 'e1',
+          title: 'Culto Quarta',
+          startHhmm: '19:30',
+          checkinEnabled: true,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('culto-min')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('culto-strip')), findsOneWidget);
+    expect(find.byKey(const ValueKey('culto-card')), findsNothing);
+    expect(find.byKey(const ValueKey('slides-card')), findsNothing);
+    expect(find.text('Culto Quarta'), findsOneWidget);
+    expect(find.text('Chegou bem?'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('culto-strip')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('culto-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('culto-strip')), findsNothing);
   });
 
   testWidgets('sem culto: nada', (tester) async {
@@ -88,11 +145,15 @@ void main() {
       'start_hhmm': '09:00',
       'stream_url': null,
       'message': null,
+      'slides_url': 'https://x.test/culto.pdf',
       'checkin_enabled': false,
     });
     expect(c.isLive, isTrue);
     expect(c.eventId, 'e1');
     expect(c.streamUrl, isNull);
+    expect(c.hasStream, isFalse);
+    expect(c.slidesUrl, 'https://x.test/culto.pdf');
+    expect(c.hasSlides, isTrue);
     expect(CurrentCulto.fromJson(null).isLive, isFalse);
   });
 }

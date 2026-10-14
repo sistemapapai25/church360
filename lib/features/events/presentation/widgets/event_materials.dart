@@ -241,15 +241,14 @@ class _EventMainMediaEditorState extends ConsumerState<EventMainMediaEditor> {
     }
   }
 
-  Future<void> _pasteLink(LessonMediaKind kind, String? old) async {
+  /// Caixa "cole o link" das linhas PDF, vídeo e slides.
+  Future<String?> _askLink(String title) async {
     final controller = TextEditingController();
     final formKey = GlobalKey<FormState>();
     final url = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(
-          kind == LessonMediaKind.pdf ? 'Link do PDF' : 'Link do vídeo',
-        ),
+        title: Text(title),
         content: Form(
           key: formKey,
           child: TextFormField(
@@ -277,12 +276,66 @@ class _EventMainMediaEditorState extends ConsumerState<EventMainMediaEditor> {
       ),
     );
     controller.dispose();
+    return url;
+  }
+
+  Future<void> _pasteLink(LessonMediaKind kind, String? old) async {
+    final url = await _askLink(
+      kind == LessonMediaKind.pdf ? 'Link do PDF' : 'Link do vídeo',
+    );
     if (url == null) return;
     if (await _save({_column(kind): url})) await _dropOld(kind, old);
   }
 
   Future<void> _remove(LessonMediaKind kind, String? old) async {
     if (await _save({_column(kind): null})) await _dropOld(kind, old);
+  }
+
+  Future<void> _pasteSlides() async {
+    final url = await _askLink('Link dos slides');
+    if (url != null) await _save({'slides_url': url});
+  }
+
+  /// Slides do culto (20261008007400): só link (PDF ou Google Slides com
+  /// "Publicar na web"); não há upload. Aparecem no card Slides da Home e
+  /// em /culto enquanto o culto está aberto.
+  Widget _slidesRow(String? current, TextStyle meta) {
+    final url = blankToNull(current);
+    if (url == null) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          key: const ValueKey('event-link-slides'),
+          style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
+          onPressed: _busy ? null : _pasteSlides,
+          icon: const Icon(Icons.slideshow_outlined, size: 18),
+          label: const Text('Colar link dos slides'),
+        ),
+      );
+    }
+    return ListTile(
+      key: const ValueKey('event-media-slides'),
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.slideshow_outlined),
+      title: const Text('Slides do culto'),
+      subtitle: Text(
+        url,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: meta,
+      ),
+      onTap: () => openLessonLink(context, url),
+      trailing: PopupMenuButton<String>(
+        tooltip: 'Mais opções',
+        enabled: !_busy,
+        onSelected: (v) =>
+            v == 'link' ? _pasteSlides() : _save({'slides_url': null}),
+        itemBuilder: (_) => const [
+          PopupMenuItem(value: 'link', child: Text('Trocar link')),
+          PopupMenuItem(value: 'remover', child: Text('Remover slides')),
+        ],
+      ),
+    );
   }
 
   Widget _mediaRow(LessonMediaKind kind, String? current, TextStyle meta) {
@@ -369,11 +422,15 @@ class _EventMainMediaEditorState extends ConsumerState<EventMainMediaEditor> {
         const SizedBox(height: 8),
         _mediaRow(LessonMediaKind.pdf, event.pdfUrl, meta),
         _mediaRow(LessonMediaKind.video, event.videoUrl, meta),
+        if (event.isCulto) _slidesRow(event.slidesUrl, meta),
         const SizedBox(height: 4),
         Text(
           'PDF novo aparece em Atualizações e avisa quem pode ver o evento. '
           'O vídeo é de referência: só professores e liderança veem, e o '
-          'aviso vai só aos professores das aulas.',
+          'aviso vai só aos professores das aulas.'
+          '${event.isCulto ? ' Os slides (PDF ou Google Slides com "Publicar '
+                    'na web") aparecem no card Slides do topo da Home e na tela '
+                    'do culto enquanto ele acontece.' : ''}',
           style: meta,
         ),
         const SizedBox(height: 16),

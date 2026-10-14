@@ -42,7 +42,12 @@ class Event {
   final String? pdfUrl;
   final String? videoUrl;
 
+  /// Slides do culto (20261008007400): PDF ou Google Slides publicado. Só
+  /// leitura aqui; a seção Materiais da edição grava direto, como [pdfUrl].
+  final String? slidesUrl;
+
   bool get isOnline => modality == 'online';
+  bool get isCulto => (eventType ?? '').startsWith('culto');
 
   // Campos computados do join
   final int? registrationCount;
@@ -73,6 +78,7 @@ class Event {
     this.modality = 'presencial',
     this.pdfUrl,
     this.videoUrl,
+    this.slidesUrl,
     this.registrationCount,
   });
 
@@ -108,6 +114,7 @@ class Event {
       modality: json['modality'] as String? ?? 'presencial',
       pdfUrl: json['pdf_url'] as String?,
       videoUrl: json['video_url'] as String?,
+      slidesUrl: json['slides_url'] as String?,
       registrationCount: json['registration_count'] as int?,
     );
   }
