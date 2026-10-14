@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/app_tabs.dart';
 import '../providers/worship_provider.dart';
 import '../../domain/models/worship_service.dart';
 import '../../../members/presentation/providers/members_provider.dart';
@@ -29,10 +31,19 @@ class _WorshipAttendanceScreenState
   bool _showOnlyPresent = false;
   final _searchController = TextEditingController();
 
+  /// 0 = Lista (check-in à mão), 1 = Pelo celular (quem chegou pelo GPS).
+  int _tab = 0;
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _refresh() {
+    ref.invalidate(worshipAttendanceProvider(widget.worshipServiceId));
+    ref.invalidate(worshipServiceByIdProvider(widget.worshipServiceId));
+    ref.invalidate(allWorshipServicesProvider);
   }
 
   @override
@@ -149,6 +160,40 @@ class _WorshipAttendanceScreenState
             error: (_, __) => const SizedBox.shrink(),
           ),
 
+          // Lista (à mão) / Pelo celular (A4: quem chegou pelo GPS, para
+          // validar ou recusar). O GPS dentro de prédio oscila e nunca
+          // decide sozinho.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+            child: AppTabs(
+              tabs: [
+                const AppTab(label: 'Lista'),
+                AppTab(
+                  label: 'Pelo celular',
+                  count: switch (_geoCount(attendanceAsync.valueOrNull)) {
+                    0 => null,
+                    final n => '$n',
+                  },
+                ),
+              ],
+              selectedIndex: _tab,
+              onChanged: (i) => setState(() => _tab = i),
+            ),
+          ),
+
+          if (_tab == 1)
+            Expanded(
+              child: attendanceAsync.when(
+                data: (attendances) => _PhoneCheckinsTab(
+                  attendances: attendances.where((a) => a.isGeo).toList(),
+                  worshipServiceId: widget.worshipServiceId,
+                  onChanged: _refresh,
+                ),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Center(child: Text('Erro: $error')),
+              ),
+            )
+          else ...[
           // Barra de busca
           Padding(
             padding: const EdgeInsets.all(16),
@@ -237,11 +282,7 @@ class _WorshipAttendanceScreenState
                           member: member,
                           isPresent: isPresent,
                           worshipServiceId: widget.worshipServiceId,
-                          onToggle: () {
-                            ref.invalidate(worshipAttendanceProvider(widget.worshipServiceId));
-                            ref.invalidate(worshipServiceByIdProvider(widget.worshipServiceId));
-                            ref.invalidate(allWorshipServicesProvider);
-                          },
+                          onToggle: _refresh,
                         );
                       },
                     );
@@ -254,27 +295,163 @@ class _WorshipAttendanceScreenState
               error: (error, _) => Center(child: Text('Erro: $error')),
             ),
           ),
+          ],
         ],
       ),
     );
   }
 }
 
-/// Tile de membro para check-in
+const _reactionEmojis = {'otimo': '🙌', 'gostando': '🙂', 'mais_ou_menos': '😐'};
+
 /// "🙌 5 · 🙂 3 · 😐 1", ou nulo se ninguém reagiu.
 String? _reactionSummary(List<WorshipAttendance>? attendances) {
-  const emojis = {'otimo': '🙌', 'gostando': '🙂', 'mais_ou_menos': '😐'};
   final counts = <String, int>{};
   for (final a in attendances ?? const <WorshipAttendance>[]) {
-    if (emojis.containsKey(a.reaction)) {
+    if (_reactionEmojis.containsKey(a.reaction)) {
       counts[a.reaction!] = (counts[a.reaction!] ?? 0) + 1;
     }
   }
   if (counts.isEmpty) return null;
   return [
-    for (final e in emojis.entries)
+    for (final e in _reactionEmojis.entries)
       if (counts[e.key] != null) '${e.value} ${counts[e.key]}',
   ].join(' · ');
+}
+
+int _geoCount(List<WorshipAttendance>? attendances) =>
+    attendances?.where((a) => a.isGeo).length ?? 0;
+
+/// Aba "Pelo celular": quem marcou presença pelo próprio celular, com o
+/// estado (detectada pelo GPS / confirmada pela pessoa / validada) e os
+/// botões Confirmar e Recusar (RPC `worship_attendance_validate`).
+class _PhoneCheckinsTab extends StatelessWidget {
+  final List<WorshipAttendance> attendances;
+  final String worshipServiceId;
+  final VoidCallback onChanged;
+
+  const _PhoneCheckinsTab({
+    required this.attendances,
+    required this.worshipServiceId,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (attendances.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Ninguém marcou presença pelo celular neste culto.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+        ),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: attendances.length,
+      itemBuilder: (context, i) => _PhoneCheckinTile(
+        attendance: attendances[i],
+        worshipServiceId: worshipServiceId,
+        onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+class _PhoneCheckinTile extends ConsumerStatefulWidget {
+  final WorshipAttendance attendance;
+  final String worshipServiceId;
+  final VoidCallback onChanged;
+
+  const _PhoneCheckinTile({
+    required this.attendance,
+    required this.worshipServiceId,
+    required this.onChanged,
+  });
+
+  @override
+  ConsumerState<_PhoneCheckinTile> createState() => _PhoneCheckinTileState();
+}
+
+class _PhoneCheckinTileState extends ConsumerState<_PhoneCheckinTile> {
+  bool _busy = false;
+
+  Future<void> _validate(bool ok) async {
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(worshipRepositoryProvider)
+          .validateCheckin(
+            widget.worshipServiceId,
+            widget.attendance.memberId,
+            ok: ok,
+          );
+      widget.onChanged();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final a = widget.attendance;
+    final (icon, color, state) = a.isValidated
+        ? (Icons.verified, Colors.green, 'Validada')
+        : a.isConfirmed
+        ? (Icons.phone_android, Theme.of(context).colorScheme.primary, 'Confirmada pela pessoa')
+        : (Icons.gps_not_fixed, Colors.grey, 'Detectada pelo GPS');
+    final details = [
+      DateFormat.Hm().format(a.checkedInAt.toLocal()),
+      if (a.distanceM != null) '${a.distanceM} m',
+      state,
+      if (_reactionEmojis[a.reaction] case final emoji?) emoji,
+    ].join(' · ');
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.15),
+          child: Icon(icon, color: color),
+        ),
+        title: Text(a.memberName ?? 'Sem nome'),
+        subtitle: Text(details, style: const TextStyle(fontSize: 12)),
+        trailing: _busy
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : a.isValidated
+            ? null
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Confirmar',
+                    icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+                    onPressed: () => _validate(true),
+                  ),
+                  IconButton(
+                    tooltip: 'Recusar',
+                    icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+                    onPressed: () => _validate(false),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
 }
 
 class _MemberCheckInTile extends ConsumerStatefulWidget {

@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../worship/presentation/widgets/presence_reaction_panel.dart';
 import '../providers/live_stream_provider.dart';
 
 /// Bloco "culto agora" no cabeçalho da Home (roadmap 14/10, fase A1).
 /// Entra no lugar do slider de banners enquanto `current_culto()` diz que há
 /// culto (chave do culto ao vivo ligada ou culto da Agenda aberto).
-/// "Assistir" só com link (chave ligada); "Estou na igreja" só com a presença
-/// pelo celular configurada, e abre a tela /presenca que já existe.
+/// "Assistir" só com link (chave ligada); o painel "Chegou bem?" (presença
+/// pelo celular, A4) só com o local da igreja configurado.
 class CultoHomeBlock extends ConsumerWidget {
   const CultoHomeBlock({super.key});
 
@@ -77,26 +77,19 @@ class CultoHomeBlock extends ConsumerWidget {
               const SizedBox(height: 6),
               Text(culto.message!, style: CommunityDesign.metaStyle(context)),
             ],
-            if (hasStream || culto.checkinEnabled) ...[
+            if (hasStream) ...[
               const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  if (hasStream)
-                    FilledButton.icon(
-                      onPressed: () => context.push('/live-stream'),
-                      icon: const Icon(Icons.play_circle_outline),
-                      label: const Text('Assistir'),
-                    ),
-                  if (culto.checkinEnabled)
-                    FilledButton.tonalIcon(
-                      onPressed: () => context.push('/presenca'),
-                      icon: const Icon(AppIcons.church),
-                      label: const Text('Estou na igreja'),
-                    ),
-                ],
+              FilledButton.icon(
+                onPressed: () => context.push('/live-stream'),
+                icon: const Icon(Icons.play_circle_outline),
+                label: const Text('Assistir'),
               ),
+            ],
+            // Presença pelo celular (A4): "Chegou bem? / O que está achando?"
+            // com os 3 botões dentro do bloco; responder marca a presença.
+            if (culto.checkinEnabled) ...[
+              const SizedBox(height: 14),
+              const PresenceReactionPanel(compact: true),
             ],
           ],
         ),

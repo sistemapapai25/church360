@@ -99,6 +99,14 @@ class WorshipAttendance {
   /// mais_ou_menos. Nulo se não respondeu.
   final String? reaction;
 
+  /// `manual` (Check-in do módulo Cultos) ou `geo` (o próprio celular).
+  final String source;
+  final int? distanceM;
+
+  /// Presença pelo celular conferida por quem tem `worship.attendance`
+  /// (migration 007100). Nulo = ainda não validada.
+  final DateTime? validatedAt;
+
   const WorshipAttendance({
     required this.id,
     required this.worshipServiceId,
@@ -108,7 +116,17 @@ class WorshipAttendance {
     this.notes,
     required this.createdAt,
     this.reaction,
+    this.source = 'manual',
+    this.distanceM,
+    this.validatedAt,
   });
+
+  bool get isGeo => source == 'geo';
+
+  /// Estados da presença pelo celular (A4): detectada (geo sem reação),
+  /// confirmada (reagiu, ou manual) e validada (diácono conferiu).
+  bool get isValidated => validatedAt != null;
+  bool get isConfirmed => reaction != null || !isGeo;
 
   factory WorshipAttendance.fromJson(Map<String, dynamic> json) {
     return WorshipAttendance(
@@ -120,6 +138,9 @@ class WorshipAttendance {
       notes: json['notes'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       reaction: json['reaction'] as String?,
+      source: json['source'] as String? ?? 'manual',
+      distanceM: (json['distance_m'] as num?)?.toInt(),
+      validatedAt: DateTime.tryParse(json['validated_at'] as String? ?? ''),
     );
   }
 
