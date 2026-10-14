@@ -58,6 +58,8 @@ import '../../features/ministries/presentation/providers/ministries_provider.dar
 import '../widgets/spotlight_tour.dart';
 import '../onboarding/onboarding_tour_prefs.dart';
 import '../../features/legal/terms_acceptance.dart';
+import '../../features/live_stream/presentation/providers/live_stream_provider.dart';
+import '../../features/live_stream/presentation/widgets/culto_home_block.dart';
 
 /// Tela principal do app com navegação por abas fixas
 class HomeScreen extends ConsumerStatefulWidget {
@@ -518,6 +520,11 @@ class _DashboardTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final churchInfoAsync = ref.watch(churchInfoProvider);
+    // Culto agora (chave ligada ou culto da Agenda aberto): o bloco do culto
+    // entra no lugar do slider de banners. Sem culto, a Home fica como sempre.
+    final cultoAgora = ref.watch(
+      currentCultoProvider.select((a) => a.valueOrNull?.isLive == true),
+    );
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -534,8 +541,11 @@ class _DashboardTab extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 12),
-                // Slider de banners (cabeçalho da Home)
-                const _HomeBannerSlider(),
+                // Cabeçalho da Home: bloco do culto ou slider de banners
+                if (cultoAgora)
+                  const CultoHomeBlock()
+                else
+                  const _HomeBannerSlider(),
 
                 const SizedBox(height: _homeSectionGap),
 

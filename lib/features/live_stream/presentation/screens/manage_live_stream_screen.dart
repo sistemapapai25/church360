@@ -86,6 +86,7 @@ class _ManageLiveStreamScreenState extends ConsumerState<ManageLiveStreamScreen>
 
       ref.invalidate(liveStreamConfigProvider);
       ref.invalidate(activeLiveStreamProvider);
+      ref.invalidate(currentCultoProvider);
 
       if (shouldNotify) {
         try {
@@ -118,6 +119,40 @@ class _ManageLiveStreamScreenState extends ConsumerState<ManageLiveStreamScreen>
       if (mounted) {
         setState(() => _isSaving = false);
       }
+    }
+  }
+
+  /// D16: a Home também entra em modo culto pela Agenda. Um culto cadastrado
+  /// errado não pode prender a Home: este botão desliga a chave e marca o
+  /// culto aberto como encerrado (RPC `culto_mode_off`, 006500).
+  Future<void> _modeOff() async {
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(liveStreamRepositoryProvider).cultoModeOff();
+      _isActive = false;
+      _wasActive = false;
+      ref.invalidate(liveStreamConfigProvider);
+      ref.invalidate(activeLiveStreamProvider);
+      ref.invalidate(currentCultoProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Modo culto encerrado na Home.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao encerrar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -210,6 +245,25 @@ class _ManageLiveStreamScreenState extends ConsumerState<ManageLiveStreamScreen>
                 const SizedBox(height: 8),
                 Text(
                   'Quem desativou notificacoes gerais nao sera avisado.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.6),
+                      ),
+                ),
+                const SizedBox(height: 24),
+                OutlinedButton.icon(
+                  onPressed: _isSaving ? null : _modeOff,
+                  icon: const Icon(Icons.stop_circle_outlined),
+                  label: const Text('Encerrar modo culto agora'),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'A Home entra em modo culto quando esta chave está ligada '
+                  'ou quando há culto na Agenda neste horário. Se a Agenda '
+                  'está errada, este botão desliga a chave e tira a Home do '
+                  'modo culto até o próximo culto.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context)
                             .colorScheme
