@@ -62,8 +62,6 @@ import '../../features/visitors/presentation/screens/visitor_visit_form_screen.d
 import '../../features/visitors/presentation/screens/visitor_followup_form_screen.dart';
 import '../../features/visitors/presentation/screens/visitors_statistics_screen.dart';
 import '../../features/access_levels/domain/models/access_level.dart';
-import '../../features/access_levels/presentation/screens/access_levels_list_screen.dart';
-import '../../features/access_levels/presentation/screens/access_level_history_screen.dart';
 import '../../features/devotionals/presentation/screens/devotionals_list_screen.dart';
 import '../../features/devotionals/presentation/screens/devotional_detail_screen.dart';
 import '../../features/devotionals/presentation/screens/devotional_form_screen.dart';
@@ -1076,34 +1074,6 @@ final appRouter = GoRouter(
             visitorId: id,
             followupId: followupId,
           ),
-        );
-      },
-    ),
-
-    // =====================================================
-    // ROTAS: NÍVEIS DE ACESSO (Apenas Admin)
-    // =====================================================
-    GoRoute(
-      path: '/access-levels',
-      builder: (context, state) => const PermissionOnlyRoute(
-        permission: 'settings.manage_access_levels',
-        child: AccessLevelsListScreen(),
-      ),
-    ),
-    GoRoute(
-      path: '/access-levels/history',
-      builder: (context, state) => const PermissionOnlyRoute(
-        permission: 'settings.manage_access_levels',
-        child: AccessLevelHistoryScreen(),
-      ),
-    ),
-    GoRoute(
-      path: '/access-levels/history/:userId',
-      builder: (context, state) {
-        final userId = state.pathParameters['userId']!;
-        return PermissionOnlyRoute(
-          permission: 'settings.manage_access_levels',
-          child: AccessLevelHistoryScreen(userId: userId),
         );
       },
     ),
