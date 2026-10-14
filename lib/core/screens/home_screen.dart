@@ -30,6 +30,8 @@ import '../../features/notifications/presentation/widgets/notification_badge.dar
 import '../../features/events/presentation/providers/events_provider.dart';
 import '../../features/devotionals/presentation/providers/devotional_provider.dart';
 import '../../features/devotionals/domain/models/devotional.dart';
+import '../../features/reading_plans/presentation/providers/reading_plans_provider.dart';
+import '../../features/reading_plans/presentation/widgets/active_reading_plan_line.dart';
 import '../../features/courses/presentation/providers/courses_provider.dart';
 import '../../features/church_info/domain/models/church_info.dart';
 import '../../features/church_info/presentation/providers/church_info_provider.dart';
@@ -3761,10 +3763,13 @@ class _EdificationCardState extends ConsumerState<_EdificationCard> {
   @override
   Widget build(BuildContext context) {
     final devotionalsAsync = ref.watch(allDevotionalsProvider);
+    // C2: plano de leitura em andamento da pessoa, acima dos devocionais.
+    // Erro ou carregando = sem linha (a seção não espera por ela).
+    final activePlan = ref.watch(homeActiveReadingPlanProvider).valueOrNull;
 
     return devotionalsAsync.when(
       data: (devotionals) {
-        if (devotionals.isEmpty) {
+        if (devotionals.isEmpty && activePlan == null) {
           return const SizedBox.shrink();
         }
 
@@ -3789,6 +3794,9 @@ class _EdificationCardState extends ConsumerState<_EdificationCard> {
             });
           },
           items: items,
+          leading: activePlan == null
+              ? null
+              : ActiveReadingPlanLine(data: activePlan),
           onSeeAll: () {
             context.push('/devotionals');
           },

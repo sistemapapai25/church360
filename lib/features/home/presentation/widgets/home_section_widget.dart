@@ -9,6 +9,9 @@ class HomeSectionWidget extends StatelessWidget {
   final List<Widget> items;
   final VoidCallback? onSeeAll;
 
+  /// Linha fixa acima da grade (ex.: o plano de leitura em andamento, C2).
+  final Widget? leading;
+
   const HomeSectionWidget({
     super.key,
     required this.title,
@@ -16,6 +19,7 @@ class HomeSectionWidget extends StatelessWidget {
     required this.onToggle,
     required this.items,
     this.onSeeAll,
+    this.leading,
   });
 
   @override
@@ -55,6 +59,11 @@ class HomeSectionWidget extends StatelessWidget {
             Column(
               children: [
                 const SizedBox(height: 8),
+
+                if (leading != null) ...[
+                  leading!,
+                  const SizedBox(height: 12),
+                ],
 
                 // GRID
                 GridView.builder(
