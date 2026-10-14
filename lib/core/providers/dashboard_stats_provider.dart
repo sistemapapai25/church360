@@ -262,6 +262,33 @@ final birthdaysThisMonthProvider = FutureProvider<List<Map<String, dynamic>>>((r
   return allBirthdays;
 });
 
+/// Filtro escolhido no card "Atualizações" (B3): `null` = tudo, ou
+/// `prayer` / `report` / `visit`.
+final updatesFeedKindProvider = StateProvider<String?>((ref) => null);
+
+/// Card "Atualizações" (B3): RPC `dashboard_updates` (migration
+/// 20261008007700). O servidor já filtra pela permissão de cada tipo; tipo
+/// sem permissão simplesmente não vem.
+final dashboardUpdatesProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String?>((ref, kind) async {
+  final supabase = ref.watch(supabaseClientProvider);
+  final response = await supabase.rpc(
+    'dashboard_updates',
+    params: {'p_kind': kind, 'p_limit': 10},
+  );
+  return (response as List).cast<Map<String, dynamic>>();
+});
+
+/// Card "Faltou no último culto" (B3): RPC `last_culto_absentees_summary`.
+/// Uma linha por ausente (`total_absent` repetido); culto contado sem ausente
+/// vem como uma linha com `user_id` nulo; sem contagem nenhuma vem vazio.
+final lastCultoAbsenteesProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final supabase = ref.watch(supabaseClientProvider);
+  final response = await supabase.rpc('last_culto_absentees_summary');
+  return (response as List).cast<Map<String, dynamic>>();
+});
+
 /// Provider para próximas despesas (próximos 30 dias): contas da igreja em
 /// aberto no Financeiro (`lancamentos`), pelo vencimento.
 final upcomingExpensesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {

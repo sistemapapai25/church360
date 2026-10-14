@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import '../../features/financial/presentation/providers/financial_provider.dart';
 import '../../features/financial/domain/models/contribution.dart';
 import '../../features/dispatch/presentation/providers/auto_scheduler_providers.dart';
+import '../../features/permissions/presentation/widgets/permission_gate.dart';
 
 /// Tokens visuais compartilhados pelos cards do Dashboard (CHU-302+),
 /// alinhados ao canvas de referência "Dashboard Liderança" aprovado em 05/09.
@@ -1659,5 +1660,307 @@ class UpcomingEventsCard extends ConsumerWidget {
       'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
     ];
     return months[month - 1];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// B3 (roadmap Home/culto/Dashboard, 14/10/2026): "Atualizações" e "Faltou no
+// último culto". Dados pelas RPCs `dashboard_updates` e
+// `last_culto_absentees_summary` (migration 20261008007700).
+// ---------------------------------------------------------------------------
+
+/// Filtros do card "Atualizações": chave da RPC, rótulo, ícone e a permissão
+/// que libera o chip (a RPC aplica a mesma régua no servidor).
+const _updatesKinds = [
+  ('prayer', 'Oração', Icons.volunteer_activism, 'prayer_requests.moderate'),
+  ('report', 'Relatórios', Icons.assessment, 'reports.view'),
+  ('visit', 'Visitas', Icons.home, 'members.view'),
+];
+
+/// Card "Atualizações": pedidos de oração abertos, últimos relatórios
+/// customizados e quem pediu visita no lar, misturados por data; chips
+/// filtram por tipo e só aparecem para quem tem a permissão do tipo.
+class UpdatesFeedCard extends ConsumerWidget {
+  const UpdatesFeedCard({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final kind = ref.watch(updatesFeedKindProvider);
+    final updatesAsync = ref.watch(dashboardUpdatesProvider(kind));
+
+    return Container(
+      decoration: _DashStyle.card(context),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _DashCardHeader(
+              icon: Icons.notifications_active,
+              iconColor: _DashStyle.accentPurple,
+              title: 'Atualizações',
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                ChoiceChip(
+                  label: const Text('Tudo'),
+                  selected: kind == null,
+                  onSelected: (_) =>
+                      ref.read(updatesFeedKindProvider.notifier).state = null,
+                ),
+                for (final (key, label, icon, permission) in _updatesKinds)
+                  PermissionGate(
+                    permission: permission,
+                    showLoading: false,
+                    child: ChoiceChip(
+                      avatar: Icon(icon, size: 16),
+                      label: Text(label),
+                      selected: kind == key,
+                      onSelected: (_) =>
+                          ref.read(updatesFeedKindProvider.notifier).state = key,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            updatesAsync.when(
+              data: (items) {
+                if (items.isEmpty) {
+                  return const Text('Nada novo por aqui');
+                }
+                return Column(
+                  children: [for (final item in items) _UpdateRow(item: item)],
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Text('Erro: $error'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UpdateRow extends StatelessWidget {
+  final Map<String, dynamic> item;
+
+  const _UpdateRow({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final kind = item['kind'] as String? ?? '';
+    final id = item['ref_id'] as String?;
+    final title = item['title'] as String? ?? '';
+    final subtitle = item['subtitle'] as String?;
+    final happened = DateTime.tryParse(item['happened_at'] as String? ?? '');
+    final (_, label, icon, _) = _updatesKinds.firstWhere(
+      (k) => k.$1 == kind,
+      orElse: () => ('', 'Atualização', Icons.circle_notifications, ''),
+    );
+    final route = switch (kind) {
+      'prayer' => '/prayer-requests/$id',
+      'report' => '/custom-reports/$id/view',
+      'visit' => '/members/$id',
+      _ => null,
+    };
+
+    return InkWell(
+      onTap: id != null && route != null ? () => context.push(route) : null,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: _DashStyle.accentPurple),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    [
+                      label,
+                      if (subtitle != null && subtitle.isNotEmpty) subtitle,
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: _DashStyle.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (happened != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                DateFormat('dd/MM').format(happened.toLocal()),
+                style: const TextStyle(fontSize: 12, color: _DashStyle.textFaint),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Card "Faltou no último culto": total de ausentes na contagem do último
+/// culto da igreja e os primeiros nomes. Toque abre o Check-in daquele culto
+/// (quem tem `worship.attendance`) ou a lista de cultos.
+class AbsentLastCultoCard extends ConsumerWidget {
+  const AbsentLastCultoCard({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rowsAsync = ref.watch(lastCultoAbsenteesProvider);
+
+    return Container(
+      decoration: _DashStyle.card(context),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _DashCardHeader(
+              icon: Icons.person_off,
+              iconColor: AppTheme.errorColor,
+              title: 'Faltou no último culto',
+            ),
+            const SizedBox(height: 16),
+            rowsAsync.when(
+              data: (rows) {
+                if (rows.isEmpty) {
+                  return const Text('Nenhum culto com contagem ainda');
+                }
+                final first = rows.first;
+                final eventId = first['event_id'] as String?;
+                final eventName = first['event_name'] as String? ?? 'Culto';
+                final date =
+                    DateTime.tryParse(first['service_date'] as String? ?? '');
+                final total = (first['total_absent'] as num?)?.toInt() ?? 0;
+                final people = rows.where((r) => r['user_id'] != null).toList();
+                final shown = people.take(5).toList();
+
+                final body = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      date == null
+                          ? eventName
+                          : '$eventName · ${DateFormat('dd/MM').format(date)}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: _DashStyle.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '$total',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: total == 0
+                                ? _DashStyle.statusGreenFg
+                                : AppTheme.errorColor,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Text(
+                            total == 0
+                                ? 'ninguém marcado como ausente'
+                                : total == 1
+                                    ? 'pessoa faltou'
+                                    : 'pessoas faltaram',
+                            style: const TextStyle(color: _DashStyle.textMuted),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (shown.isNotEmpty) const SizedBox(height: 12),
+                    for (final p in shown)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 14,
+                              backgroundImage: p['photo_url'] != null
+                                  ? NetworkImage(p['photo_url'] as String)
+                                  : null,
+                              child: p['photo_url'] == null
+                                  ? Text(
+                                      _initial(p['full_name'] as String?),
+                                      style: const TextStyle(fontSize: 12),
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                (p['full_name'] as String?) ?? '',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (total > shown.length)
+                      Text(
+                        '+${total - shown.length} no Check-in do culto',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: _DashStyle.textFaint,
+                        ),
+                      ),
+                  ],
+                );
+
+                if (eventId == null) return body;
+                // Quem tem worship.attendance cai no Check-in daquele culto;
+                // quem só tem worship.view cai na lista de cultos.
+                return PermissionGate(
+                  permission: 'worship.attendance',
+                  showLoading: false,
+                  fallback: InkWell(
+                    onTap: () => context.push('/worship-services'),
+                    child: body,
+                  ),
+                  child: InkWell(
+                    onTap: () =>
+                        context.push('/worship-services/$eventId/attendance'),
+                    child: body,
+                  ),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Text('Erro: $error'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _initial(String? name) {
+    final t = (name ?? '').trim();
+    return t.isEmpty ? '?' : t[0].toUpperCase();
   }
 }
