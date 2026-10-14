@@ -6,6 +6,10 @@
 ///
 /// Widget keys conforme seed em
 /// `supabase/migrations/20260119000000_create_dashboard_widgets.sql`.
+///
+/// Espelho manual da RPC `get_user_dashboard_widgets` (migration
+/// `20261008007600`): os dois precisam andar juntos. Fora deste mapa só
+/// `custom_report_<id>`, que segue `reports.view` nos dois lados.
 const Map<String, String?> dashboardWidgetPermissionMap = {
   'birthdays_month': null,
   'recent_members': 'members.view',

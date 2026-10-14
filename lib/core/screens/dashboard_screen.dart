@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../constants/app_branding.dart';
 import '../design/app_icons.dart';
 import '../errors/app_error_handler.dart';
+import '../layout/breakpoints.dart';
 import '../widgets/dashboard_charts.dart';
 import '../widgets/pearl_fab.dart';
 import '../providers/dashboard_widget_provider.dart';
@@ -144,14 +145,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
                     physics: const AlwaysScrollableScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        for (final widget in widgets) ...[
-                          _buildWidgetByKey(context, widget.widgetKey),
-                          const SizedBox(height: 16),
-                        ],
-                      ],
+                    // B7: 1/2/3 colunas pela faixa de largura; no celular
+                    // continua a pilha de sempre.
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        const gap = 16.0;
+                        final cols = gridColumns(constraints.maxWidth);
+                        final cardWidth =
+                            (constraints.maxWidth - gap * (cols - 1)) / cols;
+                        return Wrap(
+                          spacing: gap,
+                          runSpacing: gap,
+                          children: [
+                            for (final widget in widgets)
+                              SizedBox(
+                                width: cardWidth,
+                                child: _buildWidgetByKey(
+                                  context,
+                                  widget.widgetKey,
+                                ),
+                              ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 );

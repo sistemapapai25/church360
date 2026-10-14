@@ -59,7 +59,10 @@ ProviderContainer _buildContainer({
         (ref, permissionCode) async => grantedPermissions.contains(permissionCode),
       ),
       currentUserDashboardWidgetPreferencesProvider.overrideWith(
-        (ref) async => personalPreferences,
+        (ref) async => {
+          for (final MapEntry(:key, :value) in personalPreferences.entries)
+            key: UserDashboardWidgetPref(isVisible: value),
+        },
       ),
     ],
   );
@@ -250,6 +253,61 @@ void main() {
     );
   });
 
+  group('enabledDashboardWidgetsProvider — ordem pessoal (B1)', () {
+    const todas = {'members.view', 'events.view', 'financial.view_reports'};
+
+    Future<List<String>> lerOrdem(
+      Map<String, UserDashboardWidgetPref> prefs,
+    ) async {
+      final container = ProviderContainer(
+        overrides: [
+          tenantEnabledDashboardWidgetsProvider.overrideWith(
+            (ref) => _tenantWidgets,
+          ),
+          currentUserHasPermissionProvider.overrideWith(
+            (ref, permissionCode) async => todas.contains(permissionCode),
+          ),
+          currentUserDashboardWidgetPreferencesProvider.overrideWith(
+            (ref) async => prefs,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final enabled = await container.read(enabledDashboardWidgetsProvider.future);
+      return [for (final w in enabled) w.widgetKey];
+    }
+
+    test('sem preferência, vale a ordem da igreja', () async {
+      expect(await lerOrdem({}), [
+        'birthdays_month',
+        'recent_members',
+        'upcoming_events',
+        'financial_summary',
+      ]);
+    });
+
+    test('ordem pessoal manda; o que nunca foi ordenado vai para o fim',
+        () async {
+      final ordem = await lerOrdem({
+        'financial_summary': const UserDashboardWidgetPref(isVisible: true, sortOrder: 0),
+        'birthdays_month': const UserDashboardWidgetPref(isVisible: true, sortOrder: 1),
+      });
+      expect(ordem, [
+        'financial_summary',
+        'birthdays_month',
+        'recent_members',
+        'upcoming_events',
+      ]);
+    });
+
+    test('card escondido não entra, mesmo com ordem', () async {
+      final ordem = await lerOrdem({
+        'recent_members': const UserDashboardWidgetPref(isVisible: false, sortOrder: 0),
+      });
+      expect(ordem, isNot(contains('recent_members')));
+    });
+  });
+
   // Regressão da troca de Realtime por busca sob demanda: enquanto os widgets
   // vinham de um StreamProvider, o canal empurrava o dado e ninguém reparava
   // que o RefreshIndicator invalidava só a folha da cadeia.
@@ -271,7 +329,7 @@ void main() {
               (ref, permissionCode) async => true,
             ),
             currentUserDashboardWidgetPreferencesProvider.overrideWith(
-              (ref) async => const <String, bool>{},
+              (ref) async => const <String, UserDashboardWidgetPref>{},
             ),
           ],
         );
