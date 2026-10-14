@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../constants/app_branding.dart';
 import '../design/app_icons.dart';
 import '../errors/app_error_handler.dart';
+import '../domain/models/management_menu.dart';
 import '../layout/breakpoints.dart';
 import '../widgets/dashboard_card_frame.dart';
 import '../widgets/dashboard_charts.dart';
+import '../widgets/management_menu_row.dart';
 import '../widgets/pearl_fab.dart';
 import '../widgets/qr_scanner_fab.dart';
 import '../providers/dashboard_widget_provider.dart';
@@ -15,8 +17,6 @@ import '../../features/notifications/presentation/widgets/notification_badge.dar
 import '../../features/custom_reports/presentation/providers/custom_report_data_provider.dart';
 import '../../features/custom_reports/presentation/widgets/custom_report_dashboard_card.dart';
 import '../../features/permissions/presentation/widgets/permission_gate.dart';
-import '../../features/support_chat/data/support_agents_data.dart';
-import '../../features/branches/presentation/providers/branches_provider.dart';
 import '../../features/permissions/providers/permissions_providers.dart'
     hide supabaseClientProvider;
 
@@ -114,7 +114,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         // Scaffold.
         body: Stack(
           children: [
-            _buildBody(context),
+            // B5a: fileira de bolinhas do Menu de Gestão fixa no topo (o
+            // drawer continua, convivem por um release — D6).
+            Column(
+              children: [
+                const ManagementMenuRow(),
+                Expanded(child: _buildBody(context)),
+              ],
+            ),
             const PermissionGate(
               permission: 'events.checkin',
               showLoading: false,
@@ -385,379 +392,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
             const SizedBox(height: 8),
 
-            // 👥 PESSOAS
-            _DrawerCategory(
-              icon: Icons.groups,
-              title: 'PESSOAS',
-              permissions: const ['members.view', 'visitors.view', 'tags.view'],
-              children: [
-                PermissionGate(
-                  permission: 'members.view',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.groups,
-                    title: 'Membros',
-                    route: '/members',
-                  ),
-                ),
-                PermissionGate(
-                  permission: 'visitors.view',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.person_add,
-                    title: 'Visitantes',
-                    route: '/visitors',
-                  ),
-                ),
-                PermissionGate(
-                  permission: 'tags.view',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.label_outline,
-                    title: 'Tags',
-                    route: '/tags',
-                  ),
-                ),
-              ],
-            ),
-
-            // ⛪ MINISTÉRIO
-            _DrawerCategory(
-              icon: Icons.church,
-              title: 'MINISTÉRIO',
-              permissions: const [
-                'church_info.edit',
-                'ministries.view',
-                'groups.view',
-                'study_groups.view',
-                'support_materials.view',
-              ],
-              children: [
-                PermissionGate(
-                  permission: 'church_info.edit',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.church,
-                    title: 'A Igreja',
-                    route: '/church-info/manage',
-                  ),
-                ),
-                PermissionGate(
-                  permission: 'ministries.view',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.groups,
-                    title: 'Ministérios',
-                    route: '/ministries',
-                  ),
-                ),
-                PermissionGate(
-                  permission: 'groups.view',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.group,
-                    title: 'Grupos de Comunhão',
-                    route: '/groups?from=dashboard',
-                  ),
-                ),
-                PermissionGate(
-                  permission: 'study_groups.view',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.menu_book,
-                    title: 'Turmas',
-                    route: '/courses?tab=turmas&from=dashboard',
-                  ),
-                ),
-                PermissionGate(
-                  permission: 'support_materials.view',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.library_books,
-                    title: 'Material de Apoio',
-                    route: '/support-materials?from=dashboard',
-                  ),
-                ),
-              ],
-            ),
-
-            // 📅 AGENDA
-            _DrawerCategory(
-              icon: Icons.calendar_today,
-              title: 'AGENDA',
-              permissions: const ['events.view', 'worship.view'],
-              children: [
-                PermissionGate(
-                  permission: 'events.view',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.event_note,
-                    title: 'Agenda',
-                    route: '/events',
-                  ),
-                ),
-                PermissionGate(
-                  permission: 'worship.view',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.church,
-                    title: 'Cultos',
-                    route: '/worship-services',
-                  ),
-                ),
-              ],
-            ),
-
-            // 📱 CONTEÚDO DO APP
-            _DrawerCategory(
-              icon: Icons.phone_android,
-              title: 'CONTEÚDO DO APP',
-              permissions: const [
-                'community.moderate',
-                'testimonies.moderate',
-                'quick_news.create',
-                'prayer_requests.moderate',
-                'devotionals.create',
-                'live_stream.manage',
-                'support.attend',
-                'financial.edit',
-                'financial.manage',
-              ],
-              children: [
-                // Comunidade (moderação de posts e classificados)
-                PermissionGate(
-                  permission: 'community.moderate',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.groups,
-                    title: 'Comunidade',
-                    route: '/community/admin',
-                  ),
-                ),
-                // Pedidos de oração (moderação)
-                PermissionGate(
-                  permission: 'prayer_requests.moderate',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.volunteer_activism_outlined,
-                    title: 'Pedidos de oração',
-                    route: '/prayer-requests?from=dashboard',
-                  ),
-                ),
-                // Testemunhos (moderação)
-                PermissionGate(
-                  permission: 'testimonies.moderate',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.record_voice_over_outlined,
-                    title: 'Testemunhos',
-                    route: '/home/testimonies',
-                  ),
-                ),
-                // Avisos rápidos (Fique por Dentro)
-                PermissionGate(
-                  permission: 'quick_news.create',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.campaign_outlined,
-                    title: 'Avisos',
-                    route: '/home/quick-news',
-                  ),
-                ),
-                // Devocionais
-                PermissionGate(
-                  permission: 'devotionals.create',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.book,
-                    title: 'Devocionais',
-                    route: '/devotionals/admin',
-                  ),
-                ),
-                // Culto ao vivo
-                PermissionGate(
-                  permission: 'live_stream.manage',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.live_tv,
-                    title: 'Culto ao vivo',
-                    route: '/live-stream/manage',
-                  ),
-                ),
-                // Atendimentos (chat de suporte passado para uma pessoa)
-                PermissionGate(
-                  permission: 'support.attend',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.support_agent,
-                    title: 'Atendimentos',
-                    route: '/support/attend',
-                  ),
-                ),
-                // Contribuição
-                PermissionGate(
-                  permission: 'financial.edit',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.volunteer_activism,
-                    title: 'Contribuição',
-                    route: '/manage-contribution',
-                  ),
-                ),
-                // Financeiro
-                PermissionGate(
-                  permission: 'financial.manage',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.account_balance,
-                    title: 'Financeiro',
-                    route: '/financial',
-                  ),
-                ),
-              ],
-            ),
-
-            // 📚 MÓDULOS
-            _DrawerCategory(
-              icon: Icons.apps,
-              title: 'MÓDULOS',
-              permissions: const [
-                'agents.manage_center',
-                'courses.view',
-                'kids.manage',
-                'news.edit',
-                'reading_plans.manage',
-              ],
-              children: [
-                if (kMultiAgentsEnabled) PermissionGate(
-                  // CHU-310 follow-up: novo código, ver
-                  // backend-scripts/add_missing_drawer_permissions.sql
-                  permission: 'agents.manage_center',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.smart_toy,
-                    title: 'Agentes IA',
-                    route: '/agents-center',
-                  ),
-                ),
-                PermissionGate(
-                  permission: 'courses.view',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.school,
-                    title: 'Cursos',
-                    route: '/courses?from=dashboard',
-                  ),
-                ),
-                PermissionGate(
-                  // CHU-310 follow-up: novo código, ver
-                  // backend-scripts/add_missing_drawer_permissions.sql
-                  permission: 'kids.manage',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.child_care,
-                    title: 'Kid',
-                    route: '/kids',
-                  ),
-                ),
-                PermissionGate(
-                  permission: 'news.edit',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.article,
-                    title: 'Notícias',
-                    route: '/news/admin',
-                  ),
-                ),
-                PermissionGate(
-                  // CHU-310 follow-up: novo código, ver
-                  // backend-scripts/add_missing_drawer_permissions.sql
-                  permission: 'reading_plans.manage',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.menu_book,
-                    title: 'Planos de Leitura',
-                    route: '/reading-plans/admin',
-                  ),
-                ),
-              ],
-            ),
-
-            // ⚙️ CONFIGURAÇÕES
-            _DrawerCategory(
-              icon: Icons.settings,
-              title: 'CONFIGURAÇÕES',
-              permissions: const [
-                'settings.manage_permissions',
-                'events.checkin',
-                'dispatch.configure',
-                'reports.view_analytics',
-                'reports.view',
-                'members.merge_duplicates',
-              ],
-              extraVisibilityCheck: currentUserSeesConfigCategoryExtrasProvider,
-              children: [
-                PermissionGate(
-                  permission: 'settings.manage_permissions',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.security,
-                    title: 'Permissões',
-                    route: '/permissions',
-                  ),
-                ),
-                Consumer(
-                  builder: (context, ref, _) {
-                    final isMatrizAdminAsync = ref.watch(isMatrizAdminProvider);
-                    return isMatrizAdminAsync.when(
-                      data: (isMatrizAdmin) {
-                        if (!isMatrizAdmin) return const SizedBox.shrink();
-                        return const _DrawerMenuItem(
-                          icon: Icons.account_tree,
-                          title: 'Filiais',
-                          route: '/branches',
-                        );
-                      },
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    );
-                  },
-                ),
-                PermissionGate(
-                  permission: 'events.checkin',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.qr_code_scanner,
-                    title: 'Leitor de QR Code',
-                    route: '/qr-scanner',
-                  ),
-                ),
-                PermissionGate(
-                  permission: 'dispatch.configure',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.send,
-                    title: 'Configuração de Disparos',
-                    route: '/dispatch-config',
-                  ),
-                ),
-                PermissionGate(
-                  permission: 'members.merge_duplicates',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.people_alt_outlined,
-                    title: 'Vincular Cadastros',
-                    route: '/duplicate-accounts',
-                  ),
-                ),
-                Consumer(
-                  builder: (context, ref, _) {
-                    final isOwnerAsync = ref.watch(currentUserIsOwnerProvider);
-                    return isOwnerAsync.when(
-                      data: (isOwner) {
-                        if (!isOwner) return const SizedBox.shrink();
-                        return _DrawerMenuItem(
-                          icon: Icons.developer_mode,
-                          title: 'Configurações de Desenvolvedor',
-                          route: '/developer-settings',
-                        );
-                      },
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    );
-                  },
-                ),
-                PermissionGate(
-                  permission: 'reports.view_analytics',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.analytics,
-                    title: 'Analytics & Relatórios',
-                    route: '/analytics',
-                  ),
-                ),
-                PermissionGate(
-                  permission: 'reports.view',
-                  child: const _DrawerMenuItem(
-                    icon: Icons.assessment,
-                    title: 'Relatórios Customizados',
-                    route: '/custom-reports',
-                  ),
-                ),
-              ],
-            ),
-
+            for (final category in kManagementMenu)
+              _DrawerCategory(category: category),
             const SizedBox(height: 16),
 
             // Versão do App
@@ -787,40 +423,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 /// cabeçalho de categoria expansível que não revela nenhum item ao abrir
 /// (achado real de QA: CHU-310).
 class _DrawerCategory extends ConsumerWidget {
-  final IconData icon;
-  final String title;
-  final List<String> permissions;
-  final ProviderListenable<AsyncValue<bool>>? extraVisibilityCheck;
-  final List<Widget> children;
+  final ManagementMenuCategory category;
 
-  const _DrawerCategory({
-    required this.icon,
-    required this.title,
-    required this.permissions,
-    this.extraVisibilityCheck,
-    required this.children,
-  });
+  const _DrawerCategory({required this.category});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final checks = [
-      for (final permission in permissions)
-        ref.watch(currentUserHasPermissionProvider(permission)),
-      if (extraVisibilityCheck != null) ref.watch(extraVisibilityCheck!),
-    ];
-
-    if (checks.any((check) => check.isLoading)) {
-      return const SizedBox.shrink();
-    }
-    final anyVisible = checks.any((check) => check.value == true);
-    if (!anyVisible) {
+    // B5a: mesma regra da fileira de bolinhas (fonte única).
+    if (managementCategoryVisible(ref, category) != true) {
       return const SizedBox.shrink();
     }
 
     return ExpansionTile(
-      leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+      leading: Icon(
+        category.icon,
+        color: Theme.of(context).colorScheme.primary,
+      ),
       title: Text(
-        title,
+        category.title.toUpperCase(),
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
           color: Theme.of(context).colorScheme.primary,
           fontWeight: FontWeight.bold,
@@ -829,37 +449,34 @@ class _DrawerCategory extends ConsumerWidget {
       ),
       tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       childrenPadding: const EdgeInsets.only(left: 16),
-      children: children,
+      children: [
+        for (final item in category.items)
+          ManagementItemGate(item: item, child: _DrawerMenuItem(item: item)),
+      ],
     );
   }
 }
 
 /// Widget de item do drawer
 class _DrawerMenuItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String route;
+  final ManagementMenuItem item;
 
-  const _DrawerMenuItem({
-    required this.icon,
-    required this.title,
-    required this.route,
-  });
+  const _DrawerMenuItem({required this.item});
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       leading: Icon(
-        icon,
+        item.icon,
         size: 20,
         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
       ),
-      title: Text(title, style: Theme.of(context).textTheme.bodyMedium),
+      title: Text(item.title, style: Theme.of(context).textTheme.bodyMedium),
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
       onTap: () {
         Navigator.pop(context); // Fechar drawer
-        context.push(route);
+        context.push(item.route);
       },
     );
   }
