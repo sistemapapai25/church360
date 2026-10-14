@@ -113,6 +113,18 @@ class WorshipRepository {
     return WorshipAttendance.fromJson(response);
   }
 
+  /// Validar ([ok] = true) ou recusar a presença pelo celular de uma pessoa
+  /// (RPC `worship_attendance_validate`, migration 007100, `worship.attendance`).
+  /// Recusar apaga a linha geo; a manual se desfaz pelo [checkOut].
+  Future<void> validateCheckin(
+    String worshipServiceId,
+    String memberId, {
+    required bool ok,
+  }) => _supabase.rpc(
+    'worship_attendance_validate',
+    params: {'p_event_id': worshipServiceId, 'p_user_id': memberId, 'p_ok': ok},
+  );
+
   /// Remover presença (check-out)
   Future<void> checkOut(String worshipServiceId, String memberId) async {
     await _supabase

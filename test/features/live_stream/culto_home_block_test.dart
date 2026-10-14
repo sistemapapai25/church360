@@ -6,10 +6,19 @@ import 'package:church360_app/core/theme/app_theme.dart';
 import 'package:church360_app/features/live_stream/domain/models/current_culto.dart';
 import 'package:church360_app/features/live_stream/presentation/providers/live_stream_provider.dart';
 import 'package:church360_app/features/live_stream/presentation/widgets/culto_home_block.dart';
+import 'package:church360_app/features/worship/data/geo_checkin_service.dart';
+
+import '../worship/presence_reaction_panel_test.dart' show FakeGeoCheckinService;
 
 Widget _host(CurrentCulto culto) => ProviderScope(
   overrides: [
     currentCultoProvider.overrideWith((ref) => Stream.value(culto)),
+    // Presença pelo celular: janela aberta, ninguém marcou ainda.
+    geoCheckinServiceProvider.overrideWithValue(
+      FakeGeoCheckinService(
+        const GeoCheckinResult(GeoCheckinStatus.aberta, eventName: 'Culto'),
+      ),
+    ),
   ],
   child: MaterialApp(
     theme: AppTheme.lightTheme,
@@ -18,7 +27,7 @@ Widget _host(CurrentCulto culto) => ProviderScope(
 );
 
 void main() {
-  testWidgets('culto da Agenda sem chave: título, hora, sem Assistir', (
+  testWidgets('culto da Agenda sem chave: título, hora, painel, sem Assistir', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -32,11 +41,14 @@ void main() {
       ),
     );
     await tester.pump();
+    // O painel da presença responde ao servidor de mentira num microtask.
+    await tester.pump();
 
     expect(find.text('Culto Quarta'), findsOneWidget);
     expect(find.text('desde 19:30'), findsOneWidget);
     expect(find.text('CULTO AGORA'), findsOneWidget);
-    expect(find.text('Estou na igreja'), findsOneWidget);
+    expect(find.text('Chegou bem?'), findsOneWidget);
+    expect(find.text('Tá ótimo! 🙌'), findsOneWidget);
     expect(find.text('Assistir'), findsNothing);
   });
 
@@ -58,7 +70,7 @@ void main() {
     expect(find.text('Culto ao vivo'), findsOneWidget);
     expect(find.text('Em instantes'), findsOneWidget);
     expect(find.text('Assistir'), findsOneWidget);
-    expect(find.text('Estou na igreja'), findsNothing);
+    expect(find.text('Chegou bem?'), findsNothing);
   });
 
   testWidgets('sem culto: nada', (tester) async {

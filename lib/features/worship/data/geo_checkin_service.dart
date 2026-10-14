@@ -36,7 +36,15 @@ class GeoCheckinResult {
   final String? eventName;
   final int? distanceM;
 
-  const GeoCheckinResult(this.status, {this.eventName, this.distanceM});
+  /// Reação já guardada (migration 007100): só vem com `jaMarcado`.
+  final String? reaction;
+
+  const GeoCheckinResult(
+    this.status, {
+    this.eventName,
+    this.distanceM,
+    this.reaction,
+  });
 
   factory GeoCheckinResult.fromJson(Object? json) {
     final m = json is Map ? json : const {};
@@ -44,6 +52,7 @@ class GeoCheckinResult {
       GeoCheckinStatus.fromServer(m['status'] as String?),
       eventName: m['event_name'] as String?,
       distanceM: (m['distance_m'] as num?)?.toInt(),
+      reaction: m['reaction'] as String?,
     );
   }
 }
