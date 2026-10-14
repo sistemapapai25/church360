@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/constants/supabase_constants.dart';
+
 import '../../access_levels/domain/models/access_level.dart';
 import '../domain/models/tenant_unit.dart';
 
@@ -13,6 +15,7 @@ class BranchesRepository {
   Future<List<TenantUnit>> listMyNetworkUnits() async {
     final response = await _supabase.rpc('listar_minhas_igrejas');
     return (response as List)
+        .where((json) => SupabaseConstants.isInAppNetwork(json as Map))
         .map((json) => TenantUnit.fromJson(json as Map<String, dynamic>))
         .toList();
   }
