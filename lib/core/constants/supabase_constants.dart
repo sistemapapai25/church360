@@ -87,18 +87,36 @@ class SupabaseConstants {
     client.storage.headers['x-tenant-id'] = currentTenantId;
   }
 
+  /// Linha de `listar_minhas_igrejas()` que pertence à rede deste app (a
+  /// igreja do build ou uma filial dela). O platform owner recebe todas as
+  /// igrejas; as de outra rede ele abre pelo Support360.
+  static bool isInAppNetwork(Map row) =>
+      row['tenant_id']?.toString() == defaultTenantId ||
+      row['parent_tenant_id']?.toString() == defaultTenantId;
+
   static Future<String?> resolveBestTenantId(SupabaseClient client) async {
     final user = client.auth.currentUser ?? client.auth.currentSession?.user;
     if (user == null) return null;
 
-    // Platform owner (CHU-387): a igreja que ele administra é a gravada no
-    // servidor por trocar_de_igreja, não o vínculo dele. Sem isto o app
-    // voltaria em silêncio para a igreja "casa" ao reabrir.
+    // Platform owner (CHU-387): vale a igreja gravada no servidor por
+    // trocar_de_igreja, desde que seja da rede deste app. Fora dela (escolheu
+    // outra igreja no Support360), o app o traz de volta para a própria
+    // igreja: um app = uma igreja.
     try {
       final platformTenant =
           (await client.rpc('platform_active_tenant'))?.toString().trim();
       if (platformTenant != null && platformTenant.isNotEmpty) {
-        return platformTenant;
+        if (platformTenant == defaultTenantId) return platformTenant;
+        final units = await client.rpc('listar_minhas_igrejas') as List;
+        if (units.any((u) =>
+            (u as Map)['tenant_id']?.toString() == platformTenant &&
+            isInAppNetwork(u))) {
+          return platformTenant;
+        }
+        await client.rpc('trocar_de_igreja', params: {
+          'p_tenant_id': defaultTenantId,
+        });
+        return defaultTenantId;
       }
     } catch (_) {}
 

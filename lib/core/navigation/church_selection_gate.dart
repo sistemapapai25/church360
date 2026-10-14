@@ -22,7 +22,9 @@ class ChurchSelectionGate {
     }
 
     try {
-      final rows = await client.rpc('listar_minhas_igrejas') as List;
+      final rows = (await client.rpc('listar_minhas_igrejas') as List)
+          .where((r) => SupabaseConstants.isInAppNetwork(r as Map))
+          .toList();
       if (rows.length <= 1) {
         await SupabaseConstants.markChosenActiveUnit(user.id);
         return '/home';
