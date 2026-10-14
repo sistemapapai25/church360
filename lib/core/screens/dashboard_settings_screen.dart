@@ -217,6 +217,8 @@ class _DashboardSettingsScreenState
       'pie_chart': AppIcons.pieChart,
       'flag': AppIcons.status,
       'schedule': AppIcons.schedule,
+      'notifications': AppIcons.notifications,
+      'person_off': AppIcons.personOff,
     };
 
     return iconMap[iconName] ?? AppIcons.widgets;

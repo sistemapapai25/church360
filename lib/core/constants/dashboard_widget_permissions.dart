@@ -24,6 +24,15 @@ const Map<String, String?> dashboardWidgetPermissionMap = {
   'contributions_by_type': 'financial.view_reports',
   'financial_goals': 'financial.view_reports',
   'dispatch_auto_scheduler': 'dispatch.configure',
+  // B3 (migration 20261008007700)
+  'absent_last_culto': 'worship.view',
+};
+
+/// B3: cards que aparecem com **qualquer uma** das permissões listadas
+/// (o card "Atualizações" esconde os filtros sem permissão, mas aparece se
+/// sobrar pelo menos um). Espelho do `OR` no CASE da RPC.
+const Map<String, List<String>> dashboardWidgetAnyPermissionMap = {
+  'updates_feed': ['prayer_requests.moderate', 'reports.view', 'members.view'],
 };
 
 // CHU-384 (29/09/2026): aqui existia `dashboardWidgetsRequiringCoordinator`,

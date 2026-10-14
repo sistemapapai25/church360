@@ -6,6 +6,7 @@ import '../constants/app_branding.dart';
 import '../design/app_icons.dart';
 import '../errors/app_error_handler.dart';
 import '../layout/breakpoints.dart';
+import '../widgets/dashboard_card_frame.dart';
 import '../widgets/dashboard_charts.dart';
 import '../widgets/pearl_fab.dart';
 import '../providers/dashboard_widget_provider.dart';
@@ -160,9 +161,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             for (final widget in widgets)
                               SizedBox(
                                 width: cardWidth,
-                                child: _buildWidgetByKey(
-                                  context,
-                                  widget.widgetKey,
+                                // B2: moldura com rolagem/expandir em
+                                // tablet/PC; no celular passa direto.
+                                child: DashboardCardFrame(
+                                  widgetKey: widget.widgetKey,
+                                  child: _buildWidgetByKey(
+                                    context,
+                                    widget.widgetKey,
+                                  ),
                                 ),
                               ),
                           ],
@@ -295,6 +301,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         onTap: () => context.push('/dispatch-config'),
         child: const AutoSchedulerSummaryCard(),
       ),
+      // B3: cada item abre o seu destino; o card de ausentes abre o Check-in.
+      'updates_feed': const UpdatesFeedCard(),
+      'absent_last_culto': const AbsentLastCultoCard(),
     };
 
     return widgetMap[widgetKey] ?? const SizedBox.shrink();

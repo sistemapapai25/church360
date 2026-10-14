@@ -68,6 +68,17 @@ final permittedDashboardWidgetsProvider = FutureProvider<List<DashboardWidget>>(
     // Card fora do mapa não aparece (antes aparecia para todos). Relatório
     // customizado no card segue a permissão da lista de relatórios.
     final key = widget.widgetKey;
+    if (dashboardWidgetAnyPermissionMap[key] case final anyOf?) {
+      var ok = false;
+      for (final code in anyOf) {
+        if (await ref.watch(currentUserHasPermissionProvider(code).future)) {
+          ok = true;
+          break;
+        }
+      }
+      if (ok) permitted.add(widget);
+      continue;
+    }
     final requiredPermission = key.startsWith('custom_report_')
         ? 'reports.view'
         : dashboardWidgetPermissionMap[key];

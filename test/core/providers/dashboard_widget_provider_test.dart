@@ -360,4 +360,48 @@ void main() {
       },
     );
   });
+
+  group('B3 (007700): cards Atualizações e Faltou no último culto', () {
+    final widgets = [
+      _widget('birthdays_month'),
+      _widget('updates_feed'),
+      _widget('absent_last_culto'),
+    ];
+
+    test('Atualizações aparece com qualquer uma das três permissões', () async {
+      for (final code in ['prayer_requests.moderate', 'reports.view', 'members.view']) {
+        final container = _buildContainer(
+          grantedPermissions: {code},
+          widgets: widgets,
+        );
+        addTearDown(container.dispose);
+
+        expect(await _permittedKeys(container), contains('updates_feed'),
+            reason: 'bastava $code');
+      }
+    });
+
+    test('Sem nenhuma das três, Atualizações não aparece', () async {
+      final container = _buildContainer(
+        grantedPermissions: {'worship.view', 'events.view'},
+        widgets: widgets,
+      );
+      addTearDown(container.dispose);
+
+      final keys = await _permittedKeys(container);
+
+      expect(keys, isNot(contains('updates_feed')));
+      expect(keys, contains('absent_last_culto'), reason: 'worship.view basta');
+    });
+
+    test('Faltou no último culto exige worship.view', () async {
+      final container = _buildContainer(
+        grantedPermissions: {'members.view', 'reports.view'},
+        widgets: widgets,
+      );
+      addTearDown(container.dispose);
+
+      expect(await _permittedKeys(container), isNot(contains('absent_last_culto')));
+    });
+  });
 }
