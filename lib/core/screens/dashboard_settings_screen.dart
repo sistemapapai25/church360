@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../domain/models/dashboard_widget.dart';
 import '../providers/dashboard_widget_provider.dart';
@@ -27,6 +28,13 @@ class _DashboardSettingsScreenState
       appBar: AppBar(
         title: const Text('Configurar Dashboard'),
         actions: [
+          // B1: quem configura a igreja também tem a ordem pessoal dele; sem
+          // este atalho o ícone da Dashboard só traria para cá.
+          IconButton(
+            icon: const Icon(AppIcons.tune),
+            tooltip: 'Meus cards',
+            onPressed: () => context.push('/dashboard-settings/personal'),
+          ),
           // Botão de Restaurar Padrão
           IconButton(
             icon: const Icon(AppIcons.restore),

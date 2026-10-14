@@ -1,3 +1,13 @@
+/// Preferência pessoal de um card (`user_dashboard_widget`): visível e, se a
+/// pessoa já ordenou a Dashboard, a posição. `sortOrder` nulo = nunca ordenou;
+/// a ordem da igreja (`display_order`) continua valendo para esse card.
+class UserDashboardWidgetPref {
+  final bool isVisible;
+  final int? sortOrder;
+
+  const UserDashboardWidgetPref({required this.isVisible, this.sortOrder});
+}
+
 /// Modelo de widget da Dashboard
 class DashboardWidget {
   final String id;
