@@ -2,15 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../constants/app_branding.dart';
 import '../design/app_icons.dart';
 import '../errors/app_error_handler.dart';
-import '../domain/models/management_menu.dart';
 import '../layout/breakpoints.dart';
 import '../widgets/dashboard_card_frame.dart';
 import '../widgets/dashboard_charts.dart';
 import '../widgets/management_menu_row.dart';
-import '../widgets/pearl_fab.dart';
 import '../widgets/qr_scanner_fab.dart';
 import '../providers/dashboard_widget_provider.dart';
 import '../../features/notifications/presentation/widgets/notification_badge.dart';
@@ -30,19 +27,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
-  @override
-  void initState() {
-    super.initState();
-    // O menu de Gestão já chega aberto; tocar fora (no scrim) fecha, como
-    // em qualquer endDrawer modal. Só na entrada: voltar de uma tela
-    // empilhada reaproveita este State e não reabre.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _scaffoldKey.currentState?.openEndDrawer();
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -52,10 +36,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         context.go('/home?tab=more');
       },
       child: Scaffold(
-        key: _scaffoldKey,
-        // Drawer lateral com opções de Gestão — agora abre pela direita
-        // (endDrawer), acionado pelo FAB de menu no canto inferior direito.
-        endDrawer: _buildManagementDrawer(context),
         appBar: AppBar(
           // Cabeçalho no mesmo padrão visual já usado na aba "Mais"
           // (superficie do tema, cantos inferiores arredondados, sombra sutil ao
@@ -99,24 +79,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             const SizedBox(width: 8),
           ],
         ),
-        // Hambúrguer do menu de Gestão: canto inferior direito, abre o
-        // drawer pela direita.
-        floatingActionButton: PearlFab(
-          onPressed: () {
-            _scaffoldKey.currentState?.openEndDrawer();
-          },
-          icon: AppIcons.menu,
-          color: const Color(0xFF334155),
-          tooltip: 'Menu de Gestão',
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         // B6: o Leitor de QR Code flutua sobre o corpo, arrastável, só para
-        // quem tem events.checkin; o FAB do Menu de Gestão continua no
-        // Scaffold.
+        // quem tem events.checkin.
         body: Stack(
           children: [
-            // B5a: fileira de bolinhas do Menu de Gestão fixa no topo (o
-            // drawer continua, convivem por um release — D6).
+            // B5b: o Menu de Gestão é a fileira de bolinhas fixa no topo
+            // (o drawer, o FAB de menu e o "abre sozinho" saíram).
             Column(
               children: [
                 const ManagementMenuRow(),
@@ -355,138 +323,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       canConfigureTenant
           ? '/dashboard-settings'
           : '/dashboard-settings/personal',
-    );
-  }
-
-  /// Construir Drawer de Gestão (menu lateral)
-  Widget _buildManagementDrawer(BuildContext context) {
-    return Drawer(
-      child: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            // Header do Drawer
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.admin_panel_settings,
-                    size: 48,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    AppBranding.appName,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                  Text(
-                    AppBranding.organizationName,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            for (final category in kManagementMenu)
-              _DrawerCategory(category: category),
-            const SizedBox(height: 16),
-
-            // Versão do App
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                AppBranding.versionLabel,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Widget de categoria expansível do drawer.
-///
-/// Fica oculta por inteiro se o usuário não tiver nenhuma das [permissions]
-/// (OR lógico) nem satisfizer [extraVisibilityCheck] — evita mostrar um
-/// cabeçalho de categoria expansível que não revela nenhum item ao abrir
-/// (achado real de QA: CHU-310).
-class _DrawerCategory extends ConsumerWidget {
-  final ManagementMenuCategory category;
-
-  const _DrawerCategory({required this.category});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // B5a: mesma regra da fileira de bolinhas (fonte única).
-    if (managementCategoryVisible(ref, category) != true) {
-      return const SizedBox.shrink();
-    }
-
-    return ExpansionTile(
-      leading: Icon(
-        category.icon,
-        color: Theme.of(context).colorScheme.primary,
-      ),
-      title: Text(
-        category.title.toUpperCase(),
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-          color: Theme.of(context).colorScheme.primary,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.5,
-        ),
-      ),
-      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      childrenPadding: const EdgeInsets.only(left: 16),
-      children: [
-        for (final item in category.items)
-          ManagementItemGate(item: item, child: _DrawerMenuItem(item: item)),
-      ],
-    );
-  }
-}
-
-/// Widget de item do drawer
-class _DrawerMenuItem extends StatelessWidget {
-  final ManagementMenuItem item;
-
-  const _DrawerMenuItem({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(
-        item.icon,
-        size: 20,
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-      ),
-      title: Text(item.title, style: Theme.of(context).textTheme.bodyMedium),
-      dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-      onTap: () {
-        Navigator.pop(context); // Fechar drawer
-        context.push(item.route);
-      },
     );
   }
 }

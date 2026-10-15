@@ -30,8 +30,8 @@ class ManagementMenuItem {
   final ProviderListenable<AsyncValue<bool>>? visibleWhen;
 }
 
-/// Uma categoria do Menu de Gestão (uma seção do drawer, uma bolinha da
-/// fileira). Some por inteiro quando o usuário não tem nenhuma das
+/// Uma categoria do Menu de Gestão (uma bolinha da fileira no topo da
+/// Dashboard). Some por inteiro quando o usuário não tem nenhuma das
 /// [permissions] nem satisfaz [extraVisibilityCheck] (CHU-310).
 @immutable
 class ManagementMenuCategory {
@@ -45,16 +45,14 @@ class ManagementMenuCategory {
 
   final IconData icon;
 
-  /// Em Title Case; o drawer põe em caixa alta.
   final String title;
   final List<String> permissions;
   final ProviderListenable<AsyncValue<bool>>? extraVisibilityCheck;
   final List<ManagementMenuItem> items;
 }
 
-/// Fonte única do Menu de Gestão (B5a, roadmap Home/culto/Dashboard de
-/// 14/10/2026): o drawer e a fileira de bolinhas da Dashboard leem daqui, com
-/// o mesmo gating. Mudou um item, mudou nos dois.
+/// Fonte única do Menu de Gestão (B5a/B5b, roadmap Home/culto/Dashboard de
+/// 14/10/2026): a fileira de bolinhas da Dashboard lê daqui.
 final List<ManagementMenuCategory> kManagementMenu = [
   const ManagementMenuCategory(
     icon: Icons.groups,

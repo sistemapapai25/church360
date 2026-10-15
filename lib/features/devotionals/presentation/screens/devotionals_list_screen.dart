@@ -27,7 +27,14 @@ const double _maxFeedWidth = 640;
 /// Tela de listagem de devocionais
 class DevotionalsListScreen extends ConsumerStatefulWidget {
   final bool fromDashboard;
-  const DevotionalsListScreen({super.key, this.fromDashboard = false});
+
+  /// Abas da tela Edificação (C3), no rodapé do cabeçalho.
+  final PreferredSizeWidget? tabs;
+  const DevotionalsListScreen({
+    super.key,
+    this.fromDashboard = false,
+    this.tabs,
+  });
 
   @override
   ConsumerState<DevotionalsListScreen> createState() =>
@@ -145,6 +152,7 @@ class _DevotionalsListScreenState extends ConsumerState<DevotionalsListScreen> {
               ),
             ),
         ],
+        bottom: widget.tabs,
       ),
       body: devotionalsAsync.when(
         data: (devotionals) {

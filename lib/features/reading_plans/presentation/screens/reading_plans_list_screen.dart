@@ -18,7 +18,10 @@ const double _gap = 12;
 
 /// Tela de Listagem de Planos de Leitura
 class ReadingPlansListScreen extends ConsumerWidget {
-  const ReadingPlansListScreen({super.key});
+  const ReadingPlansListScreen({super.key, this.tabs});
+
+  /// Abas da tela Edificação (C3), no rodapé do cabeçalho.
+  final PreferredSizeWidget? tabs;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -87,6 +90,7 @@ class ReadingPlansListScreen extends ConsumerWidget {
           ),
           centerTitle: false,
           toolbarHeight: 64,
+          bottom: tabs,
         ),
         body: plansAsync.when(
           data: (plans) {
