@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/course.dart';
 import '../domain/models/course_lesson.dart';
+import '../domain/models/course_progress.dart';
 import '../domain/models/course_subject.dart';
 import '../domain/models/course_turma.dart';
 
@@ -452,6 +453,42 @@ class CoursesRepository {
       rethrow;
     }
   }
+
+  // ==================== PROGRESSO DO ALUNO (E1) ====================
+
+  /// Progresso de quem está logado, por curso gravado que a RLS deixa ver
+  /// (RPC `course_progress`). [courseId] nulo = todos os cursos.
+  Future<List<CourseProgress>> getCourseProgress([String? courseId]) async {
+    final result = await _supabase.rpc(
+      'course_progress',
+      params: {'p_course_id': courseId},
+    );
+    return (result as List)
+        .map((json) => CourseProgress.fromJson(Map<String, dynamic>.from(json)))
+        .toList();
+  }
+
+  /// Minhas linhas de progresso das aulas de um curso (RLS own).
+  Future<List<LessonProgress>> getMyLessonProgress(
+    List<String> lessonIds,
+  ) async {
+    if (lessonIds.isEmpty) return const [];
+    final response = await _supabase
+        .from('course_lesson_progress')
+        .select('lesson_id, completed_at, video_position_s')
+        .inFilter('lesson_id', lessonIds);
+    return (response as List)
+        .map((json) => LessonProgress.fromJson(Map<String, dynamic>.from(json)))
+        .toList();
+  }
+
+  /// Marca a aula como concluída para quem está logado (RPC, idempotente).
+  ///
+  /// A RPC irmã `lesson_position` (segundos do vídeo) existe no banco, mas
+  /// o app ainda não a chama: no navegador o YouTube é um iframe sem API de
+  /// posição (`InlineVideo`). "Continuar de onde parou" é por aula.
+  Future<void> completeLesson(String lessonId) =>
+      _supabase.rpc('lesson_complete', params: {'p_lesson_id': lessonId});
 
   // ==================== MATÉRIAS (course_subject) ====================
 

@@ -11,6 +11,9 @@ class CourseLesson {
   final String? fileUrl;
   final String? fileName;
   final String? coverImageUrl;
+
+  /// Módulo da aula (`course_subject.id`, E2/D12). Nulo = módulo único.
+  final String? subjectId;
   final DateTime createdAt;
   final String? createdBy;
   final DateTime? updatedAt;
@@ -28,6 +31,7 @@ class CourseLesson {
     this.fileUrl,
     this.fileName,
     this.coverImageUrl,
+    this.subjectId,
     required this.createdAt,
     this.createdBy,
     this.updatedAt,
@@ -48,6 +52,7 @@ class CourseLesson {
       fileUrl: json['file_url'] as String?,
       fileName: json['file_name'] as String?,
       coverImageUrl: json['cover_image_url'] as String?,
+      subjectId: json['subject_id'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       createdBy: json['created_by'] as String?,
       updatedAt: json['updated_at'] != null
@@ -71,6 +76,7 @@ class CourseLesson {
       'file_url': fileUrl,
       'file_name': fileName,
       'cover_image_url': coverImageUrl,
+      'subject_id': subjectId,
       'created_at': createdAt.toIso8601String(),
       'created_by': createdBy,
       'updated_at': updatedAt?.toIso8601String(),
@@ -91,6 +97,7 @@ class CourseLesson {
     String? fileUrl,
     String? fileName,
     String? coverImageUrl,
+    String? subjectId,
     DateTime? createdAt,
     String? createdBy,
     DateTime? updatedAt,
@@ -108,6 +115,7 @@ class CourseLesson {
       fileUrl: fileUrl ?? this.fileUrl,
       fileName: fileName ?? this.fileName,
       coverImageUrl: coverImageUrl ?? this.coverImageUrl,
+      subjectId: subjectId ?? this.subjectId,
       createdAt: createdAt ?? this.createdAt,
       createdBy: createdBy ?? this.createdBy,
       updatedAt: updatedAt ?? this.updatedAt,

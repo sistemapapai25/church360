@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/courses_repository.dart';
 import '../../domain/models/course.dart';
 import '../../domain/models/course_lesson.dart';
+import '../../domain/models/course_progress.dart';
 import '../../domain/models/course_turma.dart';
 
 /// Provider do repository de cursos
@@ -179,6 +180,63 @@ final courseLessonsCountProvider = FutureProvider.family<int, String>((ref, cour
   final repo = ref.watch(coursesRepositoryProvider);
   return repo.getCourseLessonsCount(courseId);
 });
+
+// ==================== PROGRESSO DO ALUNO (E1) ====================
+
+/// Progresso de quem está logado em todos os cursos gravados que enxerga,
+/// por `course_id` (uma chamada só, para o % nos cards da lista).
+final myCoursesProgressProvider = FutureProvider<Map<String, CourseProgress>>((
+  ref,
+) async {
+  final rows = await ref.watch(coursesRepositoryProvider).getCourseProgress();
+  return {for (final p in rows) p.courseId: p};
+});
+
+/// Progresso de quem está logado num curso; `null` = nenhuma aula visível.
+final courseProgressProvider = FutureProvider.family<CourseProgress?, String>((
+  ref,
+  courseId,
+) async {
+  final rows = await ref
+      .watch(coursesRepositoryProvider)
+      .getCourseProgress(courseId);
+  return rows.isEmpty ? null : rows.first;
+});
+
+/// Minhas linhas de progresso das aulas do curso, por `lesson_id`.
+final lessonProgressMapProvider =
+    FutureProvider.family<Map<String, LessonProgress>, String>((
+      ref,
+      courseId,
+    ) async {
+      final lessons = await ref.watch(courseLessonsProvider(courseId).future);
+      final rows = await ref
+          .watch(coursesRepositoryProvider)
+          .getMyLessonProgress([for (final l in lessons) l.id]);
+      return {for (final p in rows) p.lessonId: p};
+    });
+
+/// Ações do aluno na aula gravada; invalidam os três providers acima.
+final lessonProgressActionsProvider = Provider<LessonProgressActions>((ref) {
+  return LessonProgressActions(ref);
+});
+
+class LessonProgressActions {
+  final Ref _ref;
+
+  LessonProgressActions(this._ref);
+
+  void _refresh(String courseId) {
+    _ref.invalidate(courseProgressProvider(courseId));
+    _ref.invalidate(lessonProgressMapProvider(courseId));
+    _ref.invalidate(myCoursesProgressProvider);
+  }
+
+  Future<void> completeLesson(String courseId, String lessonId) async {
+    await _ref.read(coursesRepositoryProvider).completeLesson(lessonId);
+    _refresh(courseId);
+  }
+}
 
 /// Provider de ações de aulas
 final courseLessonsActionsProvider = Provider<CourseLessonsActions>((ref) {

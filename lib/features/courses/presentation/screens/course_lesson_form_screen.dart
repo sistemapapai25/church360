@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 
 import '../providers/courses_provider.dart';
+import '../widgets/course_subjects_section.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
 import '../../../../core/widgets/video_upload_widget.dart';
 import '../../../../core/widgets/file_upload_widget.dart';
@@ -36,6 +37,9 @@ class _CourseLessonFormScreenState extends ConsumerState<CourseLessonFormScreen>
   String? _fileUrl;
   String? _fileName;
 
+  /// Módulo da aula (E2/D12): uma matéria do curso, ou nenhuma.
+  String? _subjectId;
+
   bool get _isEditMode => widget.lessonId != null;
 
   @override
@@ -63,6 +67,7 @@ class _CourseLessonFormScreenState extends ConsumerState<CourseLessonFormScreen>
           _videoUrl = lesson.videoUrl;
           _fileUrl = lesson.fileUrl;
           _fileName = lesson.fileName;
+          _subjectId = lesson.subjectId;
         });
       }
     } catch (e) {
@@ -116,6 +121,7 @@ class _CourseLessonFormScreenState extends ConsumerState<CourseLessonFormScreen>
         'file_url': _fileUrl,
         'file_name': _fileName,
         'cover_image_url': _coverImageUrl,
+        'subject_id': _subjectId,
         if (!_isEditMode) 'order_index': orderIndex,
         if (!_isEditMode) 'created_by': member.id,
         'updated_by': member.id,
@@ -154,6 +160,10 @@ class _CourseLessonFormScreenState extends ConsumerState<CourseLessonFormScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Matérias do curso (E2): o campo "Módulo" só aparece quando há alguma.
+    final subjects =
+        ref.watch(courseSubjectsProvider(widget.courseId)).valueOrNull ??
+        const [];
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEditMode ? 'Editar Aula' : 'Nova Aula'),
@@ -197,6 +207,34 @@ class _CourseLessonFormScreenState extends ConsumerState<CourseLessonFormScreen>
                     enableInteractiveSelection: true,
                   ),
                   const SizedBox(height: 16),
+
+                  // Módulo (E2/D12): matéria do curso
+                  if (subjects.isNotEmpty) ...[
+                    DropdownButtonFormField<String?>(
+                      key: const ValueKey('lesson-subject'),
+                      initialValue: subjects.any((s) => s.id == _subjectId)
+                          ? _subjectId
+                          : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Módulo',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.view_module_outlined),
+                      ),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('Sem módulo'),
+                        ),
+                        for (final s in subjects)
+                          DropdownMenuItem<String?>(
+                            value: s.id,
+                            child: Text(s.title),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => _subjectId = v),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   // Imagem de Capa
                   ImageUploadWidget(

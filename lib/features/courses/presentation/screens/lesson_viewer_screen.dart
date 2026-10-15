@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../../domain/models/course_lesson.dart';
 import '../providers/courses_provider.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/widgets/media/inline_video.dart';
 
 /// Tela de visualização de aula individual
 class LessonViewerScreen extends ConsumerStatefulWidget {
@@ -24,17 +24,18 @@ class LessonViewerScreen extends ConsumerStatefulWidget {
 }
 
 class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
-  YoutubePlayerController? _youtubeController;
-
-  @override
-  void dispose() {
-    _youtubeController?.dispose();
-    super.dispose();
-  }
+  bool _saving = false;
 
   @override
   Widget build(BuildContext context) {
     final lessonsAsync = ref.watch(courseLessonsProvider(widget.courseId));
+    // E1: concluída ou não. Falha aqui não derruba a aula: vira "não".
+    final completed =
+        ref
+            .watch(lessonProgressMapProvider(widget.courseId))
+            .valueOrNull?[widget.lessonId]
+            ?.completed ??
+        false;
 
     return lessonsAsync.when(
       data: (lessons) {
@@ -49,20 +50,6 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
         final lesson = lessons[lessonIndex];
         final lessonNumber = lessonIndex + 1;
 
-        // Inicializar YouTube player se necessário
-        if (lesson.videoUrl != null && _isYouTubeUrl(lesson.videoUrl!)) {
-          final videoId = YoutubePlayer.convertUrlToId(lesson.videoUrl!);
-          if (videoId != null && _youtubeController == null) {
-            _youtubeController = YoutubePlayerController(
-              initialVideoId: videoId,
-              flags: const YoutubePlayerFlags(
-                autoPlay: false,
-                mute: false,
-              ),
-            );
-          }
-        }
-
         return Scaffold(
           backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
           body: CustomScrollView(
@@ -75,11 +62,19 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Player de vídeo
-                    if (lesson.videoUrl != null) _buildVideoPlayer(lesson),
+                    // Player de vídeo: o mesmo da aula da turma e do culto
+                    // (YouTube no navegador e no app, mp4 do Storage).
+                    if (lesson.hasVideo)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        child: InlineVideo(url: lesson.videoUrl!),
+                      ),
 
                     // Informações da aula
                     _buildLessonInfo(lesson, lessonNumber),
+
+                    // E1: "Concluir e avançar"
+                    _buildCompleteButton(lessons, lessonIndex, completed),
 
                     const Divider(height: 32),
 
@@ -202,43 +197,92 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
     );
   }
 
-  /// Player de vídeo
-  Widget _buildVideoPlayer(CourseLesson lesson) {
-    if (_isYouTubeUrl(lesson.videoUrl!)) {
-      // YouTube Player
-      if (_youtubeController != null) {
-        return YoutubePlayer(
-          controller: _youtubeController!,
-          showVideoProgressIndicator: true,
-          progressIndicatorColor: Colors.blue,
-          progressColors: const ProgressBarColors(
-            playedColor: Colors.blue,
-            handleColor: Colors.blueAccent,
-          ),
-        );
-      }
-    } else {
-      // Vídeo hospedado (placeholder - você pode usar video_player package)
-      return Container(
-        height: 200,
-        color: Colors.black,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.play_circle_outline, size: 64, color: Colors.white),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () => _launchUrl(lesson.videoUrl!),
-                icon: const Icon(Icons.open_in_new),
-                label: const Text('Abrir Vídeo'),
+  /// E1: marca a aula como concluída e vai para a próxima (ou volta ao
+  /// curso na última). Já concluída: só navega.
+  Widget _buildCompleteButton(
+    List<CourseLesson> lessons,
+    int index,
+    bool completed,
+  ) {
+    final hasNext = index < lessons.length - 1;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (completed) ...[
+            Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Aula concluída',
+                  style: CommunityDesign.contentStyle(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          SizedBox(
+            height: 48,
+            child: FilledButton.icon(
+              key: const ValueKey('lesson-complete'),
+              onPressed: _saving
+                  ? null
+                  : () => _complete(lessons, index, completed),
+              icon: Icon(
+                completed ? Icons.arrow_forward_rounded : Icons.check_rounded,
               ),
-            ],
+              label: Text(
+                completed
+                    ? (hasNext ? 'Próxima aula' : 'Voltar ao curso')
+                    : (hasNext ? 'Concluir e avançar' : 'Concluir aula'),
+              ),
+            ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _complete(
+    List<CourseLesson> lessons,
+    int index,
+    bool already,
+  ) async {
+    final hasNext = index < lessons.length - 1;
+    if (!already) {
+      setState(() => _saving = true);
+      try {
+        await ref
+            .read(lessonProgressActionsProvider)
+            .completeLesson(widget.courseId, widget.lessonId);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Não foi possível marcar a aula: $e')),
+          );
+        }
+        return;
+      } finally {
+        if (mounted) setState(() => _saving = false);
+      }
+    }
+    if (!mounted) return;
+    if (hasNext) {
+      context.pushReplacement(
+        '/courses/${widget.courseId}/lessons/${lessons[index + 1].id}/view',
+      );
+      return;
+    }
+    if (!already) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Última aula concluída. Parabéns!')),
       );
     }
-    return const SizedBox.shrink();
+    if (context.canPop()) context.pop();
   }
 
   /// Informações da aula
@@ -409,10 +453,6 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
         ],
       ),
     );
-  }
-
-  bool _isYouTubeUrl(String url) {
-    return url.contains('youtube.com') || url.contains('youtu.be');
   }
 
   Future<void> _launchUrl(String url) async {
