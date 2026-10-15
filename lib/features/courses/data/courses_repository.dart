@@ -423,6 +423,17 @@ class CoursesRepository {
     }
   }
 
+  /// E2b: copia as aulas publicadas da turma para `course_lesson` do curso
+  /// dela (RPC `course_lessons_from_turma`, courses.manage_lessons).
+  /// Idempotente: devolve quantas aulas novas criou.
+  Future<int> copyLessonsFromTurma(String studyGroupId) async {
+    final result = await _supabase.rpc(
+      'course_lessons_from_turma',
+      params: {'p_study_group_id': studyGroupId},
+    );
+    return (result as num).toInt();
+  }
+
   /// Reordenar aulas
   Future<void> reorderCourseLessons(String courseId, List<String> lessonIds) async {
     try {
