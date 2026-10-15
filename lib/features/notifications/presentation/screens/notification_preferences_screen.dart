@@ -75,6 +75,35 @@ class NotificationPreferencesScreen extends ConsumerWidget {
               ),
               const Divider(),
 
+              // Comunidade com gancho (D1/D2 do roadmap Home/culto/Dashboard):
+              // o aviso "Fulano disse…" e o opt-out do próprio nome (D8).
+              _SectionHeader(
+                icon: Icons.forum,
+                title: 'Comunidade',
+                color: Colors.purple,
+              ),
+              _PreferenceTile(
+                title: 'Avisos da Comunidade',
+                subtitle:
+                    'Post novo aprovado ("Fulano disse…") e comentários no seu post',
+                value: preferences.communityPost,
+                onChanged: (value) async {
+                  await actions.updatePreferences(communityPost: value);
+                },
+              ),
+              _PreferenceTile(
+                title: 'Usar meu nome nos avisos da Comunidade',
+                subtitle:
+                    'Desligado, os outros recebem "Novo post na Comunidade" em vez do seu nome',
+                value: preferences.allowNameInNotifications,
+                onChanged: (value) async {
+                  await actions.updatePreferences(
+                    allowNameInNotifications: value,
+                  );
+                },
+              ),
+              const Divider(),
+
               // Seção: Outros
               _SectionHeader(
                 icon: Icons.notifications,

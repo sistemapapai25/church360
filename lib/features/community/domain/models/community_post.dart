@@ -11,6 +11,9 @@ class CommunityPost {
   // Novos campos
   final bool isPublic;
   final bool allowWhatsappContact;
+  // D3 (20261008007900): post automático sobre o próximo evento. Null nos
+  // posts escritos por pessoas.
+  final String? eventId;
   
   // Dados de Enquete
   final List<String> pollOptions;
@@ -37,6 +40,7 @@ class CommunityPost {
     required this.updatedAt,
     this.isPublic = false,
     this.allowWhatsappContact = false,
+    this.eventId,
     this.pollOptions = const [],
     this.pollVotes = const {},
     this.authorName,
@@ -59,7 +63,8 @@ class CommunityPost {
       updatedAt: DateTime.parse(json['updated_at']),
       isPublic: json['is_public'] ?? false,
       allowWhatsappContact: json['allow_whatsapp_contact'] ?? false,
-      pollOptions: json['poll_options'] != null 
+      eventId: json['event_id']?.toString(),
+      pollOptions: json['poll_options'] != null
           ? List<String>.from(json['poll_options']) 
           : [],
       pollVotes: json['poll_votes'] != null

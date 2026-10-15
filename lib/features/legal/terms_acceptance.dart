@@ -11,7 +11,7 @@ import '../auth/presentation/providers/auth_provider.dart';
 /// Versão do Termo publicada em `web/terms.html`. Ao publicar texto novo
 /// que exija novo aceite, suba esta versão junto: quem aceitou a anterior
 /// volta a ser perguntado.
-const kTermsVersion = '1.2';
+const kTermsVersion = '1.3';
 const kTermsUrl = 'https://papai.church360.com.br/termos';
 
 /// Quando a pessoa logada aceitou a versão atual nesta igreja; null se ainda

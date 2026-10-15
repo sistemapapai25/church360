@@ -24,7 +24,13 @@ import '../../../members/presentation/providers/members_provider.dart';
 import '../../../members/domain/models/member.dart';
 
 class CommunityScreen extends ConsumerStatefulWidget {
-  const CommunityScreen({super.key});
+  /// Rota `/community/post/:id` (push "Fulano disse…" / "comentou no seu
+  /// post"): abre o Mural já com a folha de comentários desse post por cima.
+  /// `openComment` (`?comment=1`) foca a caixa de comentário.
+  const CommunityScreen({super.key, this.initialPostId, this.openComment = false});
+
+  final String? initialPostId;
+  final bool openComment;
 
   @override
   ConsumerState<CommunityScreen> createState() => _CommunityScreenState();
@@ -109,6 +115,18 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
       vsync: this,
       duration: const Duration(milliseconds: 2200),
     )..repeat(reverse: true);
+    final postId = widget.initialPostId;
+    if (postId != null && postId.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        showCommentsSheet(
+          context,
+          postId: postId,
+          showPost: true,
+          autofocus: widget.openComment,
+        );
+      });
+    }
   }
 
   @override
@@ -3340,6 +3358,16 @@ class _PostCardState extends ConsumerState<_PostCard>
           ),
           const SizedBox(height: 12),
           Text(post.content, style: contentStyle),
+          // D3: post automático sobre o próximo evento leva ao evento.
+          if (post.eventId != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: ActionChip(
+                avatar: const Icon(AppIcons.event, size: 16),
+                label: const Text('Evento'),
+                onPressed: () => context.push('/events/${post.eventId}'),
+              ),
+            ),
           if (post.pollOptions.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 12),
@@ -3488,20 +3516,7 @@ class _PostCardState extends ConsumerState<_PostCard>
                             if (mounted) setState(() => _commentPulse = false);
                           });
 
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surface,
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(
-                                top: Radius.circular(20),
-                              ),
-                            ),
-                            builder: (context) =>
-                                _CommentsSheet(postId: post.id),
-                          );
+                          showCommentsSheet(context, postId: post.id);
                         },
                       ),
                     ),
@@ -6048,9 +6063,39 @@ class _EditClassifiedSheetState extends ConsumerState<_EditClassifiedSheet> {
   }
 }
 
+/// Folha de comentários de um post. `showPost` põe o texto do post no topo
+/// (quem chega pelo push não está vendo o card); `autofocus` abre o teclado
+/// na caixa de comentário (`?comment=1`).
+Future<void> showCommentsSheet(
+  BuildContext context, {
+  required String postId,
+  bool showPost = false,
+  bool autofocus = false,
+}) {
+  return showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Theme.of(context).colorScheme.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) => _CommentsSheet(
+      postId: postId,
+      showPost: showPost,
+      autofocus: autofocus,
+    ),
+  );
+}
+
 class _CommentsSheet extends ConsumerStatefulWidget {
   final String postId;
-  const _CommentsSheet({required this.postId});
+  final bool showPost;
+  final bool autofocus;
+  const _CommentsSheet({
+    required this.postId,
+    this.showPost = false,
+    this.autofocus = false,
+  });
 
   @override
   ConsumerState<_CommentsSheet> createState() => _CommentsSheetState();
@@ -6062,11 +6107,57 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
   bool _isLoading = true;
   bool _isSending = false;
   String? _errorMessage;
+  CommunityPost? _post;
 
   @override
   void initState() {
     super.initState();
     _fetchComments();
+    if (widget.showPost) _fetchPost();
+  }
+
+  Future<void> _fetchPost() async {
+    try {
+      final post = await ref
+          .read(communityRepositoryProvider)
+          .getPostById(widget.postId);
+      if (mounted) setState(() => _post = post);
+    } catch (_) {
+      // Sem o post (apagado, sem acesso): a folha segue só com os comentários.
+    }
+  }
+
+  Widget _postHeader(BuildContext context, CommunityPost post) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final name = post.authorNickname ?? post.authorName ?? 'Alguém';
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            name,
+            style: CommunityDesign.titleStyle(context).copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            post.content,
+            style: CommunityDesign.metaStyle(context).copyWith(
+              height: 1.5,
+              color: colorScheme.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _fetchComments() async {
@@ -6169,6 +6260,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                   height: 1,
                   color: Theme.of(context).colorScheme.outlineVariant,
                 ),
+                if (_post != null) _postHeader(context, _post!),
                 Expanded(
                   child: _isLoading
                       ? const Center(child: CircularProgressIndicator())
@@ -6297,6 +6389,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                       Expanded(
                         child: TextField(
                           controller: _controller,
+                          autofocus: widget.autofocus,
                           decoration: const InputDecoration(
                             hintText: 'Escreva um comentário...',
                             contentPadding: EdgeInsets.symmetric(
