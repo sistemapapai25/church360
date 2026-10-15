@@ -30,6 +30,9 @@ enum NotificationType {
   // Escala (Lote 8 do roadmap Gerador)
   schedulePendingAssigned(
       'schedule_pending_assigned', 'Pendência atribuída', '📋'),
+  // Comunidade com gancho (D1 do roadmap Home/culto/Dashboard, 20261008007900):
+  // "Fulano disse…" quando um post é aprovado e "Fulana comentou no seu post".
+  communityPost('community_post', 'Comunidade', '💬'),
   general('general', 'Geral', '📢');
 
   const NotificationType(this.value, this.displayName, this.icon);
@@ -205,6 +208,10 @@ class NotificationPreferences {
   final bool financialGoalReached;
   final bool birthdayReminder;
   final bool general;
+  // Comunidade com gancho (20261008007900): avisos de post aprovado e de
+  // comentário no meu post; e o opt-out (D2/D8) de usar meu nome nesses avisos.
+  final bool communityPost;
+  final bool allowNameInNotifications;
   final bool quietHoursEnabled;
   final String? quietHoursStart; // HH:mm format
   final String? quietHoursEnd;   // HH:mm format
@@ -225,6 +232,8 @@ class NotificationPreferences {
     this.financialGoalReached = true,
     this.birthdayReminder = true,
     this.general = true,
+    this.communityPost = true,
+    this.allowNameInNotifications = true,
     this.quietHoursEnabled = false,
     this.quietHoursStart,
     this.quietHoursEnd,
@@ -248,6 +257,9 @@ class NotificationPreferences {
       financialGoalReached: json['financial_goal_reached'] as bool? ?? true,
       birthdayReminder: json['birthday_reminder'] as bool? ?? true,
       general: json['general'] as bool? ?? true,
+      communityPost: json['community_post'] as bool? ?? true,
+      allowNameInNotifications:
+          json['allow_name_in_notifications'] as bool? ?? true,
       quietHoursEnabled: json['quiet_hours_enabled'] as bool? ?? false,
       quietHoursStart: json['quiet_hours_start'] as String?,
       quietHoursEnd: json['quiet_hours_end'] as String?,
@@ -272,6 +284,8 @@ class NotificationPreferences {
       'financial_goal_reached': financialGoalReached,
       'birthday_reminder': birthdayReminder,
       'general': general,
+      'community_post': communityPost,
+      'allow_name_in_notifications': allowNameInNotifications,
       'quiet_hours_enabled': quietHoursEnabled,
       'quiet_hours_start': quietHoursStart,
       'quiet_hours_end': quietHoursEnd,
@@ -295,6 +309,8 @@ class NotificationPreferences {
     bool? financialGoalReached,
     bool? birthdayReminder,
     bool? general,
+    bool? communityPost,
+    bool? allowNameInNotifications,
     bool? quietHoursEnabled,
     String? quietHoursStart,
     String? quietHoursEnd,
@@ -315,6 +331,9 @@ class NotificationPreferences {
       financialGoalReached: financialGoalReached ?? this.financialGoalReached,
       birthdayReminder: birthdayReminder ?? this.birthdayReminder,
       general: general ?? this.general,
+      communityPost: communityPost ?? this.communityPost,
+      allowNameInNotifications:
+          allowNameInNotifications ?? this.allowNameInNotifications,
       quietHoursEnabled: quietHoursEnabled ?? this.quietHoursEnabled,
       quietHoursStart: quietHoursStart ?? this.quietHoursStart,
       quietHoursEnd: quietHoursEnd ?? this.quietHoursEnd,

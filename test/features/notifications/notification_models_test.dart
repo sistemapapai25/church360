@@ -245,4 +245,32 @@ void main() {
       expect(json['is_active'], isTrue);
     });
   });
+
+  // Comunidade com gancho (20261008007900): tipo `community_post` e as duas
+  // preferências novas (aviso da Comunidade e opt-out do nome, ambas ligadas
+  // por padrão = D8). Linha antiga sem as colunas lê como ligada.
+  group('Comunidade com gancho', () {
+    test('community_post é um tipo próprio, não cai em Geral', () {
+      final type = NotificationType.fromString('community_post');
+      expect(type, NotificationType.communityPost);
+      expect(type.displayName, isNot(NotificationType.general.displayName));
+    });
+
+    test('preferências novas vêm ligadas por padrão e vão no JSON', () {
+      final prefs = NotificationPreferences.fromJson({
+        'id': 'p-1',
+        'user_id': 'u-1',
+        'created_at': '2026-10-14T10:00:00.000Z',
+        'updated_at': '2026-10-14T10:00:00.000Z',
+      });
+      expect(prefs.communityPost, isTrue);
+      expect(prefs.allowNameInNotifications, isTrue);
+
+      final off = prefs.copyWith(allowNameInNotifications: false);
+      expect(off.allowNameInNotifications, isFalse);
+      expect(off.communityPost, isTrue);
+      expect(off.toJson()['allow_name_in_notifications'], isFalse);
+      expect(off.toJson()['community_post'], isTrue);
+    });
+  });
 }

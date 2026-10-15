@@ -228,6 +228,21 @@ class CommunityRepository {
     });
   }
 
+  /// Um post pelo id (rota `/community/post/:id`, vinda do push). A RLS decide
+  /// o que a pessoa vê; null quando não existe ou não é visível.
+  Future<CommunityPost?> getPostById(String id) async {
+    final json = await _supabase
+        .from('community_posts')
+        .select('*, author:user_account!community_posts_author_id_fkey(full_name, avatar_url, photo_url, foto, nickname, phone)')
+        .eq('id', id)
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .isFilter('deleted_at', null)
+        .maybeSingle();
+    if (json == null) return null;
+    json['is_liked_by_me'] = false;
+    return CommunityPost.fromJson(json);
+  }
+
   Future<List<CommunityPost>> getPendingPosts() async {
     final response = await _supabase
         .from('community_posts')

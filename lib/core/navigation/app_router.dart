@@ -405,6 +405,15 @@ final appRouter = GoRouter(
       path: '/community',
       builder: (context, state) => const CommunityScreen(),
     ),
+    // Destino do push da Comunidade (20261008007900): abre o Mural com a
+    // folha de comentários do post; `?comment=1` foca a caixa.
+    GoRoute(
+      path: '/community/post/:id',
+      builder: (context, state) => CommunityScreen(
+        initialPostId: state.pathParameters['id'],
+        openComment: state.uri.queryParameters['comment'] == '1',
+      ),
+    ),
     GoRoute(
       path: '/community/admin',
       builder: (context, state) => const PermissionOnlyRoute(

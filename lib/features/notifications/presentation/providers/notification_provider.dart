@@ -163,11 +163,15 @@ class NotificationActions {
     bool? financialGoalReached,
     bool? birthdayReminder,
     bool? general,
+    bool? communityPost,
+    bool? allowNameInNotifications,
     bool? quietHoursEnabled,
     String? quietHoursStart,
     String? quietHoursEnd,
   }) async {
     await _repository.updateNotificationPreferences(
+      communityPost: communityPost,
+      allowNameInNotifications: allowNameInNotifications,
       devotionalDaily: devotionalDaily,
       prayerRequestPrayed: prayerRequestPrayed,
       prayerRequestAnswered: prayerRequestAnswered,

@@ -271,6 +271,8 @@ class NotificationRepository {
     bool? financialGoalReached,
     bool? birthdayReminder,
     bool? general,
+    bool? communityPost,
+    bool? allowNameInNotifications,
     bool? quietHoursEnabled,
     String? quietHoursStart,
     String? quietHoursEnd,
@@ -279,6 +281,10 @@ class NotificationRepository {
     if (userId == null) throw Exception('Usuário não autenticado');
 
     final updates = <String, dynamic>{};
+    if (communityPost != null) updates['community_post'] = communityPost;
+    if (allowNameInNotifications != null) {
+      updates['allow_name_in_notifications'] = allowNameInNotifications;
+    }
     if (devotionalDaily != null) updates['devotional_daily'] = devotionalDaily;
     if (prayerRequestPrayed != null) updates['prayer_request_prayed'] = prayerRequestPrayed;
     if (prayerRequestAnswered != null) updates['prayer_request_answered'] = prayerRequestAnswered;
