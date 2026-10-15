@@ -46,6 +46,9 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
   String? _imageUrl;
   bool _isPaid = false;
 
+  /// E3: aulas em sequência (só faz sentido no curso gravado).
+  bool _sequential = false;
+
   bool _isLoading = false;
   bool _isEditMode = false;
 
@@ -81,6 +84,7 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
           _endDate = course.endDate;
           _imageUrl = course.imageUrl;
           _isPaid = course.isPaid;
+          _sequential = course.sequential;
         });
       }
     } catch (e) {
@@ -121,6 +125,7 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
             ? _addressController.text.trim()
             : null,
         'is_paid': _isPaid,
+        'sequential': _courseType == CourseType.onlineRecorded && _sequential,
         'price': _isPaid && _priceController.text.trim().isNotEmpty
             ? double.tryParse(_priceController.text.trim())
             : null,
@@ -384,6 +389,20 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
                   prefixIcon: Icon(Icons.location_on),
                 ),
                 maxLines: 2,
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // E3: aulas em sequência (curso gravado)
+            if (_courseType == CourseType.onlineRecorded) ...[
+              SwitchListTile(
+                key: const ValueKey('course-sequential'),
+                title: const Text('Aulas em sequência'),
+                subtitle: const Text(
+                  'A próxima aula só abre quando a anterior é concluída e a prova do módulo é aprovada',
+                ),
+                value: _sequential,
+                onChanged: (value) => setState(() => _sequential = value),
               ),
               const SizedBox(height: 16),
             ],

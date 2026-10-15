@@ -45,6 +45,10 @@ class Course {
   final bool isPaid; // Se o curso é pago
   final double? price; // Preço do curso (se for pago)
   final String? paymentInfo; // Informações de pagamento (PIX, conta, etc.)
+
+  /// E3: aulas em sequência (a próxima só abre com a anterior concluída e
+  /// a prova do módulo anterior aprovada). Só o curso gravado usa.
+  final bool sequential;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -77,6 +81,7 @@ class Course {
     this.isPaid = false,
     this.price,
     this.paymentInfo,
+    this.sequential = false,
     required this.createdAt,
     this.updatedAt,
     this.ministryId,
@@ -112,6 +117,7 @@ class Course {
       isPaid: json['is_paid'] as bool? ?? false,
       price: json['price'] != null ? (json['price'] as num).toDouble() : null,
       paymentInfo: json['payment_info'] as String?,
+      sequential: json['sequential'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
@@ -147,6 +153,7 @@ class Course {
       'is_paid': isPaid,
       'price': price,
       'payment_info': paymentInfo,
+      'sequential': sequential,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };

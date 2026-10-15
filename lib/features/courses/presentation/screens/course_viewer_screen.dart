@@ -67,7 +67,7 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
               ? lessonsAsync.when(
                   data: (lessons) => lessons.isEmpty
                       ? _buildNoLessonsContent()
-                      : _buildStudyPanel(lessons),
+                      : _buildStudyPanel(course, lessons),
                   loading: () => const Center(
                     child: Padding(
                       padding: EdgeInsets.all(32),
@@ -213,6 +213,8 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
                   context.push('/courses/${course.id}/edit');
                 } else if (value == 'lessons') {
                   context.push('/courses/${course.id}/lessons');
+                } else if (value == 'quizzes') {
+                  context.push('/courses/${course.id}/quizzes');
                 }
               },
               itemBuilder: (context) => [
@@ -235,6 +237,17 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
                         Icon(Icons.video_library, size: 20),
                         SizedBox(width: 8),
                         Text('Gerenciar Aulas'),
+                      ],
+                    ),
+                  ),
+                if (showLessons)
+                  const PopupMenuItem(
+                    value: 'quizzes',
+                    child: Row(
+                      children: [
+                        Icon(Icons.quiz_outlined, size: 20),
+                        SizedBox(width: 8),
+                        Text('Provas'),
                       ],
                     ),
                   ),
@@ -461,7 +474,7 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
   /// Painel de estudo do aluno (E1 + E2): anel de progresso, "Continuar de
   /// onde parou" e os módulos com as aulas. Matérias e progresso carregam à
   /// parte; enquanto não chegam, o painel desenha sem eles.
-  Widget _buildStudyPanel(List<CourseLesson> lessons) {
+  Widget _buildStudyPanel(Course course, List<CourseLesson> lessons) {
     final subjects =
         ref.watch(courseSubjectsProvider(widget.courseId)).valueOrNull ??
         const [];
@@ -469,14 +482,51 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
     final lessonProgress =
         ref.watch(lessonProgressMapProvider(widget.courseId)).valueOrNull ??
         const {};
+    // E4 + E5: provas, tentativas e certificado carregam à parte.
+    final quizzes =
+        ref.watch(courseQuizzesProvider(widget.courseId)).valueOrNull ??
+        const [];
+    final attempts =
+        ref.watch(myQuizAttemptsProvider(widget.courseId)).valueOrNull ??
+        const {};
+    final certificate = ref
+        .watch(myCertificateProvider(widget.courseId))
+        .valueOrNull;
     return CourseStudyPanel(
       courseId: widget.courseId,
       lessons: lessons,
       subjects: subjects,
       progress: progress,
       lessonProgress: lessonProgress,
+      quizzes: quizzes,
+      attempts: attempts,
+      sequential: course.sequential,
+      certificate: certificate,
       onNavigate: context.push,
+      onIssueCertificate: _issuing ? null : _issueCertificate,
     );
+  }
+
+  bool _issuing = false;
+
+  /// E5: emite o certificado e abre a página pública dele.
+  Future<void> _issueCertificate() async {
+    setState(() => _issuing = true);
+    try {
+      final code = await ref
+          .read(quizActionsProvider)
+          .issueCertificate(widget.courseId);
+      if (!mounted) return;
+      context.push('/certificado/$code');
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString().contains('CURSO_INCOMPLETO')
+          ? 'Ainda falta concluir aula ou prova deste curso.'
+          : 'Não foi possível emitir o certificado: $e';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } finally {
+      if (mounted) setState(() => _issuing = false);
+    }
   }
 
   /// Conteúdo quando não há aulas
