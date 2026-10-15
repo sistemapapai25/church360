@@ -275,6 +275,8 @@ class _CourseCard extends ConsumerWidget {
       currentUserHasPermissionProvider('courses.edit'),
     );
     final canEdit = canEditAsync.maybeWhen(data: (v) => v, orElse: () => false);
+    // Progresso do aluno (E1): só quando enxergo aulas do curso gravado.
+    final progress = ref.watch(myCoursesProgressProvider).valueOrNull?[course.id];
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
@@ -321,6 +323,25 @@ class _CourseCard extends ConsumerWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      if (progress != null && progress.total > 0) ...[
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: progress.fraction,
+                            minHeight: 6,
+                            color: progress.completed ? Colors.green : null,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          progress.completed
+                              ? 'Curso concluído'
+                              : '${progress.percent}% concluído · '
+                                    '${progress.done} de ${progress.total} aulas',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
                       const SizedBox(height: 8),
 
                       // Instrutor

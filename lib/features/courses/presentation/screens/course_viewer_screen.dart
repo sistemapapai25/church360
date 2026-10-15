@@ -10,10 +10,11 @@ import '../hub/course_hub_cta.dart';
 import '../widgets/course_subjects_section.dart';
 import '../widgets/course_turmas_section.dart';
 import '../../../../core/design/community_design.dart';
-import '../../../../core/widgets/media/video_play_overlay.dart';
+import '../../../../core/layout/breakpoints.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../support_materials/domain/models/support_material_link.dart';
 import '../../../support_materials/presentation/widgets/linked_materials.dart';
+import '../widgets/course_study_panel.dart';
 
 /// Tela de visualização de curso (para alunos)
 class CourseViewerScreen extends ConsumerStatefulWidget {
@@ -60,6 +61,79 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
             return const Center(child: Text('Curso não encontrado'));
           }
 
+          // Painel de estudo (E1 + E2): só o curso gravado tem aulas.
+          final Widget? studyPanel =
+              course.courseType == CourseType.onlineRecorded
+              ? lessonsAsync.when(
+                  data: (lessons) => lessons.isEmpty
+                      ? _buildNoLessonsContent()
+                      : _buildStudyPanel(lessons),
+                  loading: () => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                  error: (error, stack) => Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Text('Erro ao carregar aulas: $error'),
+                    ),
+                  ),
+                )
+              : null;
+          // Tablet deitado / PC (B7): as aulas ficam numa coluna ao lado.
+          final sideBySide =
+              studyPanel != null &&
+              context.breakpoint == Breakpoint.expanded;
+
+          final column = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Informações do curso
+              _buildCourseInfo(course),
+
+              // Chamada por estado (decisão 24): Inscrever-se,
+              // Acessar minha turma, Ver turmas / Gerenciar.
+              CourseHubCta(
+                courseId: course.id,
+                onManage: _scrollToTurmas,
+                fromDashboard: widget.fromDashboard,
+              ),
+
+              const Divider(height: 32),
+
+              if (studyPanel == null)
+                _buildCourseTypeInfo(course)
+              else if (!sideBySide)
+                studyPanel,
+
+              const SizedBox(height: 24),
+
+              // Matérias do curso (PR 2a): só a gestão vê, e só
+              // pela Dashboard.
+              if (widget.fromDashboard)
+                CourseSubjectsSection(courseId: course.id),
+
+              // Material de apoio vinculado ao curso pelo módulo
+              // Material de Apoio (some quando não há).
+              LinkedMaterialsSection(
+                linkType: MaterialLinkType.course,
+                entityId: course.id,
+              ),
+
+              // Turmas do curso (study_groups.course_id), para
+              // qualquer tipo de curso. Carrega à parte das aulas.
+              CourseTurmasSection(
+                key: _turmasKey,
+                courseId: course.id,
+                fromDashboard: widget.fromDashboard,
+              ),
+
+              const SizedBox(height: 32),
+            ],
+          );
+
           return CustomScrollView(
             slivers: [
               // App Bar com capa
@@ -67,72 +141,21 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
 
               // Conteúdo
               SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Informações do curso
-                    _buildCourseInfo(course),
-
-                    // Chamada por estado (decisão 24): Inscrever-se,
-                    // Acessar minha turma, Ver turmas / Gerenciar.
-                    CourseHubCta(
-                      courseId: course.id,
-                      onManage: _scrollToTurmas,
-                      fromDashboard: widget.fromDashboard,
-                    ),
-
-                    const Divider(height: 32),
-
-                    // Lista de Aulas (apenas para cursos online gravados)
-                    if (course.courseType == CourseType.onlineRecorded)
-                      lessonsAsync.when(
-                        data: (lessons) {
-                          if (lessons.isEmpty) {
-                            return _buildNoLessonsContent();
-                          }
-                          return _buildLessonsList(lessons);
-                        },
-                        loading: () => const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32),
-                            child: CircularProgressIndicator(),
+                child: sideBySide
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(flex: 3, child: column),
+                          Expanded(
+                            flex: 2,
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 16),
+                              child: studyPanel,
+                            ),
                           ),
-                        ),
-                        error: (error, stack) => Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32),
-                            child: Text('Erro ao carregar aulas: $error'),
-                          ),
-                        ),
+                        ],
                       )
-                    else
-                      _buildCourseTypeInfo(course),
-
-                    const SizedBox(height: 24),
-
-                    // Matérias do curso (PR 2a): só a gestão vê, e só
-                    // pela Dashboard.
-                    if (widget.fromDashboard)
-                      CourseSubjectsSection(courseId: course.id),
-
-                    // Material de apoio vinculado ao curso pelo módulo
-                    // Material de Apoio (some quando não há).
-                    LinkedMaterialsSection(
-                      linkType: MaterialLinkType.course,
-                      entityId: course.id,
-                    ),
-
-                    // Turmas do curso (study_groups.course_id), para
-                    // qualquer tipo de curso. Carrega à parte das aulas.
-                    CourseTurmasSection(
-                      key: _turmasKey,
-                      courseId: course.id,
-                      fromDashboard: widget.fromDashboard,
-                    ),
-
-                    const SizedBox(height: 32),
-                  ],
-                ),
+                    : column,
               ),
             ],
           );
@@ -435,159 +458,24 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
     );
   }
 
-  /// Lista de aulas disponíveis (vertical)
-  Widget _buildLessonsList(List<CourseLesson> lessons) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                'Aulas',
-                style: CommunityDesign.titleStyle(context).copyWith(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.blue,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${lessons.length}',
-                  style: CommunityDesign.metaStyle(context).copyWith(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Lista vertical de aulas
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: lessons.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final lesson = lessons[index];
-              final lessonNumber = index + 1;
-              return _buildLessonListItem(lesson, lessonNumber);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Item da lista de aulas
-  Widget _buildLessonListItem(CourseLesson lesson, int lessonNumber) {
-    return Container(
-      decoration: CommunityDesign.overlayDecoration(Theme.of(context).colorScheme),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            context.push(
-              '/courses/${widget.courseId}/lessons/${lesson.id}/view',
-            );
-          },
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-            children: [
-              // Capa da aula ou placeholder
-              _buildLessonThumbnail(lesson),
-              const SizedBox(width: 12),
-              // Informações da aula
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Aula $lessonNumber',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      lesson.title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (lesson.description != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        lesson.description!,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      ),
-    );
-  }
-
-  /// Thumbnail da aula
-  Widget _buildLessonThumbnail(CourseLesson lesson) {
-    return Container(
-      width: 100,
-      height: 75,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        color: Colors.blue.shade100,
-      ),
-      child: lesson.coverImageUrl != null
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(
-                    lesson.coverImageUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Icon(
-                        Icons.play_circle_outline,
-                        size: 40,
-                        color: Colors.blue.shade700,
-                      );
-                    },
-                  ),
-                  if (lesson.hasVideo) const VideoPlayOverlay(size: 28),
-                ],
-              ),
-            )
-          : Icon(
-              Icons.play_circle_outline,
-              size: 40,
-              color: Colors.blue.shade700,
-            ),
+  /// Painel de estudo do aluno (E1 + E2): anel de progresso, "Continuar de
+  /// onde parou" e os módulos com as aulas. Matérias e progresso carregam à
+  /// parte; enquanto não chegam, o painel desenha sem eles.
+  Widget _buildStudyPanel(List<CourseLesson> lessons) {
+    final subjects =
+        ref.watch(courseSubjectsProvider(widget.courseId)).valueOrNull ??
+        const [];
+    final progress = ref.watch(courseProgressProvider(widget.courseId)).valueOrNull;
+    final lessonProgress =
+        ref.watch(lessonProgressMapProvider(widget.courseId)).valueOrNull ??
+        const {};
+    return CourseStudyPanel(
+      courseId: widget.courseId,
+      lessons: lessons,
+      subjects: subjects,
+      progress: progress,
+      lessonProgress: lessonProgress,
+      onNavigate: context.push,
     );
   }
 
