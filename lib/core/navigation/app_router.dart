@@ -102,6 +102,7 @@ import '../../features/courses/presentation/legacy_study_group_redirect.dart';
 import '../../features/courses/presentation/screens/lesson_viewer_screen.dart';
 import '../../features/courses/presentation/screens/quiz_screen.dart';
 import '../../features/courses/presentation/screens/course_quizzes_screen.dart';
+import '../../features/courses/presentation/screens/course_purchases_screen.dart';
 import '../../features/courses/presentation/screens/certificate_screen.dart';
 import '../../features/church_info/presentation/screens/church_info_screen.dart';
 import '../../features/church_info/presentation/screens/church_info_form_screen.dart';
@@ -1554,6 +1555,18 @@ final appRouter = GoRouter(
         return PermissionOnlyRoute(
           permission: 'courses.manage_lessons',
           child: CourseLessonFormScreen(courseId: courseId, lessonId: lessonId),
+        );
+      },
+    ),
+
+    // Comprovantes PIX do curso pago (E6), para a gestão
+    GoRoute(
+      path: '/courses/:id/purchases',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return PermissionOnlyRoute(
+          permission: 'courses.manage_lessons',
+          child: CoursePurchasesScreen(courseId: id),
         );
       },
     ),
