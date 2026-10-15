@@ -17,6 +17,7 @@ import '../../features/notifications/presentation/widgets/notification_badge.dar
 import '../../features/custom_reports/presentation/providers/custom_report_data_provider.dart';
 import '../../features/custom_reports/presentation/widgets/custom_report_dashboard_card.dart';
 import '../../features/permissions/presentation/widgets/permission_gate.dart';
+import '../../features/church_onboarding/presentation/widgets/onboarding_dashboard_card.dart';
 import '../../features/permissions/providers/permissions_providers.dart'
     hide supabaseClientProvider;
 
@@ -175,34 +176,42 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
                     physics: const AlwaysScrollableScrollPhysics(),
-                    // B7: 1/2/3 colunas pela faixa de largura; no celular
-                    // continua a pilha de sempre.
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        const gap = 16.0;
-                        final cols = gridColumns(constraints.maxWidth);
-                        final cardWidth =
-                            (constraints.maxWidth - gap * (cols - 1)) / cols;
-                        return Wrap(
-                          spacing: gap,
-                          runSpacing: gap,
-                          children: [
-                            for (final widget in widgets)
-                              SizedBox(
-                                width: cardWidth,
-                                // B2: moldura com rolagem/expandir em
-                                // tablet/PC; no celular passa direto.
-                                child: DashboardCardFrame(
-                                  widgetKey: widget.widgetKey,
-                                  child: _buildWidgetByKey(
-                                    context,
-                                    widget.widgetKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // F1: "Primeiros passos" do pastor até concluir.
+                        const OnboardingDashboardCard(),
+                        // B7: 1/2/3 colunas pela faixa de largura; no
+                        // celular continua a pilha de sempre.
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            const gap = 16.0;
+                            final cols = gridColumns(constraints.maxWidth);
+                            final cardWidth =
+                                (constraints.maxWidth - gap * (cols - 1)) /
+                                    cols;
+                            return Wrap(
+                              spacing: gap,
+                              runSpacing: gap,
+                              children: [
+                                for (final widget in widgets)
+                                  SizedBox(
+                                    width: cardWidth,
+                                    // B2: moldura com rolagem/expandir em
+                                    // tablet/PC; no celular passa direto.
+                                    child: DashboardCardFrame(
+                                      widgetKey: widget.widgetKey,
+                                      child: _buildWidgetByKey(
+                                        context,
+                                        widget.widgetKey,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                          ],
-                        );
-                      },
+                              ],
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ),
                 );

@@ -99,6 +99,12 @@ final List<ManagementMenuCategory> kManagementMenu = [
         permission: 'church_info.edit',
       ),
       ManagementMenuItem(
+        icon: Icons.checklist,
+        title: 'Primeiros passos',
+        route: '/primeiros-passos',
+        permission: 'church_info.edit',
+      ),
+      ManagementMenuItem(
         icon: Icons.groups,
         title: 'Ministérios',
         route: '/ministries',

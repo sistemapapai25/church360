@@ -104,6 +104,7 @@ import '../../features/courses/presentation/screens/quiz_screen.dart';
 import '../../features/courses/presentation/screens/course_quizzes_screen.dart';
 import '../../features/courses/presentation/screens/course_purchases_screen.dart';
 import '../../features/courses/presentation/screens/certificate_screen.dart';
+import '../../features/church_onboarding/presentation/screens/onboarding_steps_screen.dart';
 import '../../features/church_info/presentation/screens/church_info_screen.dart';
 import '../../features/church_info/presentation/screens/church_info_form_screen.dart';
 import '../../features/news/presentation/screens/news_screen.dart';
@@ -1699,6 +1700,14 @@ final appRouter = GoRouter(
       builder: (context, state) => const PermissionOnlyRoute(
         permission: 'church_info.edit',
         child: ChurchInfoFormScreen(),
+      ),
+    ),
+    // F1: primeiros passos do pastor (assistente por cima das telas de sempre).
+    GoRoute(
+      path: '/primeiros-passos',
+      builder: (context, state) => const PermissionOnlyRoute(
+        permission: 'church_info.edit',
+        child: OnboardingStepsScreen(),
       ),
     ),
 
