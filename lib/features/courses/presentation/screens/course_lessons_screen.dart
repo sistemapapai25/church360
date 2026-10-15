@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/courses_provider.dart';
 import '../../domain/models/course_lesson.dart';
+import '../../domain/models/course_turma.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/pearl_fab.dart';
 
@@ -26,6 +27,9 @@ class _CourseLessonsScreenState extends ConsumerState<CourseLessonsScreen> {
   Widget build(BuildContext context) {
     final courseAsync = ref.watch(courseByIdProvider(widget.courseId));
     final lessonsAsync = ref.watch(courseLessonsProvider(widget.courseId));
+    final turmas =
+        ref.watch(courseStudyGroupsProvider(widget.courseId)).valueOrNull ??
+        const <CourseTurma>[];
 
     return Scaffold(
       appBar: AppBar(
@@ -70,6 +74,14 @@ class _CourseLessonsScreenState extends ConsumerState<CourseLessonsScreen> {
           ],
         ),
         actions: [
+          // E2b: curso com turma pode trazer as aulas publicadas dela.
+          if (turmas.isNotEmpty)
+            IconButton(
+              key: const ValueKey('copy-from-turma'),
+              icon: const Icon(Icons.copy_all_rounded),
+              tooltip: 'Copiar aulas da turma',
+              onPressed: _copying ? null : () => _copyFromTurma(turmas),
+            ),
           if (_lessons.isNotEmpty)
             IconButton(
               icon: Icon(_isReordering ? Icons.check : Icons.reorder),
@@ -111,7 +123,11 @@ class _CourseLessonsScreenState extends ConsumerState<CourseLessonsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Clique no botão + para adicionar a primeira aula',
+                    turmas.isEmpty
+                        ? 'Clique no botão + para adicionar a primeira aula'
+                        : 'Clique no botão + para adicionar a primeira aula '
+                              'ou use "Copiar aulas da turma" (ícone no topo) '
+                              'para trazer as aulas publicadas da turma',
                     style: CommunityDesign.contentStyle(context).copyWith(
                       color: Theme.of(
                         context,
@@ -187,6 +203,83 @@ class _CourseLessonsScreenState extends ConsumerState<CourseLessonsScreen> {
         label: 'Nova Aula',
       ),
     );
+  }
+
+  bool _copying = false;
+
+  /// E2b: escolhe a turma (quando há mais de uma), confirma e copia as
+  /// aulas publicadas dela para o curso. Copiar de novo não duplica.
+  Future<void> _copyFromTurma(List<CourseTurma> turmas) async {
+    final turma = turmas.length == 1
+        ? turmas.first
+        : await showDialog<CourseTurma>(
+            context: context,
+            builder: (context) => SimpleDialog(
+              title: const Text('Copiar aulas de qual turma?'),
+              children: [
+                for (final t in turmas)
+                  SimpleDialogOption(
+                    onPressed: () => Navigator.of(context).pop(t),
+                    child: Text(t.name),
+                  ),
+              ],
+            ),
+          );
+    if (turma == null || !mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Copiar aulas da turma'),
+        content: Text(
+          'As aulas publicadas da turma "${turma.name}" viram aulas do '
+          'curso (título, conteúdo, vídeo e PDF). Aulas já copiadas não '
+          'se repetem. A chamada e a presença da turma não mudam.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Copiar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _copying = true);
+    try {
+      final n = await ref
+          .read(courseLessonsActionsProvider)
+          .copyFromTurma(widget.courseId, turma.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            n == 0
+                ? 'Nenhuma aula nova: as aulas publicadas da turma já '
+                      'estão no curso.'
+                : n == 1
+                ? '1 aula copiada da turma.'
+                : '$n aulas copiadas da turma.',
+          ),
+          backgroundColor: n == 0 ? null : Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao copiar aulas: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _copying = false);
+    }
   }
 
   Future<void> _saveOrder() async {

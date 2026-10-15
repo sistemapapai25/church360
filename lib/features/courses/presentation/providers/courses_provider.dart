@@ -407,4 +407,15 @@ class CourseLessonsActions {
     // Invalidar providers
     _ref.invalidate(courseLessonsProvider(courseId));
   }
+
+  /// E2b: copia as aulas publicadas da turma para o curso. Devolve quantas
+  /// aulas novas entraram (0 = já estavam copiadas ou nada publicado).
+  Future<int> copyFromTurma(String courseId, String studyGroupId) async {
+    final repo = _ref.read(coursesRepositoryProvider);
+    final n = await repo.copyLessonsFromTurma(studyGroupId);
+
+    _ref.invalidate(courseLessonsProvider(courseId));
+    _ref.invalidate(courseLessonsCountProvider(courseId));
+    return n;
+  }
 }

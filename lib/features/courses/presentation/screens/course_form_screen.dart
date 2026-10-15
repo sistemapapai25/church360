@@ -456,21 +456,27 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
               const SizedBox(height: 16),
             ],
 
-            // Botão/Mensagem para gerenciar aulas (apenas para Online Gravado)
-            if (_courseType == CourseType.onlineRecorded) ...[
-              if (_isEditMode && widget.courseId != null)
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.video_library),
-                    title: const Text('Gerenciar Aulas'),
-                    subtitle: const Text('Adicionar e organizar aulas do curso'),
-                    trailing: const Icon(Icons.arrow_forward_ios),
-                    onTap: () {
-                      context.push('/courses/${widget.courseId}/lessons');
-                    },
+            // Gerenciar aulas: ao editar, qualquer tipo (E2b: o presencial
+            // / ao vivo copia as aulas da turma); ao criar, só o gravado
+            // ganha o aviso.
+            if (_isEditMode && widget.courseId != null) ...[
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.video_library),
+                  title: const Text('Gerenciar Aulas'),
+                  subtitle: Text(
+                    _courseType == CourseType.onlineRecorded
+                        ? 'Adicionar e organizar aulas do curso'
+                        : 'Aulas gravadas do curso (dá para copiar as da turma)',
                   ),
-                )
-              else
+                  trailing: const Icon(Icons.arrow_forward_ios),
+                  onTap: () {
+                    context.push('/courses/${widget.courseId}/lessons');
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+            ] else if (_courseType == CourseType.onlineRecorded) ...[
                 Card(
                   color: Colors.blue.shade50,
                   child: const Padding(

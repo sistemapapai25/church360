@@ -61,9 +61,13 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
             return const Center(child: Text('Curso não encontrado'));
           }
 
-          // Painel de estudo (E1 + E2): só o curso gravado tem aulas.
-          final Widget? studyPanel =
-              course.courseType == CourseType.onlineRecorded
+          // Painel de estudo (E1 + E2): o curso gravado sempre; o
+          // presencial / ao vivo quando a gestão copiou as aulas da
+          // turma para o curso (E2b). Sem aula, o gravado mostra o aviso
+          // e os outros só o endereço / link da sala.
+          final isRecorded = course.courseType == CourseType.onlineRecorded;
+          final hasLessons = lessonsAsync.valueOrNull?.isNotEmpty ?? false;
+          final Widget? studyPanel = isRecorded || hasLessons
               ? lessonsAsync.when(
                   data: (lessons) => lessons.isEmpty
                       ? _buildNoLessonsContent()
@@ -103,10 +107,8 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
 
               const Divider(height: 32),
 
-              if (studyPanel == null)
-                _buildCourseTypeInfo(course)
-              else if (!sideBySide)
-                studyPanel,
+              if (!isRecorded) _buildCourseTypeInfo(course),
+              if (studyPanel != null && !sideBySide) studyPanel,
 
               const SizedBox(height: 24),
 
@@ -201,9 +203,9 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
             );
 
             final showEdit = widget.fromDashboard && canEdit;
-            final showLessons = widget.fromDashboard &&
-                canManageLessons &&
-                course.courseType == CourseType.onlineRecorded;
+            // E2b: qualquer tipo de curso pode ter aulas gravadas (o
+            // presencial copia as da turma), então o menu não olha o tipo.
+            final showLessons = widget.fromDashboard && canManageLessons;
             if (!showEdit && !showLessons) return const SizedBox.shrink();
 
             return PopupMenuButton<String>(
