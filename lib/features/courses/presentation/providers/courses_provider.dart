@@ -5,6 +5,7 @@ import '../../data/courses_repository.dart';
 import '../../domain/models/course.dart';
 import '../../domain/models/course_lesson.dart';
 import '../../domain/models/course_progress.dart';
+import '../../domain/models/course_quiz.dart';
 import '../../domain/models/course_turma.dart';
 
 /// Provider do repository de cursos
@@ -235,6 +236,125 @@ class LessonProgressActions {
   Future<void> completeLesson(String courseId, String lessonId) async {
     await _ref.read(coursesRepositoryProvider).completeLesson(lessonId);
     _refresh(courseId);
+  }
+}
+
+// ==================== PROVAS E CERTIFICADO (E4 + E5) ====================
+
+/// Provas do curso (módulo e final) que a RLS deixa ver.
+final courseQuizzesProvider = FutureProvider.family<List<CourseQuiz>, String>((
+  ref,
+  courseId,
+) {
+  return ref.watch(coursesRepositoryProvider).getCourseQuizzes(courseId);
+});
+
+/// Questões da prova como o aluno vê (sem gabarito).
+final quizQuestionsProvider = FutureProvider.family<List<QuizQuestion>, String>((
+  ref,
+  quizId,
+) {
+  return ref.watch(coursesRepositoryProvider).getQuizQuestions(quizId);
+});
+
+/// Minha melhor tentativa por prova do curso (aprovada primeiro, depois a
+/// maior nota).
+final myQuizAttemptsProvider =
+    FutureProvider.family<Map<String, QuizAttempt>, String>((
+      ref,
+      courseId,
+    ) async {
+      final quizzes = await ref.watch(courseQuizzesProvider(courseId).future);
+      final rows = await ref
+          .watch(coursesRepositoryProvider)
+          .getMyQuizAttempts([for (final q in quizzes) q.id]);
+      final best = <String, QuizAttempt>{};
+      for (final a in rows) {
+        final cur = best[a.quizId];
+        if (cur == null ||
+            (a.passed && !cur.passed) ||
+            (a.passed == cur.passed && a.score > cur.score)) {
+          best[a.quizId] = a;
+        }
+      }
+      return best;
+    });
+
+/// Questões com gabarito, para o editor (`courses.manage_lessons`).
+final quizAdminQuestionsProvider =
+    FutureProvider.family<List<QuizQuestion>, String>((ref, quizId) {
+      return ref.watch(coursesRepositoryProvider).getQuizAdminQuestions(quizId);
+    });
+
+/// Meu certificado do curso, se emitido.
+final myCertificateProvider =
+    FutureProvider.family<CourseCertificate?, String>((ref, courseId) {
+      return ref.watch(coursesRepositoryProvider).getMyCertificate(courseId);
+    });
+
+/// Validação pública de um certificado pelo código (anon).
+final certificateLookupProvider =
+    FutureProvider.family<CertificateInfo?, String>((ref, code) {
+      return ref.watch(coursesRepositoryProvider).lookupCertificate(code);
+    });
+
+final quizActionsProvider = Provider<QuizActions>((ref) => QuizActions(ref));
+
+class QuizActions {
+  final Ref _ref;
+
+  QuizActions(this._ref);
+
+  /// Responde a prova; invalida as tentativas do curso.
+  Future<QuizResult> submit(
+    String courseId,
+    String quizId,
+    Map<String, int> answers,
+  ) async {
+    final result = await _ref
+        .read(coursesRepositoryProvider)
+        .submitQuiz(quizId, answers);
+    _ref.invalidate(myQuizAttemptsProvider(courseId));
+    return result;
+  }
+
+  Future<String> save({
+    String? quizId,
+    required String courseId,
+    String? subjectId,
+    required String title,
+    required int passScore,
+    required List<QuizQuestion> questions,
+  }) async {
+    final id = await _ref
+        .read(coursesRepositoryProvider)
+        .saveQuiz(
+          quizId: quizId,
+          courseId: courseId,
+          subjectId: subjectId,
+          title: title,
+          passScore: passScore,
+          questions: questions,
+        );
+    _ref.invalidate(courseQuizzesProvider(courseId));
+    _ref.invalidate(quizQuestionsProvider(id));
+    _ref.invalidate(quizAdminQuestionsProvider(id));
+    return id;
+  }
+
+  Future<void> delete(String courseId, String quizId) async {
+    await _ref.read(coursesRepositoryProvider).deleteQuiz(quizId);
+    _ref.invalidate(courseQuizzesProvider(courseId));
+    _ref.invalidate(myQuizAttemptsProvider(courseId));
+  }
+
+  /// Emite o certificado e devolve o código.
+  Future<String> issueCertificate(String courseId) async {
+    final code = await _ref
+        .read(coursesRepositoryProvider)
+        .issueCertificate(courseId);
+    _ref.invalidate(myCertificateProvider(courseId));
+    return code;
   }
 }
 

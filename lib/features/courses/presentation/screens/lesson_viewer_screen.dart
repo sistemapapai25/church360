@@ -4,7 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/models/course_lesson.dart';
+import '../../domain/models/course_progress.dart';
 import '../providers/courses_provider.dart';
+import '../widgets/course_study_panel.dart';
+import '../widgets/course_subjects_section.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/media/inline_video.dart';
 
@@ -26,19 +29,50 @@ class LessonViewerScreen extends ConsumerStatefulWidget {
 class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
   bool _saving = false;
 
+  /// E3: o que está trancado, com o progresso dado (o `_complete` passa o
+  /// progresso já com a aula atual concluída para saber se a próxima abre).
+  CourseLocks _locks(
+    List<CourseModule> modules,
+    Map<String, LessonProgress> lessonProgress,
+  ) {
+    final course = ref.read(courseByIdProvider(widget.courseId)).valueOrNull;
+    return CourseStudyPanel.locksOf(
+      sequential: course?.sequential ?? false,
+      modules: modules,
+      quizzes:
+          ref.read(courseQuizzesProvider(widget.courseId)).valueOrNull ??
+          const [],
+      lessonProgress: lessonProgress,
+      attempts:
+          ref.read(myQuizAttemptsProvider(widget.courseId)).valueOrNull ??
+          const {},
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final lessonsAsync = ref.watch(courseLessonsProvider(widget.courseId));
     // E1: concluída ou não. Falha aqui não derruba a aula: vira "não".
-    final completed =
-        ref
-            .watch(lessonProgressMapProvider(widget.courseId))
-            .valueOrNull?[widget.lessonId]
-            ?.completed ??
+    final lessonProgress =
+        ref.watch(lessonProgressMapProvider(widget.courseId)).valueOrNull ??
+        const <String, LessonProgress>{};
+    final completed = lessonProgress[widget.lessonId]?.completed ?? false;
+    // E3: o cadeado depende do curso, das matérias, das provas e das
+    // tentativas; observar aqui para a tela reagir quando chegarem.
+    final sequential =
+        ref.watch(courseByIdProvider(widget.courseId)).valueOrNull?.sequential ??
         false;
+    final subjects =
+        ref.watch(courseSubjectsProvider(widget.courseId)).valueOrNull ??
+        const [];
+    ref.watch(courseQuizzesProvider(widget.courseId));
+    ref.watch(myQuizAttemptsProvider(widget.courseId));
 
     return lessonsAsync.when(
-      data: (lessons) {
+      data: (allLessons) {
+        // Ordem da tela do curso: por módulo, depois order_index.
+        final modules = CourseStudyPanel.modulesOf(allLessons, subjects);
+        final lessons = [for (final m in modules) ...m.lessons];
         final lessonIndex = lessons.indexWhere((l) => l.id == widget.lessonId);
         if (lessonIndex == -1) {
           return Scaffold(
@@ -49,6 +83,43 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
 
         final lesson = lessons[lessonIndex];
         final lessonNumber = lessonIndex + 1;
+
+        if (sequential &&
+            _locks(modules, lessonProgress).lessons.contains(lesson.id)) {
+          return Scaffold(
+            appBar: AppBar(title: Text(lesson.title)),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.lock_outline, size: 64, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Aula bloqueada',
+                      key: const ValueKey('lesson-locked'),
+                      style: CommunityDesign.titleStyle(context),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Neste curso as aulas abrem em sequência. Conclua a aula anterior (e a prova do módulo, se houver) para continuar.',
+                      textAlign: TextAlign.center,
+                      style: CommunityDesign.contentStyle(context),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: () => context.canPop()
+                          ? context.pop()
+                          : context.go('/courses/${widget.courseId}/view'),
+                      child: const Text('Voltar ao curso'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
 
         return Scaffold(
           backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
@@ -74,7 +145,13 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
                     _buildLessonInfo(lesson, lessonNumber),
 
                     // E1: "Concluir e avançar"
-                    _buildCompleteButton(lessons, lessonIndex, completed),
+                    _buildCompleteButton(
+                      lessons,
+                      lessonIndex,
+                      completed,
+                      modules,
+                      lessonProgress,
+                    ),
 
                     const Divider(height: 32),
 
@@ -203,8 +280,20 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
     List<CourseLesson> lessons,
     int index,
     bool completed,
+    List<CourseModule> modules,
+    Map<String, LessonProgress> lessonProgress,
   ) {
     final hasNext = index < lessons.length - 1;
+    // E3: a próxima aula pode estar atrás da prova do módulo.
+    final nextLocked =
+        hasNext &&
+        _locks(modules, {
+          ...lessonProgress,
+          lessons[index].id: LessonProgress(
+            lessonId: lessons[index].id,
+            completedAt: DateTime.now(),
+          ),
+        }).lessons.contains(lessons[index + 1].id);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -231,14 +320,22 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
               key: const ValueKey('lesson-complete'),
               onPressed: _saving
                   ? null
-                  : () => _complete(lessons, index, completed),
+                  : () => _complete(lessons, index, completed, nextLocked),
               icon: Icon(
                 completed ? Icons.arrow_forward_rounded : Icons.check_rounded,
               ),
               label: Text(
                 completed
-                    ? (hasNext ? 'Próxima aula' : 'Voltar ao curso')
-                    : (hasNext ? 'Concluir e avançar' : 'Concluir aula'),
+                    ? (hasNext && !nextLocked
+                          ? 'Próxima aula'
+                          : nextLocked
+                          ? 'Ir para a prova do módulo'
+                          : 'Voltar ao curso')
+                    : (hasNext && !nextLocked
+                          ? 'Concluir e avançar'
+                          : nextLocked
+                          ? 'Concluir e fazer a prova'
+                          : 'Concluir aula'),
               ),
             ),
           ),
@@ -251,8 +348,10 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
     List<CourseLesson> lessons,
     int index,
     bool already,
+    bool nextLocked,
   ) async {
-    final hasNext = index < lessons.length - 1;
+    // Próxima trancada atrás da prova: volta ao curso, onde a prova está.
+    final hasNext = index < lessons.length - 1 && !nextLocked;
     if (!already) {
       setState(() => _saving = true);
       try {
@@ -279,7 +378,13 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
     }
     if (!already) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Última aula concluída. Parabéns!')),
+        SnackBar(
+          content: Text(
+            nextLocked
+                ? 'Aula concluída. Agora faça a prova do módulo.'
+                : 'Última aula concluída. Parabéns!',
+          ),
+        ),
       );
     }
     if (context.canPop()) context.pop();

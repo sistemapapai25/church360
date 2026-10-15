@@ -3,6 +3,7 @@ import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/course.dart';
 import '../domain/models/course_lesson.dart';
 import '../domain/models/course_progress.dart';
+import '../domain/models/course_quiz.dart';
 import '../domain/models/course_subject.dart';
 import '../domain/models/course_turma.dart';
 
@@ -489,6 +490,127 @@ class CoursesRepository {
   /// posição (`InlineVideo`). "Continuar de onde parou" é por aula.
   Future<void> completeLesson(String lessonId) =>
       _supabase.rpc('lesson_complete', params: {'p_lesson_id': lessonId});
+
+  // ==================== PROVAS (E4) ====================
+
+  /// Provas do curso que a RLS deixa ver (módulo e final).
+  Future<List<CourseQuiz>> getCourseQuizzes(String courseId) async {
+    final response = await _supabase
+        .from('course_quiz')
+        .select('id, course_id, subject_id, title, pass_score')
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('course_id', courseId)
+        .order('created_at');
+    return (response as List)
+        .map((json) => CourseQuiz.fromJson(Map<String, dynamic>.from(json)))
+        .toList();
+  }
+
+  /// Questões como o aluno vê: sem `correct_index` (o grant é por coluna;
+  /// pedir a coluna dá 42501).
+  Future<List<QuizQuestion>> getQuizQuestions(String quizId) async {
+    final response = await _supabase
+        .from('course_quiz_question')
+        .select('id, order_index, text, options, explanation')
+        .eq('quiz_id', quizId)
+        .order('order_index');
+    return (response as List)
+        .map((json) => QuizQuestion.fromJson(Map<String, dynamic>.from(json)))
+        .toList();
+  }
+
+  /// Minhas tentativas nas provas do curso (RLS own), mais recentes primeiro.
+  Future<List<QuizAttempt>> getMyQuizAttempts(List<String> quizIds) async {
+    if (quizIds.isEmpty) return const [];
+    final response = await _supabase
+        .from('course_quiz_attempt')
+        .select('id, quiz_id, score, passed, created_at')
+        .inFilter('quiz_id', quizIds)
+        .order('created_at', ascending: false);
+    return (response as List)
+        .map((json) => QuizAttempt.fromJson(Map<String, dynamic>.from(json)))
+        .toList();
+  }
+
+  /// Envia as respostas (`{question_id: índice}`); a nota vem do servidor.
+  Future<QuizResult> submitQuiz(String quizId, Map<String, int> answers) async {
+    final result = await _supabase.rpc(
+      'quiz_submit',
+      params: {'p_quiz_id': quizId, 'p_answers': answers},
+    );
+    return QuizResult.fromJson(Map<String, dynamic>.from(result as Map));
+  }
+
+  /// Questões com gabarito, só para `courses.manage_lessons`.
+  Future<List<QuizQuestion>> getQuizAdminQuestions(String quizId) async {
+    final result = await _supabase.rpc(
+      'quiz_admin_questions',
+      params: {'p_quiz_id': quizId},
+    );
+    return (result as List)
+        .map((json) => QuizQuestion.fromJson(Map<String, dynamic>.from(json)))
+        .toList();
+  }
+
+  /// Cria ([quizId] nulo) ou regrava a prova inteira. Devolve o id.
+  Future<String> saveQuiz({
+    String? quizId,
+    required String courseId,
+    String? subjectId,
+    required String title,
+    required int passScore,
+    required List<QuizQuestion> questions,
+  }) async {
+    final result = await _supabase.rpc(
+      'quiz_save',
+      params: {
+        'p_course_id': courseId,
+        'p_subject_id': subjectId,
+        'p_title': title,
+        'p_pass_score': passScore,
+        'p_questions': [for (final q in questions) q.toSaveJson()],
+        'p_quiz_id': quizId,
+      },
+    );
+    return result as String;
+  }
+
+  Future<void> deleteQuiz(String quizId) =>
+      _supabase.rpc('quiz_delete', params: {'p_quiz_id': quizId});
+
+  // ==================== CERTIFICADO (E5) ====================
+
+  /// Meu certificado do curso, se já emitido (RLS own).
+  Future<CourseCertificate?> getMyCertificate(String courseId) async {
+    final response = await _supabase
+        .from('course_certificate')
+        .select('code, course_id, issued_at')
+        .eq('course_id', courseId)
+        .maybeSingle();
+    if (response == null) return null;
+    return CourseCertificate.fromJson(Map<String, dynamic>.from(response));
+  }
+
+  /// Emite (ou devolve) o certificado. `CURSO_INCOMPLETO` quando falta aula
+  /// ou prova.
+  Future<String> issueCertificate(String courseId) async {
+    final result = await _supabase.rpc(
+      'certificate_issue',
+      params: {'p_course_id': courseId},
+    );
+    return result as String;
+  }
+
+  /// Validação pública pelo código (anon). Nulo = código desconhecido.
+  Future<CertificateInfo?> lookupCertificate(String code) async {
+    final result = await _supabase.rpc(
+      'certificate_lookup',
+      params: {'p_code': code},
+    );
+    final rows = result as List;
+    if (rows.isEmpty) return null;
+    return CertificateInfo.fromJson(Map<String, dynamic>.from(rows.first));
+  }
 
   // ==================== MATÉRIAS (course_subject) ====================
 

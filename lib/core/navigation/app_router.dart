@@ -100,6 +100,9 @@ import '../../features/courses/presentation/turma/professor_aula.dart';
 import '../../features/courses/presentation/turma/turma_mode.dart';
 import '../../features/courses/presentation/legacy_study_group_redirect.dart';
 import '../../features/courses/presentation/screens/lesson_viewer_screen.dart';
+import '../../features/courses/presentation/screens/quiz_screen.dart';
+import '../../features/courses/presentation/screens/course_quizzes_screen.dart';
+import '../../features/courses/presentation/screens/certificate_screen.dart';
 import '../../features/church_info/presentation/screens/church_info_screen.dart';
 import '../../features/church_info/presentation/screens/church_info_form_screen.dart';
 import '../../features/news/presentation/screens/news_screen.dart';
@@ -334,6 +337,11 @@ final appRouter = GoRouter(
         state.matchedLocation.startsWith('/study-groups/') &&
         !state.matchedLocation.endsWith('/edit') &&
         !state.matchedLocation.endsWith('/new');
+    // Validação pública do certificado (E5): quem recebe o PDF confere o
+    // código sem conta. A garantia é `certificate_lookup` (SECURITY
+    // DEFINER, anon), que só devolve nome, curso, igreja e data.
+    final isPublicCertificate =
+        state.matchedLocation.startsWith('/certificado/');
 
     // Se está na splash, deixa passar
     if (isSplash) {
@@ -350,7 +358,8 @@ final appRouter = GoRouter(
         !isPublicBaptismRegister &&
         !isPublicRaizesRegister &&
         !isPublicGroupDetail &&
-        !isPublicStudyGroupDetail) {
+        !isPublicStudyGroupDetail &&
+        !isPublicCertificate) {
       // D-04: o destino não pode se perder no desvio para o login. É
       // `state.uri` e NUNCA `state.matchedLocation` — matchedLocation descarta
       // a query string, e destinos reais como
@@ -1621,6 +1630,48 @@ final appRouter = GoRouter(
         final lessonId = state.pathParameters['lessonId']!;
         return LessonViewerScreen(courseId: courseId, lessonId: lessonId);
       },
+    ),
+
+    // Prova do módulo (E4), para o aluno. Sem guard: a RLS de course_quiz
+    // e a RPC quiz_submit decidem quem enxerga e responde.
+    GoRoute(
+      path: '/courses/:courseId/quiz/:quizId',
+      builder: (context, state) => QuizScreen(
+        courseId: state.pathParameters['courseId']!,
+        quizId: state.pathParameters['quizId']!,
+      ),
+    ),
+
+    // Provas do curso (gestão)
+    GoRoute(
+      path: '/courses/:id/quizzes',
+      builder: (context, state) => PermissionOnlyRoute(
+        permission: 'courses.manage_lessons',
+        child: CourseQuizzesScreen(courseId: state.pathParameters['id']!),
+      ),
+    ),
+
+    // Criar/editar prova (gestão). `new` cria.
+    GoRoute(
+      path: '/courses/:courseId/quizzes/:quizId/edit',
+      builder: (context, state) {
+        final quizId = state.pathParameters['quizId']!;
+        return PermissionOnlyRoute(
+          permission: 'courses.manage_lessons',
+          child: CourseQuizFormScreen(
+            courseId: state.pathParameters['courseId']!,
+            quizId: quizId == 'new' ? null : quizId,
+          ),
+        );
+      },
+    ),
+
+    // Pública de propósito (ver as exceções do redirect): validação do
+    // certificado pelo código (E5).
+    GoRoute(
+      path: '/certificado/:code',
+      builder: (context, state) =>
+          CertificateScreen(code: state.pathParameters['code']!),
     ),
 
     // =====================================================
