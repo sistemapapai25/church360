@@ -14,6 +14,7 @@ import '../../../../core/layout/breakpoints.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../support_materials/domain/models/support_material_link.dart';
 import '../../../support_materials/presentation/widgets/linked_materials.dart';
+import '../widgets/course_purchase_card.dart';
 import '../widgets/course_study_panel.dart';
 
 /// Tela de visualização de curso (para alunos)
@@ -217,6 +218,8 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
                   context.push('/courses/${course.id}/lessons');
                 } else if (value == 'quizzes') {
                   context.push('/courses/${course.id}/quizzes');
+                } else if (value == 'purchases') {
+                  context.push('/courses/${course.id}/purchases');
                 }
               },
               itemBuilder: (context) => [
@@ -250,6 +253,18 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
                         Icon(Icons.quiz_outlined, size: 20),
                         SizedBox(width: 8),
                         Text('Provas'),
+                      ],
+                    ),
+                  ),
+                // E6: só no curso pago.
+                if (showLessons && course.isPaid)
+                  const PopupMenuItem(
+                    value: 'purchases',
+                    child: Row(
+                      children: [
+                        Icon(Icons.receipt_long, size: 20),
+                        SizedBox(width: 8),
+                        Text('Comprovantes PIX'),
                       ],
                     ),
                   ),
@@ -415,58 +430,10 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
                 ),
           ],
 
-          // Informações de Pagamento
+          // Curso pago (E6): valor, PIX e envio do comprovante.
           if (course.isPaid) ...[
             const SizedBox(height: 16),
-            Container(
-              decoration: CommunityDesign.overlayDecoration(Theme.of(context).colorScheme),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.payment, color: Colors.orange),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Curso Pago',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (course.price != null)
-                      Text(
-                        'Valor: R\$ ${course.price!.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    if (course.paymentInfo != null && course.paymentInfo!.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Informações de Pagamento:',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        course.paymentInfo!,
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
+            CoursePurchaseCard(course: course),
           ],
         ],
       ),

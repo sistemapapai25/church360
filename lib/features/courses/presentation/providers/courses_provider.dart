@@ -5,6 +5,7 @@ import '../../data/courses_repository.dart';
 import '../../domain/models/course.dart';
 import '../../domain/models/course_lesson.dart';
 import '../../domain/models/course_progress.dart';
+import '../../domain/models/course_purchase.dart';
 import '../../domain/models/course_quiz.dart';
 import '../../domain/models/course_turma.dart';
 
@@ -417,5 +418,64 @@ class CourseLessonsActions {
     _ref.invalidate(courseLessonsProvider(courseId));
     _ref.invalidate(courseLessonsCountProvider(courseId));
     return n;
+  }
+}
+
+// ==================== VENDA POR PIX (E6) ====================
+
+/// Minha compra mais recente do curso (nula = nunca comprei).
+final myCoursePurchaseProvider =
+    FutureProvider.family<CoursePurchase?, String>((ref, courseId) {
+      return ref.watch(coursesRepositoryProvider).getMyPurchase(courseId);
+    });
+
+/// Fila do revisor: compras do curso, pendentes primeiro.
+final coursePurchasesProvider =
+    FutureProvider.family<List<CoursePurchase>, String>((ref, courseId) {
+      return ref.watch(coursesRepositoryProvider).getCoursePurchases(courseId);
+    });
+
+final coursePurchaseActionsProvider = Provider<CoursePurchaseActions>(
+  (ref) => CoursePurchaseActions(ref),
+);
+
+class CoursePurchaseActions {
+  final Ref _ref;
+
+  CoursePurchaseActions(this._ref);
+
+  /// Sobe o comprovante e registra a compra.
+  Future<void> buy({
+    required String courseId,
+    required List<int> bytes,
+    required String fileName,
+  }) async {
+    final repo = _ref.read(coursesRepositoryProvider);
+    final ext = fileName.contains('.') ? fileName.split('.').last : 'jpg';
+    final path = await repo.uploadReceipt(
+      courseId: courseId,
+      bytes: bytes,
+      extension: ext,
+    );
+    await repo.createPurchase(
+      courseId: courseId,
+      receiptPath: path,
+      receiptName: fileName,
+    );
+    _ref.invalidate(myCoursePurchaseProvider(courseId));
+  }
+
+  /// Aprova ou recusa; aprovar pode criar a turma padrão do curso.
+  Future<void> review(
+    String courseId,
+    String purchaseId, {
+    required bool ok,
+    String? notes,
+  }) async {
+    await _ref
+        .read(coursesRepositoryProvider)
+        .reviewPurchase(purchaseId, ok: ok, notes: notes);
+    _ref.invalidate(coursePurchasesProvider(courseId));
+    _ref.invalidate(courseStudyGroupsProvider(courseId));
   }
 }

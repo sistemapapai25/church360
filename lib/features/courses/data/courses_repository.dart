@@ -1,8 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/course.dart';
 import '../domain/models/course_lesson.dart';
 import '../domain/models/course_progress.dart';
+import '../domain/models/course_purchase.dart';
 import '../domain/models/course_quiz.dart';
 import '../domain/models/course_subject.dart';
 import '../domain/models/course_turma.dart';
@@ -622,6 +625,97 @@ class CoursesRepository {
     if (rows.isEmpty) return null;
     return CertificateInfo.fromJson(Map<String, dynamic>.from(rows.first));
   }
+
+  // ==================== VENDA POR PIX (E6) ====================
+
+  static const receiptsBucket = 'course-receipts';
+
+  /// Minha compra mais recente do curso (RLS own). Nula = nunca comprei.
+  Future<CoursePurchase?> getMyPurchase(String courseId) async {
+    final uid = _supabase.auth.currentUser?.id;
+    if (uid == null) return null;
+    final response = await _supabase
+        .from('course_purchase')
+        .select()
+        .eq('course_id', courseId)
+        .eq('user_id', uid)
+        .order('created_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
+    if (response == null) return null;
+    return CoursePurchase.fromJson(Map<String, dynamic>.from(response));
+  }
+
+  /// Fila do revisor (`courses.manage_lessons`): pendentes primeiro.
+  Future<List<CoursePurchase>> getCoursePurchases(String courseId) async {
+    final result = await _supabase.rpc(
+      'course_purchases',
+      params: {'p_course_id': courseId},
+    );
+    return (result as List)
+        .map((json) => CoursePurchase.fromJson(Map<String, dynamic>.from(json)))
+        .toList();
+  }
+
+  /// Sobe o comprovante para o prefixo do próprio usuário
+  /// (`{tenant}/{uid}/{courseId}/{timestamp}.{ext}`) e devolve o caminho.
+  Future<String> uploadReceipt({
+    required String courseId,
+    required List<int> bytes,
+    required String extension,
+  }) async {
+    final uid = _supabase.auth.currentUser?.id;
+    if (uid == null) throw Exception('Usuário não autenticado');
+    final ext = extension.toLowerCase();
+    final path =
+        '${SupabaseConstants.currentTenantId}/$uid/$courseId/'
+        '${DateTime.now().millisecondsSinceEpoch}.$ext';
+    await _supabase.storage
+        .from(receiptsBucket)
+        .uploadBinary(
+          path,
+          Uint8List.fromList(bytes),
+          fileOptions: FileOptions(contentType: _receiptContentType(ext)),
+        );
+    return path;
+  }
+
+  static String _receiptContentType(String ext) => switch (ext) {
+    'pdf' => 'application/pdf',
+    'png' => 'image/png',
+    'webp' => 'image/webp',
+    _ => 'image/jpeg',
+  };
+
+  /// Registra a compra com o comprovante já no bucket. Devolve o id
+  /// (o mesmo, se já havia uma pendente). `JA_APROVADO` quando já pagou.
+  Future<String> createPurchase({
+    required String courseId,
+    required String receiptPath,
+    String? receiptName,
+  }) async {
+    final result = await _supabase.rpc(
+      'course_purchase_create',
+      params: {
+        'p_course_id': courseId,
+        'p_receipt_path': receiptPath,
+        'p_receipt_name': receiptName,
+      },
+    );
+    return result as String;
+  }
+
+  /// Aprova (matricula na turma padrão) ou recusa com motivo.
+  Future<void> reviewPurchase(String id, {required bool ok, String? notes}) =>
+      _supabase.rpc(
+        'course_purchase_review',
+        params: {'p_id': id, 'p_ok': ok, 'p_notes': notes},
+      );
+
+  /// Link temporário (10 min) do comprovante; a policy do bucket decide
+  /// quem consegue.
+  Future<String> receiptUrl(String path) =>
+      _supabase.storage.from(receiptsBucket).createSignedUrl(path, 600);
 
   // ==================== MATÉRIAS (course_subject) ====================
 
