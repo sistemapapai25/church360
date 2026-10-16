@@ -14,6 +14,7 @@ import '../../features/support_materials/presentation/screens/support_materials_
 import '../domain/models/management_menu.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/management_menu_row.dart';
+import 'leader_panel_screen.dart';
 
 // Frente G (roadmap 14/10, pedido de 16/10): as telas que a barra de baixo
 // da Dashboard abre por cima dos cards — Pessoas, Ministérios e o perfil da
@@ -130,6 +131,7 @@ class ChurchProfileScreen extends ConsumerWidget {
           ref.invalidate(activeMembersCountProvider);
           ref.invalidate(activeMinistriesProvider);
           ref.invalidate(myNetworkUnitsProvider);
+          ref.invalidate(leaderPanelProvider);
         },
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -183,6 +185,8 @@ class ChurchProfileScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 16),
+            // G5: cartão "Seu painel" (some para quem não é pastor/líder).
+            const LeaderPanelCard(),
             // F1: "Primeiros passos" no lugar do "Complete seu perfil".
             const OnboardingDashboardCard(),
           ],
