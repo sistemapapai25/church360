@@ -90,6 +90,7 @@ dependencies:
   wakelock_plus: ^1.5.2
   flutter_tts: ^4.2.5
   geolocator: ^14.0.2
+  flutter_card_swiper: 7.2.0
 
 dev_dependencies:
   flutter_test:

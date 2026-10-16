@@ -8,7 +8,9 @@ import '../../../../../core/design/community_design.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/widgets/glass_card.dart';
 import '../../../../worship/domain/models/worship_service.dart';
+import '../../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../worship/presentation/providers/worship_provider.dart';
+import '../../../../worship/presentation/screens/geo_checkin_review_screen.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../../domain/models/worship_attendance.dart';
 import '../providers/diaconato_attendance_providers.dart';
@@ -179,6 +181,22 @@ class _DiaconatoChecklistContentState
     });
   }
 
+  /// Conferência em cartas dos check-ins pelo GPS. Quem o diácono recusou
+  /// sai da lista; o resto do que ele já marcou aqui fica como está.
+  Future<void> _reviewInCards() async {
+    final rejected = await GeoCheckinReviewScreen.open(
+      context,
+      widget.worshipServiceId,
+    );
+    if (rejected == null || rejected.isEmpty || !mounted) return;
+    setState(() {
+      _presentMemberIds.removeAll(rejected);
+      _presentVisitorIds.removeAll(rejected);
+      _fromCheckin.removeAll(rejected);
+      _dirty = true;
+    });
+  }
+
   int get _totalMarked =>
       _presentMemberIds.length +
       _presentVisitorIds.length +
@@ -332,6 +350,14 @@ class _DiaconatoChecklistContentState
                 presentMembers: _presentMemberIds.length,
                 presentVisitors: _presentVisitorIds.length,
                 unregistered: _unregisteredVisitors,
+              ),
+              _GeoReviewBanner(
+                pending: ref
+                        .watch(worshipAttendanceProvider(widget.worshipServiceId))
+                        .whenData((all) => pendingGeoCheckins(all).length)
+                        .value ??
+                    0,
+                onTap: _reviewInCards,
               ),
               const SizedBox(height: 20),
               _SectionHeader(
@@ -572,6 +598,37 @@ class _StatChip extends StatelessWidget {
             style: CommunityDesign.metaStyle(context).copyWith(fontSize: 11),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// "Conferir N check-ins pelo GPS" (só para quem pode validar).
+class _GeoReviewBanner extends StatelessWidget {
+  final int pending;
+  final VoidCallback onTap;
+
+  const _GeoReviewBanner({required this.pending, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    if (pending == 0) return const SizedBox.shrink();
+    return PermissionGate(
+      permission: 'worship.attendance',
+      showLoading: false,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: FilledButton.icon(
+          onPressed: onTap,
+          icon: const Icon(Icons.style_rounded),
+          label: Text(
+            'Conferir $pending check-in${pending == 1 ? '' : 's'} pelo GPS',
+          ),
+          style: FilledButton.styleFrom(
+            shape: const StadiumBorder(),
+            minimumSize: const Size.fromHeight(48),
+          ),
+        ),
       ),
     );
   }

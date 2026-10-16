@@ -75,7 +75,8 @@ class WorshipRepository {
           *,
           user_account:user_id (
             first_name,
-            last_name
+            last_name,
+            photo_url
           )
         ''')
         .eq('tenant_id', SupabaseConstants.currentTenantId)
@@ -91,6 +92,7 @@ class WorshipRepository {
       return WorshipAttendance.fromJson({
         ...json,
         'member_name': memberName,
+        'member_photo_url': member?['photo_url'],
       });
     }).toList();
   }

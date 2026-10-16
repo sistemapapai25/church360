@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/app_tabs.dart';
 import '../providers/worship_provider.dart';
+import 'geo_checkin_review_screen.dart';
 import '../../domain/models/worship_service.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../members/domain/models/member.dart';
@@ -350,13 +351,57 @@ class _PhoneCheckinsTab extends StatelessWidget {
         ),
       );
     }
+    final pending = pendingGeoCheckins(attendances).length;
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: attendances.length,
-      itemBuilder: (context, i) => _PhoneCheckinTile(
-        attendance: attendances[i],
-        worshipServiceId: worshipServiceId,
-        onChanged: onChanged,
+      itemCount: attendances.length + 1,
+      itemBuilder: (context, i) => i == 0
+          ? _ReviewInCardsButton(
+              pending: pending,
+              worshipServiceId: worshipServiceId,
+              onChanged: onChanged,
+            )
+          : _PhoneCheckinTile(
+              attendance: attendances[i - 1],
+              worshipServiceId: worshipServiceId,
+              onChanged: onChanged,
+            ),
+    );
+  }
+}
+
+/// Abre a conferência em cartas (some quando não há o que conferir).
+class _ReviewInCardsButton extends StatelessWidget {
+  final int pending;
+  final String worshipServiceId;
+  final VoidCallback onChanged;
+
+  const _ReviewInCardsButton({
+    required this.pending,
+    required this.worshipServiceId,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (pending == 0) return const SizedBox.shrink();
+    return PermissionGate(
+      permission: 'worship.attendance',
+      showLoading: false,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: FilledButton.icon(
+          onPressed: () async {
+            final saved = await GeoCheckinReviewScreen.open(context, worshipServiceId);
+            if (saved != null) onChanged();
+          },
+          icon: const Icon(Icons.style_rounded),
+          label: Text('Conferir em cartas ($pending)'),
+          style: FilledButton.styleFrom(
+            shape: const StadiumBorder(),
+            minimumSize: const Size.fromHeight(48),
+          ),
+        ),
       ),
     );
   }
