@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/kids_repository.dart';
 import '../../domain/models/kids_guardian.dart';
 import '../../domain/models/kids_token.dart';
+import '../../domain/models/kids_child_profile.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 
 /// Provider do repositório Kids
@@ -25,6 +26,24 @@ final managedChildrenProvider =
 final kidsGuardiansProvider = FutureProvider.family<List<KidsAuthorizedGuardian>, String>((ref, childId) async {
   final repository = ref.watch(kidsRepositoryProvider);
   return repository.getGuardians(childId);
+});
+
+/// Ficha da criança (saúde, comportamento, imagem)
+final kidsChildProfileProvider =
+    FutureProvider.autoDispose.family<KidsChildProfile?, String>((ref, childId) {
+  return ref.watch(kidsRepositoryProvider).getChildProfile(childId);
+});
+
+/// Fichas da igreja por criança (selos na lista da equipe)
+final kidsChildProfilesProvider =
+    FutureProvider.autoDispose<Map<String, KidsChildProfile>>((ref) {
+  return ref.watch(kidsRepositoryProvider).getChildProfiles();
+});
+
+/// O usuário é pai/mãe/tutor da criança?
+final kidsIsParentProvider =
+    FutureProvider.autoDispose.family<bool, String>((ref, childId) {
+  return ref.watch(kidsRepositoryProvider).isParentOf(childId);
 });
 
 /// Provider para gerar token de check-in (QR Code)

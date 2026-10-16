@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import '../../domain/models/kids_child_profile.dart';
+import '../providers/kids_providers.dart';
 
 /// Painel Administrativo do Módulo Kids
 /// Permite gerenciar todas as crianças da igreja, seus vínculos e check-in.
@@ -74,6 +76,11 @@ class _KidsAdminDashboardScreenState extends ConsumerState<KidsAdminDashboardScr
   Widget _buildChildrenTab() {
     // Busca todos os membros
     final allMembersAsync = ref.watch(allMembersProvider);
+    // Selos de alerta (K2): alergia/intolerância e "sem foto". Se a ficha
+    // não carregar, a lista aparece sem selo.
+    final profiles = ref
+        .watch(kidsChildProfilesProvider)
+        .maybeWhen(data: (v) => v, orElse: () => const <String, KidsChildProfile>{});
 
     return Column(
       children: [
@@ -124,6 +131,7 @@ class _KidsAdminDashboardScreenState extends ConsumerState<KidsAdminDashboardScr
                 itemCount: children.length,
                 itemBuilder: (context, index) {
                   final child = children[index];
+                  final profile = profiles[child.id];
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: ListTile(
@@ -132,8 +140,22 @@ class _KidsAdminDashboardScreenState extends ConsumerState<KidsAdminDashboardScr
                         child: child.photoUrl == null ? Text(child.initials) : null,
                       ),
                       title: Text(child.displayName),
-                      subtitle: Text(
-                        '${child.age ?? "?"} anos • Família: ${child.householdId != null ? "Vinculada" : "Sem vínculo"}',
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${child.age ?? "?"} anos • Família: ${child.householdId != null ? "Vinculada" : "Sem vínculo"}',
+                          ),
+                          Wrap(
+                            spacing: 6,
+                            children: [
+                              if (profile?.hasFoodAlert ?? false)
+                                _alertChip(context, Icons.warning_amber_rounded, 'Alergia'),
+                              if (!(profile?.imageConsent ?? false))
+                                _alertChip(context, Icons.no_photography, 'Sem foto'),
+                            ],
+                          ),
+                        ],
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -176,6 +198,17 @@ class _KidsAdminDashboardScreenState extends ConsumerState<KidsAdminDashboardScr
           ),
         ),
       ],
+    );
+  }
+
+  Widget _alertChip(BuildContext context, IconData icon, String label) {
+    final error = Theme.of(context).colorScheme.error;
+    return Chip(
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      avatar: Icon(icon, size: 16, color: error),
+      label: Text(label, style: TextStyle(color: error, fontSize: 12)),
+      side: BorderSide(color: error.withValues(alpha: 0.4)),
     );
   }
 }
