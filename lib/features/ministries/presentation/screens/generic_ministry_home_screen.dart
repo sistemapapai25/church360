@@ -5,6 +5,9 @@ import 'package:intl/intl.dart';
 import '../../shared/presentation/providers/ministry_finance_providers.dart';
 import '../../shared/domain/ministry_type_catalog.dart';
 import '../../shared/presentation/providers/ministry_type_catalog_providers.dart';
+import '../../../kids/presentation/providers/kids_providers.dart';
+import '../../../kids/presentation/widgets/kids_report_card.dart';
+import '../../shared/presentation/widgets/ministry_reports_tab.dart';
 import '../../shared/presentation/widgets/ministry_standard_slots.dart';
 import '../../shared/presentation/widgets/ministry_submodule_guard.dart';
 import '../../shared/presentation/widgets/ministry_workspace_shell.dart';
@@ -107,7 +110,20 @@ class _GenericWorkspace extends ConsumerWidget {
       tabs: ministryTabsFromCatalog(
         catalog: ref.watch(ministryTypeCatalogSyncProvider),
         typeCode: typeCode,
-        slots: ministryStandardSlots(ministryId, teamCount: teamCount),
+        slots: {
+          ...ministryStandardSlots(ministryId, teamCount: teamCount),
+          // Infantil: a presença das crianças (check-in do Balcão) no topo
+          // dos Relatórios (K8).
+          if (typeCode == 'infantil')
+            MinistryTabKeys.relatorios: MinistryTabSlot(
+              defaultLabel: 'Relatórios',
+              builder: (_) => MinistryReportsTab(
+                ministryId: ministryId,
+                leading: const [KidsReportCard()],
+                onRefresh: () => ref.invalidate(kidsReportProvider),
+              ),
+            ),
+        },
       ),
     );
   }

@@ -449,6 +449,12 @@ class KidsRepository {
     return KidsCallResult.fromJson(Map<String, dynamic>.from(result as Map));
   }
 
+  /// Relatório do Infantil (K8): últimos [days] dias de check-in.
+  Future<Map<String, dynamic>> getReport({int days = 90}) async {
+    final result = await _supabase.rpc('kids_report', params: {'p_days': days});
+    return Map<String, dynamic>.from(result as Map);
+  }
+
   // ==========================================
   // SALAS
   // ==========================================
