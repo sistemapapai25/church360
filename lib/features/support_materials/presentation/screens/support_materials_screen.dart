@@ -11,14 +11,33 @@ class SupportMaterialsScreen extends ConsumerWidget {
   /// Aberta pela Dashboard: só então aparecem as ações de gestão.
   final bool fromDashboard;
 
-  const SupportMaterialsScreen({super.key, this.fromDashboard = false});
+  /// Dentro de uma aba da Dashboard (G3): sem a barra de título própria; o
+  /// "Novo Material" vira botão flutuante.
+  final bool embedded;
+
+  const SupportMaterialsScreen({
+    super.key,
+    this.fromDashboard = false,
+    this.embedded = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final materialsAsync = ref.watch(allMaterialsProvider);
 
     final page = Scaffold(
-      appBar: AppBar(
+      floatingActionButton: embedded
+          ? PermissionGate(
+              permission: 'support_materials.create',
+              showLoading: false,
+              child: FloatingActionButton.extended(
+                onPressed: () => context.push('/support-materials/new'),
+                icon: const Icon(Icons.add),
+                label: const Text('Novo material'),
+              ),
+            )
+          : null,
+      appBar: embedded ? null : AppBar(
         title: const Text('Material de Apoio'),
         actions: [
           PermissionGate(
@@ -72,7 +91,7 @@ class SupportMaterialsScreen extends ConsumerWidget {
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, embedded ? 88 : 16),
             itemCount: materials.length,
             itemBuilder: (context, index) {
               final material = materials[index];

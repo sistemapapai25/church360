@@ -53,6 +53,11 @@ abstract final class MinistryTabKeys {
   // conteúdo a quem tem ministry_assist.view/.manage.
   static const assistencia = 'assistencia';
 
+  // Grupos de Comunhão (G3, 16/10): a lista de grupos da igreja. Só o tipo
+  // 'comunhao' a liga; fora de MinistryTabKeys.standard de propósito, para
+  // não oferecer a lista de grupos na engrenagem de todo ministério.
+  static const grupos = 'grupos';
+
   // Ausentes do culto com pendência (005200). Não está no catálogo: a aba
   // aparece sozinha no shell enquanto houver pendência.
   static const acompanhar = 'acompanhar';
@@ -379,6 +384,20 @@ class MinistryTypeCatalog {
       ],
       offeredOnCreate: true,
       sortOrder: 50,
+    ),
+    MinistryTypeSpec(
+      code: 'comunhao',
+      label: 'Grupos de Comunhão',
+      description: 'Os grupos da igreja, com líderes, reuniões e materiais.',
+      tabs: [
+        MinistryTypeTab(MinistryTabKeys.grupos, 'Grupos'),
+        MinistryTypeTab(MinistryTabKeys.equipe, 'Equipe'),
+        MinistryTypeTab(MinistryTabKeys.materiais, 'Materiais'),
+        MinistryTypeTab(MinistryTabKeys.whatsapp, 'WhatsApp'),
+        MinistryTypeTab(MinistryTabKeys.relatorios, 'Relatórios'),
+      ],
+      offeredOnCreate: true,
+      sortOrder: 60,
     ),
   ]);
 }

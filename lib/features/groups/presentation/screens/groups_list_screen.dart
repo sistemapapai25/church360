@@ -17,7 +17,15 @@ class GroupsListScreen extends ConsumerStatefulWidget {
   /// Aberta pela Dashboard: só então aparecem as ações de gestão.
   final bool fromDashboard;
 
-  const GroupsListScreen({super.key, this.fromDashboard = false});
+  /// Aba "Grupos" do ministério Grupos de Comunhão (G3): sem barra de título
+  /// e com a gestão ligada (cada ação ainda exige a sua permissão).
+  final bool embedded;
+
+  const GroupsListScreen({
+    super.key,
+    this.fromDashboard = false,
+    this.embedded = false,
+  });
 
   @override
   ConsumerState<GroupsListScreen> createState() => _GroupsListScreenState();
@@ -34,7 +42,7 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
 
     final page = Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
-      appBar: AppBar(
+      appBar: widget.embedded ? null : AppBar(
         backgroundColor: CommunityDesign.headerColor(context),
         title: Text('Grupos', style: CommunityDesign.titleStyle(context)),
         iconTheme: IconThemeData(
@@ -133,7 +141,10 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
         ),
       ),
     );
-    return ViewOnlyScope(enabled: !widget.fromDashboard, child: page);
+    return ViewOnlyScope(
+      enabled: !widget.fromDashboard && !widget.embedded,
+      child: page,
+    );
   }
 }
 

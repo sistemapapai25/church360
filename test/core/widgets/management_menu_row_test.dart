@@ -1,29 +1,32 @@
-// B5a (roadmap Home/culto/Dashboard, 14/10/2026): a fileira de bolinhas da
-// Dashboard mostra só as categorias com alguma permissão; o bottom sheet
-// mostra só os itens permitidos; sem nenhuma permissão a fileira some.
+// Frente G (roadmap Home/culto/Dashboard, 16/10/2026): cada seção do Menu de
+// Gestão mostra só os itens permitidos e some sem nenhuma permissão;
+// "Vincular pessoas" ganha a bolinha com os cadastros esperando vínculo.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:church360_app/core/domain/models/management_menu.dart';
 import 'package:church360_app/core/widgets/management_menu_row.dart';
 import 'package:church360_app/features/branches/presentation/providers/branches_provider.dart';
 import 'package:church360_app/features/permissions/providers/permissions_providers.dart';
 
-Widget _app(Set<String> granted, {void Function(String route)? onNavigate}) {
+Widget _app(
+  Set<String> granted, {
+  int pending = 0,
+  void Function(String route)? onNavigate,
+}) {
   return ProviderScope(
     overrides: [
       currentUserHasPermissionProvider.overrideWith(
         (ref, code) async => granted.contains(code),
       ),
-      currentUserIsOwnerProvider.overrideWith((ref) async => false),
       isMatrizAdminProvider.overrideWith((ref) async => false),
-      currentUserSeesConfigCategoryExtrasProvider.overrideWith(
-        (ref) async => false,
-      ),
+      pendingLinkCountProvider.overrideWith((ref) async => pending),
     ],
     child: MaterialApp(
       home: Scaffold(
-        body: ManagementMenuRow(
+        body: ManagementMenuSection(
+          category: kPeopleMenu,
           onNavigate: onNavigate == null ? null : (_, r) => onNavigate(r),
         ),
       ),
@@ -32,15 +35,15 @@ Widget _app(Set<String> granted, {void Function(String route)? onNavigate}) {
 }
 
 void main() {
-  testWidgets('sem permissão nenhuma a fileira some', (tester) async {
+  testWidgets('sem permissão nenhuma a seção some', (tester) async {
     await tester.pumpWidget(_app(const {}));
     await tester.pumpAndSettle();
 
-    expect(find.byType(CircleAvatar), findsNothing);
+    expect(find.byType(ListTile), findsNothing);
     expect(find.text('Pessoas'), findsNothing);
   });
 
-  testWidgets('só members.view: só a bolinha Pessoas, só o item Membros', (
+  testWidgets('só members.view: só o item Membros, e ele navega', (
     tester,
   ) async {
     String? aberto;
@@ -49,22 +52,22 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(CircleAvatar), findsOneWidget);
-    expect(find.text('Pessoas'), findsOneWidget);
-    expect(find.text('Agenda'), findsNothing);
-    expect(find.text('Configurações'), findsNothing);
-
-    await tester.tap(find.text('Pessoas'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Membros'), findsOneWidget);
+    expect(find.byType(ListTile), findsOneWidget);
     expect(find.text('Visitantes'), findsNothing);
-    expect(find.text('Tags'), findsNothing);
+    expect(find.text('Vincular pessoas'), findsNothing);
 
     await tester.tap(find.text('Membros'));
+    expect(aberto, '/members');
+  });
+
+  testWidgets('Vincular pessoas mostra a contagem pendente', (tester) async {
+    await tester.pumpWidget(
+      _app(const {'members.merge_duplicates'}, pending: 3),
+    );
     await tester.pumpAndSettle();
 
-    expect(aberto, '/members');
-    expect(find.text('Membros'), findsNothing, reason: 'sheet fechou');
+    expect(find.text('Vincular pessoas'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+    expect(find.text('3 cadastros esperando vínculo'), findsOneWidget);
   });
 }

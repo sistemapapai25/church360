@@ -3,18 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../design/app_icons.dart';
+import '../domain/models/management_menu.dart';
 import '../errors/app_error_handler.dart';
 import '../layout/breakpoints.dart';
+import '../theme/app_theme.dart';
+import '../widgets/app_logo.dart';
 import '../widgets/dashboard_card_frame.dart';
 import '../widgets/dashboard_charts.dart';
 import '../widgets/management_menu_row.dart';
+import '../widgets/navigation/custom_bottom_nav_bar.dart';
 import '../widgets/qr_scanner_fab.dart';
 import '../providers/dashboard_widget_provider.dart';
+import '../../features/church_info/presentation/providers/church_info_provider.dart';
 import '../../features/notifications/presentation/widgets/notification_badge.dart';
 import '../../features/custom_reports/presentation/providers/custom_report_data_provider.dart';
 import '../../features/custom_reports/presentation/widgets/custom_report_dashboard_card.dart';
 import '../../features/permissions/presentation/widgets/permission_gate.dart';
-import '../../features/church_onboarding/presentation/widgets/onboarding_dashboard_card.dart';
 import '../../features/permissions/providers/permissions_providers.dart'
     hide supabaseClientProvider;
 
@@ -79,18 +83,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             const SizedBox(width: 8),
           ],
         ),
+        // G1: a gestão sai da barra de baixo (Pessoas, Ministérios, logo da
+        // igreja), no vidro da Home; os cards ficam por trás dela.
+        extendBody: true,
+        bottomNavigationBar: _buildDock(context),
         // B6: o Leitor de QR Code flutua sobre o corpo, arrastável, só para
         // quem tem events.checkin.
         body: Stack(
           children: [
-            // B5b: o Menu de Gestão é a fileira de bolinhas fixa no topo
-            // (o drawer, o FAB de menu e o "abre sozinho" saíram).
-            Column(
-              children: [
-                const ManagementMenuRow(),
-                Expanded(child: _buildBody(context)),
-              ],
-            ),
+            _buildBody(context),
             const PermissionGate(
               permission: 'events.checkin',
               showLoading: false,
@@ -142,13 +143,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ref.invalidate(customReportDataProvider);
                   },
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
+                    // o fim da rolagem passa da barra de baixo
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      16,
+                      16,
+                      16 + MediaQuery.paddingOf(context).bottom,
+                    ),
                     physics: const AlwaysScrollableScrollPhysics(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // F1: "Primeiros passos" do pastor até concluir.
-                        const OnboardingDashboardCard(),
                         // B7: 1/2/3 colunas pela faixa de largura; no
                         // celular continua a pilha de sempre.
                         LayoutBuilder(
@@ -312,6 +317,62 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     };
 
     return widgetMap[widgetKey] ?? const SizedBox.shrink();
+  }
+
+  /// G1 (opção B do usuário): sem item selecionado — os cards são o fundo e
+  /// cada item abre a sua tela por cima. Pessoas e Ministérios somem sem
+  /// permissão; a logo (perfil da igreja) aparece para todos daqui.
+  Widget _buildDock(BuildContext context) {
+    final pending = ref.watch(pendingLinkCountProvider).valueOrNull ?? 0;
+    final church = ref.watch(churchInfoProvider).valueOrNull;
+    final entries = <(PremiumNavItem, String)>[
+      if (managementCategoryVisible(ref, kPeopleMenu) == true)
+        (
+          PremiumNavItem(
+            label: 'Pessoas',
+            activeColor: AppTheme.primary,
+            iconBuilder: (context, _, __) => CountBadge(
+              count: pending,
+              child: const Icon(
+                Icons.groups_outlined,
+                size: 23,
+                color: AppTheme.mutedForeground,
+              ),
+            ),
+          ),
+          '/dashboard/pessoas',
+        ),
+      if (managementCategoryVisible(ref, kMinistriesMenu) == true)
+        (
+          const PremiumNavItem(
+            label: 'Ministérios',
+            icon: Icons.church_outlined,
+            activeColor: AppTheme.primary,
+          ),
+          '/dashboard/ministerios',
+        ),
+      (
+        PremiumNavItem(
+          label: 'Igreja',
+          activeColor: AppTheme.primary,
+          iconBuilder: (context, _, __) => ClipOval(
+            child: SizedBox.square(
+              dimension: 28,
+              child: ChurchLogo(
+                url: church?.logoUrl,
+                name: church?.name ?? '',
+              ),
+            ),
+          ),
+        ),
+        '/dashboard/igreja',
+      ),
+    ];
+    return PremiumBottomNavBar(
+      currentIndex: -1,
+      items: [for (final (item, _) in entries) item],
+      onTap: (i) => context.push(entries[i].$2),
+    );
   }
 
   Future<void> _openDashboardSettings(BuildContext context) async {
