@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../core/design/community_design.dart';
+import '../../../../../core/widgets/presence_deck.dart';
 import '../../data/baptism_lesson_meeting.dart';
 import '../../data/baptism_repository.dart';
 import '../../domain/baptism_attendance_roll.dart';
@@ -134,6 +135,39 @@ class _BaptismLessonAttendanceState
     }
   }
 
+  /// Chamada em cartas de quem ainda está sem marca; grava num upsert só.
+  /// Para baixo = justificada (que no Batismo conta como falta).
+  Future<void> _rollInCards(BaptismMeetingRoll roll) async {
+    final marks = await PresenceDeckScreen.open(
+      context,
+      title: 'Chamada em cartas',
+      allowJustified: true,
+      people: [
+        for (final s in roll.students)
+          if (roll.statusOf(s) == null)
+            PresenceCardData(id: s.id, name: s.fullName),
+      ],
+    );
+    if (marks == null || marks.isEmpty) return;
+    try {
+      await ref.read(baptismRepositoryProvider).markAttendance([
+        for (final MapEntry(key: id, value: mark) in marks.entries)
+          (
+            meetingId: roll.meeting.id,
+            studentId: id,
+            status: switch (mark) {
+              PresenceMark.present => BaptismAttendanceStatus.presente,
+              PresenceMark.absent => BaptismAttendanceStatus.ausente,
+              PresenceMark.justified => BaptismAttendanceStatus.justificado,
+            },
+          ),
+      ]);
+      if (mounted) invalidateBaptismData(ref, widget.ministryId);
+    } catch (error) {
+      if (mounted) _showError(error);
+    }
+  }
+
   void _showError(Object error) {
     ScaffoldMessenger.of(
       context,
@@ -205,6 +239,13 @@ class _BaptismLessonAttendanceState
                 const SizedBox(height: 8),
                 BaptismRollSummary(roll: current),
                 const SizedBox(height: 8),
+                if (opened.canEdit)
+                  PresenceCardsButton(
+                    count: current.students
+                        .where((s) => current.statusOf(s) == null)
+                        .length,
+                    onPressed: () => _rollInCards(current),
+                  ),
                 BaptismRollStudents(
                   roll: current,
                   busyStudentIds: _busy,

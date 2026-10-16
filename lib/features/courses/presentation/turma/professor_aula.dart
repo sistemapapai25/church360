@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/presence_deck.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../events/domain/models/event.dart';
 import '../../../permissions/providers/permissions_providers.dart';
@@ -251,6 +252,27 @@ class _TeacherLessonRollState extends ConsumerState<TeacherLessonRoll> {
     }
   }
 
+  /// Chamada em cartas de quem está sem marca; grava pelo mesmo [_mark].
+  Future<void> _rollInCards(List<TeacherRollEntry> roll) async {
+    final marks = await PresenceDeckScreen.open(
+      context,
+      title: 'Chamada em cartas',
+      allowJustified: true,
+      people: [
+        for (final s in roll)
+          if (s.status == null) PresenceCardData(id: s.studentId, name: s.name),
+      ],
+    );
+    if (marks == null) return;
+    for (final status in AttendanceStatus.values) {
+      final ids = [
+        for (final e in marks.entries)
+          if (e.value.name == status.name) e.key,
+      ];
+      if (ids.isNotEmpty) await _mark(ids, status);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final meta = CommunityDesign.metaStyle(context);
@@ -278,6 +300,10 @@ class _TeacherLessonRollState extends ConsumerState<TeacherLessonRoll> {
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
               children: [
+                PresenceCardsButton(
+                  count: pending.length,
+                  onPressed: _busy.isNotEmpty ? null : () => _rollInCards(roll),
+                ),
                 for (final s in roll)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),

@@ -58,4 +58,36 @@ void main() {
     await tap(tester, 'Desfazer');
     expect(log, ['a:justificada', 'a:desfeito']);
   });
+
+  testWidgets('PresenceDeckScreen devolve as marcas no Salvar', (tester) async {
+    Map<String, PresenceMark>? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async => result = await PresenceDeckScreen.open(
+              context,
+              title: 'Chamada em cartas',
+              allowJustified: true,
+              people: const [
+                PresenceCardData(id: 'a', name: 'Ana'),
+                PresenceCardData(id: 'b', name: 'Bruno'),
+                PresenceCardData(id: 'c', name: 'Carla'),
+              ],
+            ),
+            child: const Text('abrir'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('abrir'));
+    await tester.pumpAndSettle();
+    await tap(tester, 'Presente');
+    await tap(tester, 'Não está aqui');
+    await tap(tester, 'Justificada');
+    expect(find.text('1 presente · 1 ausente · 1 justificada'), findsOneWidget);
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+    expect(result, {'a': PresenceMark.present, 'b': PresenceMark.absent, 'c': PresenceMark.justified});
+  });
 }

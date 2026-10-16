@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/utils/share_link_utils.dart';
+import '../../../../core/widgets/presence_deck.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../widgets/group_permission_gate.dart';
 
@@ -338,6 +339,39 @@ class _AttendanceList extends ConsumerWidget {
     required this.meetingId,
   });
 
+  /// Chamada em cartas de quem do grupo ainda não tem presença na reunião.
+  Future<void> _rollInCards(
+    BuildContext context,
+    WidgetRef ref,
+    List<PresenceCardData> pending,
+  ) async {
+    final marks = await PresenceDeckScreen.open(
+      context,
+      title: 'Chamada em cartas',
+      people: pending,
+    );
+    if (marks == null || marks.isEmpty) return;
+    final repository = ref.read(groupMeetingsRepositoryProvider);
+    try {
+      for (final e in marks.entries) {
+        await repository.recordAttendance({
+          'meeting_id': meetingId,
+          'user_id': e.key,
+          'was_present': e.value == PresenceMark.present,
+        });
+      }
+      await repository.updateMeetingAttendanceCount(meetingId);
+    } catch (e) {
+      if (context.mounted) {
+        AppErrorHandler.showSnackBar(context, e, feature: 'meetings.register_attendance');
+      }
+    } finally {
+      ref.invalidate(meetingAttendancesProvider(meetingId));
+      ref.invalidate(meetingByIdProvider(meetingId));
+      ref.invalidate(meetingsListProvider(groupId));
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final attendancesAsync = ref.watch(meetingAttendancesProvider(meetingId));
@@ -377,6 +411,24 @@ class _AttendanceList extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
+                GroupPermissionGate(
+                  groupId: groupId,
+                  permission: 'groups.manage_meetings',
+                  child: Builder(
+                    builder: (context) {
+                      final marked = {for (final a in attendances) a.memberId};
+                      final pending = [
+                        for (final gm in groupMembers)
+                          if (!marked.contains(gm.memberId))
+                            PresenceCardData(id: gm.memberId, name: gm.memberName ?? ''),
+                      ];
+                      return PresenceCardsButton(
+                        count: pending.length,
+                        onPressed: () => _rollInCards(context, ref, pending),
+                      );
+                    },
+                  ),
+                ),
 
                 // Lista
                 if (attendances.isEmpty)

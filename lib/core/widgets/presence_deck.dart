@@ -358,3 +358,121 @@ class _RoundAction extends StatelessWidget {
     );
   }
 }
+
+enum PresenceMark { present, absent, justified }
+
+/// A chamada em cartas numa tela própria (fase 2): Cultos, Batismo, Turma,
+/// Casa de Vida. Devolve as marcas (id → marca) no "Salvar", ou null se a
+/// pessoa saiu sem salvar. Quem abre grava, cada um na sua tabela.
+class PresenceDeckScreen extends StatefulWidget {
+  final String title;
+  final List<PresenceCardData> people;
+  final bool allowJustified;
+
+  const PresenceDeckScreen({
+    super.key,
+    required this.title,
+    required this.people,
+    this.allowJustified = false,
+  });
+
+  static Future<Map<String, PresenceMark>?> open(
+    BuildContext context, {
+    required String title,
+    required List<PresenceCardData> people,
+    bool allowJustified = false,
+  }) => Navigator.of(context).push<Map<String, PresenceMark>>(
+    MaterialPageRoute(
+      builder: (_) => PresenceDeckScreen(title: title, people: people, allowJustified: allowJustified),
+    ),
+  );
+
+  @override
+  State<PresenceDeckScreen> createState() => _PresenceDeckScreenState();
+}
+
+class _PresenceDeckScreenState extends State<PresenceDeckScreen> {
+  final Map<String, PresenceMark> _marks = {};
+
+  int _count(PresenceMark m) => _marks.values.where((v) => v == m).length;
+  String _plural(int n, String word) => '$n $word${n == 1 ? '' : 's'}';
+
+  Future<void> _confirmDiscard() async {
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sair sem salvar?'),
+        content: Text('Você marcou ${_marks.length} e ainda não salvou.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Continuar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sair')),
+        ],
+      ),
+    );
+    if (discard == true && mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final justified = _count(PresenceMark.justified);
+    return PopScope(
+      canPop: _marks.isEmpty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmDiscard();
+      },
+      child: Scaffold(
+        backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
+        appBar: AppBar(title: Text(widget.title), backgroundColor: CommunityDesign.headerColor(context)),
+        body: SafeArea(
+          child: PresenceDeck(
+            people: widget.people,
+            onDecide: (p, ok) => setState(() => _marks[p.id] = ok ? PresenceMark.present : PresenceMark.absent),
+            onJustify: widget.allowJustified ? (p) => setState(() => _marks[p.id] = PresenceMark.justified) : null,
+            onUndo: (p) => setState(() => _marks.remove(p.id)),
+            done: Text(
+              [
+                _plural(_count(PresenceMark.present), 'presente'),
+                _plural(_count(PresenceMark.absent), 'ausente'),
+                if (justified > 0) _plural(justified, 'justificada'),
+              ].join(' · '),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            // Navigator.pop não passa pelo PopScope (só o voltar do sistema).
+            doneAction: FilledButton.icon(
+              onPressed: () => Navigator.of(context).pop(_marks),
+              icon: const Icon(Icons.save_rounded),
+              label: const Text('Salvar'),
+              style: FilledButton.styleFrom(
+                shape: const StadiumBorder(),
+                minimumSize: const Size(0, 52),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Botão "Chamada em cartas (N)" das telas de chamada; some sem ninguém.
+class PresenceCardsButton extends StatelessWidget {
+  final int count;
+  final VoidCallback? onPressed;
+
+  const PresenceCardsButton({super.key, required this.count, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    if (count == 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: FilledButton.icon(
+        onPressed: onPressed,
+        icon: const Icon(Icons.style_rounded),
+        label: Text('Chamada em cartas ($count)'),
+        style: FilledButton.styleFrom(shape: const StadiumBorder(), minimumSize: const Size.fromHeight(48)),
+      ),
+    );
+  }
+}
