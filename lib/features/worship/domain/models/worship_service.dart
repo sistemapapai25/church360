@@ -91,6 +91,7 @@ class WorshipAttendance {
   final String worshipServiceId;
   final String memberId;
   final String? memberName; // Populated from join
+  final String? memberPhotoUrl; // Populated from join
   final DateTime checkedInAt;
   final String? notes;
   final DateTime createdAt;
@@ -112,6 +113,7 @@ class WorshipAttendance {
     required this.worshipServiceId,
     required this.memberId,
     this.memberName,
+    this.memberPhotoUrl,
     required this.checkedInAt,
     this.notes,
     required this.createdAt,
@@ -134,6 +136,7 @@ class WorshipAttendance {
       worshipServiceId: json['event_id'] as String,
       memberId: json['user_id'] as String,
       memberName: json['member_name'] as String?,
+      memberPhotoUrl: json['member_photo_url'] as String?,
       checkedInAt: DateTime.parse(json['checked_in_at'] as String),
       notes: json['notes'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
