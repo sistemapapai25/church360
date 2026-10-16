@@ -63,6 +63,11 @@ final kidsBoardProvider = FutureProvider.autoDispose<KidsBoard>((ref) {
   return ref.watch(kidsRepositoryProvider).getBoard();
 });
 
+/// Relatório do Infantil (últimos 90 dias).
+final kidsReportProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) {
+  return ref.watch(kidsRepositoryProvider).getReport();
+});
+
 /// Salas do Infantil da igreja.
 final kidsRoomsProvider = FutureProvider.autoDispose<List<KidsRoom>>((ref) {
   return ref.watch(kidsRepositoryProvider).getRooms();
