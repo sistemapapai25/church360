@@ -23,6 +23,9 @@ class KidsChildCard {
   final String? roomName;
   final DateTime? checkInTime;
 
+  /// Última vez que a equipe chamou o responsável (K4).
+  final DateTime? lastCallAt;
+
   /// Só no `kids_scan`: o código lido e quem o gerou.
   final String? token;
   final String? generatedBy;
@@ -42,6 +45,7 @@ class KidsChildCard {
     this.attendanceId,
     this.roomName,
     this.checkInTime,
+    this.lastCallAt,
     this.token,
     this.generatedBy,
   });
@@ -75,6 +79,9 @@ class KidsChildCard {
       roomName: json['room_name'] as String?,
       checkInTime: json['checkin_time'] != null
           ? DateTime.parse(json['checkin_time'] as String).toLocal()
+          : null,
+      lastCallAt: json['last_call_at'] != null
+          ? DateTime.parse(json['last_call_at'] as String).toLocal()
           : null,
       token: json['token'] as String?,
       generatedBy: json['generated_by'] as String?,
@@ -166,5 +173,34 @@ class KidsRoom {
     maxAge: (json['max_age'] as num?)?.toInt(),
     isActive: json['is_active'] as bool? ?? true,
     sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+  );
+}
+
+/// Resultado de chamar o responsável (K4): quantos receberam o push e os
+/// telefones para mandar o WhatsApp do celular da equipe.
+class KidsCallResult {
+  final int notified;
+  final int media;
+  final String message;
+  final List<({String name, String phone})> phones;
+
+  const KidsCallResult({
+    this.notified = 0,
+    this.media = 0,
+    this.message = '',
+    this.phones = const [],
+  });
+
+  factory KidsCallResult.fromJson(Map<String, dynamic> json) => KidsCallResult(
+    notified: (json['notified'] as num?)?.toInt() ?? 0,
+    media: (json['media'] as num?)?.toInt() ?? 0,
+    message: json['message'] as String? ?? '',
+    phones: [
+      for (final p in (json['phones'] as List? ?? const []))
+        (
+          name: (p as Map)['name'] as String? ?? 'Responsável',
+          phone: p['phone'] as String,
+        ),
+    ],
   );
 }

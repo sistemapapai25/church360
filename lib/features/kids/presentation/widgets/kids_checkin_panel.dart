@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/utils/whatsapp_launcher.dart';
 import '../../../../core/widgets/app_filter_bar.dart';
 import '../../domain/models/kids_checkin.dart';
 import '../providers/kids_providers.dart';
@@ -183,6 +184,96 @@ class _BoardState extends ConsumerState<_Board> {
     }
   }
 
+  /// Chama o responsável (cartilha §7.2): push aos pais e à Mídia (Data
+  /// Show) e, se quiser, WhatsApp do celular da equipe.
+  Future<void> _call(KidsChildCard card) async {
+    final attendanceId = card.attendanceId;
+    if (attendanceId == null) return;
+    const reasons = [
+      'Banheiro',
+      'Chorando / com saudade',
+      'Não está bem',
+      'Outro',
+    ];
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text('Chamar o responsável por ${card.name}'),
+        children: [
+          for (final r in reasons)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, r),
+              child: Text(r),
+            ),
+        ],
+      ),
+    );
+    if (reason == null) return;
+    KidsCallResult result;
+    try {
+      result = await ref
+          .read(kidsRepositoryProvider)
+          .callGuardian(
+            attendanceId,
+            reason == 'Outro' ? null : reason.toLowerCase(),
+          );
+    } catch (e) {
+      _error(e);
+      return;
+    }
+    ref.invalidate(kidsBoardProvider);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Responsável chamado'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              result.notified == 0
+                  ? 'Nenhum responsável tem o app: use o WhatsApp abaixo.'
+                  : 'Aviso enviado pelo app a ${result.notified} '
+                        '${result.notified == 1 ? 'responsável' : 'responsáveis'}.',
+            ),
+            Text(
+              result.media == 0
+                  ? 'Ninguém da Mídia (Data Show) recebeu: o ministério precisa ter "Data Show" ou "Mídia" no nome.'
+                  : 'A equipe da Mídia (Data Show) também foi avisada.',
+            ),
+            for (final p in result.phones)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.chat_outlined),
+                title: Text(p.name),
+                subtitle: const Text('Mandar WhatsApp'),
+                onTap: () async {
+                  final r = await launchWhatsAppMessage(
+                    phone: p.phone,
+                    message: result.message,
+                  );
+                  if (r != WhatsAppLaunchResult.launched && ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(
+                        content: Text('Não foi possível abrir o WhatsApp.'),
+                      ),
+                    );
+                  }
+                },
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Fechar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _checkOut(
     KidsChildCard card, {
     String? token,
@@ -335,9 +426,19 @@ class _BoardState extends ConsumerState<_Board> {
             for (final c in board.present)
               _ChildTile(
                 card: c,
-                trailing: OutlinedButton(
-                  onPressed: () => _checkOut(c),
-                  child: const Text('Retirar'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Chamar responsável',
+                      icon: const Icon(Icons.campaign_outlined),
+                      onPressed: () => _call(c),
+                    ),
+                    OutlinedButton(
+                      onPressed: () => _checkOut(c),
+                      child: const Text('Retirar'),
+                    ),
+                  ],
                 ),
               ),
           ],
@@ -360,6 +461,8 @@ class _ChildTile extends StatelessWidget {
       if (card.roomName != null) card.roomName!,
       if (card.checkInTime != null)
         'desde ${DateFormat('HH:mm').format(card.checkInTime!)}',
+      if (card.lastCallAt != null)
+        'chamado às ${DateFormat('HH:mm').format(card.lastCallAt!)}',
     ].join(' · ');
     return Card(
       margin: const EdgeInsets.only(bottom: 8),

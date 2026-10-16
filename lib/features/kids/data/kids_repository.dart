@@ -440,6 +440,15 @@ class KidsRepository {
     );
   }
 
+  /// Chama o responsável (push aos pais e à Mídia). Cartilha §7.2.
+  Future<KidsCallResult> callGuardian(String attendanceId, String? reason) async {
+    final result = await _supabase.rpc(
+      'kids_call_guardian',
+      params: {'p_attendance': attendanceId, 'p_reason': reason},
+    );
+    return KidsCallResult.fromJson(Map<String, dynamic>.from(result as Map));
+  }
+
   // ==========================================
   // SALAS
   // ==========================================
