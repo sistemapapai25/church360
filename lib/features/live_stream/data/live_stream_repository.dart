@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/current_culto.dart';
@@ -69,6 +71,45 @@ class LiveStreamRepository {
   Future<Map<String, dynamic>> cultoSetSlides(String? url) async {
     final r = await _supabase.rpc('culto_set_slides', params: {'p_url': url});
     return r is Map ? Map<String, dynamic>.from(r) : const {};
+  }
+
+  // ---- PreacherLAB (N4 / PRE-129; migration 009900, edge preacherlab-sermoes) ----
+
+  /// E-mail do dono da conta no PreacherLAB (RLS: `live_stream.manage`).
+  Future<String?> preacherlabEmail() async {
+    final r = await _supabase
+        .from('preacherlab_conta')
+        .select('email')
+        .maybeSingle();
+    return r?['email'] as String?;
+  }
+
+  Future<void> setPreacherlabEmail(String email) => _supabase
+      .from('preacherlab_conta')
+      .upsert({
+        'tenant_id': SupabaseConstants.currentTenantId,
+        'email': email.trim(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }, onConflict: 'tenant_id');
+
+  /// Sermões com .pptx pronto. Lança [FunctionException] com `status` 409
+  /// (e-mail não configurado) ou 404 (e-mail não é dono no PreacherLAB).
+  Future<List<Map<String, dynamic>>> preacherlabSermoes() async {
+    final r = await _supabase.functions.invoke(
+      'preacherlab-sermoes',
+      body: {'acao': 'listar'},
+    );
+    final list = (r.data as Map)['sermoes'] as List? ?? const [];
+    return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  /// O .pptx do sermão [id], já em dia com o editor do PreacherLAB.
+  Future<Uint8List> preacherlabPptx(String id) async {
+    final r = await _supabase.functions.invoke(
+      'preacherlab-sermoes',
+      body: {'acao': 'pptx', 'id': id},
+    );
+    return r.data as Uint8List;
   }
 
   Future<int> notifyLiveStreamActive({
