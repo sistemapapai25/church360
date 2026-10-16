@@ -1,11 +1,10 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart' as yi;
+import 'package:youtube_player_flutter/youtube_player_flutter.dart'
+    show YoutubePlayer;
+import '../../../../core/widgets/media/inline_video.dart';
 import '../providers/live_stream_provider.dart';
-import '../../domain/models/live_stream.dart';
 
 /// Tela publica do culto ao vivo
 class LiveStreamScreen extends ConsumerStatefulWidget {
@@ -16,70 +15,9 @@ class LiveStreamScreen extends ConsumerStatefulWidget {
 }
 
 class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
-  YoutubePlayerController? _youtubeController;
-  yi.YoutubePlayerController? _ytIframeController;
-  String? _videoId;
+  /// Link do culto ligado (culto desligado não expõe o link antigo, nem no
+  /// "Abrir no navegador").
   String? _currentUrl;
-  ProviderSubscription<AsyncValue<LiveStreamConfig?>>? _liveStreamSub;
-
-  @override
-  void initState() {
-    super.initState();
-    _handleConfig(ref.read(liveStreamConfigProvider));
-    _liveStreamSub = ref.listenManual<AsyncValue<LiveStreamConfig?>>(
-      liveStreamConfigProvider,
-      (previous, next) => _handleConfig(next),
-    );
-  }
-
-  @override
-  void dispose() {
-    _liveStreamSub?.close();
-    _youtubeController?.dispose();
-    super.dispose();
-  }
-
-  void _handleConfig(AsyncValue<LiveStreamConfig?> next) {
-    final config = next.valueOrNull;
-    // Culto desligado não expõe o link antigo (nem no "Abrir no navegador").
-    final url =
-        config?.isActive == true ? (config?.streamUrl ?? '').trim() : '';
-    _currentUrl = url.isEmpty ? null : url;
-    final nextVideoId = _extractVideoId(_currentUrl);
-    if (nextVideoId == _videoId) return;
-    _videoId = nextVideoId;
-    if (kIsWeb) {
-      _ytIframeController = nextVideoId == null
-          ? null
-          : yi.YoutubePlayerController.fromVideoId(
-              videoId: nextVideoId,
-              autoPlay: true,
-              params: const yi.YoutubePlayerParams(
-                showControls: true,
-                showFullscreenButton: true,
-              ),
-            );
-    } else {
-      _youtubeController?.dispose();
-      _youtubeController = nextVideoId == null
-          ? null
-          : YoutubePlayerController(
-              initialVideoId: nextVideoId,
-              flags: const YoutubePlayerFlags(
-                autoPlay: true,
-                mute: false,
-              ),
-            );
-    }
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  String? _extractVideoId(String? url) {
-    if (url == null || url.trim().isEmpty) return null;
-    return YoutubePlayer.convertUrlToId(url);
-  }
 
   String _normalizeUrl(String value) {
     final v = value.trim();
@@ -106,6 +44,9 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
   @override
   Widget build(BuildContext context) {
     final configAsync = ref.watch(liveStreamConfigProvider);
+    final live = configAsync.valueOrNull;
+    final liveUrl = live?.isActive == true ? (live?.streamUrl ?? '').trim() : '';
+    _currentUrl = liveUrl.isEmpty ? null : liveUrl;
 
     return Scaffold(
       appBar: AppBar(
@@ -128,31 +69,22 @@ class _LiveStreamScreenState extends ConsumerState<LiveStreamScreen> {
             return _InactiveLiveStream(message: message);
           }
 
-          final showPlayer = _videoId != null && (_youtubeController != null || _ytIframeController != null);
+          final showPlayer = YoutubePlayer.convertUrlToId(url) != null;
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Container(
-                height: 220,
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: showPlayer
-                      ? (kIsWeb && _ytIframeController != null
-                          ? yi.YoutubePlayer(controller: _ytIframeController!)
-                          : (_youtubeController != null
-                              ? YoutubePlayer(
-                                  controller: _youtubeController!,
-                                  showVideoProgressIndicator: true,
-                                )
-                              : const SizedBox.shrink()))
-                      : _LinkOnlyPlaceholder(onOpen: _openInApp),
-                ),
-              ),
+              // Player único do app: controles do próprio YouTube.
+              showPlayer
+                  ? InlineVideo(key: ValueKey(url), url: url, autoStart: true)
+                  : Container(
+                      height: 220,
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: _LinkOnlyPlaceholder(onOpen: _openInApp),
+                    ),
               const SizedBox(height: 16),
               Row(
                 children: [

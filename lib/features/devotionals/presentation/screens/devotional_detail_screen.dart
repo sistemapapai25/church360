@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:youtube_player_iframe/youtube_player_iframe.dart' as yi;
 import 'package:flutter/services.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart'
+    show YoutubePlayer;
 
 import '../providers/devotional_provider.dart';
 import '../../../../core/widgets/permission_widget.dart';
+import '../../../../core/widgets/media/inline_video.dart';
 import '../../../../core/widgets/media/video_play_overlay.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/design/app_icons.dart';
@@ -45,15 +45,12 @@ class _DevotionalDetailScreenState
   bool _statsCard1In = false;
   bool _statsCard2In = false;
   bool _isPlayingVideo = false;
-  YoutubePlayerController? _youtubeController;
-  yi.YoutubePlayerController? _ytIframeController;
   bool _badgeIn = false;
   bool _isSaving = false;
 
   @override
   void dispose() {
     _notesController.dispose();
-    _youtubeController?.dispose();
     super.dispose();
   }
 
@@ -127,29 +124,8 @@ class _DevotionalDetailScreenState
   }
 
   void _playYouTube(String url) {
-    final videoId = YoutubePlayer.convertUrlToId(url);
-    if (videoId == null) {
-      return;
-    }
-    if (kIsWeb) {
-      _ytIframeController = yi.YoutubePlayerController.fromVideoId(
-        videoId: videoId,
-        autoPlay: true,
-        params: const yi.YoutubePlayerParams(
-          showControls: true,
-          showFullscreenButton: true,
-        ),
-      );
-    } else {
-      _youtubeController?.dispose();
-      _youtubeController = YoutubePlayerController(
-        initialVideoId: videoId,
-        flags: const YoutubePlayerFlags(autoPlay: false, mute: false),
-      );
-    }
-    setState(() {
-      _isPlayingVideo = true;
-    });
+    if (YoutubePlayer.convertUrlToId(url) == null) return;
+    setState(() => _isPlayingVideo = true);
   }
 
   @override
@@ -272,19 +248,14 @@ class _DevotionalDetailScreenState
                               borderRadius: BorderRadius.circular(18),
                               child: devotional.hasYoutubeVideo
                                   ? (_isPlayingVideo
-                                        ? (kIsWeb && _ytIframeController != null
-                                              ? yi.YoutubePlayer(
-                                                  controller:
-                                                      _ytIframeController!,
-                                                )
-                                              : (_youtubeController != null
-                                                    ? YoutubePlayer(
-                                                        controller:
-                                                            _youtubeController!,
-                                                        showVideoProgressIndicator:
-                                                            true,
-                                                      )
-                                                    : const SizedBox.shrink()))
+                                        // Player único do app (controles do
+                                        // YouTube: pausar, legenda, tela cheia).
+                                        ? Center(
+                                            child: InlineVideo(
+                                              url: devotional.youtubeUrl!,
+                                              autoStart: true,
+                                            ),
+                                          )
                                         : _YoutubeThumbnail(
                                             url: devotional.youtubeUrl!,
                                             onTap: () => _playYouTube(
@@ -328,15 +299,8 @@ class _DevotionalDetailScreenState
                                 top: 12,
                                 right: 12,
                                 child: InkWell(
-                                  onTap: () {
-                                    _youtubeController?.pause();
-                                    _youtubeController?.dispose();
-                                    setState(() {
-                                      _youtubeController = null;
-                                      _ytIframeController = null;
-                                      _isPlayingVideo = false;
-                                    });
-                                  },
+                                  onTap: () =>
+                                      setState(() => _isPlayingVideo = false),
                                   child: Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(

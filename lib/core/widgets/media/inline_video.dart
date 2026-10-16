@@ -1,26 +1,48 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart'
+    show YoutubePlayer;
 
 import 'inline_video_web_stub.dart'
     if (dart.library.js_interop) 'inline_video_web.dart';
 import 'video_play_overlay.dart';
 
-/// Vídeo que toca dentro do app, no mesmo desenho do devocional: capa 16:9
-/// com o botão de play; tocar troca a capa pelo player.
+/// Embed oficial do YouTube: os controles são os do próprio YouTube
+/// (pausar, voltar, legendas, velocidade, tela cheia).
+String youtubeEmbedUrl(String id) =>
+    'https://www.youtube.com/embed/$id?autoplay=1&playsinline=1&rel=0';
+
+/// Página mínima com o embed, para a WebView do app instalado. Vai com a
+/// origem do app ([_embedBase]): sem origem/referer o YouTube recusa o
+/// embed ("erro de configuração do player").
+String youtubeEmbedHtml(String id) =>
+    '<!doctype html><html><head>'
+    '<meta name="viewport" content="width=device-width,initial-scale=1">'
+    '<style>html,body{margin:0;height:100%;background:#000}'
+    'iframe{border:0;width:100%;height:100%}</style></head><body>'
+    '<iframe src="${youtubeEmbedUrl(id)}" '
+    'allow="autoplay; fullscreen; picture-in-picture; encrypted-media" '
+    'allowfullscreen></iframe></body></html>';
+
+const _embedBase = 'https://papai.church360.com.br/';
+
+/// O único player de vídeo do app (aula, devocional, culto). Capa 16:9 com
+/// o botão de play; tocar troca a capa pelo player.
 ///
-/// No navegador, YouTube é o embed oficial direto (um iframe só, controles e
-/// tela cheia do próprio YouTube) e arquivo enviado (mp4 do Storage) toca
-/// num `<video>`. O `youtube_player_iframe` não serve aqui: ele monta um
-/// iframe intermediário que conversa por `postMessage` e, no app publicado,
-/// os controles não respondiam ao clique. No app nativo, YouTube usa o
-/// `youtube_player_flutter`; arquivo, sem player instalado, abre por fora.
+/// YouTube é sempre o embed oficial direto, com os controles do YouTube: no
+/// navegador num iframe só; no app instalado numa WebView com a mesma
+/// página. Os players antigos (`youtube_player_iframe`, com iframe
+/// intermediário por `postMessage`, e `youtube_player_flutter`, com
+/// controles próprios sem legenda) deixavam o toque sem resposta. Arquivo
+/// enviado (mp4 do Storage) toca num `<video>` no navegador; no app
+/// instalado abre por fora.
 class InlineVideo extends StatefulWidget {
   final String url;
 
-  /// Já abre no player, sem a capa (culto ao vivo na Home e em /culto).
-  /// Só vale para YouTube; arquivo continua esperando o toque.
+  /// Já abre no player, sem a capa (culto ao vivo, devocional depois do
+  /// play). Só vale para YouTube; arquivo continua esperando o toque.
   final bool autoStart;
 
   const InlineVideo({super.key, required this.url, this.autoStart = false});
@@ -30,35 +52,12 @@ class InlineVideo extends StatefulWidget {
 }
 
 class _InlineVideoState extends State<InlineVideo> {
-  bool _playing = false;
-  YoutubePlayerController? _yt;
+  late bool _playing = widget.autoStart && _youtubeId != null;
 
   String? get _youtubeId => YoutubePlayer.convertUrlToId(widget.url);
 
-  @override
-  void initState() {
-    super.initState();
-    final id = _youtubeId;
-    if (widget.autoStart && id != null) {
-      if (!kIsWeb) {
-        _yt = YoutubePlayerController(
-          initialVideoId: id,
-          flags: const YoutubePlayerFlags(autoPlay: true, mute: false),
-        );
-      }
-      _playing = true;
-    }
-  }
-
-  @override
-  void dispose() {
-    _yt?.dispose();
-    super.dispose();
-  }
-
   Future<void> _play() async {
-    final id = _youtubeId;
-    if (id == null && !kIsWeb) {
+    if (_youtubeId == null && !kIsWeb) {
       final uri = Uri.tryParse(widget.url);
       final ok =
           uri != null &&
@@ -70,12 +69,6 @@ class _InlineVideoState extends State<InlineVideo> {
       }
       return;
     }
-    if (id != null && !kIsWeb) {
-      _yt = YoutubePlayerController(
-        initialVideoId: id,
-        flags: const YoutubePlayerFlags(autoPlay: true, mute: false),
-      );
-    }
     setState(() => _playing = true);
   }
 
@@ -85,7 +78,18 @@ class _InlineVideoState extends State<InlineVideo> {
         viewType: videoViewType(widget.url, youtubeId: id),
       );
     }
-    return YoutubePlayer(controller: _yt!, showVideoProgressIndicator: true);
+    return InAppWebView(
+      key: ValueKey('yt-webview-$id'),
+      initialData: InAppWebViewInitialData(
+        data: youtubeEmbedHtml(id!),
+        baseUrl: WebUri(_embedBase),
+      ),
+      initialSettings: InAppWebViewSettings(
+        mediaPlaybackRequiresUserGesture: false,
+        allowsInlineMediaPlayback: true,
+        transparentBackground: true,
+      ),
+    );
   }
 
   @override

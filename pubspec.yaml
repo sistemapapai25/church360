@@ -77,7 +77,6 @@ dependencies:
   mobile_scanner: ^7.1.2
   url_launcher: ^6.3.2
   youtube_player_flutter: ^9.1.3
-  youtube_player_iframe: ^5.2.2
   # Slides do culto dentro do app (Android/iOS). Já vinha como dependência
   # transitiva do youtube_player_flutter; declarada para uso direto.
   flutter_inappwebview: ^6.1.5
