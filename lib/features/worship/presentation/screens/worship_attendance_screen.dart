@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/app_tabs.dart';
+import '../../../../core/widgets/presence_deck.dart';
 import '../providers/worship_provider.dart';
 import 'geo_checkin_review_screen.dart';
 import '../../domain/models/worship_service.dart';
@@ -45,6 +46,43 @@ class _WorshipAttendanceScreenState
     ref.invalidate(worshipAttendanceProvider(widget.worshipServiceId));
     ref.invalidate(worshipServiceByIdProvider(widget.worshipServiceId));
     ref.invalidate(allWorshipServicesProvider);
+  }
+
+  /// Chamada em cartas de quem ainda não fez check-in. Nada grava antes do
+  /// Salvar (decisão do usuário, 16/10); só "presente" vira check-in.
+  Future<void> _rollInCards(List<Member> notPresent) async {
+    final marks = await PresenceDeckScreen.open(
+      context,
+      title: 'Chamada em cartas',
+      people: [
+        for (final m in notPresent)
+          PresenceCardData(
+            id: m.id,
+            name: m.displayName,
+            photoUrl: m.photoUrl,
+            subtitle: m.isVisitor ? 'Visitante' : 'Membro',
+          ),
+      ],
+    );
+    if (marks == null) return;
+    final repo = ref.read(worshipRepositoryProvider);
+    var failed = 0;
+    for (final e in marks.entries) {
+      if (e.value != PresenceMark.present) continue;
+      try {
+        await repo.checkIn(widget.worshipServiceId, e.key);
+      } catch (_) {
+        failed++;
+      }
+    }
+    _refresh();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(failed == 0 ? 'Chamada salva.' : '$failed não salvaram. Tente de novo.'),
+        backgroundColor: failed == 0 ? Colors.green : Colors.red,
+      ),
+    );
   }
 
   @override
@@ -227,6 +265,27 @@ class _WorshipAttendanceScreenState
               },
             ),
           ),
+
+          if ((membersAsync.valueOrNull, attendanceAsync.valueOrNull)
+              case (final members?, final attendances?))
+            PermissionGate(
+              permission: 'worship.attendance',
+              showLoading: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Builder(
+                  builder: (context) {
+                    final present = {for (final a in attendances) a.memberId};
+                    final notPresent = members.where((m) => !present.contains(m.id)).toList()
+                      ..sort((a, b) => a.displayName.compareTo(b.displayName));
+                    return PresenceCardsButton(
+                      count: notPresent.length,
+                      onPressed: () => _rollInCards(notPresent),
+                    );
+                  },
+                ),
+              ),
+            ),
 
           // Lista de membros
           Expanded(

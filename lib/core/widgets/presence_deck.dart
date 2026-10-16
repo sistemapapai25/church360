@@ -29,12 +29,20 @@ class PresenceCardData {
 }
 
 /// Pilha de cartas para registrar presença (16/10, "Match de Presença"):
-/// direita = presente, esquerda = não está, Desfazer volta a última.
+/// direita = presente, esquerda = não está, para cima = depois (a carta vai
+/// para o fim da pilha), para baixo = falta justificada (só com [onJustify]),
+/// Desfazer volta a última.
 /// Quem usa guarda as decisões e decide quando gravar; a pilha só avisa.
 class PresenceDeck extends StatefulWidget {
   final List<PresenceCardData> people;
   final void Function(PresenceCardData person, bool present) onDecide;
+
+  /// Desfaz um [onDecide] ou um [onJustify].
   final void Function(PresenceCardData person) onUndo;
+
+  /// Só onde existe falta justificada (ex.: Batismo). Sem ele, não há
+  /// carta para baixo.
+  final void Function(PresenceCardData person)? onJustify;
 
   /// Mostrado no lugar das cartas quando todas foram decididas.
   final Widget done;
@@ -50,6 +58,7 @@ class PresenceDeck extends StatefulWidget {
     required this.onUndo,
     required this.done,
     required this.doneAction,
+    this.onJustify,
     this.disabled = false,
   });
 
@@ -59,9 +68,45 @@ class PresenceDeck extends StatefulWidget {
 
 class _PresenceDeckState extends State<PresenceDeck> {
   final _controller = CardSwiperController();
-  final List<PresenceCardData> _history = [];
 
-  bool get _done => _history.length == widget.people.length;
+  /// Ordem atual das cartas: "Depois" leva a pessoa para o fim.
+  late final List<PresenceCardData> _queue = List.of(widget.people);
+
+  /// Índice da carta adiada, ou null para decisão (essa o swiper desfaz).
+  final List<int?> _history = [];
+
+  int get _decided => _history.where((i) => i == null).length;
+  bool get _done => _decided == _queue.length;
+  int get _remaining => _queue.length - _decided;
+
+  /// O swiper não sabe de "Depois": cancela a carta e a pilha a manda para o
+  /// fim, então a próxima pessoa aparece no mesmo índice.
+  bool _onSwipe(int i, CardSwiperDirection direction) {
+    final person = _queue[i];
+    if (direction == CardSwiperDirection.top) {
+      setState(() {
+        _queue.add(_queue.removeAt(i));
+        _history.add(i);
+      });
+      return false;
+    }
+    setState(() => _history.add(null));
+    if (direction == CardSwiperDirection.bottom) {
+      widget.onJustify!(person);
+    } else {
+      widget.onDecide(person, direction == CardSwiperDirection.right);
+    }
+    return true;
+  }
+
+  void _undo() {
+    final later = _history.last;
+    if (later == null) return _controller.undo();
+    setState(() {
+      _history.removeLast();
+      _queue.insert(later, _queue.removeLast());
+    });
+  }
 
   @override
   void dispose() {
@@ -72,7 +117,9 @@ class _PresenceDeckState extends State<PresenceDeck> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final people = widget.people;
+    final people = _queue;
+    final canLater = _remaining > 1;
+    final canJustify = widget.onJustify != null;
     return Column(
       children: [
         Padding(
@@ -80,8 +127,9 @@ class _PresenceDeckState extends State<PresenceDeck> {
           child: Text(
             _done
                 ? 'Todos conferidos'
-                : '${_history.length + 1} de ${people.length} · '
-                      'arraste para a direita se a pessoa está aqui',
+                : '${_decided + 1} de ${people.length} · '
+                      'direita: está aqui · para cima: depois'
+                      '${canJustify ? ' · para baixo: justificada' : ''}',
             textAlign: TextAlign.center,
             style: CommunityDesign.metaStyle(context),
           ),
@@ -97,19 +145,23 @@ class _PresenceDeckState extends State<PresenceDeck> {
                   numberOfCardsDisplayed: math.min(3, people.length),
                   isLoop: false,
                   isDisabled: widget.disabled,
-                  allowedSwipeDirection: const AllowedSwipeDirection.only(left: true, right: true),
-                  onSwipe: (i, _, direction) {
-                    setState(() => _history.add(people[i]));
-                    widget.onDecide(people[i], direction == CardSwiperDirection.right);
+                  allowedSwipeDirection: AllowedSwipeDirection.only(
+                    left: true,
+                    right: true,
+                    up: canLater,
+                    down: canJustify,
+                  ),
+                  onSwipe: (i, _, direction) => _onSwipe(i, direction),
+                  onUndo: (_, i, _) {
+                    setState(() => _history.removeLast());
+                    widget.onUndo(people[i]);
                     return true;
                   },
-                  onUndo: (_, _, _) {
-                    final last = _history.removeLast();
-                    setState(() {});
-                    widget.onUndo(last);
-                    return true;
-                  },
-                  cardBuilder: (context, i, dx, _) => _PresenceCard(person: people[i], dragPercent: dx),
+                  cardBuilder: (context, i, dx, dy) => _PresenceCard(
+                    person: people[i],
+                    dx: dx,
+                    dy: (dy < 0 ? canLater : canJustify) ? dy : 0,
+                  ),
                 ),
             ],
           ),
@@ -133,8 +185,24 @@ class _PresenceDeckState extends State<PresenceDeck> {
                       color: cs.outline,
                       tooltip: 'Desfazer',
                       small: true,
-                      onTap: _history.isEmpty ? null : _controller.undo,
+                      onTap: _history.isEmpty ? null : _undo,
                     ),
+                    if (!_done)
+                      _RoundAction(
+                        icon: Icons.schedule_rounded,
+                        color: Colors.blue,
+                        tooltip: 'Depois',
+                        small: true,
+                        onTap: canLater ? () => _controller.swipe(CardSwiperDirection.top) : null,
+                      ),
+                    if (!_done && canJustify)
+                      _RoundAction(
+                        icon: Icons.event_busy_rounded,
+                        color: Colors.orange,
+                        tooltip: 'Justificada',
+                        small: true,
+                        onTap: () => _controller.swipe(CardSwiperDirection.bottom),
+                      ),
                     if (!_done)
                       _RoundAction(
                         icon: Icons.check_rounded,
@@ -155,10 +223,11 @@ class _PresenceDeckState extends State<PresenceDeck> {
 class _PresenceCard extends StatelessWidget {
   final PresenceCardData person;
 
-  /// -100..100 enquanto arrasta: negativo = indo para a esquerda.
-  final int dragPercent;
+  /// -100..100 enquanto arrasta: negativo = esquerda / para cima.
+  final int dx;
+  final int dy;
 
-  const _PresenceCard({required this.person, required this.dragPercent});
+  const _PresenceCard({required this.person, required this.dx, required this.dy});
 
   @override
   Widget build(BuildContext context) {
@@ -166,8 +235,14 @@ class _PresenceCard extends StatelessWidget {
     final p = person;
     final photo = (p.photoUrl ?? '').trim();
     final name = p.name.trim().isEmpty ? 'Sem nome' : p.name.trim();
-    final pull = (dragPercent.abs() / 60).clamp(0.0, 1.0);
-    final stampColor = dragPercent >= 0 ? Colors.green : Colors.red;
+    final vertical = dy.abs() > dx.abs();
+    final pull = ((vertical ? dy : dx).abs() / 60).clamp(0.0, 1.0);
+    final (stampColor, stamp) = switch ((vertical, vertical ? dy < 0 : dx >= 0)) {
+      (true, true) => (Colors.blue, 'DEPOIS'),
+      (true, false) => (Colors.orange, 'JUSTIFICADA'),
+      (false, true) => (Colors.green, 'PRESENTE'),
+      (false, false) => (Colors.red, 'NÃO ESTÁ'),
+    };
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -220,8 +295,8 @@ class _PresenceCard extends StatelessWidget {
           if (pull > 0)
             Positioned(
               top: 24,
-              left: dragPercent >= 0 ? 24 : null,
-              right: dragPercent < 0 ? 24 : null,
+              left: vertical || dx >= 0 ? 24 : null,
+              right: !vertical && dx < 0 ? 24 : null,
               child: Opacity(
                 opacity: pull,
                 child: Container(
@@ -231,7 +306,7 @@ class _PresenceCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    dragPercent >= 0 ? 'PRESENTE' : 'NÃO ESTÁ',
+                    stamp,
                     style: TextStyle(color: stampColor, fontWeight: FontWeight.w800, letterSpacing: 1.2),
                   ),
                 ),
@@ -279,6 +354,124 @@ class _RoundAction extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+enum PresenceMark { present, absent, justified }
+
+/// A chamada em cartas numa tela própria (fase 2): Cultos, Batismo, Turma,
+/// Casa de Vida. Devolve as marcas (id → marca) no "Salvar", ou null se a
+/// pessoa saiu sem salvar. Quem abre grava, cada um na sua tabela.
+class PresenceDeckScreen extends StatefulWidget {
+  final String title;
+  final List<PresenceCardData> people;
+  final bool allowJustified;
+
+  const PresenceDeckScreen({
+    super.key,
+    required this.title,
+    required this.people,
+    this.allowJustified = false,
+  });
+
+  static Future<Map<String, PresenceMark>?> open(
+    BuildContext context, {
+    required String title,
+    required List<PresenceCardData> people,
+    bool allowJustified = false,
+  }) => Navigator.of(context).push<Map<String, PresenceMark>>(
+    MaterialPageRoute(
+      builder: (_) => PresenceDeckScreen(title: title, people: people, allowJustified: allowJustified),
+    ),
+  );
+
+  @override
+  State<PresenceDeckScreen> createState() => _PresenceDeckScreenState();
+}
+
+class _PresenceDeckScreenState extends State<PresenceDeckScreen> {
+  final Map<String, PresenceMark> _marks = {};
+
+  int _count(PresenceMark m) => _marks.values.where((v) => v == m).length;
+  String _plural(int n, String word) => '$n $word${n == 1 ? '' : 's'}';
+
+  Future<void> _confirmDiscard() async {
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sair sem salvar?'),
+        content: Text('Você marcou ${_marks.length} e ainda não salvou.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Continuar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sair')),
+        ],
+      ),
+    );
+    if (discard == true && mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final justified = _count(PresenceMark.justified);
+    return PopScope(
+      canPop: _marks.isEmpty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmDiscard();
+      },
+      child: Scaffold(
+        backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
+        appBar: AppBar(title: Text(widget.title), backgroundColor: CommunityDesign.headerColor(context)),
+        body: SafeArea(
+          child: PresenceDeck(
+            people: widget.people,
+            onDecide: (p, ok) => setState(() => _marks[p.id] = ok ? PresenceMark.present : PresenceMark.absent),
+            onJustify: widget.allowJustified ? (p) => setState(() => _marks[p.id] = PresenceMark.justified) : null,
+            onUndo: (p) => setState(() => _marks.remove(p.id)),
+            done: Text(
+              [
+                _plural(_count(PresenceMark.present), 'presente'),
+                _plural(_count(PresenceMark.absent), 'ausente'),
+                if (justified > 0) _plural(justified, 'justificada'),
+              ].join(' · '),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            // Navigator.pop não passa pelo PopScope (só o voltar do sistema).
+            doneAction: FilledButton.icon(
+              onPressed: () => Navigator.of(context).pop(_marks),
+              icon: const Icon(Icons.save_rounded),
+              label: const Text('Salvar'),
+              style: FilledButton.styleFrom(
+                shape: const StadiumBorder(),
+                minimumSize: const Size(0, 52),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Botão "Chamada em cartas (N)" das telas de chamada; some sem ninguém.
+class PresenceCardsButton extends StatelessWidget {
+  final int count;
+  final VoidCallback? onPressed;
+
+  const PresenceCardsButton({super.key, required this.count, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    if (count == 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: FilledButton.icon(
+        onPressed: onPressed,
+        icon: const Icon(Icons.style_rounded),
+        label: Text('Chamada em cartas ($count)'),
+        style: FilledButton.styleFrom(shape: const StadiumBorder(), minimumSize: const Size.fromHeight(48)),
       ),
     );
   }

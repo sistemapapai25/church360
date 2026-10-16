@@ -5,6 +5,7 @@ import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/utils/name_sort.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/widgets/glass_card.dart';
+import '../../../../../core/widgets/presence_deck.dart';
 import '../../../../members/domain/models/member_directory_entry.dart';
 import '../../../../members/presentation/providers/members_provider.dart';
 import '../../../../study_groups/domain/models/study_group.dart';
@@ -540,6 +541,21 @@ class _RollState extends ConsumerState<_Roll> {
     }
   }
 
+  Future<void> _rollInCards(List<PresenceCardData> people) async {
+    final marks = await PresenceDeckScreen.open(
+      context,
+      title: 'Chamada em cartas',
+      allowJustified: true,
+      people: people,
+    );
+    if (marks == null || !mounted) return;
+    setState(() {
+      for (final e in marks.entries) {
+        _marks[e.key] = AttendanceStatus.values.byName(e.value.name);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final participantsAsync = ref.watch(
@@ -567,9 +583,20 @@ class _RollState extends ConsumerState<_Roll> {
             if (students.isEmpty) {
               return Text('Nenhum participante nesta turma.', style: meta);
             }
+            final unmarked = [
+              for (final p in students)
+                if (!_marks.containsKey(p.userId))
+                  PresenceCardData(id: p.userId, name: _nameOf(names, p.userId)),
+            ];
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // As cartas só preenchem a chamada; grava no Salvar de baixo.
+                if (widget.canMark)
+                  PresenceCardsButton(
+                    count: unmarked.length,
+                    onPressed: _saving ? null : () => _rollInCards(unmarked),
+                  ),
                 for (final p in students)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
