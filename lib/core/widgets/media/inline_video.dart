@@ -19,7 +19,11 @@ import 'video_play_overlay.dart';
 class InlineVideo extends StatefulWidget {
   final String url;
 
-  const InlineVideo({super.key, required this.url});
+  /// Já abre no player, sem a capa (culto ao vivo na Home e em /culto).
+  /// Só vale para YouTube; arquivo continua esperando o toque.
+  final bool autoStart;
+
+  const InlineVideo({super.key, required this.url, this.autoStart = false});
 
   @override
   State<InlineVideo> createState() => _InlineVideoState();
@@ -30,6 +34,21 @@ class _InlineVideoState extends State<InlineVideo> {
   YoutubePlayerController? _yt;
 
   String? get _youtubeId => YoutubePlayer.convertUrlToId(widget.url);
+
+  @override
+  void initState() {
+    super.initState();
+    final id = _youtubeId;
+    if (widget.autoStart && id != null) {
+      if (!kIsWeb) {
+        _yt = YoutubePlayerController(
+          initialVideoId: id,
+          flags: const YoutubePlayerFlags(autoPlay: true, mute: false),
+        );
+      }
+      _playing = true;
+    }
+  }
 
   @override
   void dispose() {

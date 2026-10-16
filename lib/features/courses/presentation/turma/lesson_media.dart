@@ -18,7 +18,10 @@ import '../../../../core/constants/supabase_constants.dart';
 /// ler e apagar ali — é o que permite apagar o arquivo antigo ao trocar.
 enum LessonMediaKind {
   pdf('support-material-files', ['pdf'], 'PDF'),
-  video('support-material-videos', ['mp4', 'mov', 'webm', 'm4v'], 'vídeo');
+  video('support-material-videos', ['mp4', 'mov', 'webm', 'm4v'], 'vídeo'),
+
+  /// Slides do culto: PDF ou PowerPoint, mesmo bucket do PDF.
+  slides('support-material-files', ['pdf', 'pptx', 'ppt'], 'slides');
 
   final String bucket;
   final List<String> extensions;
@@ -84,6 +87,9 @@ String? lessonMediaObjectPath(
 String lessonMediaContentType(String extension) =>
     switch (extension.toLowerCase()) {
       'pdf' => 'application/pdf',
+      'pptx' =>
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'ppt' => 'application/vnd.ms-powerpoint',
       'mp4' => 'video/mp4',
       'm4v' => 'video/x-m4v',
       'mov' => 'video/quicktime',

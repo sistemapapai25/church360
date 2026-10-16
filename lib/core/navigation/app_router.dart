@@ -474,7 +474,8 @@ final appRouter = GoRouter(
     // Modo culto em tela cheia (roadmap 14/10, A2): pública como /live-stream.
     GoRoute(
       path: '/culto',
-      builder: (context, state) => const CultoScreen(),
+      builder: (context, state) =>
+          CultoScreen(only: state.uri.queryParameters['so']),
     ),
     GoRoute(
       path: '/live-stream/manage',

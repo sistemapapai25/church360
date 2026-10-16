@@ -9,16 +9,27 @@ import 'slides_viewer_web_stub.dart'
 
 /// Link que vai no iframe/WebView. Google Slides: tanto o link "Publicar na
 /// web" (`/d/e/<id>/pub`) quanto o de edição (`/d/<id>/edit`) viram `/embed`,
-/// o visualizador com as setas ← → e sem a barra do Google. Qualquer outro
-/// link (PDF no Storage, por exemplo) fica como está: o navegador abre.
+/// o visualizador com as setas ← → e sem a barra do Google. PowerPoint
+/// (.pptx/.ppt enviado ao Storage público) passa pelo visualizador do Office,
+/// que mostra um slide por vez com as setas ← → (como o PreacherLab), sem
+/// virar PDF. Qualquer outro link (PDF, por exemplo) fica como está.
 String slidesEmbedUrl(String raw) {
   final url = raw.trim();
+  if (isPowerPoint(url)) {
+    return 'https://view.officeapps.live.com/op/embed.aspx?src='
+        '${Uri.encodeComponent(url)}';
+  }
   final m = RegExp(
     r'^(https://docs\.google\.com/presentation/d/(?:e/)?[A-Za-z0-9_-]+)(?:/[a-z]*)?',
   ).firstMatch(url);
   if (m == null) return url;
   return '${m.group(1)}/embed?start=false&loop=false';
 }
+
+bool isPowerPoint(String url) => RegExp(
+  r'\.pptx?$',
+  caseSensitive: false,
+).hasMatch(Uri.tryParse(url.trim())?.path ?? '');
 
 bool _isGoogleSlides(String url) =>
     url.trim().startsWith('https://docs.google.com/presentation/');
@@ -27,7 +38,9 @@ bool _isGoogleSlides(String url) =>
 /// Google abre e deixa rolar página a página. iOS abre PDF direto.
 String slidesNativeUrl(String raw) {
   final url = slidesEmbedUrl(raw);
-  if (_isGoogleSlides(url) || defaultTargetPlatform != TargetPlatform.android) {
+  if (_isGoogleSlides(url) ||
+      url.startsWith('https://view.officeapps.live.com/') ||
+      defaultTargetPlatform != TargetPlatform.android) {
     return url;
   }
   return 'https://docs.google.com/gview?embedded=true&url='

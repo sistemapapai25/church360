@@ -29,7 +29,7 @@ Widget _host(CurrentCulto culto) => ProviderScope(
 );
 
 void main() {
-  testWidgets('culto da Agenda sem chave: dois cards, painel, sem play', (
+  testWidgets('culto da Agenda sem chave e sem slides: só a linha e o painel', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -46,26 +46,24 @@ void main() {
     // O painel da presença responde ao servidor de mentira num microtask.
     await tester.pump();
 
-    expect(find.byKey(const ValueKey('culto-card')), findsOneWidget);
-    expect(find.byKey(const ValueKey('slides-card')), findsOneWidget);
-    expect(find.text('Culto Quarta'), findsOneWidget);
-    expect(find.text('desde 19:30'), findsOneWidget);
+    expect(find.byKey(const ValueKey('video-card')), findsNothing);
+    expect(find.byKey(const ValueKey('slides-card')), findsNothing);
+    expect(find.byKey(const ValueKey('culto-max')), findsNothing);
+    expect(find.text('Culto Quarta · 19:30'), findsOneWidget);
     expect(find.text('CULTO AGORA'), findsOneWidget);
-    expect(find.text('Slides'), findsOneWidget);
-    expect(find.text('Sem slides neste culto'), findsOneWidget);
     expect(find.text('Chegou bem?'), findsOneWidget);
     expect(find.text('Tá ótimo! 🙌'), findsOneWidget);
-    expect(find.byIcon(Icons.play_circle_fill), findsNothing);
   });
 
-  testWidgets('chave ligada sem culto na Agenda: AO VIVO, play, mensagem', (
+  testWidgets('chave ligada sem culto na Agenda: AO VIVO, player, mensagem', (
     tester,
   ) async {
     await tester.pumpWidget(
       _host(
         const CurrentCulto(
           isLive: true,
-          streamUrl: 'https://www.youtube.com/watch?v=x',
+          // Link que não é YouTube: o player do YouTube precisa de WebView.
+          streamUrl: 'https://x.test/live',
           message: 'Em instantes',
         ),
       ),
@@ -75,11 +73,14 @@ void main() {
     expect(find.text('AO VIVO'), findsOneWidget);
     expect(find.text('Culto ao vivo'), findsOneWidget);
     expect(find.text('Em instantes'), findsOneWidget);
-    expect(find.byIcon(Icons.play_circle_fill), findsOneWidget);
+    expect(find.byKey(const ValueKey('video-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('video-expand')), findsOneWidget);
+    expect(find.text('Assistir no navegador'), findsOneWidget);
+    expect(find.byKey(const ValueKey('slides-card')), findsNothing);
     expect(find.text('Chegou bem?'), findsNothing);
   });
 
-  testWidgets('culto com slides: sem WebView (desktop), "Abrir slides"', (
+  testWidgets('transmissão + slides: dois cards e "ampliar os dois"', (
     tester,
   ) async {
     // Android/iOS montam a WebView (sem plugin no teste); desktop abre fora.
@@ -90,14 +91,18 @@ void main() {
           isLive: true,
           eventId: 'e1',
           title: 'Culto',
-          slidesUrl: 'https://docs.google.com/presentation/d/e/abc/pub',
+          streamUrl: 'https://x.test/live',
+          slidesUrl: 'https://x.test/culto.pptx',
         ),
       ),
     );
     await tester.pump();
 
+    expect(find.byKey(const ValueKey('video-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('slides-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('slides-expand')), findsOneWidget);
+    expect(find.byKey(const ValueKey('culto-max')), findsOneWidget);
     expect(find.text('Abrir slides'), findsOneWidget);
-    expect(find.text('Sem slides neste culto'), findsNothing);
     // O framework cobra a variável zerada antes dos tearDowns.
     debugDefaultTargetPlatformOverride = null;
   });
@@ -123,15 +128,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('culto-strip')), findsOneWidget);
-    expect(find.byKey(const ValueKey('culto-card')), findsNothing);
-    expect(find.byKey(const ValueKey('slides-card')), findsNothing);
+    expect(find.byKey(const ValueKey('culto-min')), findsNothing);
     expect(find.text('Culto Quarta'), findsOneWidget);
     expect(find.text('Chegou bem?'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('culto-strip')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('culto-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('culto-min')), findsOneWidget);
     expect(find.byKey(const ValueKey('culto-strip')), findsNothing);
   });
 
