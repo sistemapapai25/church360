@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 
 import 'package:uuid/uuid.dart';
 import '../providers/kids_providers.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../members/domain/models/member_directory_entry.dart';
 import '../../domain/models/kids_guardian.dart';
@@ -139,20 +138,7 @@ class _CheckInTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUser = ref.watch(currentUserProvider);
-
-    if (currentUser == null) {
-      return const Center(child: Text('Erro: Usuário não logado'));
-    }
-
-    final tokenAsync = ref.watch(
-      kidsCheckInTokenProvider((
-        childId: childId,
-        generatedBy: currentUser.id,
-        eventId:
-            null, // Opcional: pode vincular ao próximo culto automaticamente
-      )),
-    );
+    final tokenAsync = ref.watch(kidsCheckInTokenProvider(childId));
 
     return Center(
       child: Column(
@@ -188,7 +174,7 @@ class _CheckInTab extends ConsumerWidget {
                   const SizedBox(height: 24),
                   ElevatedButton.icon(
                     onPressed: () {
-                      ref.invalidate(kidsCheckInTokenProvider);
+                      ref.invalidate(kidsCheckInTokenProvider(childId));
                     },
                     icon: const Icon(Icons.refresh),
                     label: const Text('Gerar Novo Código'),
@@ -211,7 +197,7 @@ class _CheckInTab extends ConsumerWidget {
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
-                    ref.invalidate(kidsCheckInTokenProvider);
+                    ref.invalidate(kidsCheckInTokenProvider(childId));
                   },
                   child: const Text('Tentar Novamente'),
                 ),
@@ -530,6 +516,9 @@ class _AddGuardianDialog extends ConsumerStatefulWidget {
 class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
   MemberDirectoryEntry? _selectedMember;
   String _relationship = 'Tio(a)';
+  bool _canCheckOut = true;
+  bool _isTemporary = false;
+  DateTime? _validUntil;
   bool _isLoading = false;
 
   @override
@@ -712,6 +701,48 @@ class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
                   if (value != null) setState(() => _relationship = value);
                 },
               ),
+              // Cartilha §7.3: só retira quem está autorizado. O temporário
+              // vale até a data escolhida (ex.: a tia que busca neste domingo).
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Pode retirar a criança'),
+                value: _canCheckOut,
+                onChanged: (v) => setState(() => _canCheckOut = v),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Autorização temporária'),
+                subtitle: _isTemporary
+                    ? Text(
+                        _validUntil == null
+                            ? 'Escolha até quando vale'
+                            : 'Vale até ${DateFormat('dd/MM/yyyy').format(_validUntil!)}',
+                      )
+                    : null,
+                value: _isTemporary,
+                onChanged: (v) async {
+                  if (!v) {
+                    setState(() {
+                      _isTemporary = false;
+                      _validUntil = null;
+                    });
+                    return;
+                  }
+                  final now = DateTime.now();
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: now,
+                    firstDate: DateTime(now.year, now.month, now.day),
+                    lastDate: now.add(const Duration(days: 365)),
+                    helpText: 'Vale até',
+                  );
+                  if (picked == null) return;
+                  setState(() {
+                    _isTemporary = true;
+                    _validUntil = picked;
+                  });
+                },
+              ),
             ],
           ],
         ),
@@ -738,6 +769,9 @@ class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
                       childId: widget.childId,
                       guardianId: _selectedMember!.id,
                       relationship: _relationship,
+                      canCheckOut: _canCheckOut,
+                      isTemporary: _isTemporary,
+                      validUntil: _isTemporary ? _validUntil : null,
                       createdAt: DateTime.now(),
                     );
 
