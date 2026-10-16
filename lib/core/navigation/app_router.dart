@@ -152,6 +152,7 @@ import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/dashboard_hub_screens.dart';
+import '../screens/leader_panel_screen.dart';
 import 'route_guard.dart';
 import '../../features/permissions/presentation/widgets/dashboard_access_gate.dart';
 import '../../features/permissions/presentation/screens/permissions_screen.dart';
@@ -459,6 +460,12 @@ final appRouter = GoRouter(
       path: '/dashboard/igreja/gestao',
       builder: (context, state) =>
           const DashboardAccessGate(child: ChurchManagementScreen()),
+    ),
+    // G5: "Seu painel" do pastor/líder (cartão no perfil da igreja).
+    GoRoute(
+      path: '/dashboard/painel',
+      builder: (context, state) =>
+          const DashboardAccessGate(child: LeaderPanelScreen()),
     ),
     GoRoute(
       path: '/live-stream',
