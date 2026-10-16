@@ -2262,7 +2262,11 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final childId = state.pathParameters['childId']!;
         final childName = state.uri.queryParameters['name'] ?? 'Criança';
-        return KidsRegistrationScreen(childId: childId, childName: childName);
+        return KidsRegistrationScreen(
+          childId: childId,
+          childName: childName,
+          initialTab: state.uri.queryParameters['tab'] == 'aulas' ? 3 : 0,
+        );
       },
     ),
 

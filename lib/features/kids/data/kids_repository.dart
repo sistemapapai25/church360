@@ -455,6 +455,43 @@ class KidsRepository {
     return Map<String, dynamic>.from(result as Map);
   }
 
+  /// Aula do culto de hoje (K7); `null` se ainda não foi registrada.
+  Future<Map<String, dynamic>?> getTodayLesson() async {
+    final result = await _supabase.rpc('kids_today_lesson');
+    return result == null ? null : Map<String, dynamic>.from(result as Map);
+  }
+
+  /// Grava a aula de hoje; com [notify], avisa os pais das crianças com
+  /// check-in. Devolve quantos responsáveis foram avisados.
+  Future<int> saveLesson({
+    required String theme,
+    String? verse,
+    String? activity,
+    bool notify = false,
+  }) async {
+    final result = await _supabase.rpc(
+      'kids_save_lesson',
+      params: {
+        'p_theme': theme,
+        'p_verse': verse,
+        'p_activity': activity,
+        'p_notify': notify,
+      },
+    );
+    return ((result as Map)['notified'] as num?)?.toInt() ?? 0;
+  }
+
+  /// Aulas dos cultos em que a criança esteve (pais e equipe).
+  Future<List<Map<String, dynamic>>> getChildLessons(String childId) async {
+    final result = await _supabase.rpc(
+      'kids_child_lessons',
+      params: {'p_child': childId},
+    );
+    return [
+      for (final row in result as List) Map<String, dynamic>.from(row as Map),
+    ];
+  }
+
   // ==========================================
   // SALAS
   // ==========================================
