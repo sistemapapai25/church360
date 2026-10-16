@@ -23,10 +23,14 @@ class KidsRegistrationScreen extends ConsumerStatefulWidget {
   final String childId;
   final String childName;
 
+  /// Aba aberta ao entrar (0 = QR; 3 = Aulas, vindo do push da aula).
+  final int initialTab;
+
   const KidsRegistrationScreen({
     super.key,
     required this.childId,
     required this.childName,
+    this.initialTab = 0,
   });
 
   @override
@@ -41,7 +45,11 @@ class _KidsRegistrationScreenState extends ConsumerState<KidsRegistrationScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: widget.initialTab.clamp(0, 3),
+    );
   }
 
   @override
@@ -115,6 +123,7 @@ class _KidsRegistrationScreenState extends ConsumerState<KidsRegistrationScreen>
             Tab(text: 'Check-in (QR)', icon: Icon(Icons.qr_code)),
             Tab(text: 'Responsáveis', icon: Icon(Icons.security)),
             Tab(text: 'Ficha', icon: Icon(Icons.medical_information)),
+            Tab(text: 'Aulas', icon: Icon(Icons.menu_book)),
           ],
         ),
       ),
@@ -124,6 +133,7 @@ class _KidsRegistrationScreenState extends ConsumerState<KidsRegistrationScreen>
           _CheckInTab(childId: widget.childId),
           _GuardiansTab(childId: widget.childId),
           _ProfileTab(childId: widget.childId),
+          _LessonsTab(childId: widget.childId),
         ],
       ),
     );
@@ -885,5 +895,63 @@ class _AddGuardianDialogState extends ConsumerState<_AddGuardianDialog> {
         ),
       ],
     );
+  }
+}
+
+/// Aba Aulas (K7): o que foi ministrado nos cultos em que a criança esteve,
+/// com o versículo e a tarefa para casa (cartilha §3).
+class _LessonsTab extends ConsumerWidget {
+  final String childId;
+
+  const _LessonsTab({required this.childId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ref
+        .watch(kidsChildLessonsProvider(childId))
+        .when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(
+            child: Text(
+              AppErrorHandler.userMessage(e, feature: 'kids.lessons'),
+            ),
+          ),
+          data: (lessons) => lessons.isEmpty
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text(
+                      'Quando a criança participar de um culto com check-in, '
+                      'a aula do dia aparece aqui.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    for (final l in lessons)
+                      Card(
+                        child: ListTile(
+                          title: Text(l['theme'] as String? ?? ''),
+                          subtitle: Text(_lessonDetails(l)),
+                        ),
+                      ),
+                  ],
+                ),
+        );
+  }
+
+  // start_date é hora de parede rotulada UTC: mostrar sem converter.
+  static String _lessonDetails(Map<String, dynamic> l) {
+    final date = DateTime.tryParse('${l['date']}');
+    return [
+      [
+        if (date != null) DateFormat('dd/MM').format(date.toUtc()),
+        '${l['event_name'] ?? ''}',
+      ].join(' · '),
+      if (l['verse'] != null) 'Versículo: ${l['verse']}',
+      if (l['activity'] != null) 'Tarefa para casa: ${l['activity']}',
+    ].join('\n');
   }
 }

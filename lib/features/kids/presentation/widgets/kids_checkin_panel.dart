@@ -184,6 +184,95 @@ class _BoardState extends ConsumerState<_Board> {
     }
   }
 
+  /// Aula de hoje + tarefa para casa (cartilha §3, K7).
+  Future<void> _lesson() async {
+    Map<String, dynamic>? current;
+    try {
+      current = await ref.read(kidsRepositoryProvider).getTodayLesson();
+    } catch (e) {
+      _error(e);
+      return;
+    }
+    if (!mounted) return;
+    final theme = TextEditingController(text: current?['theme'] as String?);
+    final verse = TextEditingController(text: current?['verse'] as String?);
+    final activity = TextEditingController(
+      text: current?['activity'] as String?,
+    );
+    var notify = current?['notified_at'] == null;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) => AlertDialog(
+          title: const Text('Aula de hoje'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: theme,
+                  decoration: const InputDecoration(labelText: 'Tema'),
+                ),
+                TextField(
+                  controller: verse,
+                  decoration: const InputDecoration(labelText: 'Versículo'),
+                ),
+                TextField(
+                  controller: activity,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Tarefa para casa (opcional)',
+                  ),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Avisar os pais agora'),
+                  subtitle: const Text(
+                    'Notifica os responsáveis das crianças com check-in hoje.',
+                  ),
+                  value: notify,
+                  onChanged: (v) => setDialog(() => notify = v),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (theme.text.trim().isEmpty) return;
+                Navigator.pop(ctx, true);
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final n = await ref
+          .read(kidsRepositoryProvider)
+          .saveLesson(
+            theme: theme.text,
+            verse: verse.text,
+            activity: activity.text,
+            notify: notify,
+          );
+      _done(
+        notify
+            ? 'Aula salva. $n ${n == 1 ? 'responsável avisado' : 'responsáveis avisados'}.'
+            : 'Aula salva.',
+      );
+    } catch (e) {
+      _error(e);
+    }
+  }
+
   /// Chama o responsável (cartilha §7.2): push aos pais e à Mídia (Data
   /// Show) e, se quiser, WhatsApp do celular da equipe.
   Future<void> _call(KidsChildCard card) async {
@@ -373,6 +462,11 @@ class _BoardState extends ConsumerState<_Board> {
             searchHint: 'Buscar criança pelo nome',
             onSearchChanged: _onSearch,
             secondaryActions: [
+              AppFilterAction(
+                label: 'Aula de hoje',
+                icon: Icons.menu_book_outlined,
+                onPressed: hasEvent ? _lesson : null,
+              ),
               AppFilterAction(
                 label: 'Salas',
                 icon: Icons.meeting_room_outlined,
