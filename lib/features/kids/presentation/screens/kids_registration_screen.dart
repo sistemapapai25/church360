@@ -9,6 +9,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../members/domain/models/member_directory_entry.dart';
 import '../../domain/models/kids_guardian.dart';
+import '../../domain/models/kids_child_profile.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/widgets/pearl_fab.dart';
@@ -41,7 +42,7 @@ class _KidsRegistrationScreenState extends ConsumerState<KidsRegistrationScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -114,6 +115,7 @@ class _KidsRegistrationScreenState extends ConsumerState<KidsRegistrationScreen>
           tabs: const [
             Tab(text: 'Check-in (QR)', icon: Icon(Icons.qr_code)),
             Tab(text: 'Responsáveis', icon: Icon(Icons.security)),
+            Tab(text: 'Ficha', icon: Icon(Icons.medical_information)),
           ],
         ),
       ),
@@ -122,6 +124,7 @@ class _KidsRegistrationScreenState extends ConsumerState<KidsRegistrationScreen>
         children: [
           _CheckInTab(childId: widget.childId),
           _GuardiansTab(childId: widget.childId),
+          _ProfileTab(childId: widget.childId),
         ],
       ),
     );
@@ -344,6 +347,173 @@ class _GuardiansTab extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Erro: $err')),
       ),
+    );
+  }
+}
+
+/// Tab 3: Ficha da criança (cartilha §6 e §5.3). Vista pela equipe do
+/// Infantil, pelos pais e pelos responsáveis; a autorização de imagem só o
+/// pai/mãe/tutor muda (a RPC confere de novo).
+class _ProfileTab extends ConsumerStatefulWidget {
+  final String childId;
+
+  const _ProfileTab({required this.childId});
+
+  @override
+  ConsumerState<_ProfileTab> createState() => _ProfileTabState();
+}
+
+class _ProfileTabState extends ConsumerState<_ProfileTab> {
+  final _allergies = TextEditingController();
+  final _intolerances = TextEditingController();
+  final _medications = TextEditingController();
+  final _specialNeeds = TextEditingController();
+  final _behavior = TextEditingController();
+  final _notes = TextEditingController();
+  bool _imageConsent = false;
+  bool _loaded = false;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    for (final c in [
+      _allergies,
+      _intolerances,
+      _medications,
+      _specialNeeds,
+      _behavior,
+      _notes,
+    ]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  void _fill(KidsChildProfile? p) {
+    if (_loaded) return;
+    _loaded = true;
+    _allergies.text = p?.allergies ?? '';
+    _intolerances.text = p?.intolerances ?? '';
+    _medications.text = p?.medications ?? '';
+    _specialNeeds.text = p?.specialNeeds ?? '';
+    _behavior.text = p?.behaviorProfile ?? '';
+    _notes.text = p?.notes ?? '';
+    _imageConsent = p?.imageConsent ?? false;
+  }
+
+  Future<void> _save(bool isParent) async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _saving = true);
+    try {
+      await ref.read(kidsRepositoryProvider).saveChildProfile(
+            childId: widget.childId,
+            allergies: _allergies.text,
+            intolerances: _intolerances.text,
+            medications: _medications.text,
+            specialNeeds: _specialNeeds.text,
+            behaviorProfile: _behavior.text,
+            notes: _notes.text,
+            imageConsent: isParent ? _imageConsent : null,
+          );
+      ref.invalidate(kidsChildProfileProvider(widget.childId));
+      ref.invalidate(kidsChildProfilesProvider);
+      messenger.showSnackBar(const SnackBar(content: Text('Ficha salva!')));
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            AppErrorHandler.userMessage(e, feature: 'kids.save_profile'),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Widget _field(TextEditingController c, String label, String hint) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: c,
+        minLines: 1,
+        maxLines: 4,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profileAsync = ref.watch(kidsChildProfileProvider(widget.childId));
+    final isParent = ref
+        .watch(kidsIsParentProvider(widget.childId))
+        .maybeWhen(data: (v) => v, orElse: () => false);
+
+    return profileAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Text(
+          AppErrorHandler.userMessage(e, feature: 'kids.load_profile'),
+          textAlign: TextAlign.center,
+        ),
+      ),
+      data: (profile) {
+        _fill(profile);
+        return ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            Text('Saúde', style: CommunityDesign.titleStyle(context)),
+            const SizedBox(height: 12),
+            _field(_allergies, 'Alergias', 'Ex.: amendoim, picada de abelha'),
+            _field(_intolerances, 'Intolerâncias alimentares', 'Ex.: lactose, glúten'),
+            _field(_medications, 'Medicamentos de uso contínuo', 'Nome e horário'),
+            _field(
+              _specialNeeds,
+              'Diagnósticos e necessidades especiais',
+              'Ex.: TEA, TDAH, asma',
+            ),
+            const SizedBox(height: 8),
+            Text('Comportamento', style: CommunityDesign.titleStyle(context)),
+            const SizedBox(height: 12),
+            _field(_behavior, 'Perfil comportamental', 'Ex.: tímido, se adapta devagar'),
+            _field(_notes, 'Observações', 'O que a equipe precisa saber'),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _imageConsent,
+              onChanged: isParent
+                  ? (v) => setState(() => _imageConsent = v)
+                  : null,
+              title: const Text('Autorizo fotos e vídeos nos canais oficiais da igreja'),
+              subtitle: Text([
+                isParent
+                    ? 'LGPD art. 14: só o pai, a mãe ou o responsável autoriza.'
+                    : 'Só o pai, a mãe ou o responsável pode mudar.',
+                if (profile?.imageConsentAt != null)
+                  'Atualizado em ${DateFormat('dd/MM/yyyy').format(profile!.imageConsentAt!.toLocal())}.',
+              ].join(' ')),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _saving ? null : () => _save(isParent),
+              icon: _saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save),
+              label: const Text('Salvar ficha'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

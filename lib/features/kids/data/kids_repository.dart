@@ -4,6 +4,7 @@ import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/kids_guardian.dart';
 import '../domain/models/kids_token.dart';
 import '../domain/models/kids_attendance.dart';
+import '../domain/models/kids_child_profile.dart';
 
 class KidsRepository {
   final SupabaseClient _supabase;
@@ -277,6 +278,73 @@ class KidsRepository {
         .delete()
         .eq('tenant_id', SupabaseConstants.currentTenantId)
         .eq('id', guardianId);
+  }
+
+  // ==========================================
+  // FICHA DA CRIANÇA (saúde, comportamento, imagem)
+  // ==========================================
+
+  /// Ficha de uma criança; `null` se ainda não foi preenchida ou se a RLS
+  /// não deixa ver (só equipe do Infantil, pais e responsáveis).
+  Future<KidsChildProfile?> getChildProfile(String childId) async {
+    final response = await _supabase
+        .from('kids_child_profile')
+        .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .eq('child_id', childId)
+        .maybeSingle();
+    return response == null ? null : KidsChildProfile.fromJson(response);
+  }
+
+  /// Fichas visíveis da igreja, por criança (selos da lista da equipe).
+  Future<Map<String, KidsChildProfile>> getChildProfiles() async {
+    final response = await _supabase
+        .from('kids_child_profile')
+        .select()
+        .eq('tenant_id', SupabaseConstants.currentTenantId);
+    return {
+      for (final row in response as List)
+        (row as Map)['child_id'] as String:
+            KidsChildProfile.fromJson(Map<String, dynamic>.from(row)),
+    };
+  }
+
+  /// Pai/mãe/tutor da criança (só ele dá a autorização de imagem).
+  Future<bool> isParentOf(String childId) async {
+    final result = await _supabase.rpc(
+      'kids_is_parent',
+      params: {
+        'p_tenant': SupabaseConstants.currentTenantId,
+        'p_child': childId,
+      },
+    );
+    return result == true;
+  }
+
+  /// Grava a ficha. `imageConsent` nulo não mexe na autorização de imagem.
+  Future<void> saveChildProfile({
+    required String childId,
+    String? allergies,
+    String? intolerances,
+    String? medications,
+    String? specialNeeds,
+    String? behaviorProfile,
+    String? notes,
+    bool? imageConsent,
+  }) async {
+    await _supabase.rpc(
+      'kids_save_child_profile',
+      params: {
+        'p_child': childId,
+        'p_allergies': allergies,
+        'p_intolerances': intolerances,
+        'p_medications': medications,
+        'p_special_needs': specialNeeds,
+        'p_behavior_profile': behaviorProfile,
+        'p_notes': notes,
+        'p_image_consent': imageConsent,
+      },
+    );
   }
 
   // ==========================================
