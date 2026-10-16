@@ -109,7 +109,7 @@ class _QrScannerFabState extends State<QrScannerFab> {
     _save();
   }
 
-  /// Canto inferior esquerdo: o canto direito é do Menu de Gestão.
+  /// Canto inferior esquerdo.
   Offset _defaultPos(BoxConstraints c) => Offset(
         QrScannerFab.margin,
         c.maxHeight - QrScannerFab.size - QrScannerFab.margin,

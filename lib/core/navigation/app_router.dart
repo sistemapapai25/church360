@@ -110,7 +110,7 @@ import '../../features/church_info/presentation/screens/church_info_form_screen.
 import '../../features/news/presentation/screens/news_screen.dart';
 import '../../features/news/presentation/screens/manage_news_screen.dart';
 import '../../features/news/presentation/screens/news_form_screen.dart';
-import '../../features/reading_plans/presentation/screens/reading_plans_list_screen.dart';
+import '../../features/edificacao/edificacao_screen.dart';
 import '../../features/reading_plans/presentation/screens/reading_plan_detail_screen.dart';
 import '../../features/reading_plans/presentation/screens/reading_plan_module_screen.dart';
 import '../../features/reading_plans/presentation/screens/manage_reading_plans_screen.dart';
@@ -1107,13 +1107,21 @@ final appRouter = GoRouter(
     // =====================================================
     // ROTAS: DEVOCIONAIS
     // =====================================================
+    // C3: a lista do membro mora em /edificacao; a gestão continua aqui.
     GoRoute(
       path: '/devotionals',
-      builder: (context, state) {
-        final from = state.uri.queryParameters['from'];
-        final fromDashboard = from == 'dashboard';
-        return DevotionalsListScreen(fromDashboard: fromDashboard);
-      },
+      redirect: (context, state) =>
+          state.uri.queryParameters['from'] == 'dashboard'
+              ? null
+              : '/edificacao',
+      builder: (context, state) =>
+          const DevotionalsListScreen(fromDashboard: true),
+    ),
+    GoRoute(
+      path: '/edificacao',
+      builder: (context, state) => EdificacaoScreen(
+        initialTab: state.uri.queryParameters['tab'] == 'planos' ? 1 : 0,
+      ),
     ),
     // Gestão (colocar ANTES de '/devotionals/:id' para evitar colisão)
     GoRoute(
@@ -1745,7 +1753,7 @@ final appRouter = GoRouter(
     // =====================================================
     GoRoute(
       path: '/reading-plans',
-      builder: (context, state) => const ReadingPlansListScreen(),
+      redirect: (context, state) => '/edificacao?tab=planos',
     ),
     GoRoute(
       path: '/reading-plans/admin',
