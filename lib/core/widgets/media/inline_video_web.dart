@@ -2,6 +2,8 @@ import 'dart:ui_web' as ui;
 
 import 'package:web/web.dart' as web;
 
+import 'inline_video.dart' show youtubeEmbedUrl;
+
 final _registered = <String>{};
 
 /// Registra (uma vez por URL) o player e devolve o viewType para o
@@ -18,9 +20,7 @@ String videoViewType(String url, {String? youtubeId}) {
               ..controls = true
               ..autoplay = true)
           : (web.HTMLIFrameElement()
-              ..src =
-                  'https://www.youtube.com/embed/$youtubeId'
-                  '?autoplay=1&playsinline=1&rel=0'
+              ..src = youtubeEmbedUrl(youtubeId)
               ..allow =
                   'autoplay; fullscreen; picture-in-picture; encrypted-media'
               ..allowFullscreen = true);
