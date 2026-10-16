@@ -151,6 +151,7 @@ import '../../features/duplicates/presentation/screens/duplicate_accounts_screen
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/dashboard_screen.dart';
+import '../screens/dashboard_hub_screens.dart';
 import 'route_guard.dart';
 import '../../features/permissions/presentation/widgets/dashboard_access_gate.dart';
 import '../../features/permissions/presentation/screens/permissions_screen.dart';
@@ -436,6 +437,28 @@ final appRouter = GoRouter(
       path: '/dashboard',
       builder: (context, state) =>
           const DashboardAccessGate(child: DashboardScreen()),
+    ),
+    // Frente G: o que a barra de baixo da Dashboard abre. Cada item de
+    // dentro mantém o gate da própria rota.
+    GoRoute(
+      path: '/dashboard/pessoas',
+      builder: (context, state) =>
+          const DashboardAccessGate(child: DashboardPeopleScreen()),
+    ),
+    GoRoute(
+      path: '/dashboard/ministerios',
+      builder: (context, state) =>
+          const DashboardAccessGate(child: DashboardMinistriesScreen()),
+    ),
+    GoRoute(
+      path: '/dashboard/igreja',
+      builder: (context, state) =>
+          const DashboardAccessGate(child: ChurchProfileScreen()),
+    ),
+    GoRoute(
+      path: '/dashboard/igreja/gestao',
+      builder: (context, state) =>
+          const DashboardAccessGate(child: ChurchManagementScreen()),
     ),
     GoRoute(
       path: '/live-stream',

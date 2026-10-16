@@ -18,7 +18,11 @@ import '../../shared/presentation/providers/ministry_type_catalog_providers.dart
 
 /// Tela de listagem de ministérios
 class MinistriesListScreen extends ConsumerStatefulWidget {
-  const MinistriesListScreen({super.key});
+  /// Dentro de uma aba da Dashboard (G3): sem o cabeçalho próprio; o "Novo"
+  /// vira botão flutuante.
+  final bool embedded;
+
+  const MinistriesListScreen({super.key, this.embedded = false});
 
   @override
   ConsumerState<MinistriesListScreen> createState() =>
@@ -53,9 +57,17 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
+      floatingActionButton: widget.embedded && canCreateAsync.value == true
+          ? FloatingActionButton.extended(
+              onPressed: () => context.push('/ministries/new'),
+              icon: const Icon(AppIcons.add),
+              label: const Text('Novo ministério'),
+            )
+          : null,
       body: Column(
         children: [
           // Header com título e botão de novo ministério
+          if (!widget.embedded)
           Container(
             padding: const EdgeInsets.fromLTRB(24, 60, 24, 16),
             decoration: BoxDecoration(
@@ -139,7 +151,7 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: widget.embedded ? 16 : 24),
           Expanded(
             child: ministriesAsync.when(
               data: (ministries) {
@@ -225,9 +237,12 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                     const SizedBox(height: 8),
                     Expanded(
                       child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 0,
+                        // embutida: espaço para o botão "Novo ministério"
+                        padding: EdgeInsets.fromLTRB(
+                          24,
+                          0,
+                          24,
+                          widget.embedded ? 88 : 0,
                         ),
                         itemCount: filtered.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 16),

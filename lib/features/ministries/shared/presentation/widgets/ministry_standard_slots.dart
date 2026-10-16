@@ -1,5 +1,6 @@
 import '../../../batismo/presentation/screens/tabs/batismo_checklist_tab.dart';
 import '../../../../courses/presentation/widgets/formacao_turmas_tab.dart';
+import '../../../../groups/presentation/screens/groups_list_screen.dart';
 import '../../../louvor/presentation/louvores_tab.dart';
 import '../../domain/ministry_type_catalog.dart';
 import 'ministry_assistance_tab.dart';
@@ -72,5 +73,10 @@ Map<String, MinistryTabSlot> ministryStandardSlots(
   MinistryTabKeys.relatorios: MinistryTabSlot(
     defaultLabel: 'Relatórios',
     builder: (_) => MinistryReportsTab(ministryId: ministryId),
+  ),
+  // Só o tipo 'comunhao' liga (não está em MinistryTabKeys.standard).
+  MinistryTabKeys.grupos: MinistryTabSlot(
+    defaultLabel: 'Grupos',
+    builder: (_) => const GroupsListScreen(embedded: true),
   ),
 };

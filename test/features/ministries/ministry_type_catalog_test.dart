@@ -20,13 +20,24 @@ void main() {
   group('fallback embutido — espelho do seed da migration', () {
     const catalog = MinistryTypeCatalog.fallback;
 
-    test('tem os cinco tipos, na ordem do sort_order', () {
+    test('tem os seis tipos, na ordem do sort_order', () {
       expect(catalog.types.map((t) => t.code).toList(), [
         'generic',
         'batismo',
         'raizes',
         'diaconato',
         'louvor',
+        'comunhao',
+      ]);
+    });
+
+    test('comunhão abre na lista de grupos (008600)', () {
+      expect(catalog.tabLabelsFor('comunhao'), [
+        'Grupos',
+        'Equipe',
+        'Materiais',
+        'WhatsApp',
+        'Relatórios',
       ]);
     });
 
@@ -116,7 +127,7 @@ void main() {
           '/ministries/m1');
     });
 
-    test('os cinco são oferecidos na criação, e a RPC valida o mesmo', () {
+    test('os seis são oferecidos na criação, e a RPC valida o mesmo', () {
       // create_ministry_with_leader consulta ministry_type.offered_on_create
       // no servidor e devolve 22023 para qualquer outro valor. Se esta lista
       // e o catálogo do banco divergirem, a criação falha em runtime.
@@ -126,6 +137,7 @@ void main() {
         'raizes',
         'diaconato',
         'louvor',
+        'comunhao',
       ]);
     });
 

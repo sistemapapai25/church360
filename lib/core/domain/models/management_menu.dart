@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/branches/presentation/providers/branches_provider.dart';
-import '../../../features/permissions/providers/permissions_providers.dart';
-import '../../../features/support_chat/data/support_agents_data.dart';
 
 /// Um item do Menu de Gestão da Dashboard.
 ///
 /// Visível quando o usuário tem [permission] (RBAC) **ou**, nos poucos itens
 /// fora do RBAC, quando [visibleWhen] resolve `true` (Filiais = admin da
-/// matriz; Configurações de Desenvolvedor = owner). Nunca os dois.
+/// matriz). Nunca os dois.
 @immutable
 class ManagementMenuItem {
   const ManagementMenuItem({
@@ -30,8 +28,8 @@ class ManagementMenuItem {
   final ProviderListenable<AsyncValue<bool>>? visibleWhen;
 }
 
-/// Uma categoria do Menu de Gestão (uma bolinha da fileira no topo da
-/// Dashboard). Some por inteiro quando o usuário não tem nenhuma das
+/// Uma categoria do Menu de Gestão (um item da barra de baixo da Dashboard
+/// ou uma seção do ☰ da igreja). Some por inteiro quando o usuário não tem nenhuma das
 /// [permissions] nem satisfaz [extraVisibilityCheck] (CHU-310).
 @immutable
 class ManagementMenuCategory {
@@ -51,80 +49,102 @@ class ManagementMenuCategory {
   final List<ManagementMenuItem> items;
 }
 
-/// Fonte única do Menu de Gestão (B5a/B5b, roadmap Home/culto/Dashboard de
-/// 14/10/2026): a fileira de bolinhas da Dashboard lê daqui.
-final List<ManagementMenuCategory> kManagementMenu = [
-  const ManagementMenuCategory(
-    icon: Icons.groups,
-    title: 'Pessoas',
-    permissions: ['members.view', 'visitors.view', 'tags.view'],
-    items: [
-      ManagementMenuItem(
-        icon: Icons.groups,
-        title: 'Membros',
-        route: '/members',
-        permission: 'members.view',
-      ),
-      ManagementMenuItem(
-        icon: Icons.person_add,
-        title: 'Visitantes',
-        route: '/visitors',
-        permission: 'visitors.view',
-      ),
-      ManagementMenuItem(
-        icon: Icons.label_outline,
-        title: 'Tags',
-        route: '/tags',
-        permission: 'tags.view',
-      ),
-    ],
-  ),
-  const ManagementMenuCategory(
+/// G2 (roadmap 14/10, Frente G de 16/10): o item Pessoas da barra de baixo
+/// da Dashboard. "Vincular pessoas" é a tela de cadastros duplicados.
+const ManagementMenuCategory kPeopleMenu = ManagementMenuCategory(
+  icon: Icons.groups,
+  title: 'Pessoas',
+  permissions: [
+    'members.merge_duplicates',
+    'members.view',
+    'visitors.view',
+    'kids.manage',
+    'tags.view',
+  ],
+  items: [
+    ManagementMenuItem(
+      icon: Icons.link,
+      title: 'Vincular pessoas',
+      route: '/duplicate-accounts',
+      permission: 'members.merge_duplicates',
+    ),
+    ManagementMenuItem(
+      icon: Icons.groups,
+      title: 'Membros',
+      route: '/members',
+      permission: 'members.view',
+    ),
+    ManagementMenuItem(
+      icon: Icons.person_add,
+      title: 'Visitantes',
+      route: '/visitors',
+      permission: 'visitors.view',
+    ),
+    ManagementMenuItem(
+      icon: Icons.child_care,
+      title: 'Kids',
+      route: '/kids',
+      permission: 'kids.manage',
+    ),
+    ManagementMenuItem(
+      icon: Icons.label_outline,
+      title: 'Tags',
+      route: '/tags',
+      permission: 'tags.view',
+    ),
+  ],
+);
+
+/// G3: o item Ministérios da barra. Cada item vira uma aba da tela
+/// `/dashboard/ministerios`. Grupos de Comunhão é um ministério (tipo
+/// `comunhao`); Turmas e Cursos ficam dentro do ministério de cada um.
+const ManagementMenuCategory kMinistriesMenu = ManagementMenuCategory(
+  icon: Icons.church,
+  title: 'Ministérios',
+  permissions: ['ministries.view', 'support_materials.view'],
+  items: [
+    ManagementMenuItem(
+      icon: Icons.church,
+      title: 'Ministérios',
+      route: '/ministries',
+      permission: 'ministries.view',
+    ),
+    ManagementMenuItem(
+      icon: Icons.library_books,
+      title: 'Materiais de apoio',
+      route: '/support-materials?from=dashboard',
+      permission: 'support_materials.view',
+    ),
+  ],
+);
+
+/// G4: as seções do ☰ "Gestão da igreja", no perfil da igreja (logo na
+/// barra de baixo). As Configurações de Desenvolvedor e os Agentes IA saíram
+/// daqui: vão para o Support360 (Frente G6).
+final List<ManagementMenuCategory> kChurchMenu = [
+  ManagementMenuCategory(
     icon: Icons.church,
-    title: 'Ministério',
-    permissions: [
-      'church_info.edit',
-      'ministries.view',
-      'groups.view',
-      'study_groups.view',
-      'support_materials.view',
-    ],
+    title: 'Sua igreja',
+    permissions: const ['church_info.edit'],
+    extraVisibilityCheck: isMatrizAdminProvider,
     items: [
-      ManagementMenuItem(
+      const ManagementMenuItem(
         icon: Icons.church,
-        title: 'A Igreja',
+        title: 'Dados da igreja',
         route: '/church-info/manage',
         permission: 'church_info.edit',
       ),
       ManagementMenuItem(
+        icon: Icons.account_tree,
+        title: 'Filiais',
+        route: '/branches',
+        visibleWhen: isMatrizAdminProvider,
+      ),
+      const ManagementMenuItem(
         icon: Icons.checklist,
         title: 'Primeiros passos',
         route: '/primeiros-passos',
         permission: 'church_info.edit',
-      ),
-      ManagementMenuItem(
-        icon: Icons.groups,
-        title: 'Ministérios',
-        route: '/ministries',
-        permission: 'ministries.view',
-      ),
-      ManagementMenuItem(
-        icon: Icons.group,
-        title: 'Grupos de Comunhão',
-        route: '/groups?from=dashboard',
-        permission: 'groups.view',
-      ),
-      ManagementMenuItem(
-        icon: Icons.menu_book,
-        title: 'Turmas',
-        route: '/courses?tab=turmas&from=dashboard',
-        permission: 'study_groups.view',
-      ),
-      ManagementMenuItem(
-        icon: Icons.library_books,
-        title: 'Material de Apoio',
-        route: '/support-materials?from=dashboard',
-        permission: 'support_materials.view',
       ),
     ],
   ),
@@ -156,10 +176,10 @@ final List<ManagementMenuCategory> kManagementMenu = [
       'quick_news.create',
       'prayer_requests.moderate',
       'devotionals.create',
+      'news.edit',
+      'reading_plans.manage',
+      'courses.view',
       'live_stream.manage',
-      'support.attend',
-      'financial.edit',
-      'financial.manage',
     ],
     items: [
       ManagementMenuItem(
@@ -193,11 +213,37 @@ final List<ManagementMenuCategory> kManagementMenu = [
         permission: 'devotionals.create',
       ),
       ManagementMenuItem(
+        icon: Icons.article,
+        title: 'Notícias',
+        route: '/news/admin',
+        permission: 'news.edit',
+      ),
+      ManagementMenuItem(
+        icon: Icons.menu_book,
+        title: 'Planos de leitura',
+        route: '/reading-plans/admin',
+        permission: 'reading_plans.manage',
+      ),
+      // Criar curso só existe nesta tela; as turmas ficam no ministério.
+      ManagementMenuItem(
+        icon: Icons.school,
+        title: 'Cursos',
+        route: '/courses?from=dashboard',
+        permission: 'courses.view',
+      ),
+      ManagementMenuItem(
         icon: Icons.live_tv,
         title: 'Culto ao vivo',
         route: '/live-stream/manage',
         permission: 'live_stream.manage',
       ),
+    ],
+  ),
+  const ManagementMenuCategory(
+    icon: Icons.support_agent,
+    title: 'Atendimento e finanças',
+    permissions: ['support.attend', 'financial.edit', 'financial.manage'],
+    items: [
       ManagementMenuItem(
         icon: Icons.support_agent,
         title: 'Atendimentos',
@@ -219,110 +265,43 @@ final List<ManagementMenuCategory> kManagementMenu = [
     ],
   ),
   const ManagementMenuCategory(
-    icon: Icons.apps,
-    title: 'Módulos',
-    permissions: [
-      'agents.manage_center',
-      'courses.view',
-      'kids.manage',
-      'news.edit',
-      'reading_plans.manage',
-    ],
-    items: [
-      // CHU-310 follow-up: agents.manage_center, kids.manage e
-      // reading_plans.manage são códigos novos, ver
-      // backend-scripts/add_missing_drawer_permissions.sql
-      if (kMultiAgentsEnabled)
-        ManagementMenuItem(
-          icon: Icons.smart_toy,
-          title: 'Agentes IA',
-          route: '/agents-center',
-          permission: 'agents.manage_center',
-        ),
-      ManagementMenuItem(
-        icon: Icons.school,
-        title: 'Cursos',
-        route: '/courses?from=dashboard',
-        permission: 'courses.view',
-      ),
-      ManagementMenuItem(
-        icon: Icons.child_care,
-        title: 'Kid',
-        route: '/kids',
-        permission: 'kids.manage',
-      ),
-      ManagementMenuItem(
-        icon: Icons.article,
-        title: 'Notícias',
-        route: '/news/admin',
-        permission: 'news.edit',
-      ),
-      ManagementMenuItem(
-        icon: Icons.menu_book,
-        title: 'Planos de Leitura',
-        route: '/reading-plans/admin',
-        permission: 'reading_plans.manage',
-      ),
-    ],
-  ),
-  ManagementMenuCategory(
     icon: Icons.settings,
     title: 'Configurações',
-    permissions: const [
+    permissions: [
       'settings.manage_permissions',
-      'events.checkin',
       'dispatch.configure',
+      'events.checkin',
       'reports.view_analytics',
       'reports.view',
-      'members.merge_duplicates',
     ],
-    extraVisibilityCheck: currentUserSeesConfigCategoryExtrasProvider,
     items: [
-      const ManagementMenuItem(
+      ManagementMenuItem(
         icon: Icons.security,
-        title: 'Permissões',
+        title: 'Permissões e cargos',
         route: '/permissions',
         permission: 'settings.manage_permissions',
       ),
       ManagementMenuItem(
-        icon: Icons.account_tree,
-        title: 'Filiais',
-        route: '/branches',
-        visibleWhen: isMatrizAdminProvider,
+        icon: Icons.send,
+        title: 'Disparos de mensagens',
+        route: '/dispatch-config',
+        permission: 'dispatch.configure',
       ),
-      const ManagementMenuItem(
+      ManagementMenuItem(
         icon: Icons.qr_code_scanner,
         title: 'Leitor de QR Code',
         route: '/qr-scanner',
         permission: 'events.checkin',
       ),
-      const ManagementMenuItem(
-        icon: Icons.send,
-        title: 'Configuração de Disparos',
-        route: '/dispatch-config',
-        permission: 'dispatch.configure',
-      ),
-      const ManagementMenuItem(
-        icon: Icons.people_alt_outlined,
-        title: 'Vincular Cadastros',
-        route: '/duplicate-accounts',
-        permission: 'members.merge_duplicates',
-      ),
       ManagementMenuItem(
-        icon: Icons.developer_mode,
-        title: 'Configurações de Desenvolvedor',
-        route: '/developer-settings',
-        visibleWhen: currentUserIsOwnerProvider,
-      ),
-      const ManagementMenuItem(
         icon: Icons.analytics,
-        title: 'Analytics & Relatórios',
+        title: 'Analytics',
         route: '/analytics',
         permission: 'reports.view_analytics',
       ),
-      const ManagementMenuItem(
+      ManagementMenuItem(
         icon: Icons.assessment,
-        title: 'Relatórios Customizados',
+        title: 'Relatórios customizados',
         route: '/custom-reports',
         permission: 'reports.view',
       ),
