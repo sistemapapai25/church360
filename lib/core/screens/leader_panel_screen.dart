@@ -31,7 +31,15 @@ List<Map<String, dynamic>> _list(Object? v) => [
 ];
 
 /// Um número dos últimos 30 dias, com o dos 30 anteriores quando há.
-typedef _Stat = ({String label, String value, int? now, int? prev, String? note});
+typedef _Stat = ({
+  String label,
+  String value,
+  int? now,
+  int? prev,
+  String? note,
+  IconData icon,
+  Color color,
+});
 
 List<_Stat> _overview(Map<String, dynamic> p) {
   final presence = p['presence'] as Map?;
@@ -46,6 +54,8 @@ List<_Stat> _overview(Map<String, dynamic> p) {
         now: presence['avg'] == null ? null : _int(presence['avg']),
         prev: presence['prev_avg'] == null ? null : _int(presence['prev_avg']),
         note: '${_int(presence['cultos'])} cultos',
+        icon: Icons.groups_outlined,
+        color: Colors.indigo,
       ),
     if (members != null) ...[
       (
@@ -54,6 +64,8 @@ List<_Stat> _overview(Map<String, dynamic> p) {
         now: _int(members['new_members']),
         prev: _int(members['prev_new_members']),
         note: null,
+        icon: Icons.person_add_alt_1_outlined,
+        color: Colors.teal,
       ),
       (
         label: 'Batismos',
@@ -61,6 +73,8 @@ List<_Stat> _overview(Map<String, dynamic> p) {
         now: null,
         prev: null,
         note: null,
+        icon: Icons.water_drop_outlined,
+        color: Colors.lightBlue,
       ),
     ],
     if (p['graduations'] != null)
@@ -70,6 +84,8 @@ List<_Stat> _overview(Map<String, dynamic> p) {
         now: null,
         prev: null,
         note: null,
+        icon: Icons.school_outlined,
+        color: Colors.deepPurple,
       ),
     if (visitors != null) ...[
       (
@@ -78,6 +94,8 @@ List<_Stat> _overview(Map<String, dynamic> p) {
         now: null,
         prev: null,
         note: null,
+        icon: Icons.waving_hand_outlined,
+        color: Colors.orange,
       ),
       (
         label: 'Visitantes que voltaram',
@@ -85,6 +103,8 @@ List<_Stat> _overview(Map<String, dynamic> p) {
         now: null,
         prev: null,
         note: null,
+        icon: Icons.replay_outlined,
+        color: Colors.pink,
       ),
     ],
     if (money != null)
@@ -94,6 +114,8 @@ List<_Stat> _overview(Map<String, dynamic> p) {
         now: ((money['total'] as num?) ?? 0).round(),
         prev: ((money['prev_total'] as num?) ?? 0).round(),
         note: null,
+        icon: Icons.savings_outlined,
+        color: Colors.green,
       ),
   ];
 }
@@ -123,8 +145,10 @@ class LeaderPanelScreen extends ConsumerWidget {
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text('Não deu para carregar o painel.\n$e',
-                textAlign: TextAlign.center),
+            child: Text(
+              'Não deu para carregar o painel.\n$e',
+              textAlign: TextAlign.center,
+            ),
           ),
         ),
         data: (p) => p == null
@@ -165,19 +189,23 @@ class _PanelBody extends StatelessWidget {
 
     Widget title(String text) => Padding(
       padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
-      child: Text(text,
-          style: theme.textTheme.titleMedium
-              ?.copyWith(fontWeight: FontWeight.w600)),
+      child: Text(
+        text,
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       children: [
-        Text(
-          leader
-              ? 'Seus ministérios: ${(p['ministries'] as List? ?? const []).join(', ')}'
-              : 'Visão da igreja',
-          style: theme.textTheme.bodyMedium,
+        _PanelHeader(
+          title: leader ? 'Seus ministérios' : 'Visão da igreja',
+          subtitle: leader
+              ? (p['ministries'] as List? ?? const []).join(', ')
+              : 'A igreja toda nos últimos 30 dias',
+          attention: _attention(p),
         ),
         if (stats.isNotEmpty) ...[
           title('Últimos 30 dias'),
@@ -191,6 +219,7 @@ class _PanelBody extends StatelessWidget {
         if (absent != null)
           _PeopleTile(
             icon: Icons.person_off_outlined,
+            color: Colors.deepOrange,
             label: 'Faltaram nos 3 últimos cultos',
             total: _int(absent['total']),
             people: _list(absent['people']),
@@ -198,6 +227,7 @@ class _PanelBody extends StatelessWidget {
         if (noFollowup != null)
           _PeopleTile(
             icon: Icons.support_agent,
+            color: Colors.blue,
             label: 'Visitantes sem acompanhamento',
             total: _int(noFollowup['total']),
             people: _list(noFollowup['people']),
@@ -205,6 +235,7 @@ class _PanelBody extends StatelessWidget {
         if (gaps != null)
           _ListTileGroup(
             icon: Icons.event_busy_outlined,
+            color: Colors.purple,
             label: 'Escalas sem gente (7 dias)',
             total: _int(gaps['total']),
             children: [
@@ -223,13 +254,17 @@ class _PanelBody extends StatelessWidget {
         if (p['prayer_pending'] != null)
           ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-            leading: const Icon(Icons.volunteer_activism_outlined),
+            leading: const _TintedIcon(
+              Icons.volunteer_activism_outlined,
+              Colors.pink,
+            ),
             title: const Text('Pedidos de oração aguardando'),
             trailing: _Count(_int(p['prayer_pending'])),
             onTap: () => context.push('/prayer-requests?from=dashboard'),
           ),
         _PeopleTile(
           icon: Icons.cake_outlined,
+          color: Colors.amber,
           label: 'Aniversariantes da semana',
           total: birthdays.length,
           people: birthdays,
@@ -242,16 +277,39 @@ class _PanelBody extends StatelessWidget {
             ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 4),
               title: Text('${m['name']}'),
-              subtitle: Text(
-                '${_int(m['members'])} na equipe · '
-                '${_int(m['scheduled'])} escalados nos próximos 7 dias',
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${_int(m['members'])} na equipe · '
+                    '${_int(m['scheduled'])} escalados nos próximos 7 dias',
+                  ),
+                  if (_int(m['scheduled']) + _int(m['missing']) > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          minHeight: 6,
+                          value:
+                              _int(m['scheduled']) /
+                              (_int(m['scheduled']) + _int(m['missing'])),
+                          color: _int(m['missing']) > 0
+                              ? Colors.orange
+                              : Colors.green,
+                          backgroundColor:
+                              theme.colorScheme.surfaceContainerHighest,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               trailing: _int(m['missing']) > 0
                   ? Chip(
                       label: Text('faltam ${_int(m['missing'])}'),
                       visualDensity: VisualDensity.compact,
                     )
-                  : const Icon(Icons.check_circle_outline),
+                  : const Icon(Icons.check_circle, color: Colors.green),
               onTap: () => context.push('/ministries/${m['id']}'),
             ),
         ],
@@ -276,8 +334,7 @@ class _PanelBody extends StatelessWidget {
             title: const Text('Analytics'),
             onTap: () => context.push('/analytics'),
           ),
-        if (p['can_message'] == true)
-          const _MessageLeadersTile(),
+        if (p['can_message'] == true) const _MessageLeadersTile(),
       ],
     );
   }
@@ -287,7 +344,9 @@ class _PanelBody extends StatelessWidget {
 /// converter fuso.
 String _wallDay(Object? iso) {
   final d = DateTime.tryParse('${iso ?? ''}');
-  return d == null ? '' : DateFormat('EEE dd/MM HH:mm', 'pt_BR').format(d.toUtc());
+  return d == null
+      ? ''
+      : DateFormat('EEE dd/MM HH:mm', 'pt_BR').format(d.toUtc());
 }
 
 class _StatTile extends StatelessWidget {
@@ -303,25 +362,40 @@ class _StatTile extends StatelessWidget {
     Color? color;
     if (now != null && prev != null && prev > 0) {
       final pct = ((now - prev) * 100 / prev).round();
-      trend = pct == 0 ? '= 30 dias antes' : '${pct > 0 ? '▲' : '▼'} ${pct.abs()}%';
-      color = pct > 0 ? Colors.green : (pct < 0 ? theme.colorScheme.error : null);
+      trend = pct == 0
+          ? '= 30 dias antes'
+          : '${pct > 0 ? '▲' : '▼'} ${pct.abs()}%';
+      color = pct > 0
+          ? Colors.green
+          : (pct < 0 ? theme.colorScheme.error : null);
     }
     return SizedBox(
       width: 160,
-      child: Card(
-        margin: EdgeInsets.zero,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: stat.color.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: stat.color.withValues(alpha: 0.25)),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(stat.value,
-                  style: theme.textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.bold)),
+              _TintedIcon(stat.icon, stat.color),
+              const SizedBox(height: 8),
+              Text(
+                stat.value,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               Text(stat.label, style: theme.textTheme.bodySmall),
               if (trend != null)
-                Text(trend,
-                    style: theme.textTheme.labelSmall?.copyWith(color: color)),
+                Text(
+                  trend,
+                  style: theme.textTheme.labelSmall?.copyWith(color: color),
+                ),
               if (stat.note != null)
                 Text(stat.note!, style: theme.textTheme.labelSmall),
             ],
@@ -330,6 +404,111 @@ class _StatTile extends StatelessWidget {
       ),
     );
   }
+}
+
+int _attention(Map<String, dynamic> p) =>
+    _int((p['absent_3'] as Map?)?['total']) +
+    _int((p['visitors_no_followup'] as Map?)?['total']) +
+    _int((p['schedule_gaps'] as Map?)?['total']) +
+    _int(p['prayer_pending']);
+
+/// Fundo em degradê da cor do tema, usado no topo do painel e no cartão.
+BoxDecoration _heroDecoration(ColorScheme scheme) => BoxDecoration(
+  borderRadius: BorderRadius.circular(20),
+  gradient: LinearGradient(
+    colors: [scheme.primary, scheme.tertiary],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  ),
+);
+
+class _PanelHeader extends StatelessWidget {
+  const _PanelHeader({
+    required this.title,
+    required this.subtitle,
+    required this.attention,
+  });
+
+  final String title;
+  final String subtitle;
+  final int attention;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final on = theme.colorScheme.onPrimary;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: _heroDecoration(theme.colorScheme),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: on.withValues(alpha: 0.18),
+            child: Icon(Icons.insights, color: on),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: on,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: on.withValues(alpha: 0.85),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: on.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    attention > 0
+                        ? attention == 1
+                              ? '1 item pede sua atenção'
+                              : '$attention itens pedem sua atenção'
+                        : 'Tudo em dia por aqui',
+                    style: theme.textTheme.labelMedium?.copyWith(color: on),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TintedIcon extends StatelessWidget {
+  const _TintedIcon(this.icon, this.color);
+
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 36,
+    height: 36,
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.15),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Icon(icon, color: color, size: 20),
+  );
 }
 
 class _Count extends StatelessWidget {
@@ -343,7 +522,9 @@ class _Count extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return CircleAvatar(
       radius: 14,
-      backgroundColor: n > 0 && alert ? scheme.errorContainer : scheme.surfaceContainerHighest,
+      backgroundColor: n > 0 && alert
+          ? scheme.errorContainer
+          : scheme.surfaceContainerHighest,
       child: Text('$n', style: const TextStyle(fontSize: 12)),
     );
   }
@@ -355,10 +536,12 @@ class _ListTileGroup extends StatelessWidget {
     required this.label,
     required this.total,
     required this.children,
+    required this.color,
     this.alert = true,
   });
 
   final IconData icon;
+  final Color color;
   final String label;
   final int total;
   final List<Widget> children;
@@ -369,14 +552,14 @@ class _ListTileGroup extends StatelessWidget {
     if (children.isEmpty) {
       return ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-        leading: Icon(icon),
+        leading: _TintedIcon(icon, color),
         title: Text(label),
         trailing: _Count(total, alert: alert),
       );
     }
     return ExpansionTile(
       tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-      leading: Icon(icon),
+      leading: _TintedIcon(icon, color),
       title: Text(label),
       trailing: _Count(total, alert: alert),
       children: children,
@@ -390,11 +573,13 @@ class _PeopleTile extends StatelessWidget {
     required this.label,
     required this.total,
     required this.people,
+    required this.color,
     this.trailingOf,
     this.alert = true,
   });
 
   final IconData icon;
+  final Color color;
   final String label;
   final int total;
   final List<Map<String, dynamic>> people;
@@ -404,6 +589,7 @@ class _PeopleTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _ListTileGroup(
     icon: icon,
+    color: color,
     label: label,
     total: total,
     alert: alert,
@@ -413,7 +599,8 @@ class _PeopleTile extends StatelessWidget {
           dense: true,
           leading: CircleAvatar(
             radius: 16,
-            backgroundImage: (person['photo_url'] as String?)?.isNotEmpty == true
+            backgroundImage:
+                (person['photo_url'] as String?)?.isNotEmpty == true
                 ? NetworkImage(person['photo_url'] as String)
                 : null,
             child: (person['photo_url'] as String?)?.isNotEmpty == true
@@ -494,10 +681,12 @@ class _MessageLeadersTile extends ConsumerWidget {
       return;
     }
     try {
-      final n = await ref.read(supabaseClientProvider).rpc(
-        'panel_message_leaders',
-        params: {'p_title': title, 'p_body': body},
-      );
+      final n = await ref
+          .read(supabaseClientProvider)
+          .rpc(
+            'panel_message_leaders',
+            params: {'p_title': title, 'p_body': body},
+          );
       messenger.showSnackBar(
         SnackBar(content: Text('Mensagem enviada para $n líderes.')),
       );
@@ -527,10 +716,12 @@ Future<void> _sharePdf(Map<String, dynamic> p) async {
   final noFollowup = p['visitors_no_followup'] as Map?;
   final gaps = p['schedule_gaps'] as Map?;
   final attention = <List<String>>[
-    if (absent != null) ['Faltaram nos 3 últimos cultos', '${_int(absent['total'])}'],
+    if (absent != null)
+      ['Faltaram nos 3 últimos cultos', '${_int(absent['total'])}'],
     if (noFollowup != null)
       ['Visitantes sem acompanhamento', '${_int(noFollowup['total'])}'],
-    if (gaps != null) ['Vagas de escala sem gente (7 dias)', '${_int(gaps['total'])}'],
+    if (gaps != null)
+      ['Vagas de escala sem gente (7 dias)', '${_int(gaps['total'])}'],
     if (p['prayer_pending'] != null)
       ['Pedidos de oração aguardando', '${_int(p['prayer_pending'])}'],
     ['Aniversariantes da semana', '${_list(p['birthdays']).length}'],
@@ -558,12 +749,22 @@ Future<void> _sharePdf(Map<String, dynamic> p) async {
       pageFormat: PdfPageFormat.a4,
       margin: const pw.EdgeInsets.all(24),
       build: (_) => [
-        pw.Text(t('Resumo do painel'),
-            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-        pw.Text(t(p['scope'] == 'leader'
-            ? 'Ministérios: ${(p['ministries'] as List? ?? const []).join(', ')}'
-            : 'Igreja toda')),
-        pw.Text(t('Gerado em ${DateFormat('dd/MM/yyyy HH:mm').format(now)} · últimos 30 dias')),
+        pw.Text(
+          t('Resumo do painel'),
+          style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.Text(
+          t(
+            p['scope'] == 'leader'
+                ? 'Ministérios: ${(p['ministries'] as List? ?? const []).join(', ')}'
+                : 'Igreja toda',
+          ),
+        ),
+        pw.Text(
+          t(
+            'Gerado em ${DateFormat('dd/MM/yyyy HH:mm').format(now)} · últimos 30 dias',
+          ),
+        ),
         pw.SizedBox(height: 12),
         if (rows.isNotEmpty) table(['Número', 'Valor', 'Comparação'], rows),
         pw.SizedBox(height: 12),
@@ -590,22 +791,52 @@ class LeaderPanelCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = ref.watch(leaderPanelProvider).valueOrNull;
     if (p == null) return const SizedBox.shrink();
-    final attention = _int((p['absent_3'] as Map?)?['total']) +
-        _int((p['visitors_no_followup'] as Map?)?['total']) +
-        _int((p['schedule_gaps'] as Map?)?['total']) +
-        _int(p['prayer_pending']);
+    final attention = _attention(p);
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Card(
+      child: Material(
         key: const ValueKey('leader-panel-card'),
-        child: ListTile(
-          leading: const Icon(Icons.insights_outlined),
-          title: const Text('Seu painel'),
-          subtitle: Text(attention > 0
-              ? '$attention itens precisam da sua atenção'
-              : 'Números da igreja e dos ministérios'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.push('/dashboard/painel'),
+        color: Colors.transparent,
+        child: Ink(
+          decoration: _heroDecoration(scheme),
+          child: ListTile(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 6,
+            ),
+            iconColor: scheme.onPrimary,
+            textColor: scheme.onPrimary,
+            leading: CircleAvatar(
+              backgroundColor: scheme.onPrimary.withValues(alpha: 0.18),
+              child: Icon(Icons.insights, color: scheme.onPrimary),
+            ),
+            title: const Text(
+              'Seu painel',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              attention > 0
+                  ? attention == 1
+                        ? '1 item precisa da sua atenção'
+                        : '$attention itens precisam da sua atenção'
+                  : 'Números da igreja e dos ministérios',
+            ),
+            trailing: attention > 0
+                ? CircleAvatar(
+                    radius: 14,
+                    backgroundColor: scheme.error,
+                    child: Text(
+                      '$attention',
+                      style: TextStyle(fontSize: 12, color: scheme.onError),
+                    ),
+                  )
+                : const Icon(Icons.chevron_right),
+            onTap: () => context.push('/dashboard/painel'),
+          ),
         ),
       ),
     );

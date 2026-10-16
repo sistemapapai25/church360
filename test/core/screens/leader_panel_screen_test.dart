@@ -41,7 +41,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Seus ministérios: Louvor'), findsOneWidget);
+    expect(find.text('Seus ministérios'), findsOneWidget);
+    expect(find.text('1 item pede sua atenção'), findsOneWidget);
     expect(find.text('120'), findsOneWidget);
     expect(find.text('▲ 20%'), findsOneWidget);
     expect(find.text('Faltaram nos 3 últimos cultos'), findsOneWidget);

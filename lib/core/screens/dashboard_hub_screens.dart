@@ -8,6 +8,8 @@ import '../../features/church_onboarding/presentation/widgets/onboarding_dashboa
 import '../../features/members/presentation/providers/members_provider.dart';
 import '../../features/ministries/presentation/providers/ministries_provider.dart';
 import '../../features/ministries/presentation/screens/ministries_list_screen.dart';
+import '../../features/ministries/presentation/utils/ministry_visuals.dart';
+import '../../features/ministries/shared/presentation/providers/ministry_type_catalog_providers.dart';
 import '../../features/permissions/presentation/widgets/permission_gate.dart';
 import '../../features/permissions/providers/permissions_providers.dart';
 import '../../features/support_materials/presentation/screens/support_materials_screen.dart';
@@ -100,17 +102,32 @@ class ChurchProfileScreen extends ConsumerWidget {
           .whenData((u) => u.isEmpty ? 0 : u.length - 1),
     );
 
-    Widget stat(String value, String label) => Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+    bool can(String code) =>
+        ref.watch(currentUserHasPermissionProvider(code)).valueOrNull == true;
+    final canMembers = can('members.view') || can('visitors.view');
+    final canMinistries = can('ministries.view');
+    final canBranches = ref.watch(isMatrizAdminProvider).valueOrNull == true;
+
+    // Como no Instagram: tocar no número abre a lista dele (só para quem
+    // pode abrir a tela de destino).
+    Widget stat(String value, String label, String? route) => Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: route == null ? null : () => context.push(route),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(
+            children: [
+              Text(
+                value,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(label, style: theme.textTheme.bodySmall),
+            ],
           ),
-          Text(label, style: theme.textTheme.bodySmall),
-        ],
+        ),
       ),
     );
 
@@ -145,9 +162,13 @@ class ChurchProfileScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                stat(members, 'membros'),
-                stat(ministries, 'ministérios'),
-                stat(branches, 'filiais'),
+                stat(members, 'membros', canMembers ? '/members' : null),
+                stat(
+                  ministries,
+                  'ministérios',
+                  canMinistries ? '/dashboard/ministerios' : null,
+                ),
+                stat(branches, 'filiais', canBranches ? '/branches' : null),
               ],
             ),
             const SizedBox(height: 12),
@@ -184,6 +205,7 @@ class ChurchProfileScreen extends ConsumerWidget {
                 ),
               ],
             ),
+            if (canMinistries) const _MinistryHighlights(),
             const SizedBox(height: 16),
             // G5: cartão "Seu painel" (some para quem não é pastor/líder).
             const LeaderPanelCard(),
@@ -191,6 +213,74 @@ class ChurchProfileScreen extends ConsumerWidget {
             const OnboardingDashboardCard(),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Os "destaques" do perfil (como no Instagram): uma bolinha por ministério
+/// ativo, com a cor e o ícone dele; tocar abre o ministério.
+class _MinistryHighlights extends ConsumerWidget {
+  const _MinistryHighlights();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final list = ref.watch(activeMinistriesProvider).valueOrNull ?? const [];
+    if (list.isEmpty) return const SizedBox.shrink();
+    final catalog = ref.watch(ministryTypeCatalogSyncProvider);
+    final style = Theme.of(context).textTheme.labelSmall;
+    return SizedBox(
+      height: 96,
+      child: ListView.separated(
+        padding: const EdgeInsets.only(top: 16),
+        scrollDirection: Axis.horizontal,
+        itemCount: list.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 14),
+        itemBuilder: (context, i) {
+          final m = list[i];
+          final color = ministryColor(m.color);
+          return InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => context.push(
+              catalog.routeFor(ministryId: m.id, code: m.ministryTypeCode),
+            ),
+            child: SizedBox(
+              width: 64,
+              child: Column(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [color, color.withValues(alpha: 0.45)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: CircleAvatar(
+                      backgroundColor: Theme.of(context).colorScheme.surface,
+                      child: Icon(
+                        ministryIconData(m.icon),
+                        color: color,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    m.name,
+                    style: style,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
