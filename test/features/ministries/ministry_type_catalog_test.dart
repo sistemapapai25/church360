@@ -20,7 +20,7 @@ void main() {
   group('fallback embutido — espelho do seed da migration', () {
     const catalog = MinistryTypeCatalog.fallback;
 
-    test('tem os seis tipos, na ordem do sort_order', () {
+    test('tem os sete tipos, na ordem do sort_order', () {
       expect(catalog.types.map((t) => t.code).toList(), [
         'generic',
         'batismo',
@@ -28,6 +28,7 @@ void main() {
         'diaconato',
         'louvor',
         'comunhao',
+        'infantil',
       ]);
     });
 
@@ -35,6 +36,18 @@ void main() {
       expect(catalog.tabLabelsFor('comunhao'), [
         'Grupos',
         'Equipe',
+        'Materiais',
+        'WhatsApp',
+        'Relatórios',
+      ]);
+    });
+
+    test('infantil abre na rotina do dia (008900)', () {
+      expect(catalog.tabLabelsFor('infantil'), [
+        'Rotina',
+        'Equipe',
+        'Escala',
+        'Financeiro',
         'Materiais',
         'WhatsApp',
         'Relatórios',
@@ -127,7 +140,7 @@ void main() {
           '/ministries/m1');
     });
 
-    test('os seis são oferecidos na criação, e a RPC valida o mesmo', () {
+    test('os sete são oferecidos na criação, e a RPC valida o mesmo', () {
       // create_ministry_with_leader consulta ministry_type.offered_on_create
       // no servidor e devolve 22023 para qualquer outro valor. Se esta lista
       // e o catálogo do banco divergirem, a criação falha em runtime.
@@ -138,6 +151,7 @@ void main() {
         'diaconato',
         'louvor',
         'comunhao',
+        'infantil',
       ]);
     });
 

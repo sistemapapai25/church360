@@ -399,5 +399,22 @@ class MinistryTypeCatalog {
       offeredOnCreate: true,
       sortOrder: 60,
     ),
+    MinistryTypeSpec(
+      code: 'infantil',
+      label: 'Infantil',
+      description:
+          'Departamento infantil: rotina do dia, escala de educadores e materiais.',
+      tabs: [
+        MinistryTypeTab(MinistryTabKeys.rotina, 'Rotina'),
+        MinistryTypeTab(MinistryTabKeys.equipe, 'Equipe'),
+        MinistryTypeTab(MinistryTabKeys.escala, 'Escala'),
+        MinistryTypeTab(MinistryTabKeys.financeiro, 'Financeiro'),
+        MinistryTypeTab(MinistryTabKeys.materiais, 'Materiais'),
+        MinistryTypeTab(MinistryTabKeys.whatsapp, 'WhatsApp'),
+        MinistryTypeTab(MinistryTabKeys.relatorios, 'Relatórios'),
+      ],
+      offeredOnCreate: true,
+      sortOrder: 70,
+    ),
   ]);
 }
