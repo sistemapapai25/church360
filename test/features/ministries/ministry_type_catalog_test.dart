@@ -42,8 +42,9 @@ void main() {
       ]);
     });
 
-    test('infantil abre na rotina do dia (008900)', () {
+    test('infantil abre no check-in (008900 + 009100)', () {
       expect(catalog.tabLabelsFor('infantil'), [
+        'Check-in',
         'Rotina',
         'Equipe',
         'Escala',

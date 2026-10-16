@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../domain/models/kids_guardian.dart';
 import '../domain/models/kids_token.dart';
-import '../domain/models/kids_attendance.dart';
+import '../domain/models/kids_checkin.dart';
 import '../domain/models/kids_child_profile.dart';
 
 class KidsRepository {
@@ -348,114 +348,126 @@ class KidsRepository {
   }
 
   // ==========================================
-  // TOKENS (QR CODE)
+  // QR DOS PAIS
   // ==========================================
 
-  /// Gerar Token de Check-in
-  Future<KidsCheckInToken> generateCheckInToken({
-    required String childId,
-    required String generatedBy,
-    String? eventId,
-    String type = 'checkin',
-    int durationMinutes = 15,
+  /// Gera o QR de check-in (15 min). A RPC grava `generated_by` com o
+  /// `user_account.id` de quem gera (o auth.uid é outro id em metade das
+  /// contas e quebrava a FK).
+  Future<KidsCheckInToken> generateCheckInToken(String childId) async {
+    final response = await _supabase.rpc(
+      'kids_new_token',
+      params: {'p_child': childId},
+    );
+    return KidsCheckInToken.fromJson(Map<String, dynamic>.from(response as Map));
+  }
+
+  // ==========================================
+  // BALCÃO (check-in/check-out pela equipe do Infantil)
+  // ==========================================
+
+  /// A pessoa logada é da equipe do Infantil (kids.manage ou serve num
+  /// ministério do tipo 'infantil')?
+  Future<bool> isTeam() async {
+    final result = await _supabase.rpc(
+      'kids_is_team',
+      params: {'p_tenant': SupabaseConstants.currentTenantId},
+    );
+    return result == true;
+  }
+
+  /// Culto de hoje + crianças na sala agora.
+  Future<KidsBoard> getBoard() async {
+    final result = await _supabase.rpc('kids_board');
+    return KidsBoard.fromJson(Map<String, dynamic>.from(result as Map));
+  }
+
+  Future<List<KidsChildCard>> searchChildren(String query) async {
+    final result = await _supabase.rpc(
+      'kids_search_children',
+      params: {'p_query': query},
+    );
+    return [
+      for (final row in result as List)
+        KidsChildCard.fromJson(Map<String, dynamic>.from(row as Map)),
+    ];
+  }
+
+  /// Lê o QR sem gastar o código.
+  Future<KidsChildCard> scan(String token) async {
+    final result = await _supabase.rpc('kids_scan', params: {'p_token': token});
+    return KidsChildCard.fromJson(Map<String, dynamic>.from(result as Map));
+  }
+
+  /// Check-in pelo QR ([token]) ou pelo nome ([childId]). Sem [roomId], a
+  /// sala sai pela idade.
+  Future<KidsChildCard> checkIn({
+    String? token,
+    String? childId,
+    String? roomId,
   }) async {
-    final expiresAt = DateTime.now().add(Duration(minutes: durationMinutes));
-
-    final response = await _supabase
-        .from('kids_checkin_token')
-        .insert({
-          'child_id': childId,
-          'generated_by': generatedBy,
-          'event_id': eventId,
-          'token_type': type,
-          'expires_at': expiresAt.toIso8601String(),
-          'tenant_id': SupabaseConstants.currentTenantId,
-        })
-        .select()
-        .single();
-
-    return KidsCheckInToken.fromJson(response);
+    final result = await _supabase.rpc(
+      'kids_checkin',
+      params: {'p_token': token, 'p_child': childId, 'p_room': roomId},
+    );
+    return KidsChildCard.fromJson(Map<String, dynamic>.from(result as Map));
   }
 
-  /// Validar Token (Leitura do QR)
-  Future<KidsCheckInToken?> validateToken(String token) async {
-    final response = await _supabase
-        .from('kids_checkin_token')
-        .select()
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .eq('token', token)
-        .filter('used_at', 'is', null)
-        .gt('expires_at', DateTime.now().toIso8601String())
-        .maybeSingle();
-
-    if (response == null) return null;
-    return KidsCheckInToken.fromJson(response);
+  /// Quem pode retirar a criança deste check-in.
+  Future<List<KidsPicker>> getCheckoutOptions(String attendanceId) async {
+    final result = await _supabase.rpc(
+      'kids_checkout_options',
+      params: {'p_attendance': attendanceId},
+    );
+    return [
+      for (final row in result as List)
+        KidsPicker.fromJson(Map<String, dynamic>.from(row as Map)),
+    ];
   }
 
-  /// Marcar Token como usado
-  Future<void> markTokenAsUsed(String token) async {
-    await _supabase
-        .from('kids_checkin_token')
-        .update({'used_at': DateTime.now().toIso8601String()})
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
-        .eq('token', token);
-  }
-
-  // ==========================================
-  // ATTENDANCE (PRESENÇA)
-  // ==========================================
-
-  /// Realizar Check-in
-  Future<KidsAttendance> checkIn({
-    required String childId,
-    required String worshipServiceId,
-    required String checkInBy,
-    required String checkInTokenId,
-  }) async {
-    // 1. Marcar token como usado
-    await markTokenAsUsed(checkInTokenId);
-
-    // 2. Criar registro de presença
-    final response = await _supabase
-        .from('kids_attendance')
-        .insert({
-          'child_id': childId,
-          'event_id': worshipServiceId,
-          'checkin_by': checkInBy,
-          'checkin_token_id': checkInTokenId,
-          'checkin_time': DateTime.now().toIso8601String(),
-          'tenant_id': SupabaseConstants.currentTenantId,
-        })
-        .select()
-        .single();
-
-    return KidsAttendance.fromJson(response);
-  }
-
-  /// Realizar Check-out
-  Future<KidsAttendance> checkOut({
+  Future<void> checkOut({
     required String attendanceId,
-    required String checkOutBy,
     required String pickedUpBy,
-    required String checkOutTokenId,
+    String? token,
   }) async {
-    // 1. Marcar token como usado
-    await markTokenAsUsed(checkOutTokenId);
+    await _supabase.rpc(
+      'kids_checkout',
+      params: {
+        'p_attendance': attendanceId,
+        'p_picked_up_by': pickedUpBy,
+        'p_token': token,
+      },
+    );
+  }
 
-    // 2. Atualizar registro de presença
+  // ==========================================
+  // SALAS
+  // ==========================================
+
+  Future<List<KidsRoom>> getRooms() async {
     final response = await _supabase
-        .from('kids_attendance')
-        .update({
-          'checkout_time': DateTime.now().toIso8601String(),
-          'checkout_by': checkOutBy,
-          'picked_up_by': pickedUpBy,
-          'checkout_token_id': checkOutTokenId,
-        })
-        .eq('id', attendanceId)
-        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .from('kids_room')
         .select()
-        .single();
+        .eq('tenant_id', SupabaseConstants.currentTenantId)
+        .order('sort_order')
+        .order('name');
+    return [
+      for (final row in response as List)
+        KidsRoom.fromJson(Map<String, dynamic>.from(row as Map)),
+    ];
+  }
 
-    return KidsAttendance.fromJson(response);
+  Future<void> saveRoom(KidsRoom room) async {
+    await _supabase.rpc(
+      'kids_save_room',
+      params: {
+        'p_id': room.id,
+        'p_name': room.name,
+        'p_min_age': room.minAge,
+        'p_max_age': room.maxAge,
+        'p_active': room.isActive,
+        'p_sort': room.sortOrder,
+      },
+    );
   }
 }

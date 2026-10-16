@@ -4,6 +4,7 @@ import '../../data/kids_repository.dart';
 import '../../domain/models/kids_guardian.dart';
 import '../../domain/models/kids_token.dart';
 import '../../domain/models/kids_child_profile.dart';
+import '../../domain/models/kids_checkin.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 
 /// Provider do repositório Kids
@@ -46,12 +47,23 @@ final kidsIsParentProvider =
   return ref.watch(kidsRepositoryProvider).isParentOf(childId);
 });
 
-/// Provider para gerar token de check-in (QR Code)
-final kidsCheckInTokenProvider = FutureProvider.family<KidsCheckInToken, ({String childId, String generatedBy, String? eventId})>((ref, params) async {
-  final repository = ref.watch(kidsRepositoryProvider);
-  return repository.generateCheckInToken(
-    childId: params.childId,
-    generatedBy: params.generatedBy,
-    eventId: params.eventId,
-  );
+/// QR de check-in da criança (gerado pela RPC kids_new_token).
+final kidsCheckInTokenProvider =
+    FutureProvider.autoDispose.family<KidsCheckInToken, String>((ref, childId) {
+  return ref.watch(kidsRepositoryProvider).generateCheckInToken(childId);
+});
+
+/// A pessoa logada é da equipe do Infantil (abre o Balcão)?
+final kidsIsTeamProvider = FutureProvider.autoDispose<bool>((ref) {
+  return ref.watch(kidsRepositoryProvider).isTeam();
+});
+
+/// Culto de hoje + crianças na sala agora.
+final kidsBoardProvider = FutureProvider.autoDispose<KidsBoard>((ref) {
+  return ref.watch(kidsRepositoryProvider).getBoard();
+});
+
+/// Salas do Infantil da igreja.
+final kidsRoomsProvider = FutureProvider.autoDispose<List<KidsRoom>>((ref) {
+  return ref.watch(kidsRepositoryProvider).getRooms();
 });

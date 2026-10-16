@@ -58,6 +58,10 @@ abstract final class MinistryTabKeys {
   // não oferecer a lista de grupos na engrenagem de todo ministério.
   static const grupos = 'grupos';
 
+  // Balcão do Infantil (K3, 16/10): check-in/check-out das crianças. Só o
+  // tipo 'infantil' a liga; fora de MinistryTabKeys.standard, como 'grupos'.
+  static const checkin = 'checkin';
+
   // Ausentes do culto com pendência (005200). Não está no catálogo: a aba
   // aparece sozinha no shell enquanto houver pendência.
   static const acompanhar = 'acompanhar';
@@ -405,6 +409,7 @@ class MinistryTypeCatalog {
       description:
           'Departamento infantil: rotina do dia, escala de educadores e materiais.',
       tabs: [
+        MinistryTypeTab(MinistryTabKeys.checkin, 'Check-in'),
         MinistryTypeTab(MinistryTabKeys.rotina, 'Rotina'),
         MinistryTypeTab(MinistryTabKeys.equipe, 'Equipe'),
         MinistryTypeTab(MinistryTabKeys.escala, 'Escala'),

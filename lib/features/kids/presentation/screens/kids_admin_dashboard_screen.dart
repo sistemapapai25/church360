@@ -5,6 +5,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../domain/models/kids_child_profile.dart';
 import '../providers/kids_providers.dart';
+import '../widgets/kids_checkin_panel.dart';
 
 /// Painel Administrativo do Módulo Kids
 /// Permite gerenciar todas as crianças da igreja, seus vínculos e check-in.
@@ -67,7 +68,7 @@ class _KidsAdminDashboardScreenState extends ConsumerState<KidsAdminDashboardScr
         controller: _tabController,
         children: [
           _buildChildrenTab(),
-          const Center(child: Text('Funcionalidade de Check-in em breve')),
+          const KidsCheckinPanel(),
         ],
       ),
     );

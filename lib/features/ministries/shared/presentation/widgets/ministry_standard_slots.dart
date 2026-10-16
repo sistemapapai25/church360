@@ -1,6 +1,7 @@
 import '../../../batismo/presentation/screens/tabs/batismo_checklist_tab.dart';
 import '../../../../courses/presentation/widgets/formacao_turmas_tab.dart';
 import '../../../../groups/presentation/screens/groups_list_screen.dart';
+import '../../../../kids/presentation/widgets/kids_checkin_panel.dart';
 import '../../../louvor/presentation/louvores_tab.dart';
 import '../../domain/ministry_type_catalog.dart';
 import 'ministry_assistance_tab.dart';
@@ -78,5 +79,10 @@ Map<String, MinistryTabSlot> ministryStandardSlots(
   MinistryTabKeys.grupos: MinistryTabSlot(
     defaultLabel: 'Grupos',
     builder: (_) => const GroupsListScreen(embedded: true),
+  ),
+  // Só o tipo 'infantil' liga (K3).
+  MinistryTabKeys.checkin: MinistryTabSlot(
+    defaultLabel: 'Check-in',
+    builder: (_) => const KidsCheckinPanel(),
   ),
 };
