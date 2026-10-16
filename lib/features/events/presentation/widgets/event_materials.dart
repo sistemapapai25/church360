@@ -291,25 +291,72 @@ class _EventMainMediaEditorState extends ConsumerState<EventMainMediaEditor> {
     if (await _save({_column(kind): null})) await _dropOld(kind, old);
   }
 
-  Future<void> _pasteSlides() async {
+  Future<void> _pasteSlides(String? old) async {
     final url = await _askLink('Link dos slides');
-    if (url != null) await _save({'slides_url': url});
+    if (url != null && await _save({'slides_url': url})) {
+      await _dropOld(LessonMediaKind.slides, old);
+    }
   }
 
-  /// Slides do culto (20261008007400): só link (PDF ou Google Slides com
-  /// "Publicar na web"); não há upload. Aparecem no card Slides da Home e
-  /// em /culto enquanto o culto está aberto.
+  /// PPTX ou PDF do aparelho para os slides do culto, na pasta do evento.
+  Future<void> _uploadSlides(String? old) async {
+    final media = ref.read(lessonMediaServiceProvider);
+    try {
+      final file = await media.pick(LessonMediaKind.slides);
+      if (file == null || !mounted) return;
+      if (file.size > lessonMediaMaxBytes) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('O arquivo passa de 50 MB.')),
+        );
+        return;
+      }
+      setState(() => _busy = true);
+      final url = await media.upload(
+        kind: LessonMediaKind.slides,
+        lessonId: widget.eventId,
+        file: file,
+        folder: eventMediaFolder,
+      );
+      if (await _save({'slides_url': url})) {
+        await _dropOld(LessonMediaKind.slides, old);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _busy = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Não foi possível enviar: $error')),
+        );
+      }
+    }
+  }
+
+  /// Slides do culto (20261008007400): PPTX/PDF do aparelho ou link
+  /// (Google Slides com "Publicar na web"). Aparecem no card Slides da Home
+  /// e em /culto enquanto o culto está aberto, inclusive quando a live
+  /// automática liga a chave.
   Widget _slidesRow(String? current, TextStyle meta) {
     final url = blankToNull(current);
     if (url == null) {
       return Align(
         alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          key: const ValueKey('event-link-slides'),
-          style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
-          onPressed: _busy ? null : _pasteSlides,
-          icon: const Icon(Icons.slideshow_outlined, size: 18),
-          label: const Text('Colar link dos slides'),
+        child: Wrap(
+          spacing: 8,
+          children: [
+            TextButton.icon(
+              key: const ValueKey('event-upload-slides'),
+              style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
+              onPressed: _busy ? null : () => _uploadSlides(null),
+              icon: const Icon(AppIcons.upload, size: 18),
+              label: const Text('Enviar PPTX ou PDF'),
+            ),
+            TextButton.icon(
+              key: const ValueKey('event-link-slides'),
+              style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
+              onPressed: _busy ? null : () => _pasteSlides(null),
+              icon: const Icon(Icons.slideshow_outlined, size: 18),
+              label: const Text('Colar link dos slides'),
+            ),
+          ],
         ),
       );
     }
@@ -328,9 +375,20 @@ class _EventMainMediaEditorState extends ConsumerState<EventMainMediaEditor> {
       trailing: PopupMenuButton<String>(
         tooltip: 'Mais opções',
         enabled: !_busy,
-        onSelected: (v) =>
-            v == 'link' ? _pasteSlides() : _save({'slides_url': null}),
+        onSelected: (v) async {
+          switch (v) {
+            case 'arquivo':
+              await _uploadSlides(url);
+            case 'link':
+              await _pasteSlides(url);
+            default:
+              if (await _save({'slides_url': null})) {
+                await _dropOld(LessonMediaKind.slides, url);
+              }
+          }
+        },
         itemBuilder: (_) => const [
+          PopupMenuItem(value: 'arquivo', child: Text('Trocar por arquivo')),
           PopupMenuItem(value: 'link', child: Text('Trocar link')),
           PopupMenuItem(value: 'remover', child: Text('Remover slides')),
         ],
