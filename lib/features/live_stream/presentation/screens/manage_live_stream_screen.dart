@@ -25,6 +25,7 @@ class _ManageLiveStreamScreenState
   final _formKey = GlobalKey<FormState>();
   final _urlController = TextEditingController();
   final _messageController = TextEditingController();
+  final _channelController = TextEditingController();
 
   bool _isActive = false;
   bool _isSaving = false;
@@ -36,6 +37,7 @@ class _ManageLiveStreamScreenState
   void dispose() {
     _urlController.dispose();
     _messageController.dispose();
+    _channelController.dispose();
     super.dispose();
   }
 
@@ -46,6 +48,7 @@ class _ManageLiveStreamScreenState
     if (config != null) {
       _urlController.text = config.streamUrl ?? '';
       _messageController.text = config.message ?? '';
+      _channelController.text = config.youtubeChannelId ?? '';
       _isActive = config.isActive;
       _wasActive = config.isActive;
       _slidesUrl = blankToNull(config.slidesUrl);
@@ -230,7 +233,10 @@ class _ManageLiveStreamScreenState
                 _ => _setSlides(null),
               },
               itemBuilder: (_) => const [
-                PopupMenuItem(value: 'arquivo', child: Text('Trocar por arquivo')),
+                PopupMenuItem(
+                  value: 'arquivo',
+                  child: Text('Trocar por arquivo'),
+                ),
                 PopupMenuItem(value: 'link', child: Text('Trocar por link')),
                 PopupMenuItem(value: 'remover', child: Text('Remover slides')),
               ],
@@ -286,6 +292,7 @@ class _ManageLiveStreamScreenState
             ? null
             : _messageController.text.trim(),
         'is_active': _isActive,
+        'youtube_channel_id': blankToNull(_channelController.text),
         'updated_at': DateTime.now().toIso8601String(),
       });
 
@@ -436,6 +443,32 @@ class _ManageLiveStreamScreenState
                     prefixIcon: Icon(Icons.message),
                   ),
                   maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  key: const ValueKey('culto-youtube-channel'),
+                  controller: _channelController,
+                  decoration: const InputDecoration(
+                    labelText: 'ID do canal do YouTube (live automática)',
+                    hintText: 'UC...',
+                    helperText:
+                        'No horário dos cultos da Agenda o app procura a live '
+                        'do canal a cada minuto: liga sozinho quando ela '
+                        'começa e desliga quando ela termina.',
+                    helperMaxLines: 3,
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.smart_display_outlined),
+                  ),
+                  validator: (value) {
+                    final v = blankToNull(value);
+                    if (v == null ||
+                        RegExp(r'^UC[A-Za-z0-9_-]{22}$').hasMatch(v)) {
+                      return null;
+                    }
+                    return 'O ID começa com UC e tem 24 caracteres '
+                        '(YouTube Studio > Configurações > Canal > '
+                        'Configurações avançadas)';
+                  },
                 ),
                 const SizedBox(height: 16),
                 SwitchListTile(

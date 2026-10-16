@@ -7,6 +7,10 @@ class LiveStreamConfig {
 
   /// Slides colados na tela do Culto ao vivo (007400, `culto_set_slides`).
   final String? slidesUrl;
+
+  /// Canal do YouTube da live automática (20261008008800): com ele, a
+  /// edge culto-live-watch liga e desliga a chave no horário do culto.
+  final String? youtubeChannelId;
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? createdBy;
@@ -17,6 +21,7 @@ class LiveStreamConfig {
     this.message,
     this.isActive = false,
     this.slidesUrl,
+    this.youtubeChannelId,
     required this.createdAt,
     required this.updatedAt,
     this.createdBy,
@@ -29,6 +34,7 @@ class LiveStreamConfig {
       message: json['message'] as String?,
       isActive: json['is_active'] as bool? ?? false,
       slidesUrl: json['slides_url'] as String?,
+      youtubeChannelId: json['youtube_channel_id'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       createdBy: json['created_by'] as String?,
