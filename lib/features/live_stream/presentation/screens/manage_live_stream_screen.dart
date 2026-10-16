@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show FunctionException;
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../courses/presentation/turma/lesson_media.dart';
@@ -147,6 +148,143 @@ class _ManageLiveStreamScreenState
     }
   }
 
+  // ---- PreacherLAB (N4 / PRE-129): escolhe o sermão, baixa o .pptx e sobe
+  // para a mesma pasta do "Enviar PPTX". Escolher de novo = atualizar. ----
+
+  Future<String?> _askPreacherlabEmail() async {
+    final repo = ref.read(liveStreamRepositoryProvider);
+    final controller = TextEditingController(
+      text: await repo.preacherlabEmail() ?? '',
+    );
+    if (!mounted) return null;
+    final formKey = GlobalKey<FormState>();
+    final email = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Conta do PreacherLAB'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            key: const ValueKey('preacherlab-email'),
+            controller: controller,
+            autofocus: true,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: 'E-mail do dono da conta no PreacherLAB',
+            ),
+            validator: (v) =>
+                RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(v?.trim() ?? '')
+                ? null
+                : 'Informe um e-mail válido',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(dialogContext, controller.text.trim());
+              }
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (email != null) await repo.setPreacherlabEmail(email);
+    return email;
+  }
+
+  Future<void> _fromPreacherlab() async {
+    final repo = ref.read(liveStreamRepositoryProvider);
+    setState(() => _isSaving = true);
+    try {
+      List<Map<String, dynamic>> sermoes;
+      try {
+        sermoes = await repo.preacherlabSermoes();
+      } on FunctionException catch (e) {
+        if (e.status == 409 || e.status == 404) {
+          if (e.status == 404) {
+            _snack(
+              'O PreacherLAB não achou a conta. Confira se é o e-mail do '
+              'dono da conta no PreacherLAB.',
+              error: true,
+            );
+          }
+          if (await _askPreacherlabEmail() == null) return;
+          sermoes = await repo.preacherlabSermoes();
+        } else {
+          rethrow;
+        }
+      }
+      if (!mounted) return;
+      if (sermoes.isEmpty) {
+        _snack('Nenhum sermão com PowerPoint pronto no PreacherLAB.');
+        return;
+      }
+      final escolhido = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (dialogContext) => SimpleDialog(
+          title: const Text('Sermão do PreacherLAB'),
+          children: [
+            for (final s in sermoes)
+              ListTile(
+                title: Text('${s['titulo'] ?? 'Sem título'}'),
+                subtitle: Text(
+                  [
+                    if ((s['pregador'] ?? '').toString().isNotEmpty)
+                      s['pregador'],
+                    if (s['data'] != null)
+                      'criado em ${_dataBr(s['data'].toString())}',
+                  ].join(' · '),
+                ),
+                onTap: () => Navigator.pop(dialogContext, s),
+              ),
+            TextButton(
+              key: const ValueKey('preacherlab-trocar-email'),
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _askPreacherlabEmail();
+              },
+              child: const Text('Trocar e-mail da conta'),
+            ),
+          ],
+        ),
+      );
+      if (escolhido == null) return;
+      final bytes = await repo.preacherlabPptx(escolhido['id'].toString());
+      final url = await ref
+          .read(lessonMediaServiceProvider)
+          .upload(
+            kind: LessonMediaKind.slides,
+            lessonId: _today(),
+            file: PickedLessonFile(
+              name: 'sermao.pptx',
+              size: bytes.length,
+              bytes: bytes,
+            ),
+            folder: cultoSlidesFolder,
+          );
+      await _setSlides(url);
+    } catch (e) {
+      _snack('Não foi possível trazer do PreacherLAB: $e', error: true);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  /// `2026-10-16T…` -> `16/10/2026`.
+  static String _dataBr(String iso) {
+    final d = DateTime.tryParse(iso);
+    if (d == null) return iso;
+    return '${d.day.toString().padLeft(2, '0')}/'
+        '${d.month.toString().padLeft(2, '0')}/${d.year}';
+  }
+
   Future<void> _pasteSlides() async {
     final controller = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -214,6 +352,13 @@ class _ManageLiveStreamScreenState
                 icon: const Icon(AppIcons.link, size: 18),
                 label: const Text('Colar link'),
               ),
+              TextButton.icon(
+                key: const ValueKey('culto-preacherlab-slides'),
+                style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
+                onPressed: _isSaving ? null : _fromPreacherlab,
+                icon: const Icon(Icons.slideshow_outlined, size: 18),
+                label: const Text('Escolher do PreacherLAB'),
+              ),
             ],
           )
         else
@@ -230,6 +375,7 @@ class _ManageLiveStreamScreenState
               onSelected: (v) => switch (v) {
                 'arquivo' => _uploadSlides(),
                 'link' => _pasteSlides(),
+                'preacherlab' => _fromPreacherlab(),
                 _ => _setSlides(null),
               },
               itemBuilder: (_) => const [
@@ -238,13 +384,19 @@ class _ManageLiveStreamScreenState
                   child: Text('Trocar por arquivo'),
                 ),
                 PopupMenuItem(value: 'link', child: Text('Trocar por link')),
+                PopupMenuItem(
+                  value: 'preacherlab',
+                  child: Text('Trocar/atualizar pelo PreacherLAB'),
+                ),
                 PopupMenuItem(value: 'remover', child: Text('Remover slides')),
               ],
             ),
           ),
         const SizedBox(height: 4),
         Text(
-          'PDF ou Google Slides (Arquivo > Compartilhar > Publicar na web). '
+          'PDF, PowerPoint, Google Slides (Arquivo > Compartilhar > Publicar '
+          'na web) ou o sermão do PreacherLAB (escolher de novo traz a '
+          'versão mais nova). '
           'Grava na hora: se há culto na Agenda hoje, os slides ficam '
           'vinculados a ele; senão aparecem enquanto a chave estiver ligada. '
           'A pessoa vê e passa os slides no card Slides da Home e na tela do '
