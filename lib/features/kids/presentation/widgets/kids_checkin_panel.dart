@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:printing/printing.dart';
 
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/utils/whatsapp_launcher.dart';
 import '../../../../core/widgets/app_filter_bar.dart';
+import '../../domain/kids_badges_pdf.dart';
 import '../../domain/models/kids_checkin.dart';
 import '../providers/kids_providers.dart';
 
@@ -179,6 +181,19 @@ class _BoardState extends ConsumerState<_Board> {
             ? 'Check-in feito: ${r.name}'
             : 'Check-in feito: ${r.name} → ${r.roomName}',
       );
+    } catch (e) {
+      _error(e);
+    }
+  }
+
+  /// Etiquetas das crianças na sala (K5): PDF para imprimir fora.
+  Future<void> _badges(KidsBoard board) async {
+    try {
+      final bytes = await buildKidsBadgesPdf(
+        board.present,
+        eventName: board.eventName,
+      );
+      await Printing.sharePdf(bytes: bytes, filename: 'etiquetas_infantil.pdf');
     } catch (e) {
       _error(e);
     }
@@ -387,7 +402,9 @@ class _BoardState extends ConsumerState<_Board> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialog) => AlertDialog(
-          title: Text('Retirar ${card.name}'),
+          title: Text(
+            'Retirar ${card.name} (etiqueta ${kidsPickupCode(card)})',
+          ),
           content: SizedBox(
             width: double.maxFinite,
             child: options.isEmpty
@@ -466,6 +483,13 @@ class _BoardState extends ConsumerState<_Board> {
                 label: 'Aula de hoje',
                 icon: Icons.menu_book_outlined,
                 onPressed: hasEvent ? _lesson : null,
+              ),
+              AppFilterAction(
+                label: 'Etiquetas',
+                icon: Icons.badge_outlined,
+                onPressed: (board?.present.isNotEmpty ?? false)
+                    ? () => _badges(board!)
+                    : null,
               ),
               AppFilterAction(
                 label: 'Salas',
