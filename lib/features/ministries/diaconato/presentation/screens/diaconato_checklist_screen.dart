@@ -8,7 +8,8 @@ import '../../../../../core/design/community_design.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/widgets/glass_card.dart';
 import '../../../../worship/domain/models/worship_service.dart';
-import '../../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../../core/widgets/presence_deck.dart';
+import '../../../../permissions/providers/permissions_providers.dart';
 import '../../../../worship/presentation/providers/worship_provider.dart';
 import '../../../../worship/presentation/screens/geo_checkin_review_screen.dart';
 import '../../../shared/presentation/widgets/ministry_submodule_guard.dart';
@@ -75,6 +76,15 @@ class _DiaconatoChecklistContentState
 
   /// Marcados sozinhos porque a pessoa fez check-in (celular ou Cultos).
   final Set<String> _fromCheckin = <String>{};
+  /// Check-ins do culto (celular ou Cultos), por pessoa.
+  Map<String, WorshipAttendance> _checkins = const {};
+
+  /// Modo cartas (16/10): abre assim num culto ainda sem checklist salvo.
+  bool _cards = false;
+  List<PresenceCardData> _deck = const [];
+
+  /// Como cada pessoa estava antes da carta dela, para o Desfazer.
+  final Map<String, bool> _beforeCard = {};
   int _unregisteredVisitors = 0;
   int _children = 0;
   bool _saving = false;
@@ -107,11 +117,14 @@ class _DiaconatoChecklistContentState
       ),
       worshipRepo.getWorshipServiceById(widget.worshipServiceId),
       repo.getEligiblePeople(),
-      repo.getCheckedInUserIds(widget.worshipServiceId),
+      worshipRepo.getWorshipAttendance(widget.worshipServiceId),
     ]);
 
     final count = results[0] as WorshipAttendanceCount;
-    final checkedIn = results[3] as Set<String>;
+    _checkins = {
+      for (final a in results[3] as List<WorshipAttendance>) a.memberId: a,
+    };
+    final checkedIn = _checkins.keys.toSet();
     final personRows = await repo.getPersonRows(count.id);
 
     final data = _ChecklistData(
@@ -155,8 +168,89 @@ class _DiaconatoChecklistContentState
     }
     // Marcados pelo check-in ainda não estão gravados: pede o Salvar.
     _dirty = _fromCheckin.isNotEmpty;
+    if (data.personRows.isEmpty && data.eligible.isNotEmpty) _startCards();
 
     return data;
+  }
+
+  bool _isPresent(String userId) =>
+      _presentMemberIds.contains(userId) || _presentVisitorIds.contains(userId);
+
+  void _setPresent(DiaconatoEligiblePerson p, bool present) =>
+      p.personType == DiaconatoPersonType.member
+      ? _toggleMember(p.userId, present)
+      : _toggleVisitor(p.userId, present);
+
+  /// Uma carta por pessoa; quem fez check-in vem primeiro (quase sempre é
+  /// "presente", então o diácono passa rápido por eles).
+  void _startCards() {
+    final ordered = [
+      ..._eligible.where((p) => _checkins.containsKey(p.userId)),
+      ..._eligible.where((p) => !_checkins.containsKey(p.userId)),
+    ];
+    _deck = [
+      for (final p in ordered)
+        PresenceCardData(
+          id: p.userId,
+          name: p.displayName,
+          photoUrl: p.photoUrl,
+          subtitle: p.personType == DiaconatoPersonType.member
+              ? 'Membro'
+              : 'Visitante',
+          hint: switch (_checkins[p.userId]) {
+            null => null,
+            final a when a.isGeo => geoCheckinHint(a),
+            _ => 'Check-in em Cultos',
+          },
+          hintIcon: _checkins.containsKey(p.userId) ? Icons.gps_fixed : null,
+        ),
+    ];
+    _beforeCard.clear();
+    _cards = true;
+  }
+
+  DiaconatoEligiblePerson _personById(String id) =>
+      _eligible.firstWhere((p) => p.userId == id);
+
+  void _decideCard(PresenceCardData c, bool present) {
+    _beforeCard[c.id] = _isPresent(c.id);
+    _setPresent(_personById(c.id), present);
+  }
+
+  void _undoCard(PresenceCardData c) =>
+      _setPresent(_personById(c.id), _beforeCard.remove(c.id)!);
+
+  /// A presença pelo GPS ainda não validada segue a decisão do checklist:
+  /// presente valida, ausente recusa (RPC 007100, exige worship.attendance).
+  /// Devolve quantas não deram certo.
+  Future<int> _syncGeoCheckins() async {
+    final pending = pendingGeoCheckins(_checkins.values.toList());
+    if (pending.isEmpty) return 0;
+    final canValidate = await ref.read(
+      currentUserHasPermissionProvider('worship.attendance').future,
+    );
+    if (!canValidate) return 0;
+    final worshipRepo = ref.read(worshipRepositoryProvider);
+    var failed = 0;
+    for (final a in pending) {
+      try {
+        await worshipRepo.validateCheckin(
+          widget.worshipServiceId,
+          a.memberId,
+          ok: _isPresent(a.memberId),
+        );
+      } catch (_) {
+        failed++;
+      }
+    }
+    ref.invalidate(worshipAttendanceProvider(widget.worshipServiceId));
+    _checkins = {
+      for (final a in await worshipRepo.getWorshipAttendance(
+        widget.worshipServiceId,
+      ))
+        a.memberId: a,
+    };
+    return failed;
   }
 
   void _toggleMember(String userId, bool present) {
@@ -177,22 +271,6 @@ class _DiaconatoChecklistContentState
       } else {
         _presentVisitorIds.remove(userId);
       }
-      _dirty = true;
-    });
-  }
-
-  /// Conferência em cartas dos check-ins pelo GPS. Quem o diácono recusou
-  /// sai da lista; o resto do que ele já marcou aqui fica como está.
-  Future<void> _reviewInCards() async {
-    final rejected = await GeoCheckinReviewScreen.open(
-      context,
-      widget.worshipServiceId,
-    );
-    if (rejected == null || rejected.isEmpty || !mounted) return;
-    setState(() {
-      _presentMemberIds.removeAll(rejected);
-      _presentVisitorIds.removeAll(rejected);
-      _fromCheckin.removeAll(rejected);
       _dirty = true;
     });
   }
@@ -261,6 +339,7 @@ class _DiaconatoChecklistContentState
       // O `setState` abaixo conserta esta tela; este invalidate conserta a de
       // tras.
       ref.invalidate(diaconatoDashboardStatsProvider(widget.ministryId));
+      final geoFailed = await _syncGeoCheckins();
 
       if (!mounted) return;
       setState(() {
@@ -271,7 +350,8 @@ class _DiaconatoChecklistContentState
         SnackBar(
           content: Text(
             'Checklist salvo. Total: ${updated.totalPeople} pessoa'
-            '${updated.totalPeople == 1 ? '' : 's'}.',
+            '${updated.totalPeople == 1 ? '' : 's'}.'
+            '${geoFailed == 0 ? '' : ' $geoFailed check-in(s) pelo GPS não foram conferidos: confira em Cultos.'}',
           ),
           backgroundColor: Colors.green,
         ),
@@ -302,6 +382,14 @@ class _DiaconatoChecklistContentState
       appBar: AppBar(
         backgroundColor: CommunityDesign.headerColor(context),
         title: const Text('Checklist de presença'),
+        actions: [
+          if (_cards)
+            TextButton.icon(
+              onPressed: () => setState(() => _cards = false),
+              icon: const Icon(Icons.list_rounded),
+              label: const Text('Lista'),
+            ),
+        ],
         leading: IconButton(
           icon: const Icon(AppIcons.back),
           onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
@@ -323,8 +411,37 @@ class _DiaconatoChecklistContentState
               },
             );
           }
-          return _buildForm(context);
+          return _cards ? _buildCards(context) : _buildForm(context);
         },
+      ),
+    );
+  }
+
+  /// Uma pessoa por carta. No fim, "Continuar" leva à lista (contadores de
+  /// visitantes sem cadastro e crianças, e o Salvar e ver ausentes).
+  Widget _buildCards(BuildContext context) {
+    final present = _deck.where((c) => _isPresent(c.id)).length;
+    final absent = _deck.length - present;
+    return SafeArea(
+      child: PresenceDeck(
+        people: _deck,
+        onDecide: _decideCard,
+        onUndo: _undoCard,
+        done: Text(
+          '$present presente${present == 1 ? '' : 's'} · '
+          '$absent ausente${absent == 1 ? '' : 's'}',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        doneAction: FilledButton.icon(
+          onPressed: () => setState(() => _cards = false),
+          icon: const Icon(Icons.arrow_forward_rounded),
+          label: const Text('Continuar'),
+          style: FilledButton.styleFrom(
+            shape: const StadiumBorder(),
+            minimumSize: const Size(0, 52),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+          ),
+        ),
       ),
     );
   }
@@ -351,14 +468,19 @@ class _DiaconatoChecklistContentState
                 presentVisitors: _presentVisitorIds.length,
                 unregistered: _unregisteredVisitors,
               ),
-              _GeoReviewBanner(
-                pending: ref
-                        .watch(worshipAttendanceProvider(widget.worshipServiceId))
-                        .whenData((all) => pendingGeoCheckins(all).length)
-                        .value ??
-                    0,
-                onTap: _reviewInCards,
-              ),
+              if (_eligible.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: OutlinedButton.icon(
+                    onPressed: () => setState(_startCards),
+                    icon: const Icon(Icons.style_rounded),
+                    label: const Text('Conferir em cartas'),
+                    style: OutlinedButton.styleFrom(
+                      shape: const StadiumBorder(),
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                  ),
+                ),
               const SizedBox(height: 20),
               _SectionHeader(
                 title: 'Membros',
@@ -598,37 +720,6 @@ class _StatChip extends StatelessWidget {
             style: CommunityDesign.metaStyle(context).copyWith(fontSize: 11),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// "Conferir N check-ins pelo GPS" (só para quem pode validar).
-class _GeoReviewBanner extends StatelessWidget {
-  final int pending;
-  final VoidCallback onTap;
-
-  const _GeoReviewBanner({required this.pending, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    if (pending == 0) return const SizedBox.shrink();
-    return PermissionGate(
-      permission: 'worship.attendance',
-      showLoading: false,
-      child: Padding(
-        padding: const EdgeInsets.only(top: 12),
-        child: FilledButton.icon(
-          onPressed: onTap,
-          icon: const Icon(Icons.style_rounded),
-          label: Text(
-            'Conferir $pending check-in${pending == 1 ? '' : 's'} pelo GPS',
-          ),
-          style: FilledButton.styleFrom(
-            shape: const StadiumBorder(),
-            minimumSize: const Size.fromHeight(48),
-          ),
-        ),
       ),
     );
   }

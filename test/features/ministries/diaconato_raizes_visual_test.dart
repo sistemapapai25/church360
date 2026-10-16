@@ -19,6 +19,7 @@ import 'package:church360_app/features/worship/presentation/providers/worship_pr
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -87,10 +88,19 @@ class _FakeDiaconatoRepository extends DiaconatoAttendanceRepository {
     String attendanceCountId,
   ) async => const [];
 
+  Map<String, DiaconatoPersonType>? saved;
+
   @override
-  Future<Set<String>> getCheckedInUserIds(String eventId) async => const {
-    'member-1',
-  };
+  Future<WorshipAttendanceCount> saveChecklist({
+    required String attendanceCountId,
+    required Map<String, DiaconatoPersonType> presentByUser,
+    required int totalUnregisteredVisitors,
+    int totalChildren = 0,
+    String? notes,
+  }) async {
+    saved = presentByUser;
+    return count;
+  }
 
   @override
   Future<List<DiaconatoEligiblePerson>> getEligiblePeople() async => const [
@@ -118,6 +128,33 @@ class _FakeWorshipRepository extends WorshipRepository {
           authOptions: const AuthClientOptions(autoRefreshToken: false),
         ),
       );
+
+  /// Maria fez check-in pelo GPS e ainda não foi validada.
+  final validated = <(String, bool)>[];
+
+  @override
+  Future<List<WorshipAttendance>> getWorshipAttendance(
+    String worshipServiceId,
+  ) async => [
+    if (validated.isEmpty)
+      WorshipAttendance(
+        id: 'wa-1',
+        worshipServiceId: 'service-1',
+        memberId: 'member-1',
+        memberName: 'Maria Membro',
+        checkedInAt: _now,
+        createdAt: _now,
+        source: 'geo',
+        distanceM: 12,
+      ),
+  ];
+
+  @override
+  Future<void> validateCheckin(
+    String worshipServiceId,
+    String memberId, {
+    required bool ok,
+  }) async => validated.add((memberId, ok));
 
   @override
   Future<WorshipService?> getWorshipServiceById(String id) async =>
@@ -184,42 +221,81 @@ void main() {
   });
 
   testWidgets(
-    'checklist do Diaconato usa card, cabeçalho e catálogo semântico',
+    'checklist do Diaconato abre em cartas; no fim mostra a lista e o salvar valida o GPS',
     (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final diaconato = _FakeDiaconatoRepository();
+      final worship = _FakeWorshipRepository();
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => const DiaconatoChecklistScreen(
+              ministryId: 'm1',
+              worshipServiceId: 'service-1',
+            ),
+          ),
+          GoRoute(
+            path: '/ministries/:id/diaconato/absentees/:eventId',
+            builder: (_, _) => const Text('tela de ausentes'),
+          ),
+        ],
+      );
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            diaconatoAttendanceRepositoryProvider.overrideWithValue(
-              _FakeDiaconatoRepository(),
-            ),
-            worshipRepositoryProvider.overrideWithValue(
-              _FakeWorshipRepository(),
-            ),
+            diaconatoAttendanceRepositoryProvider.overrideWithValue(diaconato),
+            worshipRepositoryProvider.overrideWithValue(worship),
             ..._accessOverrides(
               'diaconato.manage_attendance',
               MinistryTypeCodes.diaconato,
             ),
+            currentUserHasPermissionProvider(
+              'worship.attendance',
+            ).overrideWith((ref) async => true),
           ],
-          child: MaterialApp(
+          child: MaterialApp.router(
             theme: AppTheme.lightTheme,
-            home: const DiaconatoChecklistScreen(
-              ministryId: 'm1',
-              worshipServiceId: 'service-1',
-            ),
+            routerConfig: router,
           ),
         ),
       );
       await tester.pumpAndSettle();
 
+      // Culto sem checklist salvo abre em cartas; quem fez check-in vem 1º.
+      expect(find.textContaining('1 de 2'), findsOneWidget);
+      expect(find.textContaining('Check-in pelo GPS'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Não está aqui')); // Maria, por engano
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Desfazer'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Presente')); // Maria
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Presente')); // João
+      await tester.pumpAndSettle();
+      expect(find.text('2 presentes · 0 ausentes'), findsOneWidget);
+
+      await tester.tap(find.text('Continuar'));
+      await tester.pumpAndSettle();
+
       expect(find.byType(GlassCard), findsAtLeastNWidgets(4));
       expect(find.byIcon(AppIcons.eventFilled), findsOneWidget);
-      expect(find.byIcon(AppIcons.groups), findsOneWidget);
+      expect(find.byIcon(AppIcons.groups), findsWidgets); // Membros e Crianças
       expect(find.byIcon(AppIcons.visitor), findsOneWidget);
-
-      // Quem fez check-in pelo celular chega marcado, e o checklist pede o
-      // Salvar (a marcação ainda não está gravada).
       expect(find.text('Check-in pelo celular'), findsOneWidget);
-      expect(find.text('Salvar e ver ausentes'), findsOneWidget);
+      expect(find.text('Conferir em cartas'), findsOneWidget);
+
+      await tester.tap(find.text('Salvar e ver ausentes'));
+      await tester.pumpAndSettle();
+
+      expect(diaconato.saved?.keys.toSet(), {'member-1', 'visitor-1'});
+      expect(worship.validated, [('member-1', true)]);
+      expect(find.text('tela de ausentes'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5)); // SnackBar sai
     },
   );
 }
