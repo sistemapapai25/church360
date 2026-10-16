@@ -124,7 +124,7 @@ class _ManageLiveStreamScreenState
   Future<void> _uploadSlides() async {
     final media = ref.read(lessonMediaServiceProvider);
     try {
-      final file = await media.pick(LessonMediaKind.pdf);
+      final file = await media.pick(LessonMediaKind.slides);
       if (file == null || !mounted) return;
       if (file.size > lessonMediaMaxBytes) {
         _snack('O arquivo passa de 50 MB.', error: true);
@@ -132,7 +132,7 @@ class _ManageLiveStreamScreenState
       }
       setState(() => _isSaving = true);
       final url = await media.upload(
-        kind: LessonMediaKind.pdf,
+        kind: LessonMediaKind.slides,
         lessonId: _today(),
         file: file,
         folder: cultoSlidesFolder,
@@ -202,7 +202,7 @@ class _ManageLiveStreamScreenState
                 style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
                 onPressed: _isSaving ? null : _uploadSlides,
                 icon: const Icon(AppIcons.upload, size: 18),
-                label: const Text('Enviar PDF do aparelho'),
+                label: const Text('Enviar PPTX ou PDF'),
               ),
               TextButton.icon(
                 key: const ValueKey('culto-link-slides'),
@@ -230,7 +230,7 @@ class _ManageLiveStreamScreenState
                 _ => _setSlides(null),
               },
               itemBuilder: (_) => const [
-                PopupMenuItem(value: 'arquivo', child: Text('Trocar por PDF')),
+                PopupMenuItem(value: 'arquivo', child: Text('Trocar por arquivo')),
                 PopupMenuItem(value: 'link', child: Text('Trocar por link')),
                 PopupMenuItem(value: 'remover', child: Text('Remover slides')),
               ],

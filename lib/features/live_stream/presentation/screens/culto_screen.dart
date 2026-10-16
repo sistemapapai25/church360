@@ -17,8 +17,12 @@ import '../widgets/slides_viewer.dart';
 /// transmissão (chave ligada), os slides do culto (A3), a mensagem da igreja,
 /// o painel "Chegou bem?" e o ícone da Bíblia (D15 v1: abre por cima; o
 /// "voltar" devolve ao culto). Celular = pilha; tela larga = lado a lado.
+/// [only] (`?so=video` ou `?so=slides`) mostra só um dos dois em tela cheia:
+/// quem está na igreja abre só os slides.
 class CultoScreen extends ConsumerWidget {
-  const CultoScreen({super.key});
+  final String? only;
+
+  const CultoScreen({super.key, this.only});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -40,7 +44,7 @@ class CultoScreen extends ConsumerWidget {
           ],
         ),
         body: live
-            ? _CultoBody(culto: culto)
+            ? _CultoBody(culto: culto, only: only)
             : const Center(
                 child: Text(
                   'Nenhum culto agora',
@@ -54,16 +58,35 @@ class CultoScreen extends ConsumerWidget {
 
 class _CultoBody extends StatelessWidget {
   final CurrentCulto culto;
+  final String? only;
 
-  const _CultoBody({required this.culto});
+  const _CultoBody({required this.culto, this.only});
 
   @override
   Widget build(BuildContext context) {
     final meta = Theme.of(context).textTheme.bodyMedium;
-    final player = culto.hasStream ? _Player(url: culto.streamUrl!) : null;
+    final player = culto.hasStream ? CultoPlayer(url: culto.streamUrl!) : null;
     final slides = culto.hasSlides
         ? SlidesViewer(url: culto.slidesUrl!)
         : Center(child: Text('Sem slides neste culto', style: meta));
+    if (only == 'slides' && culto.hasSlides) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: slides,
+          ),
+        ),
+      );
+    }
+    if (only == 'video' && player != null) {
+      return SafeArea(
+        child: Center(
+          child: Padding(padding: const EdgeInsets.all(8), child: player),
+        ),
+      );
+    }
     final extras = <Widget>[
       if (culto.message != null) Text(culto.message!, style: meta),
       if (culto.message != null && culto.checkinEnabled)
@@ -135,10 +158,10 @@ class _CultoBody extends StatelessWidget {
 
 /// YouTube toca dentro do app ([InlineVideo]); outro link abre no navegador,
 /// como na tela Culto ao vivo.
-class _Player extends StatelessWidget {
+class CultoPlayer extends StatelessWidget {
   final String url;
 
-  const _Player({required this.url});
+  const CultoPlayer({super.key, required this.url});
 
   Future<void> _open(BuildContext context) async {
     final uri = Uri.tryParse(url.trim());
@@ -154,7 +177,7 @@ class _Player extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (YoutubePlayer.convertUrlToId(url) != null) {
-      return InlineVideo(url: url);
+      return InlineVideo(url: url, autoStart: true);
     }
     return AspectRatio(
       aspectRatio: 16 / 9,

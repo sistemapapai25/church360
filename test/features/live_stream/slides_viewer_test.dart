@@ -32,6 +32,17 @@ void main() {
       );
     });
 
+    test('PowerPoint enviado vai pelo visualizador do Office', () {
+      const pptx = 'https://x.test/storage/culto/20261016/1.PPTX';
+      expect(
+        slidesEmbedUrl(' $pptx '),
+        'https://view.officeapps.live.com/op/embed.aspx?src='
+        '${Uri.encodeComponent(pptx)}',
+      );
+      expect(isPowerPoint('https://x.test/a.ppt?x=1'), isTrue);
+      expect(isPowerPoint('https://x.test/a.pdf'), isFalse);
+    });
+
     test('PDF ou outro link fica como está (só tira espaços)', () {
       expect(
         slidesEmbedUrl(' https://x.test/culto.pdf '),
@@ -57,6 +68,14 @@ void main() {
       expect(
         slidesNativeUrl('https://docs.google.com/presentation/d/1AbC/edit'),
         'https://docs.google.com/presentation/d/1AbC/embed?start=false&loop=false',
+      );
+    });
+
+    test('Android: PowerPoint vai direto no Office', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      expect(
+        slidesNativeUrl('https://x.test/culto.pptx'),
+        startsWith('https://view.officeapps.live.com/op/embed.aspx?src='),
       );
     });
 
