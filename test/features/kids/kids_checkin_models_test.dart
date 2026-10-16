@@ -49,4 +49,25 @@ void main() {
     expect(const KidsRoom(name: 'B', maxAge: 2).ageLabel, 'Até 2 anos');
     expect(const KidsRoom(name: 'C').ageLabel, 'Qualquer idade');
   });
+
+  test('chamada do responsável: contagens, mensagem e telefones', () {
+    final r = KidsCallResult.fromJson({
+      'notified': 2,
+      'media': 1,
+      'message': 'Olá!',
+      'phones': [
+        {'name': 'Maria', 'phone': '(11) 99999-0000'},
+      ],
+    });
+    expect(r.notified, 2);
+    expect(r.media, 1);
+    expect(r.phones.single.name, 'Maria');
+
+    final card = KidsChildCard.fromJson({
+      'child_id': 'c1',
+      'name': 'Ana',
+      'last_call_at': '2026-10-18T13:30:00Z',
+    });
+    expect(card.lastCallAt, isNotNull);
+  });
 }
