@@ -21,6 +21,18 @@ void main() {
       expect(info.code, '23505');
     });
 
+    test('K6: ficha limpa mostra a mensagem do banco', () {
+      for (final code in ['CR001', 'CR002']) {
+        final err = PostgrestException(
+          message: 'Fulano: existe uma pendência. Verifique com o pastor.',
+          code: code,
+        );
+        final info = AppErrorHandler.map(err, feature: 'test.ficha_limpa');
+        expect(info.userMessage, err.message);
+        expect(info.specific, isTrue);
+      }
+    });
+
     test('maps schema cache miss to update message', () {
       final err = PostgrestException(
         message: "Could not find the 'modules' column in the schema cache",

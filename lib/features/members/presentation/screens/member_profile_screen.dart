@@ -26,6 +26,7 @@ import '../../../ministries/raizes/presentation/widgets/raizes_followup_section.
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../tags/presentation/widgets/member_tags_panel.dart';
+import '../widgets/member_background_check_panel.dart';
 
 import '../providers/members_provider.dart';
 import '../widgets/member_life_events.dart';
@@ -539,6 +540,24 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
                   title: 'Tags',
                   sectionKey: 'tags',
                   child: MemberTagsPanel(memberId: member.id),
+                ),
+              ],
+            ),
+          ),
+          // K6: ficha limpa — só com a permissão (nunca na própria ficha:
+          // esta é a ficha de outra pessoa).
+          PermissionGate(
+            permission: 'members.background_check.view',
+            showLoading: false,
+            child: Column(
+              children: [
+                const SizedBox(height: _sectionGap),
+                _buildSection(
+                  context,
+                  icon: Icons.verified_user,
+                  title: 'Ficha limpa (antecedentes)',
+                  sectionKey: 'background_check',
+                  child: MemberBackgroundCheckPanel(memberId: member.id),
                 ),
               ],
             ),

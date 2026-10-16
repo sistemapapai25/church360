@@ -138,6 +138,14 @@ class MinistriesRepository {
         },
       );
 
+  /// K6: liga/desliga "Exige ficha limpa" (ministries.edit ou
+  /// members.background_check.view, conferido na RPC).
+  Future<void> setRequiresCleanRecord(String ministryId, bool value) =>
+      _supabase.rpc(
+        'set_ministry_requires_clean_record',
+        params: {'p_ministry_id': ministryId, 'p_value': value},
+      );
+
   /// Ordem pessoal das abas do ministério (a RLS só devolve a linha de quem
   /// está logado). Vazia = ordem padrão.
   Future<List<String>> getMyTabOrder(String ministryId) async {

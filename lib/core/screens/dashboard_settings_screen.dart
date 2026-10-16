@@ -219,6 +219,7 @@ class _DashboardSettingsScreenState
       'schedule': AppIcons.schedule,
       'notifications': AppIcons.notifications,
       'person_off': AppIcons.personOff,
+      'verified_user': Icons.verified_user,
     };
 
     return iconMap[iconName] ?? AppIcons.widgets;

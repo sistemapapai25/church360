@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -79,6 +80,10 @@ class AppErrorHandler {
         case '42883': // undefined_function
           userMessage =
               'O sistema está em atualização. Tente novamente em instantes.';
+          break;
+        case 'CR001': // K6: ficha limpa, quem inclui vê o motivo
+        case 'CR002': // K6: ficha limpa, "existe uma pendência"
+          userMessage = message;
           break;
         case 'PGRST116': // single() requested but returned 0+ rows
           userMessage = 'Não foi possível carregar os dados. Tente novamente.';
@@ -234,6 +239,52 @@ class AppErrorHandler {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(text), backgroundColor: Colors.red));
+  }
+
+  /// K6 (ficha limpa): trata o bloqueio do banco ao incluir alguém num
+  /// ministério que exige ficha limpa. `CR001` (quem inclui tem a permissão)
+  /// abre um popup com o motivo; `CR002` mostra só a pendência e avisa o
+  /// pastor. Devolve false quando o erro é outro.
+  static Future<bool> handleCleanRecordBlock(
+    BuildContext context,
+    Object error,
+  ) async {
+    if (error is! PostgrestException) return false;
+    final code = error.code;
+    if (code != 'CR001' && code != 'CR002') return false;
+    if (code == 'CR002') {
+      try {
+        final d = jsonDecode(error.details?.toString() ?? '');
+        await Supabase.instance.client.rpc(
+          'background_check_flag_pending',
+          params: {'p_user': d['user_id'], 'p_ministry_id': d['ministry_id']},
+        );
+      } catch (e) {
+        debugPrint('[K6] aviso ao pastor não saiu: $e');
+      }
+    }
+    if (!context.mounted) return true;
+    if (code == 'CR001') {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.gpp_maybe_outlined, color: Colors.red),
+          title: const Text('Ficha limpa'),
+          content: Text(error.message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Entendi'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message), backgroundColor: Colors.orange),
+      );
+    }
+    return true;
   }
 
   static String userMessage(Object error, {String? feature}) {

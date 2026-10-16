@@ -26,6 +26,8 @@ const Map<String, String?> dashboardWidgetPermissionMap = {
   'dispatch_auto_scheduler': 'dispatch.configure',
   // B3 (migration 20261008007700)
   'absent_last_culto': 'worship.view',
+  // K6 (migration 20261008009500)
+  'background_check_pending': 'members.background_check.view',
 };
 
 /// B3: cards que aparecem com **qualquer uma** das permissões listadas

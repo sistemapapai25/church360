@@ -10,6 +10,8 @@ import '../../features/financial/presentation/providers/financial_provider.dart'
 import '../../features/financial/domain/models/contribution.dart';
 import '../../features/dispatch/presentation/providers/auto_scheduler_providers.dart';
 import '../../features/permissions/presentation/widgets/permission_gate.dart';
+import '../../features/members/presentation/widgets/member_background_check_panel.dart';
+import '../errors/app_error_handler.dart';
 
 /// Tokens visuais compartilhados pelos cards do Dashboard (CHU-302+),
 /// alinhados ao canvas de referência "Dashboard Liderança" aprovado em 05/09.
@@ -1962,5 +1964,79 @@ class AbsentLastCultoCard extends ConsumerWidget {
   static String _initial(String? name) {
     final t = (name ?? '').trim();
     return t.isEmpty ? '?' : t[0].toUpperCase();
+  }
+}
+
+/// K6: "Ficha limpa: pendências" (`members.background_check.view`). Quem
+/// serve em ministério que exige ficha limpa e está sem consulta, vencido,
+/// pendente ou não apto. Tocar numa pessoa abre a ficha, onde se lança.
+class BackgroundCheckPendingCard extends ConsumerWidget {
+  const BackgroundCheckPendingCard({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rowsAsync = ref.watch(backgroundCheckPendingProvider);
+
+    return Container(
+      decoration: _DashStyle.card(context),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _DashCardHeader(
+              icon: Icons.verified_user,
+              iconColor: AppTheme.errorColor,
+              title: 'Ficha limpa: pendências',
+            ),
+            const SizedBox(height: 16),
+            rowsAsync.when(
+              data: (rows) {
+                if (rows.isEmpty) return const Text('Nenhuma pendência');
+                final shown = rows.take(5).toList();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      rows.length == 1
+                          ? '1 pessoa sem ficha limpa válida'
+                          : '${rows.length} pessoas sem ficha limpa válida',
+                      style: const TextStyle(color: _DashStyle.textMuted),
+                    ),
+                    const SizedBox(height: 8),
+                    for (final p in shown)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        onTap: () => context.push('/members/${p['user_id']}'),
+                        title: Text(
+                          (p['full_name'] as String?) ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          '${p['issue'] ?? ''} · ${p['ministries'] ?? ''}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    if (rows.length > shown.length)
+                      Text(
+                        '+${rows.length - shown.length}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: _DashStyle.textFaint,
+                        ),
+                      ),
+                  ],
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Text(AppErrorHandler.userMessage(error)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

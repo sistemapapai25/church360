@@ -13,6 +13,7 @@ import '../../../events/domain/models/event.dart';
 import '../../../ministries/domain/models/ministry.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
+import '../../../../core/errors/app_error_handler.dart';
 
 class ScalePreviewScreen extends ConsumerStatefulWidget {
   final String ministryId;
@@ -600,6 +601,9 @@ class _ScalePreviewScreenState extends ConsumerState<ScalePreviewScreen> {
       ref.invalidate(ministrySchedulesProvider(widget.ministryId));
       if (mounted) Navigator.pop(context);
     } catch (e) {
+      if (mounted && await AppErrorHandler.handleCleanRecordBlock(context, e)) {
+        return;
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
